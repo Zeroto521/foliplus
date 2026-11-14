@@ -28,6 +28,7 @@ const DIM_TO_DIM: Record<string, string> = {
   [DIM.ZOOM_RANGE]: "zoomRange",
   [DIM.SIZE]: "size",
   [DIM.ICON]: "icon",
+  [DIM.BORDER]: "border",
 };
 
 /** Every published dimension must mirror a registered built-in dimension —
@@ -35,7 +36,7 @@ const DIM_TO_DIM: Record<string, string> = {
  *  a gate to parity against. */
 it("mirrors every published dimension to a registered built-in dimension", () => {
   const keys = Object.keys(DIM_TO_DIM);
-  expect(keys).toEqual(["opacity", "label", "zoomRange", "size", "icon"]);
+  expect(keys).toEqual(["opacity", "label", "zoomRange", "size", "icon", "border"]);
   for (const key of keys) {
     expect(getDimension(key), `missing dimension ${key}`).toBeDefined();
   }
@@ -199,8 +200,11 @@ describe("styleCapability parity with the per-dimension gates", () => {
 
   it("returns all-false for a layer outside the registry", () => {
     const cap = styleCapability(ui, "not-a-real-layer");
-    expect(Object.values(cap.dims)).toEqual([false, false, false, false, false]);
+    expect(Object.values(cap.dims)).toEqual([false, false, false, false, false, false]);
     expect(cap.styleDelegation).toBe(false);
+    // The missing-layer short circuit publishes every key (border included),
+    // so a reader never sees an undefined dim.
+    expect(cap.dims.border).toBe(false);
   });
 
   it("a polygon surface exposes the published dimensions", () => {
@@ -209,8 +213,9 @@ describe("styleCapability parity with the per-dimension gates", () => {
     expect(cap.dims.opacity).toBe(true);
     expect(cap.dims.zoomRange).toBe(true);
     expect(cap.dims.label).toBe(false);
-    expect(cap.dims.fill).toBeUndefined();
-    expect(cap.dims.border).toBeUndefined();
+    // fill is not a published dim — it answers through its own gate.
+    expect("fill" in cap.dims).toBe(false);
+    expect(cap.dims.border).toBe(true);
   });
 
   it("a line surface exposes the published dimensions", () => {
@@ -222,13 +227,13 @@ describe("styleCapability parity with the per-dimension gates", () => {
   it("a marker surface exposes only the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[3]);
     expect(cap.dims.icon).toBe(true);
-    expect(cap.dims.fill).toBeUndefined();
-    expect(cap.dims.border).toBeUndefined();
+    expect("fill" in cap.dims).toBe(false);
+    expect(cap.dims.border).toBe(false);
   });
 
   it("a color basemap exposes the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[6]);
-    expect(cap.dims.fill).toBeUndefined();
+    expect("fill" in cap.dims).toBe(false);
     expect(cap.dims.size).toBe(false);
     expect(cap.dims.icon).toBe(false);
   });

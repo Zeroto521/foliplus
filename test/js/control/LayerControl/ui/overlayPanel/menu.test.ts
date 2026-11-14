@@ -14,6 +14,7 @@ import { activateDeleteItem } from "#control/LayerControl/ui/overlayPanel/index.
 import {
   MENU_ACTIONS,
   handleMenuClick,
+  runMenuAction,
 } from "#control/LayerControl/ui/overlayPanel/menu.js";
 
 describe("LayerUI menu", () => {
@@ -72,6 +73,23 @@ describe("LayerUI menu", () => {
       document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
       expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
+    });
+
+    it("places the menu against its owning row and releases on close", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU}`)!;
+      // jsdom rects are all zeros, so the engine's below-first branch yields
+      // 0 for left/top; the assertion is that the placement pass ran and wrote
+      // explicit coordinates rather than leaving the CSS default.
+      expect(menu.style.left).toBe("0px");
+      expect(menu.style.top).toBe("0px");
+      expect(menu.style.maxWidth).not.toBe("");
+      expect(menu.style.maxHeight).not.toBe("");
+      // The reposition pass is bound while open and released on close.
+      expect(ui.overlayPanel.menuReposition).not.toBeNull();
+      ui.closeMoreMenu(false);
+      expect(ui.overlayPanel.menuReposition).toBeNull();
     });
 
     it("orders style, focus, rename, attributes, then delete behind a divider", () => {
@@ -1083,6 +1101,22 @@ describe("LayerUI menu", () => {
       for (const action of Object.values(CONST.ACTION)) {
         expect(typeof MENU_ACTIONS[action]).toBe("function");
       }
+    });
+
+    // Kill test for the unknown-action branch in runMenuAction: a data-action
+    // the MENU_ACTIONS table does not know must close the menu and return row
+    // focus (the old click fallthrough contract). Deleting that branch (letting
+    // the lookup hit `undefined`) is caught by the coverage-patch gate on the
+    // runMenuAction unknown-action branch.
+    it("an unknown data-action closes the menu and returns focus", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      expect(menu).not.toBeNull();
+      const bogus = document.createElement("button");
+      bogus.setAttribute("data-action", "bogus-action");
+      runMenuAction(ui, bogus);
+      expect(item.querySelector(".foliplus-layer-more-menu")).toBeNull();
     });
 
     // The single-dispatch guarantee: a native <button> consumes Enter/Space

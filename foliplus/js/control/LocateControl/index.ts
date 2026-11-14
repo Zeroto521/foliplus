@@ -27,7 +27,7 @@ const LocateControl = defineControl({
   setup: () => ensureHint(map),
   buildDOM(this: any) {
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
-    const container = dom.el("div", { class: "foliplus-ctrl-fold", parent: outer });
+    const container = dom.el("div", { class: PANEL_CLASS.FOLD, parent: outer });
     this.btn = createIconButton({
       class: `${PANEL_CLASS.TOOL_BTN} foliplus-locate-btn`,
       title: this.T("title"),

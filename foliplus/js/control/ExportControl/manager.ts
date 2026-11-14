@@ -18,6 +18,7 @@ import {
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { GeoBounds } from "#core/geo/index.js";
 import { type ModeManager, ensureModes } from "#core/lifecycle/index.js";
+import type { DragSession } from "#platform/dragSession.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import { type RafLoop } from "#platform/rafLoop.js";
 
@@ -27,6 +28,13 @@ interface DragState {
   dragType: string | null;
   lastX: number;
   lastY: number;
+  /** The pointer that owns the gesture. A window blur ends the drag without a
+   *  release, and giving the capture back needs the id; a stray cancel from a
+   *  different pointer must not end this one. */
+  pointerId: number | null;
+  /** The element holding the capture, so an interrupt can release it even
+   *  though the event that ends the gesture names no target. */
+  captureTarget: Element | null;
 }
 
 /** Crop box state machine. */
@@ -57,6 +65,12 @@ class ExportManager {
   modes: ModeManager;
   events: EventBus;
   dragCleanup?: () => void;
+  /** The live crop gesture, or null. Owned by platform/dragSession, so the
+   *  ending is the same one every other drag in the tree gets. */
+  dragSession?: DragSession | null;
+  /** The release's own event, when a release is what ends the gesture; an
+   *  interrupt names no target, so the recorded capture is used instead. */
+  dragEndEvent?: PointerEvent | null;
   interactionCleanup?: () => void;
   escapeCleanup?: () => void;
   cropMousedownCleanup?: () => void;
@@ -183,6 +197,8 @@ class ExportManager {
       dragType: null,
       lastX: 0,
       lastY: 0,
+      pointerId: null,
+      captureTarget: null,
     };
 
     this.onMapChange = this.onMapChange.bind(this);
@@ -220,4 +236,4 @@ class ExportManager {
 Object.assign(ExportManager.prototype, cropMethods, persistenceMethods, sessionMethods);
 
 export { ExportManager, canvasToBlob };
-export type { CropState };
+export type { CropState, DragState };

@@ -28,6 +28,8 @@ class OverlayPanel {
   } | null = null;
   /** Unregister for the overflow menu's registry entry (installed while open). */
   menuOverlayUnregister: (() => void) | null = null;
+  /** Release the menu's scroll/resize/row-count reposition pass (installed while open). */
+  menuReposition: (() => void) | null = null;
   /** Currently visible attributes panel, or null. */
   activeAttrsPanel: {
     item: HTMLElement;

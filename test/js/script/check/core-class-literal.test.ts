@@ -79,6 +79,17 @@ describe("scan", () => {
     }
   });
 
+  it("does not trip on a .selector string", () => {
+    const root = tempRoot({
+      "foliplus/js/core/value/scratch.ts": 'const sel = ".foliplus-scheme-picker-x";',
+    });
+    try {
+      expect(scan(root)).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("does not trip on a comment mention", () => {
     const root = tempRoot({
       "foliplus/js/core/value/scratch.ts":

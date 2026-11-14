@@ -1331,3 +1331,662 @@ describe("Slider teardown and keyboard edges", () => {
     expect(sliderOf(host)!.value).toBe(39);
   });
 });
+
+describe("Slider width-adaptive end numbers", () => {
+  const stubRow = (host: HTMLElement, width: number): HTMLElement => {
+    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
+    Object.defineProperty(row, "clientWidth", { value: width, configurable: true });
+    return row;
+  };
+
+  const stubLabel = (el: HTMLElement, intrinsic: number): void => {
+    Object.defineProperty(el, "scrollWidth", { value: intrinsic, configurable: true });
+  };
+
+  const endNumbers = (host: HTMLElement): [HTMLElement, HTMLElement] => [
+    host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement,
+    host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement,
+  ];
+
+  const measure = (slider: Slider): void =>
+    (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
+
+  it("keeps an end number that fits on its half out of the clamp state", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+
+  it("clamps the end number that no longer fits on its half", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "a very long upper bound" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 90);
+    measure(sliderOf(host)!);
+    // The same width that fit the short half does not fit the long one,
+    // so the two halves are measured independently.
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("re-measures when the row's width changes, both ways", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 60);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    stubRow(host, 40);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    stubRow(host, 240);
+    measure(sliderOf(host)!);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+});
+
+describe("Slider bubbles retire when the window loses the pointer", () => {
+  /** The bubble nodes still in the document for *host*'s row. */
+  const bubbleNodes = (): HTMLElement[] => [
+    ...document.querySelectorAll<HTMLElement>(`.${SLIDER_CLASS.BUBBLE}`),
+  ];
+
+  const liveBubbles = (): HTMLElement[] => [
+    ...document.querySelectorAll<HTMLElement>(`.${SLIDER_CLASS.BUBBLE}.is-on`),
+  ];
+
+  /** Let the 150ms fade finish so a hidden node is really detached. */
+  const settleHide = (): Promise<void> =>
+    new Promise(resolve => window.setTimeout(resolve, 220));
+
+  const hideVisibility = (): void => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+
+  afterEach(() => {
+    // Undo the visibility stub: leaving it hidden would make every later
+    // visibilitychange in this file look like a hide.
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+  });
+
+  it("drops the bubble and the drag when the window blurs mid-drag", async () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(liveBubbles()).toHaveLength(1);
+    expect(thumb(host).classList.contains(SLIDER_CLASS.DRAGGING)).toBe(true);
+
+    // No pointerup: alt-tab is exactly this.
+    window.dispatchEvent(new Event("blur"));
+
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    expect(thumb(host).classList.contains(SLIDER_CLASS.DRAGGING)).toBe(false);
+    // The value the pointer already produced is committed, not discarded.
+    expect(change).toHaveBeenCalledWith(40);
+
+    // The next press works again: the stale session is really gone.
+    track.dispatchEvent(pointer("pointermove", 90));
+    expect(sliderOf(host)!.value).toBe(40);
+  });
+
+  it("drops the bubble when the tab goes hidden", async () => {
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(liveBubbles()).toHaveLength(1);
+
+    hideVisibility();
+
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("clears a focused row's readout too, and it does not come back", async () => {
+    // No drag at all: a thumb that merely holds focus shows a bubble, and an
+    // alt-tab blurs the element without a focus-loss we would hear (the thumb
+    // keeps focus). The interrupt has to clear it.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    thumb(host).dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(1);
+
+    window.dispatchEvent(new Event("blur"));
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+
+    // Coming back must not revive it: focus is still on the thumb, and no
+    // focus event fires again.
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("retires every slider on the page, not just the last one touched", async () => {
+    // Two rows can each own a live readout (a pan shows two bubbles at once,
+    // and an owner switch parks the other row's node), so the interrupt is
+    // page-level by contract.
+    const first = make({ min: 0, max: 100, value: 20, label: "a" });
+    const second = make({ min: 0, max: 100, value: 70, label: "b" });
+    const trackA = stubTrack(first.host);
+    const trackB = stubTrack(second.host);
+    trackA.dispatchEvent(pointer("pointerdown", 30));
+    trackB.dispatchEvent(pointer("pointerdown", 80));
+    expect(liveBubbles().length).toBeGreaterThan(0);
+
+    window.dispatchEvent(new Event("blur"));
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    expect(first.host.querySelector(`.${SLIDER_CLASS.DRAGGING}`)).toBeNull();
+    expect(second.host.querySelector(`.${SLIDER_CLASS.DRAGGING}`)).toBeNull();
+  });
+
+  it("is idempotent: repeated interrupts and a late release are harmless", async () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+
+    window.dispatchEvent(new Event("blur"));
+    // A blur is commonly followed by a visibility change for one interruption.
+    hideVisibility();
+    window.dispatchEvent(new Event("pointercancel"));
+    // And the release the browser may still deliver afterwards.
+    track.dispatchEvent(pointer("pointerup", 40));
+    window.dispatchEvent(new Event("blur"));
+
+    expect(change).toHaveBeenCalledTimes(1);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("ignores a cancel that names another pointer", () => {
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x" });
+    const track = stubTrack(host);
+    const down = pointer("pointerdown", 40);
+    Object.defineProperty(down, "pointerId", { value: 1 });
+    track.dispatchEvent(down);
+
+    const cancel = new PointerEvent("pointercancel", { bubbles: true });
+    Object.defineProperty(cancel, "pointerId", { value: 2 });
+    window.dispatchEvent(cancel);
+
+    // The live session belongs to pointer 1 and must survive pointer 2's
+    // cancellation.
+    const move = pointer("pointermove", 70);
+    Object.defineProperty(move, "pointerId", { value: 1 });
+    track.dispatchEvent(move);
+    expect(sliderOf(host)!.value).toBe(70);
+  });
+
+  it("does not revive the readout when the browser restores focus on return", async () => {
+    // The reported symptom is not "the bubble survived the switch" — it is
+    // "the bubble came back", every time. A returning browser re-fires focus
+    // at the element it restores, so a focus callback alone cannot tell the
+    // user from the browser. The thumb's own blur is no help either: the
+    // browser delivers that on the way out, so a marker is always cleared.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(liveBubbles()).toHaveLength(1);
+
+    // Deactivation, in the browser's order: element blur, window blur, hidden.
+    thumbEl.dispatchEvent(new Event("blur"));
+    window.dispatchEvent(new Event("blur"));
+    hideVisibility();
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // Reactivation: the browser restores the page and re-fires focus.
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("shows the readout again on the next real input, not before", async () => {
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(new Event("blur"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(0);
+
+    // A key press is the user driving the control: the readout comes back.
+    press(thumbEl, "ArrowRight");
+    expect(liveBubbles()).toHaveLength(1);
+    thumbEl.dispatchEvent(new Event("blur"));
+    await settleHide();
+
+    // So is a fresh press, even with no intervening focus.
+    track.dispatchEvent(pointer("pointerdown", 70));
+    expect(liveBubbles()).toHaveLength(1);
+  });
+
+  it("does not re-arm the readout on a key the slider does not own", async () => {
+    // A keystroke elsewhere on the page reaches the thumb only while it holds
+    // focus; it is not the user driving THIS control.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(new Event("blur"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(0);
+
+    press(thumbEl, "a");
+    expect(liveBubbles()).toHaveLength(0);
+
+    // A key the control owns does re-arm it.
+    press(thumbEl, "ArrowRight");
+    expect(liveBubbles()).toHaveLength(1);
+  });
+
+  it("drops a parked fade node before the hidden tab can show it", async () => {
+    // The fade timer is throttled in a background tab; the node it is meant
+    // to detach can still be painted on return, which is a second way the
+    // readout reappears.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    track.dispatchEvent(pointer("pointerup", 40));
+    // The 150ms fade has parked the node, not removed it yet.
+    expect(bubbleNodes()).toHaveLength(1);
+
+    window.dispatchEvent(new Event("blur"));
+    // Gone immediately, without waiting for the throttled timer.
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("stops serving a row whose panel dropped it without destroying it", async () => {
+    // Panels drop their rows with remove()/replaceChildren() and never call the
+    // row's own destroy — a real path (opacity.ts, zoomRange.ts). The slider
+    // releases its page-level subscription on the next interrupt instead of
+    // waiting for a collection, so opening panels repeatedly cannot accumulate
+    // one live callback (and one removed slider) per open.
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 30, label: "row", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 60));
+    host.remove();
+
+    // Observed from the outside: the interrupt still ends whatever was live,
+    // but the row is no longer a listener afterwards — a second interrupt has
+    // nothing to retire, and the detached row cannot show chrome again.
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledWith(60);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases a mounted row that is dropped with no interrupt in between", async () => {
+    // The real shape: the panel builds the row detached (opacity.ts,
+    // zoomRange.ts do exactly that), appends it, the user opens another panel,
+    // and the row is removed — all without a single blur landing while it was
+    // attached. A "was it ever mounted" flag updated only during an interrupt
+    // would still read false and the dropped row would keep its registration
+    // for the life of the page.
+    const change = vi.fn();
+    const host = document.createElement("div");
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 30, label: "row", change });
+    document.body.appendChild(host);
+    // The panel mounts the row on the frame after building it; that is when
+    // "has ever been mounted" becomes true.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 60));
+    host.remove();
+
+    // First interrupt after the drop: it still commits what the pointer
+    // produced (the value is the user's), then releases its subscription.
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledWith(60);
+    expect(change).toHaveBeenCalledTimes(1);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // The subscription really is released: the dropped row's own DOM still
+    // answers events dispatched straight at it, but the page-level interrupt no
+    // longer reaches it. Re-open a drag locally and interrupt: a row that kept
+    // its registration would be retired (and commit) a second time.
+    track.dispatchEvent(pointer("pointerdown", 90));
+    window.dispatchEvent(new Event("blur"));
+    // 2 is the local pointer's own doings (press commits nothing; the interrupt
+    // does) — the marker is that the row is NOT registered again afterwards.
+    const afterSecond = change.mock.calls.length;
+    track.dispatchEvent(pointer("pointerdown", 95));
+    window.dispatchEvent(new Event("blur"));
+    expect(change.mock.calls.length).toBe(afterSecond);
+  });
+
+  it("never releases a row that was built detached and then mounted", async () => {
+    // Rows are constructed before the panel appends them (opacity.ts,
+    // zoomRange.ts build the slider in a detached div). An interrupt can land
+    // in that window; "not mounted yet" is not "dropped", so the row must
+    // still work once the panel mounts it.
+    const host = document.createElement("div");
+    const slider = new Slider(host, { min: 0, max: 100, value: 30, label: "row" });
+    try {
+      document.body.appendChild(host);
+      window.dispatchEvent(new Event("blur"));
+
+      // Still live: a press shows its readout and a drag reaches the value.
+      const track = stubTrack(host);
+      track.dispatchEvent(pointer("pointerdown", 70));
+      expect(liveBubbles()).toHaveLength(1);
+      expect(slider.value).toBe(70);
+    } finally {
+      slider.destroy();
+      host.remove();
+    }
+  });
+
+  it("stops listening once the slider is destroyed", async () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(1);
+
+    sliderOf(host)!.destroy();
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // A blur after teardown must not reach the dead instance: the
+    // subscription is released with the row, so a second interrupt is a
+    // no-op rather than a call into a destroyed slider.
+    expect(() => {
+      window.dispatchEvent(new Event("blur"));
+      hideVisibility();
+    }).not.toThrow();
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    expect(thumbEl.isConnected).toBe(false);
+  });
+
+  it("shows the readout normally while dragging and after release", async () => {
+    // The interrupt is a teardown, not a change to the live path: the bubble
+    // still shows with its value and aria while the pointer is down, and the
+    // normal release still ends it.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      format: value => `${Math.round(value)}%`,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    const bubble = liveBubbles()[0];
+    expect(bubble).toBeDefined();
+    expect(bubble.textContent).toBe("40%");
+    expect(bubble.getAttribute("aria-hidden")).toBe("true");
+
+    track.dispatchEvent(pointer("pointermove", 60));
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(bubble.textContent).toBe("60%");
+
+    track.dispatchEvent(pointer("pointerup", 60));
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+});
+
+describe("Slider width-adaptive current label", () => {
+  const stubRow = (host: HTMLElement, width: number): HTMLElement => {
+    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
+    Object.defineProperty(row, "clientWidth", { value: width, configurable: true });
+    row.getBoundingClientRect = () => fakeRect({ left: 0, top: 0, width, height: 14 });
+    return row;
+  };
+  const stubLabel = (el: HTMLElement, intrinsic: number): void => {
+    Object.defineProperty(el, "scrollWidth", { value: intrinsic, configurable: true });
+  };
+  const stubDot = (host: HTMLElement, cx: number): void => {
+    const dot = host.querySelector(`.${SLIDER_CLASS.DOT_CURRENT}`) as HTMLElement;
+    if (dot) {
+      dot.getBoundingClientRect = () =>
+        fakeRect({ left: cx - 5, top: 0, width: 10, height: 10 });
+    }
+  };
+  const makeCurrent = (over: Partial<SliderOptions> = {}) =>
+    make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+      current: { at: 40, text: "40" },
+      marks: [
+        { at: 0, tone: "limit" },
+        { at: 40, tone: "current" },
+        { at: 100, tone: "limit" },
+      ],
+      ...over,
+    });
+  const stubEndLabels = (host: HTMLElement, width: number): void => {
+    // The end numbers are dot-centred at the row edges; give them real inner
+    // edges so the current label has a finite room between them (jsdom rects
+    // are 0x0 otherwise, which makes the right bound negative).
+    const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
+    const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
+    if (minEl) {
+      minEl.getBoundingClientRect = () =>
+        fakeRect({ left: 0, top: 0, width: 20, height: 14 });
+    }
+    if (maxEl) {
+      maxEl.getBoundingClientRect = () =>
+        fakeRect({ left: width - 20, top: 0, width: 20, height: 14 });
+    }
+  };
+  const currentEl = (host: HTMLElement) =>
+    host.querySelector(`.${SLIDER_CLASS.VALUE_CURRENT}`) as HTMLElement;
+  const measure = (slider: Slider): void =>
+    (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
+  const positionCurrent = (slider: Slider): void =>
+    (slider as unknown as { positionCurrent: () => void }).positionCurrent();
+  const dotCentre = (slider: Slider): number | null =>
+    (slider as unknown as { currentDotCentre: () => number | null }).currentDotCentre();
+  const measureCurrent = (slider: Slider): void =>
+    (slider as unknown as { measureCurrentFit: () => void }).measureCurrentFit();
+
+  it("keeps a current number that fits between the ends unclamped", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 20);
+    // The min/max labels are dot-centred, so their boxes are the stubs' rects
+    // (0x0 unless stubbed); the current label fits, so no clamp.
+    measure(sliderOf(host)!);
+    expect(cur.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(cur.style.maxWidth).toBe("");
+  });
+
+  it("clamps a current number that no longer fits between the ends", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    measure(sliderOf(host)!);
+    expect(cur.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(cur.style.maxWidth).not.toBe("");
+    expect(parseFloat(cur.style.maxWidth)).toBeGreaterThan(0);
+  });
+
+  it("does not clamp when the row has no laid-out width", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 0);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    measure(sliderOf(host)!);
+    expect(cur.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+  it("defers the current label while its dot has no laid-out box", () => {
+    const { host } = makeCurrent();
+    const cur = currentEl(host);
+    // The constructor sync runs before the panel has laid the row out, so
+    // both the row and the dot report zero width. The label must keep the
+    // CSS row-centre default rather than pinning to a fabricated 0.
+    expect(dotCentre(sliderOf(host)!)).toBeNull();
+    positionCurrent(sliderOf(host)!);
+    expect(cur.style.left).toBe("");
+    // Once the row reports real geometry the same label lands on its dot.
+    stubRow(host, 160);
+    stubDot(host, 80);
+    expect(dotCentre(sliderOf(host)!)).toBe(80);
+    positionCurrent(sliderOf(host)!);
+    expect(cur.style.left).toBe("80px");
+  });
+
+  it("caps the current label to the room left of its dot", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    measureCurrent(sliderOf(host)!);
+    // The nearer end number sits 56px away from the dot, and a dot-
+    // centred label may grow that far on either side of the dot: 2 * 56.
+    expect(cur.style.maxWidth).toBe("112px");
+  });
+
+  it("skips the current fit while the dot has no box", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    // The row is laid out but its dot is not (jsdom reports a 0x0 box), so
+    // there is no centre to measure against and the cap stays off.
+    measureCurrent(sliderOf(host)!);
+    expect(cur.style.maxWidth).toBe("");
+  });
+
+  it("keeps the fit deferred across a re-render of the current label", async () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    // A new level rebuilds the label node and schedules the re-measure a
+    // frame later: a synchronous read at that point would still see zero
+    // boxes and pin the label to the row edge instead of its dot.
+    sliderOf(host)!.setCurrent({ at: 60, text: "60" });
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(cur.style.left).toBe("80px");
+    expect(cur.style.maxWidth).toBe("112px");
+  });
+
+  it("re-measures the end numbers when the row resizes", async () => {
+    const callbacks: Array<(entries: unknown[], observer: unknown) => void> = [];
+
+    class StubObserver {
+      constructor(cb: (entries: unknown[], observer: unknown) => void) {
+        callbacks.push(cb);
+      }
+      observe = (): void => {};
+      disconnect = (): void => {};
+      unobserve = (): void => {};
+    }
+    vi.stubGlobal("ResizeObserver", StubObserver);
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(callbacks.length).toBeGreaterThan(0);
+    // The resize callback is the only path that re-measures after the
+    // first frame, so it must run the same fit pass as a render.
+    for (const cb of callbacks) cb([], null);
+    expect(cur.style.maxWidth).toBe("112px");
+    vi.unstubAllGlobals();
+  });
+  it("skips the current fit when the row has no laid-out width", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    // The row reports geometry but then loses it (the panel collapses):
+    // there is no space to measure against, so the cap must stay off
+    // rather than cap to the room of a row that no longer exists.
+    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
+    row.getBoundingClientRect = () =>
+      fakeRect({ left: 0, top: 0, width: 0, height: 14 });
+    measureCurrent(sliderOf(host)!);
+    expect(cur.style.maxWidth).toBe("");
+  });
+
+  it("caps the current label when one end number is not in the document", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    // The end numbers own the row's two edges; when an end number is not
+    // in the document its edge is unknown, so the boundary falls back to the
+    // row's own edge instead of pinning the label to an overhang.
+    const [minEl, maxEl] = [
+      host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`),
+      host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`),
+    ];
+    minEl!.getBoundingClientRect = () => null as unknown as DOMRect;
+    maxEl!.getBoundingClientRect = () => null as unknown as DOMRect;
+    measureCurrent(sliderOf(host)!);
+    // Left bound falls back to the gap, right bound to the row's edge: the
+    // dot sits 80px in, so the cap is 2 * min(76, 76) = 152px. A fallback
+    // that collapsed to 0 would cap the label to nothing.
+    expect(cur.style.maxWidth).toBe("152px");
+  });
+});

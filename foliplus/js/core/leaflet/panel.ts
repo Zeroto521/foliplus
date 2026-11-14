@@ -13,7 +13,7 @@ import { PANEL_CLASS, closeButton, computePlacement } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
-  FOLD: "foliplus-ctrl-fold",
+  FOLD: PANEL_CLASS.FOLD,
   TOGGLE_BTN: "foliplus-toggle-btn",
   LEAFLET_BAR: "leaflet-bar leaflet-control",
   TOOL_BAR: "foliplus-tool-bar",

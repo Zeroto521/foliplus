@@ -18,6 +18,7 @@ import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./ty
 import { dom } from "#platform/dom.js";
 import { finalize } from "#platform/finalize.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
+import { onGestureRetire } from "#platform/gesture.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");
@@ -225,11 +226,30 @@ class Slider {
   private readonly thumbs: HTMLElement[] = [];
   private dotEls: HTMLElement[] = [];
   private currentEl: HTMLElement | null = null;
+  private minEl: HTMLElement | null = null;
+  private maxEl: HTMLElement | null = null;
+  private fitObserver?: ResizeObserver;
   private disabled: boolean;
   private rtl: boolean;
   private bubbleFrame = 0;
   /** Thumbs whose bubble is shown and owned by this root. */
   private readonly bubbleAnchors = new Set<HTMLElement>();
+  /** Releases the page-level gesture interrupt subscription. */
+  private unsubscribeRetire: (() => void) | null = null;
+  /** Whether the root has ever been in the document. A row is built detached
+   *  and mounted a moment later; only a root that was mounted and then left is
+   *  a dropped row. Seeded at construction, because the panel usually mounts
+   *  the row and drops it again without any interrupt landing in between. */
+  private everConnected: boolean;
+  /** Set when an interrupt ended the gesture; cleared by real input.
+   *
+   *  Coming back to the page re-fires `focus` at the element the browser
+   *  restores, and the element's own `blur` on the way out cannot be used to
+   *  tell the difference (the browser delivers it too, so a marker set on
+   *  deactivation is always cleared again). The reliable rule is the user's:
+   *  after an interruption nothing paints the readout until they actually
+   *  touch the control — a pointer press or a key. */
+  private interrupted = false;
   private drag: {
     id: number;
     index: number;
@@ -248,6 +268,9 @@ class Slider {
       ...options,
     };
     this.disabled = options.disabled ?? false;
+    // A row may be built already mounted (a re-render into a live panel) or
+    // detached and appended a moment later; either way the truth is known here.
+    this.everConnected = host.isConnected;
     this.rtl = getComputedStyle(host).direction === "rtl";
     // Rows are built detached and mounted by the panel right after, so the
     // read above only sees an ancestor direction once the host is connected.
@@ -255,7 +278,12 @@ class Slider {
     // later changes.
     if (!host.isConnected) {
       requestAnimationFrame(() => {
-        if (this.root.isConnected) this.refreshDirection();
+        if (!this.root.isConnected) return;
+        // The row the panel built detached is mounted now; remembering it is
+        // what lets a later removal be recognised as "dropped" rather than
+        // "never mounted".
+        this.everConnected = true;
+        this.refreshDirection();
       });
     }
     const initial = options.value;
@@ -310,6 +338,17 @@ class Slider {
     this.bind();
     this.sync();
     this.applyAria();
+    // The end numbers fit-measure is deferred a frame: the constructor can
+    // run before the panel has laid the row out, so a synchronous read would
+    // see a zero-height box and flip every label to the clamp state for a
+    // frame. The resize observer then covers later width changes.
+    if (typeof ResizeObserver === "function") {
+      this.fitObserver = new ResizeObserver(() => this.measureValuesFit());
+      this.fitObserver.observe(this.valuesRow);
+    }
+    requestAnimationFrame(() => {
+      if (this.root.isConnected) this.measureValuesFit();
+    });
   }
 
   // ── Public API ──────────────────────────────────────────────
@@ -373,6 +412,13 @@ class Slider {
     this.opts.current = current;
     this.renderCurrent();
     this.sync();
+    // The label may be created before the panel has laid the row out (the
+    // constructor's own sync saw zero-width boxes and deferred). Re-measure
+    // next frame, once the row reports real geometry, so the label lands on
+    // its dot instead of the row-centre fallback.
+    requestAnimationFrame(() => {
+      if (this.root.isConnected) this.measureValuesFit();
+    });
   }
 
   /** Make the control inert (or live again) without rebuilding it. */
@@ -437,6 +483,15 @@ class Slider {
   destroy(): void {
     finalize(
       [
+        // The page-level interrupt subscription is per instance; drop it so a
+        // removed slider cannot be called back by a later blur.
+        [
+          "release-retire",
+          () => {
+            this.unsubscribeRetire?.();
+            this.unsubscribeRetire = null;
+          },
+        ],
         // Destroy commits rather than discards: the dragged value is the
         // user's, and the map, persistence and panel already show it. Dropping
         // it here would make a removal silently undo their last gesture. Same
@@ -455,6 +510,7 @@ class Slider {
           },
         ],
         ["clear-children", () => this.root.replaceChildren()],
+        ["stop-fit-observer", () => this.fitObserver?.disconnect()],
         ["clear-class", () => this.root.classList.remove(SLIDER_CLASS.ROOT)],
         ["clear-role", () => this.root.removeAttribute("role")],
         ["clear-label", () => this.root.removeAttribute("aria-label")],
@@ -476,6 +532,37 @@ class Slider {
   private visualPct(value: number): number {
     const pct = this.pct(value);
     return this.rtl ? 100 - pct : pct;
+  }
+
+  /** Horizontal centre of the current mark's own dot, in px from the
+   *  values row's left edge. The label under it is centred on that same
+   *  point, so it reads the dot's real geometry instead of guessing an
+   *  offset: the dot rides the track (inset by half a thumb) and the row
+   *  spans the control, so a bare percentage of the row would drift.
+   *  Null when the dot is not in the tree. */
+  private currentDotCentre(): number | null {
+    const dot = this.dotEls.find(el => el.classList.contains(SLIDER_CLASS.DOT_CURRENT));
+    if (!dot) return null;
+    const row = this.valuesRow.getBoundingClientRect();
+    const box = dot.getBoundingClientRect();
+    // A row that has not been laid out (the constructor can run before the
+    // panel mounts) has zero-width boxes; a dot that reports no width is not
+    // yet in a laid-out tree either. Defer (null) and let the deferred fit
+    // measure place it once the row has real geometry.
+    if (row.width === 0 || box.width === 0) return null;
+    return box.left - row.left + box.width / 2;
+  }
+
+  /** Position the current-level label on the dot it names (px from the
+   *  row's left). A dot-centred label is measured from the dot's real box so
+   *  it stays under its mark at every level, RTL included; when the dot is
+   *  not yet in a laid-out tree the CSS default (row-centre) holds until the
+   *  deferred fit measure re-places it. */
+  private positionCurrent(): void {
+    if (!this.currentEl) return;
+    const centre = this.currentDotCentre();
+    if (centre !== null) this.currentEl.style.left = `${centre}px`;
+    else this.currentEl.style.left = "";
   }
 
   private round(value: number): number {
@@ -525,11 +612,19 @@ class Slider {
   private renderValues(): void {
     this.valuesRow.replaceChildren();
     if (!this.opts.values) return;
-    this.valuesRow.append(
-      dom.el("span", { class: SLIDER_CLASS.VALUE_MIN }, this.opts.values.min),
-      dom.el("span", { class: SLIDER_CLASS.VALUE_MAX }, this.opts.values.max),
+    this.minEl = dom.el(
+      "span",
+      { class: SLIDER_CLASS.VALUE_MIN },
+      this.opts.values.min,
     );
+    this.maxEl = dom.el(
+      "span",
+      { class: SLIDER_CLASS.VALUE_MAX },
+      this.opts.values.max,
+    );
+    this.valuesRow.append(this.minEl, this.maxEl);
     this.renderCurrent();
+    this.measureValuesFit();
   }
 
   private renderCurrent(): void {
@@ -540,6 +635,71 @@ class Slider {
     const label = dom.el("span", { class: SLIDER_CLASS.VALUE_CURRENT }, current.text);
     this.currentEl = label;
     this.valuesRow.appendChild(label);
+  }
+
+  /** Width-adaptive end labels: a label that fits on its half stays
+   *  dot-centred (its centre on the parked dot's centre); a label too wide
+   *  to fit centred without crossing the row's middle switches to the clamp
+   *  state (class is-clamp), which pins it to the row's edge and clips its
+   *  text inward. Measured on render / open / resize — never on a drag
+   *  frame, so a pointermove cannot churn the layout. */
+  private measureValuesFit(): void {
+    if (!this.minEl || !this.maxEl || !this.opts.values) return;
+    const rowWidth = this.valuesRow.clientWidth;
+    // A detached row (the constructor can run before the panel mounts) has no
+    // laid-out width; skip and let the deferred measure or the resize observer
+    // decide once the row is in the document.
+    if (rowWidth === 0) return;
+    const thumb =
+      parseFloat(
+        getComputedStyle(this.root).getPropertyValue("--foliplus-slider-thumb-size"),
+      ) || 14;
+    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
+    // A label may stay dot-centred while it does not cross the row's middle:
+    // half the row, minus the half-thumb anchor and the gap to its sibling.
+    const half = rowWidth / 2 - thumb / 2 - gap;
+    const fits = (el: HTMLElement) => el.scrollWidth <= half + 1;
+    const minClamp = !fits(this.minEl);
+    const maxClamp = !fits(this.maxEl);
+    this.minEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, minClamp);
+    this.maxEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, maxClamp);
+    // The deferred fit measure runs after the first layout, so the current
+    // label can finally read its dot's real centre (the constructor's own
+    // sync saw zero-width boxes and deferred).
+    this.positionCurrent();
+    this.measureCurrentFit();
+  }
+
+  /** Width-adaptive current-level label: it stays centred on its own dot
+   *  while it does not reach the end numbers. A label too wide for the
+   *  space left between them is capped to the nearer side and clips
+   *  (the >span rule already applies overflow: hidden + ellipsis), so it
+   *  never crosses a sibling. Measured from live geometry on render /
+   *  open / resize — never on a drag frame. */
+  private measureCurrentFit(): void {
+    if (!this.currentEl || !this.opts.current) return;
+    this.currentEl.style.maxWidth = "";
+    const row = this.valuesRow.getBoundingClientRect();
+    if (row.width === 0) return;
+    const centre = this.currentDotCentre();
+    if (centre === null) return;
+    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
+    // The end numbers own the row's two edges; the current number may use
+    // the space strictly between their inner edges. A dot-centred end label
+    // overhangs inward, so its box edge is the real boundary.
+    const minBox = this.minEl?.getBoundingClientRect();
+    const maxBox = this.maxEl?.getBoundingClientRect();
+    const leftBound = minBox ? minBox.right - row.left + gap : gap;
+    const rightBound = maxBox ? maxBox.left - row.left - gap : row.width - gap;
+    // A dot-centred label may grow room/2 on either side of the dot (the
+    // dot sits at the centre of the label), so the cap is twice the nearer
+    // distance to an end label's inner edge.
+    // A dot-centred label may grow room/2 on either side of the dot (the
+    // dot sits at the centre of the label), so the cap is twice the nearer
+    // distance to an end label's inner edge.
+    const room = Math.min(centre - leftBound, rightBound - centre) * 2;
+    if (this.currentEl.scrollWidth <= room + 1) return;
+    this.currentEl.style.maxWidth = `${Math.max(room, 0)}px`;
   }
 
   private renderMarks(): void {
@@ -594,7 +754,11 @@ class Slider {
 
     if (this.currentEl && this.opts.current) {
       const current = this.opts.current;
-      this.currentEl.style.left = `${this.visualPct(current.at)}%`;
+      // Centre the label on the dot it names: the dot rides the track (inset by
+      // half a thumb) while the label sits in the full-width values row, so its
+      // own percentage would drift by that inset. Measuring the dot's real
+      // centre keeps the label under it at every level, RTL included.
+      this.positionCurrent();
       const gap = current.hideGapPct ?? 0;
       const nearEnd =
         gap > 0 && (this.pct(current.at) < gap || this.pct(current.at) > 100 - gap);
@@ -606,6 +770,11 @@ class Slider {
 
   // ── Interaction ─────────────────────────────────────────────
   private bind(): void {
+    // A release only reaches a focused page, so the in-app endings above
+    // cannot cover an alt-tab or a tab switch. `retire` is the one teardown
+    // every out-of-band ending runs: it ends the drag (committing what the
+    // pointer already produced) and clears this slider's bubbles.
+    this.unsubscribeRetire = onGestureRetire(this.retire);
     this.track.addEventListener("pointerdown", this.onTrackDown);
     this.track.addEventListener("pointermove", this.onPointerMove);
     this.track.addEventListener("pointerup", this.onPointerUp);
@@ -619,7 +788,7 @@ class Slider {
     this.thumbs.forEach((thumb, index) => {
       thumb.addEventListener("pointerdown", event => this.onThumbDown(event, index));
       thumb.addEventListener("keydown", event => this.onKeyDown(event, index));
-      thumb.addEventListener("focus", () => this.showBubble(index));
+      thumb.addEventListener("focus", () => this.onThumbFocus(index));
       thumb.addEventListener("blur", () => this.hideBubble(index));
     });
   }
@@ -651,10 +820,21 @@ class Slider {
     );
   };
 
+  /** A focus shows the readout the user is asking for — except in the wake of
+   *  an interrupt, where a focus can be the browser restoring the page rather
+   *  than the user asking for a value. Real input (a press, a key) clears the
+   *  marker first, so this only swallows the automatic one. */
+  private onThumbFocus(index: number): void {
+    if (this.interrupted) return;
+    this.showBubble(index);
+  }
+
   private begin(event: PointerEvent, index: number, fromThumb: boolean): void {
     // One session at a time: a second finger must not overwrite the first
     // one's drag, or the first release would find nothing to commit.
     if (this.drag) return;
+    // A press is real input: the control may show its readout again.
+    this.interrupted = false;
     event.preventDefault();
     this.drag = { id: event.pointerId, index, dirty: false };
     try {
@@ -759,6 +939,53 @@ class Slider {
     // without a pointerup; the value already moved, so it still has to be
     // committed or the map would keep a preview the store never recorded.
     this.endSession(true);
+  };
+
+  /** The teardown for an ending no release describes: the window lost focus,
+   *  the tab went hidden, or the pointer was cancelled outside this track.
+   *
+   *  Everything the normal path would have reset is reset here through the
+   *  same calls — the drag session (which commits what the pointer already
+   *  produced, like the capture-loss path) and this slider's bubbles. It is
+   *  idempotent by construction: `endSession` returns early with no live
+   *  session and `hideBubble()` skips anchors that are no longer pooled, so
+   *  a blur followed by a visibilitychange, or an interrupt after the user
+   *  already released, is harmless.
+   *
+   *  A cancel that names a different pointer belongs to another gesture and
+   *  leaves the live session alone. */
+  private readonly retire = (event: Event): void => {
+    // A row whose panel was dropped without calling destroy() is no longer
+    // anybody's: release the subscription here rather than waiting for GC, so
+    // the page-level set cannot grow by one entry per panel the user opened.
+    // A root that was never mounted yet is not dropped — it is still being
+    // built — so only a root that left the document counts.
+    const dropped = !this.root.isConnected && this.everConnected;
+
+    const drag = this.drag;
+    if (drag) {
+      if (event instanceof PointerEvent && event.pointerId !== drag.id) return;
+      try {
+        this.track.releasePointerCapture(drag.id);
+      } catch {
+        // Already released — the interrupt may have taken it.
+      }
+    }
+    // Nothing paints the readout again until the user actually touches the
+    // control: the browser's own focus restoration on return is not a request.
+    this.interrupted = true;
+    // A dropped row still commits what its pointer produced — the value is the
+    // user's, and the panel already showed it. Only the *subscription* is
+    // released, so a row the panel forgot to destroy stops costing the page.
+    this.endSession(true);
+    // Runs with no drag too: a focused thumb shows a readout without one.
+    // Its no-index form also cancels a parked fade, whose throttled timer
+    // would otherwise land long after the switch and paint the node again.
+    this.hideBubble();
+    if (dropped) {
+      this.unsubscribeRetire?.();
+      this.unsubscribeRetire = null;
+    }
   };
 
   /** Whether the two thumbs sit close enough that a press cannot say which
@@ -906,6 +1133,11 @@ class Slider {
       default:
         return;
     }
+    // Past the switch this key is really the control's, which makes it real
+    // input: the readout may be shown again. Clearing the marker before the
+    // switch would let any unrelated key (a keystroke in a neighbouring field)
+    // re-arm the bubble the interrupt just cleared.
+    this.interrupted = false;
     // The key is the control's: prevent the page default, but let it bubble.
     // foliplus' shared dispatcher already stands aside for `role="slider"`
     // (inputOwnership), so stopping propagation here would only hide the

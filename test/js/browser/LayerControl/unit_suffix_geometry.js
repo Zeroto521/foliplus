@@ -33,6 +33,15 @@ async ([layerName] = []) => {
   const panel = row.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { row: true, styleItem: true, panel: false };
 
+  // #1087 defaults an authored layer to the original-colours mode, which
+  // renders no fill-opacity field. Switch to single-colour mode so the fill
+  // % field is present and the % unit family can be measured on this page.
+  const fillMode = panel.querySelector(".foliplus-style-fill-mode-select");
+  if (fillMode) {
+    fillMode.value = "solid";
+    fillMode.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
   const fields = [...panel.querySelectorAll(".foliplus-form-number-group")]
     .map(group => {
       const input = group.querySelector("input");
