@@ -25,8 +25,9 @@
     field: fieldSelect ? fieldSelect.value : null,
     classes: classesSelect ? classesSelect.value : null,
     schemeTitle: schemeTrigger ? schemeTrigger.title : null,
-    // The declared ramp is the by-value mode: no solid swatch, and no
-    // "Original Colors" option on a layer the author did not paint per feature.
+    // The declared ramp is the by-value mode: no solid swatch. The
+    // original-colours option is always offered for a fill-capable layer
+    // even when the author painted a single colour.
     hasSwatch: !!panel?.querySelector(".foliplus-style-fill-color-input"),
     originalAvailable: !!modeSelect?.querySelector('option[value="original"]'),
     fills,
