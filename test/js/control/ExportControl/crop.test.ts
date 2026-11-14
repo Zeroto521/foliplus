@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/ExportControl/const.js";
-import { ExportManager } from "#control/ExportControl/manager.js";
+import { type DragState, ExportManager } from "#control/ExportControl/manager.js";
 
 vi.mock("#platform/locale.js", async () => {
   const real = await vi.importActual("#platform/locale.js");
@@ -288,6 +288,18 @@ describe("cropMethods — pointer drag", () => {
     };
   }
 
+  /** A live drag, with the pointer bookkeeping the interrupt path needs. The
+   *  fields default here so a test states only what it is about. */
+  const drag = (overrides: Partial<DragState> = {}): DragState => ({
+    dragging: true,
+    dragType: "br",
+    lastX: 150,
+    lastY: 130,
+    pointerId: 7,
+    captureTarget: null,
+    ...overrides,
+  });
+
   function makeDraggableContainer(width = 500, height = 400) {
     const container = manager.map.getContainer();
     container.getBoundingClientRect = () => ({
@@ -431,7 +443,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerMove moves the box when dragging move", () => {
     manager.cropState!.rect = { left: 50, top: 50, width: 100, height: 80 };
-    manager.dragState = { dragging: true, dragType: "move", lastX: 100, lastY: 100 };
+    manager.dragState = drag({ dragType: "move", lastX: 100, lastY: 100 });
     makeDraggableContainer();
 
     manager.onPointerMove({ clientX: 130, clientY: 120 } as any);
@@ -455,7 +467,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerMove resizes from a handle", () => {
     manager.cropState!.rect = { left: 50, top: 50, width: 100, height: 80 };
-    manager.dragState = { dragging: true, dragType: "br", lastX: 150, lastY: 130 };
+    manager.dragState = drag();
     makeDraggableContainer(500, 400);
 
     manager.onPointerMove({ clientX: 170, clientY: 150 } as any);
@@ -466,7 +478,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerMove resizes from a left handle", () => {
     manager.cropState!.rect = { left: 50, top: 50, width: 100, height: 80 };
-    manager.dragState = { dragging: true, dragType: "l", lastX: 100, lastY: 100 };
+    manager.dragState = drag({ dragType: "l", lastX: 100, lastY: 100 });
     makeDraggableContainer();
 
     manager.onPointerMove({ clientX: 130, clientY: 100 } as any);
@@ -480,7 +492,7 @@ describe("cropMethods — pointer drag", () => {
     // capped so the width never drops below CONST.CROP.MIN_SIZE — regardless
     // of where the pointer lands.
     manager.cropState!.rect = { left: 10, top: 50, width: 100, height: 80 };
-    manager.dragState = { dragging: true, dragType: "l", lastX: 100, lastY: 100 };
+    manager.dragState = drag({ dragType: "l", lastX: 100, lastY: 100 });
     makeDraggableContainer();
 
     manager.onPointerMove({ clientX: 200, clientY: 100 } as any);
@@ -492,7 +504,7 @@ describe("cropMethods — pointer drag", () => {
 
   it("onPointerMove resizes from a top handle", () => {
     manager.cropState!.rect = { left: 50, top: 50, width: 100, height: 80 };
-    manager.dragState = { dragging: true, dragType: "t", lastX: 100, lastY: 100 };
+    manager.dragState = drag({ dragType: "t", lastX: 100, lastY: 100 });
     makeDraggableContainer();
 
     manager.onPointerMove({ clientX: 100, clientY: 130 } as any);
@@ -505,7 +517,7 @@ describe("cropMethods — pointer drag", () => {
     // Dragging the top handle downward shrinks the box; the shrink is capped
     // by MIN_SIZE so the height never collapses below the drag threshold.
     manager.cropState!.rect = { left: 50, top: 10, width: 100, height: 80 };
-    manager.dragState = { dragging: true, dragType: "t", lastX: 100, lastY: 100 };
+    manager.dragState = drag({ dragType: "t", lastX: 100, lastY: 100 });
     makeDraggableContainer();
 
     manager.onPointerMove({ clientX: 100, clientY: 200 } as any);
@@ -516,7 +528,7 @@ describe("cropMethods — pointer drag", () => {
   });
 
   it("onPointerMove ignores a move after the crop box is gone", () => {
-    manager.dragState = { dragging: true, dragType: "move", lastX: 100, lastY: 100 };
+    manager.dragState = drag({ dragType: "move", lastX: 100, lastY: 100 });
     manager.cropState = null;
     makeDraggableContainer();
 
@@ -530,7 +542,7 @@ describe("cropMethods — pointer drag", () => {
     target.setPointerCapture = vi.fn();
     target.hasPointerCapture = vi.fn(() => true);
     target.releasePointerCapture = vi.fn();
-    manager.dragState = { dragging: true, dragType: "move", lastX: 0, lastY: 0 };
+    manager.dragState = drag({ dragType: "move", lastX: 0, lastY: 0 });
     manager.cropState!.box = document.createElement("div");
 
     manager.onPointerUp({ target, pointerId: 7 } as any);
@@ -587,6 +599,211 @@ describe("cropMethods — pointer drag", () => {
     expect(manager.dragState.dragging).toBe(false);
   });
 
+  describe("an interrupted drag (no pointerup is delivered)", () => {
+    /** What the manager looks like once the gesture really ended. */
+    const expectIdle = () => {
+      expect(manager.dragState.dragging).toBe(false);
+      expect(manager.dragState.dragType).toBeNull();
+      expect(manager.dragState.pointerId).toBeNull();
+      expect(manager.dragState.captureTarget).toBeNull();
+      expect(manager.dragCleanup).toBeUndefined();
+      expect(manager.dragRetireCleanup).toBeNull();
+    };
+
+    /** Start a real gesture through the press path, so the subscription the
+     *  interrupt travels is the one production installs. */
+    const beginDrag = (pointerId = 7): HTMLElement => {
+      const handle = document.createElement("div");
+      handle.classList.add(CONST.CLASSES.HANDLE);
+      handle.dataset.pos = "br";
+      handle.setPointerCapture = vi.fn();
+      handle.hasPointerCapture = vi.fn(() => true);
+      handle.releasePointerCapture = vi.fn();
+      const box = document.createElement("div");
+      box.appendChild(handle);
+      manager.cropState!.box = box;
+      manager.onPointerDown(
+        makePointerEvent({
+          target: handle,
+          clientX: 120,
+          clientY: 110,
+          pointerId,
+        }) as any,
+      );
+      return handle;
+    };
+
+    it("a window blur ends the drag and gives the capture back", () => {
+      // The reported shape: drag a handle, alt-tab away. No pointerup ever
+      // arrives, so without an interrupt the box stops one delta short and the
+      // next press inherits a stale anchor.
+      const handle = beginDrag(11);
+      expect(manager.dragState.dragging).toBe(true);
+      expect(manager.dragState.pointerId).toBe(11);
+
+      window.dispatchEvent(new Event("blur"));
+
+      expectIdle();
+      // A blur names no target, so the capture is released through the one the
+      // pointerdown recorded.
+      expect(handle.releasePointerCapture).toHaveBeenCalledWith(11);
+    });
+
+    it("a hidden tab ends the drag too", () => {
+      beginDrag();
+      const state = Object.getOwnPropertyDescriptor(
+        Document.prototype,
+        "visibilityState",
+      );
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "hidden",
+      });
+
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expectIdle();
+      if (state) Object.defineProperty(document, "visibilityState", state);
+    });
+
+    it("re-enables the box transition after the interrupt", () => {
+      beginDrag();
+      expect(manager.cropState!.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+        true,
+      );
+
+      window.dispatchEvent(new Event("blur"));
+
+      // Left on, the next non-drag layout would animate from the interrupted
+      // position instead of jumping to the final one.
+      expect(manager.cropState!.box.classList.contains(CONST.CLASSES.DRAGGING)).toBe(
+        false,
+      );
+    });
+
+    it("is idempotent: repeated interrupts and a late release", () => {
+      // Several signals can describe one interruption, and the browser may
+      // still deliver the release afterwards.
+      beginDrag();
+      window.dispatchEvent(new Event("blur"));
+      window.dispatchEvent(new Event("blur"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(() =>
+        manager.onPointerUp({ target: document, pointerId: 7 } as any),
+      ).not.toThrow();
+      expectIdle();
+    });
+
+    it("ignores a cancel that names another pointer", () => {
+      const handle = beginDrag(21);
+
+      const cancel = new PointerEvent("pointercancel", { bubbles: true });
+      Object.defineProperty(cancel, "pointerId", { value: 22 });
+      window.dispatchEvent(cancel);
+
+      // The gesture belongs to pointer 21 and must survive pointer 22's cancel.
+      expect(manager.dragState.dragging).toBe(true);
+      expect(handle.releasePointerCapture).not.toHaveBeenCalled();
+    });
+
+    it("an interrupt after the drag already ended is harmless", () => {
+      // A press, a release, then a blur: the subscription went with the
+      // release, so the interrupt must not resurrect anything.
+      beginDrag();
+      manager.onPointerUp({
+        target: document.createElement("div"),
+        pointerId: 7,
+      } as any);
+      const before = manager.dragState.dragging;
+
+      expect(() => window.dispatchEvent(new Event("blur"))).not.toThrow();
+
+      expect(manager.dragState.dragging).toBe(before);
+      expect(manager.dragRetireCleanup).toBeNull();
+    });
+
+    it("ends the drag on a move whose button is already up", () => {
+      // The release happened in another window, so this page never receives a
+      // pointerup — and a focus change may not have blurred it either (a second
+      // monitor, a window that never lost focus). The move itself carries the
+      // truth: no button is down, so the gesture is over.
+      beginDrag();
+      const rect = manager.cropState!.rect;
+      const before = { ...rect };
+
+      manager.onPointerMove({
+        clientX: 200,
+        clientY: 180,
+        pointerId: 7,
+        buttons: 0,
+        target: document.createElement("div"),
+      } as any);
+
+      expect(manager.dragState.dragging).toBe(false);
+      expect(manager.dragState.dragType).toBeNull();
+      expect(manager.dragState.pointerId).toBeNull();
+      expect(manager.dragCleanup).toBeUndefined();
+      // The box does not grow: the move ended the gesture instead of applying.
+      expect(manager.cropState!.rect).toEqual(before);
+    });
+
+    it("keeps dragging on a move whose button is still down", () => {
+      // The counterpart: a normal move must still resize.
+      beginDrag();
+      const before = { ...manager.cropState!.rect };
+
+      manager.onPointerMove({
+        clientX: 220,
+        clientY: 190,
+        pointerId: 7,
+        buttons: 1,
+        target: document.createElement("div"),
+      } as any);
+
+      expect(manager.dragState.dragging).toBe(true);
+      expect(manager.cropState!.rect).not.toEqual(before);
+    });
+
+    it("refuses a second pointer instead of leaking the first gesture", () => {
+      // A second press mid-drag would overwrite dragCleanup and the interrupt
+      // subscription, so the first pair could never be released and the first
+      // session would become unreachable.
+      const handle = beginDrag(7);
+      const firstCleanup = manager.dragCleanup;
+      const firstRetire = manager.dragRetireCleanup;
+      expect(firstCleanup).toBeTypeOf("function");
+      expect(firstRetire).toBeTypeOf("function");
+      const rectBefore = { ...manager.cropState!.rect };
+
+      manager.onPointerDown(
+        makePointerEvent({
+          target: handle,
+          clientX: 400,
+          clientY: 300,
+          pointerId: 8,
+        }) as any,
+      );
+
+      // Nothing taken over: same session, same cleanups, same geometry.
+      expect(manager.dragState.pointerId).toBe(7);
+      expect(manager.dragCleanup).toBe(firstCleanup);
+      expect(manager.dragRetireCleanup).toBe(firstRetire);
+      expect(manager.cropState!.rect).toEqual(rectBefore);
+    });
+
+    it("stops listening after the drag really ends", () => {
+      beginDrag();
+      expect(manager.dragRetireCleanup).not.toBeNull();
+
+      manager.onPointerUp({
+        target: document.createElement("div"),
+        pointerId: 7,
+      } as any);
+
+      expect(manager.dragRetireCleanup).toBeNull();
+    });
+  });
+
   it("onPointerCancel releases the drag like pointerup", () => {
     manager.dragState.dragging = true;
     manager.cropState!.box = document.createElement("div");
@@ -608,12 +825,7 @@ describe("cropMethods — pointer drag", () => {
     const travelX = 60;
     const travelY = 30;
     manager.cropState!.rect = { left: startX, top: startY, width: 50, height: 40 };
-    manager.dragState = {
-      dragging: true,
-      dragType: "move",
-      lastX: startX,
-      lastY: startY,
-    };
+    manager.dragState = drag({ dragType: "move", lastX: startX, lastY: startY });
     makeDraggableContainer(500, 400);
     const steps: Array<[number, number]> = [];
     let x = startX;

@@ -79,6 +79,7 @@
 - `LayerControl`: polygon labels anchor on the area centroid, so concave and multi-part shapes keep them inside ([#691](https://github.com/Zeroto521/foliplus/pull/691))
 - `LayerControl`: with several basemaps checked, attribution names only the topmost one, and the zoom ceiling follows Leaflet's own derivation ([#702](https://github.com/Zeroto521/foliplus/pull/702))
 - `LayerControl`: the no-basemap hatch counts a basemap outside its zoom range or at opacity 0 as invisible ([#712](https://github.com/Zeroto521/foliplus/pull/712))
+- `ExportControl`: a crop-box drag interrupted by the window losing focus ends cleanly, so the next press starts from the box's real position instead of jumping ([#1130](https://github.com/Zeroto521/foliplus/pull/1130))
 
 ## [v0.4.0] (2026-10-10)
 
