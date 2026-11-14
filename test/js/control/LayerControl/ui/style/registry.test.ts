@@ -744,6 +744,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   it("valueSource is author when the user has not set either slot", () => {
     vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { stroke: "native" },
+      geometryType: () => "polygon",
     } as never);
     expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
   });
@@ -751,6 +752,7 @@ describe("LayerControl style-panel dimension registry — border descriptor", ()
   it("valueSource is user once provenance marks a border slot", () => {
     vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { stroke: "native" },
+      geometryType: () => "polygon",
     } as never);
     ui.intentStore.set("overlay1", "borderWeight", 2);
     expect(BORDER_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");

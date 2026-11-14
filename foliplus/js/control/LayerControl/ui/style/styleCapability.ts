@@ -14,13 +14,23 @@
 // row presence is unchanged; the only intended behavior change is the
 // menu's `canConfigure` delegation — the menu asks the same one projection.
 //
-// The projection deliberately publishes ONLY the capability bits the menu
-// consumes today (opacity / zoomRange / label / delegation). The remaining
-// dimensions (fill / border / size / icon / iconColor / markerColor) still
-// answer through their own per-dimension gates; each one joins this projection
-// together with its consumer, in the PR that introduces that consumer.
+// The projection publishes all nine style dims (opacity / zoomRange / label
+// / border / size / icon / fill / iconColor / markerColor) plus the layer's
+// geometry class for mode resolution. The per-dimension gates are the parity
+// source of truth; this reader mirrors them exactly (locked by the parity
+// test), so the row presence never changes when a dim joins the projection.
+// The remaining consumer migration (S2 gate move) is out of scope here.
 import type { LayerUI } from "../surface.js";
+import { isColorBasemap } from "./fillAuthor.js";
 import { CAP_TIER } from "#core/layer/index.js";
+
+/** The surface geometry classification published for the S3 mode resolver.
+ *  Five values are the surface's own `geometryType()` answer (point / line /
+ *  polygon / empty / unknown / custom); `"basemap"` is a UI synthesis — the
+ *  color basemap is a solid fill, not a surface-native geometry — and `null`
+ *  means no layer is registered (same short circuit as an all-false dims). */
+type StyleGeometry =
+  "point" | "line" | "polygon" | "empty" | "unknown" | "custom" | "basemap" | null;
 
 /** The full style-capability answer for one layer, in one object.
  *
@@ -29,9 +39,7 @@ import { CAP_TIER } from "#core/layer/index.js";
  *  `?? false`; the type itself guarantees a boolean per published dim.
  *  Adding a new published dim means adding the key here and to both return
  *  sites in `styleCapability` below, plus one parity assertion in
- *  `styleCapability.test.ts`. Dimensions not yet published (fill / iconColor /
- *  markerColor) still answer through their own per-dimension gate and are
- *  absent from this map. */
+ *  `styleCapability.test.ts`. */
 interface StyleCapability {
   dims: {
     opacity: boolean;
@@ -40,7 +48,14 @@ interface StyleCapability {
     border: boolean;
     size: boolean;
     icon: boolean;
+    fill: boolean;
+    iconColor: boolean;
+    markerColor: boolean;
   };
+  /** The layer's geometry class for mode resolution; null when the layer is
+   *  missing (all-false short circuit). `"basemap"` is a UI synthesis, not a
+   *  surface-native `geometryType()` value. */
+  geometry: StyleGeometry;
   /** The layer publishes styleSetters (third-party canvas layers: Heatmap,
    *  Measure) — the menu's delegation gate, exactly as
    *  `layerHasStyleDelegation` reads it. */
@@ -64,11 +79,19 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
         border: false,
         size: false,
         icon: false,
+        fill: false,
+        iconColor: false,
+        markerColor: false,
       },
       styleDelegation: false,
+      geometry: null,
     };
   }
-  const caps = ui.c.surfaceFor(layerInfo).capabilities;
+  const surface = ui.c.surfaceFor(layerInfo);
+  const caps = surface.capabilities;
+  const geometry: StyleGeometry = isColorBasemap(layerInfo)
+    ? "basemap"
+    : (surface.geometryType() as StyleGeometry);
   return {
     dims: {
       opacity: caps.opacity !== CAP_TIER.NONE,
@@ -77,9 +100,13 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
       border: caps.stroke === CAP_TIER.NATIVE,
       size: caps.size === CAP_TIER.NATIVE,
       icon: caps.icon === CAP_TIER.NATIVE,
+      fill: caps.fill === CAP_TIER.NATIVE,
+      iconColor: caps.iconColor === CAP_TIER.NATIVE,
+      markerColor: caps.markerColor === CAP_TIER.NATIVE,
     },
     styleDelegation:
       !!layerInfo.styleSetters && Object.keys(layerInfo.styleSetters).length > 0,
+    geometry,
   };
 };
 
