@@ -27,6 +27,13 @@ interface DragState {
   dragType: string | null;
   lastX: number;
   lastY: number;
+  /** The pointer that owns the gesture. A window blur ends the drag without a
+   *  release, and giving the capture back needs the id; a stray cancel from a
+   *  different pointer must not end this one. */
+  pointerId: number | null;
+  /** The element holding the capture, so an interrupt can release it even
+   *  though the event that ends the gesture names no target. */
+  captureTarget: Element | null;
 }
 
 /** Crop box state machine. */
@@ -57,6 +64,10 @@ class ExportManager {
   modes: ModeManager;
   events: EventBus;
   dragCleanup?: () => void;
+  /** Releases the page-level "the pointer is gone" subscription while a crop
+   *  gesture can be live (platform/gesture). Held only between the first press
+   *  and the last release, so a page with no crop gesture pays nothing. */
+  dragRetireCleanup?: (() => void) | null;
   interactionCleanup?: () => void;
   escapeCleanup?: () => void;
   cropMousedownCleanup?: () => void;
@@ -104,7 +115,12 @@ class ExportManager {
   // matches the pre-split public surface.
   declare onPointerDown: (event: PointerEvent) => void;
   declare onPointerMove: (event: PointerEvent) => void;
-  declare onPointerUp: (event: PointerEvent) => void;
+  declare onPointerUp: (
+    event: PointerEvent,
+    /** What to release when the event itself names no usable target — the
+     *  interrupt path passes the gesture's recorded capture. */
+    capture?: { pointerId: number | null; captureTarget: Element | null },
+  ) => void;
   declare onPointerCancel: (event: PointerEvent) => void;
   declare onKeyDown: (event: KeyboardEvent) => void;
   declare onKeyUp: (event: KeyboardEvent) => void;
@@ -183,6 +199,8 @@ class ExportManager {
       dragType: null,
       lastX: 0,
       lastY: 0,
+      pointerId: null,
+      captureTarget: null,
     };
 
     this.onMapChange = this.onMapChange.bind(this);
@@ -220,4 +238,4 @@ class ExportManager {
 Object.assign(ExportManager.prototype, cropMethods, persistenceMethods, sessionMethods);
 
 export { ExportManager, canvasToBlob };
-export type { CropState };
+export type { CropState, DragState };

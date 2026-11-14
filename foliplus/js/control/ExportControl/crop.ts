@@ -5,6 +5,7 @@ import * as CONST from "./const.js";
 import { registerDrag } from "./interaction.js";
 import type { ExportManager } from "./manager.js";
 import type { CropRect } from "./type.js";
+import { onGestureRetire } from "#platform/gesture.js";
 import { rafLoop } from "#platform/rafLoop.js";
 
 /** Map an arrow-key name to a unit direction vector. Unknown keys → no-op. */
@@ -204,6 +205,10 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
   if (event.pointerId !== null && target.setPointerCapture) {
     try {
       target.setPointerCapture(event.pointerId);
+      // Remembered so an interrupt (which names no target) can give the
+      // capture back: a capture never released keeps routing moves to an
+      // element the user has left.
+      this.dragState.captureTarget = target;
     } catch {
       // best-effort — some browsers reject capture during the same
       // gesture that started it; the incremental-delta fallback below
@@ -213,6 +218,7 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
 
   this.dragState.dragging = true;
   this.dragState.dragType = type;
+  this.dragState.pointerId = event.pointerId ?? null;
   // Disable the box transition during drag so it tracks the cursor
   // instantly (the 0.15s lag made the box feel "behind" the cursor and
   // caused accidental drags). Re-enabled in onPointerUp.
@@ -223,6 +229,11 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
   this.dragState.lastX = event.clientX;
   this.dragState.lastY = event.clientY;
   this.dragCleanup = registerDrag(this);
+  // A pointerup only reaches a focused page, so a window blur or a tab switch
+  // mid-drag would leave `dragging` set and the document listeners installed
+  // — the box would stop one delta short and the next press would inherit a
+  // stale anchor. Subscribed for the life of the gesture only.
+  this.dragRetireCleanup = onGestureRetire(retireDrag.bind(this));
 };
 
 const onPointerMove = function (this: ExportManager, event: PointerEvent) {
@@ -277,10 +288,43 @@ const onPointerMove = function (this: ExportManager, event: PointerEvent) {
   if (type !== "move") this.showHintWithInfo(r, this.T("hint_unlocked"));
 };
 
-const onPointerUp = function (this: ExportManager, event: PointerEvent) {
+/** The ending no release describes: the window lost focus, the tab went
+ *  hidden, or the pointer was cancelled outside this element. Everything the
+ *  release path resets is reset here through the same code, so the two cannot
+ *  drift; a synthetic event carrying the gesture's own pointer id keeps the
+ *  capture release working when the real event names no target. */
+const retireDrag = function (this: ExportManager, event: Event): void {
+  const { pointerId, captureTarget } = this.dragState;
+  if (!this.dragState.dragging) {
+    // Nothing in flight: a blur outside a gesture still means "done".
+    this.dragRetireCleanup?.();
+    this.dragRetireCleanup = null;
+    return;
+  }
+  // A cancel that names a different pointer belongs to another gesture.
+  if (
+    event instanceof PointerEvent &&
+    event.type === "pointercancel" &&
+    pointerId !== null &&
+    event.pointerId !== pointerId
+  ) {
+    return;
+  }
+  this.onPointerUp(event as PointerEvent, { pointerId, captureTarget });
+};
+
+const onPointerUp = function (
+  this: ExportManager,
+  event: PointerEvent,
+  /** What to release when the event itself carries no usable target — the
+   *  interrupt path passes the gesture's recorded capture. */
+  capture?: { pointerId: number | null; captureTarget: Element | null },
+) {
   const wasDragging = this.dragState.dragging;
   this.dragState.dragging = false;
   this.dragState.dragType = null;
+  this.dragState.pointerId = null;
+  this.dragState.captureTarget = null;
   // Drop the document-level drag listeners — the gesture is over. Every
   // pointerdown registered a fresh set via registerDrag, so without this
   // each drag accumulates three more entries (shortcuts array growth, and
@@ -288,19 +332,29 @@ const onPointerUp = function (this: ExportManager, event: PointerEvent) {
   if (wasDragging) {
     this.dragCleanup?.();
     this.dragCleanup = undefined;
+    // The gesture is over, so the page-level interrupt has nothing left to
+    // retire: unsubscribing here keeps a crop session from leaving a listener
+    // behind between drags.
+    this.dragRetireCleanup?.();
+    this.dragRetireCleanup = null;
   }
   // Give the pointer back. Skip it when the gesture never started — a
   // synthetic pointerup with no matching down must not strip the .dragging
   // class off a box that is mid-drag by another pointer.
-  if (wasDragging && event.pointerId !== null) {
+  //
+  // The interrupt path passes the capture it recorded, because a blur names no
+  // target; a real release carries both and takes precedence.
+  const releaseId = event.pointerId ?? capture?.pointerId ?? null;
+  const releaseTarget =
+    event.target instanceof Element ? event.target : (capture?.captureTarget ?? null);
+  if (wasDragging && releaseId !== null && releaseTarget) {
     // event.target can be document or any non-element (jsdom, synthetic
     // events) — only Elements have hasPointerCapture. Browsers also
     // release capture automatically on pointerup, so this is belt and
     // braces for pointercancel, which has no such guarantee.
-    const target = event.target;
-    if (target instanceof Element && target.hasPointerCapture?.(event.pointerId)) {
+    if (releaseTarget.hasPointerCapture?.(releaseId)) {
       try {
-        target.releasePointerCapture(event.pointerId);
+        releaseTarget.releasePointerCapture(releaseId);
       } catch {
         // capture already gone
       }

@@ -37,6 +37,74 @@ class TestExportFocusBrowser:
                 f"Box disappeared after zoom, size={after_zoom}"
             )
 
+    def test_crop_drag_interrupted_by_window_blur(self, browser, tmp_path):
+        """A crop drag must not survive the window losing focus.
+
+        A pointerup is never delivered to an unfocused page, so without an
+        interrupt path the drag state stays live and the document-level drag
+        listeners stay installed. The box then keeps a stale anchor: the next
+        press jumps by the distance the pointer travelled in between.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.locator(".foliplus-export-ctrl .foliplus-toggle-btn").click()
+            page.wait_for_selector(
+                ".foliplus-export-box", state="attached", timeout=5000
+            )
+
+            start = page.evaluate(_js("ExportControl/crop_state"))
+            assert not start.get("error"), f"setup failed: {start}"
+
+            # Press the box centre and move: a real drag is live now.
+            page.mouse.move(start["centerX"], start["centerY"])
+            page.mouse.down()
+            page.mouse.move(start["centerX"] + 40, start["centerY"] + 30, steps=5)
+            page.wait_for_timeout(120)
+            during = page.evaluate(_js("ExportControl/crop_state"))
+            assert during["draggingClass"] is True, (
+                f"the probe did not start a drag: {during}"
+            )
+            assert (during["left"], during["top"]) != (start["left"], start["top"]), (
+                f"the drag never moved the box: {during}"
+            )
+
+            # The interruption: window blur, and no pointerup.
+            page.evaluate(_js("ExportControl/crop_blur"))
+            page.wait_for_timeout(120)
+            after = page.evaluate(_js("ExportControl/crop_state"))
+
+            assert after["draggingClass"] is False, (
+                f"the drag survived the window blur: {after}"
+            )
+            # The box keeps the position the pointer reached — the interrupt
+            # ends the gesture, it does not undo it.
+            assert (after["left"], after["top"]) == (during["left"], during["top"]), (
+                f"the interrupted drag moved the box again: {after}"
+            )
+
+            # A late release must be harmless, and the box must not drift.
+            page.mouse.up()
+            page.wait_for_timeout(120)
+            settled = page.evaluate(_js("ExportControl/crop_state"))
+            assert (settled["left"], settled["top"]) == (
+                during["left"],
+                during["top"],
+            ), f"the late release moved the box: {settled}"
+            assert settled["draggingClass"] is False, settled
+
+            # And the next press starts from the box's real position instead of
+            # jumping by whatever the pointer did while the page was away.
+            page.mouse.move(settled["centerX"], settled["centerY"])
+            page.mouse.down()
+            page.mouse.move(settled["centerX"] + 10, settled["centerY"], steps=3)
+            page.wait_for_timeout(120)
+            resumed = page.evaluate(_js("ExportControl/crop_state"))
+            page.mouse.up()
+            dw = abs(resumed["left"] - settled["left"])
+            assert dw <= 25, (
+                f"the resumed drag jumped instead of continuing: {settled} -> {resumed}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_drag_crop_box_no_jump(self, browser, tmp_path):
         """Dragging the crop box center must move it continuously, without a
         single frame that jumps the box past the natural frame-to-frame delta.

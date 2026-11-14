@@ -302,8 +302,13 @@ const removeCropBox = (mgr: ExportManager) => {
   document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
   mgr.unregisterShortcuts();
   mgr.dragCleanup?.();
+  // The crop session is going away, so no interrupt should reach this manager.
+  mgr.dragRetireCleanup?.();
+  mgr.dragRetireCleanup = null;
   mgr.dragState.dragging = false;
   mgr.dragState.dragType = null;
+  mgr.dragState.pointerId = null;
+  mgr.dragState.captureTarget = null;
   if (mgr.mapMoveCleanup) {
     mgr.mapMoveCleanup();
     mgr.mapMoveCleanup = null;
