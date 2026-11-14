@@ -2304,6 +2304,60 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_slider_bubble_clears_on_window_blur(self, browser, tmp_path):
+        """A drag interrupted by the window losing focus leaves no bubble.
+
+        The probe presses a thumb and never releases it, then dispatches the
+        window blur an alt-tab delivers. Without a retire path the drag session
+        and the portalled bubble both survive, so the user sees a readout
+        reappear on a row they have not touched. The assertions cover the
+        visible result (no live bubble, no leftover node), the drag state, and
+        that returning to the page neither revives the bubble nor blocks the
+        next gesture.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                _js("LayerControl/blur_bubble_retire"),
+                load_geojson("common", "point_1193_2608"),
+            )
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["liveBefore"] == 1, (
+                f"the probe did not start a drag with a visible bubble: {result}"
+            )
+            assert result["draggingBefore"] is True, result
+            assert result["textBefore"] is not None, result
+            assert result["liveAfterBlur"] == 0, (
+                f"the bubble survived the window blur: {result}"
+            )
+            assert result["draggingAfterBlur"] is False, (
+                f"the drag state survived the window blur: {result}"
+            )
+            assert result["nodesAfterBlur"] == 0, (
+                f"the bubble node was left in the document: {result}"
+            )
+            # The reported symptom: it comes back. Returning re-fires focus at
+            # the still-active thumb, which must not repaint the readout.
+            assert result["liveAfterReturn"] == 0, (
+                f"the bubble came back when the page was shown again: {result}"
+            )
+            assert result["nodesAfterReturn"] == 0, (
+                f"a bubble node was painted again on return: {result}"
+            )
+            # ... but real input still shows it: the fix refuses the browser's
+            # automatic restore, it does not mute the control.
+            assert result["keyboardWorks"] is True, (
+                f"real input no longer shows the readout: {result}"
+            )
+            assert result["resumed"] is True, (
+                f"the slider no longer responds after the interrupt: {result}"
+            )
+            assert result["nodesAfterResume"] == 0, (
+                f"the resumed drag left a bubble behind: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_close_mid_drag_commits(self, browser, tmp_path):
         """Closing the panel while a drag is live commits what the pointer set.
 

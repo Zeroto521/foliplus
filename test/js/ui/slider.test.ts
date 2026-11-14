@@ -1331,3 +1331,365 @@ describe("Slider teardown and keyboard edges", () => {
     expect(sliderOf(host)!.value).toBe(39);
   });
 });
+
+describe("Slider bubbles retire when the window loses the pointer", () => {
+  /** The bubble nodes still in the document for *host*'s row. */
+  const bubbleNodes = (): HTMLElement[] => [
+    ...document.querySelectorAll<HTMLElement>(`.${SLIDER_CLASS.BUBBLE}`),
+  ];
+
+  const liveBubbles = (): HTMLElement[] => [
+    ...document.querySelectorAll<HTMLElement>(`.${SLIDER_CLASS.BUBBLE}.is-on`),
+  ];
+
+  /** Let the 150ms fade finish so a hidden node is really detached. */
+  const settleHide = (): Promise<void> =>
+    new Promise(resolve => window.setTimeout(resolve, 220));
+
+  const hideVisibility = (): void => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+
+  afterEach(() => {
+    // Undo the visibility stub: leaving it hidden would make every later
+    // visibilitychange in this file look like a hide.
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => "visible",
+    });
+  });
+
+  it("drops the bubble and the drag when the window blurs mid-drag", async () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(liveBubbles()).toHaveLength(1);
+    expect(thumb(host).classList.contains(SLIDER_CLASS.DRAGGING)).toBe(true);
+
+    // No pointerup: alt-tab is exactly this.
+    window.dispatchEvent(new Event("blur"));
+
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    expect(thumb(host).classList.contains(SLIDER_CLASS.DRAGGING)).toBe(false);
+    // The value the pointer already produced is committed, not discarded.
+    expect(change).toHaveBeenCalledWith(40);
+
+    // The next press works again: the stale session is really gone.
+    track.dispatchEvent(pointer("pointermove", 90));
+    expect(sliderOf(host)!.value).toBe(40);
+  });
+
+  it("drops the bubble when the tab goes hidden", async () => {
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(liveBubbles()).toHaveLength(1);
+
+    hideVisibility();
+
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("clears a focused row's readout too, and it does not come back", async () => {
+    // No drag at all: a thumb that merely holds focus shows a bubble, and an
+    // alt-tab blurs the element without a focus-loss we would hear (the thumb
+    // keeps focus). The interrupt has to clear it.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    thumb(host).dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(1);
+
+    window.dispatchEvent(new Event("blur"));
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+
+    // Coming back must not revive it: focus is still on the thumb, and no
+    // focus event fires again.
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("retires every slider on the page, not just the last one touched", async () => {
+    // Two rows can each own a live readout (a pan shows two bubbles at once,
+    // and an owner switch parks the other row's node), so the interrupt is
+    // page-level by contract.
+    const first = make({ min: 0, max: 100, value: 20, label: "a" });
+    const second = make({ min: 0, max: 100, value: 70, label: "b" });
+    const trackA = stubTrack(first.host);
+    const trackB = stubTrack(second.host);
+    trackA.dispatchEvent(pointer("pointerdown", 30));
+    trackB.dispatchEvent(pointer("pointerdown", 80));
+    expect(liveBubbles().length).toBeGreaterThan(0);
+
+    window.dispatchEvent(new Event("blur"));
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    expect(first.host.querySelector(`.${SLIDER_CLASS.DRAGGING}`)).toBeNull();
+    expect(second.host.querySelector(`.${SLIDER_CLASS.DRAGGING}`)).toBeNull();
+  });
+
+  it("is idempotent: repeated interrupts and a late release are harmless", async () => {
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+
+    window.dispatchEvent(new Event("blur"));
+    // A blur is commonly followed by a visibility change for one interruption.
+    hideVisibility();
+    window.dispatchEvent(new Event("pointercancel"));
+    // And the release the browser may still deliver afterwards.
+    track.dispatchEvent(pointer("pointerup", 40));
+    window.dispatchEvent(new Event("blur"));
+
+    expect(change).toHaveBeenCalledTimes(1);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("ignores a cancel that names another pointer", () => {
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x" });
+    const track = stubTrack(host);
+    const down = pointer("pointerdown", 40);
+    Object.defineProperty(down, "pointerId", { value: 1 });
+    track.dispatchEvent(down);
+
+    const cancel = new PointerEvent("pointercancel", { bubbles: true });
+    Object.defineProperty(cancel, "pointerId", { value: 2 });
+    window.dispatchEvent(cancel);
+
+    // The live session belongs to pointer 1 and must survive pointer 2's
+    // cancellation.
+    const move = pointer("pointermove", 70);
+    Object.defineProperty(move, "pointerId", { value: 1 });
+    track.dispatchEvent(move);
+    expect(sliderOf(host)!.value).toBe(70);
+  });
+
+  it("does not revive the readout when the browser restores focus on return", async () => {
+    // The reported symptom is not "the bubble survived the switch" — it is
+    // "the bubble came back", every time. A returning browser re-fires focus
+    // at the element it restores, so a focus callback alone cannot tell the
+    // user from the browser. The thumb's own blur is no help either: the
+    // browser delivers that on the way out, so a marker is always cleared.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    expect(liveBubbles()).toHaveLength(1);
+
+    // Deactivation, in the browser's order: element blur, window blur, hidden.
+    thumbEl.dispatchEvent(new Event("blur"));
+    window.dispatchEvent(new Event("blur"));
+    hideVisibility();
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // Reactivation: the browser restores the page and re-fires focus.
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("shows the readout again on the next real input, not before", async () => {
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(new Event("blur"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(0);
+
+    // A key press is the user driving the control: the readout comes back.
+    press(thumbEl, "ArrowRight");
+    expect(liveBubbles()).toHaveLength(1);
+    thumbEl.dispatchEvent(new Event("blur"));
+    await settleHide();
+
+    // So is a fresh press, even with no intervening focus.
+    track.dispatchEvent(pointer("pointerdown", 70));
+    expect(liveBubbles()).toHaveLength(1);
+  });
+
+  it("does not re-arm the readout on a key the slider does not own", async () => {
+    // A keystroke elsewhere on the page reaches the thumb only while it holds
+    // focus; it is not the user driving THIS control.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    const thumbEl = thumb(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(new Event("blur"));
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(0);
+
+    press(thumbEl, "a");
+    expect(liveBubbles()).toHaveLength(0);
+
+    // A key the control owns does re-arm it.
+    press(thumbEl, "ArrowRight");
+    expect(liveBubbles()).toHaveLength(1);
+  });
+
+  it("drops a parked fade node before the hidden tab can show it", async () => {
+    // The fade timer is throttled in a background tab; the node it is meant
+    // to detach can still be painted on return, which is a second way the
+    // readout reappears.
+    const { host } = make({ min: 0, max: 100, value: 13, label: "x" });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    track.dispatchEvent(pointer("pointerup", 40));
+    // The 150ms fade has parked the node, not removed it yet.
+    expect(bubbleNodes()).toHaveLength(1);
+
+    window.dispatchEvent(new Event("blur"));
+    // Gone immediately, without waiting for the throttled timer.
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+
+  it("stops serving a row whose panel dropped it without destroying it", async () => {
+    // Panels drop their rows with remove()/replaceChildren() and never call the
+    // row's own destroy — a real path (opacity.ts, zoomRange.ts). The slider
+    // releases its page-level subscription on the next interrupt instead of
+    // waiting for a collection, so opening panels repeatedly cannot accumulate
+    // one live callback (and one removed slider) per open.
+    const change = vi.fn();
+    const { host } = make({ min: 0, max: 100, value: 30, label: "row", change });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 60));
+    host.remove();
+
+    // Observed from the outside: the interrupt still ends whatever was live,
+    // but the row is no longer a listener afterwards — a second interrupt has
+    // nothing to retire, and the detached row cannot show chrome again.
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledWith(60);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases a mounted row that is dropped with no interrupt in between", async () => {
+    // The real shape: the panel builds the row detached (opacity.ts,
+    // zoomRange.ts do exactly that), appends it, the user opens another panel,
+    // and the row is removed — all without a single blur landing while it was
+    // attached. A "was it ever mounted" flag updated only during an interrupt
+    // would still read false and the dropped row would keep its registration
+    // for the life of the page.
+    const change = vi.fn();
+    const host = document.createElement("div");
+    hosts.push(host);
+    new Slider(host, { min: 0, max: 100, value: 30, label: "row", change });
+    document.body.appendChild(host);
+    // The panel mounts the row on the frame after building it; that is when
+    // "has ever been mounted" becomes true.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 60));
+    host.remove();
+
+    // First interrupt after the drop: it still commits what the pointer
+    // produced (the value is the user's), then releases its subscription.
+    window.dispatchEvent(new Event("blur"));
+    expect(change).toHaveBeenCalledWith(60);
+    expect(change).toHaveBeenCalledTimes(1);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // The subscription really is released: the dropped row's own DOM still
+    // answers events dispatched straight at it, but the page-level interrupt no
+    // longer reaches it. Re-open a drag locally and interrupt: a row that kept
+    // its registration would be retired (and commit) a second time.
+    track.dispatchEvent(pointer("pointerdown", 90));
+    window.dispatchEvent(new Event("blur"));
+    // 2 is the local pointer's own doings (press commits nothing; the interrupt
+    // does) — the marker is that the row is NOT registered again afterwards.
+    const afterSecond = change.mock.calls.length;
+    track.dispatchEvent(pointer("pointerdown", 95));
+    window.dispatchEvent(new Event("blur"));
+    expect(change.mock.calls.length).toBe(afterSecond);
+  });
+
+  it("never releases a row that was built detached and then mounted", async () => {
+    // Rows are constructed before the panel appends them (opacity.ts,
+    // zoomRange.ts build the slider in a detached div). An interrupt can land
+    // in that window; "not mounted yet" is not "dropped", so the row must
+    // still work once the panel mounts it.
+    const host = document.createElement("div");
+    const slider = new Slider(host, { min: 0, max: 100, value: 30, label: "row" });
+    try {
+      document.body.appendChild(host);
+      window.dispatchEvent(new Event("blur"));
+
+      // Still live: a press shows its readout and a drag reaches the value.
+      const track = stubTrack(host);
+      track.dispatchEvent(pointer("pointerdown", 70));
+      expect(liveBubbles()).toHaveLength(1);
+      expect(slider.value).toBe(70);
+    } finally {
+      slider.destroy();
+      host.remove();
+    }
+  });
+
+  it("stops listening once the slider is destroyed", async () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    expect(liveBubbles()).toHaveLength(1);
+
+    sliderOf(host)!.destroy();
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+
+    // A blur after teardown must not reach the dead instance: the
+    // subscription is released with the row, so a second interrupt is a
+    // no-op rather than a call into a destroyed slider.
+    expect(() => {
+      window.dispatchEvent(new Event("blur"));
+      hideVisibility();
+    }).not.toThrow();
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+    expect(thumbEl.isConnected).toBe(false);
+  });
+
+  it("shows the readout normally while dragging and after release", async () => {
+    // The interrupt is a teardown, not a change to the live path: the bubble
+    // still shows with its value and aria while the pointer is down, and the
+    // normal release still ends it.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      format: value => `${Math.round(value)}%`,
+    });
+    const track = stubTrack(host);
+    track.dispatchEvent(pointer("pointerdown", 40));
+    const bubble = liveBubbles()[0];
+    expect(bubble).toBeDefined();
+    expect(bubble.textContent).toBe("40%");
+    expect(bubble.getAttribute("aria-hidden")).toBe("true");
+
+    track.dispatchEvent(pointer("pointermove", 60));
+    await new Promise(resolve => window.setTimeout(resolve, 40));
+    expect(bubble.textContent).toBe("60%");
+
+    track.dispatchEvent(pointer("pointerup", 60));
+    expect(liveBubbles()).toHaveLength(0);
+    await settleHide();
+    expect(bubbleNodes()).toHaveLength(0);
+  });
+});
