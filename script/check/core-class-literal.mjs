@@ -31,9 +31,10 @@ const PREFIXES = ["foliplus-scheme-picker-"];
 
 /** Left-side negative lookbehind + right-side word-bound: the match must be
  *  an independent class-name token. A `data-foliplus-scheme-picker-x`
- *  attribute or a `--foliplus-scheme-picker-x` CSS variable does not count —
- *  the name char immediately to its left (`-`) trips the lookbehind. */
-const PREFIX = "(?<![A-Za-z0-9_-])";
+ *  attribute, a `--foliplus-scheme-picker-x` CSS variable, or a
+ *  `.foliplus-scheme-picker-x` selector string does not count — the name
+ *  char immediately to its left (`-` or `.`) trips the lookbehind. */
+const PREFIX = "(?<![A-Za-z0-9_.-])";
 
 /** Right-boundary: one or more name chars (the class tail), then not another.
  *  Word-bounded on the right so a longer class sharing the prefix never

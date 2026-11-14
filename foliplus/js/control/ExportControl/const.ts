@@ -59,6 +59,7 @@ const CLASSES = {
   // foliplus-is-collapsed/-expanded/-active are the shared panel state
   // vocabulary (ui/panelClassName PANEL_CLASS). foliplus-tool-btn is the
   // shared control button skin (ui/panelClassName PANEL_CLASS).
+  EXPORT_CTRL: "foliplus-export-ctrl",
   EXPORT_MODE: "foliplus-export-mode",
   EXPORT_BLOCKER: "foliplus-export-blocker",
   EXPORT_OVERLAY: "foliplus-export-overlay",

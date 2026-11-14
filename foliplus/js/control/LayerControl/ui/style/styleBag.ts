@@ -17,6 +17,7 @@
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
 import type { LayerUI } from "../surface.js";
 import { isColorBasemap } from "./fillAuthor.js";
+import { EVENTS, publish } from "#core/event/index.js";
 import { findLeaf, isArealStyleLeaf, walkLeaf } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 import { throttleRaf } from "#platform/throttle.js";
@@ -483,6 +484,18 @@ const setStyleApplyFailureReporter = (
 
 const applyKey = (face: SchedulerFace, layerId: string): string => `${face}:${layerId}`;
 
+/** Publish one LAYER_STYLE_CHANGE after a user-originated apply lands.
+ *  Content-change replays (LAYER_ITEM_COUNT_CHANGE source) and owner-less
+ *  test scopes (no bus) stay silent: the first re-applies stored intent to
+ *  newly added leaves (not a user style edit), the second exercises the
+ *  scheduler without a live map to notify. One intent converges to one
+ *  event per rAF batch. */
+const announceStyleChange = (owner: StyleApplyOwner, box: ApplyBox): void => {
+  if (box.source === EVENTS.LAYER_ITEM_COUNT_CHANGE) return;
+  const bus = (owner as Partial<LayerUI>).events;
+  if (!bus) return;
+  publish(bus, EVENTS.LAYER_STYLE_CHANGE, { id: box.layerId });
+};
 /** Execute one box: reclaim the entry first, run inside the boundary
  *  second. The ordering is the whole contract — see the region header. The
  *  reporter is the box owner's, so a late failure reaches the map that
@@ -497,6 +510,7 @@ const runBox = (
   compactOwner(owner, boxes);
   try {
     box.run();
+    announceStyleChange(owner, box);
   } catch (error) {
     log.warn(
       `scheduled ${box.face} apply for "${box.layerId}" (${box.source}) failed — recorded, not raised:`,

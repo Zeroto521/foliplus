@@ -4,6 +4,7 @@ import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { isFilterCapable } from "./filter.js";
+import { EVENTS } from "#core/event/index.js";
 import { sectionOf } from "#core/layer/index.js";
 import {
   type Dismiss,
@@ -14,6 +15,8 @@ import {
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
+import { throttleRaf } from "#platform/throttle.js";
+import { PANEL_CLASS, computePlacement } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
@@ -82,6 +85,60 @@ const handleMenuClick = (ui: LayerUI, event: Event): void => {
   runMenuAction(ui, menuItem, {
     explainDisabled: (event as MouseEvent).detail === 0,
   });
+};
+
+/** Re-place the open overflow menu against its owning row.
+ *  The menu is position:fixed (see menu.css), so its coordinates are
+ *  viewport-relative; a scroll inside the panel's scroll box (which does
+ *  not bubble) is still reported by the document-level capture listener.
+ *  Anchor = the owning row's ⋮ button (falls back to the row itself); the
+ *  clip container is the panel's scroll box (or the map container when
+ *  the row is not inside one), measured fresh each time.
+ *  Gap: the shared dropdown shell zeroes its own margin-top for a JS
+ *  positioned / portalled menu (common/menu.css), so the engine's gap is
+ *  the single source. 4px is the minimum breathing room and keeps the menu
+ *  off the clip edges on both sides. */
+const MORE_MENU_GAP = 4;
+
+const placeMoreMenu = (ui: LayerUI): void => {
+  const open = ui.overlayPanel.activeMenu;
+  if (!open) return;
+  const { item, menu } = open;
+  const btn = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`);
+  const anchor = (btn ?? item).getBoundingClientRect();
+  const clip = item.closest<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
+  const bounds = (clip ?? ui.c.map.getContainer()).getBoundingClientRect();
+  const placement = computePlacement(
+    anchor,
+    { width: menu.offsetWidth, height: menu.scrollHeight },
+    bounds,
+    { gap: MORE_MENU_GAP },
+  );
+  menu.style.left = `${placement.left}px`;
+  menu.style.top = `${placement.top}px`;
+  menu.style.maxWidth = `${placement.maxWidth}px`;
+  menu.style.maxHeight = `${placement.maxHeight}px`;
+  menu.classList.toggle(CONST.CLASSES.MORE_MENU_UP, placement.side === "above");
+};
+
+/** Coalesced re-place pass bound while the menu is open. A scroll inside the
+ *  panel's scroll box fires on the scroll box, not the window, but the
+ *  document-level capture listener still reports it. */
+const scheduleMoreMenu = (ui: LayerUI): (() => void) => {
+  const run = throttleRaf(() => placeMoreMenu(ui));
+  const onScroll = () => run();
+  window.addEventListener("scroll", onScroll, true);
+  window.addEventListener("resize", onScroll);
+  // Row expand / collapse rebuilds the list and can move the owning row; a
+  // folder toggle publishes LAYER_ROLE_COUNT_CHANGED, which re-places the
+  // menu against its (possibly moved) row.
+  const unsub = ui.events.on(EVENTS.LAYER_ROLE_COUNT_CHANGED, () => run());
+  return () => {
+    run.cancel();
+    window.removeEventListener("scroll", onScroll, true);
+    window.removeEventListener("resize", onScroll);
+    unsub();
+  };
 };
 
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
@@ -312,6 +369,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   ui.overlayPanel.menuOverlayUnregister = attachPanel(ui.c.map, controller);
   controller.open();
 
+  // Position the menu against its owning row now that it is in the DOM, and
+  // keep it re-placed on scroll / resize / row expand-collapse while open.
+  placeMoreMenu(ui);
+  ui.overlayPanel.menuReposition = scheduleMoreMenu(ui);
+
   // Focus the first menu item so Enter/Space activate it and Escape closes.
   // The head is Filter when supported, Style otherwise — both are reversible
   // actions, so the trigger-adjacent slot is always safe.
@@ -457,6 +519,8 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   ui.overlayPanel.menuOverlayUnregister?.();
   ui.overlayPanel.menuOverlayUnregister = null;
+  ui.overlayPanel.menuReposition?.();
+  ui.overlayPanel.menuReposition = null;
   if (!ui.overlayPanel.activeMenu) return;
   const item = ui.overlayPanel.activeMenu.item;
   const menu = ui.overlayPanel.activeMenu.menu;

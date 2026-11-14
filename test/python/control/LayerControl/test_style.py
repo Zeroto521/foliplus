@@ -2086,6 +2086,54 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    @pytest.mark.parametrize(
+        "fill_mode,border_mode",
+        [
+            ("original", "original"),
+            ("original", "solid"),
+            ("solid", "original"),
+            ("solid", "solid"),
+        ],
+    )
+    def test_style_fill_and_border_number_boxes_share_one_slot(
+        self, browser, tmp_path, fill_mode, border_mode
+    ):
+        """The fill opacity box and the border weight box occupy one flex slot.
+
+        The two rows read as one grid: the number-like box (the fill opacity
+        input in solid mode, the readonly original-value box in original mode)
+        and the border weight input share the same width and the same inline
+        group, in every mode combination. A regression that widens one without
+        the other breaks the alignment the drawer promises.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug=f"fill_border_box_{fill_mode}_{border_mode}",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            result = page.evaluate(
+                _js("LayerControl/read_fill_border_number_boxes"),
+                {"fillMode": fill_mode, "borderMode": border_mode},
+            )
+            assert result.get("ok"), result
+            assert result["fillMode"] == fill_mode, result
+            assert result["borderMode"] == border_mode, result
+            assert result["fillNumber"] is not None, result
+            assert result["borderNumber"] is not None, result
+            # The two number boxes share the same width within a pixel.
+            assert result["fillNumber"]["w"] == pytest.approx(
+                result["borderNumber"]["w"], abs=1
+            ), result
+            # The two inline groups share the same flex slot width within a
+            # pixel, so the boxes land on the same column edge.
+            assert result["fillInline"]["w"] == pytest.approx(
+                result["borderInline"]["w"], abs=1
+            ), result
+            assert not errors, f"JS errors: {errors}"
+
     def test_style_fill_category_paints_distinct_districts(self, browser, tmp_path):
         """The category by-value mode paints each district its own color.
 
@@ -2301,6 +2349,60 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert result["countAfterUp"] == 0, (
                 f"bubbles did not clear on release: {result}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_slider_bubble_clears_on_window_blur(self, browser, tmp_path):
+        """A drag interrupted by the window losing focus leaves no bubble.
+
+        The probe presses a thumb and never releases it, then dispatches the
+        window blur an alt-tab delivers. Without a retire path the drag session
+        and the portalled bubble both survive, so the user sees a readout
+        reappear on a row they have not touched. The assertions cover the
+        visible result (no live bubble, no leftover node), the drag state, and
+        that returning to the page neither revives the bubble nor blocks the
+        next gesture.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            result = page.evaluate(
+                _js("LayerControl/blur_bubble_retire"),
+                load_geojson("common", "point_1193_2608"),
+            )
+            assert result is not None, result
+            assert result.get("error") is None, f"setup failed: {result}"
+            assert result["liveBefore"] == 1, (
+                f"the probe did not start a drag with a visible bubble: {result}"
+            )
+            assert result["draggingBefore"] is True, result
+            assert result["textBefore"] is not None, result
+            assert result["liveAfterBlur"] == 0, (
+                f"the bubble survived the window blur: {result}"
+            )
+            assert result["draggingAfterBlur"] is False, (
+                f"the drag state survived the window blur: {result}"
+            )
+            assert result["nodesAfterBlur"] == 0, (
+                f"the bubble node was left in the document: {result}"
+            )
+            # The reported symptom: it comes back. Returning re-fires focus at
+            # the still-active thumb, which must not repaint the readout.
+            assert result["liveAfterReturn"] == 0, (
+                f"the bubble came back when the page was shown again: {result}"
+            )
+            assert result["nodesAfterReturn"] == 0, (
+                f"a bubble node was painted again on return: {result}"
+            )
+            # ... but real input still shows it: the fix refuses the browser's
+            # automatic restore, it does not mute the control.
+            assert result["keyboardWorks"] is True, (
+                f"real input no longer shows the readout: {result}"
+            )
+            assert result["resumed"] is True, (
+                f"the slider no longer responds after the interrupt: {result}"
+            )
+            assert result["nodesAfterResume"] == 0, (
+                f"the resumed drag left a bubble behind: {result}"
             )
             assert not errors, f"JS errors: {errors}"
 

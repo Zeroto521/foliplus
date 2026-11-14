@@ -123,6 +123,9 @@ const CLASSES = {
   FILTER_HIDDEN: "foliplus-feature-filtered",
   MORE_BTN: "foliplus-layer-more-btn",
   MORE_MENU: "foliplus-layer-more-menu",
+  /** The overflow menu opened above its owning row (flipped because the
+   *  row is near the panel's bottom edge). */
+  MORE_MENU_UP: "foliplus-layer-more-menu-up",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   /** The section header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the section owns at least one empty folder key. */
   CLEAN_FOLDERS_BTN: "foliplus-layer-clean-folders",

@@ -42,11 +42,14 @@ arg => {
   const panel = rowA.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { error: "no-panel" };
   const modeSelect = panel.querySelector(".foliplus-style-fill-mode-select");
-  const colorInput = panel.querySelector(".foliplus-style-fill-color-input");
   if (modeSelect) {
     modeSelect.value = "solid";
     modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
   }
+  // The mode switch rebuilds the detail slot in place: re-query the color
+  // input AFTER the switch (the pre-switch render was the original-colours
+  // read-only row, which has no input).
+  const colorInput = panel.querySelector(".foliplus-style-fill-color-input");
   if (!colorInput) return { error: "no-color-input" };
   colorInput.value = color;
   colorInput.dispatchEvent(new Event("input", { bubbles: true }));

@@ -108,11 +108,23 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
     coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
   );
 };
-/** Write the layer's color and replay the walk. */
+/** Write the layer's color and replay the walk.
+ *
+ *  Every commit in this file schedules with `owner: ui`: the walk lands in
+ *  that UI's scope, so a late failure reports to this map's observer (never a
+ *  neighbouring control's) and the reset path's
+ *  `cancelStyleDimApply(..., ui)` finds the walk it is dropping instead of
+ *  walking off empty-handed and leaving the user's colour queued behind the
+ *  authored restore. */
 const commitIconColor = (ui: LayerUI, layerId: string, color: string): void => {
   writeIntentKeys(ui, layerId, [[INTENT.ICON_COLOR, color]]);
-  scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
-    applyIconColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.ICON_COLOR,
+    layerId,
+    () => applyIconColorToLayer(ui, layerId),
+    {
+      owner: ui,
+    },
   );
 };
 /** Write the layer's glyph opacity (0-100) and replay the walk. Stored as
@@ -127,8 +139,13 @@ const commitIconColorOpacity = (
   const value = Math.round(opacity);
   if (!(value >= 0 && value <= 100)) return;
   writeIntentKeys(ui, layerId, [[INTENT.ICON_COLOR_OPACITY, value]]);
-  scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
-    applyIconColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.ICON_COLOR,
+    layerId,
+    () => applyIconColorToLayer(ui, layerId),
+    {
+      owner: ui,
+    },
   );
 };
 /** Reset the layer's icon color to the author's paint and drop the
@@ -256,8 +273,13 @@ const ICON_COLOR_DIMENSION = registerDimension<{
     }
     if (keys.length === 0) return;
     writeIntentKeys(ui, layerId, keys);
-    scheduleStyleDimApply(FACE.ICON_COLOR, layerId, () =>
-      applyIconColorToLayer(ui, layerId),
+    scheduleStyleDimApply(
+      FACE.ICON_COLOR,
+      layerId,
+      () => applyIconColorToLayer(ui, layerId),
+      {
+        owner: ui,
+      },
     );
   },
   reset: (ui, layerId) => resetLayerIconColor(ui, layerId),

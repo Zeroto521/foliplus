@@ -84,7 +84,7 @@ const buildModeRow = (spec: {
       dom.el(
         "div",
         { class: PANEL_CLASS.FORM_CONTROL },
-        dom.el("div", { class: "foliplus-form-inline" }, dropdown.element),
+        dom.el("div", { class: PANEL_CLASS.FORM_INLINE }, dropdown.element),
       ),
     ),
     detail,

@@ -3,7 +3,10 @@
 // lines are dropped (the root tsconfig owns them), everything else is gating.
 // A regression here would silently swallow real test errors, so both are
 // asserted directly, along with the main() shell that reports on them.
-import { resolve } from "node:path";
+import type { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -12,6 +15,7 @@ import {
   isMain,
   main,
   parseErrors,
+  resolveRoot,
   runTsc,
 } from "#script/typecheck-test.mjs";
 
@@ -124,7 +128,7 @@ describe("filterProduction", () => {
 });
 
 describe("runTsc", () => {
-  it("runs the workspace tsc on the test program", () => {
+  it("defaults cwd to process.cwd()", () => {
     const spawn = vi.fn();
     runTsc({ spawn });
 
@@ -138,7 +142,8 @@ describe("runTsc", () => {
       "-p",
       "test/js/tsconfig.json",
     ]);
-    expect(options).toEqual({ cwd: expect.any(String), encoding: "utf8" });
+    expect(options.cwd).toBe(process.cwd());
+    expect(options).toEqual({ cwd: process.cwd(), encoding: "utf8" });
   });
 
   it("honours an injected cwd", () => {
@@ -230,6 +235,112 @@ describe("main", () => {
   });
 });
 
+describe("resolveRoot", () => {
+  /** Mock process.cwd() to return `dir`, run resolveRoot(argv). */
+  const withMockCwd = (dir: string, argv: string[]) => {
+    const spy = vi.spyOn(process, "cwd").mockReturnValue(dir);
+    try {
+      return resolveRoot(argv);
+    } finally {
+      spy.mockRestore();
+    }
+  };
+
+  it("returns --root value when --root is given", () => {
+    expect(resolveRoot(["--root", "/tmp/myrepo"])).toBe(resolve("/tmp/myrepo"));
+  });
+
+  it("returns cwd when cwd has a package.json (npm run case)", () => {
+    const dir = mkdtempSync(join(os.tmpdir(), "typecheck-root-"));
+    writeFileSync(join(dir, "package.json"), "{}\n");
+    try {
+      expect(withMockCwd(dir, [])).toBe(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("honours --root even when cwd is not a repo root", () => {
+    // --root is checked before cwd, so a bare cwd is irrelevant.
+    expect(resolveRoot(["--root", "/tmp/myrepo"])).toBe(resolve("/tmp/myrepo"));
+  });
+
+  it("resolves a relative --root against cwd", () => {
+    const result = resolveRoot(["--root", "subdir"]);
+    expect(result).toBe(resolve("subdir"));
+  });
+
+  it("throws when cwd is not a repo root and no --root is given", () => {
+    const bare = mkdtempSync(join(os.tmpdir(), "typecheck-bare-"));
+    try {
+      expect(() => withMockCwd(bare, [])).toThrow(/not a repo root/);
+    } finally {
+      rmSync(bare, { recursive: true, force: true });
+    }
+  });
+
+  it("falls through to cwd when --root has no value (dangling flag)", () => {
+    const dir = mkdtempSync(join(os.tmpdir(), "typecheck-root-"));
+    writeFileSync(join(dir, "package.json"), "{}\n");
+    try {
+      // --root is present but has no value → override undefined → cwd arm.
+      expect(withMockCwd(dir, ["--root"])).toBe(dir);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("main with resolveRoot (cwd not a repo root)", () => {
+  it("calls error and exits 1 when cwd is not a repo root", () => {
+    const bare = mkdtempSync(join(os.tmpdir(), "typecheck-bare-"));
+    const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(bare);
+    try {
+      const error = vi.fn();
+      const code = main({ log: vi.fn(), error, argv: [] });
+      expect(code).toBe(1);
+      expect(error).toHaveBeenCalledWith(expect.stringContaining("not a repo root"));
+    } finally {
+      cwdSpy.mockRestore();
+      rmSync(bare, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("main resolveRoot success path", () => {
+  it("runs tsc and exits 0 when cwd is a valid repo root", () => {
+    // The `out = runTsc({ cwd: root, spawn })` arm on the success path:
+    // resolveRoot resolves, runTsc is invoked with that cwd, and the
+    // stubbed spawn returns a clean tsc result so main exits 0.
+    const repo = mkdtempSync(join(os.tmpdir(), "typecheck-ok-"));
+    writeFileSync(join(repo, "package.json"), "{}\n");
+    const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(repo);
+    // The spawn injection point is typed `typeof spawnSync`, so the stub
+    // returns the narrow shape runTsc reads (`status`) and casts the wider
+    // SpawnSyncReturns fields the test does not exercise.
+    const spawnResult = { status: 0, stdout: "", stderr: "" };
+    const spawn = vi.fn(() => spawnResult) as unknown as typeof spawnSync;
+    try {
+      const log = vi.fn();
+      const code = main({ spawn, log, error: vi.fn(), argv: [] });
+      expect(code).toBe(0);
+      // The cast hides `.mock`; reach the call log through a narrow shape.
+      const calls = (spawn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+      expect(calls).toHaveLength(1);
+      const call = calls[0] ?? [];
+      const args = (call[1] as string[]) ?? [];
+      const options = (call[2] as { cwd?: string }) ?? {};
+      expect(options.cwd).toBe(repo);
+      expect(args).toContain("-p");
+      expect(log).toHaveBeenCalledWith(
+        "test/js typecheck: 0 errors (production lines filtered by design: 0)",
+      );
+    } finally {
+      cwdSpy.mockRestore();
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+});
 describe("isMain", () => {
   it("fires when node runs the file directly", () => {
     const url = "file:///C:/repo/script/typecheck-test.mjs";

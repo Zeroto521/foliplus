@@ -22,29 +22,25 @@
 import type { LayerUI } from "../surface.js";
 import { CAP_TIER } from "#core/layer/index.js";
 
-/** The style dimensions the reader can project. Ordered like the panel's
- *  `DIM_ORDER` + `LABEL_DIM_ORDER` union (the reader adds nothing outside
- *  those two arrays — `registry.test` locks that union). */
-type StyleDim =
-  | "fill"
-  | "border"
-  | "opacity"
-  | "size"
-  | "label"
-  | "icon"
-  | "iconColor"
-  | "markerColor"
-  | "zoomRange";
-
-/** The full style-capability answer for one layer, in one object. */
+/** The full style-capability answer for one layer, in one object.
+ *
+ *  `dims` lists the dimensions the projection publishes today. They are
+ *  required booleans — not `Partial` — so a reader never has to fall back on
+ *  `?? false`; the type itself guarantees a boolean per published dim.
+ *  Adding a new published dim means adding the key here and to both return
+ *  sites in `styleCapability` below, plus one parity assertion in
+ *  `styleCapability.test.ts`. Dimensions not yet published (fill / iconColor /
+ *  markerColor) still answer through their own per-dimension gate and are
+ *  absent from this map. */
 interface StyleCapability {
-  /** One boolean per dimension the projection currently PUBLISHES (the ones a
-   *  production consumer reads). The type keeps the full vocabulary so a
-   *  future consumer extends this map with its dimension — one line in the
-   *  `dims` object below plus one parity assertion — instead of a type edit.
-   *  Dimensions without a consumer still answer through their own gate and are
-   *  absent from this map. */
-  dims: Partial<Record<StyleDim, boolean>>;
+  dims: {
+    opacity: boolean;
+    zoomRange: boolean;
+    label: boolean;
+    border: boolean;
+    size: boolean;
+    icon: boolean;
+  };
   /** The layer publishes styleSetters (third-party canvas layers: Heatmap,
    *  Measure) — the menu's delegation gate, exactly as
    *  `layerHasStyleDelegation` reads it. */
@@ -65,6 +61,7 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
         opacity: false,
         zoomRange: false,
         label: false,
+        border: false,
         size: false,
         icon: false,
       },
@@ -77,6 +74,7 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
       opacity: caps.opacity !== CAP_TIER.NONE,
       zoomRange: caps.zoomRange !== CAP_TIER.NONE,
       label: caps.label !== CAP_TIER.NONE,
+      border: caps.stroke === CAP_TIER.NATIVE,
       size: caps.size === CAP_TIER.NATIVE,
       icon: caps.icon === CAP_TIER.NATIVE,
     },

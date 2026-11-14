@@ -25,6 +25,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { EVENTS, publish as publishEvent } from "#core/event/index.js";
 import { DIM, ROLE } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
@@ -154,6 +155,12 @@ const OPACITY_DIMENSION = registerDimension<number>({
     // can still converge a stale map membership, and that flip is a real
     // change worth notifying.
     notifyDelta(ui, layerInfo, moved);
+    // A user opacity edit is a style intent: announce it on the shared bus
+    // so style subscribers (e.g. a HeatmapControl layer) refresh their
+    // swatches, mirroring the vector-dimension landing point. Reset does
+    // not publish — it restores the author value directly, like the
+    // fill/border/size resets.
+    publishEvent(ui.events, EVENTS.LAYER_STYLE_CHANGE, { id: layerId });
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. Returns
    *  the delta without announcing — the complete reset entry

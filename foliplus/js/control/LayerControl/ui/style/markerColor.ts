@@ -117,11 +117,21 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
     typeof opacity === "number" ? opacity : undefined,
   );
 };
-/** Write the layer's chassis color and replay the walk. */
+/** Write the layer's chassis color and replay the walk.
+ *
+ *  Scheduled with `owner: ui` for the same reason as `iconColor.ts`: the walk
+ *  lands in this UI's scope, so a late failure reaches this map's observer and
+ *  the reset path's `cancelStyleDimApply(..., ui)` finds the walk it drops
+ *  instead of leaving it queued behind the authored restore. */
 const commitMarkerColor = (ui: LayerUI, layerId: string, markerColor: string): void => {
   writeIntentKeys(ui, layerId, [[INTENT.MARKER_COLOR, markerColor]]);
-  scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
-    applyMarkerColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.MARKER_COLOR,
+    layerId,
+    () => applyMarkerColorToLayer(ui, layerId),
+    {
+      owner: ui,
+    },
   );
 };
 /** Write the layer's chassis opacity (0-100) and replay the walk. Stored as
@@ -136,8 +146,13 @@ const commitMarkerColorOpacity = (
   const value = Math.round(opacity);
   if (!(value >= 0 && value <= 100)) return;
   writeIntentKeys(ui, layerId, [[INTENT.MARKER_COLOR_OPACITY, value]]);
-  scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
-    applyMarkerColorToLayer(ui, layerId),
+  scheduleStyleDimApply(
+    FACE.MARKER_COLOR,
+    layerId,
+    () => applyMarkerColorToLayer(ui, layerId),
+    {
+      owner: ui,
+    },
   );
 };
 /** Reset the layer's chassis color + opacity to the author's and drop the
@@ -258,8 +273,13 @@ const MARKER_COLOR_DIMENSION = registerDimension<{
     }
     if (keys.length === 0) return;
     writeIntentKeys(ui, layerId, keys);
-    scheduleStyleDimApply(FACE.MARKER_COLOR, layerId, () =>
-      applyMarkerColorToLayer(ui, layerId),
+    scheduleStyleDimApply(
+      FACE.MARKER_COLOR,
+      layerId,
+      () => applyMarkerColorToLayer(ui, layerId),
+      {
+        owner: ui,
+      },
     );
   },
   reset: (ui, layerId) => resetLayerMarkerColor(ui, layerId),

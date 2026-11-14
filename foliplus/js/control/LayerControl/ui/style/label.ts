@@ -8,7 +8,7 @@ import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { type LabelField, isNumericField } from "#core/label/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { clampLabelSize, normalizeHexColor } from "#ui/index.js";
+import { PANEL_CLASS, clampLabelSize, normalizeHexColor } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LabelConfig } from "#control/LayerControl/type.js";
 
@@ -173,7 +173,7 @@ const applyStyleLabelState = (ui: LayerUI): void => {
  *  silently matched nothing, which is how the row once shipped visible for
  *  string fields. */
 const syncFormatRow = (fields: LabelField[], row: HTMLElement, field: string): void => {
-  row.classList.toggle("foliplus-hidden", !isNumericField(fields, field));
+  row.classList.toggle(PANEL_CLASS.HIDDEN, !isNumericField(fields, field));
 };
 
 export {

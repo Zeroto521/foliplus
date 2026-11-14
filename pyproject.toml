@@ -40,7 +40,7 @@ test = [
   "docutils<0.23",  # sphinx 9 requires docutils<0.23; pinning here keeps the shared uv lock from downgrading sphinx
 ]
 doc = [
-  "sphinx",
+  "sphinx>=8.2,<10",  # sphinx < 8.2 imports Union from types, removed in Python 3.14; the floor keeps every resolve on the supported line
   "pydata-sphinx-theme",
   "myst-nb",
   "sphinx-copybutton",
@@ -49,6 +49,7 @@ doc = [
   "my-data-toolkit",
   "matplotlib",
   "mapclassify",
+  "docutils>=0.21,<0.23",  # sphinx 9 requires docutils>=0.21,<0.23; the range keeps the doc-group resolve on the modern stack
 ]
 dev = [{ include-group = "test" }, { include-group = "doc" }, "build", "twine"]
 
