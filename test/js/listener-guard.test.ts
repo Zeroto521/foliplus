@@ -165,10 +165,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "control/LayerControl/ui/overlayPanel/menu.ts",
-    n: 2,
+    n: 4,
     pairedOff: 0,
     reason:
-      "menu-local item click dispatch + focusout; outside-click moved to core/overlay/overlayRegistry in M2-C4",
+      "menu-local item click dispatch + focusout; outside-click moved to core/overlay/overlayRegistry in M2-C4. The placement pair (window scroll capture + resize) re-places the open menu against its clip container \u2014 the same free-standing singleton pattern as core/leaflet/panel.ts's row-panel placement (no BaseControl instance in scope; scheduleMoreMenu owns the teardown and returns it to the caller)",
   },
   {
     f: "control/LayerControl/ui/style/index.ts",
