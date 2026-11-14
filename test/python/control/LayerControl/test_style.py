@@ -2086,6 +2086,54 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    @pytest.mark.parametrize(
+        "fill_mode,border_mode",
+        [
+            ("original", "original"),
+            ("original", "solid"),
+            ("solid", "original"),
+            ("solid", "solid"),
+        ],
+    )
+    def test_style_fill_and_border_number_boxes_share_one_slot(
+        self, browser, tmp_path, fill_mode, border_mode
+    ):
+        """The fill opacity box and the border weight box occupy one flex slot.
+
+        The two rows read as one grid: the number-like box (the fill opacity
+        input in solid mode, the readonly original-value box in original mode)
+        and the border weight input share the same width and the same inline
+        group, in every mode combination. A regression that widens one without
+        the other breaks the alignment the drawer promises.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug=f"fill_border_box_{fill_mode}_{border_mode}",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            result = page.evaluate(
+                _js("LayerControl/read_fill_border_number_boxes"),
+                {"fillMode": fill_mode, "borderMode": border_mode},
+            )
+            assert result.get("ok"), result
+            assert result["fillMode"] == fill_mode, result
+            assert result["borderMode"] == border_mode, result
+            assert result["fillNumber"] is not None, result
+            assert result["borderNumber"] is not None, result
+            # The two number boxes share the same width within a pixel.
+            assert result["fillNumber"]["w"] == pytest.approx(
+                result["borderNumber"]["w"], abs=1
+            ), result
+            # The two inline groups share the same flex slot width within a
+            # pixel, so the boxes land on the same column edge.
+            assert result["fillInline"]["w"] == pytest.approx(
+                result["borderInline"]["w"], abs=1
+            ), result
+            assert not errors, f"JS errors: {errors}"
+
     def test_style_fill_category_paints_distinct_districts(self, browser, tmp_path):
         """The category by-value mode paints each district its own color.
 

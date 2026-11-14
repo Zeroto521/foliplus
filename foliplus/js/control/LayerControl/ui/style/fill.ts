@@ -879,7 +879,6 @@ export {
   valueFields,
   applyFillToLayer,
   bindFillRow,
-  buildFillOpacityInput,
   buildFillRow,
   commitFillColor,
   commitFillOpacity,
