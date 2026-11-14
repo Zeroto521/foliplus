@@ -2533,6 +2533,39 @@ describe("buildFillRow", () => {
     ).not.toBeNull();
   });
 
+  it("round-trips a dirty opacity through the 1-decimal normalize", () => {
+    // A user can type a float that does not carry cleanly in binary. The
+    // display rounds to one decimal percent and the commit stores the rounded
+    // ratio, so the stored value and the readout agree and never leak a
+    // 55.50000000000001-style tail. The input must live in the open panel
+    // (the live binder wires the commit), not in a detached row.
+    setIntent(ui, "overlay1", "fillStyleMode", "solid");
+
+    const item = findItem(ui, "overlay1");
+
+    ui.openStylePanel("overlay1");
+
+    const input = item.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+
+    input.value = "55.49999";
+
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+
+    // The stored ratio is the rounded percent over 100, one clean decimal.
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.555);
+
+    // A rebuild re-reads the stored value and shows the rounded percent.
+    const rebuilt = buildFillRow(ui, "overlay1");
+
+    const readout = rebuilt.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+
+    expect(readout.value).toBe("55.5");
+  });
+
   it("the fill opacity input allows any integer 0–100 (step 1)", () => {
     // The number field is the precise input; a coarse step would keep the
 
