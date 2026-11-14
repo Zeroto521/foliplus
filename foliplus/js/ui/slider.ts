@@ -18,6 +18,7 @@ import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./ty
 import { dom } from "#platform/dom.js";
 import { finalize } from "#platform/finalize.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
+import { onGestureRetire } from "#platform/gesture.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("LayerControl");
@@ -230,6 +231,8 @@ class Slider {
   private bubbleFrame = 0;
   /** Thumbs whose bubble is shown and owned by this root. */
   private readonly bubbleAnchors = new Set<HTMLElement>();
+  /** Releases the page-level gesture interrupt subscription. */
+  private unsubscribeRetire: (() => void) | null = null;
   private drag: {
     id: number;
     index: number;
@@ -437,6 +440,15 @@ class Slider {
   destroy(): void {
     finalize(
       [
+        // The page-level interrupt subscription is per instance; drop it so a
+        // removed slider cannot be called back by a later blur.
+        [
+          "release-retire",
+          () => {
+            this.unsubscribeRetire?.();
+            this.unsubscribeRetire = null;
+          },
+        ],
         // Destroy commits rather than discards: the dragged value is the
         // user's, and the map, persistence and panel already show it. Dropping
         // it here would make a removal silently undo their last gesture. Same
@@ -606,6 +618,11 @@ class Slider {
 
   // ── Interaction ─────────────────────────────────────────────
   private bind(): void {
+    // A release only reaches a focused page, so the in-app endings above
+    // cannot cover an alt-tab or a tab switch. `retire` is the one teardown
+    // every out-of-band ending runs: it ends the drag (committing what the
+    // pointer already produced) and clears this slider's bubbles.
+    this.unsubscribeRetire = onGestureRetire(this.retire);
     this.track.addEventListener("pointerdown", this.onTrackDown);
     this.track.addEventListener("pointermove", this.onPointerMove);
     this.track.addEventListener("pointerup", this.onPointerUp);
@@ -759,6 +776,34 @@ class Slider {
     // without a pointerup; the value already moved, so it still has to be
     // committed or the map would keep a preview the store never recorded.
     this.endSession(true);
+  };
+
+  /** The teardown for an ending no release describes: the window lost focus,
+   *  the tab went hidden, or the pointer was cancelled outside this track.
+   *
+   *  Everything the normal path would have reset is reset here through the
+   *  same calls — the drag session (which commits what the pointer already
+   *  produced, like the capture-loss path) and this slider's bubbles. It is
+   *  idempotent by construction: `endSession` returns early with no live
+   *  session and `hideBubble()` skips anchors that are no longer pooled, so
+   *  a blur followed by a visibilitychange, or an interrupt after the user
+   *  already released, is harmless.
+   *
+   *  A cancel that names a different pointer belongs to another gesture and
+   *  leaves the live session alone. */
+  private readonly retire = (event: Event): void => {
+    const drag = this.drag;
+    if (drag) {
+      if (event instanceof PointerEvent && event.pointerId !== drag.id) return;
+      try {
+        this.track.releasePointerCapture(drag.id);
+      } catch {
+        // Already released — the interrupt may have taken it.
+      }
+    }
+    this.endSession(true);
+    // Runs with no drag too: a focused thumb shows a readout without one.
+    this.hideBubble();
   };
 
   /** Whether the two thumbs sit close enough that a press cannot say which
