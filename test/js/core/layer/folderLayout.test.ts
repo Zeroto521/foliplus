@@ -17,10 +17,16 @@ import {
   emptyFolderLayout,
   folderOf,
   freezeSectionOrder,
+  fullDisplayOrder,
+  groupByFolder,
   isFolderLayout,
+  moveLayerToFolder,
+  moveLayerToRoot,
   normalizeFolderName,
   readFolderLayout,
   renameFolder,
+  restoreAuthorLayout,
+  sectionOrder,
   seedFolderLayout,
   writeFolderLayout,
 } from "#core/layer/index.js";
@@ -279,5 +285,216 @@ describe("seed merge", () => {
 
     expect(manager.layout.members.a).toEqual({ section: "overlay", folder: "roads" });
     expect(manager.layout.folders).toEqual([{ key: "roads", name: "Roads" }]);
+  });
+});
+
+describe("pure helper coverage", () => {
+  it("isFolderLayout rejects non-array folders, bad order, bad members", () => {
+    expect(isFolderLayout({ version: 2, folders: "x", order: {}, members: {} })).toBe(
+      false,
+    );
+    expect(
+      isFolderLayout({ version: 2, folders: [], order: { overlay: "x" }, members: {} }),
+    ).toBe(false);
+    expect(
+      isFolderLayout({
+        version: 2,
+        folders: [],
+        order: { overlay: [] },
+        members: { a: { section: "x", folder: "f" } },
+      }),
+    ).toBe(false);
+    expect(
+      isFolderLayout({ version: 2, folders: [{ key: 1 }], order: {}, members: {} }),
+    ).toBe(false);
+    expect(
+      isFolderLayout({
+        version: 2,
+        folders: [{ key: "a", name: 1 }],
+        order: {},
+        members: {},
+      }),
+    ).toBe(false);
+    expect(
+      isFolderLayout({ version: 2, folders: [], order: { overlay: [1] }, members: {} }),
+    ).toBe(false);
+    expect(
+      isFolderLayout({
+        version: 2,
+        folders: [],
+        order: {},
+        members: { a: { section: "overlay", folder: 1 } },
+      }),
+    ).toBe(false);
+    expect(
+      isFolderLayout({
+        version: 2,
+        folders: [],
+        order: {},
+        members: { a: { section: "overlay" } },
+      }),
+    ).toBe(false);
+  });
+
+  it("groupByFolder groups only the section and respects the directory display name", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Streets" }],
+      order: {},
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    const entries = [
+      entry("a", "overlay", null, 0),
+      entry("b", "base", "Roads", 1),
+    ] as LayerInfo[];
+    const map = groupByFolder(entries, "overlay", layout);
+    expect(map.has("roads")).toBe(true);
+    expect(map.get("roads")!.displayName).toBe("Streets");
+    expect(map.get("roads")!.members.map(m => m.id)).toEqual(["a"]);
+  });
+
+  it("sectionOrder lists listed keys first then unlisted by anchor, and roots last", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: {
+        a: { section: "overlay", folder: "roads" },
+        b: { section: "overlay", folder: "" },
+      },
+    };
+    const entries = [
+      entry("a", "overlay", "Roads", 0),
+      entry("b", "overlay", null, 1),
+      entry("c", "overlay", "Water", 2),
+    ] as LayerInfo[];
+    const order = sectionOrder("overlay", entries, layout);
+    expect(order.map(e => e.id)).toEqual(["a", "c", "b"]);
+  });
+
+  it("fullDisplayOrder composes both sections", () => {
+    const layout = emptyFolderLayout();
+    const entries = [
+      entry("a", "overlay", null, 0),
+      entry("b", "base", null, 1),
+    ] as LayerInfo[];
+    expect(fullDisplayOrder(entries, layout).map(e => e.id)).toEqual(["a", "b"]);
+  });
+
+  it("freezeSectionOrder appends an unlisted key when the frozen key is absent", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: [] },
+    };
+    const entries = [entry("a", "overlay", "Roads", 0)] as LayerInfo[];
+    const next = freezeSectionOrder(layout, "overlay", entries, "roads");
+    expect(next.order.overlay).toEqual(["roads"]);
+  });
+
+  it("createFolder reuses an existing directory entry across sections", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { base: ["roads"] },
+    };
+    const next = createFolder(layout, "overlay", "Roads");
+    expect(next.order.overlay).toEqual(["roads"]);
+    expect(next.folders).toEqual([{ key: "roads", name: "Roads" }]);
+  });
+
+  it("createFolder refuses a blank name and a same-section duplicate", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["roads"] },
+    };
+    expect(createFolder(layout, "overlay", "   ")).toBe(layout);
+    expect(createFolder(layout, "overlay", "roads")).toBe(layout);
+  });
+
+  it("renameFolder is a no-op on blank, normalisation-only, or missing", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+    };
+    expect(renameFolder(layout, "overlay", "Roads", "  ")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "Roads", "roads")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "Missing", "X")).toBe(layout);
+  });
+
+  it("moveLayerToFolder and moveLayerToRoot update the assignment", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    const toRoot = moveLayerToRoot(layout, "a", "overlay");
+    expect(toRoot.members.a).toEqual({ section: "overlay", folder: "" });
+    expect(moveLayerToRoot(toRoot, "a", "overlay")).toBe(toRoot);
+    const toFolder = moveLayerToFolder(layout, "a", "overlay", "roads");
+    expect(toFolder.members.a).toEqual({ section: "overlay", folder: "roads" });
+  });
+
+  it("dropLayer removes the assignment and is a no-op for an unassigned layer", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    expect(dropLayer(layout, "a")).toEqual({ ...emptyFolderLayout(), members: {} });
+    expect(dropLayer(layout, "zzz")).toBe(layout);
+  });
+
+  it("restoreAuthorLayout clears order and members but keeps the directory", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Streets" }],
+      order: { overlay: ["roads"] },
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    const restored = restoreAuthorLayout(layout);
+    expect(restored.folders).toEqual([{ key: "roads", name: "Streets" }]);
+    expect(restored.order.overlay ?? []).toEqual([]);
+    expect(restored.members).toEqual({});
+  });
+});
+
+describe("manager lifecycle", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("set then flush persists, reload re-reads, isEmpty reflects the state", () => {
+    const manager = createFolderLayoutManager();
+    expect(manager.isEmpty()).toBe(true);
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    manager.set(layout);
+    expect(manager.isEmpty()).toBe(false);
+    manager.flush();
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
+    const fresh = createFolderLayoutManager();
+    expect(fresh.layout.members.a).toEqual({ section: "overlay", folder: "roads" });
+    fresh.reload();
+    expect(fresh.layout.order.overlay).toEqual(["roads"]);
+  });
+
+  it("set debounces the write and flush forces it", () => {
+    vi.useFakeTimers();
+    const manager = createFolderLayoutManager();
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    manager.set(layout);
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    vi.advanceTimersByTime(200);
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
   });
 });
