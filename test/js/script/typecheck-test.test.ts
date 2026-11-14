@@ -314,13 +314,21 @@ describe("main resolveRoot success path", () => {
     const repo = mkdtempSync(join(os.tmpdir(), "typecheck-ok-"));
     writeFileSync(join(repo, "package.json"), "{}\n");
     const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(repo);
-    const spawn = vi.fn(() => ({ status: 0, stdout: "", stderr: "" }));
+    // The spawn injection point is typed `typeof spawnSync`, so the stub
+    // returns the narrow shape runTsc reads (`status`) and casts the wider
+    // SpawnSyncReturns fields the test does not exercise.
+    const spawnResult = { status: 0, stdout: "", stderr: "" };
+    const spawn = vi.fn(() => spawnResult) as unknown as typeof spawnSync;
     try {
       const log = vi.fn();
       const code = main({ spawn, log, error: vi.fn(), argv: [] });
       expect(code).toBe(0);
-      expect(spawn).toHaveBeenCalledTimes(1);
-      const [, args, options] = spawn.mock.calls[0];
+      // The cast hides `.mock`; reach the call log through a narrow shape.
+      const calls = (spawn as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+      expect(calls).toHaveLength(1);
+      const call = calls[0] ?? [];
+      const args = (call[1] as string[]) ?? [];
+      const options = (call[2] as { cwd?: string }) ?? {};
       expect(options.cwd).toBe(repo);
       expect(args).toContain("-p");
       expect(log).toHaveBeenCalledWith(
