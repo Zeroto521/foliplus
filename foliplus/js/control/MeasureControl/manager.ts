@@ -792,8 +792,8 @@ class MeasureManager {
         container.offsetWidth / 2,
         Math.min(size.x - container.offsetWidth / 2, x),
       );
-      container.style.left = `${cx}px`;
-      container.style.top = `${y}px`;
+      container.style.left = `${cx}px`; // placement-adapter: cursor readout, pending migration
+      container.style.top = `${y}px`; // placement-adapter: cursor readout, pending migration
       container.classList.toggle(
         CONST.READOUT.CLASS_FLIP,
         y + h + gap > size.y && y >= h,
