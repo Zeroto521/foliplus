@@ -14,6 +14,7 @@ import {
   createFolderLayoutManager,
   deleteFolder,
   dropLayer,
+  ensureFolderLayout,
   emptyFolderLayout,
   folderOf,
   freezeSectionOrder,
@@ -496,5 +497,90 @@ describe("manager lifecycle", () => {
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
     vi.advanceTimersByTime(200);
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
+  });
+});
+
+describe("coverage edges", () => {
+  it("isFolderLayout rejects a non-object order, a non-object member value, and a non-object folder", () => {
+    expect(isFolderLayout({ version: 2, folders: [], order: null, members: {} })).toBe(false);
+    expect(isFolderLayout({ version: 2, folders: [], order: {}, members: null })).toBe(false);
+    expect(isFolderLayout({ version: 2, folders: [null], order: {}, members: {} })).toBe(false);
+    expect(isFolderLayout({ version: 2, folders: [], order: {}, members: { a: null } })).toBe(false);
+  });
+
+  it("freezeSectionOrder appends a folder key that no entry declares", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["water"] },
+    };
+    const entries = [
+      entry("a", "overlay", null, 0),
+    ] as LayerInfo[];
+    const next = freezeSectionOrder(layout, "overlay", entries, "roads");
+    expect(next.order.overlay).toEqual(["water", "roads"]);
+  });
+
+  it("sectionOrder sorts multiple unlisted folders by their anchor", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: [] },
+    };
+    const entries = [
+      entry("a", "overlay", "Water", 0),
+      entry("b", "overlay", "Roads", 1),
+    ] as LayerInfo[];
+    const order = sectionOrder("overlay", entries, layout);
+    // "water" anchor 0, "roads" anchor 1.
+    expect(order.map(e => e.id)).toEqual(["a", "b"]);
+  });
+
+  it("renameFolder rejects a name that collides with another directory key", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }, { key: "water", name: "Water" }],
+      order: { overlay: ["roads"] },
+    };
+    expect(renameFolder(layout, "overlay", "Roads", "water")).toBe(layout);
+  });
+
+  it("moveLayerToFolder is a no-op on a blank folder key", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    expect(moveLayerToFolder(layout, "a", "overlay", "   ")).toBe(layout);
+  });
+
+  it("seed skips an entry without an author folder", () => {
+    const manager = createFolderLayoutManager();
+    manager.seed([entry("a", "overlay", null, 0)]);
+    expect(manager.layout.members).toEqual({});
+    expect(manager.layout.folders).toEqual([]);
+  });
+
+  it("freezeSectionOrder sorts multiple unlisted folders by anchor", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: [] },
+      members: {
+        a: { section: "overlay", folder: "water" },
+        b: { section: "overlay", folder: "roads" },
+      },
+    };
+    const entries = [
+      entry("a", "overlay", null, 0),
+      entry("b", "overlay", null, 1),
+    ] as LayerInfo[];
+    const next = freezeSectionOrder(layout, "overlay", entries, "extra");
+    // Both water and roads are unlisted; the sort orders by anchor.
+    expect(next.order.overlay).toEqual(["water", "roads", "extra"]);
+  });
+
+  it("ensureFolderLayout returns the per-map singleton", () => {
+    const api = { other: 1 };
+    const map = { foliplus: api };
+    const first = ensureFolderLayout(map);
+    expect(ensureFolderLayout(map)).toBe(first);
+    expect(map.foliplus.folderLayout).toBe(first);
   });
 });
