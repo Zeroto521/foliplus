@@ -27,6 +27,7 @@
 // marker keeps the author's exact look minus the symbol.
 import {
   DEFAULT_GLYPH_PREFIX,
+  GLYPH_SHELL_CLASS,
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
@@ -527,7 +528,7 @@ const applyIconColorToLeaves = (
     // A colour/opacity-only write on an already-mounted leaf whose glyph is
     // unchanged paints the node in place — same element reference, no rebuild.
     const el = mountedIconElement(leaf);
-    const inner = el?.querySelector(".foliplus-marker-glyph") ?? null;
+    const inner = el?.querySelector(`.${GLYPH_SHELL_CLASS}`) ?? null;
     if (inner && mountedGlyphMatches(inner, glyph, panelPrefix)) {
       // The same compose the derive path uses: a user colour paints at the
       // user's opacity (default 100 = opaque).
