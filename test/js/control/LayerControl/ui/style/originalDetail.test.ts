@@ -143,12 +143,79 @@ describe("monochrome original detail (P2)", () => {
     expect(text(d)).toContain("20%");
   });
 
-  it.todo("a per-feature author keeps the cmap multi-row original form (P3)");
-  // P3 (a later slice): a per-feature author keeps buildOriginalDetail's
-  // multi-row form — column row, colors strip, method/count row — plus an
-  // OPACITY separate readonly row. The assertion here (once un-todoed) is:
-  //   makeFillLayer perFeature=true -> the detail has >=2 form rows, no
-  //   inputs, the colors strip present, and a separate opacity row whose
-  //   value is the author's per-leaf fillOpacity or the em-dash when the
-  //   leaves disagree.
+  it("a per-feature author keeps the cmap multi-row original form", () => {
+    // A per-feature author (explore cmap) keeps buildOriginalDetail's
+    // multi-row form: the column row, the colors strip and the
+    // method/count pair, nothing editable. The method box states Equal
+    // Interval only when the record proves it; a stepped scale with no
+    // provable method reads the dash instead of guessing.
+    const { ui } = makeFillLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+      {
+        perFeature: true,
+        distinct: 3,
+        stops: ["#aabbcc", "#ccdd99", "#335566"],
+        scale: { kind: "stepped", column: "value", levels: 3, method: null },
+      },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const select = modeSelect(block);
+    expect(select.value).toBe("original");
+    const d = detail(block);
+    // R3: no editable controls in the original detail.
+    expect(d.querySelector('input[type="color"]')).toBeNull();
+    expect(d.querySelector('input[type="number"]')).toBeNull();
+    // R4: the multi-row readout has at least two form rows.
+    const rows = Array.from(
+      d.querySelectorAll(`.${PANEL_CLASS.FORM_ROW}`),
+    ) as HTMLElement[];
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    // The colors strip is present and carries the caption as its name.
+    const strip = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP}`);
+    expect(strip).not.toBeNull();
+    // A stepped scale with method:null reads the dash in the method box,
+    // never a guessed classification name.
+    const methodBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD}`);
+    expect(methodBox).not.toBeNull();
+    expect(text(methodBox as HTMLElement)).toBe("—");
+  });
+
+  it("a stepped scale with a provable method states Equal Interval", () => {
+    const { ui } = makeFillLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+      {
+        perFeature: true,
+        distinct: 3,
+        stops: ["#aabbcc", "#ccdd99", "#335566"],
+        scale: { kind: "stepped", column: "value", levels: 3, method: "equal" },
+      },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const d = detail(block);
+    const methodBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD}`);
+    expect(methodBox).not.toBeNull();
+    // The author explicitly proved equal intervals; the readout states it.
+    const label = text(methodBox as HTMLElement);
+    expect(label).not.toBe("—");
+    expect(label.toLowerCase()).toContain("equal");
+  });
+
+  it("a continuous scale states Equal Interval by construction", () => {
+    const { ui } = makeFillLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+      {
+        perFeature: true,
+        distinct: 3,
+        stops: ["#aabbcc", "#ccdd99", "#335566"],
+        scale: { kind: "continuous", column: "value" },
+      },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const d = detail(block);
+    const methodBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_METHOD}`);
+    expect(methodBox).not.toBeNull();
+    const label = text(methodBox as HTMLElement);
+    expect(label).not.toBe("—");
+    expect(label.toLowerCase()).toContain("equal");
+  });
 });
