@@ -2771,9 +2771,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 (d for d in result["zoomRange"]["dots"] if d.get("tone") == "current"),
                 None,
             )
-            assert current_dot is not None, (
-                f"zoom range lost its current dot: {result}"
-            )
+            assert current_dot is not None, f"zoom range lost its current dot: {result}"
 
             def centre(box):
                 return (box["left"] + box["right"]) / 2
@@ -2798,7 +2796,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
 
             current_dot_rtl = next(
-                (d for d in mirrored["zoomRange"]["dots"] if d.get("tone") == "current"),
+                (
+                    d
+                    for d in mirrored["zoomRange"]["dots"]
+                    if d.get("tone") == "current"
+                ),
                 None,
             )
             assert current_dot_rtl is not None, (
