@@ -7,10 +7,11 @@ build:
   os: ubuntu-lts-latest
   tools:
     nodejs: "24"
-    # The docs toolchain is pinned in pyproject's `doc` group instead of pinning
-    # the interpreter here: a sphinx floor (>= 8.2) keeps the resolve away from
-    # sphinx 3.x, which imports `Union` from `types` -- removed in Python 3.14.
-    # Whatever interpreter Read the Docs picks resolves the supported toolchain.
+    # Track Read the Docs' latest interpreter instead of freezing an old one:
+    # the docs toolchain is pinned in pyproject's `doc` group, where a sphinx
+    # floor (>= 8.2) rules out sphinx 3.x -- the release that imports `Union`
+    # from `types`, a name Python 3.14 removed.
+    python: "latest"
   jobs:
     post_checkout:
       - git fetch --unshallow || true
