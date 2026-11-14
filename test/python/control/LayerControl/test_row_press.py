@@ -317,7 +317,6 @@ def _make_layout_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
     return page, errors
 
 
-
 class TestMoreMenuPlacementBrowser:
     """The ⋮ overflow menu opens against its owning row's clip container.
 
@@ -353,6 +352,7 @@ class TestMoreMenuPlacementBrowser:
             )
             page.screenshot(path=str(SHOTS / "accept_4_more_menu_flip.png"))
             assert not errors, f"JS errors: {errors}"
+
 
 class TestRowPanelLayoutBrowser:
     """Row-panel placement against the map's visible area.
