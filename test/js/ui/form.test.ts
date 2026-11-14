@@ -73,26 +73,37 @@ describe("colorInput / numberInput / inlineControls", () => {
     expect(row.children.length).toBe(2);
   });
 
-  it("appends a visible unit suffix group only when unitSuffix is given", () => {
-    // With unitSuffix: a group container wraps the bare input + the suffix.
+  it("draws the unit suffix inside the number field and hides it while editing", () => {
+    // With unitSuffix: a positioned group wraps the input + the suffix, the
+    // suffix lives inside the field's right padding (never re-announced — the
+    // aria-label already carries the unit), and the input value stays bare.
     const grouped = numberInput({
       value: 8,
       min: 0,
       max: 10,
       ariaLabel: "px field",
-      unitSuffix: "像素",
+      unitSuffix: "px",
     });
     const group = grouped as HTMLElement;
     expect(group.className).toBe("foliplus-form-number-group");
     const input = group.querySelector("input") as HTMLInputElement;
     expect(input).toBeTruthy();
     expect(input.type).toBe("number");
+    // The value is always the bare number — the unit never leaks into it.
     expect(input.value).toBe("8");
     expect(input.getAttribute("aria-label")).toBe("px field");
     const suffix = group.querySelector(".foliplus-form-number-suffix");
-    expect(suffix?.textContent).toBe("像素");
-    // The suffix is visual only — never re-announced (aria-label already has it).
+    expect(suffix?.textContent).toBe("px");
+    // Visual only — never re-announced (aria-label already has it).
     expect(suffix?.getAttribute("aria-hidden")).toBe("true");
+
+    // Focus hides the suffix so it is not read as part of the number, blur
+    // restores it — the wrapper carries the shared is-editing state class.
+    expect(group.classList.contains("is-editing")).toBe(false);
+    input.dispatchEvent(new Event("focus"));
+    expect(group.classList.contains("is-editing")).toBe(true);
+    input.dispatchEvent(new Event("blur"));
+    expect(group.classList.contains("is-editing")).toBe(false);
 
     // Without unitSuffix: the bare input, no group, no suffix — zero DOM change
     // for every existing caller, and the inline row stays 2 children.
