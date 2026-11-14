@@ -120,6 +120,9 @@ const bindNodeDrag = (
   /** The release's own position, when the release is what ends the gesture.
    *  An interrupt names no position, so the node's current one is used. */
   let endAt: L.LatLng | null = null;
+  /** Whether the map could be panned before this drag took panning away, so
+   *  an ending restores what was there instead of forcing panning on. */
+  let restoreMapDrag = false;
 
   // Query the element fresh each time: resortLayers() removes/re-adds nodes,
   // which re-creates their SVG path, so a captured element reference would go
@@ -146,7 +149,9 @@ const bindNodeDrag = (
     session = null;
     startPt = null;
     setCursor(enabled && !disposed ? "move" : "");
-    map.dragging.enable();
+    // Only give back what the press took: a map whose panning was already off
+    // (another mode, the host's own choice) must stay off.
+    if (restoreMapDrag) map.dragging.enable();
     const at = endAt ?? nodeLatLng();
     endAt = null;
     const didMove = moved;
@@ -165,6 +170,8 @@ const bindNodeDrag = (
     moved = false;
     endAt = null;
     setCursor("move");
+    // `enabled` is absent on partial mocks; assume panning was available.
+    restoreMapDrag = map.dragging.enabled?.() ?? true;
     map.dragging.disable();
     session = beginDragSession(finishDrag);
   };

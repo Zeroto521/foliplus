@@ -857,6 +857,31 @@ describe("bindNodeDrag", () => {
     expect(node.setLatLng).not.toHaveBeenCalledWith({ lat: 9, lng: 9 });
   });
 
+  it("does not turn panning on for a map that had it off", () => {
+    // The press takes panning away; the ending gives back only what it took.
+    // A map whose dragging was already disabled (another mode, the host's
+    // choice) must not come out of a node drag pannable.
+    const node = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
+    const map = {
+      on: vi.fn(),
+      off: vi.fn(),
+      mouseEventToContainerPoint: vi.fn(() => ({ x: 0, y: 0 })),
+      dragging: { disable: vi.fn(), enable: vi.fn(), enabled: vi.fn(() => false) },
+    };
+    const { setEnabled } = bindNodeDrag(node as any, null, map as any, {});
+    setEnabled(true);
+    const onDown = (node.on as any).mock.calls.find(
+      ([ev]: any) => ev === "mousedown",
+    )?.[1];
+    const onUp = (map.on as any).mock.calls.find(([ev]: any) => ev === "mouseup")?.[1];
+
+    onDown({ originalEvent: { clientX: 0, clientY: 0 } });
+    onUp({ originalEvent: { clientX: 0, clientY: 0 }, latlng: { lat: 1, lng: 1 } });
+
+    expect(map.dragging.disable).toHaveBeenCalled();
+    expect(map.dragging.enable).not.toHaveBeenCalled();
+  });
+
   it("refuses a second press while a drag is live", () => {
     const node = { on: vi.fn(), off: vi.fn(), setLatLng: vi.fn() };
     const map = {

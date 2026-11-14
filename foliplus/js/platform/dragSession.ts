@@ -42,11 +42,21 @@ interface DragSession {
   end: () => void;
 }
 
+interface DragSessionOptions {
+  /** The pointer that owns the gesture. A cancel naming a different pointer
+   *  belongs to somebody else's gesture and must not end this one. */
+  pointerId?: number | null;
+}
+
 /** Begin a drag session. *onEnd* runs exactly once, from whichever signal
  *  ends the session first, and must restore whatever the press changed. */
-const beginDragSession = (onEnd: () => void): DragSession => {
+const beginDragSession = (
+  onEnd: () => void,
+  options: DragSessionOptions = {},
+): DragSession => {
   let active = true;
   let release: () => void = () => {};
+  const ownerId = options.pointerId ?? null;
 
   const finish = (): void => {
     if (!active) return;
@@ -55,9 +65,23 @@ const beginDragSession = (onEnd: () => void): DragSession => {
     onEnd();
   };
 
+  /** An interrupt may name the pointer it took away; one that names another
+   *  pointer is not this gesture's ending. */
+  const onInterrupt = (event: Event): void => {
+    if (
+      event instanceof PointerEvent &&
+      event.type === "pointercancel" &&
+      ownerId !== null &&
+      event.pointerId !== ownerId
+    ) {
+      return;
+    }
+    finish();
+  };
+
   // Registered after `finish` exists so an interrupt can call it; the module
   // keeps one page-level listener set for every live session.
-  release = onGestureRetire(finish);
+  release = onGestureRetire(onInterrupt);
 
   return {
     get active() {
