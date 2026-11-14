@@ -158,7 +158,7 @@ interface BorderRowBindTarget {
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
 const layerCanBorder = (ui: LayerUI, layerId: string): boolean =>
-  styleCapability(ui, layerId).dims.border ?? false;
+  styleCapability(ui, layerId).dims.border;
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
  *  that has no declared style. Reads the captured base first — `setStyle`
