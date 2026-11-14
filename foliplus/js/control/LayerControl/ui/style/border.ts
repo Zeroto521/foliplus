@@ -25,12 +25,12 @@
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, hasValueField, resolvedValue, valueFields } from "./fill.js";
+import { styleCapability } from "./styleCapability.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { valueSchemeForUi, valueSchemes } from "./fillValue.js";
 import { buildOriginalDetail } from "./originalDetail.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
-  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
@@ -157,7 +157,8 @@ interface BorderRowBindTarget {
  *  checks belong here: the invariant is that `gate` is exactly the
  *  capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
-const layerCanBorder = capabilityGate("stroke", "native");
+const layerCanBorder = (ui: LayerUI, layerId: string): boolean =>
+  styleCapability(ui, layerId).dims.border ?? false;
 
 /** The authored border of one layer, or the Leaflet defaults for a layer
  *  that has no declared style. Reads the captured base first — `setStyle`
