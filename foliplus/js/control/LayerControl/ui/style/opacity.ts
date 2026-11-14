@@ -94,6 +94,10 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
       { at: 0, tone: "limit" },
       { at: 100, tone: "limit" },
     ],
+    // The slider's own min/max labels are the only place opacity shows its
+    // percent unit; the numeric fields beside the other rows use the shared
+    // `unitSuffix` vocabulary instead. Keep both in sync if the unit
+    // presentation changes (a bare "0"/"100" here would read as unitless).
     values: { min: "0%", max: "100%" },
     input: value => commitOpacityPct(ui, layerId, host, Number(value)),
   });

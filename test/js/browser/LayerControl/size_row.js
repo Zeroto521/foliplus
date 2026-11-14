@@ -71,8 +71,10 @@ async ([layerName, size, reset] = []) => {
   // column the border row's weight field also occupies) while its own text is
   // centered. Read both so the test can pin the layout, not just the value.
   const sizeCell = sizeRow ? sizeRow.querySelector(".foliplus-form-control") : null;
+  const sizeGroup = setSize ? setSize.closest(".foliplus-form-number-group") : null;
+  const sizeTarget = sizeGroup ?? setSize;
   const sizeStyle = setSize ? getComputedStyle(setSize) : null;
-  const inputRect = setSize ? setSize.getBoundingClientRect() : null;
+  const inputRect = sizeTarget ? sizeTarget.getBoundingClientRect() : null;
   const cellRect = sizeCell ? sizeCell.getBoundingClientRect() : null;
 
   let wrote = false;

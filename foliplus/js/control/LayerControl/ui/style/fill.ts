@@ -422,7 +422,9 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   }) as HTMLInputElement;
 
   const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  const opacityPct = (storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100;
+  const opacityPct = Math.round(
+    (storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 100,
+  );
   const opacityInput = numberInput({
     value: opacityPct,
     min: 0,
