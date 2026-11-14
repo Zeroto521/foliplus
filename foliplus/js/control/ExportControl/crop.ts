@@ -239,6 +239,17 @@ const onPointerDown = function (this: ExportManager, event: PointerEvent) {
 const onPointerMove = function (this: ExportManager, event: PointerEvent) {
   const st = this.cropState;
   if (!st || !this.dragState.dragging) return;
+  // The pointer's own state is the authoritative "is a button still down".
+  // A release delivered to another window never reaches this page, and the
+  // focus-loss interrupt cannot be relied on to land before the next move
+  // (the switch may not blur this window at all, e.g. a second monitor).
+  // Without this check the box keeps resizing while the pointer merely
+  // hovers — the pointermove is still dispatched because the gesture never
+  // ended.
+  if (event.buttons === 0) {
+    this.onPointerUp(event);
+    return;
+  }
   // Resolve the box before consuming the anchor: an event arriving after
   // the crop box was removed must not advance lastX/lastY, or the next
   // drag's first move would measure from a stale point.

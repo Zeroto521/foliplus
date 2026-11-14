@@ -706,6 +706,64 @@ describe("cropMethods — pointer drag", () => {
       expect(handle.releasePointerCapture).not.toHaveBeenCalled();
     });
 
+    it("an interrupt after the drag already ended is harmless", () => {
+      // A press, a release, then a blur: the subscription went with the
+      // release, so the interrupt must not resurrect anything.
+      beginDrag();
+      manager.onPointerUp({
+        target: document.createElement("div"),
+        pointerId: 7,
+      } as any);
+      const before = manager.dragState.dragging;
+
+      expect(() => window.dispatchEvent(new Event("blur"))).not.toThrow();
+
+      expect(manager.dragState.dragging).toBe(before);
+      expect(manager.dragRetireCleanup).toBeNull();
+    });
+
+    it("ends the drag on a move whose button is already up", () => {
+      // The release happened in another window, so this page never receives a
+      // pointerup — and a focus change may not have blurred it either (a second
+      // monitor, a window that never lost focus). The move itself carries the
+      // truth: no button is down, so the gesture is over.
+      beginDrag();
+      const rect = manager.cropState!.rect;
+      const before = { ...rect };
+
+      manager.onPointerMove({
+        clientX: 200,
+        clientY: 180,
+        pointerId: 7,
+        buttons: 0,
+        target: document.createElement("div"),
+      } as any);
+
+      expect(manager.dragState.dragging).toBe(false);
+      expect(manager.dragState.dragType).toBeNull();
+      expect(manager.dragState.pointerId).toBeNull();
+      expect(manager.dragCleanup).toBeUndefined();
+      // The box does not grow: the move ended the gesture instead of applying.
+      expect(manager.cropState!.rect).toEqual(before);
+    });
+
+    it("keeps dragging on a move whose button is still down", () => {
+      // The counterpart: a normal move must still resize.
+      beginDrag();
+      const before = { ...manager.cropState!.rect };
+
+      manager.onPointerMove({
+        clientX: 220,
+        clientY: 190,
+        pointerId: 7,
+        buttons: 1,
+        target: document.createElement("div"),
+      } as any);
+
+      expect(manager.dragState.dragging).toBe(true);
+      expect(manager.cropState!.rect).not.toEqual(before);
+    });
+
     it("stops listening after the drag really ends", () => {
       beginDrag();
       expect(manager.dragRetireCleanup).not.toBeNull();
