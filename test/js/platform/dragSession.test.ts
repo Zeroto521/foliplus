@@ -1,6 +1,6 @@
 // test/js/platform/dragSession.test.ts — one live pointer drag, ended however it ends.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { beginDragSession, type DragSession } from "#platform/dragSession.js";
+import { type DragSession, beginDragSession } from "#platform/dragSession.js";
 
 const live: DragSession[] = [];
 
