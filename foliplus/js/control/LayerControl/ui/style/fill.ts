@@ -79,6 +79,7 @@ import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
+  PANEL_CLASS,
   STYLE_MODE_KEY,
   bindLiveColor,
   bindLiveNumber,
@@ -484,7 +485,7 @@ const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
     }) as HTMLInputElement;
     const row = formRow(
       ui.T("style_fill"),
-      dom.el("div", { class: "foliplus-form-inline" }, colorInput),
+      dom.el("div", { class: PANEL_CLASS.FORM_INLINE }, colorInput),
       CONST.CLASSES.STYLE_FILL_ROW,
     );
     return dom.el(
