@@ -3,6 +3,7 @@
 // lines are dropped (the root tsconfig owns them), everything else is gating.
 // A regression here would silently swallow real test errors, so both are
 // asserted directly, along with the main() shell that reports on them.
+import type { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import { join, resolve } from "node:path";
