@@ -1027,8 +1027,8 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             layout = before.get("sizeLayout")
             assert layout, f"the Size field was not measurable: {before}"
-            assert layout["textAlign"] == "center", (
-                f"the Size value must be horizontally centered: {layout}"
+            assert layout["textAlign"] == "right", (
+                f"a unit-suffixed Size value must be right-aligned: {layout}"
             )
             assert layout["rightGap"] <= 1, (
                 f"the Size box must sit at the right edge of its column: {layout}"

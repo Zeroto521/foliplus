@@ -67,9 +67,11 @@ async ([layerName, size, reset] = []) => {
 
   const sizeRow = panel.querySelector(".foliplus-style-size-row");
   const setSize = panel.querySelector(".foliplus-style-size-input");
-  // The field is right-aligned inside the form-control cell (the numeric
-  // column the border row's weight field also occupies) while its own text is
-  // centered. Read both so the test can pin the layout, not just the value.
+  // The field sits flush right inside the form-control cell (the numeric
+  // column the border row's weight field also occupies) and, being a
+  // unit-suffixed field, right-aligns its own text so the unit follows the
+  // last digit at a fixed gap. Read both so the test can pin the layout,
+  // not just the value.
   const sizeCell = sizeRow ? sizeRow.querySelector(".foliplus-form-control") : null;
   const sizeGroup = setSize ? setSize.closest(".foliplus-form-number-group") : null;
   const sizeTarget = sizeGroup ?? setSize;
