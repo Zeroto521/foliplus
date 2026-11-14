@@ -14,8 +14,8 @@ import {
   createFolderLayoutManager,
   deleteFolder,
   dropLayer,
-  ensureFolderLayout,
   emptyFolderLayout,
+  ensureFolderLayout,
   folderOf,
   freezeSectionOrder,
   fullDisplayOrder,
@@ -502,10 +502,18 @@ describe("manager lifecycle", () => {
 
 describe("coverage edges", () => {
   it("isFolderLayout rejects a non-object order, a non-object member value, and a non-object folder", () => {
-    expect(isFolderLayout({ version: 2, folders: [], order: null, members: {} })).toBe(false);
-    expect(isFolderLayout({ version: 2, folders: [], order: {}, members: null })).toBe(false);
-    expect(isFolderLayout({ version: 2, folders: [null], order: {}, members: {} })).toBe(false);
-    expect(isFolderLayout({ version: 2, folders: [], order: {}, members: { a: null } })).toBe(false);
+    expect(isFolderLayout({ version: 2, folders: [], order: null, members: {} })).toBe(
+      false,
+    );
+    expect(isFolderLayout({ version: 2, folders: [], order: {}, members: null })).toBe(
+      false,
+    );
+    expect(
+      isFolderLayout({ version: 2, folders: [null], order: {}, members: {} }),
+    ).toBe(false);
+    expect(
+      isFolderLayout({ version: 2, folders: [], order: {}, members: { a: null } }),
+    ).toBe(false);
   });
 
   it("freezeSectionOrder appends a folder key that no entry declares", () => {
@@ -513,9 +521,7 @@ describe("coverage edges", () => {
       ...emptyFolderLayout(),
       order: { overlay: ["water"] },
     };
-    const entries = [
-      entry("a", "overlay", null, 0),
-    ] as LayerInfo[];
+    const entries = [entry("a", "overlay", null, 0)] as LayerInfo[];
     const next = freezeSectionOrder(layout, "overlay", entries, "roads");
     expect(next.order.overlay).toEqual(["water", "roads"]);
   });
@@ -537,7 +543,10 @@ describe("coverage edges", () => {
   it("renameFolder rejects a name that collides with another directory key", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
-      folders: [{ key: "roads", name: "Roads" }, { key: "water", name: "Water" }],
+      folders: [
+        { key: "roads", name: "Roads" },
+        { key: "water", name: "Water" },
+      ],
       order: { overlay: ["roads"] },
     };
     expect(renameFolder(layout, "overlay", "Roads", "water")).toBe(layout);
@@ -577,7 +586,7 @@ describe("coverage edges", () => {
   });
 
   it("ensureFolderLayout returns the per-map singleton", () => {
-    const api = { other: 1 };
+    const api: { other: number; folderLayout?: unknown } = { other: 1 };
     const map = { foliplus: api };
     const first = ensureFolderLayout(map);
     expect(ensureFolderLayout(map)).toBe(first);
