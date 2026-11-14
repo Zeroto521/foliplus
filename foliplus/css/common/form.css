@@ -111,7 +111,9 @@
    next to the border weight). Visual only: aria-hidden, the field's
    aria-label already carries the unit for screen readers. Reads the existing
    muted/type tokens — no new variable, so the suffix cannot drift from the
-   panel's other secondary text. While the field is focused the wrapper gets
+   panel's other secondary text. Its inset follows the number field's own
+   right padding (size-6), not the shared ctrl-inset-x, so the single-source
+   control-inset guard stays satisfied. While the field is focused the wrapper gets
    the editing class and the suffix is hidden so it is never read as part of
    the number. */
 .foliplus-form-number-suffix {
@@ -119,7 +121,7 @@
   inset-inline-end: 0;
   top: 50%;
   transform: translateY(-50%);
-  padding-inline-end: var(--foliplus-ctrl-inset-x);
+  padding-inline-end: var(--foliplus-size-6);
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-muted);
   white-space: nowrap;

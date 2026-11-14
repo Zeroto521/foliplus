@@ -226,6 +226,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     reason:
       "bindPanelPress: the shared row-panel mousedown swallow (one implementation for the attrs / filter / style row panels). The helper is a free-standing function in the panel controller module — the panel owner routes the press through the controller it already holds, and there is no BaseControl instance in scope to thread this.on through",
   },
+  {
+    f: "ui/form.ts",
+    n: 2,
+    pairedOff: 0,
+    reason:
+      "numberInput's own wrapper: the unit-suffix group toggles the editing state on focus/blur of the input it just created. The listener is bound to the element this factory returns (or its immediate wrapper), collected with it, and the factory is a pure DOM builder — no control instance or mounting signal is in scope, so this.on / listenDOM is unreachable; the pair is one focus + one blur on the same element",
+  },
 ];
 
 // `L.DomEvent.on(` is rare in this tree, which is the point of the guard: one
