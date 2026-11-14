@@ -25,7 +25,6 @@
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, hasValueField, resolvedValue, valueFields } from "./fill.js";
-import { styleCapability } from "./styleCapability.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { valueSchemeForUi, valueSchemes } from "./fillValue.js";
 import { buildOriginalDetail } from "./originalDetail.js";
@@ -55,6 +54,7 @@ import {
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
+import { styleCapability } from "./styleCapability.js";
 import {
   DIM,
   GEOM_TYPE,

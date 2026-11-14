@@ -202,6 +202,9 @@ describe("styleCapability parity with the per-dimension gates", () => {
     const cap = styleCapability(ui, "not-a-real-layer");
     expect(Object.values(cap.dims)).toEqual([false, false, false, false, false, false]);
     expect(cap.styleDelegation).toBe(false);
+    // The missing-layer short circuit publishes every key (border included),
+    // so a reader never sees an undefined dim.
+    expect(cap.dims.border).toBe(false);
   });
 
   it("a polygon surface exposes the published dimensions", () => {
