@@ -59,7 +59,7 @@ class TestHeatmapControlPersistBrowser:
             )
             page.wait_for_timeout(3000)
 
-            state = page.evaluate(_js("HeatmapControl/read_heatmap_state"))
+            state = page.evaluate(_js("HeatmapControl/read_manager_save_state"))
             assert state["layerId"] == opts[1], (
                 f"restored layer mismatch: {state['layerId']!r} vs {opts[1]!r}"
             )
@@ -107,7 +107,7 @@ class TestHeatmapControlPersistBrowser:
                 ".foliplus-heatmap-ctrl", state="attached", timeout=10000
             )
             page.wait_for_timeout(3000)
-            state = page.evaluate(_js("HeatmapControl/read_heatmap_state"))
+            state = page.evaluate(_js("HeatmapControl/read_manager_save_state"))
             assert state["layerId"] is None, (
                 f"cleared config must not restore a layer, got {state['layerId']!r}"
             )
@@ -135,7 +135,7 @@ class TestHeatmapControlPersistBrowser:
 
             # One point layer: initScan's one-shot auto-select fired, the heatmap
             # drew its canvas and registered it with LayerControl.
-            pre = page.evaluate(_js("HeatmapControl/read_heatmap_pre_delete_state"))
+            pre = page.evaluate(_js("HeatmapControl/read_manager_pre_delete_state"))
             assert pre["selected"] is not None, "single layer must auto-select"
             assert pre["hasFeatures"] is True, "auto-select must have rendered"
             assert pre["registered"] is True, "heatmap canvas must be registered"
@@ -173,7 +173,7 @@ class TestHeatmapControlPersistBrowser:
                 ".foliplus-heatmap-ctrl", state="attached", timeout=10000
             )
             heatmap_ready(page)
-            seg2 = page.evaluate(_js("HeatmapControl/read_heatmap_layer_state"))
+            seg2 = page.evaluate(_js("HeatmapControl/read_manager_layer_state"))
             assert seg2["selected"] is None, (
                 f"deleted heatmap must not re-select itself on reload, "
                 f"got {seg2['selected']!r}"
@@ -253,7 +253,9 @@ class TestHeatmapControlPersistBrowser:
             page.evaluate(_js("HeatmapControl/call_clear_heatmap_canvas"))
             page.wait_for_timeout(500)
 
-            cached_gone = page.evaluate(_js("HeatmapControl/read_cached_features_null"))
+            cached_gone = page.evaluate(
+                _js("HeatmapControl/read_manager_cached_features_null")
+            )
             canvas_gone = page.evaluate(_js("HeatmapControl/read_canvas_hidden_class"))
             assert cached_gone, "cachedFeatures should be null after clear"
             assert canvas_gone, "Canvas should be hidden after clear"
@@ -328,7 +330,7 @@ class TestHeatmapControlCacheBrowser:
             )
 
             # Set cachedAgg to simulate stale data
-            page.evaluate(_js("HeatmapControl/seed_cached_agg_old"))
+            page.evaluate(_js("HeatmapControl/seed_manager_cached_agg_old"))
             # Emit the semantic LayerControl registry-change event on the EventBus
             # (replaces the old raw map.fire('layeradd') — the manager now
             # subscribes to LAYER_CHANGE on the per-map EventBus, and the payload
@@ -336,7 +338,7 @@ class TestHeatmapControlCacheBrowser:
             # registry walk).
             page.evaluate(_js("HeatmapControl/emit_layer_change"))
             page.wait_for_timeout(1000)
-            cached = page.evaluate(_js("HeatmapControl/read_cached_agg"))
+            cached = page.evaluate(_js("HeatmapControl/read_manager_cached_agg"))
             assert cached is None, "cachedAgg should be nulled after layer change"
             assert not errors, f"JS errors: {errors}"
 
@@ -346,11 +348,11 @@ class TestHeatmapControlCacheBrowser:
             page,
             errors,
         ):
-            page.evaluate(_js("HeatmapControl/seed_cached_features"))
-            page.evaluate(_js("HeatmapControl/seed_cached_agg_kd"))
+            page.evaluate(_js("HeatmapControl/seed_manager_cached_features"))
+            page.evaluate(_js("HeatmapControl/seed_manager_cached_agg_kd"))
             page.evaluate(_js("HeatmapControl/call_clear_heatmap_canvas"))
-            features = page.evaluate(_js("HeatmapControl/read_cached_features"))
-            agg = page.evaluate(_js("HeatmapControl/read_cached_agg"))
+            features = page.evaluate(_js("HeatmapControl/read_manager_cached_features"))
+            agg = page.evaluate(_js("HeatmapControl/read_manager_cached_agg"))
             assert features is None, "cachedFeatures should be nulled"
             assert agg is None, "cachedAgg should be nulled"
             assert not errors, f"JS errors: {errors}"

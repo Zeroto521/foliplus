@@ -165,10 +165,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "control/LayerControl/ui/overlayPanel/menu.ts",
-    n: 2,
+    n: 4,
     pairedOff: 0,
     reason:
-      "menu-local item click dispatch + focusout; outside-click moved to core/overlay/overlayRegistry in M2-C4",
+      "menu-local item click dispatch + focusout; outside-click moved to core/overlay/overlayRegistry in M2-C4. The placement pair (window scroll capture + resize) re-places the open menu against its clip container \u2014 the same free-standing singleton pattern as core/leaflet/panel.ts's row-panel placement (no BaseControl instance in scope; scheduleMoreMenu owns the teardown and returns it to the caller)",
   },
   {
     f: "control/LayerControl/ui/style/index.ts",
@@ -183,6 +183,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     pairedOff: 0,
     reason:
       "slider primitive binds pointer / keyboard / focus on the track and the thumbs it owns; every node is created by the instance and dropped with destroy(), and the module is a free-standing primitive with no mounting signal to route through `this.on`. The page-wide scroll listener is bound once; surface changes arrive through platform/fullscreen's shared subscription",
+  },
+  {
+    f: "platform/gesture.ts",
+    n: 3,
+    pairedOff: 0,
+    reason:
+      "the page-level gesture interrupt is a shared subscription, not a control: one window blur + one document visibilitychange + one capture-phase pointercancel for the whole page, installed with the first consumer and removed with the last (bind/unbind). No BaseControl instance is in scope, and per-slider copies would multiply the same three native listeners across every row a panel ever built — the shared-overlay reason platform/fullscreen.ts is on this list for",
   },
   {
     f: "control/MeasureControl/mode/circle.ts",

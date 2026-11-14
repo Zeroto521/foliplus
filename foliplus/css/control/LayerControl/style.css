@@ -70,6 +70,16 @@
   cursor: default;
 }
 
+/* The monochrome original-colors opacity readout takes the same width as the
+   number input it replaces, so the fill and border rows land their number
+   boxes on the same column edge. The direct-child guard keeps the filter
+   panel's read-only field box (inside a form-control, not a form-inline) at
+   its own flexed width. */
+.foliplus-form-inline > .foliplus-style-fill-readonly {
+  width: var(--foliplus-form-secondary-width);
+  flex-shrink: 0;
+}
+
 .foliplus-style-fill-original-value {
   overflow: hidden;
   text-overflow: ellipsis;

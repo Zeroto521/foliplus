@@ -24,7 +24,7 @@ class TestHeatmapControlSelectionBrowser:
             )
             heatmap_ready(page)
 
-            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            state = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
             assert state["selectedLayerId"] is not None, "Layer should be auto-selected"
             assert state["hasCachedFeatures"] is True, (
                 "renderHexagons should have been called"
@@ -47,7 +47,7 @@ class TestHeatmapControlSelectionBrowser:
             )
             heatmap_ready(page)
 
-            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            state = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
             assert state["selectedLayerId"] is None, (
                 "No layer should be auto-selected with multiple layers"
             )
@@ -157,7 +157,7 @@ class TestHeatmapControlSelectionBrowser:
             )
             heatmap_ready(page)
 
-            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            state = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
             assert state["selectedLayerId"] is not None, (
                 "the declared layer should be selected on load"
             )
@@ -185,7 +185,7 @@ class TestHeatmapControlSelectionBrowser:
             assert agg_value == "sum", (
                 f"the declared agg should be selected: {agg_value}"
             )
-            cached_agg = page.evaluate(_js("HeatmapControl/read_cached_agg"))
+            cached_agg = page.evaluate(_js("HeatmapControl/read_manager_cached_agg"))
             assert cached_agg and "|sum|" in cached_agg["key"], (
                 f"the render should aggregate by sum: {cached_agg}"
             )
@@ -220,7 +220,7 @@ class TestHeatmapControlSelectionBrowser:
             )
             heatmap_ready(page)
 
-            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            state = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
             assert state["selectedLayerId"] is not None, (
                 "the declaration must still select a layer after a reload"
             )
@@ -264,9 +264,9 @@ class TestHeatmapControlSelectionBrowser:
                 timeout=5000,
             )
             heatmap_ready(page)
-            declared = page.evaluate(_js("HeatmapControl/read_auto_select_state"))[
-                "selectedLayerId"
-            ]
+            declared = page.evaluate(
+                _js("HeatmapControl/read_manager_auto_select_state")
+            )["selectedLayerId"]
 
             page.evaluate(_js("HeatmapControl/click_clear_button"))
             page.wait_for_selector(
@@ -274,7 +274,9 @@ class TestHeatmapControlSelectionBrowser:
                 state="attached",
                 timeout=5000,
             )
-            cleared = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            cleared = page.evaluate(
+                _js("HeatmapControl/read_manager_auto_select_state")
+            )
             assert cleared["selectedLayerId"] is None, "Clear must drop the selection"
             assert page.evaluate(_js("HeatmapControl/heatmap_storage_absent")), (
                 "Clear must delete the persisted record"
@@ -288,7 +290,7 @@ class TestHeatmapControlSelectionBrowser:
                 timeout=5000,
             )
             heatmap_ready(page)
-            again = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            again = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
             assert again["selectedLayerId"] == declared, (
                 f"the declaration should come back after Clear: {again}"
             )
@@ -327,7 +329,7 @@ class TestHeatmapControlSelectionBrowser:
             page.reload()
             heatmap_ready(page)
 
-            state = page.evaluate(_js("HeatmapControl/read_auto_select_state"))
+            state = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
             assert state["selectedLayerId"] == other["id"], (
                 "the persisted layer must beat the Python declaration"
             )

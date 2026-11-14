@@ -108,7 +108,7 @@ const main = (root = process.cwd()) => {
   const hits = findBareFormClassLiterals(root);
   for (const h of hits) {
     console.log(
-      `\${h.file}:${h.line}: bare class literal \"${h.text}\" \u2014 use FORM_CLASS`,
+      `${h.file}:${h.line}: bare class literal \"${h.text}\" \u2014 use FORM_CLASS`,
     );
   }
   return hits.length === 0 ? 0 : 1;

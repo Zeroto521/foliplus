@@ -1,6 +1,11 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { DEFAULT_LABEL_COLOR, LABEL_CLASS, LABEL_SIZE } from "#ui/index.js";
+import {
+  DEFAULT_LABEL_COLOR,
+  LABEL_CLASS,
+  LABEL_SIZE,
+  SCHEME_PICKER_CLASS,
+} from "#ui/index.js";
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
@@ -118,6 +123,9 @@ const CLASSES = {
   FILTER_HIDDEN: "foliplus-feature-filtered",
   MORE_BTN: "foliplus-layer-more-btn",
   MORE_MENU: "foliplus-layer-more-menu",
+  /** The overflow menu opened above its owning row (flipped because the
+   *  row is near the panel's bottom edge). */
+  MORE_MENU_UP: "foliplus-layer-more-menu-up",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   /** The section header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the section owns at least one empty folder key. */
   CLEAN_FOLDERS_BTN: "foliplus-layer-clean-folders",
@@ -231,7 +239,7 @@ const CLASSES = {
   STYLE_FILL_CLASSES_SELECT: "foliplus-style-fill-classes-select",
   STYLE_FILL_SCHEME_TRIGGER: "foliplus-style-scheme-trigger",
   STYLE_FILL_SCHEME_BAR: "foliplus-style-scheme-bar",
-  STYLE_FILL_SCHEME_HIDDEN: "foliplus-scheme-picker-hidden",
+  STYLE_FILL_SCHEME_HIDDEN: SCHEME_PICKER_CLASS.HIDDEN,
   /** Size row (CircleMarker only): a number field plus its unit suffix. Its
    *  own class so the change delegation and the tests can tell it from the
    *  label-size and border-weight number fields. */

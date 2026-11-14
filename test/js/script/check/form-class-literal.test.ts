@@ -148,4 +148,29 @@ describe("FORM_CLASS literals use the shared vocabulary", () => {
     rmSync(dir, { recursive: true, force: true });
     expect(hits).toEqual([]);
   });
+  it("main prints the real file:line, not the literal placeholder", () => {
+    // Regression for the \${h.file} escape: the report must interpolate the
+    // hit file, not print the template placeholder verbatim.
+    const dir = mkdtempSync(join(tmpdir(), "form-class-"));
+    mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
+    writeFileSync(
+      join(dir, "foliplus", "js", "ui", "bad.ts"),
+      'const x = { class: "foliplus-input-skin" };\n',
+    );
+    const log: string[] = [];
+    const original = console.log;
+    console.log = (...args) => {
+      log.push(args.join(" "));
+    };
+    let code: number;
+    try {
+      code = main(dir);
+    } finally {
+      console.log = original;
+      rmSync(dir, { recursive: true, force: true });
+    }
+    expect(code).toBe(1);
+    expect(log.join("\n")).toContain("foliplus/js/ui/bad.ts:1");
+    expect(log.join("\n")).not.toContain("${h.file}");
+  });
 });

@@ -23,7 +23,7 @@ const FullscreenControl = defineControl({
       id: containerId(this.config.name, this.config.position as string),
     });
     const container = dom.el("div", {
-      class: "foliplus-ctrl-fold foliplus-fullscreen-bar",
+      class: `${PANEL_CLASS.FOLD} foliplus-fullscreen-bar`,
       parent: outer,
     });
 
