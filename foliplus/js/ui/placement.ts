@@ -10,9 +10,31 @@
  * pure function with zero DOM dependencies, so a unit test can feed
  * rectangles directly.
  *
- * The DOM adapter layer (added in later migration steps) is responsible for
- * measuring `anchor` / `surface` / `bounds` and for writing the returned
- * `top` / `left` / `side` / `maxWidth` / `maxHeight` back onto the element.
+ * Three consumers already call it in production — the row panel
+ * (core/leaflet/panel.ts), the SearchControl result panel
+ * (control/SearchControl/logic/panel.ts) and the LayerControl overflow menu
+ * (control/LayerControl/ui/overlayPanel/menu.ts) — and the listbox engine
+ * (ui/listbox.ts, behind both the shared dropdown and the scheme picker) now
+ * calls it too, so all of them share ONE flip / clamp / height-cap engine.
+ * Each surface's historical rule is a strategy parameter, not a second
+ * implementation:
+ *
+ *   - `minRoom` — flip above by a two-row minimum (dropdown) or by the whole
+ *     surface height (picker, overflow menu, row panel, SearchControl);
+ *   - `width` — the box width: the anchor's width, an explicit number, or the
+ *     surface's natural width by default;
+ *   - `edgeGap` — the inset every floating surface keeps from the bounds
+ *     (the 8px viewport edge of the listbox / picker; `{ x, y }` insets one
+ *     axis only, which the row panel's horizontal-only edge needs);
+ *   - `align` — "right" right-aligns to the anchor (row panel, menu,
+ *     SearchControl), "left" left-aligns (listbox), "center" centres on it.
+ *
+ * When a surface changes its placement rule, the change lands in this file.
+ * The adapters measure `anchor` / `surface` / `bounds` and write the returned
+ * `top` / `left` / `side` / `maxWidth` / `maxHeight` onto the element; a
+ * correct adapter contains no flip or clamp that duplicates the kernel.
+ * Surface-specific policy (the row panel's comfort floor) stays documented at
+ * that surface.
  */
 import type { Placement, PlacementBox, PlacementOpts, SurfaceSize } from "./type.js";
 
@@ -50,19 +72,24 @@ const heightOf = (r: PlacementBox): number => r.bottom - r.top;
  *
  * Algorithm (each step is a pure computation):
  *
- * 1. **Width strategy** — the preferred width is the anchor's width, a fixed
- *    number, or the surface's natural width; `maxWidth` shrinks to the bounds
- *    when the preferred width does not fit.
- * 2. **Flip** — try below first; flip to above only when the surface does not
- *    fit below and there is more room above.
- * 3. **Height cap** — the surface height is capped to the available space in
+ * 1. **Frame** — the bounds are inset by `edgeGap` (a number insets both
+ *    axes, `{ x, y }` one axis at a time); every strip, cap and clamp below is
+ *    measured against that frame.
+ * 2. **Width strategy** — `width` picks the box width: "anchor" uses the
+ *    anchor's width, a number is that fixed width, and the default uses the
+ *    surface's natural width. `maxWidth` shrinks to the frame when the
+ *    preferred width does not fit.
+ * 3. **Flip** — try below first; flip to above only when the below strip
+ *    holds less than `minRoom` (the two-row-minimum threshold, default the
+ *    surface's full height) and above has more room.
+ * 4. **Height cap** — the surface height is capped to the available space in
  *    the chosen strip, and floored at `minRows * rowHeight` when the caller
  *    wants a minimum number of rows visible.
- * 4. **Vertical clamp** — `top` is clamped so the surface stays inside the
- *    bounds.
- * 5. **Horizontal** — the surface is right-aligned to the anchor, then
- *    clamped into the bounds.
- * 6. Returns `side` so the adapter can choose the arrow / transform.
+ * 5. **Vertical clamp** — `top` is clamped so the surface stays inside the
+ *    frame.
+ * 6. **Horizontal** — the surface is aligned to the anchor (`align`
+ *    left/right/center, default right), then clamped into the frame.
+ * 7. Returns `side` so the adapter can choose the arrow / transform.
  */
 const computePlacement = (
   anchor: PlacementBox,
@@ -71,53 +98,79 @@ const computePlacement = (
   opts: PlacementOpts = {},
 ): Placement => {
   const gap = opts.gap ?? 0;
-  const naturalW = opts.natural?.width ?? surface.width;
-  const naturalH = opts.natural?.height ?? surface.height;
+  const edgeX =
+    typeof opts.edgeGap === "number" ? opts.edgeGap : (opts.edgeGap?.x ?? 0);
+  const edgeY =
+    typeof opts.edgeGap === "number" ? opts.edgeGap : (opts.edgeGap?.y ?? 0);
+
+  // ① Frame: inset the bounds so a floating surface that must keep an edge
+  // gap measures its strips against the inset box. A number insets both axes;
+  // { x, y } lets one surface keep the gap horizontally only.
+  const frame: PlacementBox = {
+    top: bounds.top + edgeY,
+    right: bounds.right - edgeX,
+    bottom: bounds.bottom - edgeY,
+    left: bounds.left + edgeX,
+  };
+  const frameW = Math.max(0, widthOf(frame));
+  const frameH = Math.max(0, heightOf(frame));
 
   const anchorW = widthOf(anchor);
-  const boundsW = widthOf(bounds);
-  const boundsH = heightOf(bounds);
 
-  // ① Width strategy.
+  // ② Width strategy. `width` is the box width the surface will render (the
+  // anchor's width, an explicit number, or the natural width by default); the
+  // clamp below and the horizontal placement both use that one number, so a
+  // caller that resolves its own width (the listbox's content/owning-cell
+  // rule) cannot end up positioned against a different width than it paints.
   const preferredW =
     opts.width === "anchor"
       ? anchorW
       : typeof opts.width === "number"
         ? opts.width
-        : naturalW;
-  const maxWidth = Math.max(0, Math.min(preferredW, boundsW));
+        : surface.width;
+  const maxWidth = Math.max(0, Math.min(preferredW, frameW));
 
-  // Available space in each strip, clamped to the bounds so an anchor that
-  // sits outside the bounds cannot yield a strip taller than the bounds.
-  const availBelow = clamp(bounds.bottom - anchor.bottom - gap, 0, boundsH);
-  const availAbove = clamp(anchor.top - bounds.top - gap, 0, boundsH);
+  // Available space in each strip, clamped to the frame so an anchor that
+  // sits outside the frame cannot yield a strip taller than the frame.
+  const availBelow = clamp(frame.bottom - anchor.bottom - gap, 0, frameH);
+  const availAbove = clamp(anchor.top - frame.top - gap, 0, frameH);
 
   // Row floor: the caller wants at least `minRows` rows visible, but never
-  // more than the bounds can hold.
+  // more than the frame can hold.
   const rowFloor = (opts.minRows ?? 0) * (opts.rowHeight ?? 0);
-  const floorCapped = Math.min(rowFloor, boundsH);
-  const desiredH = Math.max(naturalH, floorCapped);
+  const floorCapped = Math.min(rowFloor, frameH);
+  const desiredH = Math.max(surface.height, floorCapped);
 
-  // ② Flip: below first; flip to above only when below does not fit and
-  //    above has more room.
+  // ③ Flip threshold. minRoom lets a two-row-minimum rule flip above while
+  // the below strip still holds part of the surface; the default (desiredH)
+  // keeps the historical flip-only-when-below-cannot-hold-everything rule.
+  const flipRoom = opts.minRoom ?? desiredH;
+
+  // ④ Flip: below first; flip to above only when below does not fit the
+  // flip threshold and above has more room.
   const side: "below" | "above" =
-    availBelow >= desiredH || availAbove <= availBelow ? "below" : "above";
+    availBelow >= flipRoom || availAbove <= availBelow ? "below" : "above";
 
-  // ③ Height cap: capped to the chosen strip's available space, then the
-  //    row floor is applied but capped at the bounds height, and the result
-  //    is bounded by the bounds.
+  // ⑤ Height cap: capped to the chosen strip's available space, then the
+  // row floor is applied but capped at the frame height, and the result
+  // is bounded by the frame.
   const availH = side === "below" ? availBelow : availAbove;
   const stripCapped = Math.min(desiredH, availH);
-  const maxHeight = Math.max(0, Math.min(boundsH, Math.max(stripCapped, floorCapped)));
+  const maxHeight = Math.max(0, Math.min(frameH, Math.max(stripCapped, floorCapped)));
 
-  // ④ Vertical clamp.
+  // ⑥ Vertical clamp.
   const naturalTop =
     side === "below" ? anchor.bottom + gap : anchor.top - gap - maxHeight;
-  const top = clamp(naturalTop, bounds.top, bounds.bottom - maxHeight);
+  const top = clamp(naturalTop, frame.top, frame.bottom - maxHeight);
 
-  // ⑤ Horizontal: right-align to the anchor, then clamp into the bounds.
-  const naturalLeft = anchor.right - maxWidth;
-  const left = clamp(naturalLeft, bounds.left, bounds.right - maxWidth);
+  // ⑦ Horizontal alignment, then clamp into the frame.
+  const naturalLeft =
+    opts.align === "left"
+      ? anchor.left
+      : opts.align === "center"
+        ? anchor.left + anchorW / 2 - maxWidth / 2
+        : anchor.right - maxWidth;
+  const left = clamp(naturalLeft, frame.left, frame.right - maxWidth);
 
   return { top, left, side, maxWidth, maxHeight };
 };
