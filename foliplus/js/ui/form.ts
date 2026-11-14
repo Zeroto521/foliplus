@@ -82,7 +82,7 @@ const numberInput = (opts: {
     "aria-label": opts.ariaLabel,
   });
   if (!opts.unitSuffix) return input;
-  return dom.el(
+  const group = dom.el(
     "span",
     { class: FORM_CLASS.NUMBER_GROUP },
     input,
@@ -92,6 +92,12 @@ const numberInput = (opts: {
       opts.unitSuffix,
     ),
   );
+  // The suffix lives inside the input's right padding; while the user edits the
+  // field it must not be mistaken for part of the number, so focus hides it
+  // (the wrapper carries the editing state so the CSS stays declarative).
+  input.addEventListener("focus", () => group.classList.add(FORM_CLASS.NUMBER_EDITING));
+  input.addEventListener("blur", () => group.classList.remove(FORM_CLASS.NUMBER_EDITING));
+  return group;
 };
 
 /** One select option for {@link selectInput}. */
