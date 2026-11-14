@@ -2762,6 +2762,30 @@ class TestStyleBrowser(LayerControlBrowserBase):
             current = result["zoomRange"]["labels"]["current"]
             assert current is not None, f"zoom range lost its current number: {result}"
 
+            # The current-level number must centre on its OWN dot, not on the
+            # track or a hardcoded offset: the dot rides the track (inset by half
+            # a thumb) while the label sits in the full-width values row, so a
+            # percentage of the row alone would drift by that inset. Read the
+            # dot's own centre from the probe.
+            current_dot = next(
+                (d for d in result["zoomRange"]["dots"] if d.get("tone") == "current"),
+                None,
+            )
+            assert current_dot is not None, (
+                f"zoom range lost its current dot: {result}"
+            )
+
+            def centre(box):
+                return (box["left"] + box["right"]) / 2
+
+            current_drift = abs(centre(current["box"]) - current_dot["box"]["cx"])
+            assert current_drift <= 0.5, (
+                "the current-level number is not centred on its dot: "
+                f"{centre(current['box']):.2f}px vs "
+                f"{current_dot['box']['cx']:.2f}px "
+                f"(drift {current_drift:.2f}px)"
+            )
+
             # A mirrored page keeps the same invariant: the logical anchors
             # swap sides, the physical dot-centre flips with them, so every
             # number still centres on the dot it names.
@@ -2771,6 +2795,27 @@ class TestStyleBrowser(LayerControlBrowserBase):
             check_row("opacity (rtl)", mirrored["opacity"], thumbs=1, mirrored=True)
             check_row(
                 "zoom range (rtl)", mirrored["zoomRange"], thumbs=2, mirrored=True
+            )
+
+            current_dot_rtl = next(
+                (d for d in mirrored["zoomRange"]["dots"] if d.get("tone") == "current"),
+                None,
+            )
+            assert current_dot_rtl is not None, (
+                f"zoom range (rtl) lost its current dot: {mirrored}"
+            )
+            current_rtl = mirrored["zoomRange"]["labels"]["current"]
+            assert current_rtl is not None, (
+                f"zoom range (rtl) lost its current number: {mirrored}"
+            )
+            current_drift_rtl = abs(
+                centre(current_rtl["box"]) - current_dot_rtl["box"]["cx"]
+            )
+            assert current_drift_rtl <= 0.5, (
+                "the current-level number (rtl) is not centred on its dot: "
+                f"{centre(current_rtl['box']):.2f}px vs "
+                f"{current_dot_rtl['box']['cx']:.2f}px "
+                f"(drift {current_drift_rtl:.2f}px)"
             )
             assert not errors, f"JS errors: {errors}"
 

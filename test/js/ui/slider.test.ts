@@ -1411,3 +1411,92 @@ describe("Slider width-adaptive end numbers", () => {
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
   });
 });
+
+describe("Slider width-adaptive current label", () => {
+  const stubRow = (host: HTMLElement, width: number): HTMLElement => {
+    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
+    Object.defineProperty(row, "clientWidth", { value: width, configurable: true });
+    row.getBoundingClientRect = () => fakeRect({ left: 0, top: 0, width, height: 14 });
+    return row;
+  };
+  const stubLabel = (el: HTMLElement, intrinsic: number): void => {
+    Object.defineProperty(el, "scrollWidth", { value: intrinsic, configurable: true });
+  };
+  const stubDot = (host: HTMLElement, cx: number): void => {
+    const dot = host.querySelector(`.${SLIDER_CLASS.DOT_CURRENT}`) as HTMLElement;
+    if (dot) {
+      dot.getBoundingClientRect = () =>
+        fakeRect({ left: cx - 5, top: 0, width: 10, height: 10 });
+    }
+  };
+  const makeCurrent = (over: Partial<SliderOptions> = {}) =>
+    make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+      current: { at: 40, text: "40" },
+      marks: [
+        { at: 0, tone: "limit" },
+        { at: 40, tone: "current" },
+        { at: 100, tone: "limit" },
+      ],
+      ...over,
+    });
+  const stubEndLabels = (host: HTMLElement, width: number): void => {
+    // The end numbers are dot-centred at the row edges; give them real inner
+    // edges so the current label has a finite room between them (jsdom rects
+    // are 0x0 otherwise, which makes the right bound negative).
+    const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
+    const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
+    if (minEl) {
+      minEl.getBoundingClientRect = () =>
+        fakeRect({ left: 0, top: 0, width: 20, height: 14 });
+    }
+    if (maxEl) {
+      maxEl.getBoundingClientRect = () =>
+        fakeRect({ left: width - 20, top: 0, width: 20, height: 14 });
+    }
+  };
+  const currentEl = (host: HTMLElement) =>
+    host.querySelector(`.${SLIDER_CLASS.VALUE_CURRENT}`) as HTMLElement;
+  const measure = (slider: Slider): void =>
+    (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
+
+  it("keeps a current number that fits between the ends unclamped", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 20);
+    // The min/max labels are dot-centred, so their boxes are the stubs' rects
+    // (0x0 unless stubbed); the current label fits, so no clamp.
+    measure(sliderOf(host)!);
+    expect(cur.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(cur.style.maxWidth).toBe("");
+  });
+
+  it("clamps a current number that no longer fits between the ends", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 160);
+    stubDot(host, 80);
+    stubEndLabels(host, 160);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    measure(sliderOf(host)!);
+    expect(cur.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(cur.style.maxWidth).not.toBe("");
+    expect(parseFloat(cur.style.maxWidth)).toBeGreaterThan(0);
+  });
+
+  it("does not clamp when the row has no laid-out width", () => {
+    const { host } = makeCurrent();
+    stubRow(host, 0);
+    const cur = currentEl(host);
+    stubLabel(cur, 200);
+    measure(sliderOf(host)!);
+    expect(cur.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+});

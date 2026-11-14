@@ -1,15 +1,16 @@
-// Geometry probe: the scale's end numbers must sit pinned to the values
-// row's two edges — a label never paints past the row's own box, and a long
-// label truncates (ellipsis) instead of overflowing the container. This is
-// the flex layout's contract: the content must not draw outside the values
-// row. The row takes the track's half-thumb inset, so its edges align with
-// the rail's ends (and the thumbs parked there).
+// Geometry probe: every number under the scale must centre on the dot it
+// names. The end numbers sit on the rail's end dots, the current-level number
+// on its own marker dot — so the probe reports the rail's dots with their
+// positions, letting the assertion compare a label's centre against its own
+// dot instead of an offset. Measured in the live style panel, where the rows
+// get real layout; a long label also truncates (ellipsis) instead of
+// overflowing.
 //
 // Measured in the live style panel, where the rows get real layout. A real tile
 // basemap's panel carries both slider rows, so one visit covers the single
 // opacity thumb and the dual zoom-range pair (which also owns the
 // current-level number).
-() => {
+async () => {
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { error: "no __layerCtrl" };
   const ui = ctrl.mgr.ui;
@@ -22,6 +23,7 @@
       left: rect.left,
       right: rect.right,
       width: rect.width,
+      cx: (rect.left + rect.right) / 2,
     };
   };
 
@@ -55,6 +57,13 @@
         value: thumb.getAttribute("aria-valuenow"),
         box: boxOf(thumb),
       })),
+      dots: [...host.querySelectorAll(".foliplus-slider-dot")].map(dot => ({
+        at: dot.dataset.at,
+        tone: dot.classList.contains("foliplus-slider-dot-current")
+          ? "current"
+          : "rail",
+        box: boxOf(dot),
+      })),
       labels: {
         min: readLabel(host.querySelector(".foliplus-slider-value-min")),
         max: readLabel(host.querySelector(".foliplus-slider-value-max")),
@@ -71,6 +80,11 @@
   }
 
   ui.openStylePanel(realBases[0].id);
+  // The style panel mounts the sliders in the same tick, but the
+  // current-level label is positioned on its dot by a deferred fit
+  // measure (the constructor's sync runs before the row lays out).
+  // Wait two frames so that measure has run before reading geometry.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
   const opacityHost = document.querySelector(".foliplus-style-opacity-track");
   const zoomHost = document.querySelector(".foliplus-style-zoom-range-control");
   const result = {
