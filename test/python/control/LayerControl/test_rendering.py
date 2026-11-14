@@ -814,17 +814,51 @@ class TestLayerControlRendering:
         assert "z-index: var(--foliplus-z-index-hint)" in bubble
         # Disabled is a primitive state, not a component special case.
         assert ".foliplus-slider.is-disabled" in css
-        # The end numbers name their edge with the logical start/end anchor and
-        # centre on it with a physical X shift; the mirrored page flips that
-        # shift so each number still centres on the edge it names.
-        assert "inset-inline-start: 0" in _rule(css, ".foliplus-slider-value-min {")
-        assert "translateX(-50%)" in _rule(css, ".foliplus-slider-value-min {")
-        assert "inset-inline-end: 0" in _rule(css, ".foliplus-slider-value-max {")
-        assert "translateX(50%)" in _rule(css, ".foliplus-slider-value-max {")
-        assert "translateX(50%)" in _rule(css, ":dir(rtl) .foliplus-slider-value-min {")
-        assert "translateX(-50%)" in _rule(
-            css, ":dir(rtl) .foliplus-slider-value-max {"
+        # The end numbers are a width-adaptive pair: a label that fits on
+        # its half is centred on the dot it names (anchored a half thumb in
+        # from the row edge, shifted back half its own width); a label too
+        # wide to fit centred switches to the clamp state (class is-clamp),
+        # which returns it to the flex row and clips its text toward the
+        # inside. The row spans the control's width (no half-thumb inset) and
+        # stays position: relative so the drag-time readout keeps it as its
+        # containing block.
+        values = _rule(css, ".foliplus-slider-values {")
+        assert "display: flex" in values
+        assert "justify-content: space-between" in values
+        assert "position: relative" in values
+        assert "margin" not in values
+        span = _rule(css, ".foliplus-slider-values > span {")
+        assert "position: static" in span
+        assert "overflow: hidden" in span
+        assert "text-overflow: ellipsis" in span
+        assert "white-space: nowrap" in span
+        # The dot-centred default: absolute, anchored a half thumb in from the
+        # row edge, shifted back half the label's own width so its centre sits
+        # on the parked dot.
+        min_rule = _rule(css, ".foliplus-slider-value-min:not(.is-clamp) {")
+        max_rule = _rule(css, ".foliplus-slider-value-max:not(.is-clamp) {")
+        assert "position: absolute" in min_rule
+        assert "position: absolute" in max_rule
+        assert "inset-inline-start" in min_rule
+        assert "inset-inline-end" in max_rule
+        assert "translateX(-50%)" in min_rule
+        assert "translateX(50%)" in max_rule
+        # The clamp state returns the label to the flex row and clips inward.
+        min_clamp = _rule(css, ".foliplus-slider-value-min.is-clamp {")
+        max_clamp = _rule(css, ".foliplus-slider-value-max.is-clamp {")
+        assert "flex: 0 1 auto" in min_clamp
+        assert "flex: 0 1 auto" in max_clamp
+        assert "text-align: start" in min_clamp
+        assert "text-align: end" in max_clamp
+        # RTL mirrors the dot-centre anchors explicitly (the transform flips).
+        assert ":dir(rtl) .foliplus-slider-value-min" in css
+        assert ":dir(rtl) .foliplus-slider-value-max" in css
+        current = _rule(
+            css, ".foliplus-slider-values > span.foliplus-slider-value-current {"
         )
+        assert "position: absolute" in current
+        assert "top: 0" in current
+        assert "translateX(-50%)" in current
         # States: parked is small, held and focused grow.
         assert "scale(1.1)" in css
         assert "scale(1.15)" in css

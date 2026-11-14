@@ -226,6 +226,9 @@ class Slider {
   private readonly thumbs: HTMLElement[] = [];
   private dotEls: HTMLElement[] = [];
   private currentEl: HTMLElement | null = null;
+  private minEl: HTMLElement | null = null;
+  private maxEl: HTMLElement | null = null;
+  private fitObserver?: ResizeObserver;
   private disabled: boolean;
   private rtl: boolean;
   private bubbleFrame = 0;
@@ -335,6 +338,17 @@ class Slider {
     this.bind();
     this.sync();
     this.applyAria();
+    // The end numbers fit-measure is deferred a frame: the constructor can
+    // run before the panel has laid the row out, so a synchronous read would
+    // see a zero-height box and flip every label to the clamp state for a
+    // frame. The resize observer then covers later width changes.
+    if (typeof ResizeObserver === "function") {
+      this.fitObserver = new ResizeObserver(() => this.measureValuesFit());
+      this.fitObserver.observe(this.valuesRow);
+    }
+    requestAnimationFrame(() => {
+      if (this.root.isConnected) this.measureValuesFit();
+    });
   }
 
   // ── Public API ──────────────────────────────────────────────
@@ -398,6 +412,13 @@ class Slider {
     this.opts.current = current;
     this.renderCurrent();
     this.sync();
+    // The label may be created before the panel has laid the row out (the
+    // constructor's own sync saw zero-width boxes and deferred). Re-measure
+    // next frame, once the row reports real geometry, so the label lands on
+    // its dot instead of the row-centre fallback.
+    requestAnimationFrame(() => {
+      if (this.root.isConnected) this.measureValuesFit();
+    });
   }
 
   /** Make the control inert (or live again) without rebuilding it. */
@@ -489,6 +510,7 @@ class Slider {
           },
         ],
         ["clear-children", () => this.root.replaceChildren()],
+        ["stop-fit-observer", () => this.fitObserver?.disconnect()],
         ["clear-class", () => this.root.classList.remove(SLIDER_CLASS.ROOT)],
         ["clear-role", () => this.root.removeAttribute("role")],
         ["clear-label", () => this.root.removeAttribute("aria-label")],
@@ -510,6 +532,37 @@ class Slider {
   private visualPct(value: number): number {
     const pct = this.pct(value);
     return this.rtl ? 100 - pct : pct;
+  }
+
+  /** Horizontal centre of the current mark's own dot, in px from the
+   *  values row's left edge. The label under it is centred on that same
+   *  point, so it reads the dot's real geometry instead of guessing an
+   *  offset: the dot rides the track (inset by half a thumb) and the row
+   *  spans the control, so a bare percentage of the row would drift.
+   *  Null when the dot is not in the tree. */
+  private currentDotCentre(): number | null {
+    const dot = this.dotEls.find(el => el.classList.contains(SLIDER_CLASS.DOT_CURRENT));
+    if (!dot) return null;
+    const row = this.valuesRow.getBoundingClientRect();
+    const box = dot.getBoundingClientRect();
+    // A row that has not been laid out (the constructor can run before the
+    // panel mounts) has zero-width boxes; a dot that reports no width is not
+    // yet in a laid-out tree either. Defer (null) and let the deferred fit
+    // measure place it once the row has real geometry.
+    if (row.width === 0 || box.width === 0) return null;
+    return box.left - row.left + box.width / 2;
+  }
+
+  /** Position the current-level label on the dot it names (px from the
+   *  row's left). A dot-centred label is measured from the dot's real box so
+   *  it stays under its mark at every level, RTL included; when the dot is
+   *  not yet in a laid-out tree the CSS default (row-centre) holds until the
+   *  deferred fit measure re-places it. */
+  private positionCurrent(): void {
+    if (!this.currentEl) return;
+    const centre = this.currentDotCentre();
+    if (centre !== null) this.currentEl.style.left = `${centre}px`;
+    else this.currentEl.style.left = "";
   }
 
   private round(value: number): number {
@@ -559,11 +612,19 @@ class Slider {
   private renderValues(): void {
     this.valuesRow.replaceChildren();
     if (!this.opts.values) return;
-    this.valuesRow.append(
-      dom.el("span", { class: SLIDER_CLASS.VALUE_MIN }, this.opts.values.min),
-      dom.el("span", { class: SLIDER_CLASS.VALUE_MAX }, this.opts.values.max),
+    this.minEl = dom.el(
+      "span",
+      { class: SLIDER_CLASS.VALUE_MIN },
+      this.opts.values.min,
     );
+    this.maxEl = dom.el(
+      "span",
+      { class: SLIDER_CLASS.VALUE_MAX },
+      this.opts.values.max,
+    );
+    this.valuesRow.append(this.minEl, this.maxEl);
     this.renderCurrent();
+    this.measureValuesFit();
   }
 
   private renderCurrent(): void {
@@ -574,6 +635,71 @@ class Slider {
     const label = dom.el("span", { class: SLIDER_CLASS.VALUE_CURRENT }, current.text);
     this.currentEl = label;
     this.valuesRow.appendChild(label);
+  }
+
+  /** Width-adaptive end labels: a label that fits on its half stays
+   *  dot-centred (its centre on the parked dot's centre); a label too wide
+   *  to fit centred without crossing the row's middle switches to the clamp
+   *  state (class is-clamp), which pins it to the row's edge and clips its
+   *  text inward. Measured on render / open / resize — never on a drag
+   *  frame, so a pointermove cannot churn the layout. */
+  private measureValuesFit(): void {
+    if (!this.minEl || !this.maxEl || !this.opts.values) return;
+    const rowWidth = this.valuesRow.clientWidth;
+    // A detached row (the constructor can run before the panel mounts) has no
+    // laid-out width; skip and let the deferred measure or the resize observer
+    // decide once the row is in the document.
+    if (rowWidth === 0) return;
+    const thumb =
+      parseFloat(
+        getComputedStyle(this.root).getPropertyValue("--foliplus-slider-thumb-size"),
+      ) || 14;
+    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
+    // A label may stay dot-centred while it does not cross the row's middle:
+    // half the row, minus the half-thumb anchor and the gap to its sibling.
+    const half = rowWidth / 2 - thumb / 2 - gap;
+    const fits = (el: HTMLElement) => el.scrollWidth <= half + 1;
+    const minClamp = !fits(this.minEl);
+    const maxClamp = !fits(this.maxEl);
+    this.minEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, minClamp);
+    this.maxEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, maxClamp);
+    // The deferred fit measure runs after the first layout, so the current
+    // label can finally read its dot's real centre (the constructor's own
+    // sync saw zero-width boxes and deferred).
+    this.positionCurrent();
+    this.measureCurrentFit();
+  }
+
+  /** Width-adaptive current-level label: it stays centred on its own dot
+   *  while it does not reach the end numbers. A label too wide for the
+   *  space left between them is capped to the nearer side and clips
+   *  (the >span rule already applies overflow: hidden + ellipsis), so it
+   *  never crosses a sibling. Measured from live geometry on render /
+   *  open / resize — never on a drag frame. */
+  private measureCurrentFit(): void {
+    if (!this.currentEl || !this.opts.current) return;
+    this.currentEl.style.maxWidth = "";
+    const row = this.valuesRow.getBoundingClientRect();
+    if (row.width === 0) return;
+    const centre = this.currentDotCentre();
+    if (centre === null) return;
+    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
+    // The end numbers own the row's two edges; the current number may use
+    // the space strictly between their inner edges. A dot-centred end label
+    // overhangs inward, so its box edge is the real boundary.
+    const minBox = this.minEl?.getBoundingClientRect();
+    const maxBox = this.maxEl?.getBoundingClientRect();
+    const leftBound = minBox ? minBox.right - row.left + gap : gap;
+    const rightBound = maxBox ? maxBox.left - row.left - gap : row.width - gap;
+    // A dot-centred label may grow room/2 on either side of the dot (the
+    // dot sits at the centre of the label), so the cap is twice the nearer
+    // distance to an end label's inner edge.
+    // A dot-centred label may grow room/2 on either side of the dot (the
+    // dot sits at the centre of the label), so the cap is twice the nearer
+    // distance to an end label's inner edge.
+    const room = Math.min(centre - leftBound, rightBound - centre) * 2;
+    if (this.currentEl.scrollWidth <= room + 1) return;
+    this.currentEl.style.maxWidth = `${Math.max(room, 0)}px`;
   }
 
   private renderMarks(): void {
@@ -628,7 +754,11 @@ class Slider {
 
     if (this.currentEl && this.opts.current) {
       const current = this.opts.current;
-      this.currentEl.style.left = `${this.visualPct(current.at)}%`;
+      // Centre the label on the dot it names: the dot rides the track (inset by
+      // half a thumb) while the label sits in the full-width values row, so its
+      // own percentage would drift by that inset. Measuring the dot's real
+      // centre keeps the label under it at every level, RTL included.
+      this.positionCurrent();
       const gap = current.hideGapPct ?? 0;
       const nearEnd =
         gap > 0 && (this.pct(current.at) < gap || this.pct(current.at) > 100 - gap);

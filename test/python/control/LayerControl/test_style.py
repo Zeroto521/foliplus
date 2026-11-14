@@ -2737,19 +2737,20 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_slider_scale_ends_center_on_their_thumbs(self, browser, tmp_path):
-        """The end numbers of a slider scale sit centred on the rail's ends.
+    def test_slider_scale_ends_centered_on_their_thumbs(self, browser, tmp_path):
+        """The end numbers of a slider scale centre on the dots they name.
 
-        The values row takes the track's half-thumb inset, so the rail's ends
-        are the values row's edges and each end number has to be centred on
-        its own edge -- directly under the thumb parked there. Flush numbers
-        (outer edges on the row's edges) read as a scale whose ends belong to
-        the field rather than to the thumbs. Both rows that carry numbers are
-        measured in the live style panel: the single opacity thumb and the
-        dual zoom-range pair. The same pass pins that the centring did not
-        widen the control (a centred number overhangs the field by half its
-        width, which is why the flush layout existed) and did not clip the
-        numbers against the panel's scroll box.
+        A label that fits on its half stays centred on the dot (the thumb
+        parked at the rail's end): its centre sits on the thumb's centre, so
+        a short number (0/100, 0/19) reads as aligned with its dot. The
+        values row spans the control's width (no half-thumb inset), so the
+        dot-centre anchor is a half thumb in from the row edge on each side.
+        A label too wide to fit centred would switch to the clamp state (see
+        the ellipsis test); the live panel's numbers are short, so this pass
+        asserts the centred invariant. The row must not be widened by the
+        labels, the two numbers must not overlap, and each label stays inside
+        the row's own box. The dual zoom-range row also owns the
+        current-level number, which the centred layout keeps over the track.
         """
         overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
         with use_page(
@@ -2773,62 +2774,121 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 labels = row["labels"]
                 # A mirrored row keeps the logical anchors, so the minimum
                 # names the right edge and the maximum the left one.
+                min_label = labels["min"]
+                max_label = labels["max"]
+                assert min_label is not None, f"{name} has no min number: {row}"
+                assert max_label is not None, f"{name} has no max number: {row}"
+                assert min_label["visible"], f"{name} min number is hidden: {row}"
+                assert max_label["visible"], f"{name} max number is hidden: {row}"
+                # The two labels must not overlap.
                 if mirrored:
-                    ends = (
-                        ("min", labels["min"], row["track"]["right"]),
-                        ("max", labels["max"], row["track"]["left"]),
+                    assert (
+                        max_label["box"]["right"] <= min_label["box"]["left"] + 0.5
+                    ), (
+                        f"{name} end numbers overlap: {min_label['box']} vs "
+                        f"{max_label['box']}"
                     )
                 else:
-                    ends = (
-                        ("min", labels["min"], row["track"]["left"]),
-                        ("max", labels["max"], row["track"]["right"]),
-                    )
-                for side, label, edge in ends:
-                    assert label is not None, f"{name} has no {side} number: {row}"
-                    assert label["visible"], f"{name} {side} number is hidden: {row}"
-                    drift = abs(label["box"]["centerX"] - edge)
-                    assert drift <= 1.0, (
-                        f"{name} {side} number is not centred on the rail's "
-                        f"end: centre {label['box']['centerX']:.2f}px vs edge "
-                        f"{edge:.2f}px, drift {drift:.2f}px"
+                    assert (
+                        min_label["box"]["right"] <= max_label["box"]["left"] + 0.5
+                    ), (
+                        f"{name} end numbers overlap: {min_label['box']} vs "
+                        f"{max_label['box']}"
                     )
 
-                # The overhang of a centred end number has to land inside the
-                # panel's scroll box; outside it the row's hidden overflow
-                # clips the digits.
-                content = row["content"]
-                assert content is not None, f"no style panel around {name}: {row}"
-                for side, label, _edge in ends:
-                    assert label["box"]["left"] >= content["left"] - 0.5, (
-                        f"{name} {side} number is clipped on the left: "
-                        f"{label['box']} vs {content}"
-                    )
-                    assert label["box"]["right"] <= content["right"] + 0.5, (
-                        f"{name} {side} number is clipped on the right: "
-                        f"{label['box']} vs {content}"
-                    )
+                # The min names the first thumb, the max the last. Each label
+                # centre sits on its thumb's centre (dot-centred, <= 1px).
+                def centre(box):
+                    return (box["left"] + box["right"]) / 2
 
+                # The end dots are the rail ends: the min dot sits on the
+                # track's left edge, the max dot on its right edge, whatever
+                # the thumb count (a single-thumb opacity row parks its only
+                # thumb at the current value, not at a rail end). In RTL the
+                # logical anchors swap, so the min dot moves to the right edge.
+                if not mirrored:
+                    min_dot = row["track"]["left"]
+                    max_dot = row["track"]["right"]
+                else:
+                    min_dot = row["track"]["right"]
+                    max_dot = row["track"]["left"]
+                min_drift = abs(centre(min_label["box"]) - min_dot)
+                max_drift = abs(centre(max_label["box"]) - max_dot)
+                assert min_drift <= 1.0, (
+                    f"{name} min number is not centred on its dot: "
+                    f"{centre(min_label['box']):.2f}px vs "
+                    f"{min_dot:.2f}px (drift {min_drift:.2f}px)"
+                )
+                assert max_drift <= 1.0, (
+                    f"{name} max number is not centred on its dot: "
+                    f"{centre(max_label['box']):.2f}px vs "
+                    f"{max_dot:.2f}px (drift {max_drift:.2f}px)"
+                )
+                # A dot-centred label may overhang the values row by half its
+                # own width (that is the layout's design: the anchor is a half
+                # thumb in from the row edge). The panel's clip box is the real
+                # boundary; the live panel's numbers are short, so each label
+                # stays inside the clip. Each label must not cross the track's
+                # opposite end.
+                # Each label's centre must stay between the two dots (a
+                # dot-centred label may overhang its own dot by half its
+                # width, but it cannot cross the opposite dot).
+                assert centre(min_label["box"]) >= min(min_dot, max_dot) - 0.5, (
+                    f"{name} min number crosses the max dot: {min_label['box']}"
+                )
+                assert centre(min_label["box"]) <= max(min_dot, max_dot) + 0.5, (
+                    f"{name} min number crosses the max dot: {min_label['box']}"
+                )
+                assert centre(max_label["box"]) >= min(min_dot, max_dot) - 0.5, (
+                    f"{name} max number crosses the min dot: {max_label['box']}"
+                )
+                assert centre(max_label["box"]) <= max(min_dot, max_dot) + 0.5, (
+                    f"{name} max number crosses the min dot: {max_label['box']}"
+                )
                 # Not widened: the slider is the track plus the half-thumb
-                # inset on each side, and the values row still spans the track.
+                # inset on each side, and the values row spans the control's
+                # width (it no longer takes the inset).
                 slider, track = row["slider"], row["track"]
                 thumb_width = row["thumbs"][0]["box"]["width"]
                 assert abs(slider["width"] - (track["width"] + thumb_width)) <= 1.0, (
                     f"the {name} slider was widened: {slider} vs track {track}"
                 )
-                assert abs(row["values"]["width"] - track["width"]) <= 1.0, (
-                    f"the {name} values row no longer spans the track: {row}"
+                assert abs(row["values"]["width"] - slider["width"]) <= 1.0, (
+                    f"the {name} values row no longer spans the control: {row}"
                 )
 
             check_row("opacity", result["opacity"], thumbs=1)
             check_row("zoom range", result["zoomRange"], thumbs=2)
 
-            # The dual row keeps the current-level number the flush layout had.
+            # The dual row keeps the current-level number the centred layout had.
             current = result["zoomRange"]["labels"]["current"]
             assert current is not None, f"zoom range lost its current number: {result}"
 
+            # The current-level number must centre on its OWN dot, not on the
+            # track or a hardcoded offset: the dot rides the track (inset by half
+            # a thumb) while the label sits in the full-width values row, so a
+            # percentage of the row alone would drift by that inset. Read the
+            # dot's own centre from the probe.
+            current_dot = next(
+                (d for d in result["zoomRange"]["dots"] if d.get("tone") == "current"),
+                None,
+            )
+            assert current_dot is not None, f"zoom range lost its current dot: {result}"
+
+            def centre(box):
+                return (box["left"] + box["right"]) / 2
+
+            current_drift = abs(centre(current["box"]) - current_dot["box"]["cx"])
+            assert current_drift <= 0.5, (
+                "the current-level number is not centred on its dot: "
+                f"{centre(current['box']):.2f}px vs "
+                f"{current_dot['box']['cx']:.2f}px "
+                f"(drift {current_drift:.2f}px)"
+            )
+
             # A mirrored page keeps the same invariant: the logical anchors
-            # swap sides, the physical shift flips with them, so every number
-            # still centres on the edge (and therefore the thumb) it names.
+            # swap sides, the physical dot-centre flips with them, so every
+            # number still centres on the dot it names.
             page.evaluate(_js("LayerControl/set_document_dir_rtl"))
             mirrored = page.evaluate(_js("LayerControl/read_slider_label_alignment"))
             assert mirrored.get("error") is None, f"RTL setup failed: {mirrored}"
@@ -2836,6 +2896,107 @@ class TestStyleBrowser(LayerControlBrowserBase):
             check_row(
                 "zoom range (rtl)", mirrored["zoomRange"], thumbs=2, mirrored=True
             )
+
+            current_dot_rtl = next(
+                (
+                    d
+                    for d in mirrored["zoomRange"]["dots"]
+                    if d.get("tone") == "current"
+                ),
+                None,
+            )
+            assert current_dot_rtl is not None, (
+                f"zoom range (rtl) lost its current dot: {mirrored}"
+            )
+            current_rtl = mirrored["zoomRange"]["labels"]["current"]
+            assert current_rtl is not None, (
+                f"zoom range (rtl) lost its current number: {mirrored}"
+            )
+            current_drift_rtl = abs(
+                centre(current_rtl["box"]) - current_dot_rtl["box"]["cx"]
+            )
+            assert current_drift_rtl <= 0.5, (
+                "the current-level number (rtl) is not centred on its dot: "
+                f"{centre(current_rtl['box']):.2f}px vs "
+                f"{current_dot_rtl['box']['cx']:.2f}px "
+                f"(drift {current_drift_rtl:.2f}px)"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_slider_end_labels_ellipsize_not_overflow(self, browser, tmp_path):
+        """A long value label truncates, a short one does not.
+
+        The end numbers are a flex row pinned to the values row's edges, so a
+        label's content must not paint past the row's own box: a long value
+        ellipsizes (its intrinsic scroll width exceeds the box it is given)
+        while a short value keeps its full text. Both end labels stay inside
+        the values row's box and never overlap each other. The labels are
+        built as a bare slider appended into the live style panel so the
+        clip ancestor is the real panel content, not a synthetic wrapper.
+        """
+        overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
+        with use_page(
+            self._make_page, browser, tmp_path, overlay, slug="slider_label_center"
+        ) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            result = page.evaluate(_js("LayerControl/read_slider_end_labels_ellipsis"))
+            assert result.get("error") is None, f"setup failed: {result}"
+            for name, group in result["result"].items():
+                assert group["values"] is not None, f"{name}: no values row: {group}"
+                for side in ("min", "max"):
+                    label = group[side]
+                    assert label is not None, f"{name}: no {side} label: {group}"
+                    # A clamped label pins to the row's edge and clips inward,
+                    # so it stays inside the row's own box. A dot-centred label
+                    # (no clamp) legitimately overhangs the row by half its
+                    # width (the dot-centre anchor is a half thumb in from the
+                    # edge); its box is clipped by the panel, not the row.
+                    if label.get("clamp"):
+                        assert label["box"]["left"] >= group["values"]["left"] - 0.5, (
+                            f"{name} {side} paints past the values row's left: "
+                            f"{label['box']} vs {group['values']}"
+                        )
+                        assert (
+                            label["box"]["right"] <= group["values"]["right"] + 0.5
+                        ), (
+                            f"{name} {side} paints past the values row's right: "
+                            f"{label['box']} vs {group['values']}"
+                        )
+                # The two end labels must not overlap.
+                assert (
+                    group["min"]["box"]["right"] <= group["max"]["box"]["left"] + 0.5
+                ), (
+                    f"{name} end labels overlap: {group['min']['box']} vs "
+                    f"{group['max']['box']}"
+                )
+            # The long labels switch to the clamp state and ellipsize; the
+            # short ones stay dot-centred and keep their full text.
+            long_min = result["result"]["long"]["min"]
+            long_max = result["result"]["long"]["max"]
+            assert long_min["clamp"], f"long min did not clamp: {long_min}"
+            assert long_max["clamp"], f"long max did not clamp: {long_max}"
+            assert long_min["scrollWidth"] > long_min["clientWidth"], (
+                f"long min did not ellipsize: scrollWidth {long_min['scrollWidth']} "
+                f"<= clientWidth {long_min['clientWidth']}"
+            )
+            assert long_max["scrollWidth"] > long_max["clientWidth"], (
+                f"long max did not ellipsize: scrollWidth {long_max['scrollWidth']} "
+                f"<= clientWidth {long_max['clientWidth']}"
+            )
+            for name in ("short",):
+                for side in ("min", "max"):
+                    label = result["result"][name][side]
+                    assert not label["clamp"], f"{name} {side} clamped: {label}"
+                    assert label["scrollWidth"] == label["clientWidth"], (
+                        f"{name} {side} was truncated: scrollWidth "
+                        f"{label['scrollWidth']} != clientWidth "
+                        f"{label['clientWidth']}"
+                    )
             assert not errors, f"JS errors: {errors}"
 
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
