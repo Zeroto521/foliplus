@@ -11,6 +11,7 @@ import {
   type LayerInfo,
   type LayerRole,
   createFolder,
+  createFolderLayoutManager,
   deleteFolder,
   dropLayer,
   emptyFolderLayout,
@@ -224,5 +225,59 @@ describe("storage round-trip", () => {
   it("reads a corrupt layout as empty", () => {
     window.localStorage.setItem(LAYOUT_DOC_KEY, JSON.stringify({ version: 1 }));
     expect(readFolderLayout()).toEqual(emptyFolderLayout());
+  });
+});
+describe("seed merge", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => {
+    vi.useRealTimers();
+    window.localStorage.clear();
+  });
+
+  it("a user root pin wins over the author declaration when seeding", () => {
+    // Pre-existing layout pins layer "a" to root (folder: "").
+    const existing: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: [] },
+      members: { a: { section: "overlay", folder: "" } },
+    };
+    writeFolderLayout(existing);
+
+    const manager = createFolderLayoutManager();
+    const entryA = entry("a", "overlay", "Roads", 0);
+    manager.seed([entryA]);
+
+    // The user pin is untouched; the declaration does not sink the layer back.
+    expect(manager.layout.members.a).toEqual({ section: "overlay", folder: "" });
+    expect(manager.layout.folders).toEqual([]);
+    expect(manager.layout.order.overlay ?? []).toEqual([]);
+  });
+
+  it("an existing member assignment wins over the author declaration when seeding", () => {
+    // Pre-existing layout has layer "a" inside "roads" already.
+    const existing: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: { a: { section: "overlay", folder: "roads" } },
+    };
+    writeFolderLayout(existing);
+
+    const manager = createFolderLayoutManager();
+    const entryA = entry("a", "overlay", "Water", 1);
+    manager.seed([entryA]);
+
+    // The existing assignment wins; the new declaration "water" is not applied.
+    expect(manager.layout.members.a).toEqual({ section: "overlay", folder: "roads" });
+    expect(manager.layout.folders).toEqual([{ key: "roads", name: "Roads" }]);
+  });
+
+  it("an unassigned layer receives its author declaration when seeding", () => {
+    const manager = createFolderLayoutManager();
+    const entryA = entry("a", "overlay", "Roads", 0);
+    manager.seed([entryA]);
+
+    expect(manager.layout.members.a).toEqual({ section: "overlay", folder: "roads" });
+    expect(manager.layout.folders).toEqual([{ key: "roads", name: "Roads" }]);
   });
 });
