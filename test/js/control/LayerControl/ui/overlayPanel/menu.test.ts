@@ -140,6 +140,50 @@ describe("LayerUI menu", () => {
       ]);
     });
 
+    it("keeps the Filter entry enabled when the owner has a filterable field", () => {
+      manager.registerLayer({
+        id: "has-fields",
+        name: "Has Fields",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => true,
+      });
+      const item = findItem(ui, "has-fields");
+
+      ui.openMoreMenu(item);
+
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      expect(entry).not.toBeNull();
+      expect(entry.getAttribute("aria-disabled")).toBe("false");
+      expect(entry.getAttribute("title")).toBe(ui.T("filter_layer_tooltip"));
+    });
+
+    it("disables the Filter entry with the empty-state reason when the owner reports no field", () => {
+      manager.registerLayer({
+        id: "no-fields",
+        name: "No Fields",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => false,
+      });
+      const item = findItem(ui, "no-fields");
+
+      ui.openMoreMenu(item);
+
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      expect(entry).not.toBeNull();
+      expect(entry.getAttribute("aria-disabled")).toBe("true");
+      expect(entry.getAttribute("title")).toBe(ui.T("filter_empty"));
+    });
+
     it("creates a menu with the focus-layer action", () => {
       // A native <button> is focusable without tabindex — the item is no longer
       // a tabindex="0" li, so the attribute must be absent, not "0".
