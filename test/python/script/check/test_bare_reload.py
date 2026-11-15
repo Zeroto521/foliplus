@@ -56,7 +56,9 @@ def _strip_comments_and_strings(source: str) -> str:
         # Block comment: skip to closing */.
         if ch == "/" and nxt == "*":
             i += 2
-            while i < n and not (source[i] == "*" and i + 1 < n and source[i + 1] == "/"):
+            while i < n and not (
+                source[i] == "*" and i + 1 < n and source[i + 1] == "/"
+            ):
                 if source[i] == "\n":
                     out.append("\n")
                 i += 1
@@ -99,7 +101,11 @@ def _strip_comments_and_strings(source: str) -> str:
 def _find_bare_reloads(source: str) -> list[int]:
     """Return 1-based line numbers of bare ``page.reload()`` call sites."""
     stripped = _strip_comments_and_strings(source)
-    return [i + 1 for i, line in enumerate(stripped.split("\n")) if _BARE_RELOAD.search(line)]
+    return [
+        i + 1
+        for i, line in enumerate(stripped.split("\n"))
+        if _BARE_RELOAD.search(line)
+    ]
 
 
 def test_no_bare_page_reload():
@@ -110,7 +116,7 @@ def test_no_bare_page_reload():
         for line in _find_bare_reloads(source):
             hits.append((path.relative_to(REPO_ROOT).as_posix(), line))
     assert not hits, (
-        "bare page.reload() found (use wait_until=\"domcontentloaded\"): "
+        'bare page.reload() found (use wait_until="domcontentloaded"): '
         + ", ".join(f"{p}:{n}" for p, n in hits)
     )
 
@@ -118,22 +124,17 @@ def test_no_bare_page_reload():
 def test_strip_removes_comment_and_string_reloads():
     """A reload inside a comment or string must not count."""
     source = (
-        '# page.reload()\n'
+        "# page.reload()\n"
         '"""\n'
-        'page.reload()\n'
+        "page.reload()\n"
         '"""\n'
         'page.reload(wait_until="domcontentloaded")\n'
-        'page.reload()\n'
+        "page.reload()\n"
     )
     assert _find_bare_reloads(source) == [6]
 
 
 def test_strip_preserves_line_structure():
     """Stripping must not collapse line numbers for multi-line strings."""
-    source = (
-        'x = "a\n'
-        'page.reload()\n'
-        'b"\n'
-        'page.reload()\n'
-    )
+    source = 'x = "a\npage.reload()\nb"\npage.reload()\n'
     assert _find_bare_reloads(source) == [4]
