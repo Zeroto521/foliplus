@@ -198,10 +198,11 @@ describe("LayerUI filter panel", () => {
 
   describe("the ⋮ menu gate", () => {
     it("hides the filter entry for layers without the filter capability", () => {
-      const item = findItem(ui, "overlay1"); // registered without capability
+      // A base layer is excluded from the generic filter injection (role
+      // check in injectGenericFilterCapability), so its ⋮ menu has no
+      // Filter entry — a control that can never run is not rendered at all.
+      const item = findItem(ui, "base1");
       ui.openMoreMenu(item);
-      // A control that can never run is not rendered at all — no disabled
-      // row, no "not supported" tooltip sitting in every menu.
       expect(
         item.querySelector(`[data-action="${CONST.ACTION.FILTER_LAYER}"]`),
       ).toBeNull();

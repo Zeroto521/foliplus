@@ -92,12 +92,13 @@ describe("LayerUI menu", () => {
       expect(ui.overlayPanel.menuReposition).toBeNull();
     });
 
-    it("orders style, focus, rename, attributes, then delete behind a divider", () => {
+    it("leads with Filter (generic capability), then style, focus, rename, attributes", () => {
       // Deliberate ordering, not append order: the primary configure action
       // leads, then the reversible view action, the one entry that writes to
       // the layer, the display-only attributes entry, and finally the
-      // destructive one behind its own separator. A row without the filter
-      // capability renders NO filter entry (not a disabled one).
+      // destructive one behind its own separator. A constructor-registered
+      // ordinary layer is injected with the generic filter capability, so it
+      // leads with Filter (the same gate registerLayer uses).
       const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
@@ -106,6 +107,7 @@ describe("LayerUI menu", () => {
         item.querySelectorAll(".foliplus-layer-more-menu button"),
       ).map(li => (li as HTMLElement).dataset.action);
       expect(actions).toEqual([
+        CONST.ACTION.FILTER_LAYER,
         CONST.ACTION.STYLE_LAYER,
         CONST.ACTION.FOCUS_LAYER,
         CONST.ACTION.RENAME_LAYER,
@@ -113,7 +115,6 @@ describe("LayerUI menu", () => {
         CONST.ACTION.DELETE_LAYER,
       ]);
     });
-
     it("leads with Filter on a capability row, then style, focus, rename, attributes", () => {
       manager.registerLayer({
         id: "filterable",
