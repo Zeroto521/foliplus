@@ -56,6 +56,12 @@ interface PlacementOpts {
   minRows?: number;
   /** Height of a single row, paired with minRows. */
   rowHeight?: number;
+  /**
+   * Pixel floor for the height cap, independent of minRows * rowHeight. It does
+   * not change the flip threshold (use minRoom for that): it only keeps a short
+   * surface from collapsing below the caller's comfort minimum.
+   */
+  minHeight?: number;
   /** Gap between the anchor and the floating surface. Defaults to 0. */
   gap?: number;
   /**

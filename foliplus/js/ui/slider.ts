@@ -212,8 +212,9 @@ const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
       edgeGap: gap,
       align: "center",
       prefer: "above",
-      minRows: 1,
-      rowHeight: size.height,
+      // A cap floor, not a row count: the readout may be pushed by the
+      // viewport edge but must never be height-capped below one full bubble.
+      minHeight: size.height,
     },
   );
   // placement-adapter: the transform centres the box, so the inline `left`
