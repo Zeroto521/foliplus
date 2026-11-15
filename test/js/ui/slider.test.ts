@@ -170,6 +170,26 @@ describe("Slider primitive", () => {
     expect(bubble.textContent).toBe("21");
   });
 
+  it("refreshes the opt-in end readouts on a value change", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      values: { min: "0", max: "100" },
+      alwaysVisible: true,
+    });
+    const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
+    const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
+    expect(minEl.textContent).toBe("20");
+    expect(maxEl.textContent).toBe("80");
+    press(thumb(host, 0), "ArrowRight");
+    expect(minEl.textContent).toBe("21");
+    press(thumb(host, 1), "ArrowLeft");
+    expect(maxEl.textContent).toBe("79");
+  });
+  });
+
   it("slides a collapsed pair together instead of dead-locking", () => {
     const { host } = make({ min: 0, max: 19, value: [10, 10], label: "x" });
     const slider = sliderOf(host)!;
