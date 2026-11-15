@@ -341,16 +341,12 @@ interface RowPanelBounds {
   left: number;
 }
 
-/** Compare the anchor row against its bounds and write the pinned card's
- *  visible cap and flip state.
+/** Measure the pinned card and resolve its box from the shared kernel.
  *
- * A strip below that is shorter than the natural content AND shorter than the
- * strip above means the card belongs above its row. The cap is the natural
- * height clamped to the chosen strip, with a floor so a short map still shows
- * the card's header and first rows instead of collapsing to nothing.
- *
- * Horizontal placement comes from the shared kernel; a zero-height row (a
- * collapsed group) has no strip to fit, so the caller still receives the
+ * The kernel decides the side (above vs below), the horizontal box and the
+ * floored height cap; the card's comfort floor goes in as `minHeight`, a cap
+ * floor that deliberately does not move the flip threshold. A zero-height row
+ * (a collapsed group) has no strip to fit, so the caller still receives the
  * horizontal box and skips the vertical writes itself.
  */
 const fitRowPanel = (
