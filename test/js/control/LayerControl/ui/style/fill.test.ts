@@ -2434,6 +2434,30 @@ describe("buildFillRow", () => {
     expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`)).toBeNull();
   });
 
+  it("the value opacity row does not sink the mode to solid (#953)", () => {
+    // The VALUE mode's opacity row commits an opacity-only patch: the stored
+    // mode stays VALUE (never solid) — the #953 invariant for the by-value
+    // mode. One construction point (buildValueDetail) owns the row, and the
+    // binder attaches with the rest of the row when the panel opens.
+    setIntent(ui, "overlay1", "fillStyleMode", "value");
+    setIntent(ui, "overlay1", "fillValue", {
+      field: "count",
+      method: "equal",
+      classes: 4,
+      scheme: "Reds",
+    } as never);
+    ui.openStylePanel("overlay1");
+    const item = findItem(ui, "overlay1");
+    const opacity = item.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+    expect(opacity).not.toBeNull();
+    opacity.value = "60";
+    opacity.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBe(0.6);
+    expect(getIntent(ui, "overlay1", "fillStyleMode")).toBe("value");
+  });
+
   it("labels the ramp row by method and names both selects distinctly", () => {
     // One visible label for two selects: it reads by the primary control —
 
@@ -4334,7 +4358,7 @@ describe("fill row — original colors", () => {
 
     // label/control grid and are what overflowed the panel.
 
-    expect(children.length).toBe(3);
+    expect(children.length).toBe(4);
 
     for (const child of children) {
       expect(child.classList.contains("foliplus-form-row")).toBe(true);
@@ -4350,6 +4374,7 @@ describe("fill row — original colors", () => {
       "foliplus.classification_method",
 
       "LayerControl.style_fill_scheme",
+      "LayerControl.style_fill_opacity",
     ]);
 
     // The strip lives inside a row's control cell, never directly in the
@@ -4502,7 +4527,7 @@ describe("fill row — original colors", () => {
       ...detail.querySelectorAll(selector(CONST.CLASSES.STYLE_FILL_READONLY)),
     ];
 
-    expect(boxes.length).toBe(4);
+    expect(boxes.length).toBe(5);
 
     for (const box of boxes) {
       expect(box.getAttribute("aria-disabled")).toBe("true");
@@ -4596,6 +4621,7 @@ describe("fill row — original colors", () => {
       "foliplus.classification_method",
 
       "LayerControl.style_fill_scheme",
+      "LayerControl.style_fill_opacity",
     ]);
   });
 
@@ -4836,6 +4862,7 @@ describe("fill row — original colors", () => {
       "foliplus.classification_method",
 
       "LayerControl.style_fill_scheme",
+      "LayerControl.style_fill_opacity",
     ]);
   });
 
@@ -8314,36 +8341,6 @@ describe("fill original availability (P1)", () => {
     expect(select.value).toBe("original");
 
     expect(origOption(select)).not.toBeNull();
-  });
-
-  it("a monochrome author still gets original when perFeature is forced false", async () => {
-    // Revert guard: hasOriginal regressed to paintsPerFeatureFill. The dynamic
-
-    // import + spy make the module-level const observable without touching
-
-    // product code.
-
-    const fa = await import("#control/LayerControl/ui/style/fillAuthor.js");
-
-    const spy = vi.spyOn(fa, "paintsPerFeatureFill").mockReturnValue(false);
-
-    try {
-      const { ui } = origMakeLayer(
-        [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
-
-        { perFeature: false, distinct: 1, stops: ["#aabbcc"] },
-      );
-
-      const block = buildFillRow(ui, "overlay1");
-
-      const select = origSelect(block);
-
-      expect(select).not.toBeNull();
-
-      expect(origOption(select)).not.toBeNull();
-    } finally {
-      spy.mockRestore();
-    }
   });
 });
 

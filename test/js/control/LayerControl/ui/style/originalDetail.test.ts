@@ -218,4 +218,73 @@ describe("monochrome original detail (P2)", () => {
     expect(label).not.toBe("—");
     expect(label.toLowerCase()).toContain("equal");
   });
+
+  it("appends a read-only opacity row for the cmap original detail", () => {
+    // The cmap original detail gains a read-only opacity row (after the scheme
+    // row, before the border mode): the author's opacity is stated, not
+    // editable.
+    const { ui } = makeFillLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+      {
+        perFeature: true,
+        distinct: 3,
+        stops: ["#aabbcc", "#ccdd99", "#335566"],
+        scale: { kind: "continuous", column: "value" },
+      },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const d = detail(block);
+    // R3: the row is read-only — no editable opacity input.
+    expect(d.querySelector('input[type="number"]')).toBeNull();
+    // The read-only opacity box carries the first leaf's fillOpacity.
+    const opacityBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
+    expect(opacityBox).not.toBeNull();
+    expect(text(opacityBox as HTMLElement)).toContain("45%");
+    // The row sits after the scheme row (the last row of the detail).
+    const rows = Array.from(
+      d.querySelectorAll(`.${PANEL_CLASS.FORM_ROW}`),
+    ) as HTMLElement[];
+    const last = rows.at(-1)!;
+    expect(last.contains(opacityBox)).toBe(true);
+  });
+
+  it("the cmap original opacity box reads the first leaf fillOpacity", () => {
+    const { ui } = makeFillLayer(
+      [
+        { fillColor: "#aabbcc", fillOpacity: 0.55, fill: true },
+        { fillColor: "#ccdd99", fillOpacity: 0.3, fill: true },
+      ],
+      {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#aabbcc", "#ccdd99"],
+        scale: { kind: "continuous", column: "value" },
+      },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const d = detail(block);
+    const opacityBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
+    expect(opacityBox).not.toBeNull();
+    // First leaf wins: 0.55 reads 55% (not the second leaf's 30%).
+    expect(text(opacityBox as HTMLElement)).toContain("55%");
+  });
+
+  it("the cmap original opacity row is read-only (#953)", () => {
+    const { ui } = makeFillLayer(
+      [{ fillColor: "#aabbcc", fillOpacity: 0.45, fill: true }],
+      {
+        perFeature: true,
+        distinct: 3,
+        stops: ["#aabbcc", "#ccdd99", "#335566"],
+        scale: { kind: "continuous", column: "value" },
+      },
+    );
+    const block = buildFillRow(ui, "overlay1");
+    const d = detail(block);
+    // The opacity row states a percentage, never a control: R3.
+    expect(
+      d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`),
+    ).not.toBeNull();
+    expect(d.querySelector('input[type="number"]')).toBeNull();
+  });
 });

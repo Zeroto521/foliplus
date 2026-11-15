@@ -231,6 +231,7 @@ const CLASSES = {
   STYLE_FILL_ORIGINAL_COUNT: "foliplus-style-fill-original-count",
   STYLE_FILL_ORIGINAL_METHOD: "foliplus-style-fill-original-method",
   STYLE_FILL_ORIGINAL_VALUE: "foliplus-style-fill-original-value",
+  STYLE_FILL_ORIGINAL_OPACITY: "foliplus-style-fill-original-opacity",
   /** Ramp detail controls (color-by-value mode): field, method, class count
    *  and the shared scheme trigger. All four are native selects / the shared
    *  picker trigger, the same controls the heatmap panel offers. */

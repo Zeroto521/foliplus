@@ -2247,6 +2247,37 @@ class TestStyleBrowser(LayerControlBrowserBase):
             ), result
             assert not errors, f"JS errors: {errors}"
 
+    @pytest.mark.parametrize("fill_mode", ["original", "solid", "value"])
+    def test_style_fill_opacity_row_in_every_mode(self, browser, tmp_path, fill_mode):
+        """The fill opacity row is the last row of the fill detail in every mode.
+
+        The row sits after the scheme row and before the border mode row, holds
+        an editable number input in solid and value mode and the readonly box in
+        original mode, and its box carries the shared numeric width rather than
+        a content-sized one.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug=f"fill_opacity_row_{fill_mode}",
+        ) as (page, errors):
+            self._open_style_ramp(page)
+            result = page.evaluate(
+                _js("LayerControl/read_fill_opacity_rows"),
+                {"fillMode": fill_mode},
+            )
+            assert result.get("ok"), result
+            # Exactly one of the two shapes: the editable input, or the
+            # readonly box — never both, never neither.
+            assert result["hasOpacityInput"] != result["hasOpacityBox"], result
+            assert result["opacity"] is not None, result
+            # The box carries the shared 52px width token, not a
+            # content-sized one.
+            assert result["opacity"]["w"] == pytest.approx(52, abs=1), result
+            assert not errors, f"JS errors: {errors}"
+
     def test_style_fill_category_paints_distinct_districts(self, browser, tmp_path):
         """The category by-value mode paints each district its own color.
 

@@ -24,6 +24,11 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { isColorBasemap, paintsPerFeatureFill } from "./fillAuthor.js";
 import {
+  VISIBLE_FILL_OPACITY,
+  buildFillOpacityInput,
+  commitFillOpacity,
+} from "./fillOpacity.js";
+import {
   applyValueFill,
   bindValueDetail,
   buildValueDetail,
@@ -80,7 +85,6 @@ import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { resolveDisplayMode } from "#foliplus/style/displayMode.js";
 import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
-import { withUnit } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   PANEL_CLASS,
@@ -92,7 +96,6 @@ import {
   formRow,
   inlineControls,
   normalizeHexColor,
-  numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -139,13 +142,6 @@ const FILL_INTENT_KEYS: readonly LayerOverride[] = [
   INTENT.FILL_VALUE,
   INTENT.FILL_MODE,
 ];
-
-/** A visible `fillOpacity` used to *display* the row's opacity input when
- *  neither a stored override nor an authored value exists. 0.2 matches
- *  Leaflet's own default, so a row for a layer that never declared a fill
- *  opacity shows what the layer is actually painting. Display only — no
- *  write path reads this to change a layer's opacity. */
-const VISIBLE_FILL_OPACITY = 0.2;
 
 /** Commit the current fill color and opacity to the layer. Walks the layer
  *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
@@ -346,14 +342,6 @@ const commitFillColor = (ui: LayerUI, layerId: string, rawColor: string): void =
   getDimension(DIM.FILL)!.write!(ui, layerId, { color });
 };
 
-/** Commit the fill opacity (0-100 %) to the layer. Converts to 0-1 for
- *  storage and setStyle. Called from `bindLiveNumber` on the opacity input. */
-const commitFillOpacity = (ui: LayerUI, layerId: string, pct: number): void => {
-  const opacity = Math.max(0, Math.min(1, pct / 100));
-  if (getIntent(ui, layerId, INTENT.FILL_OPACITY) === opacity) return;
-  getDimension(DIM.FILL)!.write!(ui, layerId, { opacity });
-};
-
 /** Reset one layer's fill to its authored value and drop its persisted
  *  entry. "Authored" means the base captured on first write — the same
  *  base-capture recipe opacity uses: `setStyle` mutates `options` in
@@ -408,31 +396,6 @@ const displayFillMode = (ui: LayerUI, layerId: string): StyleMode => {
     carriesValue: true, // fill always carries value
     supportsInherit: false, // fill has no INHERIT
   });
-};
-/** Build the shared fill-opacity number input used by every fill mode.
- *
- *  One construction point: the SOLID row, the by-value row and the
- *  original-colours row all mount the same 0-100 number input, so the width,
- *  step and aria contract can never drift between modes. The value is the
- *  stored override, else the authored base, else the 0.2 Leaflet default the
- *  solid row already displays. */
-const buildFillOpacityInput = (
-  ui: LayerUI,
-  layerId: string,
-  base: { fillOpacity?: number | null } = {},
-): HTMLInputElement => {
-  const storedOpacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
-  const opacityPct =
-    Math.round((storedOpacity ?? base.fillOpacity ?? VISIBLE_FILL_OPACITY) * 1000) / 10;
-  return numberInput({
-    value: opacityPct,
-    min: 0,
-    max: 100,
-    step: 1,
-    className: CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER,
-    ariaLabel: withUnit(ui.T("style_fill_opacity"), ui._("foliplus.unit_pct")),
-    unitSuffix: ui._("foliplus.unit_pct"),
-  }) as HTMLInputElement;
 };
 
 /** The solid mode's detail: one row holding the color swatch and the

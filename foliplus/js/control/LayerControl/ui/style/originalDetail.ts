@@ -10,6 +10,7 @@
 // `buildOriginalDetail` builds the read-only detail rows.
 import type { LayerUI } from "../surface.js";
 import { type AuthorFill, authorFill, methodLabel } from "./fillAuthor.js";
+import { VISIBLE_FILL_OPACITY } from "./fillOpacity.js";
 import { originalGradient } from "./originalColor.js";
 import { type StyleCarrier, styleBagOf, walkFillLeaves } from "./styleBag.js";
 import { METHOD } from "#core/value/index.js";
@@ -22,12 +23,6 @@ import {
   readOnlyValue,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-
-/** A visible `fillOpacity` used to *display* the original readout's opacity
- *  when neither a stored override nor an authored value exists — the same
- *  0.2 Leaflet default the solid row's display floor uses, so a layer that
- *  never declared a fill opacity reads what it is actually painting. */
-const VISIBLE_FILL_OPACITY = 0.2;
 
 /** What the author's strip is, in the author's own terms.
  *
@@ -197,6 +192,29 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   rows.push(
     formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
   );
+  // The read-only opacity row is the last row of the cmap original detail
+  // (after the scheme, before the border mode): the author's own uniform
+  // transparency, read from the first fill leaf, never an editable control.
+  const paint = authorFillPaint(ui, layerId);
+  const pct = paint.opacity !== null ? paint.opacity : VISIBLE_FILL_OPACITY;
+  const opacityBox = readOnlyBox(
+    CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY,
+    { role: "img" },
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+      `${Math.round(pct * 1000) / 10}%`,
+    ),
+  );
+  opacityBox.setAttribute("aria-label", ui.T("style_fill_opacity"));
+  rows.push(
+    formRow(
+      ui.T("style_fill_opacity"),
+      inlineControls(opacityBox),
+      CONST.CLASSES.STYLE_FILL_ROW,
+    ),
+  );
+
   return rows;
 };
 
