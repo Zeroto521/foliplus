@@ -1,4 +1,4 @@
-// platform — icon class vocabulary.
+// platform/iconClassName — icon class vocabulary for template-embedded tokens.
 //
 // Both tokens are embedded in SVG/div template strings inside platform/icon.ts
 // (a scanner-blind module), so they live in a *ClassName.ts owner file that
