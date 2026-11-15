@@ -33,6 +33,7 @@
 - `CSS`: panel inputs share one frame and one font step instead of three hand-written copies ([#952](https://github.com/Zeroto521/foliplus/pull/952))
 - `JS runtime`: the shared primitives tier is renamed from `common` to `platform`, so `window.foliplus.common.*` becomes `window.foliplus.platform.*`, and the ui namespace is flattened the same way (with `BaseControl` published directly on the runtime) (`window.foliplus.ui.index.Slider` → `window.foliplus.ui.Slider`) (**Breaking** for custom JS that read the old namespace) ([#991](https://github.com/Zeroto521/foliplus/pull/991), [#1078](https://github.com/Zeroto521/foliplus/pull/1078))
 - `LayerControl`: style panel labels and value readouts carry their unit (`px` / `%`), and a unit-suffixed number sits flush against its unit at a constant gap ([#1108](https://github.com/Zeroto521/foliplus/pull/1108))
+- `JS placement`: every floating surface places through one kernel (`ui/placement.ts`); a lint guard keeps coordinate writes inside its adapters ([#1134](https://github.com/Zeroto521/foliplus/pull/1134), [#1135](https://github.com/Zeroto521/foliplus/pull/1135), [#1136](https://github.com/Zeroto521/foliplus/pull/1136), [#1137](https://github.com/Zeroto521/foliplus/pull/1137))
 - `LayerControl`: the style capability checks read one projection that publishes all nine style dims plus the layer's geometry, so a gate and its guard test share one source ([#1138](https://github.com/Zeroto521/foliplus/pull/1138))
 
 ### Removed
