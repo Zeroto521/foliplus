@@ -359,12 +359,8 @@ const fitRowPanel = (
   bounds: RowPanelBounds,
   gap: number,
 ): {
-  /** The kernel's verdict: side, horizontal box-left and the strip cap. */
+  /** The kernel's verdict: side, box-left, width cap and floored height cap. */
   placement: Placement;
-  /** The card's natural height, before the strip / comfort cap. */
-  natural: number;
-  /** The comfort-floored cap written to the CSS variable. */
-  cap: number;
   /** The card's natural (pre-clamp) width, for the max-width bookkeeping. */
   naturalWidth: number;
 } => {
@@ -387,35 +383,29 @@ const fitRowPanel = (
   const naturalWidth = naturalWidths.get(panel) ?? cardRect.width;
   naturalWidths.set(panel, naturalWidth);
 
-  // The shared placement kernel decides the side (above vs below), the
-  // strip-capped height and the horizontal box from the anchor, the natural
-  // card size and the bounds.
+  // The shared placement kernel decides the side (above vs below), the floored
+  // height cap and the horizontal box from the anchor, the natural card size
+  // and the bounds.
   //
   // Horizontal: ROW_PANEL_EDGE is the card's own inset, so the kernel gets it
   // as an x-only `edgeGap`. Insetting y would shave the strip its cap is
   // measured against and change the flip/cap result; the vertical box stays
-  // the bounds themselves, and the comfort floor / top clamp below stay
-  // surface policy.
+  // the bounds themselves.
   //
-  // minRows / rowHeight are deliberately NOT passed: the kernel's row floor is
-  // a "keep N rows visible" guarantee for callers that measure rows, while this
-  // panel's floor is a comfort minimum (ROW_PANEL_MIN_HEIGHT) applied after the
-  // kernel. Passing them would compose a second floor into the kernel's flip
-  // decision (desiredH) and change behaviour with no benefit.
+  // The comfort floor is a pixel value, not a row count, so it goes in as
+  // `minHeight`: a cap floor that does not move the flip threshold. It is
+  // capped to the card's own usable height first (the map's two edge insets),
+  // so a short map shrinks the floor instead of overflowing it.
+  const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_EDGE * 2);
+  const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
   const placement = computePlacement(
     anchorRect,
     { width: naturalWidth, height: natural },
     bounds,
-    { gap, edgeGap: { x: ROW_PANEL_EDGE } },
+    { gap, edgeGap: { x: ROW_PANEL_EDGE }, minHeight: floor },
   );
 
-  // The floor is a comfort minimum, not a promise to overflow a map shorter
-  // than it: cap it to the box's own usable height first.
-  const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_EDGE * 2);
-  const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
-  const cap = Math.max(floor, placement.maxHeight);
-
-  return { placement, cap, natural, naturalWidth };
+  return { placement, naturalWidth };
 };
 
 /**
@@ -573,20 +563,17 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   if (row.height === 0) return;
 
   const flipUp = fit.placement.side === "above";
-  panel.style.setProperty("--foliplus-row-panel-max-height", `${fit.cap}px`);
+  panel.style.setProperty(
+    "--foliplus-row-panel-max-height",
+    `${fit.placement.maxHeight}px`,
+  );
   panel.classList.toggle(PANEL_CLASS.ROW_PANEL_UP, flipUp);
 
-  const height = Math.min(fit.natural, fit.cap);
-  const wantedTop = flipUp
-    ? row.top - ROW_PANEL_GAP - height
-    : row.bottom + ROW_PANEL_GAP;
-  // Clamp against the box's own top edge, not the raw viewport: a floor-height
-  // card over an embedded map must not park above the map. The bottom edge
-  // needs no extra inset: the cap already leaves the row gap, and subtracting
-  // another edge would pull a down-opening card up over its own row.
+  // The kernel owns the vertical clamp (against the height the card renders).
+  // The one surface-policy line left is the 8px top inset: a floor-height card
+  // over an embedded map must not park on the map's very top edge.
   const minTop = bounds.top + ROW_PANEL_EDGE;
-  const maxTop = Math.max(minTop, bounds.bottom - height);
-  panel.style.top = `${Math.max(minTop, Math.min(wantedTop, maxTop))}px`;
+  panel.style.top = `${Math.max(minTop, fit.placement.top)}px`;
 };
 
 const resetPinnedPanel = (panel: HTMLElement): void => {
