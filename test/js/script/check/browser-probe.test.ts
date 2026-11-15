@@ -143,6 +143,47 @@ describe("runCli", () => {
   });
 });
 
+describe("buildReport — inline JS strings", () => {
+  it("flags a JS literal passed straight to a page method", () => {
+    const root = makeFixture();
+    write(
+      join(root, "test/python/test_inline.py"),
+      `${[
+        "def probe(page):",
+        "    page.evaluate('() => 1')",
+        '    page.wait_for_function("() => true", timeout=5)',
+      ].join("\n")}\n`,
+    );
+
+    const report = buildReport(root);
+    expect(report.inlineJs).toEqual([
+      "test/python/test_inline.py:2",
+      "test/python/test_inline.py:3",
+    ]);
+    expect(report.totals.inlineJs).toBe(2);
+  });
+
+  it("keeps a bare evaluate() helper out of the scan", () => {
+    const root = makeFixture();
+    write(join(root, "test/python/test_bare.py"), "assert evaluate('None') is None\n");
+
+    expect(buildReport(root).inlineJs).toEqual([]);
+  });
+
+  it("ignores an example inside a docstring or comment", () => {
+    const root = makeFixture({ python: false });
+    write(
+      join(root, "test/python/test_doc.py"),
+      `${[
+        '"""page.evaluate("() => 1") is the pattern."""',
+        '# page.evaluate("() => 2")',
+      ].join("\n")}\n`,
+    );
+
+    expect(buildReport(root).inlineJs).toEqual([]);
+  });
+});
+
 describe("buildReport — inventory", () => {
   it("counts probes, orphans, dangling references and indirect calls", () => {
     const report = buildReport(makeFixture({ dangling: true, nested: true }));
