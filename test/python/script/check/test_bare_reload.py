@@ -126,14 +126,17 @@ class TestMain:
         assert "test_persist.py:1" in err
         assert "alias" in err
 
-
     def test_main_reports_outside_repo_path(self, tmp_path, monkeypatch, capsys):
         """A path outside REPO_ROOT is reported raw (contract must not crash)."""
-        _make(tmp_path, "test/python/control/MeasureControl/test_mode.py",
-              "page.reload()\n")
+        _make(
+            tmp_path,
+            "test/python/control/MeasureControl/test_mode.py",
+            "page.reload()\n",
+        )
         monkeypatch.setitem(_mod["main"].__globals__, "TEST_PY", tmp_path)
-        monkeypatch.setitem(_mod["main"].__globals__, "REPO_ROOT",
-                            tmp_path.parent / "elsewhere")
+        monkeypatch.setitem(
+            _mod["main"].__globals__, "REPO_ROOT", tmp_path.parent / "elsewhere"
+        )
         monkeypatch.setattr(sys, "argv", ["bare_reload.py"])
         assert _mod["main"]() == 1
         err = capsys.readouterr().err
