@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { STYLE_MODE } from "#core/layer/index.js";
 import {
   type DisplayModeSpec,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
-import { STYLE_MODE } from "#core/layer/index.js";
 
 const base = (over: Partial<DisplayModeSpec> = {}): DisplayModeSpec => ({
   stored: undefined,
