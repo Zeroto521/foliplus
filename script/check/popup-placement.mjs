@@ -11,6 +11,7 @@
  *   core/leaflet/panel.ts                         pinned row panel
  *   control/SearchControl/logic/panel.ts          SearchControl result panel
  *   control/LayerControl/ui/overlayPanel/menu.ts  overflow menu
+ *   control/MeasureControl/manager.ts             cursor coordinate readout
  *
  * This scan flags, in any other file under `foliplus/js`:
  *
@@ -29,10 +30,7 @@
  * A line that is not popup placement (a canvas translation, an offscreen
  * measurer, a crop / hint / measure overlay) is exempt when the line, or the
  * line right above it, carries `// placement-adapter: <reason>`. The reason is
- * required: an exemption without one is itself a violation. The measure
- * readout's exemption is migration debt — it is a popup-like surface that will
- * consume the kernel (point anchor + align center); the comment says so, and
- * the exemption disappears with the migration.
+ * required: an exemption without one is itself a violation.
  *
  * Known limits, by design: this is a lexical guard. Aliasing the style object
  * (`const s = el.style; s.top = ...`), `Object.assign(el.style, ...)`, WAAPI
@@ -57,7 +55,7 @@ import path from "node:path";
 const JS_ROOT_REL = path.join("foliplus", "js");
 
 /** Files allowed to write a floating surface's coordinates: the kernel itself
- *  and the five adapters that consume it. Adding a surface means adding its
+ *  and the six adapters that consume it. Adding a surface means adding its
  *  adapter here — never a second flip implementation. */
 const ADAPTER_FILES = new Set([
   "foliplus/js/ui/placement.ts",
@@ -66,6 +64,7 @@ const ADAPTER_FILES = new Set([
   "foliplus/js/core/leaflet/panel.ts",
   "foliplus/js/control/SearchControl/logic/panel.ts",
   "foliplus/js/control/LayerControl/ui/overlayPanel/menu.ts",
+  "foliplus/js/control/MeasureControl/manager.ts",
 ]);
 
 /** The line-level exemption marker. The reason after the colon is mandatory. */

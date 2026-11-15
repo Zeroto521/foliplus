@@ -243,27 +243,36 @@ describe("MeasureManager — mode switching", () => {
     Object.defineProperty(readout, "offsetHeight", { value: 24 });
     Object.defineProperty(readout, "offsetWidth", { value: 140 });
 
-    // The offset lives in CSS (translate), so the inline style is just the
-    // cursor's container point; the horizontal clamp keeps it on-screen.
+    // The kernel returns the box top (cursor + gap); the CSS only centres the
+    // box horizontally.
     const move = (map.on as any).mock.calls.find(
       ([ev]: unknown[]) => ev === "mousemove",
     )?.[1];
     move({ latlng: { lat: 31, lng: 121 } });
     expect(readout.style.left).toBe("500px");
-    expect(readout.style.top).toBe("400px");
+    expect(readout.style.top).toBe("410px");
     expect(readout.style.transform).toBe("");
+    expect(readout.dataset.side).toBe("below");
     expect(readout.textContent).toBe("121.000000, 31.000000");
     expect(readout.hidden).toBe(false);
 
-    // Near the bottom edge with no room below, the chip re-anchors above it.
+    // Near the bottom edge with no room below, the chip is anchored above it.
     px = { x: 500, y: 790 };
     move({ latlng: { lat: 31, lng: 121 } });
-    expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(true);
+    expect(readout.dataset.side).toBe("above");
+    expect(readout.style.top).toBe("756px"); // 790 - 10 - 24
 
     // In the open middle it never flips.
     px = { x: 500, y: 400 };
     move({ latlng: { lat: 31, lng: 121 } });
-    expect(readout.classList.contains(CONST.READOUT.CLASS_FLIP)).toBe(false);
+    expect(readout.dataset.side).toBe("below");
+
+    // At the left edge the box is clamped; the inline left stays the centre
+    // the transform expects (box left 0 + half the 140px chip).
+    px = { x: 10, y: 400 };
+    move({ latlng: { lat: 31, lng: 121 } });
+    expect(readout.style.left).toBe("70px");
+    expect(readout.dataset.side).toBe("below");
   });
 
   it("hides the chip on mouseout", () => {
@@ -293,7 +302,7 @@ describe("MeasureManager — mode switching", () => {
     expect(() => move({ latlng: { lat: 31, lng: 121 } })).not.toThrow();
     expect(map.latLngToContainerPoint).toHaveBeenCalledWith({ lat: 31, lng: 121 });
     expect(readout.style.left).toBe("120px");
-    expect(readout.style.top).toBe("240px");
+    expect(readout.style.top).toBe("250px");
     expect(readout.hidden).toBe(false);
   });
 
