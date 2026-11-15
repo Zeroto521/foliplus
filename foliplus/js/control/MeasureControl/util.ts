@@ -14,6 +14,7 @@ import {
 } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
+import { BUTTON_CLASS } from "#ui/index.js";
 
 const log = createLogger("MeasureControl");
 
@@ -128,10 +129,21 @@ const resetNodeRadiusCache = (): void => {
   nodeRadiusCache = undefined;
 };
 
+/** Join the shared path base token with one variant into a full className.
+ *  The base and each variant are single tokens owned by const.ts; the join is
+ *  the single place a path class string is composed, so the order and spacing
+ *  stay byte-identical to the original composite values. */
+const pathClass = (variant: string): string => `${CONST.CLASSES.PATH_BASE} ${variant}`;
+
+/** Join the shared dot look with the measure-node hook into a full className.
+ *  `hollow` / `solid` select the fill variant from button.css. */
+const nodeClass = (kind: "hollow" | "solid"): string =>
+  `${BUTTON_CLASS.DOT} ${kind === "hollow" ? BUTTON_CLASS.DOT_HOLLOW : BUTTON_CLASS.DOT_SOLID} ${CONST.CLASSES.NODE}`;
+
 /** Create a measure node circle marker. */
 const buildNode = (
   latlng: L.LatLng,
-  className: string = CONST.CLASSES.NODE_HOLLOW,
+  className: string = nodeClass("hollow"),
 ): L.CircleMarker => {
   return L.circleMarker(latlng, { radius: nodeRadius(), className });
 };
@@ -140,7 +152,7 @@ const buildNode = (
  *  the live cursor dot while a shape is being drawn). */
 const buildPreviewNode = (
   latlng: L.LatLng,
-  className: string = CONST.CLASSES.NODE_HOLLOW,
+  className: string = nodeClass("hollow"),
 ): L.CircleMarker => {
   return L.circleMarker(latlng, {
     radius: nodeRadius(),
@@ -276,5 +288,7 @@ export {
   buildLabelDivIcon,
   buildMidLabelDivIcon,
   buildNode,
+  pathClass,
+  nodeClass,
   buildPreviewNode,
 };

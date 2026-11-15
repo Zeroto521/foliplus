@@ -3,6 +3,7 @@ import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
 import { PolygonMode } from "#control/MeasureControl/mode/index.js";
+import * as Util from "#control/MeasureControl/util.js";
 
 // Capture attachPolygonUI's opts so the start-path onDelete/onUpdate
 // callbacks (store.update/remove by polyId) can be exercised directly.
@@ -71,7 +72,7 @@ describe("PolygonMode — drawing polyline uses PATH_PREVIEW", () => {
 
     const polylineCall = window.L.polyline.mock.calls.find(
       ([, opts]: [unknown, { className?: string }]) =>
-        opts.className === CONST.CLASSES.PATH_PREVIEW,
+        opts.className === Util.pathClass(CONST.CLASSES.PATH_PREVIEW),
     );
     expect(polylineCall).toBeDefined();
   });
@@ -109,7 +110,7 @@ describe("PolygonMode — confirmedPoly uses PATH_DASHED", () => {
 
     const polylineCall = window.L.polyline.mock.calls.find(
       ([, opts]: [unknown, { className?: string }]) =>
-        opts.className === CONST.CLASSES.PATH_DASHED,
+        opts.className === Util.pathClass(CONST.CLASSES.PATH_DASHED),
     );
     expect(polylineCall).toBeDefined();
   });
@@ -404,7 +405,7 @@ describe("PolygonMode — preview cursor node", () => {
     ];
     expect(cursorCall[0]).toEqual({ lat: 31, lng: 121 });
     expect(cursorCall[1].interactive).toBe(false);
-    expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+    expect(cursorCall[1].className).toBe(Util.nodeClass("hollow"));
 
     // Mounted through addPreview in the node pane, above the graph pane.
     const cursor = window.L.circleMarker.mock.results.at(-1).value;
