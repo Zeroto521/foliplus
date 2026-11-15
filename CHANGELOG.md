@@ -32,8 +32,9 @@
 - `LayerControl`: a pre-v4 record's legacy top-level `annotations` label segment is no longer read (**Breaking**: a label config that only it carried is dropped on load) ([#949](https://github.com/Zeroto521/foliplus/pull/949))
 - `CSS`: panel inputs share one frame and one font step instead of three hand-written copies ([#952](https://github.com/Zeroto521/foliplus/pull/952))
 - `JS runtime`: the shared primitives tier is renamed from `common` to `platform`, so `window.foliplus.common.*` becomes `window.foliplus.platform.*`, and the ui namespace is flattened the same way (with `BaseControl` published directly on the runtime) (`window.foliplus.ui.index.Slider` → `window.foliplus.ui.Slider`) (**Breaking** for custom JS that read the old namespace) ([#991](https://github.com/Zeroto521/foliplus/pull/991), [#1078](https://github.com/Zeroto521/foliplus/pull/1078))
-- `LayerControl`: style panel labels and value readouts carry their unit (`px` / `%`), and a unit-suffixed number sits flush against its unit at a constant gap ([#1108](https://github.com/Zeroto521/foliplus/pull/1108))
-- `LayerControl`: the style capability checks read one projection that publishes all nine style dims plus the layer's geometry, and fill/border resolve their display mode through one resolver with a generic INHERIT slot — a gate, a mode rule and their guard tests share one source ([#1138](https://github.com/Zeroto521/foliplus/pull/1138), [#1141](https://github.com/Zeroto521/foliplus/pull/1141))
+- `LayerControl`: style labels and readouts carry their unit (`px` / `%`), a unit-suffixed value sitting flush against it ([#1108](https://github.com/Zeroto521/foliplus/pull/1108))
+- `ui`: one placement kernel places the listbox, the slider bubble and the pinned row panel, and popup coordinates written outside it fail the guard ([#1134](https://github.com/Zeroto521/foliplus/pull/1134), [#1135](https://github.com/Zeroto521/foliplus/pull/1135), [#1136](https://github.com/Zeroto521/foliplus/pull/1136), [#1137](https://github.com/Zeroto521/foliplus/pull/1137))
+- `LayerControl`: style capability checks and mode resolution read one projection and one resolver, each shared with its guard test ([#1138](https://github.com/Zeroto521/foliplus/pull/1138), [#1141](https://github.com/Zeroto521/foliplus/pull/1141))
 
 ### Removed
 
