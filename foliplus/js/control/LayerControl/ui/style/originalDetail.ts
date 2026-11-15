@@ -10,10 +10,12 @@
 // `buildOriginalDetail` builds the read-only detail rows.
 import type { LayerUI } from "../surface.js";
 import { type AuthorFill, authorFill, methodLabel } from "./fillAuthor.js";
+import { VISIBLE_FILL_OPACITY } from "./fillOpacity.js";
 import { originalGradient } from "./originalColor.js";
 import { FACE, authorFaceOf } from "./styleBag.js";
 import { METHOD } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
+import { withUnit } from "#platform/format.js";
 import {
   FORM_CLASS,
   PANEL_CLASS,
@@ -22,12 +24,6 @@ import {
   readOnlyValue,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-
-/** A visible `fillOpacity` used to *display* the original readout's opacity
- *  when neither a stored override nor an authored value exists — the same
- *  0.2 Leaflet default the solid row's display floor uses, so a layer that
- *  never declared a fill opacity reads what it is actually painting. */
-const VISIBLE_FILL_OPACITY = 0.2;
 
 /** What the author's strip is, in the author's own terms.
  *
@@ -78,6 +74,43 @@ const readOnlyBox = (
     ...children,
   );
 
+/** The read-only opacity readout, unified with the editable number field's
+ *  unit-suffix chrome (the shared % suffix beside the value) so the original
+ *  mode's readout paints the same box as the VALUE/SOLID number field it
+ *  replaces — same width token, same right-aligned value, same muted % unit.
+ *  The box stays a readout (readOnlyValue) but carries the number-group
+ *  wrapper + number-suffix the number input uses, so the two presentations
+ *  cannot drift. */
+const readOnlyOpacity = (ui: LayerUI, pct: number): HTMLElement => {
+  const value = `${Math.round(pct * 1000) / 10}%`;
+  const box = readOnlyValue(
+    {
+      className: `${CONST.CLASSES.STYLE_FILL_READONLY} ${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`,
+      role: "img",
+    },
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
+      value.slice(0, -1),
+    ),
+    // The shared unit suffix (form.css) sits inside the box's right
+    // padding, at the same inset the editable number field keeps — the
+    // same class, token and gap, so the readout's % cannot drift from
+    // the VALUE/SOLID number field's %. The box carries the relative
+    // positioning (style.css) the suffix's absolute inset needs.
+    dom.el(
+      "span",
+      { class: FORM_CLASS.NUMBER_SUFFIX, "aria-hidden": "true" },
+      ui._("foliplus.unit_pct"),
+    ),
+  );
+  box.setAttribute(
+    "aria-label",
+    withUnit(ui.T("style_fill_opacity"), ui._("foliplus.unit_pct")),
+  );
+  return box;
+};
+
 /** The original-colors mode's read-only detail: the author's column, their
  *  colors, and the method + class-count pair on the same label/control grid
  *  the by-value mode uses, so each readout lands on the column edge of the
@@ -90,7 +123,11 @@ const readOnlyBox = (
  *
  *  The caption the row used to print on a line of its own is now the colors
  *  box's title and accessible name: the sentence is still reachable. */
-const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
+const buildOriginalDetail = (
+  ui: LayerUI,
+  layerId: string,
+  opts: { includeOpacity?: boolean } = {},
+): HTMLElement[] => {
   const author = authorFill(ui, layerId);
   const rows: HTMLElement[] = [];
   // A shipped scale always names its column (it is claimed only through a
@@ -197,6 +234,28 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   rows.push(
     formRow(ui.T("style_fill_scheme"), colorsBox, CONST.CLASSES.STYLE_FILL_ROW),
   );
+  // The read-only opacity row is the last row of the cmap original detail
+  // (after the scheme, before the border mode): the author's own uniform
+  // transparency, read from the first fill leaf, never an editable control.
+  // The read-only opacity row belongs to the FILL channel alone: a border
+  // whose author paints per feature reuses this detail for its column/
+  // colors/method readouts, but must not re-emit the fill's opacity row
+  // (the duplicate-row bug the user saw with ORIGINAL fill + ORIGINAL
+  // border). The fill face owns the row; the border face passes
+  // includeOpacity: false.
+  if (opts.includeOpacity !== false) {
+    const paint = authorFillPaint(ui, layerId);
+    const pct = paint.opacity !== null ? paint.opacity : VISIBLE_FILL_OPACITY;
+    const opacityBox = readOnlyOpacity(ui, pct);
+    rows.push(
+      formRow(
+        ui.T("style_fill_opacity"),
+        inlineControls(opacityBox),
+        `${CONST.CLASSES.STYLE_FILL_ROW} ${CONST.CLASSES.STYLE_SIZE_ROW}`,
+      ),
+    );
+  }
+
   return rows;
 };
 
@@ -249,14 +308,7 @@ const buildMonochromeOriginalDetail = (ui: LayerUI, layerId: string): HTMLElemen
     "aria-label": `${ui.T("style_fill")} ${paint.color} ${Math.round(pct * 1000) / 10}%`,
     "aria-disabled": "true",
   });
-  const opacityBox = readOnlyValue(
-    { className: CONST.CLASSES.STYLE_FILL_READONLY },
-    dom.el(
-      "span",
-      { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
-      `${Math.round(pct * 1000) / 10}%`,
-    ),
-  );
+  const opacityBox = readOnlyOpacity(ui, pct);
   return [
     formRow(
       ui.T("style_fill"),
