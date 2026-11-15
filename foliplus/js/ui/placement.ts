@@ -2,25 +2,22 @@
 /**
  * Pure geometry kernel for floating-surface placement.
  *
- * The project's floating surfaces (row panel, SearchControl panel, scheme
- * picker, listbox, slider bubble, MeasureControl readout, overflow menu) each
- * hand-wrote the "measure anchor -> measure surface -> decide below/above ->
- * clamp -> re-measure" loop, and their coordinate / bounds / flip definitions
- * diverged. This module is the single source of truth for that geometry: a
- * pure function with zero DOM dependencies, so a unit test can feed
- * rectangles directly.
+ * Every floating surface — the row panel, SearchControl result panel, scheme
+ * picker / shared dropdown, slider value bubble, MeasureControl cursor readout
+ * and overflow menu — places through this kernel. The shared DOM adapter
+ * (`ui/placementAdapter.ts`) writes the result: `placeSurface` measures, calls
+ * `computePlacement` and writes in one step, while `applyPlacement` writes a
+ * placement a surface computed first (the row panel's fit step). The kernel
+ * stays pure (no DOM), so a unit test can feed rectangles directly.
  *
- * Three consumers already call it in production — the row panel
- * (core/leaflet/panel.ts), the SearchControl result panel
- * (control/SearchControl/logic/panel.ts) and the LayerControl overflow menu
- * (control/LayerControl/ui/overlayPanel/menu.ts) — and the listbox engine
- * (ui/listbox.ts, behind both the shared dropdown and the scheme picker) now
- * calls it too, so all of them share ONE flip / clamp / height-cap engine.
  * Each surface's historical rule is a strategy parameter, not a second
  * implementation:
  *
  *   - `minRoom` — flip above by a two-row minimum (dropdown) or by the whole
  *     surface height (picker, overflow menu, row panel, SearchControl);
+ *   - `capFloor` — a pixel floor for the height cap (the row panel's 120px
+ *     minimum, the slider bubble's one full readout), without changing the flip
+ *     threshold;
  *   - `width` — the box width: the anchor's width, an explicit number, or the
  *     surface's natural width by default;
  *   - `edgeGap` — the inset every floating surface keeps from the bounds
@@ -32,12 +29,11 @@
  *   - `prefer` — try below first (the default, every panel) or above first
  *     (the slider bubble, which sits over its thumb and only flips down).
  *
- * When a surface changes its placement rule, the change lands in this file.
- * The adapters measure `anchor` / `surface` / `bounds` and write the returned
- * `top` / `left` / `side` / `maxWidth` / `maxHeight` onto the element; a
- * correct adapter contains no flip or clamp that duplicates the kernel.
- * Surface-specific policy (the row panel's comfort floor) stays documented at
- * that surface.
+ * When a surface changes its placement rule, the change lands here (or in a
+ * parameter). The adapter writes `top` / `left` / `side` / `maxWidth` /
+ * `maxHeight`; it contains no flip or clamp that duplicates the kernel, and
+ * surface-specific policy (the row panel's comfort floor, the listbox's width
+ * preference) is passed in as options, not re-implemented.
  */
 import type { Placement, PlacementBox, PlacementOpts, SurfaceSize } from "./type.js";
 
@@ -88,10 +84,13 @@ const heightOf = (r: PlacementBox): number => r.bottom - r.top;
  *    height) and above has more room. Above-first sits above whenever that
  *    strip holds `minRoom` and flips below otherwise (the slider bubble).
  * 4. **Height cap** — the surface height is capped to the available space in
- *    the chosen strip, and floored at `minRows * rowHeight` when the caller
- *    wants a minimum number of rows visible.
+ *    the chosen strip, and floored at `minRows * rowHeight` (a row guarantee)
+ *    or `capFloor` (a pixel comfort floor). `capFloor` does not feed the flip
+ *    threshold; use `minRoom` for that.
  * 5. **Vertical clamp** — `top` is clamped so the surface stays inside the
- *    frame.
+ *    frame, using the height the surface actually renders
+ *    (`min(surface.height, maxHeight)`), so a cap taller than the content
+ *    cannot leave a gap above the anchor.
  * 6. **Horizontal** — the surface is aligned to the anchor (`align`
  *    left/right/center, default right), then clamped into the frame.
  * 7. Returns `side` so the adapter can choose the arrow / transform.
@@ -140,11 +139,13 @@ const computePlacement = (
   const availBelow = clamp(frame.bottom - anchor.bottom - gap, 0, frameH);
   const availAbove = clamp(anchor.top - frame.top - gap, 0, frameH);
 
-  // Row floor: the caller wants at least `minRows` rows visible, but never
-  // more than the frame can hold.
+  // Height floors: `minRows * rowHeight` is a row guarantee that also feeds the
+  // desired height (and therefore the default flip threshold); `capFloor` is a
+  // pixel comfort floor applied to the cap only, so it never moves the flip.
   const rowFloor = (opts.minRows ?? 0) * (opts.rowHeight ?? 0);
   const floorCapped = Math.min(rowFloor, frameH);
   const desiredH = Math.max(surface.height, floorCapped);
+  const capFloorValue = Math.min(opts.capFloor ?? 0, frameH);
 
   // ③ Flip threshold. minRoom lets a two-row-minimum rule flip above while
   // the below strip still holds part of the surface; the default (desiredH)
@@ -173,12 +174,18 @@ const computePlacement = (
   // is bounded by the frame.
   const availH = side === "below" ? availBelow : availAbove;
   const stripCapped = Math.min(desiredH, availH);
-  const maxHeight = Math.max(0, Math.min(frameH, Math.max(stripCapped, floorCapped)));
+  const maxHeight = Math.max(
+    0,
+    Math.min(frameH, Math.max(stripCapped, floorCapped, capFloorValue)),
+  );
 
-  // ⑥ Vertical clamp.
+  // ⑥ Vertical clamp. The box renders at most its natural height, so a cap
+  // taller than the content (the comfort floor) must not lift an above box
+  // away from its anchor.
+  const renderedH = Math.min(surface.height, maxHeight);
   const naturalTop =
-    side === "below" ? anchor.bottom + gap : anchor.top - gap - maxHeight;
-  const top = clamp(naturalTop, frame.top, frame.bottom - maxHeight);
+    side === "below" ? anchor.bottom + gap : anchor.top - gap - renderedH;
+  const top = clamp(naturalTop, frame.top, frame.bottom - renderedH);
 
   // ⑦ Horizontal alignment, then clamp into the frame.
   const naturalLeft =

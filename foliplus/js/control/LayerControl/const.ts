@@ -271,6 +271,8 @@ const CLASSES = {
   STYLE_ICON_GRID: "foliplus-style-icon-grid",
   /** One glyph cell in the grid. */
   STYLE_ICON_CELL: "foliplus-style-icon-cell",
+  /** The live cursor cell in the glyph grid (ListCursor active-class). */
+  ICON_GRID_CURSOR: "foliplus-icon-grid-cursor",
   /** The selected cell's highlight. */
   STYLE_ICON_CELL_SELECTED: "foliplus-style-icon-cell-selected",
   /** Opacity row: the slider host, its class and the row hook. */

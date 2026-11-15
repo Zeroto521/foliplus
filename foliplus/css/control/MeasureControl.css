@@ -159,14 +159,14 @@
    this many px below the anchor point, due south. It sits on the container (not
    a Leaflet pane), so panning and zooming never move it. That also puts it above
    the whole Leaflet pane ladder and the controls — `600` sat inside the data
-   panes, under tooltips and popups. `left` / `top` are
-   driven inline by the mousemove handler; the offset and the near-bottom-edge
-   flip live here. */
+   panes, under tooltips and popups. `left` / `top` are driven inline by the
+   mousemove handler (the shared placement kernel owns the gap, the below/above
+   flip and the clamp); this rule only centres the box horizontally. */
 .foliplus-measure-readout {
   position: absolute;
   z-index: var(--foliplus-z-index-floating);
   font-variant-numeric: tabular-nums;
-  transform: translate(-50%, 10px);
+  transform: translate(-50%, 0);
   /* No entrance animation: the chip is repositioned on every mousemove, so
      `animation` would restart on each move. */
   animation: none;
@@ -179,10 +179,4 @@
    actually disappears. */
 .foliplus-measure-readout[hidden] {
   display: none;
-}
-
-/* Near the bottom edge there is no room below the cursor, so the chip is
-   re-anchored above it instead (bottom edge `gap` px above the pointer). */
-.foliplus-measure-readout-flip {
-  transform: translate(-50%, calc(-100% - 10px));
 }

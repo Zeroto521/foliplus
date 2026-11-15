@@ -330,6 +330,41 @@ describe("computePlacement — strategy params (kill-tests)", () => {
   });
 });
 
+describe("computePlacement — pixel floor (capFloor)", () => {
+  it("floors the height cap without moving the flip threshold", () => {
+    // Below holds 290px; the surface only wants 60px, so it stays below even
+    // though the 300px pixel floor would not fit. capFloor floors the cap; it
+    // does not feed desiredH / flipRoom.
+    const anchor = rect(400, 220, 430, 120);
+    const p = computePlacement(anchor, { width: 200, height: 60 }, viewport, {
+      capFloor: 300,
+    });
+    expect(p.side).toBe("below");
+    expect(p.maxHeight).toBe(300);
+  });
+
+  it("caps the pixel floor to the frame height", () => {
+    const shortBounds: PlacementBox = rect(0, 1280, 100, 0);
+    const anchor = rect(30, 220, 60, 120);
+    const p = computePlacement(anchor, { width: 200, height: 40 }, shortBounds, {
+      capFloor: 500,
+    });
+    expect(p.maxHeight).toBe(100);
+  });
+
+  it("positions an above box by the height it renders, not the floor", () => {
+    // Content 40px, floor 120px, above chosen (below holds 10px): the box hugs
+    // the anchor at top = 680 - 40, instead of floating at 680 - 120.
+    const anchor = rect(680, 220, 710, 120);
+    const p = computePlacement(anchor, { width: 200, height: 40 }, viewport, {
+      capFloor: 120,
+    });
+    expect(p.side).toBe("above");
+    expect(p.maxHeight).toBe(120);
+    expect(p.top).toBe(640);
+  });
+});
+
 describe("computePlacement — side preference", () => {
   it("tries below first when both strips fit (default)", () => {
     const anchor = rect(400, 220, 430, 120);

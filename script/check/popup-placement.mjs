@@ -2,15 +2,11 @@
 /**
  * Guard: every popup coordinate write lives in a shared placement adapter.
  *
- * `ui/placement.ts` is the one geometry kernel. Each floating surface has ONE
- * adapter file that measures its anchor, calls `computePlacement` and writes
- * the returned `top` / `left` / `side` back onto the element:
- *
- *   ui/listbox.ts                                 dropdown + scheme picker
- *   ui/slider.ts                                  slider value bubble
- *   core/leaflet/panel.ts                         pinned row panel
- *   control/SearchControl/logic/panel.ts          SearchControl result panel
- *   control/LayerControl/ui/overlayPanel/menu.ts  overflow menu
+ * `ui/placement.ts` is the one geometry kernel and `ui/placementAdapter.ts`
+ * the one DOM writer: every surface places through the adapter (measure ->
+ * kernel -> write, or apply an already-computed placement). No surface file
+ * writes top/left/bottom itself; the listbox's in-flow `right` reset is one
+ * line exemption, alongside the non-popup sites and the slider's rail layout.
  *
  * This scan flags, in any other file under `foliplus/js`:
  *
@@ -29,10 +25,7 @@
  * A line that is not popup placement (a canvas translation, an offscreen
  * measurer, a crop / hint / measure overlay) is exempt when the line, or the
  * line right above it, carries `// placement-adapter: <reason>`. The reason is
- * required: an exemption without one is itself a violation. The measure
- * readout's exemption is migration debt — it is a popup-like surface that will
- * consume the kernel (point anchor + align center); the comment says so, and
- * the exemption disappears with the migration.
+ * required: an exemption without one is itself a violation.
  *
  * Known limits, by design: this is a lexical guard. Aliasing the style object
  * (`const s = el.style; s.top = ...`), `Object.assign(el.style, ...)`, WAAPI
@@ -57,15 +50,11 @@ import path from "node:path";
 const JS_ROOT_REL = path.join("foliplus", "js");
 
 /** Files allowed to write a floating surface's coordinates: the kernel itself
- *  and the five adapters that consume it. Adding a surface means adding its
- *  adapter here — never a second flip implementation. */
+ *  and the shared DOM adapter. Adding a surface means routing it through the
+ *  adapter — never a second flip implementation. */
 const ADAPTER_FILES = new Set([
   "foliplus/js/ui/placement.ts",
-  "foliplus/js/ui/listbox.ts",
-  "foliplus/js/ui/slider.ts",
-  "foliplus/js/core/leaflet/panel.ts",
-  "foliplus/js/control/SearchControl/logic/panel.ts",
-  "foliplus/js/control/LayerControl/ui/overlayPanel/menu.ts",
+  "foliplus/js/ui/placementAdapter.ts",
 ]);
 
 /** The line-level exemption marker. The reason after the colon is mandatory. */
@@ -220,8 +209,8 @@ const main = (argv = [], root = process.cwd()) => {
     console.error(`  ${hit.file}:${hit.line}  ${hit.rule}  ${hit.text}`);
   }
   console.error(
-    "Call ui/placement.ts from the surface's adapter (add a new adapter to " +
-      "ADAPTER_FILES), or annotate the line with `// placement-adapter: <reason>` " +
+    "Route the coordinate write through ui/placementAdapter.ts (placeSurface / " +
+      "applyPlacement), or annotate the line with `// placement-adapter: <reason>` " +
       "when it is not popup placement.",
   );
   return check ? 1 : 0;

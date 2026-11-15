@@ -16,7 +16,7 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 import { throttleRaf } from "#platform/throttle.js";
-import { PANEL_CLASS, computePlacement } from "#ui/index.js";
+import { PANEL_CLASS, placeSurface } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
@@ -108,17 +108,15 @@ const placeMoreMenu = (ui: LayerUI): void => {
   const anchor = (btn ?? item).getBoundingClientRect();
   const clip = item.closest<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
   const bounds = (clip ?? ui.c.map.getContainer()).getBoundingClientRect();
-  const placement = computePlacement(
+  const placement = placeSurface(menu, {
     anchor,
-    { width: menu.offsetWidth, height: menu.scrollHeight },
     bounds,
-    { gap: MORE_MENU_GAP },
-  );
-  menu.style.left = `${placement.left}px`;
-  menu.style.top = `${placement.top}px`;
+    size: { width: menu.offsetWidth, height: menu.scrollHeight },
+    gap: MORE_MENU_GAP,
+    onSide: side => menu.classList.toggle(CONST.CLASSES.MORE_MENU_UP, side === "above"),
+  });
   menu.style.maxWidth = `${placement.maxWidth}px`;
   menu.style.maxHeight = `${placement.maxHeight}px`;
-  menu.classList.toggle(CONST.CLASSES.MORE_MENU_UP, placement.side === "above");
 };
 
 /** Coalesced re-place pass bound while the menu is open. A scroll inside the

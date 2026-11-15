@@ -12,8 +12,10 @@ import { throttleRaf } from "#platform/throttle.js";
 import {
   PANEL_CLASS,
   type Placement,
+  applyPlacement,
   closeButton,
   computePlacement,
+  viewportBounds,
 } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
@@ -325,8 +327,12 @@ const createPanelHeader = (opts: {
 const ROW_PANEL_MIN_HEIGHT = 120;
 /** Gap between the anchor row and a pinned card. */
 const ROW_PANEL_GAP = 2;
-/** Minimum distance between a pinned card and the viewport's horizontal edges. */
+/** Minimum distance between a pinned card and the map's horizontal edges. */
 const ROW_PANEL_EDGE = 8;
+/** Top inset the vertical clamp keeps from the map's top edge. */
+const ROW_PANEL_TOP_INSET = 8;
+/** Inset the comfort floor reserves from the map's top and bottom edges. */
+const ROW_PANEL_FLOOR_INSET = 8;
 /** Each card's natural width, remembered on its first placement: a card a
  *  narrow map already narrowed reports its cap as the measured width, so
  *  re-reading it would clear its own max-width on the next pass. */
@@ -341,16 +347,12 @@ interface RowPanelBounds {
   left: number;
 }
 
-/** Compare the anchor row against its bounds and write the pinned card's
- *  visible cap and flip state.
+/** Measure the pinned card and resolve its box from the shared kernel.
  *
- * A strip below that is shorter than the natural content AND shorter than the
- * strip above means the card belongs above its row. The cap is the natural
- * height clamped to the chosen strip, with a floor so a short map still shows
- * the card's header and first rows instead of collapsing to nothing.
- *
- * Horizontal placement comes from the shared kernel; a zero-height row (a
- * collapsed group) has no strip to fit, so the caller still receives the
+ * The kernel decides the side (above vs below), the horizontal box and the
+ * floored height cap; the card's comfort floor goes in as `capFloor`, a cap
+ * floor that deliberately does not move the flip threshold. A zero-height row
+ * (a collapsed group) has no strip to fit, so the caller still receives the
  * horizontal box and skips the vertical writes itself.
  */
 const fitRowPanel = (
@@ -359,12 +361,8 @@ const fitRowPanel = (
   bounds: RowPanelBounds,
   gap: number,
 ): {
-  /** The kernel's verdict: side, horizontal box-left and the strip cap. */
+  /** The kernel's verdict: side, box-left, width cap and floored height cap. */
   placement: Placement;
-  /** The card's natural height, before the strip / comfort cap. */
-  natural: number;
-  /** The comfort-floored cap written to the CSS variable. */
-  cap: number;
   /** The card's natural (pre-clamp) width, for the max-width bookkeeping. */
   naturalWidth: number;
 } => {
@@ -387,35 +385,29 @@ const fitRowPanel = (
   const naturalWidth = naturalWidths.get(panel) ?? cardRect.width;
   naturalWidths.set(panel, naturalWidth);
 
-  // The shared placement kernel decides the side (above vs below), the
-  // strip-capped height and the horizontal box from the anchor, the natural
-  // card size and the bounds.
+  // The shared placement kernel decides the side (above vs below), the floored
+  // height cap and the horizontal box from the anchor, the natural card size
+  // and the bounds.
   //
   // Horizontal: ROW_PANEL_EDGE is the card's own inset, so the kernel gets it
   // as an x-only `edgeGap`. Insetting y would shave the strip its cap is
   // measured against and change the flip/cap result; the vertical box stays
-  // the bounds themselves, and the comfort floor / top clamp below stay
-  // surface policy.
+  // the bounds themselves.
   //
-  // minRows / rowHeight are deliberately NOT passed: the kernel's row floor is
-  // a "keep N rows visible" guarantee for callers that measure rows, while this
-  // panel's floor is a comfort minimum (ROW_PANEL_MIN_HEIGHT) applied after the
-  // kernel. Passing them would compose a second floor into the kernel's flip
-  // decision (desiredH) and change behaviour with no benefit.
+  // The comfort floor is a pixel value, not a row count, so it goes in as
+  // `capFloor`: a floor that does not move the flip threshold. It is
+  // capped to the card's own usable height first (the map's two edge insets),
+  // so a short map shrinks the floor instead of overflowing it.
+  const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_FLOOR_INSET * 2);
+  const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
   const placement = computePlacement(
     anchorRect,
     { width: naturalWidth, height: natural },
     bounds,
-    { gap, edgeGap: { x: ROW_PANEL_EDGE } },
+    { gap, edgeGap: { x: ROW_PANEL_EDGE }, capFloor: floor },
   );
 
-  // The floor is a comfort minimum, not a promise to overflow a map shorter
-  // than it: cap it to the box's own usable height first.
-  const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_EDGE * 2);
-  const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
-  const cap = Math.max(floor, placement.maxHeight);
-
-  return { placement, cap, natural, naturalWidth };
+  return { placement, naturalWidth };
 };
 
 /**
@@ -514,12 +506,7 @@ let rowPanelEventsBound = false;
  *  than the page, and a page can scroll part of the map off screen. Without a
  *  map (a row panel outside Leaflet) the viewport is the whole box. */
 const visibleRowPanelBounds = (panel: HTMLElement): RowPanelBounds => {
-  const viewport: RowPanelBounds = {
-    top: 0,
-    left: 0,
-    right: window.innerWidth,
-    bottom: window.innerHeight,
-  };
+  const viewport: RowPanelBounds = viewportBounds();
   const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
   const mapRect = mapEl?.getBoundingClientRect();
   if (!mapRect || mapRect.width === 0 || mapRect.height === 0) return viewport;
@@ -566,27 +553,24 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   } else {
     panel.style.removeProperty("max-width");
   }
-  panel.style.left = `${fit.placement.left}px`;
-
   // A row inside a collapsed group has a width but no height: there is no strip
   // to fit, so the card keeps the horizontal placement and writes no top/cap.
-  if (row.height === 0) return;
+  if (row.height === 0) {
+    applyPlacement(panel, fit.placement, { writeTop: false });
+    return;
+  }
+
+  // The adapter writes the kernel's left/top. The one surface-policy option is
+  // the 8px top inset: a floor-height card over an embedded map must not park
+  // on the map's very top edge.
+  applyPlacement(panel, fit.placement, { minTop: bounds.top + ROW_PANEL_TOP_INSET });
 
   const flipUp = fit.placement.side === "above";
-  panel.style.setProperty("--foliplus-row-panel-max-height", `${fit.cap}px`);
+  panel.style.setProperty(
+    "--foliplus-row-panel-max-height",
+    `${fit.placement.maxHeight}px`,
+  );
   panel.classList.toggle(PANEL_CLASS.ROW_PANEL_UP, flipUp);
-
-  const height = Math.min(fit.natural, fit.cap);
-  const wantedTop = flipUp
-    ? row.top - ROW_PANEL_GAP - height
-    : row.bottom + ROW_PANEL_GAP;
-  // Clamp against the box's own top edge, not the raw viewport: a floor-height
-  // card over an embedded map must not park above the map. The bottom edge
-  // needs no extra inset: the cap already leaves the row gap, and subtracting
-  // another edge would pull a down-opening card up over its own row.
-  const minTop = bounds.top + ROW_PANEL_EDGE;
-  const maxTop = Math.max(minTop, bounds.bottom - height);
-  panel.style.top = `${Math.max(minTop, Math.min(wantedTop, maxTop))}px`;
 };
 
 const resetPinnedPanel = (panel: HTMLElement): void => {
@@ -757,6 +741,7 @@ const createPanelControl = (opts: {
 export {
   ROW_PANEL_EDGE,
   ROW_PANEL_MIN_HEIGHT,
+  ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
   bindFoldToggle,
   bindMapSync,

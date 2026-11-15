@@ -33,12 +33,11 @@ const LABEL = {
 
 /** Cursor-following readout. The chip is anchored to the pointer exactly like
  *  the area label is anchored to the centroid dot — centered horizontally, its
- *  top edge `ANCHOR_GAP` px below the anchor, due south. `CLASS_FLIP` re-anchors
- *  it above the cursor when there is no room below. */
+ *  top edge `ANCHOR_GAP` px below the anchor, due south. The shared placement
+ *  kernel re-anchors it above the cursor when there is no room below. */
 const READOUT = {
   ANCHOR_GAP: 10,
   CLASS_PREFIX: "foliplus-measure-readout",
-  CLASS_FLIP: "foliplus-measure-readout-flip",
 };
 
 /** Label collision priority — the lowest values are hidden first when labels
@@ -75,6 +74,8 @@ const PANES = {
 
 /** CSS class names. */
 const CLASSES = {
+  /** The measure control shell class. */
+  CTRL: "foliplus-measure-ctrl",
   // Three path states shared by lines, circles, and polygons.
   PATH_SOLID: "foliplus-measure-path foliplus-measure-path-solid",
   PATH_DASHED: "foliplus-measure-path foliplus-measure-path-dashed",

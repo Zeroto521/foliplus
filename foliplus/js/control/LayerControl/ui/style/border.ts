@@ -72,7 +72,11 @@ import {
   getColorScale,
   inferFieldKind,
 } from "#core/value/index.js";
-import { resolveDisplayMode } from "#foliplus/style/displayMode.js";
+import {
+  type DisplayModeSpec,
+  resolveDisplayAndDetail,
+  resolveDisplayMode,
+} from "#foliplus/style/displayMode.js";
 import { dom } from "#platform/dom.js";
 import { withUnit } from "#platform/format.js";
 import {
@@ -807,17 +811,17 @@ const disposeBorderRow = (ui: LayerUI): void => {
  *  where the border is only the outline and never classifies by value — reads
  *  as the illegal value and falls back to "original"; no compatibility
  *  migration is performed. */
-const displayBorderMode = (ui: LayerUI, layerId: string): StyleMode => {
-  const stored = getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE);
-  return resolveDisplayMode({
-    stored,
-    declaredValue: false, // border never declares value
-    colorIntent: getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined,
-    valueIntent: effectiveBorderValue(ui, layerId) !== undefined,
-    carriesValue: borderCarriesValue(ui, layerId),
-    supportsInherit: true, // border has INHERIT (FOLLOW_FILL)
-  });
-};
+const borderSpec = (ui: LayerUI, layerId: string): DisplayModeSpec => ({
+  stored: getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE),
+  declaredValue: false, // border never declares value
+  colorIntent: getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined,
+  valueIntent: effectiveBorderValue(ui, layerId) !== undefined,
+  carriesValue: borderCarriesValue(ui, layerId),
+  supportsInherit: true, // border has INHERIT (FOLLOW_FILL)
+});
+
+const displayBorderMode = (ui: LayerUI, layerId: string): StyleMode =>
+  resolveDisplayMode(borderSpec(ui, layerId));
 
 /** Whether the border face can paint by value: the border is the element's
  *  own primary colour only on a line. Polygon/point borders are the outline
@@ -838,14 +842,9 @@ const geometryKindOf = (ui: LayerUI, layerId: string): string | null => {
 /** The detail mode the border block renders for the current display mode:
  *  'original' and 'solid' both show the solid controls; only an explicit
  *  'value' choice shows the value controls. */
-const borderDetailMode = (ui: LayerUI, layerId: string): StyleMode => {
-  const display = displayBorderMode(ui, layerId);
-  if (display === STYLE_MODE.VALUE) return STYLE_MODE.VALUE;
-  // FOLLOW_FILL renders its own width-only row (no colour input): the
-  // derived colour is not the user's to edit, but the width stays editable.
-  if (display === STYLE_MODE.FOLLOW_FILL) return STYLE_MODE.FOLLOW_FILL;
-  return STYLE_MODE.SOLID;
-};
+const borderDetailMode = (ui: LayerUI, layerId: string): StyleMode =>
+  resolveDisplayAndDetail(borderSpec(ui, layerId), { collapseOriginalDetail: true })
+    .detail;
 
 const renderBorderDetail = (
   ui: LayerUI,
