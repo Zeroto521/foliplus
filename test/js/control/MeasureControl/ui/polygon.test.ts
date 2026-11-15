@@ -2,6 +2,7 @@ import { installStubs, makeMgr } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as UI from "#control/MeasureControl/ui/index.js";
+import * as Util from "#control/MeasureControl/util.js";
 
 const {
   attachDelClick,
@@ -117,7 +118,7 @@ describe("attachPolygonUI", () => {
     UI.attachPolygonUI(makeMgr() as any, opts as any);
 
     const centroidCalls = (window.L.circleMarker as any).mock.calls.filter(
-      ([, opts]: any[]) => opts?.className === CONST.CLASSES.NODE_SOLID,
+      ([, opts]: any[]) => opts?.className === Util.nodeClass("solid"),
     );
     expect(centroidCalls.length).toBe(1);
   });

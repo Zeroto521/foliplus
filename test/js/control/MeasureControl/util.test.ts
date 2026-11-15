@@ -131,13 +131,15 @@ describe("buildNode", () => {
     Util.buildNode({ lat: 1, lng: 2 });
     expect(window.L.circleMarker).toHaveBeenCalledWith(
       { lat: 1, lng: 2 },
-      { radius: 5, className: CONST.CLASSES.NODE_HOLLOW },
+      { radius: 5, className: Util.nodeClass("hollow") },
     );
     // The shared dot look is on every node; the hook class stays for selectors.
-    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot");
-    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-dot-hollow");
-    expect(CONST.CLASSES.NODE_HOLLOW).toContain("foliplus-measure-node");
-    expect(CONST.CLASSES.NODE_SOLID).toContain("foliplus-dot-solid");
+    expect(Util.nodeClass("hollow")).toBe(
+      "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
+    );
+    expect(Util.nodeClass("solid")).toBe(
+      "foliplus-dot foliplus-dot-solid foliplus-measure-node",
+    );
   });
 
   it("accepts a custom className", () => {

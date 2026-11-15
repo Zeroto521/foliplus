@@ -21,13 +21,16 @@ class DistanceMode extends PreviewMode {
   static restore(mgr: MeasureManager, data: MeasureData) {
     const points = Util.pointsToLatLngs(data.points!);
     const finalPoly = mgr.layers.addLayer(
-      L.polyline(points, { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
+      L.polyline(points, {
+        className: Util.pathClass(CONST.CLASSES.PATH_SOLID),
+        interactive: true,
+      }),
     ) as L.Polyline;
 
     const nodeMarkers: L.CircleMarker[] = [];
     points.forEach((pt: L.LatLng, i: number) => {
       const node = mgr.layers.addLayer(
-        Util.buildNode(pt, i === 0 ? CONST.CLASSES.NODE_SOLID : undefined),
+        Util.buildNode(pt, i === 0 ? Util.nodeClass("solid") : undefined),
         CONST.PANES.NODE,
       ) as L.CircleMarker;
       node.bringToFront();
@@ -79,19 +82,28 @@ class DistanceMode extends PreviewMode {
     const points: L.LatLng[] = [];
     let total = 0;
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
+      L.polyline([], {
+        className: Util.pathClass(CONST.CLASSES.PATH_DASHED),
+        interactive: false,
+      }),
     );
     const nodeMarkers: L.CircleMarker[] = [];
     const segLabels: L.Marker[] = [];
     const previewLine = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
+      L.polyline([], {
+        className: Util.pathClass(CONST.CLASSES.PATH_PREVIEW),
+        interactive: false,
+      }),
     );
     // The cursor dot is the same hollow node as the circle mode's radius
     // endpoint — it has no meaning before the first point is placed. Created
     // via `moveCursorNode`, which recreates the node on every frame so the
     // attach order keeps the node newest (see PreviewMode.moveCursorNode).
     const finalPoly = this.layers.addLayer(
-      L.polyline([], { className: CONST.CLASSES.PATH_SOLID, interactive: true }),
+      L.polyline([], {
+        className: Util.pathClass(CONST.CLASSES.PATH_SOLID),
+        interactive: true,
+      }),
     ) as L.Polyline;
     let previewDistLabel: L.Marker | null = null;
 
@@ -232,7 +244,7 @@ class DistanceMode extends PreviewMode {
       const marker = this.layers.addLayer(
         Util.buildNode(
           event.latlng,
-          points.length === 1 ? CONST.CLASSES.NODE_SOLID : undefined,
+          points.length === 1 ? Util.nodeClass("solid") : undefined,
         ),
         CONST.PANES.NODE,
       ) as L.CircleMarker;

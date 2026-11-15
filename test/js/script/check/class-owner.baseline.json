@@ -7,37 +7,9 @@
     "permanent": true,
     "reason": "Element-id prefix passed to nextId() in listCursor.ts, not a CSS class (css-class-audit.md §4b: 'NOT a class — an element-id prefix')."
   },
-  "foliplus-dot": {
-    "status": "deferred",
-    "reason": "Owned as compound values in MeasureControl/const.ts NODE_HOLLOW/NODE_SOLID + ExportControl/const.ts; class-owner scanOwnerFile skips compound values (' ' skip) so buildOwnerMap misses them. A follow-up card splits them into single-token keys."
-  },
-  "foliplus-dot-hollow": {
-    "status": "deferred",
-    "reason": "Owned as compound in MeasureControl/const.ts NODE_HOLLOW + ExportControl/const.ts; scanner-blind (compound value)."
-  },
-  "foliplus-dot-solid": {
-    "status": "deferred",
-    "reason": "Owned as compound in MeasureControl/const.ts NODE_SOLID + ExportControl/const.ts; scanner-blind (compound value)."
-  },
   "foliplus-focus-overlay": {
     "status": "deferred",
     "reason": "Owned in LayerControl/const.ts; scanner-blind (value not seen as owner by class-owner)."
-  },
-  "foliplus-measure-path": {
-    "status": "deferred",
-    "reason": "Owned as compound in MeasureControl/const.ts PATH_SOLID/PATH_DASHED/PATH_PREVIEW; scanner-blind."
-  },
-  "foliplus-measure-path-solid": {
-    "status": "deferred",
-    "reason": "Owned as compound in MeasureControl/const.ts PATH_SOLID; scanner-blind."
-  },
-  "foliplus-measure-path-dashed": {
-    "status": "deferred",
-    "reason": "Owned as compound in MeasureControl/const.ts PATH_DASHED; scanner-blind."
-  },
-  "foliplus-measure-path-preview": {
-    "status": "deferred",
-    "reason": "Owned as compound in MeasureControl/const.ts PATH_PREVIEW; scanner-blind."
   },
   "foliplus-del-icon": {
     "status": "deferred",
