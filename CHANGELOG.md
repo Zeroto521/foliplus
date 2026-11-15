@@ -37,6 +37,7 @@
 - `LayerControl`: style capability checks and mode resolution read one projection and one resolver, each shared with its guard test ([#1138](https://github.com/Zeroto521/foliplus/pull/1138), [#1141](https://github.com/Zeroto521/foliplus/pull/1141), [#1148](https://github.com/Zeroto521/foliplus/pull/1148), [#1157](https://github.com/Zeroto521/foliplus/pull/1157))
 - `LayerControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
+- `LayerControl`: the style panel's Reset is disabled while the layer is on its declared style and re-enables with the first style write; after a reset focus falls to the panel's next usable control ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
 
 ### Removed
 
