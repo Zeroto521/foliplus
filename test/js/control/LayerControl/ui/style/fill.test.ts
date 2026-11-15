@@ -8182,10 +8182,8 @@ describe("fill original availability (P1)", () => {
   const origDetail = (block: HTMLElement): HTMLElement =>
     block.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`) as HTMLElement;
 
-  const origText = (el: HTMLElement): string => (el.textContent ?? "").trim();
   const origToRgb = (hex: string): string => {
     const h = hex.replace("#", "");
-
     if (h.length !== 6) return hex;
 
     const r = parseInt(h.slice(0, 2), 16);
