@@ -350,7 +350,7 @@ interface RowPanelBounds {
 /** Measure the pinned card and resolve its box from the shared kernel.
  *
  * The kernel decides the side (above vs below), the horizontal box and the
- * floored height cap; the card's comfort floor goes in as `minHeight`, a cap
+ * floored height cap; the card's comfort floor goes in as `capFloor`, a cap
  * floor that deliberately does not move the flip threshold. A zero-height row
  * (a collapsed group) has no strip to fit, so the caller still receives the
  * horizontal box and skips the vertical writes itself.
@@ -395,7 +395,7 @@ const fitRowPanel = (
   // the bounds themselves.
   //
   // The comfort floor is a pixel value, not a row count, so it goes in as
-  // `minHeight`: a cap floor that does not move the flip threshold. It is
+  // `capFloor`: a floor that does not move the flip threshold. It is
   // capped to the card's own usable height first (the map's two edge insets),
   // so a short map shrinks the floor instead of overflowing it.
   const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_FLOOR_INSET * 2);
@@ -404,7 +404,7 @@ const fitRowPanel = (
     anchorRect,
     { width: naturalWidth, height: natural },
     bounds,
-    { gap, edgeGap: { x: ROW_PANEL_EDGE }, minHeight: floor },
+    { gap, edgeGap: { x: ROW_PANEL_EDGE }, capFloor: floor },
   );
 
   return { placement, naturalWidth };

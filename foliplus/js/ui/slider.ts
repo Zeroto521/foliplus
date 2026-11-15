@@ -211,7 +211,7 @@ const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
     prefer: "above",
     // A cap floor, not a row count: the readout may be pushed by the viewport
     // edge but must never be height-capped below one full bubble.
-    minHeight: size.height,
+    capFloor: size.height,
     // The transform centres the box, so the inline `left` is its centre.
     origin: "center",
     sideAttribute: "side",

@@ -15,8 +15,9 @@
  *
  *   - `minRoom` — flip above by a two-row minimum (dropdown) or by the whole
  *     surface height (picker, overflow menu, row panel, SearchControl);
- *   - `minHeight` — a pixel comfort floor for the height cap (the row panel's
- *     120px minimum), without changing the flip threshold;
+ *   - `capFloor` — a pixel floor for the height cap (the row panel's 120px
+ *     minimum, the slider bubble's one full readout), without changing the flip
+ *     threshold;
  *   - `width` — the box width: the anchor's width, an explicit number, or the
  *     surface's natural width by default;
  *   - `edgeGap` — the inset every floating surface keeps from the bounds
@@ -84,8 +85,8 @@ const heightOf = (r: PlacementBox): number => r.bottom - r.top;
  *    strip holds `minRoom` and flips below otherwise (the slider bubble).
  * 4. **Height cap** — the surface height is capped to the available space in
  *    the chosen strip, and floored at `minRows * rowHeight` (a row guarantee)
- *    or `minHeight` (a pixel comfort floor). `minHeight` does not feed the
- *    flip threshold; use `minRoom` for that.
+ *    or `capFloor` (a pixel comfort floor). `capFloor` does not feed the flip
+ *    threshold; use `minRoom` for that.
  * 5. **Vertical clamp** — `top` is clamped so the surface stays inside the
  *    frame, using the height the surface actually renders
  *    (`min(surface.height, maxHeight)`), so a cap taller than the content
@@ -139,12 +140,12 @@ const computePlacement = (
   const availAbove = clamp(anchor.top - frame.top - gap, 0, frameH);
 
   // Height floors: `minRows * rowHeight` is a row guarantee that also feeds the
-  // desired height (and therefore the default flip threshold); `minHeight` is a
+  // desired height (and therefore the default flip threshold); `capFloor` is a
   // pixel comfort floor applied to the cap only, so it never moves the flip.
   const rowFloor = (opts.minRows ?? 0) * (opts.rowHeight ?? 0);
   const floorCapped = Math.min(rowFloor, frameH);
   const desiredH = Math.max(surface.height, floorCapped);
-  const minHeightFloor = Math.min(opts.minHeight ?? 0, frameH);
+  const capFloorValue = Math.min(opts.capFloor ?? 0, frameH);
 
   // ③ Flip threshold. minRoom lets a two-row-minimum rule flip above while
   // the below strip still holds part of the surface; the default (desiredH)
@@ -175,7 +176,7 @@ const computePlacement = (
   const stripCapped = Math.min(desiredH, availH);
   const maxHeight = Math.max(
     0,
-    Math.min(frameH, Math.max(stripCapped, floorCapped, minHeightFloor)),
+    Math.min(frameH, Math.max(stripCapped, floorCapped, capFloorValue)),
   );
 
   // ⑥ Vertical clamp. The box renders at most its natural height, so a cap
