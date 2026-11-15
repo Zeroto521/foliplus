@@ -9,6 +9,8 @@ const CLASSES = {
   ZOOM_IN: "foliplus-zoom-in",
   ZOOM_OUT: "foliplus-zoom-out",
   TOGGLE: "foliplus-fullscreen-toggle",
+  /** The fullscreen bar shell (the fold container that holds the zoom buttons). */
+  FULLSCREEN_BAR: "foliplus-fullscreen-bar",
 };
 
 const containerId = (name: string, position: string) =>

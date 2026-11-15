@@ -1,4 +1,5 @@
 import * as CONST from "./const.js";
+import { CLASSES } from "./const.js";
 import * as SVGs from "./icon.js";
 import { MeasureManager } from "./manager.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
@@ -24,7 +25,7 @@ const MeasureControl = defineControl<MeasureManager>({
   },
   buildDOM(this: any) {
     const { container, ctrl, toolBar, toggleBtn } = createFoldControl({
-      cssClass: "foliplus-measure-ctrl",
+      cssClass: CLASSES.CTRL,
       toggleTitle: this.T("tool_toggle"),
       toggleSvg: SVGs.ICON_RULER,
       position: this.config.position,

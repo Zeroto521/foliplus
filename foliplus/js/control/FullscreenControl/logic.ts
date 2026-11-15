@@ -6,7 +6,7 @@ import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { setPseudoFullscreen } from "#platform/fullscreen.js";
-import { PANEL_CLASS } from "#ui/index.js";
+import { PANEL_CLASS, SCALE_CLASS } from "#ui/index.js";
 
 /** Per-call env slice the entry passes in. Same vocabulary as ControlEnv but
  *  narrowed to what this module reads — `name` and `hide_*` from CONFIG, plus
@@ -35,7 +35,7 @@ const updateUI = (
   if (config.hide_others) {
     const controls = map
       .getContainer()
-      .querySelectorAll(".leaflet-control, .foliplus-scale-wrap");
+      .querySelectorAll(`.leaflet-control, ${SCALE_CLASS.WRAP}`);
     const cid = containerId(config.name, config.position as string);
     for (const c of controls) {
       if (c.contains(container) || c.closest?.(`#${cid}`)) continue;
