@@ -112,6 +112,42 @@ const collectReferences = root => {
   return { references, indirect };
 };
 
+// ── Inline JS payload scan ───────────────────────────────────────────────
+// Every script the Python tests inject must be a file under test/js/browser
+// (probes, read through `_js()`) or test/js/snippet (shared helpers, read
+// through `snippet()`). A raw string literal passed to Playwright's
+// evaluate / wait_for_function / evaluate_handle bypasses the inventory: the
+// probe gate cannot parse it, and the same JS gets re-typed and drifts.
+// A method call on a page/frame/locator/handle: the leading dot keeps a bare
+// Python helper such as `ast.literal_eval(...)` or a local `evaluate(...)`
+// out of the scan.
+const INLINE_JS_RE = /\.\s*(?:evaluate|wait_for_function|evaluate_handle)\(\s*(["'])/;
+
+const collectInlineJs = root => {
+  const pythonRoot = path.join(root, "test", "python");
+  const hits = [];
+  if (!fs.existsSync(pythonRoot)) return hits;
+  for (const file of walk(pythonRoot).filter(entry => entry.endsWith(".py"))) {
+    const rel = relPosix(file, root);
+    const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
+    for (const [index, line] of lines.entries()) {
+      if (!INLINE_JS_RE.test(line)) continue;
+      const trimmed = line.trim();
+      // A literal example inside a comment or docstring is documentation, not
+      // an injected payload (conftest documents the helper this way).
+      if (
+        trimmed.startsWith("#") ||
+        trimmed.startsWith('"""') ||
+        trimmed.startsWith("'''")
+      ) {
+        continue;
+      }
+      hits.push(`${rel}:${index + 1}`);
+    }
+  }
+  return hits;
+};
+
 /** Build the full inventory report for one checkout root. Pure: no printing. */
 const buildReport = root => {
   const probeRoot = path.join(root, "test", "js", "browser");
@@ -132,6 +168,7 @@ const buildReport = root => {
   }
 
   const { references, indirect } = collectReferences(root);
+  const inlineJs = collectInlineJs(root);
   const known = new Set(probes.map(probe => probe.name));
   const support = new Set(supportFiles);
   const orphanProbes = probes.filter(probe => !references.has(probe.name));
@@ -156,6 +193,7 @@ const buildReport = root => {
       orphanProbes: orphanProbes.length,
       danglingReferences: dangling.length,
       indirectCalls: indirect.length,
+      inlineJs: inlineJs.length,
       supportFiles: supportFiles.length,
     },
     probes,
@@ -163,13 +201,14 @@ const buildReport = root => {
     orphans: orphanProbes,
     dangling,
     indirect,
+    inlineJs,
     byDir,
   };
 };
 
 /** The human-readable report body, one line per array entry. */
 const renderText = report => {
-  const { totals, byDir, parseErrors, orphans, dangling, indirect } = report;
+  const { totals, byDir, parseErrors, orphans, dangling, indirect, inlineJs } = report;
   const output = [
     `browser probes: ${totals.probes} files under test/js/browser`,
     `  parsed:              ${totals.parsed}/${totals.probes}`,
@@ -177,6 +216,7 @@ const renderText = report => {
     `  orphan probes:       ${totals.orphanProbes}`,
     `  dangling references: ${totals.danglingReferences}`,
     `  indirect _js() calls: ${totals.indirectCalls}`,
+    `  inline JS strings:   ${totals.inlineJs}`,
     `  support files:       ${totals.supportFiles}`,
     "  by directory:",
   ];
@@ -204,6 +244,7 @@ const renderText = report => {
     dangling.map(entry => `${entry.reference}  <- ${entry.files.join(", ")}`),
   );
   section("indirect _js() calls (not statically mappable)", indirect);
+  section("inline JS strings (move them to test/js/snippet)", inlineJs);
   return output;
 };
 
@@ -221,6 +262,7 @@ const renderSummary = report => {
     `| orphan probes | ${totals.orphanProbes} |`,
     `| dangling references | ${totals.danglingReferences} |`,
     `| indirect _js() calls | ${totals.indirectCalls} |`,
+    `| inline JS strings | ${totals.inlineJs} |`,
     `| support files | ${totals.supportFiles} |`,
     "",
   ];
@@ -245,6 +287,7 @@ const renderSummary = report => {
     "dangling references",
     dangling.map(entry => `${entry.reference} <- ${entry.files.join(", ")}`),
   );
+  section("inline JS strings", report.inlineJs);
   output.push(
     "_Informational job: failures are reported here and in the artifact, and do not block required checks._",
   );
@@ -279,7 +322,10 @@ const main = (argv, env = process.env, root = ROOT) => {
     fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `${renderSummary(report).join("\n")}\n`);
   }
 
-  const failed = report.parseErrors.length > 0 || report.dangling.length > 0;
+  const failed =
+    report.parseErrors.length > 0 ||
+    report.dangling.length > 0 ||
+    report.inlineJs.length > 0;
   if (args.strict && failed) {
     console.error(
       "\nbrowser-probe: strict mode — parse errors or dangling references present",
@@ -306,6 +352,7 @@ runCli(process.argv.slice(2), process.argv[1]);
 export {
   buildReport,
   collectReferences,
+  collectInlineJs,
   errorMessage,
   isSupportName,
   main,
