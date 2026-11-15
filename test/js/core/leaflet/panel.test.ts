@@ -1359,11 +1359,11 @@ describe("pinRowPanel", () => {
     expect(parseFloat(panel.style.top)).toBeLessThanOrEqual(900);
   });
 
-  it("keeps its own floor and horizontal policy instead of the kernel outputs", () => {
-    // The row panel keeps its own surface-policy insets (horizontal EDGE, top
-    // TOP_INSET) + comfort floor. This pins the #853 P3-3 / P3-5 decision: no
-    // minRows/rowHeight is passed (no kernel row-floor), and the kernel's
-    // left/top/maxWidth are not written to the card.
+  it("keeps its own floor and edge policy while applying the kernel box", () => {
+    // The row panel passes its policy as options: edgeGap x = ROW_PANEL_EDGE,
+    // minTop = ROW_PANEL_TOP_INSET, and a comfort floor (ROW_PANEL_MIN_HEIGHT).
+    // It does not pass minRows/rowHeight (no kernel row-floor) and does not
+    // write max-width; the adapter applies the resulting left/top.
     //
     // Fixture: map box 100..500 x 100..500 (bounds 400 tall), row at top 300
     // bottom 330, natural card 280x400. The kernel picks above (the larger
@@ -1395,9 +1395,10 @@ describe("pinRowPanel", () => {
 
     pinRowPanel(panel, row);
 
-    // Adapter consumes side + maxHeight; it does NOT consume left/top/maxWidth.
-    // Its own insets win (horizontal EDGE, top TOP_INSET), and no max-width is
-    // written (the 280 card fits the usable 384 strip).
+    // The kernel call above has no edge inset; the surface's edgeGap (x) and
+    // minTop move the card to bounds edge + 8 on both axes. The adapter writes
+    // left/top; max-width stays unwritten (the 280 card fits the usable 384
+    // strip).
     expect(panel.classList.contains("foliplus-row-panel-up")).toBe(
       kernel.side === "above",
     );

@@ -4,10 +4,11 @@
  *
  * Every floating surface — the row panel, SearchControl result panel, scheme
  * picker / shared dropdown, slider value bubble, MeasureControl cursor readout
- * and overflow menu — places through this kernel via the shared DOM adapter
- * (`ui/placementAdapter.ts`): the adapter measures the anchor, the surface and
- * the bounds, calls `computePlacement`, and writes the returned coordinates.
- * The kernel stays pure (no DOM), so a unit test can feed rectangles directly.
+ * and overflow menu — places through this kernel. The shared DOM adapter
+ * (`ui/placementAdapter.ts`) writes the result: `placeSurface` measures, calls
+ * `computePlacement` and writes in one step, while `applyPlacement` writes a
+ * placement a surface computed first (the row panel's fit step). The kernel
+ * stays pure (no DOM), so a unit test can feed rectangles directly.
  *
  * Each surface's historical rule is a strategy parameter, not a second
  * implementation:
