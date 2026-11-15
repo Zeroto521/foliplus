@@ -4,6 +4,11 @@
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { authorFill, methodLabel } from "./fillAuthor.js";
+import {
+  VISIBLE_FILL_OPACITY,
+  buildFillOpacityInput,
+  commitFillOpacity,
+} from "./fillOpacity.js";
 import { layerFields } from "./label.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
@@ -39,9 +44,12 @@ import {
 import { createLogger } from "#platform/log.js";
 import {
   type SchemePicker,
+  bindLiveNumber,
   createSchemePicker,
   dropdownOf,
   dropdownOverlay,
+  formRow,
+  inlineControls,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
@@ -561,9 +569,20 @@ const buildValueDetail = (
     rowClass: CONST.CLASSES.STYLE_FILL_ROW,
   });
 
+  // The opacity row is the last row of every value detail (after the scheme,
+  // before the border mode): the by-value mode keeps its own transparent
+  // control, the same 0-100 input the solid row mounts, so a user can tune
+  // how strongly the classified colours show without leaving the mode.
+  const opacity = buildFillOpacityInput(ui, layerId);
+  const opacityRow = formRow(
+    ui.T("style_fill_opacity"),
+    inlineControls(opacity),
+    `${CONST.CLASSES.STYLE_FILL_ROW} ${CONST.CLASSES.STYLE_SIZE_ROW}`,
+  );
+
   return isCategoryKind(value.kind)
-    ? [field.row, scheme.row]
-    : [field.row, classes.row, scheme.row];
+    ? [field.row, scheme.row, opacityRow]
+    : [field.row, classes.row, scheme.row, opacityRow];
 };
 
 /** State the committed class count on the value row.
@@ -670,4 +689,20 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
       convergeClassesRow(classesSelect, next.classes);
     };
   }
+  // The opacity input is built unconditionally by `buildValueDetail` above,
+  // so the query casts instead of re-testing for null (the same convention the
+  // file's header comment states: a guard here could never take its false mode
+  // and would just read as an uncovered branch).
+  const opacityEl = detail.querySelector(
+    `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+  ) as HTMLInputElement;
+  bindLiveNumber(opacityEl, {
+    min: 0,
+    max: 100,
+    fallback: VISIBLE_FILL_OPACITY * 100,
+    // One decimal place in percent space: 0.555 reads and writes 55.5,
+    // never 55.49999... — display and commit agree through the same step.
+    normalize: pct => Math.round(pct * 10) / 10,
+    onCommit: pct => commitFillOpacity(ui, layerId, pct),
+  });
 };
