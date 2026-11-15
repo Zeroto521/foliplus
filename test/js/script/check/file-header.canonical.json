@@ -57,8 +57,10 @@
   "platform/type",
   "ui/canvasLabel",
   "ui/dropdown",
+  "ui/dropdownClassName",
   "ui/form",
   "ui/formClassName",
+  "ui/glyphClassName",
   "ui/labelClassName",
   "ui/listbox",
   "ui/optionRow",
@@ -66,6 +68,7 @@
   "ui/panelClassName",
   "ui/panelField",
   "ui/placement",
+  "ui/placementAdapter",
   "ui/scaleClassName",
   "ui/schemePicker",
   "ui/schemePickerClassName",
@@ -73,5 +76,6 @@
   "ui/slider",
   "ui/sliderClassName",
   "ui/styleModeKey",
-  "ui/type"
+  "ui/type",
+  "ui/buttonClassName"
 ]

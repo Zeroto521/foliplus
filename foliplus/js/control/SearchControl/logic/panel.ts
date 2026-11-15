@@ -13,7 +13,7 @@ import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
 import { mountFloating } from "#platform/floating.js";
-import { applyOptionRowA11y, computePlacement, nextOptionId } from "#ui/index.js";
+import { applyOptionRowA11y, nextOptionId, placeSurface } from "#ui/index.js";
 
 // listCursor lives on SearchControl but not on SearchControlState; panel.ts
 // only touches it at panel-lifecycle boundaries (destroy on teardown, refresh
@@ -83,25 +83,26 @@ const positionPanel = (ctrl: SearchControlCtx) => {
   // against the viewport, not the document).
   const anchor = ctrl.ctrl.getBoundingClientRect();
   // The map container is the final boundary: when the map is smaller than the
-  // viewport the panel must not spill past the map edge (the kernel's viewport
-  // clamp is only its intermediate result).
+  // viewport the panel must not spill past the map edge (the adapter's bounds
+  // clamp is the final word).
   const bounds = map.getContainer().getBoundingClientRect();
-  // The engine owns the gap (--foliplus-menu-gap) and the height cap is the
-  // menu-max-height token, so the kernel can flip above / clamp / cap.
+  // The adapter owns the gap (--foliplus-menu-gap) and the height cap is the
+  // menu-max-height token, so it can flip above / clamp / cap.
   const gap = parseFloat(cssVar(panel, "--foliplus-menu-gap", "4px")) || 0;
   const maxToken =
     parseFloat(cssVar(panel, "--foliplus-menu-max-height", "240px")) || 240;
-  const placement = computePlacement(
+  const placement = placeSurface(panel, {
     anchor,
-    { width: panel.offsetWidth, height: Math.min(panel.scrollHeight, maxToken) },
     bounds,
-    { gap },
-  );
-  panel.style.left = `${placement.left}px`;
-  panel.style.top = `${placement.top}px`;
+    size: {
+      width: panel.offsetWidth,
+      height: Math.min(panel.scrollHeight, maxToken),
+    },
+    gap,
+    onSide: side => panel.classList.toggle(CLASSES.RESULT_PANEL_UP, side === "above"),
+  });
   panel.style.maxWidth = `${placement.maxWidth}px`;
   panel.style.maxHeight = `${placement.maxHeight}px`;
-  panel.classList.toggle(CLASSES.RESULT_PANEL_UP, placement.side === "above");
 };
 
 const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {

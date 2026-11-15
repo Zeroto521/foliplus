@@ -49,7 +49,7 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import type { Logger } from "#platform/type.js";
-import { PANEL_CLASS, computePlacement } from "#ui/index.js";
+import { PANEL_CLASS, placeSurface } from "#ui/index.js";
 
 /** Measurement types in toolbar order with the locale key of their tool name.
  *  This is the filter's whole domain and its option order: the panel offers
@@ -783,20 +783,17 @@ class MeasureManager {
       const { x, y } = this.map.latLngToContainerPoint(event.latlng);
       const size = this.map.getSize();
       // The chip is a point-anchored popup in the container's coordinate space:
-      // the shared kernel owns the below-first flip, the horizontal clamp and
-      // the gap. Its `left` is the box edge; the CSS transform centres the box,
-      // so the inline left stays the centre coordinate.
-      const width = container.offsetWidth;
-      const height = container.offsetHeight;
-      const placement = computePlacement(
-        { left: x, right: x, top: y, bottom: y },
-        { width, height },
-        { left: 0, right: size.x, top: 0, bottom: size.y },
-        { gap: CONST.READOUT.ANCHOR_GAP, align: "center", prefer: "below" },
-      );
-      container.style.left = `${String(placement.left + placement.maxWidth / 2)}px`;
-      container.style.top = `${String(placement.top)}px`;
-      container.dataset.side = placement.side;
+      // the shared DOM adapter runs the below-first flip, the horizontal clamp,
+      // the gap and the centre conversion the CSS transform expects.
+      placeSurface(container, {
+        anchor: { left: x, right: x, top: y, bottom: y },
+        bounds: { left: 0, top: 0, right: size.x, bottom: size.y },
+        gap: CONST.READOUT.ANCHOR_GAP,
+        align: "center",
+        prefer: "below",
+        origin: "center",
+        sideAttribute: "side",
+      });
       container.textContent = Util.coordText(this.map, event.latlng, this.log);
       // Reveal only once it has a real position. Showing it before the first
       // mousemove would leave it at the container's default spot (by the hint)

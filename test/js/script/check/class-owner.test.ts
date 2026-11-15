@@ -116,6 +116,69 @@ describe("scanOwnerFile", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+  it("recognizes a file-level named const as an owner site", () => {
+    // Task-141: FOCUS_PANE = "foliplus-focus-overlay" (file-level const,
+    // no colon) declares ownership just like a CLASSES object key.
+    const src = [
+      'const FOCUS_PANE = "foliplus-focus-overlay";',
+      "export { FOCUS_PANE };",
+    ].join(String.fromCharCode(10));
+    const root = tempRoot({ "foliplus/js/control/X/const.ts": src });
+    try {
+      const abs = path.join(root, "foliplus/js/control/X/const.ts");
+      const sites = scanOwnerFile(abs, "foliplus/js/control/X/const.ts");
+      expect(sites).toHaveLength(1);
+      expect(sites[0].token).toBe("foliplus-focus-overlay");
+      expect(sites[0].owner).toBe("foliplus/js/control/X/const.ts");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("a removed file-level const leaves the token unowned", () => {
+    // Deleting the const must drop the ownership claim: buildOwnerMap then
+    // has no owner for the token and scanUnownedConsumers flags the write.
+    const src = 'const OTHER = "foliplus-not-this";\nexport { OTHER };\n';
+    const root = tempRoot({
+      "foliplus/js/control/X/const.ts": src,
+      "foliplus/js/control/X/ui.ts": 'export const c = "foliplus-focus-overlay";',
+    });
+    try {
+      const ownerMap = buildOwnerMap(root);
+      expect(ownerMap.get("foliplus-focus-overlay") ?? []).toHaveLength(0);
+      const hits = scanUnownedConsumers(root, ownerMap, { includeCore: false });
+      expect(hits).toHaveLength(1);
+      expect(hits[0].token).toBe("foliplus-focus-overlay");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not recognize a selector-valued file-level const", () => {
+    const src = ['const SEL = ".foliplus-focus-overlay";', "export { SEL };"].join(
+      String.fromCharCode(10),
+    );
+    const root = tempRoot({ "foliplus/js/control/X/const.ts": src });
+    try {
+      const abs = path.join(root, "foliplus/js/control/X/const.ts");
+      expect(scanOwnerFile(abs, "foliplus/js/control/X/const.ts")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not recognize a composite-valued file-level const", () => {
+    const src = ['const COMBO = "foliplus-a foliplus-b";', "export { COMBO };"].join(
+      String.fromCharCode(10),
+    );
+    const root = tempRoot({ "foliplus/js/control/X/const.ts": src });
+    try {
+      const abs = path.join(root, "foliplus/js/control/X/const.ts");
+      expect(scanOwnerFile(abs, "foliplus/js/control/X/const.ts")).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("buildOwnerMap", () => {

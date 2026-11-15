@@ -15,8 +15,10 @@ export {
 } from "./canvasLabel.js";
 export { nextOptionId } from "./optionRow.js";
 export { PANEL_CLASS } from "./panelClassName.js";
+export { BUTTON_CLASS } from "./buttonClassName.js";
 export { SCALE_CLASS } from "./scaleClassName.js";
 export { FORM_CLASS } from "./formClassName.js";
+export { GLYPH_CLASS } from "./glyphClassName.js";
 export {
   POPUP_ESCAPE_DELTA,
   POPUP_HOST_RANK,
@@ -44,6 +46,7 @@ export {
   selectInput,
 } from "./form.js";
 export { clamp, computePlacement, intersect, isDegenerate } from "./placement.js";
+export { applyPlacement, placeSurface, viewportBounds } from "./placementAdapter.js";
 export { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
 export { createSchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";

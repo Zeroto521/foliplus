@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { PANEL_CLASS } from "#ui/index.js";
+import { BUTTON_CLASS, PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/ExportControl/const.js";
+import { dotClass } from "#control/ExportControl/ui.js";
 
 // ===========================================================================
 // Static exported constants (value-only tests, no mocking needed).
@@ -172,11 +173,15 @@ describe("CLASSES", () => {
     // not split a multi-token lookup.
     expect(CONST.CLASSES.HANDLE).toBe("foliplus-export-handle");
     expect(CONST.CLASSES.EXPORT_CROP_CENTER).toBe("foliplus-export-center");
-    // DOM builders carry the shared dot look plus the local positioning hook.
-    expect(CONST.CLASSES.HANDLE_DOT).toBe(
+    // The shared dot look tokens are single-sourced in buttonClassName.ts.
+    expect(BUTTON_CLASS.DOT).toBe("foliplus-dot");
+    expect(BUTTON_CLASS.DOT_HOLLOW).toBe("foliplus-dot-hollow");
+    expect(BUTTON_CLASS.DOT_SOLID).toBe("foliplus-dot-solid");
+    // DOM builders join the dot look with the local positioning hook.
+    expect(dotClass("hollow", CONST.CLASSES.HANDLE)).toBe(
       "foliplus-dot foliplus-dot-hollow foliplus-export-handle",
     );
-    expect(CONST.CLASSES.CENTER_DOT).toBe(
+    expect(dotClass("solid", CONST.CLASSES.EXPORT_CROP_CENTER)).toBe(
       "foliplus-dot foliplus-dot-solid foliplus-export-center",
     );
   });
