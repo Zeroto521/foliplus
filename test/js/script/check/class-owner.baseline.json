@@ -6,21 +6,5 @@
   "foliplus-opt": {
     "permanent": true,
     "reason": "Element-id prefix passed to nextId() in listCursor.ts, not a CSS class (css-class-audit.md §4b: 'NOT a class — an element-id prefix')."
-  },
-  "foliplus-del-icon": {
-    "status": "deferred",
-    "reason": "Owned at delicon.ts:8 named const but delicon.ts is not a *ClassName.ts/const.ts owner file; scanner-blind."
-  },
-  "foliplus-toggle-btn": {
-    "status": "deferred",
-    "reason": "Owned at panel.ts:17 named const; scanner-blind."
-  },
-  "foliplus-tool-bar": {
-    "status": "deferred",
-    "reason": "Owned at panel.ts:19 named const; scanner-blind."
-  },
-  "foliplus-classes-select": {
-    "status": "deferred",
-    "reason": "Owned at rampForm.ts:27 named const; scanner-blind."
   }
 }

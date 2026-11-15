@@ -1,11 +1,11 @@
 // Delete-icon marker utilities — shared by LocateControl, SearchControl and
 // MeasureControl. A floating "✕" marker that can be shown/hidden and clicked
 // to delete.
+import { DEL_ICON_CLASS } from "./deliconClassName.js";
 import { stopEvent } from "#platform/dom.js";
 
 /** Click target data-role for the delete icon span. */
 const DEL_ICON_ROLE = "del-icon";
-const DEL_ICON_CLASS = "foliplus-del-icon";
 /** The ✕ glyph rendered inside the delete icon span. */
 const DEL_ICON_CHAR = "\u2715";
 /** CSS selector matching the delete icon span. */

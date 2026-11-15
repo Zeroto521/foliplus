@@ -16,17 +16,13 @@ import {
   type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
+  FORM_CLASS,
   SCHEME_PICKER_CLASS,
   createDropdown,
   formRow,
   inlineControls,
   selectInput,
 } from "#ui/index.js";
-
-/** Shared hook class for the compact class-count select: the class select is the
- *  same role as a number field beside a flexed control, so its width contract
- *  lives in one place (form.css) rather than per-component overrides. */
-const CLASSES_SELECT_CLASS = "foliplus-classes-select";
 
 /** Extra HTML attributes applied to the row/control, e.g. the heatmap's
  *  data-* seams that Python rendering tests pin. */
@@ -146,8 +142,8 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
   // lives in one place (form.css) rather than per-component overrides.
   const classesSelect = selectInput({
     className: opts.classesClass
-      ? `${opts.classesClass} ${CLASSES_SELECT_CLASS}`
-      : CLASSES_SELECT_CLASS,
+      ? `${opts.classesClass} ${FORM_CLASS.CLASSES_SELECT}`
+      : FORM_CLASS.CLASSES_SELECT,
     ariaLabel: opts.classesAriaLabel,
     value: String(opts.classesValue),
     options: CLASS_COUNT_VALUES.map(count => ({
@@ -178,7 +174,7 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
     ariaLabel: opts.classesAriaLabel,
     // The wrapper replaces the select in the flex row, so the compact-count
     // width contract (form.css) has to size it.
-    className: CLASSES_SELECT_CLASS,
+    className: FORM_CLASS.CLASSES_SELECT,
     ...opts.surface,
     overlay: opts.overlay,
   });
