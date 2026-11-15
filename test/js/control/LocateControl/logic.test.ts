@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureModes } from "#core/lifecycle/index.js";
+import { CLASSES } from "#control/LocateControl/const.js";
 import { locateMe } from "#control/LocateControl/logic.js";
 
 vi.mock("#platform/locale.js", () => ({
@@ -179,5 +180,11 @@ describe("locateMe", () => {
     error({ code: 1, message: "Permission denied" });
     expect(ctrl.marker).toBeNull();
     expect(ctrl.delIcon).toBeNull();
+  });
+});
+
+describe("LocateControl shell class vocabulary", () => {
+  it("declares the locate button token with its exact value", () => {
+    expect(CLASSES.LOCATE_BTN).toBe("foliplus-locate-btn");
   });
 });
