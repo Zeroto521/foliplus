@@ -173,6 +173,23 @@ const scanOwnerFile = (absPath, rel) => {
       owners.push({ token, owner: rel, line });
     }
   }
+  // File-level named consts (e.g. FOCUS_PANE = "foliplus-focus-overlay")
+  // also declare ownership. The object-property regex above only matches
+  // "KEY: \"value\""; a file-level const has no colon. The name shape is
+  // UPPER_SNAKE (matching duplicate-class-def's head note), and the value
+  // guards are identical to the object-property branch: a selector (starts
+  // with ".") or a composite (contains a space) is a reader, not an owner.
+  const fileLevelRe = /(?:^|\n)const\s+[A-Z_][A-Z0-9_]*\s*=\s*"([^"\`]*)"/g;
+  while ((match = fileLevelRe.exec(text)) !== null) {
+    const literal = match[1];
+    if (literal.includes("$") || literal.startsWith(".")) continue;
+    if (literal.includes(" ")) continue;
+    for (const token of tokensIn(literal)) {
+      const line = text.slice(0, match.index).split("\n").length;
+      if (owners.some(o => o.token === token && o.owner === rel)) continue;
+      owners.push({ token, owner: rel, line });
+    }
+  }
   return owners;
 };
 
