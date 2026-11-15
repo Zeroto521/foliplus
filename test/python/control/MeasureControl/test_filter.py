@@ -192,7 +192,7 @@ class TestMeasureTypeFilterBrowser:
             distance_only = _select(page, ["distance"])
             distance_counts = _counts(distance_only)
 
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-measure-ctrl", state="attached", timeout=10000
             )
@@ -219,7 +219,7 @@ class TestMeasureTypeFilterBrowser:
 
             # A stale condition from an older record must read as no filter.
             page.evaluate(_js("MeasureControl/seed_stale_filter"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-measure-ctrl", state="attached", timeout=10000
             )

@@ -58,7 +58,7 @@ class TestMeasurePersistBrowser:
         """restoreDistance restores a distance measurement from localStorage without ReferenceError."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/seed_distance_storage"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(2000)
             count = page.evaluate(_js("MeasureControl/read_measurements_length"))
             assert count == 1, f"expected 1 restored distance, got {count}"
@@ -71,7 +71,7 @@ class TestMeasurePersistBrowser:
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             # Write corrupted JSON
             page.evaluate(_js("MeasureControl/seed_corrupt_storage"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(2000)
             count = page.evaluate(_js("MeasureControl/read_measurements_length"))
             assert count == 0, f"expected 0 measurements, got {count}"
