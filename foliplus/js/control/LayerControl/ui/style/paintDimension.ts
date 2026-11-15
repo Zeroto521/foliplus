@@ -213,7 +213,7 @@ const renderPaintDetail = (
 
 /** Bind the active mode's detail controls. */
 const bindPaintDetail = (
-  dim: PaintDimension,
+  dim: Pick<PaintDimension, "detailBinder" | "subs">,
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,

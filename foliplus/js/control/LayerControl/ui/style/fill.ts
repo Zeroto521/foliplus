@@ -47,7 +47,11 @@ import {
   buildMonochromeOriginalDetail,
   buildOriginalDetail,
 } from "./originalDetail.js";
-import { renderPaintDetail } from "./paintDimension.js";
+import {
+  type PaintSubDimension,
+  bindPaintDetail,
+  renderPaintDetail,
+} from "./paintDimension.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -607,6 +611,33 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     opacityEl.onblur = flush;
   }
 };
+/** The fill sub-dimensions that ride every mode. The fill channel's
+ *  opacity input is built inside each mode's detail row (solid, value,
+ *  original) and bound by that mode's binder, so it is not a shared
+ *  sub-element the engine sweeps separately — the sub list stays empty
+ *  until the full adapter step mounts the opacity row through one builder. */
+const fillSubs: PaintSubDimension[] = [];
+
+/** The fill detail binder for one mode. The shared engine owns the
+ *  sub-dimension sweep; this closure is the channel's one difference (which
+ *  mode binds which controls). The original-colors detail is a read-only
+ *  readout, so it binds nothing. */
+const fillDetailBinder = (
+  mode: StyleMode,
+): ((ui: LayerUI, layerId: string, detail: HTMLElement) => void) => {
+  if (mode === STYLE_MODE.ORIGINAL) {
+    // The original-colors detail is a read-only readout: nothing to bind.
+    return () => undefined;
+  }
+  if (mode === STYLE_MODE.VALUE) {
+    return (ui, layerId, detail) => {
+      if (hasValueField(ui, layerId)) bindValueDetail(ui, layerId, detail);
+      else bindSolidDetail(ui, layerId, detail);
+    };
+  }
+  return (ui, layerId, detail) => bindSolidDetail(ui, layerId, detail);
+};
+
 /** Bind one detail slot for the active mode (solid color/opacity or the value
  *  controls). Called on open and again after every mode switch. */
 const bindFillDetail = (
@@ -615,13 +646,13 @@ const bindFillDetail = (
   detail: HTMLElement,
   mode: StyleMode,
 ): void => {
-  // The original-colors detail is a read-only readout: nothing to bind.
-  if (mode === STYLE_MODE.ORIGINAL) return;
-  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
-    bindValueDetail(ui, layerId, detail);
-  } else {
-    bindSolidDetail(ui, layerId, detail);
-  }
+  bindPaintDetail(
+    { detailBinder: fillDetailBinder, subs: fillSubs },
+    ui,
+    layerId,
+    detail,
+    mode,
+  );
 };
 /** Wire the fill block: the mode select switches modes in place (rebuilding the
  *  detail slot), and the active mode's controls commit through the dimension's
