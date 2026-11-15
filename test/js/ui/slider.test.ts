@@ -542,6 +542,8 @@ describe("Slider primitive", () => {
       fakeRect({ left: 0, top: 0, width: 40, height: 30 });
     press(thumbEl, "ArrowRight");
     expect(bubble.dataset.side).toBe("below");
+    // Below the thumb by the same 8px gap, box top on the kernel's top.
+    expect(bubble.style.top).toBe("24px");
   });
 
   it("does not emit on a silent write but commits on demand", () => {
@@ -653,6 +655,105 @@ describe("Slider primitive", () => {
       fakeRect({ left: 100, top: 400, width: 14, height: 14 });
     thumbEl.dispatchEvent(new Event("focus"));
     expect(bubble.dataset.side).toBe("above");
+    // Above the thumb by the same 8px gap: 400 - 8 - 30.
+    expect(bubble.style.top).toBe("362px");
+  });
+
+  it("centres the bubble on its thumb and keeps the arrow on it", () => {
+    const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+    bubble.getBoundingClientRect = () =>
+      fakeRect({ left: 0, top: 0, width: 40, height: 30 });
+    thumbEl.getBoundingClientRect = () =>
+      fakeRect({ left: 300, top: 400, width: 14, height: 14 });
+    press(thumbEl, "ArrowRight");
+    // Mid rail: align "center" puts the box centre on the thumb centre (307)
+    // and the arrow offset at zero. The kernel's default (right-align) would
+    // put both at 294, 13px right of the thumb.
+    expect(bubble.style.left).toBe("307px");
+    expect(bubble.style.getPropertyValue("--foliplus-bubble-arrow")).toBe("0px");
+    expect(bubble.style.transform).toBe("translate(-50%, 0)");
+    expect(bubble.dataset.side).toBe("above");
+  });
+
+  it("keeps the bubble inside the viewport at either rail end", () => {
+    const { host } = make({ min: 0, max: 100, value: 0, label: "x" });
+    const thumbEl = thumb(host);
+    thumbEl.dispatchEvent(new Event("focus"));
+    const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+    bubble.getBoundingClientRect = () =>
+      fakeRect({ left: 0, top: 0, width: 40, height: 30 });
+    // Left end: the centre coordinate is clamped to 8 + half the bubble (28),
+    // so the box's left edge lands on the 8px edge inset.
+    thumbEl.getBoundingClientRect = () =>
+      fakeRect({ left: 0, top: 400, width: 14, height: 14 });
+    press(thumbEl, "ArrowRight");
+    expect(bubble.style.left).toBe("28px");
+    // The arrow still points at the thumb (centre 7) even though the box is
+    // clamped: 7 - 28 = -21px from the box centre.
+    expect(bubble.style.getPropertyValue("--foliplus-bubble-arrow")).toBe("-21px");
+    // Right end (1024px viewport): centre 996 puts the box's right edge on
+    // 1016 = 1024 - 8; the arrow is 11px right of the box centre.
+    thumbEl.getBoundingClientRect = () =>
+      fakeRect({ left: 1000, top: 400, width: 14, height: 14 });
+    press(thumbEl, "ArrowRight");
+    expect(bubble.style.left).toBe("996px");
+    expect(bubble.style.getPropertyValue("--foliplus-bubble-arrow")).toBe("11px");
+  });
+
+  it("never caps the bubble height when the viewport pushes it", () => {
+    const width = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 60, configurable: true });
+    try {
+      const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+      const thumbEl = thumb(host);
+      thumbEl.dispatchEvent(new Event("focus"));
+      const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+      bubble.getBoundingClientRect = () =>
+        fakeRect({ left: 100, top: 0, width: 40, height: 30 });
+      // Thumb near the top: above cannot hold the 30px bubble, so it flips
+      // below and the bottom edge pushes it up — at its natural height.
+      thumbEl.getBoundingClientRect = () =>
+        fakeRect({ left: 100, top: 10, width: 14, height: 14 });
+      press(thumbEl, "ArrowRight");
+      expect(bubble.dataset.side).toBe("below");
+      expect(bubble.style.maxHeight).toBe("");
+      // 60 - 8 (edge) - 30 (full bubble) = 22.
+      expect(bubble.style.top).toBe("22px");
+    } finally {
+      if (width) Object.defineProperty(window, "innerWidth", width);
+      if (height) Object.defineProperty(window, "innerHeight", height);
+    }
+  });
+
+  it("flips below when above cannot hold it, even if above has more room", () => {
+    const width = Object.getOwnPropertyDescriptor(window, "innerWidth");
+    const height = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 76, configurable: true });
+    try {
+      const { host } = make({ min: 0, max: 100, value: 42, label: "x" });
+      const thumbEl = thumb(host);
+      thumbEl.dispatchEvent(new Event("focus"));
+      const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+      bubble.getBoundingClientRect = () =>
+        fakeRect({ left: 100, top: 0, width: 40, height: 30 });
+      // Above holds 20px, below 10px, the bubble wants 30: the bubble rule
+      // flips down without comparing rooms, then the frame clamps the box to
+      // 68 - 30 = 38 so it stays on screen.
+      thumbEl.getBoundingClientRect = () =>
+        fakeRect({ left: 100, top: 36, width: 14, height: 14 });
+      press(thumbEl, "ArrowRight");
+      expect(bubble.dataset.side).toBe("below");
+      expect(bubble.style.top).toBe("38px");
+    } finally {
+      if (width) Object.defineProperty(window, "innerWidth", width);
+      if (height) Object.defineProperty(window, "innerHeight", height);
+    }
   });
 
   it("ignores non-finite writes", () => {

@@ -27,7 +27,10 @@
  *     (the 8px viewport edge of the listbox / picker; `{ x, y }` insets one
  *     axis only, which the row panel's horizontal-only edge needs);
  *   - `align` — "right" right-aligns to the anchor (row panel, menu,
- *     SearchControl), "left" left-aligns (listbox), "center" centres on it.
+ *     SearchControl), "left" left-aligns (listbox), "center" centres on it
+ *     (the slider bubble);
+ *   - `prefer` — try below first (the default, every panel) or above first
+ *     (the slider bubble, which sits over its thumb and only flips down).
  *
  * When a surface changes its placement rule, the change lands in this file.
  * The adapters measure `anchor` / `surface` / `bounds` and write the returned
@@ -79,9 +82,11 @@ const heightOf = (r: PlacementBox): number => r.bottom - r.top;
  *    anchor's width, a number is that fixed width, and the default uses the
  *    surface's natural width. `maxWidth` shrinks to the frame when the
  *    preferred width does not fit.
- * 3. **Flip** — try below first; flip to above only when the below strip
- *    holds less than `minRoom` (the two-row-minimum threshold, default the
- *    surface's full height) and above has more room.
+ * 3. **Flip** — try the preferred side first (`prefer`, default "below").
+ *    Below-first flips above only when the below strip holds less than
+ *    `minRoom` (the two-row-minimum threshold, default the surface's full
+ *    height) and above has more room. Above-first sits above whenever that
+ *    strip holds `minRoom` and flips below otherwise (the slider bubble).
  * 4. **Height cap** — the surface height is capped to the available space in
  *    the chosen strip, and floored at `minRows * rowHeight` when the caller
  *    wants a minimum number of rows visible.
@@ -146,10 +151,22 @@ const computePlacement = (
   // keeps the historical flip-only-when-below-cannot-hold-everything rule.
   const flipRoom = opts.minRoom ?? desiredH;
 
-  // ④ Flip: below first; flip to above only when below does not fit the
-  // flip threshold and above has more room.
+  // ④ Flip: try the preferred side first. Below-first (the default) stays
+  // below unless that strip cannot hold the flip threshold and above has more
+  // room. Above-first (the slider bubble) sits above whenever the above strip
+  // holds the threshold and flips below otherwise — deliberately without a
+  // room comparison: a bubble that cannot fit above belongs below its thumb,
+  // even when below is the tighter strip.
+  const aboveFits = availAbove >= flipRoom;
+  const belowFits = availBelow >= flipRoom;
   const side: "below" | "above" =
-    availBelow >= flipRoom || availAbove <= availBelow ? "below" : "above";
+    opts.prefer === "above"
+      ? aboveFits
+        ? "above"
+        : "below"
+      : belowFits || availAbove <= availBelow
+        ? "below"
+        : "above";
 
   // ⑤ Height cap: capped to the chosen strip's available space, then the
   // row floor is applied but capped at the frame height, and the result

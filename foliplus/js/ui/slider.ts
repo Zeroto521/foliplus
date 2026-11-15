@@ -13,6 +13,7 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
+import { computePlacement } from "./placement.js";
 import { SLIDER_CLASS } from "./sliderClassName.js";
 import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./type.js";
 import { dom } from "#platform/dom.js";
@@ -188,26 +189,40 @@ const hideAnchor = (anchor: HTMLElement, immediate = false): void => {
 
 /** Keep the bubble inside the viewport and pointing at *anchor*: above it
  *  when there is room, below otherwise, shifted horizontally so an edge thumb
- *  does not push it off-screen. */
+ *  does not push it off-screen. The flip verdict, the 8px edge inset and the
+ *  vertical clamp come from the shared placement kernel; this adapter only
+ *  converts the kernel's box-left into the centre coordinate the bubble's
+ *  -50% transform expects. */
 const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
   // Same distance Web Awesome uses between the control and its tooltip: the
   // arrow (4px of it) spans part of the gap, leaving the tip just clear of
   // the thumb instead of touching it.
-  const margin = 8;
-  const rect = bubble.getBoundingClientRect();
+  const gap = 8;
+  const size = bubble.getBoundingClientRect();
   const centre = anchor.left + anchor.width / 2;
-  const half = Math.max(rect.width / 2, 8);
-  const left = clamp(centre, half + margin, window.innerWidth - half - margin);
-  // "Above" is the bubble's *bottom* edge, because the transform pulls the
-  // box up by its own height; subtracting the height here as well would
-  // double-count it and leave the bubble a bubble-height too high.
-  const aboveBottom = anchor.top - margin;
-  const belowTop = anchor.bottom + margin;
-  const flip = aboveBottom - rect.height < margin;
-  bubble.style.transform = flip ? "translate(-50%, 0)" : "translate(-50%, -100%)";
+  // Above-first (the bubble's rule), centred on its thumb, and never capped
+  // below one full readout: a cramped viewport may push the box, but it must
+  // not squash the number.
+  const placement = computePlacement(
+    anchor,
+    size,
+    { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight },
+    {
+      gap,
+      edgeGap: gap,
+      align: "center",
+      prefer: "above",
+      minRows: 1,
+      rowHeight: size.height,
+    },
+  );
+  // placement-adapter: the transform centres the box, so the inline `left`
+  // stays the centre coordinate the arrow variable and the pan probe read.
+  const left = placement.left + placement.maxWidth / 2;
+  bubble.style.transform = "translate(-50%, 0)";
   bubble.style.left = `${left}px`;
-  bubble.style.top = `${flip ? belowTop : aboveBottom}px`;
-  bubble.dataset.side = flip ? "below" : "above";
+  bubble.style.top = `${placement.top}px`;
+  bubble.dataset.side = placement.side;
   // The arrow follows the thumb, not the bubble's centre: at the rail's ends
   // the clamped bubble would otherwise point at nothing.
   bubble.style.setProperty("--foliplus-bubble-arrow", `${centre - left}px`);
