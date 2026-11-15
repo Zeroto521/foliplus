@@ -940,6 +940,26 @@ describe("LayerUI style panel", () => {
     expect(manager.label.getConfig("overlay1").format).toBe(NUMBER_FORMAT.COMMA);
   });
 
+  it("reports a throwing reset dimension and still refreshes", () => {
+    const item = findItem(ui, "overlay1");
+    manager.label.setConfig("overlay1", { show: true, field: "count" } as any);
+    ui.openStylePanel("overlay1");
+    const warn = vi.spyOn(ui.log, "warn").mockImplementation(() => {});
+    vi.spyOn(ui.c.label, "clearConfig").mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    // The failing label step is reported, and the refresh half still ran.
+    expect(warn).toHaveBeenCalled();
+    expect(panelOf(item)).toBeDefined();
+    warn.mockRestore();
+  });
+
   it("reset restores the default config and keeps the panel open", () => {
     const item = findItem(ui, "overlay1");
     const focusSpy = vi.fn();

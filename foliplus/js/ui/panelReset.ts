@@ -12,23 +12,62 @@
  * The focus target: the Reset/Clear button, or a resolver when the reset hides
  * or disables that button and focus has to fall to the next visible control.
  */
+import { createLogger } from "#platform/log.js";
+
 type PanelResetFocus = HTMLElement | (() => HTMLElement | null);
 
+/** The shared diagnostic channel: a step failure is never silent, even for a
+ *  caller that forgot its own hook. */
+const log = createLogger("panelReset");
+
+/** One restore step. A surface declares its dimensions as steps instead of one
+ *  opaque closure so a single broken dimension cannot take the rest down with
+ *  it: the style panel restores eight independent faces, and one throwing leaf
+ *  must not leave the layer half-reset (the exact "Reset did nothing" symptom,
+ *  where the dimensions before the throw landed and everything after it —
+ *  including the refresh that repaints the panel — never ran). */
+type PanelResetStep = () => void;
+
 interface PanelResetOutcome {
-  /** Restore this surface's values to their defaults. */
-  restore: () => void;
+  /** Restore steps, run in order. A function is a single step. */
+  restore: PanelResetStep | readonly PanelResetStep[];
   /** The close path this surface would run if a reset dismissed the panel. */
   close: () => void;
   /** Re-sync the open panel's controls with the restored values. */
   refresh?: () => void;
   /** Where focus lands when the panel stays open. */
   focus?: PanelResetFocus;
+  /** Called once per failed step, so the surface can log the dimension. */
+  onError?: (error: unknown, step: number) => void;
 }
+
+/** Run every restore step even when one throws. The failures are returned for
+ *  the caller's diagnostic hook; a failed dimension never aborts the reset. */
+const runResetSteps = (
+  steps: readonly PanelResetStep[],
+  onError: (error: unknown, step: number) => void = (error, step) =>
+    log.warn(`reset step ${step} failed — the remaining steps still ran`, error),
+): unknown[] => {
+  const failures: unknown[] = [];
+  steps.forEach((step, index) => {
+    try {
+      step();
+    } catch (error) {
+      failures.push(error);
+      onError?.(error, index);
+    }
+  });
+  return failures;
+};
 
 const createPanelResetOutcome =
   (dismisses: boolean) =>
-  ({ restore, close, refresh, focus }: PanelResetOutcome): void => {
-    restore();
+  ({ restore, close, refresh, focus, onError }: PanelResetOutcome): void => {
+    const steps = typeof restore === "function" ? [restore] : restore;
+    // Run the restore as isolated steps: a broken dimension is logged and the
+    // remaining ones still land, so the refresh below always repaints from a
+    // state as close to the defaults as the surface could get.
+    runResetSteps(steps, onError);
     if (dismisses) {
       close();
       return;
@@ -43,4 +82,4 @@ const createPanelResetOutcome =
 /** A reset restores values; it does not dismiss the panel. */
 const finishPanelReset = createPanelResetOutcome(false);
 
-export { createPanelResetOutcome, finishPanelReset };
+export { createPanelResetOutcome, finishPanelReset, runResetSteps };
