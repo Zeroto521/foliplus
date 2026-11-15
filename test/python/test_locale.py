@@ -83,6 +83,9 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.style_mode_original",
     "LayerControl.style_mode_single",
     "LayerControl.style_mode_by_value",
+    # border.ts — FOLLOW_FILL resolves through STYLE_MODE_KEY.FOLLOW_FILL
+    # (ui/styleModeKey.ts), so the literal scanner cannot see the key.
+    "LayerControl.style_border_follow_fill",
 }
 
 
