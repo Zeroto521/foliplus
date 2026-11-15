@@ -106,6 +106,26 @@ describe("buildPaintRow", () => {
     expect(detail.firstElementChild!.getAttribute("data-mode")).toBe("original");
   });
 
+  it("renders a follow-fill option when the adapter exposes the mode", () => {
+    const ui = makeUI();
+    const dim = makeDim({ modes: () => [STYLE_MODE.FOLLOW_FILL, STYLE_MODE.SOLID] });
+    const row = buildPaintRow(dim, ui, "overlay1");
+    const select = row.querySelector("select")! as HTMLSelectElement;
+    expect(Array.from(select.options).map(o => o.value)).toEqual([
+      "followFill",
+      "solid",
+    ]);
+  });
+
+  it("basemap early-out without a basemap row still returns the shell", () => {
+    const ui = makeUI();
+    const dim = makeDim({
+      isBasemap: () => true,
+    });
+    const row = buildPaintRow(dim, ui, "overlay1");
+    expect(row).not.toBeNull();
+  });
+
   it("basemap early-out routes to the basemap row", () => {
     const ui = makeUI();
     const dim = makeDim({
@@ -148,6 +168,89 @@ describe("bindPaintRow", () => {
     expect(dim.writeMode).toHaveBeenCalledWith(ui, "overlay1", "solid");
     expect(detail.childElementCount).toBe(1);
     expect(detail.firstElementChild!.getAttribute("data-mode")).toBe("solid");
+  });
+
+  it("binds the active detail controls through the adapter's binder", () => {
+    const ui = makeUI();
+    const detailBinder = vi.fn();
+    const dim = makeDim({ detailBinder: () => detailBinder });
+    const detail = document.createElement("div");
+    bindPaintDetail(dim, ui, "overlay1", detail, STYLE_MODE.SOLID);
+    expect(detailBinder).toHaveBeenCalledWith(ui, "overlay1", detail);
+  });
+
+  it("no-ops when the block has no select", () => {
+    const ui = makeUI();
+    const dim = makeDim();
+    const block = document.createElement("div");
+    block.dataset.styleDim = "fill";
+    const row = document.createElement("div");
+    block.appendChild(row);
+    document.body.appendChild(block);
+    bindPaintRow(dim, ui, "overlay1", row);
+    expect(dim.writeMode).not.toHaveBeenCalled();
+    block.remove();
+  });
+
+  it("no-ops when the selected mode equals the current mode", () => {
+    const ui = makeUI();
+    const dim = makeDim();
+    const row = buildPaintRow(dim, ui, "overlay1");
+    const select = row.querySelector("select")! as HTMLSelectElement;
+    bindPaintRow(dim, ui, "overlay1", row);
+    select.value = "original"; // current mode
+    select.dispatchEvent(new Event("change"));
+    expect(dim.writeMode).not.toHaveBeenCalled();
+  });
+
+  it("skips the detail rebuild when the block has no detail slot", () => {
+    const ui = makeUI();
+    const dim = makeDim();
+    const block = document.createElement("div");
+    block.dataset.styleDim = "fill";
+    const select = document.createElement("select");
+    select.innerHTML = `<option value="original">original</option><option value="solid">solid</option>`;
+    block.appendChild(select);
+    const row = document.createElement("div");
+    block.appendChild(row);
+    document.body.appendChild(block);
+    bindPaintRow(dim, ui, "overlay1", row);
+    select.value = "solid";
+    select.dispatchEvent(new Event("change"));
+    expect(dim.writeMode).toHaveBeenCalledWith(ui, "overlay1", "solid");
+    block.remove();
+  });
+
+  it("skips sub-input binding when the sub element is absent", () => {
+    const ui = makeUI();
+    const bindInput = vi.fn();
+    const dim = makeDim({
+      subs: [
+        {
+          key: "opacity",
+          buildInput: () => {
+            const el = document.createElement("div");
+            el.dataset.sub = "opacity";
+            return el;
+          },
+          bindInput,
+          commit: () => {},
+        },
+      ],
+      detailBuilder: () => () => [],
+    });
+    const detail = document.createElement("div");
+    // No [data-sub=opacity] inside the detail → input is null.
+    bindPaintDetail(dim, ui, "overlay1", detail, STYLE_MODE.SOLID);
+    expect(bindInput).not.toHaveBeenCalled();
+  });
+
+  it("no-ops when the row is not inside a style block", () => {
+    const ui = makeUI();
+    const dim = makeDim();
+    const row = document.createElement("div");
+    bindPaintRow(dim, ui, "overlay1", row);
+    expect(dim.writeMode).not.toHaveBeenCalled();
   });
 
   it("does not rebuild the detail when writeMode refuses the switch", () => {
