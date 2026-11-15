@@ -14,8 +14,8 @@
 // its ids independently of the label the panel shows.
 //
 // A truthy `reset` clicks the panel's own Reset instead of writing, so one
-// round trip can cover "set size → reset → read radius". Reset closes the panel
-// and restores the author's radius from the write path's own cache, so the
+// round trip can cover "set size → reset → read radius". Reset keeps the panel
+// open and restores the author's radius from the write path's own cache, so the
 // report reads the map and the storage rather than the panel's fields.
 //
 // The leaves are walked from the whole map, not just this row's layer: a radius
@@ -55,14 +55,16 @@ async ([layerName, size, reset] = []) => {
   }
   if (!row) return { row: false, layers: api ? api.layers.map(l => l.id) : null };
 
-  row.querySelector(".foliplus-layer-more-btn").click();
-  const styleItem = row.querySelector(
-    '.foliplus-layer-more-menu button[data-action="style-layer"]',
-  );
-  if (!styleItem) return { row: true, styleItem: false };
-  styleItem.click();
-
-  const panel = row.querySelector(".foliplus-layer-style-panel");
+  let panel = row.querySelector(".foliplus-layer-style-panel");
+  if (!panel) {
+    row.querySelector(".foliplus-layer-more-btn").click();
+    const styleItem = row.querySelector(
+      '.foliplus-layer-more-menu button[data-action="style-layer"]',
+    );
+    if (!styleItem) return { row: true, styleItem: false };
+    styleItem.click();
+    panel = row.querySelector(".foliplus-layer-style-panel");
+  }
   if (!panel) return { row: true, styleItem: true, panel: false };
 
   const sizeRow = panel.querySelector(".foliplus-style-size-row");

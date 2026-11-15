@@ -67,6 +67,7 @@
   "ui/panelChrome",
   "ui/panelClassName",
   "ui/panelField",
+  "ui/panelReset",
   "ui/placement",
   "ui/placementAdapter",
   "ui/scaleClassName",

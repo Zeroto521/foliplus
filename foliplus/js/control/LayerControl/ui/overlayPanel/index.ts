@@ -12,6 +12,7 @@ import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { type FilterPanelState, closeFilterPanel, openFilterPanel } from "./filter.js";
 import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
+import type { PanelController } from "#core/leaflet/index.js";
 
 /** Floating-surface state. Each `active*` field tracks the currently open
  *  panel of that kind, and each `*Unsubscribe` field is the bus
@@ -65,6 +66,8 @@ class OverlayPanel {
   styleZoomEndHandler: (() => void) | null = null;
   /** Layer id whose label style panel is open, or null. */
   stylePanelLayerId: string | null = null;
+  /** Controller for the open style panel; an in-place refresh reuses it. */
+  stylePanelController: PanelController | null = null;
 }
 
 export { OverlayPanel };

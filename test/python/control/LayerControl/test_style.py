@@ -882,6 +882,67 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the neighbouring line lost its own stroke\n{row['strokes']}"
             )
 
+    def test_reset_keeps_style_panel_open_and_focuses_reset(self, browser, tmp_path):
+        """Reset restores values without dismissing the panel; focus stays on it."""
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
+        folium.CircleMarker(
+            [30.0, 120.0],
+            radius=5,
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_reset_keeps_panel.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Facility Points"]
+            )
+            assert opened.get("panel"), f"the style panel did not open: {opened}"
+            # Let the panel's own entrance animation settle; the assertion below
+            # is about the Reset refresh, not the opening animation.
+            page.wait_for_timeout(250)
+
+            before = page.evaluate(_js("LayerControl/style_reset_frames"), "start")
+            clicked = page.evaluate(_js("LayerControl/style_reset_click"))
+            assert clicked is True, "the Reset button was not clickable"
+            page.wait_for_timeout(200)
+            frames = page.evaluate(_js("LayerControl/style_reset_frames"))
+            assert before, "the style panel was not measurable before Reset"
+            moved = [
+                frame
+                for frame in frames
+                if frame
+                and (
+                    abs(frame["top"] - before["top"]) > 1
+                    or abs(frame["left"] - before["left"]) > 1
+                    or abs(frame["height"] - before["height"]) > 1
+                    or frame["scrollY"] != before["scrollY"]
+                )
+            ]
+            assert not moved, f"Reset moved the panel on a frame: {frames}"
+            state = page.evaluate(_js("LayerControl/style_reset_kept_open"))
+            assert state["panelOpen"] is True, (
+                f"Reset must keep the style panel open: {state}"
+            )
+            assert state["focusIsReset"] is True, (
+                f"Reset must keep focus on its own button: {state}"
+            )
+
     def test_circlemarker_stroke_false_border_write_is_visible_and_resettable(
         self, browser, tmp_path
     ):

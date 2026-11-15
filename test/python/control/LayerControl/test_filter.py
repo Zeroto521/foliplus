@@ -152,6 +152,12 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert res["resultAfterClear"].startswith("100%"), res
             assert res["rowAfterClear"]["count"] == "8", res
             assert res["clearDisabled"] is True, res
+            assert res["panelOpenAfterClear"] is True, (
+                f"Clear must keep the filter panel open: {res}"
+            )
+            assert res["activeAfterClear"] and res["activeAfterClear"]["insidePanel"], (
+                f"Clear must leave focus inside the panel: {res}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_enum_filter_keyboard_and_map_press_close(self, browser, tmp_path):

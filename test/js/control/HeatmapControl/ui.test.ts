@@ -16,6 +16,8 @@ import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {
   type HeatmapControlUI,
   bindControls,
+  collapseHeatmapPanel,
+  heatmapClearFocus,
   initScan,
   rebuildLayerDropdown,
   resetPanel,
@@ -349,8 +351,54 @@ describe("bindControls — change handlers", () => {
   });
 });
 
+describe("clear outcome helpers", () => {
+  it("collapses the panel for the dismiss policy", () => {
+    const { ctrl } = setup(makeConfig({}));
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
+
+    collapseHeatmapPanel(ctrl);
+
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
+  });
+
+  it("keeps focus on the clear button while it is visible", () => {
+    const { ctrl, panel } = setup(makeConfig({}));
+    const clearBtn = panel.querySelector(
+      `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
+    ) as HTMLButtonElement;
+    Object.defineProperty(clearBtn, "offsetParent", {
+      value: document.body,
+      configurable: true,
+    });
+
+    expect(heatmapClearFocus(ctrl, clearBtn)).toBe(clearBtn);
+  });
+
+  it("falls back to the layer dropdown trigger when clear is hidden", () => {
+    const { ctrl, panel } = setup(makeConfig({}));
+    const clearBtn = panel.querySelector(
+      `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
+    ) as HTMLButtonElement;
+
+    expect(heatmapClearFocus(ctrl, clearBtn)).toBe(
+      ctrl.layerSelect.parentElement?.querySelector("button"),
+    );
+  });
+
+  it("falls back to clear when the layer trigger is gone", () => {
+    const { ctrl, panel } = setup(makeConfig({}));
+    const clearBtn = panel.querySelector(
+      `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
+    ) as HTMLButtonElement;
+    ctrl.layerSelect.parentElement?.querySelector("button")?.remove();
+
+    expect(heatmapClearFocus(ctrl, clearBtn)).toBe(clearBtn);
+  });
+});
+
 describe("bindControls — clear (reset) button", () => {
-  it("resets every control to config defaults and collapses the panel", () => {
+  it("resets every control to config defaults and keeps the panel expanded", () => {
     const config = makeConfig({
       color_scheme: "Blues",
       num_classes: 4,
@@ -364,6 +412,8 @@ describe("bindControls — clear (reset) button", () => {
     m.numClasses = 8;
     m.method = "quantile";
 
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.COLLAPSED);
     const clearBtn = panel.querySelector(
       `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
     ) as HTMLButtonElement;
@@ -379,8 +429,8 @@ describe("bindControls — clear (reset) button", () => {
     expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
 
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
     expect(ctrl.classSelect.value).toBe(String(config.num_classes));
@@ -395,6 +445,8 @@ describe("bindControls — clear (reset) button", () => {
     const { ctrl, m, panel } = setup(makeConfig({}));
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
     const clearLayerState = vi.spyOn(m, "clearLayerState");
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.COLLAPSED);
 
     (
       panel.querySelector(`[${CONST.DATA_ATTR.BTN_CLEAR}]`) as HTMLButtonElement
@@ -402,7 +454,8 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(clearSaved).toHaveBeenCalledTimes(1);
     expect(clearLayerState).toHaveBeenCalledTimes(1);
-    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
   });
 
   it("clear falls back to library defaults when config omits style fields", () => {

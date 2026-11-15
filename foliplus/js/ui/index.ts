@@ -16,6 +16,7 @@ export {
 export { nextOptionId } from "./optionRow.js";
 export { PANEL_CLASS } from "./panelClassName.js";
 export { BUTTON_CLASS } from "./buttonClassName.js";
+export { createPanelResetOutcome, finishPanelReset } from "./panelReset.js";
 export { SCALE_CLASS } from "./scaleClassName.js";
 export { FORM_CLASS } from "./formClassName.js";
 export { GLYPH_CLASS } from "./glyphClassName.js";

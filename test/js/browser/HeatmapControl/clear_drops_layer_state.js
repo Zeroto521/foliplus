@@ -129,6 +129,9 @@ async () => {
 
     await openPanel();
     const ran = await action();
+    const shell = document.querySelector(".foliplus-heatmap-ctrl");
+    const expandedAfterAction =
+      !!shell && shell.classList.contains("foliplus-is-expanded");
 
     await openPanel();
     await redraw();
@@ -140,6 +143,7 @@ async () => {
       tuning,
       ran,
       afterSet,
+      expandedAfterAction,
       afterClear: stored(),
       afterRedraw: stored(),
       checkboxAfterRedraw: cb ? cb.checked : null,

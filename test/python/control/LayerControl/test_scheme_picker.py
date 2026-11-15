@@ -349,13 +349,13 @@ class TestPickerCloseBrowser:
             assert state["portalCount"] == 0, state
             assert state["heatmap"]["collapsed"], state
 
-            # The clear button collapses the panel too, so it must close too.
+            # Clear keeps the panel open, but must still close the portalled list.
             _open_heatmap_dropdown(page)
             page.evaluate(_js("HeatmapControl/click_clear_button"))
             _wait_closed(page)
             state = _state(page)
             assert state["portalCount"] == 0, state
-            assert state["heatmap"]["collapsed"], state
+            assert state["heatmap"]["expanded"], state
             assert not errors, f"JS errors: {errors}"
 
     def test_heatmap_outside_press_closes_both(self, browser, tmp_path):
