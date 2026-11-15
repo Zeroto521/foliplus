@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPanelResetOutcome, finishPanelReset } from "#ui/index.js";
+import {
+  createPanelResetOutcome,
+  dismissPanelAfterReset,
+  finishPanelReset,
+} from "#ui/index.js";
 
 const focusTarget = (focus: () => void): HTMLElement =>
   ({ focus }) as unknown as HTMLElement;
@@ -48,6 +52,17 @@ describe("finishPanelReset", () => {
     const close = vi.fn();
     expect(() => finishPanelReset({ close, focus: () => null })).not.toThrow();
     expect(close).not.toHaveBeenCalled();
+  });
+});
+
+describe("dismissPanelAfterReset", () => {
+  it("is the named close outcome", () => {
+    const close = vi.fn();
+    const focus = vi.fn();
+    dismissPanelAfterReset({ close, focus: focusTarget(focus) });
+
+    expect(close).toHaveBeenCalledOnce();
+    expect(focus).not.toHaveBeenCalled();
   });
 });
 

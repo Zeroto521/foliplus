@@ -439,8 +439,11 @@ const refreshStylePanel = (ui: LayerUI, layerId: string): void => {
   const controller = ui.overlayPanel.stylePanelController;
   if (!item || !panel || !controller) return;
 
-  const content = panel.querySelector<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
-  const scrollTop = content?.scrollTop ?? 0;
+  // createRowPanel always builds a content scroll box.
+  const content = panel.querySelector<HTMLElement>(
+    `.${PANEL_CLASS.CONTENT}`,
+  ) as HTMLElement;
+  const scrollTop = content.scrollTop;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleZoomEndHandler = null;
@@ -457,8 +460,10 @@ const refreshStylePanel = (ui: LayerUI, layerId: string): void => {
   panel.replaceWith(next);
   ui.overlayPanel.stylePanelEl = next;
   pinRowPanel(next, item);
-  const nextContent = next.querySelector<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
-  if (nextContent) nextContent.scrollTop = scrollTop;
+  const nextContent = next.querySelector<HTMLElement>(
+    `.${PANEL_CLASS.CONTENT}`,
+  ) as HTMLElement;
+  nextContent.scrollTop = scrollTop;
   bindStylePanel(ui, layerId, next, controller);
 };
 

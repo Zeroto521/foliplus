@@ -302,7 +302,7 @@ class TestHeatmapControlSelectionBrowser:
 
             page.evaluate(_js("HeatmapControl/click_clear_button"))
             page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.foliplus-is-collapsed",
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
                 state="attached",
                 timeout=5000,
             )
@@ -314,7 +314,8 @@ class TestHeatmapControlSelectionBrowser:
                 "Clear must delete the persisted record"
             )
 
-            # Re-open the panel: the declaration is the starting state again.
+            # Close and reopen: the declaration is the starting state again.
+            page.evaluate(_js("HeatmapControl/click_close_button"))
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl.foliplus-is-expanded",

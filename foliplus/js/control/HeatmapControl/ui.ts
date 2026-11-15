@@ -357,21 +357,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.mgr.clearSavedConfig();
     ctrl.mgr.clearLayerState();
     finishPanelReset({
-      close: () => {
-        ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
-        ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
-        adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-      },
-      // Clear hides the extra body (no source selected), taking its own button
-      // with it; the native layer select is hidden behind the shared dropdown,
-      // so focus falls to that dropdown's visible trigger.
-      focus: () => {
-        if (clearBtn.offsetParent) return clearBtn;
-        return (
-          ctrl.layerSelect.parentElement?.querySelector<HTMLElement>("button") ??
-          clearBtn
-        );
-      },
+      close: () => collapseHeatmapPanel(ctrl),
+      focus: () => heatmapClearFocus(ctrl, clearBtn),
     });
   };
 
@@ -680,6 +667,26 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   };
 };
 
+/** Collapse the heatmap panel for the dismiss branch of the Clear outcome. */
+const collapseHeatmapPanel = (ctrl: HeatmapControlUI): void => {
+  ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+  ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
+  adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+};
+
+/** Focus after Clear: its own button while visible, otherwise the layer
+ *  dropdown trigger — the native select is hidden behind the shared dropdown,
+ *  so it cannot take focus itself. */
+const heatmapClearFocus = (
+  ctrl: HeatmapControlUI,
+  clearBtn: HTMLButtonElement,
+): HTMLElement => {
+  if (clearBtn.offsetParent) return clearBtn;
+  return (
+    ctrl.layerSelect.parentElement?.querySelector<HTMLElement>("button") ?? clearBtn
+  );
+};
+
 /** Reset the panel to its initial state — manager state back to the declared
  *  defaults, canvas wiped, every dropdown on its placeholder. Shared by the
  *  panel's Clear button and the LAYER_DELETED path (LayerControl's more-menu
@@ -720,5 +727,13 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   dropdownOf(el)?.refresh();
 };
 
-export { bindControls, initScan, rebuildLayerDropdown, resetPanel, setupObserver };
+export {
+  bindControls,
+  collapseHeatmapPanel,
+  heatmapClearFocus,
+  initScan,
+  rebuildLayerDropdown,
+  resetPanel,
+  setupObserver,
+};
 export type { HeatmapControlUI };

@@ -237,12 +237,11 @@ const buildFooter = (
       // Clearing disables Clear itself; focus falls to the panel's first
       // usable control so keyboard users can keep going.
       focus: () => {
-        if (!clear.disabled) return clear;
-        const panel = clear.closest<HTMLElement>(`.${CONST.CLASSES.FILTER_PANEL}`);
-        return (
-          panel?.querySelector<HTMLElement>(
-            "button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex='-1'])",
-          ) ?? null
+        const panel = clear.closest<HTMLElement>(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        return panel.querySelector<HTMLElement>(
+          "button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex='-1'])",
         );
       },
     });

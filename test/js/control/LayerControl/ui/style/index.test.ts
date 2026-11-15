@@ -971,6 +971,36 @@ describe("LayerUI style panel", () => {
     );
   });
 
+  it("reset preserves the panel's scroll position", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const content = panel.querySelector(".foliplus-panel-content") as HTMLElement;
+    content.scrollTop = 37;
+
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    const next = panelOf(item)!;
+    expect(next).not.toBe(panel);
+    expect(
+      (next.querySelector(".foliplus-panel-content") as HTMLElement).scrollTop,
+    ).toBe(37);
+  });
+
+  it("reset keeps the panel when the refresh has no panel handle", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    ui.overlayPanel.stylePanelEl = null;
+
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    expect(panelOf(item)).toBe(panel);
+    expect(panel.isConnected).toBe(true);
+  });
+
   it("reset keeps the panel open without bubbling to the map", () => {
     // A press on the Reset button must not also become a map click: the
     // refresh removes the old panel mid-dispatch, so the click would otherwise

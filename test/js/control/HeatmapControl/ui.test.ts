@@ -16,6 +16,8 @@ import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import {
   type HeatmapControlUI,
   bindControls,
+  collapseHeatmapPanel,
+  heatmapClearFocus,
   initScan,
   rebuildLayerDropdown,
   resetPanel,
@@ -346,6 +348,42 @@ describe("bindControls — change handlers", () => {
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: m.layerId,
     });
+  });
+});
+
+describe("clear outcome helpers", () => {
+  it("collapses the panel for the dismiss policy", () => {
+    const { ctrl } = setup(makeConfig({}));
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
+
+    collapseHeatmapPanel(ctrl);
+
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
+  });
+
+  it("keeps focus on the clear button while it is visible", () => {
+    const { ctrl, panel } = setup(makeConfig({}));
+    const clearBtn = panel.querySelector(
+      `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
+    ) as HTMLButtonElement;
+    Object.defineProperty(clearBtn, "offsetParent", {
+      value: document.body,
+      configurable: true,
+    });
+
+    expect(heatmapClearFocus(ctrl, clearBtn)).toBe(clearBtn);
+  });
+
+  it("falls back to the layer dropdown trigger when clear is hidden", () => {
+    const { ctrl, panel } = setup(makeConfig({}));
+    const clearBtn = panel.querySelector(
+      `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
+    ) as HTMLButtonElement;
+
+    expect(heatmapClearFocus(ctrl, clearBtn)).toBe(
+      ctrl.layerSelect.parentElement?.querySelector("button"),
+    );
   });
 });
 

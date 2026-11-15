@@ -38,4 +38,7 @@ const createPanelResetOutcome =
 /** A reset restores values; it does not dismiss the panel. */
 const finishPanelReset = createPanelResetOutcome(false);
 
-export { createPanelResetOutcome, finishPanelReset };
+/** Close the panel after a Reset/Clear; for a one-shot surface only. */
+const dismissPanelAfterReset = createPanelResetOutcome(true);
+
+export { createPanelResetOutcome, dismissPanelAfterReset, finishPanelReset };
