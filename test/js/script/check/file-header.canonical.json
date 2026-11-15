@@ -66,6 +66,7 @@
   "ui/panelClassName",
   "ui/panelField",
   "ui/placement",
+  "ui/placementAdapter",
   "ui/scaleClassName",
   "ui/schemePicker",
   "ui/schemePickerClassName",

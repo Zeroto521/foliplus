@@ -2,16 +2,14 @@
 /**
  * Guard: every popup coordinate write lives in a shared placement adapter.
  *
- * `ui/placement.ts` is the one geometry kernel. Each floating surface has ONE
- * adapter file that measures its anchor, calls `computePlacement` and writes
- * the returned `top` / `left` / `side` back onto the element:
+ * `ui/placement.ts` is the one geometry kernel. Coordinates are written by the
+ * shared DOM adapter, `ui/placeSurface.ts` (measure -> kernel -> write), or by
+ * the two surfaces that still own a placement policy and write their own
+ * coordinates:
  *
- *   ui/listbox.ts                                 dropdown + scheme picker
- *   ui/slider.ts                                  slider value bubble
- *   core/leaflet/panel.ts                         pinned row panel
- *   control/SearchControl/logic/panel.ts          SearchControl result panel
- *   control/LayerControl/ui/overlayPanel/menu.ts  overflow menu
- *   control/MeasureControl/manager.ts             cursor coordinate readout
+ *   ui/placementAdapter.ts shared DOM adapter (every migrated surface uses it)
+ *   ui/listbox.ts          dropdown + scheme picker (width preference, bottom anchor)
+ *   core/leaflet/panel.ts  pinned row panel (8px top inset)
  *
  * This scan flags, in any other file under `foliplus/js`:
  *
@@ -54,17 +52,15 @@ import path from "node:path";
 /** Production source root, relative to the repo root. */
 const JS_ROOT_REL = path.join("foliplus", "js");
 
-/** Files allowed to write a floating surface's coordinates: the kernel itself
- *  and the six adapters that consume it. Adding a surface means adding its
- *  adapter here — never a second flip implementation. */
+/** Files allowed to write a floating surface's coordinates: the kernel itself,
+ *  the shared DOM adapter, and the surfaces that still write their own
+ *  coordinates. Adding a surface means routing it through placeSurface (or
+ *  adding it here with a reason) — never a second flip implementation. */
 const ADAPTER_FILES = new Set([
   "foliplus/js/ui/placement.ts",
+  "foliplus/js/ui/placementAdapter.ts",
   "foliplus/js/ui/listbox.ts",
-  "foliplus/js/ui/slider.ts",
   "foliplus/js/core/leaflet/panel.ts",
-  "foliplus/js/control/SearchControl/logic/panel.ts",
-  "foliplus/js/control/LayerControl/ui/overlayPanel/menu.ts",
-  "foliplus/js/control/MeasureControl/manager.ts",
 ]);
 
 /** The line-level exemption marker. The reason after the colon is mandatory. */
