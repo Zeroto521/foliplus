@@ -61,6 +61,7 @@ import {
   firstUsableControl,
   panelButton,
   sectionDivider,
+  syncPanelAction,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -187,11 +188,11 @@ const syncReadout = (
     .replace("{total}", fmtCount(model.total));
   // Clear is the only footer action and it is live: disabled exactly when
   // there is nothing to clear (the owner reports no committed filter).
-  view.clear.disabled = !model.filter;
-  view.clear.setAttribute("aria-disabled", model.filter ? "false" : "true");
-  view.clear.title = model.filter
-    ? ui.T("filter_clear_tooltip")
-    : ui.T("filter_clear_disabled");
+  syncPanelAction(view.clear, {
+    disabled: !model.filter,
+    enabledTitle: ui.T("filter_clear_tooltip"),
+    disabledTitle: ui.T("filter_clear_disabled"),
+  });
 };
 
 /** Push the owner's current model into the open view: the condition control

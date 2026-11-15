@@ -20,6 +20,7 @@ export {
   createPanelResetOutcome,
   finishPanelReset,
   firstUsableControl,
+  syncPanelAction,
 } from "./panelReset.js";
 export { SCALE_CLASS } from "./scaleClassName.js";
 export { FORM_CLASS } from "./formClassName.js";

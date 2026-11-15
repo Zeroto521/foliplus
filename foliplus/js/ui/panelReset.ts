@@ -60,4 +60,34 @@ const PANEL_FOCUSABLE = [
 const firstUsableControl = (root: ParentNode): HTMLElement | null =>
   root.querySelector<HTMLElement>(PANEL_FOCUSABLE);
 
-export { createPanelResetOutcome, finishPanelReset, firstUsableControl };
+/** Paint a panel-wide Reset/Clear trigger from its live state.
+ *
+ *  The native `disabled` attribute is the behaviour (no press, no focus, out
+ *  of the Tab order); `aria-disabled` mirrors it for assistive tech, and the
+ *  tooltip explains the disabled state instead of leaving a mute button. One
+ *  helper keeps the style panel's Reset and the filter panel's Clear on the
+ *  same contract — the two must not drift on "what a disabled action looks
+ *  like". */
+interface PanelActionState {
+  disabled: boolean;
+  /** Tooltip while the action can run. */
+  enabledTitle: string;
+  /** Tooltip while it cannot (nothing to restore / clear). */
+  disabledTitle: string;
+}
+
+const syncPanelAction = (
+  button: HTMLButtonElement,
+  { disabled, enabledTitle, disabledTitle }: PanelActionState,
+): void => {
+  button.disabled = disabled;
+  button.setAttribute("aria-disabled", disabled ? "true" : "false");
+  button.title = disabled ? disabledTitle : enabledTitle;
+};
+
+export {
+  createPanelResetOutcome,
+  finishPanelReset,
+  firstUsableControl,
+  syncPanelAction,
+};

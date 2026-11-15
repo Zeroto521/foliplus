@@ -12,6 +12,7 @@
 import type { LayerUI } from "../surface.js";
 import { layerHasStyleDelegation } from "./delegated.js";
 import type { LayerInfo, LayerOverride } from "#core/layer/index.js";
+import { syncPanelAction } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The intent dimensions the style panel can restore. `visible` is excluded:
@@ -99,10 +100,11 @@ const syncResetButton = (ui: LayerUI, layerId: string, panel: ParentNode): void 
     `.${CONST.CLASSES.STYLE_RESET_BTN}`,
   );
   if (!button) return;
-  const pristine = layerStyleIsPristine(ui, layerId);
-  button.disabled = pristine;
-  button.setAttribute("aria-disabled", pristine ? "true" : "false");
-  button.title = pristine ? ui.T("style_reset_disabled") : ui.T("style_reset_tooltip");
+  syncPanelAction(button, {
+    disabled: layerStyleIsPristine(ui, layerId),
+    enabledTitle: ui.T("style_reset_tooltip"),
+    disabledTitle: ui.T("style_reset_disabled"),
+  });
 };
 
 export { syncResetButton };

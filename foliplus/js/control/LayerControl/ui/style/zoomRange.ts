@@ -24,6 +24,7 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 import { styleCapability } from "./styleCapability.js";
+import { EVENTS, publish as publishEvent } from "#core/event/index.js";
 import { type AuthorZoomRange, DIM } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
@@ -307,6 +308,11 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     // The commit pass owns its own notify: the intent write above is the only
     // side effect, so the delta goes out on the projection it just ran.
     notifyDelta(ui, layerInfo, applyProjection(ui, layerId));
+    // A zoom-range commit is a style edit like the opacity slider's: announce
+    // it so an open style surface re-evaluates its Reset state. The provenance
+    // marker only lands on this commit (the live drag is value-only), which is
+    // exactly when Reset becomes available.
+    publishEvent(ui.events, EVENTS.LAYER_STYLE_CHANGE, { id: layerId });
   },
   /** Cohesive reset: clear the override, save, re-project. Returns the delta
    *  without announcing — the complete reset entry (`resetLayerZoomRange`)
