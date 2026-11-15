@@ -123,5 +123,6 @@
   "LayerControl.style_border_mode": "边框模式",
   "LayerControl.style_border_follow_fill": "跟随填充",
   "LayerControl.style_marker_color": "标记颜色",
-  "LayerControl.style_marker_color_opacity": "标记透明度"
+  "LayerControl.style_marker_color_opacity": "标记透明度",
+  "LayerControl.filter_field_switch_hint": "已清除该字段原来的筛选条件。"
 }

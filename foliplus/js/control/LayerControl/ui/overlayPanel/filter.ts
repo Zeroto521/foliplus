@@ -138,6 +138,12 @@ interface FilterPanelState {
    *  atom's field, else the first dimension — never persisted. */
   activeField: string | null;
   multiDimWarned: boolean;
+  /** Text waiting to be shown as the field-switch hint (S3). */
+  pendingHint: string | null;
+  /** The live hint text span; null until first shown (S3). */
+  hintText: HTMLElement | null;
+  /** The auto-hide timer for the field-switch hint (S3). */
+  hintTimer: number | null;
 }
 
 interface FilterViewHooks {
@@ -236,6 +242,44 @@ const buildFooter = (
 /** Empty state: the row declares no filterable data (no source selected,
  *  or no dimension on the snapshot). The message is the panel's body; the
  *  entry is never silently dead. */
+/** S3: the non-blocking field-switch notice. Reuses the panel row +
+ *  aria-live vocabulary of the result row; auto-hides after a few seconds
+ *  and is cleared on close. Shown only when a committed condition was
+ *  actually discarded by the switch. */
+const showFieldSwitchHint = (
+  ui: LayerUI,
+  state: FilterPanelState,
+  text: string,
+): void => {
+  if (state.hintTimer !== null) window.clearTimeout(state.hintTimer);
+  const existing = state.content.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT}`);
+  const row =
+    existing ??
+    dom.el("div", {
+      class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.FILTER_FIELD_HINT}`,
+    });
+  const label = dom.el("span", { class: PANEL_CLASS.FORM_LABEL });
+  const textEl = dom.el(
+    "span",
+    {
+      class: CONST.CLASSES.FILTER_FIELD_HINT_TEXT,
+      "aria-live": "polite",
+    },
+    text,
+  );
+  if (!row.contains(label)) row.append(label, textEl);
+  else {
+    const old = row.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT_TEXT}`);
+    if (old) old.textContent = text;
+    else row.append(textEl);
+  }
+  if (!state.content.contains(row)) state.content.append(row);
+  state.hintText = textEl;
+  state.hintTimer = window.setTimeout(() => {
+    row.remove();
+    state.hintTimer = null;
+  }, 4000);
+};
 const buildEmptyState = (ui: LayerUI): FilterView => ({
   kind: "empty",
   root: dom.el("div", { class: CONST.CLASSES.FILTER_EMPTY }, ui.T("filter_empty")),
@@ -276,6 +320,10 @@ const mountView = (
   };
   state.view = view;
   state.content.replaceChildren(root);
+  if (state.pendingHint) {
+    showFieldSwitchHint(ui, state, state.pendingHint);
+    state.pendingHint = null;
+  }
   syncView(ui, view, model);
 };
 
@@ -419,6 +467,9 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     activeField: null,
     writing: false,
     multiDimWarned: false,
+    pendingHint: null,
+    hintText: null,
+    hintTimer: null,
   };
   content.appendChild(state.view.root);
 
@@ -452,6 +503,15 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
         closeFilterPanel(ui, false);
         return;
       }
+      // S3: capture the committed condition before the owner clears it on a
+      // field switch, so the panel can say what the switch discarded.
+      const previous = live.filterProvider()?.filter ?? null;
+      const cleared =
+        previous !== null &&
+        (previous.kind === "atom" || previous.kind === "enum") &&
+        previous.field !== field;
+      state.pendingHint = cleared ? ui.T("filter_field_switch_hint") : null;
+
       state.activeField = field;
       state.writing = true;
       try {
