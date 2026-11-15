@@ -255,6 +255,11 @@ const enumValuesOf = (
  *  serialized filter is stable regardless of click order; values whose option
  *  disappeared from the owner's domain (a type with no measurement right now)
  *  are kept after it, so the filter cannot silently change under the user. */
+/** The label a search row shows for `value`: the declared option label when
+ *  the value is in the shown list, else the raw value (the search box runs
+ *  over the FULL domain, including values beyond the truncated list). */
+const optionLabelOf = (dim: FilterEnumDimension, value: string): string =>
+  dim.options.find(option => option.value === value)?.label ?? value;
 const enumFilterOf = (
   dim: FilterEnumDimension,
   selected: ReadonlySet<string>,
@@ -326,6 +331,16 @@ const renderEnumBody = (
     onChange: (_value, values) => deps.write(enumFilterOf(dim, new Set(values))),
     ...deps.surface,
     overlay: deps.overlay,
+    // S2: the enum domain may exceed the shown first N (truncated). The
+    // search box runs over the FULL value set, so a value beyond the shown
+    // list is still findable and selectable.
+    search: {
+      placeholder: deps.T("filter_enum_search_placeholder"),
+      noResult: deps.T("filter_enum_no_result"),
+      allItems: () =>
+        dim.allValues?.map(value => ({ value, label: optionLabelOf(dim, value) })) ??
+        dim.options,
+    },
   });
   // The owner declared no options: nothing to select, and an empty popup would
   // read as a broken control.

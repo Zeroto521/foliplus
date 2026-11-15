@@ -142,6 +142,8 @@
   "LayerControl.filter_empty": "该图层没有可筛选字段",
   "LayerControl.group_no_style_filter": "图层组不支持样式/筛选",
   "LayerControl.filter_enum_truncated": "仅显示该字段的前 50 个值",
+  "LayerControl.filter_enum_search_placeholder": "搜索值",
+  "LayerControl.filter_enum_no_result": "没有匹配的值",
   "LayerControl.style_border_mode": "边框模式",
   "LayerControl.style_border_follow_fill": "跟随填充",
   "LayerControl.style_marker_color": "标记颜色",
