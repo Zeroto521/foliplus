@@ -319,6 +319,10 @@ interface RegisterLayerOpts {
    *  default) means the row is not filterable. */
   filterProvider?: (() => LayerFilterModel | null) | null;
   filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+  /** Cheap read of whether the layer has any filterable field. The menu gate
+   *  calls this per row instead of building the full filter model; absent,
+   *  the gate falls back to filterProvider(). See LayerInfo. */
+  hasFilterFields?: (() => boolean) | null;
   /** Optional geographic-bounds provider. Canvas layers have no Leaflet layer
    *  to derive bounds from, so they supply this for layer focus to work. */
   getBounds?: (() => L.LatLngBounds | null) | null;
@@ -467,6 +471,10 @@ interface LayerInfo {
   /** See {@link RegisterLayerOpts.filterProvider}. */
   filterProvider?: (() => LayerFilterModel | null) | null;
   filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+  /** Cheap read of whether the layer has any filterable field. The menu gate
+   *  calls this per row instead of building the full filter model; absent,
+   *  the gate falls back to filterProvider(). */
+  hasFilterFields?: (() => boolean) | null;
   /** The committed generic feature filter for this layer (null when none).
    *  The controller keeps this in sync with the write-through (filterSetter /
    *  setLayerFilter); the panel reads it directly for the current state. */
@@ -658,6 +666,8 @@ interface CreateLayersOpts {
   /** See RegisterLayerOpts. */
   filterProvider?: (() => LayerFilterModel | null) | null;
   filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+  /** Cheap read of whether the layer has any filterable field (see LayerInfo). */
+  hasFilterFields?: (() => boolean) | null;
   /** See RegisterLayerOpts. */
   metaProvider?: (() => Record<string, string | number>) | null;
 }

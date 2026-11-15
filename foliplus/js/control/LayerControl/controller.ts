@@ -1443,6 +1443,7 @@ class LayerController implements LayerAPI {
     target: {
       filterProvider?: (() => LayerFilterModel | null) | null;
       filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+      hasFilterFields?: (() => boolean) | null;
       canvas?: HTMLCanvasElement | null;
       styleSetters?: Record<string, (value: unknown) => void> | null;
       role?: LayerRole;

@@ -80,6 +80,11 @@ const fmtValue = (v: number): string => String(Number(v.toFixed(6)));
 type FilterCapability = {
   filterProvider: () => LayerFilterModel | null;
   filterSetter: (filter: LayerFilter) => void;
+  /** Cheap read of whether the owner has at least one filterable field. The
+   *  menu gate calls this per row; a full filterProvider() model build (dimension
+   *  projection) would re-traverse the snapshot on every row render. Absent =
+   *  fall back to calling filterProvider() once in the gate. */
+  hasFilterFields?: () => boolean;
 };
 
 type FilterCapableInfo = LayerInfo & FilterCapability;
