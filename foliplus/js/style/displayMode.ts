@@ -32,8 +32,6 @@ interface DisplayModeSpec {
   supportsInherit: boolean;
 }
 
-export type { DisplayModeSpec };
-export { resolveDisplayMode };
 /** Resolve the display mode for one paint dimension.
  *
  *  Precedence (highest first):
@@ -68,3 +66,6 @@ const resolveDisplayMode = (spec: DisplayModeSpec): StyleMode => {
   if (spec.valueIntent) return STYLE_MODE.VALUE;
   return STYLE_MODE.SOLID;
 };
+
+export type { DisplayModeSpec };
+export { resolveDisplayMode };
