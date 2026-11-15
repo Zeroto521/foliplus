@@ -58,7 +58,7 @@ describe("finishPanelReset", () => {
   it("keeps the panel open and focuses the trigger", () => {
     const close = vi.fn();
     const focus = vi.fn();
-    finishPanelReset({ restore: vi.fn(), close, focus: focusTarget(focus) });
+    finishPanelReset({ restore: () => {}, close, focus: focusTarget(focus) });
 
     expect(close).not.toHaveBeenCalled();
     expect(focus).toHaveBeenCalledOnce();
@@ -66,7 +66,7 @@ describe("finishPanelReset", () => {
 
   it("leaves the close path untouched when no focus target exists", () => {
     const close = vi.fn();
-    finishPanelReset({ restore: vi.fn(), close });
+    finishPanelReset({ restore: () => {}, close });
 
     expect(close).not.toHaveBeenCalled();
   });
@@ -87,7 +87,7 @@ describe("finishPanelReset", () => {
     const close = vi.fn();
     const focus = vi.fn();
     finishPanelReset({
-      restore: vi.fn(),
+      restore: () => {},
       close,
       focus: () => focusTarget(focus),
     });
@@ -99,7 +99,7 @@ describe("finishPanelReset", () => {
   it("tolerates a resolver that finds no target", () => {
     const close = vi.fn();
     expect(() =>
-      finishPanelReset({ restore: vi.fn(), close, focus: () => null }),
+      finishPanelReset({ restore: () => {}, close, focus: () => null }),
     ).not.toThrow();
     expect(close).not.toHaveBeenCalled();
   });
@@ -121,7 +121,7 @@ describe("createPanelResetOutcome", () => {
     const close = vi.fn();
     const focus = vi.fn();
     createPanelResetOutcome(false)({
-      restore: vi.fn(),
+      restore: () => {},
       close,
       focus: focusTarget(focus),
     });
