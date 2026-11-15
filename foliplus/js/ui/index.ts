@@ -17,6 +17,7 @@ export { nextOptionId } from "./optionRow.js";
 export { PANEL_CLASS } from "./panelClassName.js";
 export { SCALE_CLASS } from "./scaleClassName.js";
 export { FORM_CLASS } from "./formClassName.js";
+export { GLYPH_CLASS } from "./glyphClassName.js";
 export {
   POPUP_ESCAPE_DELTA,
   POPUP_HOST_RANK,
