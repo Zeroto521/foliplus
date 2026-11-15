@@ -462,13 +462,9 @@ const refreshStylePanel = (
     closeStylePanel(ui, false);
     return;
   }
-  // Keep the card fixed at the old geometry for the replacement beat; pin
-  // recalculates it immediately, so the panel never spends a frame in flow.
-  next.style.cssText = panel.style.cssText;
   // The row-panel CSS plays an entrance animation on mount; this is the same
   // open card, so the refreshed node must not replay it.
   next.style.animation = "none";
-  next.classList.add(PANEL_CLASS.PINNED);
   panel.replaceWith(next);
   ui.overlayPanel.stylePanelEl = next;
   pinRowPanel(next, item);

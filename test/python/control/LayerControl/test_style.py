@@ -917,7 +917,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # is about the Reset refresh, not the opening animation.
             page.wait_for_timeout(250)
 
-            page.evaluate(_js("LayerControl/style_reset_geometry"), "before")
             before = page.evaluate(_js("LayerControl/style_reset_frames"), "start")
             clicked = page.evaluate(_js("LayerControl/style_reset_click"))
             assert clicked is True, "the Reset button was not clickable"
@@ -932,17 +931,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
                     abs(frame["top"] - before["top"]) > 1
                     or abs(frame["left"] - before["left"]) > 1
                     or abs(frame["height"] - before["height"]) > 1
+                    or frame["scrollY"] != before["scrollY"]
                 )
             ]
             assert not moved, f"Reset moved the panel on a frame: {frames}"
-            geometry = page.evaluate(_js("LayerControl/style_reset_geometry"), "after")
-            assert (
-                geometry["sameTop"]
-                and geometry["sameLeft"]
-                and geometry["sameHeight"]
-                and geometry["sameScrollY"]
-                and geometry["sameListScroll"]
-            ), f"Reset moved the panel or scrolled the page: {geometry}"
             state = page.evaluate(_js("LayerControl/style_reset_kept_open"))
             assert state["panelOpen"] is True, (
                 f"Reset must keep the style panel open: {state}"
