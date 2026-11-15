@@ -2,6 +2,7 @@
 // Each map gets its own HintManager instance (via ensureHint), attached to
 // `map.foliplus.showHint/hideHint`.  No global state leaks to `window.foliplus`.
 import { parseSVG } from "../sanitize.js";
+import { HINT_CLASS } from "./hintClassName.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
@@ -13,7 +14,7 @@ import { createLogger } from "#platform/log.js";
 const log = createLogger("Hint");
 
 const BASE = { BOTTOM: 20, STACK_GAP: 40 };
-const CLASS = "foliplus-hint";
+const CLASS = HINT_CLASS.SHELL;
 const DEFAULT_HINT_Z_INDEX = 10000;
 
 /** Hint z-index base, read once from the --foliplus-z-index-hint token (fallback 10000). */
@@ -156,9 +157,7 @@ class HintManager {
     const el = dom.el(
       "div",
       { class: `${cls} ${CLASS}`, parent: hintTarget },
-      ...(icon
-        ? [dom.el("span", { class: "foliplus-hint-icon" }, { html: icon })]
-        : []),
+      ...(icon ? [dom.el("span", { class: HINT_CLASS.ICON }, { html: icon })] : []),
       text,
     );
     anchorRelative(hintTarget);
