@@ -6,13 +6,15 @@ JS probe and the Python browser test reuse:
 
   - build_layers(): the three geometry layers (point / line / polygon), each with a
     numeric property so VALUE mode is offered, plus the mode matrix per geometry.
-  - GOLDEN_PATH / load_golden / write_golden
-  - compare(golden, snapshot): a list of human-readable diffs (structure is
+  - BASELINE_PATH / load_baseline / write_baseline
+  - compare(baseline, snapshot): a list of human-readable diffs (structure is
     zero-tolerance; computed style uses the design's ±1px / ±0.01 tolerance).
 
-The 21-group matrix from s6-parity-harness-design.md §2 is produced by
-GEOM_MATRIX below (fill 3 modes × 3 geoms + border 4 modes × 3 geoms − the three
-fill×inherit groups the fill dimension does not offer).
+The probe asks every group in FILL_MODES / BORDER_MODES below and records what
+the layer actually offers, so the baseline locks the offering as well as the DOM:
+18 sampled groups today (fill 3 modes × 3 geoms + border 3 modes × 3 geoms), 9 of
+them offered (a point layer offers no fill/border row, a line border offers
+original/solid/value, a polygon border offers original/solid/followFill).
 
 This is a TEST-ONLY module (it never imports production code on the Python side;
 the production behavior is sampled through the real browser page).
@@ -27,12 +29,12 @@ from pathlib import Path
 import folium
 from conftest import load_geojson
 
-# The 21-group sampling matrix. Each geometry offers the modes its own surface
-# honestly supports; the probe records what is actually offered, and the golden
-# locks the offering. A geometry that offers fewer modes simply has fewer
-# groups — the matrix below is the FULL cross product, and the test samples the
-# offered subset (the golden records `present: false` for a not-offered mode
-# only if the probe is asked for it; the normal matrix asks only offered modes).
+# The sampling matrix. Each geometry offers the modes its own surface honestly
+# supports; the probe records what is actually offered, and the baseline locks
+# the offering. A geometry that offers fewer modes simply has fewer groups —
+# the matrix below is the FULL cross product, and the test samples the offered
+# subset (the baseline records `present: false` for a not-offered mode only if
+# the probe is asked for it; the normal matrix asks only offered modes).
 GEOMS = ("point", "line", "polygon")
 
 # Fill modes every fill-capable layer with a numeric field offers. A fill-capable
@@ -50,8 +52,7 @@ BORDER_MODES = {
     "point": ("original", "solid", "followFill"),
 }
 
-GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
-GOLDEN_PATH = GOLDEN_DIR / "paint-dimension.json"
+BASELINE_PATH = Path(__file__).resolve().parent / "paint-dimension.baseline.json"
 
 
 def _with_value(data: dict, key: str = "value") -> dict:
@@ -88,13 +89,12 @@ def build_layers() -> tuple[folium.GeoJson, folium.GeoJson, folium.GeoJson]:
     return point, line, polygon
 
 
-def load_golden() -> dict:
-    return json.loads(GOLDEN_PATH.read_text(encoding="utf-8"))
+def load_baseline() -> dict:
+    return json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
 
 
-def write_golden(snapshot: dict) -> None:
-    GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
-    GOLDEN_PATH.write_text(
+def write_baseline(snapshot: dict) -> None:
+    BASELINE_PATH.write_text(
         json.dumps(snapshot, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
 
@@ -140,8 +140,8 @@ def _computed_close(a: dict, b: dict, *, dx: float = 1, dv: float = 0.01) -> boo
     return True
 
 
-def compare(golden: dict, snapshot: dict) -> list[str]:
-    """Return a list of human-readable diffs between *golden* and *snapshot*.
+def compare(baseline: dict, snapshot: dict) -> list[str]:
+    """Return a list of human-readable diffs between *baseline* and *snapshot*.
 
     Empty list == parity. Structure / class-stack / aria are zero-tolerance
     (design §3.1); computed style uses the ±1px / ±0.01 tolerance (design §3.2).
@@ -154,51 +154,51 @@ def compare(golden: dict, snapshot: dict) -> list[str]:
             else ("original", "solid", "value", "followFill")
         ):
             for geom in GEOMS:
-                g = golden.get(dim, {}).get(mode, {}).get(geom)
+                b = baseline.get(dim, {}).get(mode, {}).get(geom)
                 s = snapshot.get(dim, {}).get(mode, {}).get(geom)
-                if g is None and s is None:
+                if b is None and s is None:
                     continue
-                if g is None or s is None:
+                if b is None or s is None:
                     diffs.append(
-                        f"{dim}.{mode}.{geom}: presence changed ({g is not None} → {s is not None})"
+                        f"{dim}.{mode}.{geom}: presence changed ({b is not None} → {s is not None})"
                     )
                     continue
                 # presence flags
-                if g.get("present") != s.get("present"):
+                if b.get("present") != s.get("present"):
                     diffs.append(
-                        f"{dim}.{mode}.{geom}: present {g.get('present')} → {s.get('present')}"
+                        f"{dim}.{mode}.{geom}: present {b.get('present')} → {s.get('present')}"
                     )
                     continue
-                if not g.get("present"):
+                if not b.get("present"):
                     continue
                 # class stack order (design §2.4) — zero tolerance
-                if g.get("row", {}).get("cls") != s.get("row", {}).get("cls"):
+                if b.get("row", {}).get("cls") != s.get("row", {}).get("cls"):
                     diffs.append(
-                        f"{dim}.{mode}.{geom}: row class stack {g.get('row', {}).get('cls')} → {s.get('row', {}).get('cls')}"
+                        f"{dim}.{mode}.{geom}: row class stack {b.get('row', {}).get('cls')} → {s.get('row', {}).get('cls')}"
                     )
-                if g.get("select", {}).get("cls") != s.get("select", {}).get("cls"):
+                if b.get("select", {}).get("cls") != s.get("select", {}).get("cls"):
                     diffs.append(
-                        f"{dim}.{mode}.{geom}: select class stack {g.get('select', {}).get('cls')} → {s.get('select', {}).get('cls')}"
+                        f"{dim}.{mode}.{geom}: select class stack {b.get('select', {}).get('cls')} → {s.get('select', {}).get('cls')}"
                     )
                 # row structure (children 2 levels) — zero tolerance
-                if g.get("row", {}).get("children") != s.get("row", {}).get("children"):
+                if b.get("row", {}).get("children") != s.get("row", {}).get("children"):
                     diffs.append(f"{dim}.{mode}.{geom}: row children changed")
-                if g.get("detail", {}).get("children") != s.get("detail", {}).get(
+                if b.get("detail", {}).get("children") != s.get("detail", {}).get(
                     "children"
                 ):
                     diffs.append(f"{dim}.{mode}.{geom}: detail children changed")
                 # aria — zero tolerance
-                if g.get("row", {}).get("aria") != s.get("row", {}).get("aria"):
+                if b.get("row", {}).get("aria") != s.get("row", {}).get("aria"):
                     diffs.append(
-                        f"{dim}.{mode}.{geom}: row aria {g.get('row', {}).get('aria')} → {s.get('row', {}).get('aria')}"
+                        f"{dim}.{mode}.{geom}: row aria {b.get('row', {}).get('aria')} → {s.get('row', {}).get('aria')}"
                     )
-                if g.get("select", {}).get("aria") != s.get("select", {}).get("aria"):
+                if b.get("select", {}).get("aria") != s.get("select", {}).get("aria"):
                     diffs.append(
-                        f"{dim}.{mode}.{geom}: select aria {g.get('select', {}).get('aria')} → {s.get('select', {}).get('aria')}"
+                        f"{dim}.{mode}.{geom}: select aria {b.get('select', {}).get('aria')} → {s.get('select', {}).get('aria')}"
                     )
                 # computed style — tolerance
                 for key in ("detail", "select"):
-                    gc = g.get(key, {}).get("computed")
+                    gc = b.get(key, {}).get("computed")
                     sc = s.get(key, {}).get("computed")
                     if (gc is None) != (sc is None):
                         diffs.append(
@@ -210,7 +210,7 @@ def compare(golden: dict, snapshot: dict) -> list[str]:
                             f"{dim}.{mode}.{geom}: {key} computed style drifted"
                         )
                 for key in ("color", "number"):
-                    gc = g.get("keyComputed", {}).get(key)
+                    gc = b.get("keyComputed", {}).get(key)
                     sc = s.get("keyComputed", {}).get(key)
                     if (gc is None) != (sc is None):
                         diffs.append(
