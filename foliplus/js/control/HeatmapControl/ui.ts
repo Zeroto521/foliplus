@@ -26,6 +26,7 @@ import {
   fullscreenSurface,
   onFullscreenSurfaceChange,
 } from "#platform/fullscreen.js";
+import { createLogger } from "#platform/log.js";
 import {
   PANEL_CLASS,
   type SchemePicker,
@@ -35,6 +36,8 @@ import {
   dropdownOverlay,
   finishPanelReset,
 } from "#ui/index.js";
+
+const log = createLogger("HeatmapControl");
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {
@@ -354,15 +357,23 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
     finishPanelReset({
-      restore: () => {
-        resetPanel(ctrl);
-        ctrl.mgr.clearSavedConfig();
-        ctrl.mgr.clearLayerState();
+      // Steps, not one opaque closure: a failing step is logged and the rest
+      // of the Clear still lands. A single closure used to bubble the first
+      // failure, skipping the rebuild and the collapse — Clear looked dead.
+      restore: [
+        () => resetPanel(ctrl),
+        () => ctrl.mgr.clearSavedConfig(),
+        () => ctrl.mgr.clearLayerState(),
         // Clear returns to the declared starting state in the same session:
         // rebuild re-selects the declared (or single) layer, re-seeds the
         // filter and repaints, so the row stays filterable without reopening.
-        rebuildLayerDropdown(ctrl);
-      },
+        () => rebuildLayerDropdown(ctrl),
+      ],
+      onError: (error, step) =>
+        log.warn(
+          `heatmap clear step ${step} failed — the remaining steps still ran`,
+          error,
+        ),
       close: collapseHeatmapPanel.bind(null, ctrl),
       focus: () => heatmapClearFocus(ctrl, clearBtn),
     });

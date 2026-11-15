@@ -18,7 +18,14 @@ import json
 import re
 
 import folium
-from conftest import _js, load_geojson, make_browser_page, panel_ready, use_page
+from conftest import (
+    _js,
+    load_geojson,
+    make_browser_page,
+    panel_ready,
+    snippet,
+    use_page,
+)
 
 from foliplus import LayerControl
 
@@ -32,6 +39,8 @@ def _class_doc() -> str:
 
 _READ_STATE = _js("LayerControl/zoom_declared_state")
 _READ_ROW = _js("LayerControl/zoom_declared_row")
+_SET_ZOOM = snippet("LayerControl/set_zoom")
+_ZOOM_IS = snippet("LayerControl/zoom_is")
 
 # The class docstring is the single contract surface for the declaration; the
 # Notes section (the last major section) holds the declaration tables and the
@@ -71,8 +80,8 @@ def _zoom_to(page, zoom: int) -> None:
     The sweep runs on `zoomend`; waiting on the declared layer's membership
     (rather than sleeping) is what makes the probe deterministic.
     """
-    page.evaluate("(z) => window.map.setZoom(z)", zoom)
-    page.wait_for_function("(z) => window.map.getZoom() === z", arg=zoom, timeout=5000)
+    page.evaluate(_SET_ZOOM, zoom)
+    page.wait_for_function(_ZOOM_IS, arg=zoom, timeout=5000)
     page.wait_for_function(
         _js("LayerControl/wait_declared_zoom_membership"), timeout=5000
     )

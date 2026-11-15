@@ -20,6 +20,7 @@ export {
   createPanelResetOutcome,
   finishPanelReset,
   firstUsableControl,
+  runResetSteps,
   syncPanelAction,
 } from "./panelReset.js";
 export { SCALE_CLASS } from "./scaleClassName.js";

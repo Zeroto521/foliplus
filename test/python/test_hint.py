@@ -113,9 +113,18 @@ class TestHintWidthBrowser:
             f"media block did not apply: maxW {geom['maxW']}"
         )
         assert geom["w"] <= 375, "hint wider than its viewport"
-        assert geom["lines"] == 4, (
-            f"375px: {geom['lines']} lines means the media block did not widen the "
-            f"text box (width {geom['w']}px, maxW {geom['maxW']})"
+        # The media block must actually widen the text box. The old box was
+        # absolutely positioned with left:50%, so its available width was only
+        # half the containing block (~188px) and shrink-to-fit ignored the
+        # max-width; the fix lets the box grow to that cap, so the 92-char
+        # string takes at most four lines instead of the seven the 80vw cap
+        # alone produced.
+        assert geom["w"] >= 300, (
+            f"375px: text box {geom['w']}px did not widen past the 80vw cap "
+            f"(maxW {geom['maxW']})"
+        )
+        assert geom["lines"] <= 4, (
+            f"375px: {geom['lines']} lines in a {geom['w']}px box (maxW {geom['maxW']})"
         )
         assert not errors, f"JS errors: {errors}"
 
