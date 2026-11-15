@@ -40,17 +40,19 @@ import { buildModeRow } from "./row.js";
 import { applyValueStroke, resolveStrokeMode } from "./strokeValue.js";
 import {
   FACE,
+  STYLE_BAG_DEFAULTS,
   type StyleCarrier,
   type StyleSetter,
+  authorFaceOf,
   cancelStyleDimApply,
   commitStyleDim,
   commitStyleDimMerged,
   flushStyleDimApply,
+  needsDerivation,
   restoreStyleDim,
   scheduleStyleDimApply,
   solidColorOf,
   styleBagOf,
-  styleBaseOf,
   styleDimPayload,
   walkStyleLeaves,
 } from "./styleBag.js";
@@ -174,14 +176,18 @@ const layerCanBorder = (ui: LayerUI, layerId: string): boolean =>
  *  longer hold the author's stroke and the base is the only copy. Never
  *  reads the user's stored value, so a stored value cannot feed back into
  *  the base and make a Reset restore the user's own choice. Delegates to
- *  `styleBaseOf` so the border and fill rows share one reader. */
+ *  `authorFaceOf` so the border and fill rows share one reader. */
 const authoredBorder = (
   ui: LayerUI,
   layerId: string,
-): { color: string; weight: number } => {
-  const base = styleBaseOf(ui, layerId);
-  return { color: base.color, weight: base.weight };
-};
+): { color: string; weight: number } => ({
+  // One shared reader per face + key (authorFaceOf): the captured author bag
+  // wins, the live options fall back, then the face default. Same priority the
+  // solid row's swatch uses, so the border readout and the map cannot
+  // disagree about what the author painted.
+  color: authorFaceOf(ui, layerId, FACE.STROKE, "color") ?? STYLE_BAG_DEFAULTS.color,
+  weight: authorFaceOf(ui, layerId, FACE.STROKE, "weight") ?? STYLE_BAG_DEFAULTS.weight,
+});
 const BORDER_INTENT_KEYS: readonly IntentKey[] = [
   INTENT.BORDER_COLOR,
   INTENT.BORDER_WEIGHT,
@@ -420,11 +426,11 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // each leaf's captured author bag, which for a per-feature layer holds a
   // different colour per leaf (restoring it is the original mode's job, not
   // solid's). The base is the same reader the solid row's swatch uses
-  // (buildSolidBorderDetail -> authoredBorder -> styleBaseOf), so the panel
+  // (buildSolidBorderDetail -> authoredBorder -> authorFaceOf), so the panel
   // and the map cannot disagree. Only a per-feature layer needs the
   // derivation: a uniform layer's author stroke is already one colour, and a
   // colour basemap is excluded by the layerCanBorder capability gate.
-  const deriveSolidBase = solid && paintsPerFeatureFill(ui, layerId);
+  const deriveSolidBase = solid && needsDerivation(ui, layerId, FACE.STROKE);
   const solidColor =
     getIntent(ui, layerId, INTENT.BORDER_COLOR) ??
     (deriveSolidBase ? solidColorOf(ui, layerId, FACE.STROKE) : undefined);

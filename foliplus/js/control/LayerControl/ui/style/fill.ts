@@ -59,6 +59,7 @@ import {
   commitStyleDim,
   commitStyleDimMerged,
   flushStyleDimApply,
+  needsDerivation,
   restoreStyleDim,
   scheduleStyleDimApply,
   solidColorOf,
@@ -212,7 +213,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   // degenerate value record (mode=value, no config) and a colour basemap own
   // no derivable base either.
   const deriveSolidBase =
-    solid && !isColorBasemap(layerInfo) && paintsPerFeatureFill(ui, layerId);
+    solid && !isColorBasemap(layerInfo) && needsDerivation(ui, layerId, FACE.FILL);
   const solidColor =
     getIntent(ui, layerId, INTENT.FILL_COLOR) ??
     (deriveSolidBase

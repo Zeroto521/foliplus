@@ -17,6 +17,15 @@
 // The Leaflet-facing half (capture / derive / apply / reset walks) lives in
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel row.
+//
+// NOTE (S5e, user decision Q3): the hard default #ffffff below is kept on
+// purpose. The icon glyph is white-on-color by convention (awesome-markers
+// paints the glyph white over the marker face), so a no-author-paint icon
+// falls back to white — the same default the derive path uses. It is NOT the
+// fill default (blue): a fill face and a glyph face are semantically different
+// colours, so this is not a candidate for authorFaceOf unification. If a
+// future spec wants a shared colour default, do it by explicit design, not by
+// collapsing these two.
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
