@@ -97,7 +97,6 @@
   display: none;
 }
 
-
 /* S3: field-switch hint — a non-blocking panel row shown only when the
    switch discarded a committed condition. Same row vocabulary as the
    result row; the text is muted and the label is hidden. */

@@ -2032,7 +2032,7 @@ class LayerController implements LayerAPI {
       const options = (truncated ? all.slice(0, ENUM_OPTION_LIMIT) : all).map(
         value => ({ value, label: value }),
       );
-        return { kind: "enum", field, options, multi: true, truncated, allValues: all };
+      return { kind: "enum", field, options, multi: true, truncated, allValues: all };
     });
     const dimensions = [...rangeDimensions, ...enumDimensions];
     // Field picker (D5): the panel offers every numeric and enum field and
