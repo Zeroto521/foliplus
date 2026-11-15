@@ -7,10 +7,6 @@
     "permanent": true,
     "reason": "Element-id prefix passed to nextId() in listCursor.ts, not a CSS class (css-class-audit.md §4b: 'NOT a class — an element-id prefix')."
   },
-  "foliplus-marker-glyph": {
-    "status": "deferred",
-    "reason": "the owner constant GLYPH_SHELL_CLASS lives in a non-owner module (core/leaflet/glyphSource.ts); a follow-up card moves it into a class-name module"
-  },
   "foliplus-scale-wrap": {
     "status": "deferred",
     "reason": "B-class: needs new owner (ScaleControl const or shared PANEL_CLASS); consumed bare by ScaleControl/index.ts + FullscreenControl/logic.ts."
