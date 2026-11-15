@@ -22,9 +22,9 @@
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
 import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
-import { computePlacement } from "./placement.js";
+import { placeSurface } from "./placementAdapter.js";
 import { ensureActiveVisible } from "./scrollIntoView.js";
-import type { DropdownSurface, PlacementBox } from "./type.js";
+import type { DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
 import {
   type Floating,
@@ -400,6 +400,7 @@ const positionList = (state: InternalState): void => {
   // expresses the same gap via its offset, so the margin must be zeroed or the
   // two stack and every real scheme dropdown sits 4px low (P2-1).
   list.style.marginTop = "0px";
+  // placement-adapter: clears the in-flow right anchor for a fixed portal.
   list.style.right = "auto";
   list.style.width = "max-content";
   const contentWidth = list.getBoundingClientRect().width;
@@ -414,53 +415,30 @@ const positionList = (state: InternalState): void => {
     ? "anchor"
     : Math.max(rect.width, Math.min(contentWidth, Math.max(rect.width, room)));
 
-  // Flip verdict, vertical clamp, edge gap, width and height cap: ONE kernel
-  // call. The two shapes differ only in the flip threshold (minRoom) and in
-  // the width they hand the kernel.
-  const viewport: PlacementBox = {
-    left: 0,
-    right: window.innerWidth,
-    top: 0,
-    bottom: window.innerHeight,
-  };
-  const placement = computePlacement(
-    rect,
-    { width: contentWidth, height: desired },
-    viewport,
-    {
-      gap: POPUP_GAP,
-      edgeGap: POPUP_EDGE_GAP,
-      width: boxWidth,
-      // Both shapes always keep at least one row on screen.
-      minRows: 1,
-      rowHeight,
-      align: "left",
-      // "auto": two visible rows are enough to open downward. "fixed": the
-      // whole popup must fit below or it flips (the picker's historical rule).
-      minRoom: fixed ? desired : Math.min(desired, rowHeight * MIN_ROWS_BELOW),
+  // Flip verdict, vertical clamp, edge gap, width and height cap: one adapter
+  // call. The two shapes differ only in the flip threshold (minRoom), the width
+  // they hand in, and the bottom anchor the portal has always used when it
+  // flips above.
+  const placement = placeSurface(list, {
+    anchor: rect,
+    size: { width: contentWidth, height: desired },
+    gap: POPUP_GAP,
+    edgeGap: POPUP_EDGE_GAP,
+    width: boxWidth,
+    // Both shapes always keep at least one row on screen.
+    minRows: 1,
+    rowHeight,
+    align: "left",
+    // "auto": two visible rows are enough to open downward. "fixed": the whole
+    // popup must fit below or it flips (the picker's historical rule).
+    minRoom: fixed ? desired : Math.min(desired, rowHeight * MIN_ROWS_BELOW),
+    bottomWhenAbove: !fixed,
+    onSide: side => {
+      if (side === "above") classAdd(list, state.spec.classes.up);
     },
-  );
-  const up = placement.side === "above";
+  });
 
   list.style.width = `${String(placement.maxWidth)}px`;
-  list.style.left = `${String(placement.left)}px`;
-
-  if (fixed) {
-    list.style.bottom = "";
-    list.style.top = `${String(placement.top)}px`;
-    if (up) classAdd(list, state.spec.classes.up);
-  } else if (up) {
-    // An up-flipped portal has always been anchored by its bottom edge; express
-    // the kernel's top as that offset (the box bottom lands at the trigger's
-    // top edge minus the gap) instead of computing a second top.
-    const bottomOffset = viewport.bottom - placement.top - placement.maxHeight;
-    list.style.top = "";
-    list.style.bottom = `${String(bottomOffset)}px`;
-    classAdd(list, state.spec.classes.up);
-  } else {
-    list.style.bottom = "";
-    list.style.top = `${String(placement.top)}px`;
-  }
   list.classList.add(state.spec.classes.portal);
   if (placement.maxHeight < natural) {
     list.style.maxHeight = `${String(Math.round(placement.maxHeight))}px`;

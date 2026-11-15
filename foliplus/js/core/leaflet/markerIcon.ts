@@ -27,7 +27,6 @@
 // marker keeps the author's exact look minus the symbol.
 import {
   DEFAULT_GLYPH_PREFIX,
-  GLYPH_SHELL_CLASS,
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
@@ -39,6 +38,7 @@ import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons, mountedIconElement } from "#core/leafletAdapter.js";
 import { composeColorAlpha, parseColorAlpha } from "#platform/color.js";
 import { createLogger } from "#platform/log.js";
+import { GLYPH_CLASS } from "#ui/index.js";
 
 const log = createLogger("icon-dimension");
 /** Glyph names already warned as unavailable — warn once per name, not per
@@ -529,7 +529,7 @@ const applyIconColorToLeaves = (
     // A colour/opacity-only write on an already-mounted leaf whose glyph is
     // unchanged paints the node in place — same element reference, no rebuild.
     const el = mountedIconElement(leaf);
-    const inner = el?.querySelector(`.${GLYPH_SHELL_CLASS}`) ?? null;
+    const inner = el?.querySelector(`.${GLYPH_CLASS.SHELL}`) ?? null;
     if (inner && mountedGlyphMatches(inner, glyph, panelPrefix)) {
       // The same compose the derive path uses: a user colour paints at the
       // user's opacity (default 100 = opaque).
