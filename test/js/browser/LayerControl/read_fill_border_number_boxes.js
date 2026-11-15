@@ -43,7 +43,13 @@ arg => {
   };
   // The fill number slot: the opacity input in solid/value mode, the readOnlyValue
   // BOX in original mode (not the inner value span).
+  // The original detail's opacity readout is the readonly box; the cmap form
+  // carries other readonly boxes too, so ask for the opacity one by name.
   const fillNumber =
+    fillBlock.querySelector(".foliplus-style-fill-original-opacity") ??
+    fillBlock.querySelector(
+      ".foliplus-form-number-group .foliplus-style-fill-opacity-number",
+    ) ??
     fillBlock.querySelector(".foliplus-style-fill-opacity-number") ??
     fillBlock.querySelector(".foliplus-style-fill-readonly") ??
     null;

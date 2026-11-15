@@ -17,6 +17,8 @@ const PANEL_CLASS = {
   FORM_INLINE: "foliplus-form-inline",
   TOGGLE_SWITCH: "foliplus-toggle-switch",
   TOGGLE_SLIDER: "foliplus-toggle-slider",
+  TOGGLE_BTN: "foliplus-toggle-btn",
+  TOOL_BAR: "foliplus-tool-bar",
   SECTION_DIVIDER: "foliplus-section-divider",
   BTN_ROW: "foliplus-btn-row",
   PANEL_BTN: "foliplus-panel-btn",

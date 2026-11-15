@@ -80,10 +80,35 @@
   flex-shrink: 0;
 }
 
+/* The opacity readout is the row's number slot when no number field is on
+   screen: right-align it at the same inset the unit-suffixed number field
+   keeps for its value, so the mode that swaps the input for a readout does
+   not shift the row's right edge. Scoped to the opacity hook only — the
+   class-count readout beside it keeps its centred value. The box is the
+   suffix's positioned containing block (the shared form.css suffix rule
+   is absolute inside the field's own right padding), so the readout's %
+   lands at the exact same offset as the editable number field's %. */
+.foliplus-form-inline
+  > .foliplus-style-fill-readonly:is(.foliplus-style-fill-original-opacity) {
+  position: relative;
+  text-align: right;
+  padding-inline-end: var(--foliplus-size-16);
+}
+
+/* The readout values clip to their box instead of spilling into the label
+   column when a value outgrows the slot. */
 .foliplus-style-fill-original-value {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The opacity value fills the readout box so the right alignment reaches it,
+   the same flex the method and count readouts use for their centred value. */
+.foliplus-style-fill-original-opacity .foliplus-style-fill-original-value {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
 }
 
 /* Method + class-count share one row (the by-value rampForm classes row's

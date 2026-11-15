@@ -67,6 +67,7 @@
   "ui/panelChrome",
   "ui/panelClassName",
   "ui/panelField",
+  "ui/panelReset",
   "ui/placement",
   "ui/placementAdapter",
   "ui/scaleClassName",
@@ -76,5 +77,6 @@
   "ui/slider",
   "ui/sliderClassName",
   "ui/styleModeKey",
-  "ui/type"
+  "ui/type",
+  "ui/buttonClassName"
 ]

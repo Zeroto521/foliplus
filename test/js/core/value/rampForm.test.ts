@@ -304,11 +304,17 @@ const schemePickerVocabSource = readFileSync(
   "utf-8",
 );
 
+const formClassNameSource = readFileSync(
+  resolve(ROOT, "foliplus/js/ui/formClassName.ts"),
+  "utf-8",
+);
+
 describe("compact class-count select (stylesheet contract)", () => {
   it("applies the shared classes-select class from the builder", () => {
     // Both consumers get the class here; neither passes it by hand, so the
     // two panels cannot end up with different class-count widths again.
-    expect(rampFormSource).toContain("foliplus-classes-select");
+    expect(rampFormSource).toContain("FORM_CLASS.CLASSES_SELECT");
+    expect(formClassNameSource).toContain("foliplus-classes-select");
   });
 
   it("resolves that class to the inline-secondary width token", () => {

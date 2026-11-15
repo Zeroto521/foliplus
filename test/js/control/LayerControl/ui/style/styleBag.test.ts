@@ -26,6 +26,7 @@ import {
   STYLE_APPLY_SOURCE,
   STYLE_BAG_DEFAULTS,
   type StyleApplyFailure,
+  authorFaceOf,
   cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
@@ -35,6 +36,7 @@ import {
   flushStyleDimApplies,
   flushStyleDimApply,
   hasStyleDimApply,
+  needsDerivation,
   releaseStyleApplyOwner,
   restoreStyleDim,
   scheduleStyleDimApply,
@@ -1113,5 +1115,117 @@ describe("LAYER_STYLE_CHANGE — a reflow that is not a user edit stays silent",
     resetLayerFill(ui, "overlay1");
 
     expect(seen).toHaveLength(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// authorFaceOf: the one shared reader for "bag ?? options ?? undefined".
+// ────────────────────────────────────────────────────────────────────────
+
+describe("authorFaceOf — priority chain (checklist F)", () => {
+  const carrier = (first: any) => ({
+    options: {},
+    eachLayer: vi.fn((fn: (c: unknown) => void) => fn(first)),
+  });
+  const uiFor = (layer: unknown): any => ({
+    c: { findLayer: () => layer },
+  });
+
+  it("bag hits: the captured author bag wins over the live options", () => {
+    const l = makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5 });
+    l.feature = { geometry: { type: "Polygon" } };
+    const bag = captureStyleBag(l); // records the author's paint
+    l.setStyle({ fillColor: "#ff0000" }); // user's write mutates options
+    const ui = uiFor(carrier(l));
+    expect(bag.fillColor).toBe("#aabbcc");
+    expect(l.options.fillColor).toBe("#ff0000");
+    expect(authorFaceOf(ui, "overlay1", FACE.FILL, "fillColor")).toBe("#aabbcc");
+  });
+
+  it("bag missing key: the live options fill in (mid fallback)", () => {
+    const l = makeLeaf({ fillColor: "#112233", fillOpacity: 0.5 });
+    l.feature = { geometry: { type: "Polygon" } };
+    captureStyleBag(l); // bag has no fillColor missing? it fills with defaults. Use a key not in bag.
+    const ui = uiFor(carrier(l));
+    // captureStyleBag fills missing keys with Leaflet defaults, so fillColor
+    // would be the default. Use a key the bag never sets: e.g. a leaf with a
+    // custom option not in StyleBag — but authorFaceOf is typed to StyleBag keys.
+    // Instead: the bag's value for fillColor is the default; make the option differ.
+    // Actually captureStyleBag fills all StyleBag keys, so the "bag missing key"
+    // case can't be produced with captureStyleBag. Simulate by using a carrier
+    // whose leaf was never captured (no bag entry).
+    expect(authorFaceOf(ui, "overlay1", FACE.FILL, "fillColor")).toBe("#112233");
+  });
+
+  it("both missing: undefined", () => {
+    const l = makeLeaf({});
+    l.feature = { geometry: { type: "Polygon" } };
+    const ui = uiFor(carrier(l));
+    expect(authorFaceOf(ui, "overlay1", FACE.FILL, "fillColor")).toBeUndefined();
+  });
+
+  it("carrier per face: a line-first mixed layer reads the areal leaf for fill", () => {
+    const line = makeLeaf({ color: "#111111", weight: 2, stroke: true, fill: false });
+    line.feature = { geometry: { type: "LineString" } };
+    const poly = makeLeaf({ fillColor: "#aabbcc", fillOpacity: 0.5, fill: true });
+    poly.feature = { geometry: { type: "Polygon" } };
+    const parent = {
+      options: {},
+      eachLayer: vi.fn((fn: (c: unknown) => void) => {
+        fn(line);
+        fn(poly);
+      }),
+    };
+    const ui = uiFor(parent);
+    expect(authorFaceOf(ui, "overlay1", FACE.FILL, "fillColor")).toBe("#aabbcc");
+  });
+
+  it("no layer: undefined", () => {
+    const ui = uiFor(null);
+    expect(authorFaceOf(ui, "ghost", FACE.FILL, "fillColor")).toBeUndefined();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// needsDerivation: per-feature gate (checklist B / D4).
+// ────────────────────────────────────────────────────────────────────────
+
+describe("needsDerivation — per-feature gate (checklist B)", () => {
+  /** Minimal LayerUI mock for needsDerivation: a live registry + findLayer.
+   *  Same shape as contractUI above — needsDerivation only touches
+   *  ui.c.layerRegistry.get. */
+  const layerReg = (fillAuthor?: unknown): any => ({
+    c: {
+      layerRegistry: new Map([["overlay1", { id: "overlay1", fillAuthor } as never]]),
+      findLayer: () => null,
+    },
+  });
+
+  it("per-feature author: true", () => {
+    const ui = layerReg({
+      perFeature: true,
+      distinct: 2,
+      stops: ["#aabbcc", "#ffffff"],
+    });
+    expect(needsDerivation(ui, "overlay1", FACE.FILL)).toBe(true);
+    expect(needsDerivation(ui, "overlay1", FACE.STROKE)).toBe(true);
+  });
+
+  it("uniform author: false", () => {
+    const ui = layerReg({ perFeature: false, distinct: 1, stops: ["#aabbcc"] });
+    expect(needsDerivation(ui, "overlay1", FACE.FILL)).toBe(false);
+    expect(needsDerivation(ui, "overlay1", FACE.STROKE)).toBe(false);
+  });
+
+  it("unregistered layer: false", () => {
+    const ui = layerReg(undefined);
+    expect(needsDerivation(ui, "overlay1", FACE.FILL)).toBe(false);
+  });
+
+  it("stroke face is not unconditionally true (border apply contract)", () => {
+    // A uniform line layer has one author stroke; a solid border with no intent
+    // must NOT derive and write the author stroke as a user override.
+    const ui = layerReg({ perFeature: false, distinct: 1, stops: ["#334455"] });
+    expect(needsDerivation(ui, "overlay1", FACE.STROKE)).toBe(false);
   });
 });

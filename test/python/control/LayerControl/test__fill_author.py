@@ -959,11 +959,11 @@ class TestFillAuthorBrowser:
             # A continuous scale is sampled down to a readable number of stops
             # instead of one DOM block per color.
             assert 2 <= initial["stops"] <= 12, initial
-            # The read-only detail holds nothing to operate.
-            assert initial["detailSelects"] == 0, initial
-            assert initial["detailComboboxes"] == 0, initial
-            assert initial["detailFocusable"] == 0, initial
-            assert len(initial["rows"]) == 3, initial
+            # Four rows in the cmap original detail: the field (column),
+            # the method+count pair, the scheme, and the read-only opacity
+            # row the fill-opacity-modes spec adds (after the scheme, before
+            # the border mode). The opacity row is a read-out, never a control.
+            assert len(initial["rows"]) == 4, initial
             assert all("foliplus-form-row" in row for row in initial["rows"]), initial
             assert initial["hasField"] is False, initial
             assert initial["hasMethod"] is False, initial
@@ -1157,6 +1157,76 @@ class TestFillAuthorBrowser:
                 f"box pad-left {original['padLeft']} != token {value['tokenInset']}"
             )
 
+            assert not errors, f"JS errors: {errors}"
+
+    def test_original_fill_and_original_border_emit_one_opacity_row(
+        self, browser, tmp_path
+    ):
+        """The fill opacity row is emitted once, by the fill channel only.
+
+        With fill ORIGINAL and border ORIGINAL (a per-feature author), the
+        border reuses the fill's original detail for its column/colors/
+        method readouts but must not re-emit a second fill-opacity row — the
+        duplicate-row bug the user saw. The fill block owns exactly one
+        opacity row, the border block owns none, and the readout is the
+        author's own opacity as a bare number with the unit suffix.
+        """
+        with use_page(_make_author_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl .foliplus-toggle-btn",
+                state="attached",
+                timeout=10000,
+            )
+            _open_author_style_panel(page)
+            result = page.evaluate(
+                _js("LayerControl/read_fill_opacity_duplicate"),
+                {"fillMode": "original", "borderMode": "original"},
+            )
+            assert result.get("ok"), result
+            assert result["fillMode"] == "original", result
+            assert result["borderMode"] == "original", result
+            # Exactly one opacity row, in the fill block; the border block
+            # must not re-emit one.
+            assert result["fillOpacityRowCount"] == 1, result
+            assert result["borderOpacityRowCount"] == 0, result
+            # The author layer paints fillOpacity 0.8: the bare number is 80
+            # with the % unit suffix, and neither span is clipped.
+            ro = result.get("fillReadout")
+            assert ro is not None, result
+            assert ro["valueText"] == "80", result
+            assert ro["suffixText"] == "%", result
+            assert ro["suffixHidden"] == "true", result
+            assert ro["valueScrollW"] <= ro["valueClientW"], result
+            assert ro["boxScrollW"] <= ro["boxClientW"], result
+            assert not errors, f"JS errors: {errors}"
+
+    def test_original_opacity_readout_not_truncated(self, browser, tmp_path):
+        """The original-colors opacity readout never clips its value.
+
+        The shared %-suffix split means the readout text is the bare number
+        and the unit rides in a separate suffix span at the box's right inset.
+        A clipped value would overflow its box (scrollWidth > clientWidth);
+        the box itself must not scroll either. This guards the 5%→"5…"
+        truncation the user reported.
+        """
+        with use_page(_make_author_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl .foliplus-toggle-btn",
+                state="attached",
+                timeout=10000,
+            )
+            _open_author_style_panel(page)
+            result = page.evaluate(
+                _js("LayerControl/read_fill_opacity_duplicate"),
+                {"fillMode": "original", "borderMode": "solid"},
+            )
+            assert result.get("ok"), result
+            assert result["fillMode"] == "original", result
+            assert result["fillOpacityRowCount"] == 1, result
+            ro = result.get("fillReadout")
+            assert ro is not None, result
+            assert ro["valueScrollW"] <= ro["valueClientW"], result
+            assert ro["boxScrollW"] <= ro["boxClientW"], result
             assert not errors, f"JS errors: {errors}"
 
 

@@ -11,6 +11,8 @@ import { type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import {
   applyValueFill,
+  bindValueDetail,
+  buildValueDetail,
   resolveFillMode,
   resolveModeByValue,
   valueSchemeForUi,
@@ -35,6 +37,13 @@ vi.mock("#control/LayerControl/ui/intent.js", () => ({
 }));
 vi.mock("#control/LayerControl/ui/style/pin.js", () => ({
   pinStyleOnHighlight: vi.fn(),
+}));
+vi.mock("#control/LayerControl/ui/style/registry.js", () => ({
+  getDimension: () => ({
+    write: (ui: unknown, id: unknown, patch: { opacity?: number }) => {
+      if (patch.opacity !== undefined) intentValues.fillOpacity = patch.opacity;
+    },
+  }),
 }));
 
 /** Install a chroma stub that hands back a fixed color list, whatever
@@ -85,9 +94,16 @@ const makeFeatureLayer = (features: Array<{ properties: Record<string, unknown> 
 /** Create a minimal mock LayerUI for applyValueFill. */
 const makeUI = (layer: unknown) =>
   ({
+    T: (key: string) => key,
+    _: (key: string) => key,
+    runtimeStore: { getFields: () => [{ name: "value", numeric: true }] } as any,
     c: {
       layerRegistry: new Map([["overlay1", { id: "overlay1", layer }] as any]),
       findLayer: () => layer,
+      map: {
+        getContainer: () => document.createElement("div"),
+        on: () => undefined,
+      } as any,
     },
   }) as any;
 
@@ -988,6 +1004,41 @@ describe("resolveFillMode", () => {
   it("prefers a stored fillMode over the value-based inference", () => {
     intentValues = { fillStyleMode: "original" };
     expect(resolveFillMode(makeUI({}), "overlay1", makeRamp())).toBe("original");
+  });
+});
+
+describe("buildValueDetail opacity row", () => {
+  it("appends an opacity row after the scheme row", () => {
+    const ramp = makeRamp();
+    const ui = makeUI(makeFeatureLayer([{ properties: { value: 5 } }]));
+    const rows = buildValueDetail(ui, "overlay1", ["value"], ramp);
+    // The opacity row is the last row, after the scheme row: field, scheme,
+    // opacity for a category; field, classes, scheme, opacity for a numeric.
+    const last = rows.at(-1)!;
+    const label = last.querySelector(".foliplus-form-label") as HTMLElement;
+    expect(label.textContent).toBe("style_fill_opacity");
+    const input = last.querySelector(
+      ".foliplus-style-fill-opacity-number",
+    ) as HTMLInputElement;
+    expect(input).not.toBeNull();
+  });
+
+  it("commits through the live binder", () => {
+    const ramp = makeRamp();
+    const ui = makeUI(makeFeatureLayer([{ properties: { value: 5 } }]));
+    const detail = buildValueDetail(ui, "overlay1", ["value"], ramp);
+    const holder = document.createElement("div");
+    for (const row of detail) holder.append(row);
+    bindValueDetail(ui, "overlay1", holder);
+    const input = holder.querySelector(
+      ".foliplus-style-fill-opacity-number",
+    ) as HTMLInputElement;
+    expect(input).not.toBeNull();
+    // The binder writes an opacity patch (never the mode): #953.
+    input.value = "50";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(intentValues.fillOpacity).toBe(0.5);
+    expect(intentValues.fillStyleMode).toBeUndefined();
   });
 });
 

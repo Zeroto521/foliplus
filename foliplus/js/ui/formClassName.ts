@@ -14,6 +14,7 @@ const FORM_CLASS = {
   INPUT_SKIN: "foliplus-input-skin",
   INPUT: "foliplus-input",
   FORM_SELECT: "foliplus-form-select",
+  CLASSES_SELECT: "foliplus-classes-select",
   COLOR_INPUT: "foliplus-form-color-input",
   NUMBER_INPUT: "foliplus-form-number-input",
   NUMBER_GROUP: "foliplus-form-number-group",

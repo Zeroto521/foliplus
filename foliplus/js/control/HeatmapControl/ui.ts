@@ -33,6 +33,7 @@ import {
   createSchemePicker,
   dropdownOf,
   dropdownOverlay,
+  finishPanelReset,
 } from "#ui/index.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
@@ -352,12 +353,19 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
-    resetPanel(ctrl);
-    ctrl.mgr.clearSavedConfig();
-    ctrl.mgr.clearLayerState();
-    ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
-    ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
-    adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+    finishPanelReset({
+      restore: () => {
+        resetPanel(ctrl);
+        ctrl.mgr.clearSavedConfig();
+        ctrl.mgr.clearLayerState();
+        // Clear returns to the declared starting state in the same session:
+        // rebuild re-selects the declared (or single) layer, re-seeds the
+        // filter and repaints, so the row stays filterable without reopening.
+        rebuildLayerDropdown(ctrl);
+      },
+      close: collapseHeatmapPanel.bind(null, ctrl),
+      focus: () => heatmapClearFocus(ctrl, clearBtn),
+    });
   };
 
   // Initial color bar render is handled by the picker's constructor.
@@ -665,6 +673,25 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   };
 };
 
+/** Collapse the heatmap panel for the dismiss branch of the Clear outcome. */
+const collapseHeatmapPanel = (ctrl: HeatmapControlUI): void => {
+  ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+  ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
+  adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+};
+
+/** Focus after Clear: its own button while visible, otherwise the layer
+ *  dropdown trigger — the native select is hidden behind the shared dropdown,
+ *  so it cannot take focus itself. */
+const heatmapClearFocus = (
+  ctrl: HeatmapControlUI,
+  clearBtn: HTMLButtonElement,
+): HTMLElement => {
+  if (clearBtn.offsetParent) return clearBtn;
+  const trigger = ctrl.layerSelect.parentElement!.querySelector<HTMLElement>("button");
+  return trigger ?? clearBtn;
+};
+
 /** Reset the panel to its initial state — manager state back to the declared
  *  defaults, canvas wiped, every dropdown on its placeholder. Shared by the
  *  panel's Clear button and the LAYER_DELETED path (LayerControl's more-menu
@@ -705,5 +732,13 @@ const syncSelect = (ctrl: HeatmapControlUI, el: HTMLSelectElement, value: string
   dropdownOf(el)?.refresh();
 };
 
-export { bindControls, initScan, rebuildLayerDropdown, resetPanel, setupObserver };
+export {
+  bindControls,
+  collapseHeatmapPanel,
+  heatmapClearFocus,
+  initScan,
+  rebuildLayerDropdown,
+  resetPanel,
+  setupObserver,
+};
 export type { HeatmapControlUI };

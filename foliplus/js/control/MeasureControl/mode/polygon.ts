@@ -25,7 +25,7 @@ class PolygonMode extends PreviewMode {
     const points = Util.pointsToLatLngs(data.points!);
     const finalPoly = mgr.layers.addLayer(
       L.polygon(points, {
-        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
+        className: `${Util.pathClass(CONST.CLASSES.PATH_SOLID)} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
     ) as L.Polygon; // addLayer ret val narrowed
@@ -90,14 +90,20 @@ class PolygonMode extends PreviewMode {
   start() {
     const points: L.LatLng[] = [];
     const poly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.PATH_PREVIEW, interactive: false }),
+      L.polyline([], {
+        className: Util.pathClass(CONST.CLASSES.PATH_PREVIEW),
+        interactive: false,
+      }),
     );
     const confirmedPoly = this.addPreview(
-      L.polyline([], { className: CONST.CLASSES.PATH_DASHED, interactive: false }),
+      L.polyline([], {
+        className: Util.pathClass(CONST.CLASSES.PATH_DASHED),
+        interactive: false,
+      }),
     );
     const previewPoly = this.addPreview(
       L.polygon([], {
-        className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`,
+        className: `${Util.pathClass(CONST.CLASSES.PATH_PREVIEW)} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: false,
       }),
     );
@@ -109,7 +115,7 @@ class PolygonMode extends PreviewMode {
     const segLabels: L.Marker[] = [];
     const finalPoly = this.layers.addLayer(
       L.polygon([], {
-        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
+        className: `${Util.pathClass(CONST.CLASSES.PATH_SOLID)} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
     ) as L.Polygon;

@@ -3278,12 +3278,15 @@ describe("border options per geometry", () => {
     registerGeometryLayer("g_vw2", "line");
     setIntent(ui, "g_vw2", "borderStyleMode", STYLE_MODE.VALUE);
     const detail = openBorderRow("g_vw2");
-    const row = detail.querySelector(".foliplus-style-size-row") as HTMLElement;
-    expect(row).not.toBeNull();
-    const weight = row.querySelector(
+    // The width input's own row is the size-row (right-aligned column). The
+    // fill value detail also right-aligns its opacity row (the shared
+    // STYLE_SIZE_ROW hook) now, so scope the assertion to the weight input's
+    // row rather than the first size-row in the detail.
+    const weight = detail.querySelector(
       ".foliplus-style-border-weight-input",
     ) as HTMLInputElement;
     expect(weight).not.toBeNull();
+    expect(weight.closest(".foliplus-style-size-row")).not.toBeNull();
   });
 
   it("per-feature original border mode also keeps the width input", () => {
