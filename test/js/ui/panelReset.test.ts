@@ -28,6 +28,18 @@ describe("runResetSteps", () => {
   it("returns an empty failure list when every step lands", () => {
     expect(runResetSteps([() => {}, () => {}])).toEqual([]);
   });
+
+  it("logs by default when no hook is supplied", () => {
+    // A caller that forgot onError must not swallow the failure: the shared
+    // logger is the default channel.
+    expect(() =>
+      runResetSteps([
+        () => {
+          throw new Error("boom");
+        },
+      ]),
+    ).not.toThrow();
+  });
 });
 
 describe("finishPanelReset", () => {
