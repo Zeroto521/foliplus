@@ -2,14 +2,10 @@
 /**
  * Guard: every popup coordinate write lives in a shared placement adapter.
  *
- * `ui/placement.ts` is the one geometry kernel. Coordinates are written by the
- * shared DOM adapter, `ui/placeSurface.ts` (measure -> kernel -> write), or by
- * the two surfaces that still own a placement policy and write their own
- * coordinates:
- *
- *   ui/placementAdapter.ts shared DOM adapter (every migrated surface uses it)
- *   ui/listbox.ts          dropdown + scheme picker (width preference, bottom anchor)
- *   core/leaflet/panel.ts  pinned row panel (8px top inset)
+ * `ui/placement.ts` is the one geometry kernel and `ui/placementAdapter.ts`
+ * the one DOM writer: every surface places through the adapter (measure ->
+ * kernel -> write, or apply an already-computed placement). No surface file
+ * writes a coordinate itself.
  *
  * This scan flags, in any other file under `foliplus/js`:
  *
@@ -52,15 +48,12 @@ import path from "node:path";
 /** Production source root, relative to the repo root. */
 const JS_ROOT_REL = path.join("foliplus", "js");
 
-/** Files allowed to write a floating surface's coordinates: the kernel itself,
- *  the shared DOM adapter, and the surfaces that still write their own
- *  coordinates. Adding a surface means routing it through placeSurface (or
- *  adding it here with a reason) — never a second flip implementation. */
+/** Files allowed to write a floating surface's coordinates: the kernel itself
+ *  and the shared DOM adapter. Adding a surface means routing it through the
+ *  adapter — never a second flip implementation. */
 const ADAPTER_FILES = new Set([
   "foliplus/js/ui/placement.ts",
   "foliplus/js/ui/placementAdapter.ts",
-  "foliplus/js/ui/listbox.ts",
-  "foliplus/js/core/leaflet/panel.ts",
 ]);
 
 /** The line-level exemption marker. The reason after the colon is mandatory. */
