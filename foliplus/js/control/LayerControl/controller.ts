@@ -41,6 +41,7 @@ import {
   LayerInfoRegistry,
   type LayerKind,
   LayerOrder,
+  type LayerRole,
   type LayerSurface,
   PaneManager,
   ROLE,
@@ -387,6 +388,15 @@ class LayerController implements LayerAPI {
         this.applyFilterClass(layerInfo.id, declared);
         publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: layerInfo.id });
       }
+    }
+
+    // The constructor seed registers through LayerInfoRegistry directly (not
+    // registerLayer), so the generic filter capability must be injected here
+    // too — otherwise constructor-registered ordinary layers show no Filter
+    // entry in the ⋮ menu while runtime-registered ones do. One gate serves
+    // both paths.
+    for (const layerInfo of this.layerRegistry.items) {
+      this.injectGenericFilterCapability(layerInfo, layerInfo.id);
     }
 
     this.factory = new LayerFactory({
@@ -958,6 +968,44 @@ class LayerController implements LayerAPI {
     if (operation.hasFailure()) operation.throwIfFailed();
   }
 
+  /** Inject the generic filter capability for an ordinary data layer. The
+   *  caller-explicit capability (Heatmap/Measure register their own
+   *  filterProvider/filterSetter) always wins — registerLayer semantics is
+   *  caller-explicit wins. Canvas layers (own rendering/count model) and base
+   *  layers are excluded. The closures reference `this` (and the runtime store
+   *  through `this.ui`), never a captured ui instance, so an injection before
+   *  attach still resolves. Both the bulk seed (constructor data) and the
+   *  runtime registerLayer path must reach this one gate, or the ⋮ menu
+   *  (isFilterCapable) and the filter panel disagree about a row that
+   *  constructor-registered layers can filter.
+   *
+   *  @param target - The registration target being prepared (raw opts on the
+   *    registerLayer path, a LayerInfo on the bulk-seed path). Both carry the
+   *    same capability fields, so one duck-typed gate serves both.
+   *  @param id - Layer id, captured by the closures.
+   */
+  private injectGenericFilterCapability(
+    target: {
+      filterProvider?: (() => LayerFilterModel | null) | null;
+      filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+      canvas?: HTMLCanvasElement | null;
+      styleSetters?: Record<string, (value: unknown) => void> | null;
+      role?: LayerRole;
+    },
+    id: string,
+  ): void {
+    if (
+      !target.filterProvider &&
+      !target.filterSetter &&
+      !target.canvas &&
+      !target.styleSetters &&
+      target.role !== ROLE.BASE
+    ) {
+      target.filterProvider = () => this.genericFilterModel(id);
+      target.filterSetter = (filter: LayerFilter | undefined) =>
+        this.setLayerFilter(id, filter);
+    }
+  }
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
     if (!opts?.id) throw new Error(this.log.msg(this.T("id_required")));
 
@@ -990,24 +1038,9 @@ class LayerController implements LayerAPI {
       );
     }
 
-    // Inject the generic filter capability for ordinary data layers. A layer
-    // that already declares filterProvider/filterSetter (Heatmap/Measure) keeps
-    // its own — registerLayer's semantics is caller-explicit wins. Canvas layers
-    // (own rendering/count model) and base layers are excluded. The closures
-    // reference `this` (and the runtime store through `this.ui`), never a
-    // captured ui instance, so a registration before attach still resolves.
-    if (
-      !opts.filterProvider &&
-      !opts.filterSetter &&
-      !opts.canvas &&
-      !opts.styleSetters &&
-      opts.role !== ROLE.BASE
-    ) {
-      const id = opts.id;
-      opts.filterProvider = () => this.genericFilterModel(id);
-      opts.filterSetter = (filter: LayerFilter | undefined) =>
-        this.setLayerFilter(id, filter);
-    }
+    // Inject the generic filter capability for ordinary data layers. The
+    // caller-explicit capability (Heatmap/Measure) wins; see the helper.
+    this.injectGenericFilterCapability(opts, opts.id);
 
     const { layerInfo, hidden, mutation } = this.domain.registerEntry(
       opts,
