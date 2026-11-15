@@ -146,7 +146,12 @@ def main() -> int:
     violations: list[tuple[str, str, int]] = []  # (relpath, kind, line)
     for path in sorted(TEST_PY.rglob("*.py")):
         source = path.read_text(encoding="utf-8")
-        rel = path.relative_to(REPO_ROOT).as_posix()
+        try:
+            rel = path.relative_to(REPO_ROOT).as_posix()
+        except ValueError:
+            # Explicit paths outside the repo (e.g. a temp tree under /tmp):
+            # the function contract must not crash; show the raw path instead.
+            rel = str(path)
         for line in _find_bare_reloads(source):
             violations.append((rel, "bare .reload()", line))
         for line in _find_reload_aliases(source):
