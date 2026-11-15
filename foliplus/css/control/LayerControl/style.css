@@ -84,9 +84,13 @@
    screen: right-align it at the same inset the unit-suffixed number field
    keeps for its value, so the mode that swaps the input for a readout does
    not shift the row's right edge. Scoped to the opacity hook only — the
-   class-count readout beside it keeps its centred value. */
+   class-count readout beside it keeps its centred value. The box is the
+   suffix's positioned containing block (the shared form.css suffix rule
+   is absolute inside the field's own right padding), so the readout's %
+   lands at the exact same offset as the editable number field's %. */
 .foliplus-form-inline
   > .foliplus-style-fill-readonly:is(.foliplus-style-fill-original-opacity) {
+  position: relative;
   text-align: right;
   padding-inline-end: var(--foliplus-size-16);
 }

@@ -508,6 +508,13 @@ const commitNow = (
   flushStyleDimApply(FACE.FILL, layerId);
 };
 
+const origOpacity = (root: HTMLElement): string => {
+  const box = root.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
+  return (
+    box?.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE}`)?.textContent ?? ""
+  ).trim();
+};
+
 describe("LayerUI style panel — fill color", () => {
   let manager: LayerController;
 
@@ -2522,7 +2529,7 @@ describe("buildFillRow", () => {
 
     expect(boxes.length).toBeGreaterThanOrEqual(2);
 
-    expect(row.textContent).toContain("20%");
+    expect(origOpacity(row)).toBe("20");
 
     // The monochrome colour block reuses the SOLID row's own chrome
     // (STYLE_FILL_COLOR_INPUT) — the default fallback paints it.
@@ -2548,7 +2555,7 @@ describe("buildFillRow", () => {
 
     const row = buildFillRow(fixture.ui, "overlay1");
 
-    expect(row.textContent).toContain("20%");
+    expect(origOpacity(row)).toBe("20");
 
     // The monochrome colour block reuses the SOLID row's own chrome
     // (STYLE_FILL_COLOR_INPUT) — the default fallback paints it.
@@ -8176,7 +8183,6 @@ describe("fill original availability (P1)", () => {
     block.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`) as HTMLElement;
 
   const origText = (el: HTMLElement): string => (el.textContent ?? "").trim();
-
   const origToRgb = (hex: string): string => {
     const h = hex.replace("#", "");
 
@@ -8266,7 +8272,7 @@ describe("fill original availability (P1)", () => {
 
     expect(origDetailShows(d, CONST.COLOR.DEFAULT)).toBe(true);
 
-    expect(origText(d)).toContain("20%");
+    expect(origOpacity(d)).toBe("20");
   });
 
   it("shows the author's own color and opacity for a monochrome author (revert guard)", () => {
@@ -8294,7 +8300,7 @@ describe("fill original availability (P1)", () => {
 
     expect(origDetailShows(d, "#aabbcc")).toBe(true);
 
-    expect(origText(d)).toContain("45%");
+    expect(origOpacity(d)).toBe("45");
   });
 
   it("shows 0% opacity (not a dash) when the author painted transparent", () => {
@@ -8316,7 +8322,7 @@ describe("fill original availability (P1)", () => {
 
     // 0% is a real value, not a missing one — the dash rule must not eat it.
 
-    expect(origText(d)).toContain("0%");
+    expect(origOpacity(d)).toBe("0");
   });
 
   it("stays original when only the opacity was overridden (no color/mode intent)", () => {

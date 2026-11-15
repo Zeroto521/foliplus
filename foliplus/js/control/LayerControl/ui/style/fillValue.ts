@@ -577,7 +577,7 @@ const buildValueDetail = (
   const opacityRow = formRow(
     ui.T("style_fill_opacity"),
     inlineControls(opacity),
-    CONST.CLASSES.STYLE_FILL_ROW,
+    `${CONST.CLASSES.STYLE_FILL_ROW} ${CONST.CLASSES.STYLE_SIZE_ROW}`,
   );
 
   return isCategoryKind(value.kind)

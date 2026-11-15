@@ -10,6 +10,7 @@
 // to editable inputs), these assertions go red.
 import { initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { FORM_CLASS } from "#ui/formClassName.js";
 import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { buildFillRow } from "#control/LayerControl/ui/style/fill.js";
@@ -68,6 +69,8 @@ const detail = (block: HTMLElement): HTMLElement =>
   block.querySelector(`.${CONST.CLASSES.STYLE_FILL_DETAIL}`) as HTMLElement;
 
 const text = (el: HTMLElement): string => (el.textContent ?? "").trim();
+const opacityBoxOf = (root: HTMLElement): HTMLElement | null =>
+  root.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
 
 const toRgb = (hex: string): string => {
   const h = hex.replace("#", "");
@@ -124,7 +127,11 @@ describe("monochrome original detail (P2)", () => {
     expect(rowOfBoxes.every(r => r === rows[0])).toBe(true);
     // The two readouts carry the colour and the percentage.
     expect(detailShows(rows[0], "#aabbcc")).toBe(true);
-    expect(text(rows[0])).toContain("45%");
+    expect(
+      opacityBoxOf(rows[0])?.querySelector(
+        `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE}`,
+      )?.textContent,
+    ).toBe("45");
   });
 
   it("falls back to the constants when a fill leaf carries no options object", () => {
@@ -140,7 +147,10 @@ describe("monochrome original detail (P2)", () => {
     const d = detail(block);
     // Both default constants appear (no leaf value anywhere).
     expect(detailShows(d, "#cccccc")).toBe(true);
-    expect(text(d)).toContain("20%");
+    expect(
+      opacityBoxOf(d)?.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE}`)
+        ?.textContent,
+    ).toBe("20");
   });
 
   it("a per-feature author keeps the cmap multi-row original form", () => {
@@ -239,7 +249,17 @@ describe("monochrome original detail (P2)", () => {
     // The read-only opacity box carries the first leaf's fillOpacity.
     const opacityBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
     expect(opacityBox).not.toBeNull();
-    expect(text(opacityBox as HTMLElement)).toContain("45%");
+    // The readout splits the value from its unit suffix, exactly like the
+    // editable number field it replaces: a bare value span + a muted % unit.
+    const valueSpan = opacityBox!.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE}`,
+    );
+    expect(valueSpan?.textContent).toBe("45");
+    const suffix = opacityBox!.querySelector(`.${FORM_CLASS.NUMBER_SUFFIX}`);
+    expect(suffix?.textContent).toBe("foliplus.unit_pct");
+    expect(opacityBox!.getAttribute("aria-label")).toBe(
+      "LayerControl.style_fill_opacity (foliplus.unit_pct)",
+    );
     // The row sits after the scheme row (the last row of the detail).
     const rows = Array.from(
       d.querySelectorAll(`.${PANEL_CLASS.FORM_ROW}`),
@@ -266,7 +286,12 @@ describe("monochrome original detail (P2)", () => {
     const opacityBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
     expect(opacityBox).not.toBeNull();
     // First leaf wins: 0.55 reads 55% (not the second leaf's 30%).
-    expect(text(opacityBox as HTMLElement)).toContain("55%");
+    // First leaf wins: 0.55 reads 55% (not the second leaf's 30%).
+    const valueSpan = opacityBox!.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE}`,
+    );
+    expect(valueSpan?.textContent).toBe("55");
+    expect(opacityBox!.querySelector(`.${FORM_CLASS.NUMBER_SUFFIX}`)).not.toBeNull();
   });
   it("the cmap original opacity box falls back to 20% when the leaf carries no fillOpacity", () => {
     // A per-feature author whose fill leaves never set a fillOpacity reads
@@ -281,7 +306,11 @@ describe("monochrome original detail (P2)", () => {
     const d = detail(block);
     const opacityBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
     expect(opacityBox).not.toBeNull();
-    expect(text(opacityBox as HTMLElement)).toContain("20%");
+    const valueSpan = opacityBox!.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE}`,
+    );
+    expect(valueSpan?.textContent).toBe("20");
+    expect(opacityBox!.querySelector(`.${FORM_CLASS.NUMBER_SUFFIX}`)).not.toBeNull();
   });
 
   it("the cmap original opacity row is read-only (#953)", () => {

@@ -752,7 +752,7 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
     // to SINGLE, only its editability differs.
     if (paintsPerFeatureFill(ui, layerId)) {
       return [
-        ...buildOriginalDetail(ui, layerId),
+        ...buildOriginalDetail(ui, layerId, { includeOpacity: false }),
         buildBorderWidthOnlyRow(ui, layerId, author),
       ];
     }
