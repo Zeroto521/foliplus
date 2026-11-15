@@ -1,17 +1,15 @@
 // Style capability — the one call that answers "which style
 // dimensions does this layer honestly support".
 //
-// The panel and the menu today ask the same question through two shapes: the
-// per-dimension gates (`layerCanFill`, `layerCanBorder`, ...) each read
-// `capabilities.{slot}` via `capabilityGate`, and the menu's `canConfigure`
-// re-asks a narrower set (opacity / zoomRange / label / delegation) instead of
-// the panel's full dimension list. The capability slots are already the single
-// source (derived once by `detectCapabilities`); what the UI lacks is ONE
-// projection that reads all of them.
+// The panel and the menu both ask through this single projection. The
+// per-dimension gates (`layerCanFill`, `layerCanBorder`, ...) are thin
+// wrappers over `dims`, and the retired two-layer gate factory is gone:
+// one projection, not a gate factory plus a projection. The capability
+// slots are the single source (derived once by `detectCapabilities`).
 //
 // This module is a read-only projection over the surface — never a second
-// derivation. It returns the same bits the per-dimension gates return, so the
-// row presence is unchanged; the only intended behavior change is the
+// derivation. It returns the same bits the per-dimension gates returned, so
+// the row presence is unchanged; the only intended behavior change is the
 // menu's `canConfigure` delegation — the menu asks the same one projection.
 //
 // The projection publishes all nine style dims (opacity / zoomRange / label
