@@ -1,7 +1,8 @@
+import { CLASSES } from "./const.js";
 import { primeControlMap } from "#core/leafletAdapter.js";
-import { SCALE_CLASS } from "#ui/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { dom } from "#platform/dom.js";
+import { SCALE_CLASS } from "#ui/index.js";
 
 const ScaleControl = defineControl({
   config: CONFIG,
@@ -14,7 +15,7 @@ const ScaleControl = defineControl({
 
     if (this.config.show_zoom) {
       const zoomLabel = dom.el("span", {
-        class: "foliplus-scale-zoom-label",
+        class: CLASSES.ZOOM_LABEL,
         parent: ctrl,
       });
       const updateZoom = () => {
