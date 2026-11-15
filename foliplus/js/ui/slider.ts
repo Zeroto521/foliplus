@@ -752,6 +752,15 @@ class Slider {
       dot.classList.toggle(SLIDER_CLASS.DOT_COVERED, at >= lo && at <= hi);
     }
 
+    // S1 (filter): the end readouts report the current thumbs, not the static
+    // extent, and refresh on every value change (drag, key, pan). Opt-in —
+    // opacity/zoom-range keep the static extent readout. No layout churn: the
+    // text swap only reflows the two end spans.
+    if (this.opts.alwaysVisible && this.minEl && this.maxEl) {
+      const fmt = this.opts.format ?? ((value: number) => String(value));
+      this.minEl.textContent = fmt(this.values[0]);
+      this.maxEl.textContent = fmt(this.values[this.values.length - 1]);
+    }
     if (this.currentEl && this.opts.current) {
       const current = this.opts.current;
       // Centre the label on the dot it names: the dot rides the track (inset by
