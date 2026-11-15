@@ -26,7 +26,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
     </div>
   </div>
 
-  <div class="${CONST.CLASSES.EXTRA_BODY} foliplus-hidden" ${CONST.DATA_ATTR.EXTRA_BODY}>
+  <div class="${CONST.CLASSES.EXTRA_BODY} ${PANEL_CLASS.HIDDEN}" ${CONST.DATA_ATTR.EXTRA_BODY}>
 
     <div class="${PANEL_CLASS.FORM_ROW}">
       <label class="${PANEL_CLASS.FORM_LABEL}">${T("agg_method")}</label>
@@ -46,7 +46,7 @@ const panelContentHTML = (T: (key: string) => string): string => /* html */ `
          the panel shell + the heatmap-specific Layer/Agg/Clear rows. -->
     <div class="${CONST.CLASSES.SECTION_BLOCK}" ${CONST.DATA_ATTR.RAMP_ROWS}></div>
 
-    <hr class="foliplus-section-divider">
+    <hr class="${PANEL_CLASS.SECTION_DIVIDER}">
 
     <div class="${CONST.CLASSES.BTN_ROW}">
       <button class="${PANEL_CLASS.PANEL_BTN} ${CONST.CLASSES.BTN_CLEAR}" ${CONST.DATA_ATTR.BTN_CLEAR}>${T("clear")}</button>
