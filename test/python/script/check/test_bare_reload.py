@@ -61,24 +61,13 @@ def test_reload_alias_not_on_comparison():
 
 def test_strip_removes_comment_and_string_reloads():
     """A reload inside a comment or string must not count."""
-    src = (
-        "# obj.reload()\n"
-        '"""\n'
-        "obj.reload()\n"
-        '"""\n'
-        "obj.reload()\n"
-    )
+    src = '# obj.reload()\n"""\nobj.reload()\n"""\nobj.reload()\n'
     assert mod._find_bare_reloads(src) == [5]
 
 
 def test_strip_preserves_line_structure_across_strings():
     """Stripping a multi-line string must not collapse line numbers."""
-    src = (
-        'x = "a\n'
-        "obj.reload()\n"
-        'b"\n'
-        "obj.reload()\n"
-    )
+    src = 'x = "a\nobj.reload()\nb"\nobj.reload()\n'
     assert mod._find_bare_reloads(src) == [4]
 
 
