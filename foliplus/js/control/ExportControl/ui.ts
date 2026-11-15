@@ -11,7 +11,12 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
-import { PANEL_CLASS } from "#ui/index.js";
+import { BUTTON_CLASS, PANEL_CLASS } from "#ui/index.js";
+
+/** Join the shared dot look with a local positioning hook into a full
+ *  className. `hollow` / `solid` select the fill variant from button.css. */
+const dotClass = (kind: "hollow" | "solid", hook: string): string =>
+  `${BUTTON_CLASS.DOT} ${kind === "hollow" ? BUTTON_CLASS.DOT_HOLLOW : BUTTON_CLASS.DOT_SOLID} ${hook}`;
 
 /** Toolbar action button config. */
 interface ToolbarButton {
@@ -191,12 +196,15 @@ const showCropBox = (mgr: ExportManager) => {
 
   ["tl", "tr", "bl", "br", "t", "b", "l", "r"].forEach(pos => {
     dom.el("div", {
-      class: `${CONST.CLASSES.HANDLE_DOT} ${pos}`,
+      class: `${dotClass("hollow", CONST.CLASSES.HANDLE)} ${pos}`,
       parent: cropBox,
       "data-pos": pos,
     });
   });
-  dom.el("div", { class: CONST.CLASSES.CENTER_DOT, parent: cropBox });
+  dom.el("div", {
+    class: dotClass("solid", CONST.CLASSES.EXPORT_CROP_CENTER),
+    parent: cropBox,
+  });
 
   renderToolbarActions(mgr, {
     confirm: {
@@ -333,6 +341,7 @@ const removeCropBox = (mgr: ExportManager) => {
 };
 
 export {
+  dotClass,
   lockCropBox,
   removeCropBox,
   showCropBox,

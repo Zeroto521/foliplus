@@ -76,21 +76,21 @@ const PANES = {
 const CLASSES = {
   /** The measure control shell class. */
   CTRL: "foliplus-measure-ctrl",
-  // Three path states shared by lines, circles, and polygons.
-  PATH_SOLID: "foliplus-measure-path foliplus-measure-path-solid",
-  PATH_DASHED: "foliplus-measure-path foliplus-measure-path-dashed",
-  PATH_PREVIEW: "foliplus-measure-path foliplus-measure-path-preview",
+  // Three path states shared by lines, circles, and polygons. The base and
+  // each variant are single tokens; consumers join them via `pathClass()`
+  // (util.ts) so the owner scan sees every token declared here.
+  PATH_BASE: "foliplus-measure-path",
+  PATH_SOLID: "foliplus-measure-path-solid",
+  PATH_DASHED: "foliplus-measure-path-dashed",
+  PATH_PREVIEW: "foliplus-measure-path-preview",
   // Fill modifier for area shapes (circle/polygon).
-  SHAPE_FILL: "foliplus-measure-shape-fill",
-  // `.foliplus-dot-hollow` / `-solid` (common/button.css) carry the fill, stroke
-  // and geometry, shared with the export crop-box anchors. `foliplus-measure-node`
-  // stays as the semantic hook (node pane styling, test selectors).
-  NODE_HOLLOW: "foliplus-dot foliplus-dot-hollow foliplus-measure-node",
+  SHAPE_FILL: "foliplus-measure-shape-fill", // `foliplus-measure-node` stays as the semantic hook (node pane styling,
+  // test selectors).
+  NODE: "foliplus-measure-node",
   // ExportControl's SKIP_EXPORT selector drops anything carrying this class from
   // the exported image.  Stamped on preview layers only — the preview is a
   // drawing aid, not content.
   SKIP_EXPORT: "foliplus-skip-export",
-  NODE_SOLID: "foliplus-dot foliplus-dot-solid foliplus-measure-node",
   RIPPLE: "foliplus-measure-ripple",
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   MEASURING: "foliplus-measuring",

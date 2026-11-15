@@ -75,5 +75,6 @@
   "ui/slider",
   "ui/sliderClassName",
   "ui/styleModeKey",
-  "ui/type"
+  "ui/type",
+  "ui/buttonClassName"
 ]

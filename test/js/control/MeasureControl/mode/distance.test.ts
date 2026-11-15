@@ -1,5 +1,6 @@
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
+import * as Util from "#control/MeasureControl/util.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
 import { DistanceMode } from "#control/MeasureControl/mode/index.js";
@@ -86,8 +87,8 @@ describe("DistanceMode — first node uses NODE_SOLID", () => {
 
     // No cursor moves, so these are the confirmed nodes only.
     const calls = window.L.circleMarker.mock.calls;
-    expect(calls[0][1].className).toContain("foliplus-dot-solid");
-    expect(calls[1][1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+    expect(calls[0][1].className).toBe(Util.nodeClass("solid"));
+    expect(calls[1][1].className).toBe(Util.nodeClass("hollow"));
   });
 });
 
@@ -100,7 +101,7 @@ describe("DistanceMode — drawing polyline uses PATH_PREVIEW", () => {
 
     const polylineCall = window.L.polyline.mock.calls.find(
       ([, opts]: [unknown, { className?: string }]) =>
-        opts.className === CONST.CLASSES.PATH_PREVIEW,
+        opts.className === Util.pathClass(CONST.CLASSES.PATH_PREVIEW),
     );
     expect(polylineCall).toBeDefined();
   });
@@ -181,7 +182,7 @@ describe("DistanceMode — restore first node uses NODE_SOLID", () => {
     expect(firstCall[1].className).toContain("foliplus-dot-solid");
 
     const secondCall = window.L.circleMarker.mock.calls[1];
-    expect(secondCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+    expect(secondCall[1].className).toBe(Util.nodeClass("hollow"));
   });
 });
 
@@ -431,7 +432,7 @@ describe("DistanceMode — preview cursor node", () => {
     ];
     expect(cursorCall[0]).toEqual({ lat: 31, lng: 121 });
     expect(cursorCall[1].interactive).toBe(false);
-    expect(cursorCall[1].className).toBe(CONST.CLASSES.NODE_HOLLOW);
+    expect(cursorCall[1].className).toBe(Util.nodeClass("hollow"));
 
     // Mounted through addPreview in the node pane, above the graph pane.
     const cursor = window.L.circleMarker.mock.results.at(-1).value;

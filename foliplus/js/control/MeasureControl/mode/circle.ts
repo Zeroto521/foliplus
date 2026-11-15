@@ -38,13 +38,13 @@ class CircleMode extends PreviewMode {
     const circle = mgr.layers.addLayer(
       L.circle(centerLatLng, {
         radius: r,
-        className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
+        className: `${Util.pathClass(CONST.CLASSES.PATH_SOLID)} ${CONST.CLASSES.SHAPE_FILL}`,
         interactive: true,
       }),
     ) as L.Circle;
     const radiusLine = mgr.layers.addLayer(
       L.polyline([centerLatLng, targetLatLng], {
-        className: CONST.CLASSES.PATH_DASHED,
+        className: Util.pathClass(CONST.CLASSES.PATH_DASHED),
         interactive: true,
       }),
     ) as L.Polyline;
@@ -53,7 +53,7 @@ class CircleMode extends PreviewMode {
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     const centerFinal = mgr.layers.addLayer(
-      Util.buildNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+      Util.buildNode(centerLatLng, Util.nodeClass("solid")),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     // Pure create + node-pane mount (no click handler) — strictly equivalent
@@ -147,7 +147,7 @@ class CircleMode extends PreviewMode {
       if (phase === 0) {
         center = event.latlng;
         previews.center = this.addPreview(
-          Util.buildPreviewNode(center, CONST.CLASSES.NODE_SOLID),
+          Util.buildPreviewNode(center, Util.nodeClass("solid")),
           CONST.PANES.NODE,
         );
         phase = 1;
@@ -182,7 +182,7 @@ class CircleMode extends PreviewMode {
         previews.circle = this.addPreview(
           L.circle(center, {
             radius: r,
-            className: `${CONST.CLASSES.PATH_PREVIEW} ${CONST.CLASSES.SHAPE_FILL}`,
+            className: `${Util.pathClass(CONST.CLASSES.PATH_PREVIEW)} ${CONST.CLASSES.SHAPE_FILL}`,
             interactive: false,
           }),
         );
@@ -191,7 +191,7 @@ class CircleMode extends PreviewMode {
       if (!previews.line) {
         previews.line = this.addPreview(
           L.polyline([center, event.latlng], {
-            className: CONST.CLASSES.PATH_PREVIEW,
+            className: Util.pathClass(CONST.CLASSES.PATH_PREVIEW),
             interactive: false,
           }),
         );
@@ -232,7 +232,7 @@ class CircleMode extends PreviewMode {
       const circle = this.layers.addLayer(
         L.circle(centerLatLng, {
           radius: r,
-          className: `${CONST.CLASSES.PATH_SOLID} ${CONST.CLASSES.SHAPE_FILL}`,
+          className: `${Util.pathClass(CONST.CLASSES.PATH_SOLID)} ${CONST.CLASSES.SHAPE_FILL}`,
           interactive: true,
         }),
       );
@@ -255,7 +255,7 @@ class CircleMode extends PreviewMode {
 
       const radiusLine = this.layers.addLayer(
         L.polyline([centerLatLng, finalTargetLatLng], {
-          className: CONST.CLASSES.PATH_DASHED,
+          className: Util.pathClass(CONST.CLASSES.PATH_DASHED),
           interactive: true,
         }),
       );
@@ -265,7 +265,7 @@ class CircleMode extends PreviewMode {
       );
 
       const centerFinal = this.layers.addLayer(
-        Util.buildNode(centerLatLng, CONST.CLASSES.NODE_SOLID),
+        Util.buildNode(centerLatLng, Util.nodeClass("solid")),
         CONST.PANES.NODE,
       );
       // See restore(): pure create + mount; click wired in attachCircleUI.

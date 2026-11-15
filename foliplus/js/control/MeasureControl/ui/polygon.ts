@@ -130,7 +130,7 @@ const attachPolygonUI = (mgr: MeasureManager, opts: PolygonAttachOpts): void => 
     // sit at z = Y; after zoom `sortLayers` re-sorts by Y, so the label's
     // offset (2000) keeps it above its own segment labels.
     centroidDot = layers.addLayer(
-      Util.buildNode(centroid, CONST.CLASSES.NODE_SOLID),
+      Util.buildNode(centroid, Util.nodeClass("solid")),
       CONST.PANES.NODE,
     ) as L.CircleMarker;
     centroidLabel = layers.addLayer(
