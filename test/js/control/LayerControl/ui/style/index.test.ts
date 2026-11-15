@@ -939,7 +939,7 @@ describe("LayerUI style panel", () => {
     expect(manager.label.getConfig("overlay1").format).toBe(NUMBER_FORMAT.COMMA);
   });
 
-  it("reset restores the default config and closes the panel", () => {
+  it("reset restores the default config and keeps the panel open", () => {
     const item = findItem(ui, "overlay1");
     const focusSpy = vi.fn();
     item.focus = focusSpy;
@@ -964,15 +964,18 @@ describe("LayerUI style panel", () => {
       ...CONST.DEFAULT_LABEL,
       collide: true,
     });
-    expect(panelOf(item)).toBeUndefined();
-    expect(focusSpy).toHaveBeenCalled();
+    expect(panelOf(item)).toBeDefined();
+    expect(focusSpy).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(
+      panelOf(item)!.querySelector(".foliplus-style-reset-btn"),
+    );
   });
 
-  it("reset closes the panel without bubbling to the map", () => {
-    // A press on the Reset button must not also become a map click: closing the
-    // panel removes it mid-dispatch, so the click would otherwise keep walking
-    // its original path with no live control ancestor and land on the map (the
-    // same guarantee as the ⋮ menu — #807).
+  it("reset keeps the panel open without bubbling to the map", () => {
+    // A press on the Reset button must not also become a map click: the
+    // refresh removes the old panel mid-dispatch, so the click would otherwise
+    // keep walking its original path with no live control ancestor and land on
+    // the map (the same guarantee as the ⋮ menu — #807).
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     const bubbled = vi.fn();
@@ -983,8 +986,8 @@ describe("LayerUI style panel", () => {
     ) as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
-    // The panel still closes…
-    expect(panelOf(item)).toBeUndefined();
+    // The panel stays open…
+    expect(panelOf(item)).toBeDefined();
     // …and the press was swallowed, never reaching the row / map.
     expect(bubbled).not.toHaveBeenCalled();
   });
@@ -3134,7 +3137,7 @@ describe("LayerUI style panel", () => {
     expect(btn.textContent).toBe("LayerControl.style_reset");
   });
 
-  it("delegated Reset calls each setter with its styleDefaultsProvider value and closes", () => {
+  it("delegated Reset calls each setter and keeps the panel open", () => {
     const labelShowSetter = vi.fn();
     const labelCollideSetter = vi.fn();
     manager.registerLayer({
@@ -3158,8 +3161,8 @@ describe("LayerUI style panel", () => {
     // Python CONFIG defaults — never the live / persisted values.
     expect(labelShowSetter).toHaveBeenCalledWith(false);
     expect(labelCollideSetter).toHaveBeenCalledWith(true);
-    expect(panelOf(item)).toBeUndefined();
-    expect(focusSpy).toHaveBeenCalled();
+    expect(panelOf(item)).toBeDefined();
+    expect(focusSpy).not.toHaveBeenCalled();
   });
 
   it("delegated Reset skips setters with no matching default", () => {
@@ -3243,9 +3246,9 @@ describe("LayerUI style panel", () => {
     ) as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
-    // No default keys → no setter call, but the panel still closes.
+    // No default keys → no setter call, but the panel stays open.
     expect(labelShowSetter).not.toHaveBeenCalled();
-    expect(panelOf(item)).toBeUndefined();
+    expect(panelOf(item)).toBeDefined();
   });
 
   it("LAYER_STYLE_CHANGE for a different layer id is ignored", () => {
@@ -3324,7 +3327,7 @@ describe("LayerUI style panel", () => {
     btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     expect(labelShowSetter).not.toHaveBeenCalled();
-    expect(panelOf(item)).toBeUndefined();
+    expect(panelOf(item)).toBeDefined();
   });
 
   it("delegated change no-ops when styleSetters is cleared after open", () => {
@@ -4458,13 +4461,13 @@ describe("LayerUI style panel — zoom range", () => {
     row.querySelector('.foliplus-slider-thumb[data-index="1"]')?.remove();
 
     // The reset pass syncs the row's remaining marks, so a missing thumb has
-    // to be skipped rather than dereferenced — and the click still has to
-    // reach the panel close at the end of the handler.
+    // to be skipped rather than dereferenced — and the refresh still has to
+    // rebuild the panel at the end of the handler.
     const reset = panel.querySelector(".foliplus-style-reset-btn")!;
     reset.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(getIntent(ui, "overlay1", "zoomRange")).toBeUndefined();
-    expect(panelOf(item)).toBeUndefined();
+    expect(panelOf(item)).toBeDefined();
   });
 
   it("skips a layer that was unregistered mid-drag", () => {
@@ -4813,13 +4816,11 @@ describe("reset whose dimension reports no delta", () => {
 
 // ── Notification-contract cases, moved from the former
 // ── notifyContract.test.ts so they live with the script they drive. ──
-it("a reset button announces once, after the panel is closed", () => {
+it("a reset button announces once, after the panel refresh", () => {
   // The panel Reset restores every dimension, then the delegated defaults
-  // (or the label config), then closes the panel — and only then announces,
+  // (or the label config), refreshes the open panel, and only then announces,
   // once, for the whole operation. A notify fired by one dimension mid-way
-  // would hand a subscriber a panel that is still open, and a subscriber
-  // that tears the control down there would take the handler's own
-  // closeStylePanel lookup with it.
+  // would hand a subscriber a half-restored panel.
   const { ui, layer, onMap } = oneOverlay();
 
   setIntent(ui, "overlay1", "zoomRange", [0, 3]);
@@ -4849,7 +4850,7 @@ it("a reset button announces once, after the panel is closed", () => {
   expect(() =>
     resetBtn.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   ).not.toThrow();
-  expect(atDelivery).toEqual([{ onMap: true, panelOpen: false }]);
+  expect(atDelivery).toEqual([{ onMap: true, panelOpen: true }]);
   expect(ui.c.isDestroyed).toBe(true);
 });
 

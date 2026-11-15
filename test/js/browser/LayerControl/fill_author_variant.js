@@ -27,6 +27,7 @@ arg => {
     ...document.querySelectorAll(".foliplus-layer-item[data-layer-type=overlay]"),
   ].find(r => r.textContent.includes("Facility Points"));
   if (!row) return { ok: false, reason: "no-row" };
+  if (row.querySelector(".foliplus-layer-style-panel")) return { ok: true };
   row.querySelector(".foliplus-layer-more-btn").click();
   const menu = row.querySelector(".foliplus-layer-more-menu.open");
   if (!menu) return { ok: false, reason: "no-menu" };

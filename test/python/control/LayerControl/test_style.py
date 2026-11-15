@@ -882,6 +882,47 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the neighbouring line lost its own stroke\n{row['strokes']}"
             )
 
+    def test_reset_keeps_style_panel_open_and_focuses_reset(self, browser, tmp_path):
+        """Reset restores values without dismissing the panel; focus stays on it."""
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
+        folium.CircleMarker(
+            [30.0, 120.0],
+            radius=5,
+            color="#3388ff",
+            weight=2,
+            fill=True,
+            fill_opacity=0.8,
+        ).add_to(fg)
+        fg.add_to(m)
+        LayerControl().add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_reset_keeps_panel.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(
+                _js("LayerControl/border_set_and_read"), ["Facility Points"]
+            )
+            assert opened.get("panel"), f"the style panel did not open: {opened}"
+
+            page.locator(
+                ".foliplus-layer-style-panel .foliplus-style-reset-btn"
+            ).click()
+            assert page.locator(".foliplus-layer-style-panel").count() == 1
+            assert page.evaluate(
+                "document.activeElement?.classList.contains("
+                "'foliplus-style-reset-btn') === true"
+            ), "Reset must keep focus on its own button"
+
     def test_circlemarker_stroke_false_border_write_is_visible_and_resettable(
         self, browser, tmp_path
     ):

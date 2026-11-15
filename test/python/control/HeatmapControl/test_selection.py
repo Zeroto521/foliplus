@@ -134,7 +134,40 @@ class TestHeatmapControlSelectionBrowser:
                 assert r["checkboxAfterRedraw"] is True, (
                     f"{label}: the redraw did not come back at the author default: {r}"
                 )
+                if label == "clearButton":
+                    assert r["expandedAfterAction"] is True, (
+                        f"{label}: Clear must keep the panel expanded: {r}"
+                    )
 
+            assert not errors, f"JS errors: {errors}"
+
+    def test_clear_keeps_panel_expanded_and_focuses_next_control(
+        self, browser, tmp_path
+    ):
+        """Clear restores defaults without collapsing.
+
+        Clear hides the extra body (no source is selected afterwards), so its
+        own button cannot keep focus: focus falls to the layer select, the next
+        visible action.
+        """
+        with use_page(_make_page, browser, tmp_path, num_layers=1) as (page, errors):
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+
+            page.locator("[data-heatmap-btn-clear]").click()
+            assert (
+                page.locator(".foliplus-heatmap-ctrl.foliplus-is-expanded").count() == 1
+            )
+            assert page.evaluate(
+                "document.activeElement === document.querySelector("
+                "'.foliplus-heatmap-ctrl [data-heatmap-layer]')"
+                "?.parentElement?.querySelector('button')"
+            ), "Clear must leave focus on the layer dropdown trigger"
             assert not errors, f"JS errors: {errors}"
 
     def test_declared_layer_and_field_select_on_load(self, browser, tmp_path):

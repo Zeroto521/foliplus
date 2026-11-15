@@ -350,7 +350,7 @@ describe("bindControls — change handlers", () => {
 });
 
 describe("bindControls — clear (reset) button", () => {
-  it("resets every control to config defaults and collapses the panel", () => {
+  it("resets every control to config defaults and keeps the panel expanded", () => {
     const config = makeConfig({
       color_scheme: "Blues",
       num_classes: 4,
@@ -364,6 +364,8 @@ describe("bindControls — clear (reset) button", () => {
     m.numClasses = 8;
     m.method = "quantile";
 
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.COLLAPSED);
     const clearBtn = panel.querySelector(
       `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
     ) as HTMLButtonElement;
@@ -379,8 +381,8 @@ describe("bindControls — clear (reset) button", () => {
     expect(clearSaved).toHaveBeenCalledTimes(1);
 
     expect(ctrl.extraBody.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
-    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
 
     expect(ctrl.aggSelect.value).toBe(CONST.AGG.COUNT);
     expect(ctrl.classSelect.value).toBe(String(config.num_classes));
@@ -395,6 +397,8 @@ describe("bindControls — clear (reset) button", () => {
     const { ctrl, m, panel } = setup(makeConfig({}));
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
     const clearLayerState = vi.spyOn(m, "clearLayerState");
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.COLLAPSED);
 
     (
       panel.querySelector(`[${CONST.DATA_ATTR.BTN_CLEAR}]`) as HTMLButtonElement
@@ -402,7 +406,8 @@ describe("bindControls — clear (reset) button", () => {
 
     expect(clearSaved).toHaveBeenCalledTimes(1);
     expect(clearLayerState).toHaveBeenCalledTimes(1);
-    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(false);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
   });
 
   it("clear falls back to library defaults when config omits style fields", () => {

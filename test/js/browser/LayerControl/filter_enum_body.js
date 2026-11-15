@@ -145,6 +145,13 @@ async () => {
     out.labelAfterClear = triggerLabel();
     out.resultAfterClear = readout() ? readout().textContent : null;
     out.clearDisabled = panel().querySelector(".foliplus-filter-clear").disabled;
+    out.panelOpenAfterClear = !!panel();
+    out.activeAfterClear = document.activeElement
+      ? {
+          tag: document.activeElement.tagName,
+          insidePanel: panel().contains(document.activeElement),
+        }
+      : null;
     Object.assign(out, { rowAfterClear: rowFacts() });
     out.ok = true;
   } finally {

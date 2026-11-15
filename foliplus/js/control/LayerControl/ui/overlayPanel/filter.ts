@@ -56,6 +56,7 @@ import {
   PANEL_CLASS,
   buttonRow,
   dropdownOverlay,
+  finishPanelReset,
   finishSlidersIn,
   panelButton,
   sectionDivider,
@@ -223,12 +224,29 @@ const buildResultRow = (ui: LayerUI): { row: HTMLElement; result: HTMLElement } 
 const buildFooter = (
   ui: LayerUI,
   hooks: FilterViewHooks,
+  close: () => void,
 ): { footer: HTMLElement; clear: HTMLButtonElement } => {
   const clear = panelButton({
     label: ui.T("filter_clear"),
     className: CONST.CLASSES.FILTER_CLEAR,
   });
-  clear.addEventListener("click", () => hooks.write(undefined));
+  clear.addEventListener("click", () => {
+    hooks.write(undefined);
+    finishPanelReset({
+      close,
+      // Clearing disables Clear itself; focus falls to the panel's first
+      // usable control so keyboard users can keep going.
+      focus: () => {
+        if (!clear.disabled) return clear;
+        const panel = clear.closest<HTMLElement>(`.${CONST.CLASSES.FILTER_PANEL}`);
+        return (
+          panel?.querySelector<HTMLElement>(
+            "button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex='-1'])",
+          ) ?? null
+        );
+      },
+    });
+  });
   const footer = dom.el("div", {}, sectionDivider(), buttonRow(clear));
   return { footer, clear };
 };
@@ -262,7 +280,7 @@ const mountView = (
   }
   const body = renderBody(dim, model, bodyDeps(ui, hooks));
   const resultRow = buildResultRow(ui);
-  const { footer, clear } = buildFooter(ui, hooks);
+  const { footer, clear } = buildFooter(ui, hooks, () => closeFilterPanel(ui, true));
   const root = dom.el("div", {}, body.root, resultRow.row, footer);
   const view: FilterView = {
     kind: "rows",

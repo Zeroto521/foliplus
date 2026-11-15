@@ -40,14 +40,16 @@
   }
   if (!row) return { row: false, layers: api ? api.layers.map(l => l.id) : null };
 
-  row.querySelector(".foliplus-layer-more-btn").click();
-  const styleItem = row.querySelector(
-    '.foliplus-layer-more-menu button[data-action="style-layer"]',
-  );
-  if (!styleItem) return { row: true, styleItem: false };
-  styleItem.click();
-
-  const panel = row.querySelector(".foliplus-layer-style-panel");
+  let panel = row.querySelector(".foliplus-layer-style-panel");
+  if (!panel) {
+    row.querySelector(".foliplus-layer-more-btn").click();
+    const styleItem = row.querySelector(
+      '.foliplus-layer-more-menu button[data-action="style-layer"]',
+    );
+    if (!styleItem) return { row: true, styleItem: false };
+    styleItem.click();
+    panel = row.querySelector(".foliplus-layer-style-panel");
+  }
   if (!panel) return { row: true, styleItem: true, panel: false };
 
   const setColor = panel.querySelector(".foliplus-style-border-color-input");

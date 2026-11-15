@@ -46,6 +46,7 @@ import {
   PANEL_CLASS,
   bindLiveColor,
   bindLiveNumber,
+  finishPanelReset,
   finishSlidersIn,
   normalizeHexColor,
 } from "#ui/index.js";
@@ -281,22 +282,24 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     event.stopPropagation();
   });
 
-  // Reset restores the default config and closes; the header (or ×) just
-  // closes — the same header-dismiss affordance the attrs panel uses.
+  // Reset restores the default config and keeps the panel open (focus stays on
+  // Reset); the header (or ×) closes — the same header-dismiss affordance the
+  // attrs panel uses.
   panel.addEventListener("click", (event: Event) => {
     const t = event.target as HTMLElement;
-    // A press inside the control must not reach the map as a click. Closing the
-    // panel (Reset or header) detaches it mid-dispatch, so the click would keep
-    // walking its original path with no live control ancestor — swallow it here
-    // (the same guarantee as the ⋮ menu and the other row panels).
-    if (t.closest(`.${CONST.CLASSES.STYLE_RESET_BTN}`)) {
+    // A press inside the control must not reach the map as a click. The header
+    // detaches the panel mid-dispatch, so the click would keep walking its
+    // original path with no live control ancestor — swallow it here (the same
+    // guarantee as the ⋮ menu and the other row panels). Reset no longer
+    // detaches, but it still must not leak onto the map.
+    const resetBtn = t.closest<HTMLElement>(`.${CONST.CLASSES.STYLE_RESET_BTN}`);
+    if (resetBtn) {
       controller.swallowClick(event as MouseEvent);
       // The whole Reset is one operation: every dimension restores first, then
-      // the delegated defaults (or the label config drop), then the panel
-      // closes, and only then does the single notify go out. A notify fired by
-      // one dimension mid-operation would hand a subscriber a panel that is
-      // still open, and a subscriber that tears the control down would take
-      // this handler's own closeStylePanel lookup with it.
+      // the delegated defaults (or the label config drop), then the shared
+      // reset outcome applies (the panel stays open, focus on Reset), and only
+      // then does the single notify go out. A notify fired by one dimension
+      // mid-operation would hand a subscriber a half-restored panel.
       // Fill is LayerControl-owned on the label flavour only (the gate
       // excludes delegated layers).
       resetLayerFill(ui, layerId);
@@ -338,7 +341,19 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
         // gets persisted (a reload does not restore the user's choice).
         resetStyleLabel(ui, layerId);
       }
-      closeStylePanel(ui, true);
+      finishPanelReset({
+        close: () => closeStylePanel(ui, true),
+        // The panel has to re-read every control from the restored state; a
+        // close/open pair renders it in place, before the browser paints.
+        refresh: () => {
+          closeStylePanel(ui, false);
+          openStylePanel(ui, layerId);
+        },
+        focus: () =>
+          ui.uiContainer?.querySelector<HTMLElement>(
+            `.${CONST.CLASSES.STYLE_PANEL} .${CONST.CLASSES.STYLE_RESET_BTN}`,
+          ) ?? null,
+      });
       // One notify for the whole operation, merged across its dimensions and
       // resolved against the registry at publish time: if the entry is gone
       // by then, the lookup returns nothing and nothing goes out.

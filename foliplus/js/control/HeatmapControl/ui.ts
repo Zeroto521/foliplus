@@ -33,6 +33,7 @@ import {
   createSchemePicker,
   dropdownOf,
   dropdownOverlay,
+  finishPanelReset,
 } from "#ui/index.js";
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
@@ -355,9 +356,23 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     resetPanel(ctrl);
     ctrl.mgr.clearSavedConfig();
     ctrl.mgr.clearLayerState();
-    ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
-    ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
-    adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+    finishPanelReset({
+      close: () => {
+        ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
+        ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
+        adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
+      },
+      // Clear hides the extra body (no source selected), taking its own button
+      // with it; the native layer select is hidden behind the shared dropdown,
+      // so focus falls to that dropdown's visible trigger.
+      focus: () => {
+        if (clearBtn.offsetParent) return clearBtn;
+        return (
+          ctrl.layerSelect.parentElement?.querySelector<HTMLElement>("button") ??
+          clearBtn
+        );
+      },
+    });
   };
 
   // Initial color bar render is handled by the picker's constructor.
