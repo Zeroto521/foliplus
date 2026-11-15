@@ -21,9 +21,9 @@ import {
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
   FOLD: PANEL_CLASS.FOLD,
-  TOGGLE_BTN: "foliplus-toggle-btn",
+  TOGGLE_BTN: PANEL_CLASS.TOGGLE_BTN,
   LEAFLET_BAR: "leaflet-bar leaflet-control",
-  TOOL_BAR: "foliplus-tool-bar",
+  TOOL_BAR: PANEL_CLASS.TOOL_BAR,
   PANEL_HEADER: PANEL_CLASS.HEADER,
 };
 
