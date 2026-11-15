@@ -11,50 +11,6 @@
     "status": "deferred",
     "reason": "the owner constant GLYPH_SHELL_CLASS lives in a non-owner module (core/leaflet/glyphSource.ts); a follow-up card moves it into a class-name module"
   },
-  "foliplus-scale-wrap": {
-    "status": "deferred",
-    "reason": "B-class: needs new owner (ScaleControl const or shared PANEL_CLASS); consumed bare by ScaleControl/index.ts + FullscreenControl/logic.ts."
-  },
-  "foliplus-layer-pane": {
-    "status": "deferred",
-    "reason": "B-class: PaneManager pane-name rule should be single-sourced (prefix + suffix template) instead of 5 bare literals."
-  },
-  "foliplus-icon-grid-cursor": {
-    "status": "deferred",
-    "reason": "B-class: needs LayerControl const.ts CLASSES key."
-  },
-  "foliplus-measure-ctrl": {
-    "status": "deferred",
-    "reason": "B-class: needs MeasureControl const.ts CLASSES key."
-  },
-  "foliplus-scale-zoom-label": {
-    "status": "deferred",
-    "reason": "B-class: needs ScaleControl const key."
-  },
-  "foliplus-marker-default": {
-    "status": "deferred",
-    "reason": "B-class: needs markerIcon named const."
-  },
-  "foliplus-marker-chassis": {
-    "status": "deferred",
-    "reason": "B-class: needs markerIcon named const."
-  },
-  "foliplus-hint-icon": {
-    "status": "deferred",
-    "reason": "B-class: needs hint.ts CLASS const new ICON key."
-  },
-  "foliplus-spin": {
-    "status": "deferred",
-    "reason": "B-class: needs platform/icon named const."
-  },
-  "foliplus-popup-content": {
-    "status": "deferred",
-    "reason": "B-class: needs platform/dom named const."
-  },
-  "foliplus-pin": {
-    "status": "deferred",
-    "reason": "B-class: needs platform/icon named const."
-  },
   "foliplus-dot": {
     "status": "deferred",
     "reason": "Owned as compound values in MeasureControl/const.ts NODE_HOLLOW/NODE_SOLID + ExportControl/const.ts; class-owner scanOwnerFile skips compound values (' ' skip) so buildOwnerMap misses them. A follow-up card splits them into single-token keys."
@@ -98,10 +54,6 @@
   "foliplus-tool-bar": {
     "status": "deferred",
     "reason": "Owned at panel.ts:19 named const; scanner-blind."
-  },
-  "foliplus-hint": {
-    "status": "deferred",
-    "reason": "Owned at hint.ts:16 named const; scanner-blind."
   },
   "foliplus-classes-select": {
     "status": "deferred",
