@@ -3,7 +3,7 @@
 //
 // The panel and the menu both ask through this single projection. The
 // per-dimension gates (`layerCanFill`, `layerCanBorder`, ...) are thin
-// wrappers over `dims`, and the retired `capabilityGate` factory is gone:
+// wrappers over `dims`, and the retired two-layer gate factory is gone:
 // one projection, not a gate factory plus a projection. The capability
 // slots are the single source (derived once by `detectCapabilities`).
 //
