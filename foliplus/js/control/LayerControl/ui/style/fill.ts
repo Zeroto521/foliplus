@@ -77,6 +77,7 @@ import {
   readFeatureFillColors,
 } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
+import { resolveDisplayMode } from "#foliplus/style/displayMode.js";
 import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { withUnit } from "#platform/format.js";
@@ -399,32 +400,14 @@ const resetLayerFill = (ui: LayerUI, layerId: string): void => {
  *  config is the pre-fillMode shape of "the user already classified". */
 const displayFillMode = (ui: LayerUI, layerId: string): StyleMode => {
   const value = getIntent(ui, layerId, INTENT.FILL_VALUE);
-  const stored = getIntent(ui, layerId, INTENT.FILL_MODE);
-  // One precedence chain, highest first:
-  //   1. an explicit mode the user stored (INTENT.FILL_MODE);
-  //   2. the author's declared value fill (#789) — a real instruction, so it
-  //      outranks the presentation state detected from the author's paint;
-  //   3. the detected state and the built-in fallback, in the order below.
-  // (2) cannot shadow (1): `declaredFill` reads undefined the moment either
-  // fill intent exists, so a stored mode is never overridden by a declaration.
-  if (stored !== undefined) return stored;
-  if (declaredValue(ui, layerId)) return STYLE_MODE.VALUE;
-  // No paint-owning intent (FILL_COLOR / FILL_VALUE / FILL_MODE): the map is
-  // painting the author's own colours (or the layer's own defaults), so the
-  // honest readout is ORIGINAL — SOLID would claim "the user picked a colour"
-  // when the row is really a state readout of what the map shows (lead
-  // An opacity-only override still rides both modes (#953): a user
-  // who only tuned transparency never asked for a single colour, so it never
-  // sinks the mode to SOLID either.
-  if (getIntent(ui, layerId, INTENT.FILL_COLOR) === undefined && value === undefined) {
-    return STYLE_MODE.ORIGINAL;
-  }
-  // A value config means the user already classified (the pre-fillMode record
-  // shape). A lone fill colour means the solid mode owns the paint — that is
-  // how a record written before this mode existed still reads, and how a
-  // programmatic colour write lands.
-  if (value !== undefined) return STYLE_MODE.VALUE;
-  return STYLE_MODE.SOLID;
+  return resolveDisplayMode({
+    stored: getIntent(ui, layerId, INTENT.FILL_MODE),
+    declaredValue: declaredValue(ui, layerId) !== undefined,
+    colorIntent: getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined,
+    valueIntent: value !== undefined,
+    carriesValue: true, // fill always carries value
+    supportsInherit: false, // fill has no INHERIT
+  });
 };
 /** Build the shared fill-opacity number input used by every fill mode.
  *
