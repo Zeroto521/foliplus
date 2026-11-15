@@ -112,47 +112,6 @@ const makeEnumOwner = (
   };
 };
 
-/** An enum owner whose value domain is larger than the panel's shown list
- *  (truncated): the option list is capped, so a value beyond the first N is
- *  not offered while the popup is open, and only the truncation hint says the
- *  domain is larger. */
-const makeTruncatedEnumOwner = (allValues: string[], limit = 4) => {
-  let filter: LayerFilter | undefined;
-  return {
-    filterProvider: (): LayerFilterModel => {
-      const options = allValues.slice(0, limit).map(value => ({
-        value,
-        label: value.toUpperCase(),
-      }));
-      const committed = filter;
-      const selected =
-        committed?.kind === "enum"
-          ? options.filter(option => committed.values.includes(option.value)).length
-          : options.length;
-      return {
-        dimensions: [
-          {
-            kind: "enum",
-            field: "type",
-            multi: true,
-            options,
-            truncated: true,
-          },
-        ],
-        filter,
-        kept: selected * 2,
-        total: options.length * 2,
-      };
-    },
-    filterSetter: (next: LayerFilter) => {
-      filter = next;
-    },
-    get filter() {
-      return filter;
-    },
-  };
-};
-
 /** The action names of an open ⋮ menu, in DOM order (dividers carry no
  *  data-action and drop out). */
 const menuActionNames = (item: HTMLElement): string[] =>

@@ -113,8 +113,6 @@ const renderRangeBody = (
   model: LayerFilterModel,
   deps: FilterBodyDeps,
 ): FilterBody => {
-  // The field row always renders: the panel labels it and the read-only cell
-  // shows the field the owner chose.
   // The field row always renders. A model that offers fields gets a picker
   // (select + shared dropdown, the style panel's field-row recipe); the
   // read-only cell is the fallback for owners that do not (Heatmap, Measure),
@@ -176,7 +174,7 @@ const renderRangeBody = (
     dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, conditionLabel),
     dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
   );
-  const root = dom.el("div", {}, ...(fieldRow ? [fieldRow] : []), rangeRow);
+  const root = dom.el("div", {}, fieldRow, rangeRow);
 
   const sync = (next: LayerFilterModel): void => {
     const stored = rangeValueOf(dim, next.filter);
