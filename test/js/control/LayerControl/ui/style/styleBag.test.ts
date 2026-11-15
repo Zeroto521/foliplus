@@ -1191,7 +1191,10 @@ describe("authorFaceOf — priority chain (checklist F)", () => {
 // ────────────────────────────────────────────────────────────────────────
 
 describe("needsDerivation — per-feature gate (checklist B)", () => {
-  const layerReg = (fillAuthor?: unknown) => ({
+  /** Minimal LayerUI mock for needsDerivation: a live registry + findLayer.
+   *  Same shape as contractUI above — needsDerivation only touches
+   *  ui.c.layerRegistry.get. */
+  const layerReg = (fillAuthor?: unknown): any => ({
     c: {
       layerRegistry: new Map([["overlay1", { id: "overlay1", fillAuthor } as never]]),
       findLayer: () => null,
