@@ -9,7 +9,12 @@ import { bindFloatingGestures } from "#platform/floating.js";
 import { ICON_CLOSE } from "#platform/icon.js";
 import { isPortalOf } from "#platform/portalRoot.js";
 import { throttleRaf } from "#platform/throttle.js";
-import { PANEL_CLASS, closeButton, computePlacement } from "#ui/index.js";
+import {
+  PANEL_CLASS,
+  type Placement,
+  closeButton,
+  computePlacement,
+} from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
 const CLASSES = {
@@ -322,6 +327,10 @@ const ROW_PANEL_MIN_HEIGHT = 120;
 const ROW_PANEL_GAP = 2;
 /** Minimum distance between a pinned card and the viewport's horizontal edges. */
 const ROW_PANEL_EDGE = 8;
+/** Each card's natural width, remembered on its first placement: a card a
+ *  narrow map already narrowed reports its cap as the measured width, so
+ *  re-reading it would clear its own max-width on the next pass. */
+const naturalWidths = new WeakMap<HTMLElement, number>();
 
 /** The box a row panel has to fit into: the map's visible box clipped to the
  *  viewport when the card lives inside one, otherwise the viewport itself. */
@@ -339,16 +348,26 @@ interface RowPanelBounds {
  * strip above means the card belongs above its row. The cap is the natural
  * height clamped to the chosen strip, with a floor so a short map still shows
  * the card's header and first rows instead of collapsing to nothing.
+ *
+ * Horizontal placement comes from the shared kernel; a zero-height row (a
+ * collapsed group) has no strip to fit, so the caller still receives the
+ * horizontal box and skips the vertical writes itself.
  */
 const fitRowPanel = (
   panel: HTMLElement,
-  anchor: HTMLElement,
+  anchorRect: DOMRect,
   bounds: RowPanelBounds,
   gap: number,
-): { flipUp: boolean; cap: number; natural: number } | null => {
-  const anchorRect = anchor.getBoundingClientRect();
-  if (anchorRect.height === 0) return null;
-
+): {
+  /** The kernel's verdict: side, horizontal box-left and the strip cap. */
+  placement: Placement;
+  /** The card's natural height, before the strip / comfort cap. */
+  natural: number;
+  /** The comfort-floored cap written to the CSS variable. */
+  cap: number;
+  /** The card's natural (pre-clamp) width, for the max-width bookkeeping. */
+  naturalWidth: number;
+} => {
   // The card itself is the flex column; its content box is the scroll
   // container. Read the content's natural height and add back the non-content
   // chrome (header, padding, border) so a long panel reports the height it
@@ -363,44 +382,40 @@ const fitRowPanel = (
     ? Math.max(cardHeight, cardHeight - content.clientHeight + content.scrollHeight)
     : panel.scrollHeight || cardHeight;
 
-  // The shared placement kernel decides the side (above vs below) and the
-  // strip-capped height from the anchor, the natural card size and the bounds.
-  // It clamps both strips into the bounds (so an anchor outside the bounds
-  // cannot overflow) and reports maxHeight as the strip cap. The row panel's
-  // own comfort floor and edge insets are surface policy, applied here on top
-  // of the kernel's cap (they are not part of the kernel's generic model).
+  // The card's natural width, remembered so a later pass does not mistake the
+  // narrowed box for the natural one.
+  const naturalWidth = naturalWidths.get(panel) ?? cardRect.width;
+  naturalWidths.set(panel, naturalWidth);
+
+  // The shared placement kernel decides the side (above vs below), the
+  // strip-capped height and the horizontal box from the anchor, the natural
+  // card size and the bounds.
   //
-  // Only placement.side and placement.maxHeight are consumed here. The
-  // kernel's left/top/maxWidth are generic outputs for full adapters (the
-  // listbox / scheme-picker / slider / measure surfaces, migration steps 4-6);
-  // this adapter deliberately owns horizontal placement (right-align with the
-  // row, the ROW_PANEL_EDGE insets and the shrink-to-available-width rule) and
-  // its own vertical clamp, because those are row-panel policy the generic
-  // kernel does not model. width stays in the surface (the required shape
-  // feeds naturalW), but the returned maxWidth is unused.
+  // Horizontal: ROW_PANEL_EDGE is the card's own inset, so the kernel gets it
+  // as an x-only `edgeGap`. Insetting y would shave the strip its cap is
+  // measured against and change the flip/cap result; the vertical box stays
+  // the bounds themselves, and the comfort floor / top clamp below stay
+  // surface policy.
   //
-  // minRows / rowHeight are deliberately NOT passed: the kernel's row floor
-  // is a "keep N rows visible" guarantee for callers that measure rows, while
-  // this panel's floor is a comfort minimum (ROW_PANEL_MIN_HEIGHT) applied
-  // after the kernel. Passing them would compose a second floor into the
-  // kernel's flip decision (desiredH) and change behaviour with no benefit.
+  // minRows / rowHeight are deliberately NOT passed: the kernel's row floor is
+  // a "keep N rows visible" guarantee for callers that measure rows, while this
+  // panel's floor is a comfort minimum (ROW_PANEL_MIN_HEIGHT) applied after the
+  // kernel. Passing them would compose a second floor into the kernel's flip
+  // decision (desiredH) and change behaviour with no benefit.
   const placement = computePlacement(
     anchorRect,
-    { width: cardRect.width, height: natural },
+    { width: naturalWidth, height: natural },
     bounds,
-    { gap },
+    { gap, edgeGap: { x: ROW_PANEL_EDGE } },
   );
 
-  const flipUp = placement.side === "above";
   // The floor is a comfort minimum, not a promise to overflow a map shorter
   // than it: cap it to the box's own usable height first.
   const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_EDGE * 2);
   const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
   const cap = Math.max(floor, placement.maxHeight);
 
-  panel.style.setProperty("--foliplus-row-panel-max-height", `${cap}px`);
-  panel.classList.toggle(PANEL_CLASS.ROW_PANEL_UP, flipUp);
-  return { flipUp, cap, natural };
+  return { placement, cap, natural, naturalWidth };
 };
 
 /**
@@ -537,29 +552,32 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   // A row inside a folded group is `display: none` and measures zero; keep the
   // last placement rather than pinning the card to the viewport corner.
   if (row.width === 0 && row.height === 0) return;
-  const card = panel.getBoundingClientRect();
   const bounds = visibleRowPanelBounds(panel);
 
-  // A map narrower than the card shrinks the card to the usable width; the
-  // placement then aligns that narrower box. Without this a phone-width map
-  // would still paint the full panel width off screen.
-  const availableWidth = bounds.right - bounds.left - ROW_PANEL_EDGE * 2;
-  const width = availableWidth > 0 ? Math.min(card.width, availableWidth) : card.width;
-  if (width < card.width) panel.style.maxWidth = `${width}px`;
-  else panel.style.removeProperty("max-width");
+  const fit = fitRowPanel(panel, row, bounds, ROW_PANEL_GAP);
 
-  // Right-aligned with the row, like the card's original `right: 0` anchor,
-  // clamped to the same box the vertical fit uses.
-  const minLeft = bounds.left + ROW_PANEL_EDGE;
-  const maxLeft = bounds.right - width - ROW_PANEL_EDGE;
-  const left = Math.max(minLeft, Math.min(row.right - width, maxLeft));
-  panel.style.left = `${left}px`;
+  // Horizontal box from the kernel: right-aligned with the row and capped to
+  // the map's edge-inset frame. Only a cap narrower than the card is written
+  // (and a degenerate frame, where the map is narrower than both insets, keeps
+  // the card's own width); an inline max-width is cleared when the map grows
+  // back.
+  if (fit.placement.maxWidth > 0 && fit.placement.maxWidth < fit.naturalWidth) {
+    panel.style.maxWidth = `${fit.placement.maxWidth}px`;
+  } else {
+    panel.style.removeProperty("max-width");
+  }
+  panel.style.left = `${fit.placement.left}px`;
 
-  const fit = fitRowPanel(panel, anchor, bounds, ROW_PANEL_GAP);
-  if (!fit) return;
+  // A row inside a collapsed group has a width but no height: there is no strip
+  // to fit, so the card keeps the horizontal placement and writes no top/cap.
+  if (row.height === 0) return;
+
+  const flipUp = fit.placement.side === "above";
+  panel.style.setProperty("--foliplus-row-panel-max-height", `${fit.cap}px`);
+  panel.classList.toggle(PANEL_CLASS.ROW_PANEL_UP, flipUp);
 
   const height = Math.min(fit.natural, fit.cap);
-  const wantedTop = fit.flipUp
+  const wantedTop = flipUp
     ? row.top - ROW_PANEL_GAP - height
     : row.bottom + ROW_PANEL_GAP;
   // Clamp against the box's own top edge, not the raw viewport: a floor-height
@@ -572,6 +590,7 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
 };
 
 const resetPinnedPanel = (panel: HTMLElement): void => {
+  naturalWidths.delete(panel);
   panel.classList.remove(PANEL_CLASS.PINNED, PANEL_CLASS.ROW_PANEL_UP);
   panel.style.removeProperty("--foliplus-row-panel-max-height");
   // The pinned box wrote viewport coordinates; clear them so an unpinned card
