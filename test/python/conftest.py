@@ -59,6 +59,25 @@ def snippet(path: str) -> str:
     )
 
 
+def inject_fullscreen_stub(html: str) -> str:
+    """Insert the fullscreen-API stub right after the real ``<body>`` open tag.
+
+    Uses a single anchored regex replace so a literal ``<body>`` inside a JS
+    comment or string elsewhere in the HTML is never touched — a naive
+    ``str.replace("<body>", ...)`` would inject the stub there and break the
+    inline bundle the same way the S1 comment did. Asserts the body tag exists.
+    """
+    match = re.search(r"<body([^>]*)>", html)
+    if match is None:
+        raise ValueError("no <body> tag found to inject the fullscreen stub")
+    stub = snippet("common/fullscreen_stub").strip()
+    return (
+        html[: match.start()]
+        + f"<body{match.group(1)}>\n        <script>\n          {stub}\n        </script>"
+        + html[match.end() :]
+    )
+
+
 # ── GeoJSON fixture reader (test/data) ──
 
 
