@@ -8,8 +8,8 @@ const cancelMapPaneTranslate = (canvas: HTMLCanvasElement, map: L.Map): void => 
   const mapPane = map.getPanes().mapPane;
   if (!mapPane) return;
   const pos = L.DomUtil.getPosition(mapPane);
-  canvas.style.left = `${-pos.x}px`;
-  canvas.style.top = `${-pos.y}px`;
+  canvas.style.left = `${-pos.x}px`; // placement-adapter: map-pane translation
+  canvas.style.top = `${-pos.y}px`; // placement-adapter: map-pane translation
 };
 
 export { cancelMapPaneTranslate };
