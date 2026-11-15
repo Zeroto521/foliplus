@@ -233,6 +233,9 @@ const buildFooter = (
   clear.addEventListener("click", () => {
     finishPanelReset({
       restore: () => hooks.write(undefined),
+      // The owner write is the only step here; report it instead of letting a
+      // throwing setter swallow the focus half of the reset outcome.
+      onError: error => ui.log.warn("filter clear failed", error),
       close,
       // Clearing disables Clear itself; focus falls to the panel's first
       // usable control so keyboard users can keep going.

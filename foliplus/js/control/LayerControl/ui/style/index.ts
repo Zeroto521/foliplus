@@ -257,47 +257,67 @@ const bindStylePanel = (
       // Fill is LayerControl-owned on the label flavour only (the gate
       // excludes delegated layers).
       const moved: ProjectionDelta[] = [];
+      // Vector-only faces. A delegated canvas layer (Heatmap / Measure) owns
+      // none of them, so its Reset must not run traversal steps against a tree
+      // it does not paint. Opacity, zoom range and the delegated defaults /
+      // label config are shared below.
+      const vectorSteps = delegated
+        ? []
+        : [
+            // Fill, size and icon are LayerControl-owned: restore the author's
+            // paint / radius / icons and drop the persisted values, so a reload
+            // does not re-apply them.
+            () => resetLayerFill(ui, layerId),
+            () => resetLayerSize(ui, layerId),
+            () => resetLayerIcon(ui, layerId),
+            () => resetLayerIconColor(ui, layerId),
+            () => resetLayerMarkerColor(ui, layerId),
+            // Border is LayerControl-owned too: restore the author's stroke.
+            () => resetLayerBorder(ui, layerId),
+          ];
       finishPanelReset({
-        restore: () => {
-          resetLayerFill(ui, layerId);
-          // Size is LayerControl-owned too: restore the author's radius and drop
-          // the persisted value, so a reload does not re-apply it.
-          resetLayerSize(ui, layerId);
-          // Icon is LayerControl-owned too: restore the author's marker icons
-          // and drop the persisted config, so a reload does not re-apply it.
-          resetLayerIcon(ui, layerId);
-          resetLayerIconColor(ui, layerId);
-          resetLayerMarkerColor(ui, layerId);
-          // Border is LayerControl-owned too: restore the author's stroke and drop
-          // the persisted color / width, so a reload does not re-apply them.
-          resetLayerBorder(ui, layerId);
+        // One step per dimension: a throwing face is logged and the rest of the
+        // Reset still lands (and the panel still refreshes). A single opaque
+        // closure used to bubble the first failure and leave every later
+        // dimension unrestored — the panel kept painting the old values.
+        restore: [
+          ...vectorSteps,
           // Opacity and zoom range are LayerControl-owned in both flavours.
           // publish = false keeps their notify here, at the operation boundary.
-          for (const delta of [
-            resetLayerOpacity(ui, layerId, false),
-            resetLayerZoomRange(ui, layerId, false),
-          ]) {
+          () => {
+            const delta = resetLayerOpacity(ui, layerId, false);
             if (delta) moved.push(delta);
-          }
-          if (delegated) {
-            // Call each setter with its Python CONFIG default. The components own
-            // the values — never write localStorage or label config here.
-            const layerInfo = ui.c.layerRegistry.get(layerId);
-            const setters = layerInfo?.styleSetters;
-            const defaults = layerInfo?.styleDefaultsProvider?.() ?? {};
-            if (setters) {
-              for (const [key, setter] of Object.entries(setters)) {
-                if (key in defaults) setter(defaults[key]);
+          },
+          () => {
+            const delta = resetLayerZoomRange(ui, layerId, false);
+            if (delta) moved.push(delta);
+          },
+          () => {
+            if (delegated) {
+              // Call each setter with its Python CONFIG default. The components
+              // own the values — never write localStorage or label config here.
+              const layerInfo = ui.c.layerRegistry.get(layerId);
+              const setters = layerInfo?.styleSetters;
+              const defaults = layerInfo?.styleDefaultsProvider?.() ?? {};
+              if (setters) {
+                for (const [key, setter] of Object.entries(setters)) {
+                  if (key in defaults) setter(defaults[key]);
+                }
               }
+            } else {
+              // Labels are a LayerControl-owned dimension too: the reset drops
+              // the layer's config entry rather than writing the defaults back
+              // in, so the author's declaration shows through again and the drop
+              // is what gets persisted (a reload does not restore the choice).
+              resetStyleLabel(ui, layerId);
             }
-          } else {
-            // Labels are a LayerControl-owned dimension too: the reset drops the
-            // layer's config entry rather than writing the defaults back in, so the
-            // author's declared label shows through again and the drop is what
-            // gets persisted (a reload does not restore the user's choice).
-            resetStyleLabel(ui, layerId);
-          }
-        },
+          },
+        ],
+        onError: (error, step) =>
+          ui.log.warn(
+            `style reset step ${step} failed for "${layerId}" — the remaining steps still ran`,
+            error,
+          ),
         close: closeStylePanel.bind(null, ui, true),
         refresh: () => refreshStylePanel(ui, layerId),
         focus: () =>

@@ -1,10 +1,60 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPanelResetOutcome, finishPanelReset } from "#ui/index.js";
+import { createPanelResetOutcome, finishPanelReset, runResetSteps } from "#ui/index.js";
 
 const focusTarget = (focus: () => void): HTMLElement =>
   ({ focus }) as unknown as HTMLElement;
 
+describe("runResetSteps", () => {
+  it("keeps running after a step throws, reporting each failure", () => {
+    const order: string[] = [];
+    const onError = vi.fn();
+
+    const failures = runResetSteps(
+      [
+        () => order.push("fill"),
+        () => {
+          throw new Error("boom");
+        },
+        () => order.push("label"),
+      ],
+      onError,
+    );
+
+    expect(order).toEqual(["fill", "label"]);
+    expect(failures).toHaveLength(1);
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it("returns an empty failure list when every step lands", () => {
+    expect(runResetSteps([() => {}, () => {}])).toEqual([]);
+  });
+});
+
 describe("finishPanelReset", () => {
+  it("refreshes and focuses even when a restore step throws", () => {
+    const order: string[] = [];
+    const onError = vi.fn();
+
+    finishPanelReset({
+      restore: [
+        () => order.push("fill"),
+        () => {
+          throw new Error("boom");
+        },
+        () => order.push("label"),
+      ],
+      close: vi.fn(),
+      refresh: () => order.push("refresh"),
+      focus: focusTarget(() => order.push("focus")),
+      onError,
+    });
+
+    // The failing dimension is skipped, but the reset still finishes: the
+    // remaining dimensions, the refresh and the focus all ran.
+    expect(order).toEqual(["fill", "label", "refresh", "focus"]);
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
   it("keeps the panel open and focuses the trigger", () => {
     const close = vi.fn();
     const focus = vi.fn();
