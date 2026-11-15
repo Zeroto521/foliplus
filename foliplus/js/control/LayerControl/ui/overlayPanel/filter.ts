@@ -77,6 +77,11 @@ const fmtValue = (v: number): string => String(Number(v.toFixed(6)));
 type FilterCapability = {
   filterProvider: () => LayerFilterModel | null;
   filterSetter: (filter: LayerFilter) => void;
+  /** Cheap read of whether the owner has at least one filterable field. The
+   *  menu gate calls this per row; a full filterProvider() model build (dimension
+   *  projection) would re-traverse the snapshot on every row render. Absent =
+   *  fall back to calling filterProvider() once in the gate. */
+  hasFilterFields?: () => boolean;
 };
 
 type FilterCapableInfo = LayerInfo & FilterCapability;
@@ -91,7 +96,7 @@ const isFilterCapable = (
   typeof info.filterProvider === "function" &&
   typeof info.filterSetter === "function";
 
-const capabilityOf = (ui: LayerUI, layerId: string): FilterCapableInfo | null => {
+const filterCapabilityOf = (ui: LayerUI, layerId: string): FilterCapableInfo | null => {
   const info = ui.c.layerRegistry.get(layerId);
   return isFilterCapable(info) ? info : null;
 };
@@ -443,7 +448,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
-  const cap = capabilityOf(ui, layerId);
+  const cap = filterCapabilityOf(ui, layerId);
 
   // The row's title names the layer; the dialog itself is named by what
   // the surface is, so a screen reader announces the panel, not the layer
@@ -616,5 +621,5 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   if (setFocus) item.focus();
 };
 
-export { closeFilterPanel, isFilterCapable, openFilterPanel };
+export { closeFilterPanel, filterCapabilityOf, isFilterCapable, openFilterPanel };
 export type { FilterPanelState };

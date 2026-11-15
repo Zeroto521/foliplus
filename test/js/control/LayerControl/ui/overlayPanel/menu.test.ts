@@ -1302,6 +1302,53 @@ describe("LayerUI menu", () => {
       expect(spies.filter).toHaveBeenCalledTimes(2);
       expect(spies.filter).toHaveBeenLastCalledWith(item);
     });
+
+    it("disables the filter entry when a capability row has no filterable field", () => {
+      // A capability row whose model carries no numeric/enum fields must not
+      // open the empty panel: the menu entry stays visible but disabled, with
+      // the empty-state reason as its tooltip.
+      manager.registerLayer({
+        id: "noFields",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => false,
+      } as any);
+      const item = findItem(ui, "noFields");
+
+      ui.openMoreMenu(item);
+
+      const btn = item.querySelector<HTMLElement>(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      );
+      expect(btn).not.toBeNull();
+      expect(btn?.getAttribute("aria-disabled")).toBe("true");
+      expect(btn?.getAttribute("title")).toBe(ui.T("filter_empty"));
+    });
+
+    it("enables the filter entry when a capability row has a filterable field", () => {
+      manager.registerLayer({
+        id: "hasFields",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => true,
+      } as any);
+      const item = findItem(ui, "hasFields");
+
+      ui.openMoreMenu(item);
+
+      const btn = item.querySelector<HTMLElement>(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      );
+      expect(btn).not.toBeNull();
+      expect(btn?.getAttribute("aria-disabled")).toBe("false");
+      expect(btn?.getAttribute("title")).toBe(ui.T("filter_layer_tooltip"));
+    });
   });
 
   // ─────────────────── checkbox dblclick / Enter ─────────────────────

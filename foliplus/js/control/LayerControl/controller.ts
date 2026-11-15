@@ -1014,6 +1014,7 @@ class LayerController implements LayerAPI {
     target: {
       filterProvider?: (() => LayerFilterModel | null) | null;
       filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
+      hasFilterFields?: (() => boolean) | null;
       canvas?: HTMLCanvasElement | null;
       styleSetters?: Record<string, (value: unknown) => void> | null;
       role?: LayerRole;
@@ -1030,6 +1031,16 @@ class LayerController implements LayerAPI {
       target.filterProvider = () => this.genericFilterModel(id);
       target.filterSetter = (filter: LayerFilter | undefined) =>
         this.setLayerFilter(id, filter);
+      // Cheap gate: only the cached filter-features row is read, never the
+      // dimension projection. The menu renders this per row; a full model
+      // build would re-traverse the snapshot each time.
+      target.hasFilterFields = () => {
+        const features = this.ui?.runtimeStore.getFilterFeatures(id);
+        return !!(
+          features &&
+          (features.numericFields.length > 0 || features.enumFields.length > 0)
+        );
+      };
     }
   }
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
