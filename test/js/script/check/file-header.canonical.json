@@ -57,6 +57,7 @@
   "ui/dropdown",
   "ui/form",
   "ui/formClassName",
+  "ui/glyphClassName",
   "ui/labelClassName",
   "ui/listbox",
   "ui/optionRow",
