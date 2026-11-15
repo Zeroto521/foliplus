@@ -75,6 +75,8 @@ const PANES = {
 
 /** CSS class names. */
 const CLASSES = {
+  /** The measure control shell class. */
+  CTRL: "foliplus-measure-ctrl",
   // Three path states shared by lines, circles, and polygons.
   PATH_SOLID: "foliplus-measure-path foliplus-measure-path-solid",
   PATH_DASHED: "foliplus-measure-path foliplus-measure-path-dashed",
