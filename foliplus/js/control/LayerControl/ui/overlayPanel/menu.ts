@@ -277,8 +277,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // freeze keeps an emptied folder key around; this entry removes it. Deleting a
   // non-empty folder promotes every member to section root (folder = null,
   // order preserved); the layers themselves are never touched.
-  const folderInfo = ui.c.layerRegistry.get(layerId);
-  const folderName = folderInfo?.folder ?? null;
+  // The folder is read from the layout's member assignment (the single
+  // source), not from the author declaration on the registry entry — a
+  // rename keeps the member, and a user move to root drops it.
+  const folderName = ui.c.folderNameOf(layerId);
   if (folderName) {
     menu.appendChild(
       dom.el(
@@ -600,10 +602,15 @@ const MENU_ACTIONS: Record<
     // first (hard constraint 4a) — the action rerenders the list, and the menu
     // anchors to the row being rebuilt.
     const layerId = menuLayerId(ui);
-    const folderInfo = ui.c.layerRegistry.get(layerId);
-    if (folderInfo?.folder) {
+    const member = ui.c.folderLayoutView.members[layerId];
+    const layerInfo = ui.c.layerRegistry.get(layerId);
+    const folderName = ui.c.folderNameOf(layerId);
+    if (layerInfo && folderName) {
       ui.closeMoreMenu(true);
-      ui.c.deleteFolder(sectionOf(folderInfo.role), folderInfo.folder);
+      ui.c.deleteFolder(
+        member ? member.section : sectionOf(layerInfo.role),
+        folderName,
+      );
     }
     return { closeMenu: false, restoreRowFocus: false };
   },

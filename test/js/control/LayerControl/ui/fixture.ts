@@ -1,5 +1,5 @@
 import { afterEach, vi } from "vitest";
-import { ROLE } from "#core/layer/index.js";
+import { LAYOUT_DOC_KEY, ROLE } from "#core/layer/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -199,6 +199,9 @@ const initFixture = (
     data?: ConstructorParameters<typeof LayerController>[1];
     /** The persisted record, written before the manager is constructed. */
     seed?: Record<string, unknown>;
+    /** The persisted folder-layout document (v2), written under its own storage
+     *  key before the manager is constructed. */
+    seedLayout?: Record<string, unknown>;
     /** Runs once the UI shell exists but before attachUI — the point where a
      *  subscriber can catch the attach sweep's notify. */
     beforeAttach?: (manager: LayerController, ui: LayerUI) => void;
@@ -211,6 +214,9 @@ const initFixture = (
   window.CONFIG.locale_code = "en";
   if (options.seed) {
     window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
+  }
+  if (options.seedLayout) {
+    window.localStorage.setItem(LAYOUT_DOC_KEY, JSON.stringify(options.seedLayout));
   }
 
   installLeafletGlobals();
