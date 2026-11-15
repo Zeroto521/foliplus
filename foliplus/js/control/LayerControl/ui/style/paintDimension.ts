@@ -111,6 +111,10 @@ interface PaintDimension {
   isBasemap?: (ui: LayerUI, layerId: string) => boolean;
   /** Optional basemap row builder (fill only). */
   buildBasemapRow?: (ui: LayerUI, layerId: string) => HTMLElement;
+  /** Optional row decoration: the channel's own tooltip/aria on the mode
+   *  select (fill: the per-feature note on the control + its original-colors
+   *  option). Called after buildModeRow, with the select in hand. */
+  modeRowHint?: (ui: LayerUI, layerId: string, select: HTMLSelectElement) => void;
 }
 
 /** One channel's sub-dimension — a value that rides every mode and never
@@ -123,8 +127,12 @@ interface PaintSubDimension {
   commit: (ui: LayerUI, layerId: string, value: number) => void;
 }
 
-/** The row chrome the mode row needs, resolved from the adapter. */
-type PaintRowChrome = {
+/** The row chrome the mode row needs, resolved from the adapter. The chrome
+ *  is a function of the UI because the row label is translated (each channel
+ *  owns its label key); the classes are static, the label is not. */
+type PaintRowChrome = (ui: LayerUI) => {
+  /** Class on the block root (each channel owns its block vocabulary). */
+  blockClass: string;
   selectClass: string;
   rowClass: string;
   detailClass: string;
@@ -164,35 +172,37 @@ const buildPaintRow = (
   ui: LayerUI,
   layerId: string,
 ): HTMLElement => {
+  const chrome = dim.chrome(ui);
+  const block = dom.el("div", {
+    class: chrome.blockClass,
+    "data-style-dim": dim.key,
+  });
   if (dim.isBasemap?.(ui, layerId)) {
-    const block = dom.el("div", {
-      class: `foliplus-style-${dim.key}-block`,
-      "data-style-dim": dim.key,
-    });
     const basemapRow = dim.buildBasemapRow?.(ui, layerId);
     if (basemapRow) block.append(basemapRow);
     return block;
   }
-  const block = dom.el("div", {
-    class: `foliplus-style-${dim.key}-block`,
-    "data-style-dim": dim.key,
-  });
   const mode = displayMode(dim, ui, layerId);
   const options = dim.modes(ui, layerId).map(m => ({
     value: m,
     label: ui.T(modeKeyOf(m)),
   }));
-  const { block: modeRow, detail } = buildModeRow({
-    label: dim.chrome.label,
-    selectClass: dim.chrome.selectClass,
-    rowClass: dim.chrome.rowClass,
-    detailClass: dim.chrome.detailClass,
+  const {
+    block: modeRow,
+    select,
+    detail,
+  } = buildModeRow({
+    label: chrome.label,
+    selectClass: chrome.selectClass,
+    rowClass: chrome.rowClass,
+    detailClass: chrome.detailClass,
     value: mode,
     options,
     surface: dropdownSurface(ui.c.map.getContainer()),
     overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
   });
   block.append(modeRow);
+  dim.modeRowHint?.(ui, layerId, select);
   renderPaintDetail(dim, ui, layerId, detail, detailMode(dim, ui, layerId));
   return block;
 };
@@ -240,7 +250,7 @@ const bindPaintRow = (
   const select = block.querySelector("select") as HTMLSelectElement | null;
   if (!select) return;
   const detail = block.querySelector(
-    `.${dim.chrome.detailClass}`,
+    `.${dim.chrome(ui).detailClass}`,
   ) as HTMLElement | null;
   select.onchange = () => {
     const previous = displayMode(dim, ui, layerId);

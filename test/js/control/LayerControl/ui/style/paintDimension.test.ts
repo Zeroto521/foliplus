@@ -51,12 +51,13 @@ const makeDim = (overrides: Record<string, any> = {}): PaintDimension => {
       };
     },
     key: "fill",
-    chrome: {
+    chrome: () => ({
+      blockClass: "test-fill-block",
       selectClass: "test-fill-mode-select",
       rowClass: "test-fill-row",
       detailClass: "test-fill-detail",
       label: "Fill",
-    },
+    }),
     intentKeys: ["fillColor", "fillOpacity", "fillValue", "fillStyleMode"] as const,
     face: "fill" as StyleFace,
     gate: () => true,
