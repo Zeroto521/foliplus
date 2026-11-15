@@ -61,7 +61,7 @@ interface PlacementOpts {
    * not change the flip threshold (use minRoom for that): it only keeps a short
    * surface from collapsing below the caller's comfort minimum.
    */
-  minHeight?: number;
+  capFloor?: number;
   /** Gap between the anchor and the floating surface. Defaults to 0. */
   gap?: number;
   /**

@@ -44,7 +44,6 @@ import {
 } from "./originalDetail.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
-  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
@@ -68,6 +67,7 @@ import {
   styleDimPayload,
   walkFillLeaves,
 } from "./styleBag.js";
+import { styleCapability } from "./styleCapability.js";
 import {
   DIM,
   type LayerOverride,
@@ -109,7 +109,8 @@ import * as CONST from "#control/LayerControl/const.js";
  *  No extra checks belong here: the invariant is that `gate` is exactly
  *  the capability check, no carrier probes, no `isColorBasemap`
  *  special-cases, no canvas exclusion. */
-const layerCanFill = capabilityGate("fill", "native");
+const layerCanFill = (ui: LayerUI, layerId: string): boolean =>
+  styleCapability(ui, layerId).dims.fill;
 
 /** Normalize a color for `<input type=color>`, which only accepts hex.
  *  3-digit hex passes through `normalizeHexColor`; named and functional

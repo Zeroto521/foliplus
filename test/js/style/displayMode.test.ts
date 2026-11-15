@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { STYLE_MODE } from "#core/layer/index.js";
 import {
   type DisplayModeSpec,
+  resolveDisplayAndDetail,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
 
@@ -121,5 +122,67 @@ describe("resolveDisplayMode kill rows", () => {
       supportsInherit: true,
     };
     expect(resolveDisplayMode(spec)).toBe(STYLE_MODE.ORIGINAL);
+  });
+});
+
+describe("resolveDisplayAndDetail", () => {
+  const borderSpec = (over: Partial<DisplayModeSpec> = {}): DisplayModeSpec => ({
+    stored: STYLE_MODE.ORIGINAL,
+    declaredValue: false,
+    colorIntent: false,
+    valueIntent: false,
+    carriesValue: true,
+    supportsInherit: true,
+    ...over,
+  });
+
+  it("border ORIGINAL display collapses to SOLID detail", () => {
+    const { display, detail } = resolveDisplayAndDetail(borderSpec(), {
+      collapseOriginalDetail: true,
+    });
+    expect(display).toBe(STYLE_MODE.ORIGINAL);
+    expect(detail).toBe(STYLE_MODE.SOLID);
+  });
+
+  it("border SOLID display keeps SOLID detail", () => {
+    const { detail } = resolveDisplayAndDetail(
+      borderSpec({ stored: STYLE_MODE.SOLID }),
+      { collapseOriginalDetail: true },
+    );
+    expect(detail).toBe(STYLE_MODE.SOLID);
+  });
+
+  it("border VALUE display keeps VALUE detail", () => {
+    const { detail } = resolveDisplayAndDetail(
+      borderSpec({ stored: STYLE_MODE.VALUE }),
+      { collapseOriginalDetail: true },
+    );
+    expect(detail).toBe(STYLE_MODE.VALUE);
+  });
+
+  it("border FOLLOW_FILL display keeps FOLLOW_FILL detail", () => {
+    const { detail } = resolveDisplayAndDetail(
+      borderSpec({ stored: STYLE_MODE.FOLLOW_FILL }),
+      { collapseOriginalDetail: true },
+    );
+    expect(detail).toBe(STYLE_MODE.FOLLOW_FILL);
+  });
+
+  it("fill ORIGINAL display does not collapse (opt-in only)", () => {
+    const { display, detail } = resolveDisplayAndDetail(
+      borderSpec({ stored: STYLE_MODE.ORIGINAL }),
+      { collapseOriginalDetail: false },
+    );
+    expect(display).toBe(STYLE_MODE.ORIGINAL);
+    expect(detail).toBe(STYLE_MODE.ORIGINAL);
+  });
+
+  it("display mode is unchanged by the detail collapse", () => {
+    const { display, detail } = resolveDisplayAndDetail(borderSpec(), {
+      collapseOriginalDetail: true,
+    });
+    expect(display).toBe(STYLE_MODE.ORIGINAL);
+    expect(detail).toBe(STYLE_MODE.SOLID);
+    expect(display).not.toBe(detail);
   });
 });

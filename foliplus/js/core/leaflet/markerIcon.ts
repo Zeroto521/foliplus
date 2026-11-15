@@ -27,17 +27,18 @@
 // marker keeps the author's exact look minus the symbol.
 import {
   DEFAULT_GLYPH_PREFIX,
-  GLYPH_SHELL_CLASS,
   glyphAvailable,
   glyphHtml,
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+import { MARKER_CLASS } from "./markerClassName.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons, mountedIconElement } from "#core/leafletAdapter.js";
 import { composeColorAlpha, parseColorAlpha } from "#platform/color.js";
 import { createLogger } from "#platform/log.js";
+import { GLYPH_CLASS } from "#ui/index.js";
 
 const log = createLogger("icon-dimension");
 /** Glyph names already warned as unavailable — warn once per name, not per
@@ -260,7 +261,7 @@ const buildMarkerIcon = (opts: {
     // color, the same default the derive path uses. One color, one alpha.
     const defaultPaint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
     return L.divIcon({
-      className: "foliplus-marker-default",
+      className: MARKER_CLASS.DEFAULT,
       html: glyphHtml(glyph, "", `color:${defaultPaint}`, prefix),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
@@ -360,7 +361,7 @@ const buildMarkerIcon = (opts: {
       if (sprite) {
         div.style.backgroundImage = "none";
         const span = document.createElement("span");
-        span.className = "foliplus-marker-chassis";
+        span.className = MARKER_CLASS.CHASSIS;
         if (chassisPreset) {
           span.style.backgroundImage = sprite.url;
           span.style.backgroundPosition = sprite.position;
@@ -417,7 +418,7 @@ const paintMountedChassis = (
   const chassisPreset = presetNameOfHex(markerColor);
   const opacity = markerColorOpacity ?? 100;
   const wantSpan = chassisPreset === null || opacity < 100;
-  const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement | null;
+  const span = el.querySelector(`.${MARKER_CLASS.CHASSIS}`) as HTMLElement | null;
   if (!span || !wantSpan) return false;
   // Re-derive the span's full paint so a preset-to-custom mechanism switch is
   // still a single in-place write (clear both faces, then apply the new one).
@@ -528,7 +529,7 @@ const applyIconColorToLeaves = (
     // A colour/opacity-only write on an already-mounted leaf whose glyph is
     // unchanged paints the node in place — same element reference, no rebuild.
     const el = mountedIconElement(leaf);
-    const inner = el?.querySelector(`.${GLYPH_SHELL_CLASS}`) ?? null;
+    const inner = el?.querySelector(`.${GLYPH_CLASS.SHELL}`) ?? null;
     if (inner && mountedGlyphMatches(inner, glyph, panelPrefix)) {
       // The same compose the derive path uses: a user colour paints at the
       // user's opacity (default 100 = opaque).

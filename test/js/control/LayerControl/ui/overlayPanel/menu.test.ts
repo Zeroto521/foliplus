@@ -826,6 +826,43 @@ describe("LayerUI menu", () => {
         expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
       });
 
+      it("uses the member assignment section over the layer role when they diverge", () => {
+        const folderSpy = vi.fn();
+        ui.c.deleteFolder = folderSpy;
+        manager.registerLayer({
+          id: "folder2",
+          name: "Parks",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        } as never);
+        // The directory entry exists (created by the user), then a stale member
+        // assignment pins folder2 to a DIFFERENT section than its role. The
+        // member is the single source: dispatch must use the member's section,
+        // not fall back to the layer role.
+        manager.createFolder("overlay", "Green Space");
+        (
+          ui.c.folderLayoutView.members as Record<
+            string,
+            { section: string; folder: string }
+          >
+        )["folder2"] = {
+          section: "base",
+          folder: "green space",
+        };
+        const item = attachedPanel(ui).querySelector(
+          `[data-layer-id="folder2"]`,
+        ) as HTMLElement;
+        ui.openMoreMenu(item);
+        const folderLi = item.querySelector(
+          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+        ) as HTMLLIElement;
+        expect(folderLi).not.toBeNull();
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "target", { value: folderLi });
+        handleMenuClick(ui, event);
+        expect(folderSpy).toHaveBeenCalledWith("base", "Green Space");
+      });
+
       it("does not dispatch deleteFolder when the layer has lost its folder", () => {
         const folderSpy = vi.fn();
         ui.c.deleteFolder = folderSpy;

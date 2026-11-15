@@ -25,6 +25,14 @@ const HIDDEN = "hidden";
 /** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
  *  Named component panes share the same hyphen convention — see
  *  LABEL_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
+/** The base class every foliplus-owned pane carries. Stamped by
+ *  PaneManager (ensurePane) so focus hiding, export walking and the
+ *  pane discovery cache all select on one token. */
+const LAYER_PANE_CLASS = "foliplus-layer-pane";
+
+/** Auto-generated per-layer fallback pane (hyphenated, stamp-keyed).
+ *  Named component panes share the same hyphen convention — see
+ *  LABEL_PANE_PREFIX, CANVAS_PANE_PREFIX, and COLOR_PANE_PREFIX. */
 const FALLBACK_PANE_PREFIX = "foliplus-pane-";
 
 /** Pane name prefix for a layer's label labels (LayerControl
@@ -213,6 +221,7 @@ const CONTENT_KIND = {
 
 export {
   LABEL_PANE_PREFIX,
+  LAYER_PANE_CLASS,
   CACHE,
   CANVAS_PANE_PREFIX,
   CAP_TIER,

@@ -24,13 +24,9 @@
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
-import {
-  capabilityGate,
-  registerDimension,
-  resetIntentKeys,
-  writeIntentKeys,
-} from "./registry.js";
+import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
+import { styleCapability } from "./styleCapability.js";
 import { DIM, walkLeaf } from "#core/layer/index.js";
 import {
   MARKER_COLOR_PRESET_HEX,
@@ -52,7 +48,8 @@ import * as CONST from "#control/LayerControl/const.js";
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the marker-color capability (an awesome-markers chassis carrier —
  *  a bare divIcon / L.Icon.Default img has no sprite chassis to repaint). */
-const layerCanMarkerColor = capabilityGate("markerColor", "native");
+const layerCanMarkerColor = (ui: LayerUI, layerId: string): boolean =>
+  styleCapability(ui, layerId).dims.markerColor;
 
 /** The author's own chassis preset for the layer, read with the SAME walk the
  *  capability gate uses (walkLeaf — a nested group is descended, not read one
