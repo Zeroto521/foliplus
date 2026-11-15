@@ -1,4 +1,4 @@
-// ui/placeSurface — the shared DOM adapter for floating-surface placement.
+// ui/placementAdapter — the shared DOM adapter for floating-surface placement.
 /**
  * Measure, ask the kernel, write the result — in one place.
  *

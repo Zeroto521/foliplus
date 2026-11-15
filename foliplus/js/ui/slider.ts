@@ -13,7 +13,7 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { placeSurface } from "./placeSurface.js";
+import { placeSurface } from "./placementAdapter.js";
 import { SLIDER_CLASS } from "./sliderClassName.js";
 import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./type.js";
 import { dom } from "#platform/dom.js";

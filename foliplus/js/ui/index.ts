@@ -44,7 +44,7 @@ export {
   selectInput,
 } from "./form.js";
 export { clamp, computePlacement, intersect, isDegenerate } from "./placement.js";
-export { placeSurface } from "./placeSurface.js";
+export { placeSurface } from "./placementAdapter.js";
 export { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
 export { createSchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";

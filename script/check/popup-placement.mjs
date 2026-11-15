@@ -7,7 +7,7 @@
  * the two surfaces that still own a placement policy and write their own
  * coordinates:
  *
- *   ui/placeSurface.ts     shared DOM adapter (every migrated surface uses it)
+ *   ui/placementAdapter.ts shared DOM adapter (every migrated surface uses it)
  *   ui/listbox.ts          dropdown + scheme picker (width preference, bottom anchor)
  *   core/leaflet/panel.ts  pinned row panel (8px top inset)
  *
@@ -58,7 +58,7 @@ const JS_ROOT_REL = path.join("foliplus", "js");
  *  adding it here with a reason) — never a second flip implementation. */
 const ADAPTER_FILES = new Set([
   "foliplus/js/ui/placement.ts",
-  "foliplus/js/ui/placeSurface.ts",
+  "foliplus/js/ui/placementAdapter.ts",
   "foliplus/js/ui/listbox.ts",
   "foliplus/js/core/leaflet/panel.ts",
 ]);
