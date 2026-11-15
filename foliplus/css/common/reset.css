@@ -14,6 +14,16 @@
   z-index: var(--foliplus-z-index-floating);
 }
 
+/* Pin the map's type scale to foliplus's 10px base.
+   The page used to inherit it from Bootstrap 3's "html { font-size: 62.5% }":
+   when that CDN sheet is missing the whole map falls back to the browser's
+   16px, so the attribution, the scale line and every tooltip grow together.
+   The container owns the size here, so every map surface stops depending on
+   the host page's baseline. */
+.leaflet-container {
+  font-size: var(--foliplus-font-size-xs);
+}
+
 /* ── Animations ── */
 @keyframes foliplus-spin {
   0% {

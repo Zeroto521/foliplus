@@ -211,6 +211,25 @@ class TestScaleControlBrowser:
                 assert zl["weight"] == attr["weight"]
             assert not errors, f"JS errors: {errors}"
 
+    def test_attribution_uses_the_foliplus_type_base(self, browser, tmp_path):
+        """The attribution keeps the map type base even without a host baseline.
+
+        The page used to inherit 10px from Bootstrap 3 (html: 62.5%); when
+        that sheet is absent the browser default (16px) made the attribution,
+        the scale line and tooltips all grow. The container now owns the size.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            fonts = page.evaluate(_js("ScaleControl/read_fonts"))
+            assert fonts is not None, "elements not found"
+            # --foliplus-font-size-xs is 10px; the exact value is the point:
+            # it must not drift with the host page.
+            assert fonts["attr"]["size"] == "10px", (
+                f"attribution font-size is {fonts['attr']['size']}, not the "
+                f"10px map base"
+            )
+            assert fonts["scaleLine"]["size"] == "10px"
+            assert not errors, f"JS errors: {errors}"
+
     def test_line_height_matches_attribution(self, browser, tmp_path):
         """Scale wrap and zoom label line-height matches attribution."""
         with use_page(self._make_page, browser, tmp_path, show_zoom=True) as (
