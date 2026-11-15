@@ -115,6 +115,7 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
           step: LABEL_SIZE.SIZE_STEP,
           className: LABEL_CLASS.STYLE_LABEL_SIZE_INPUT,
           ariaLabel: T("foliplus.label_size"),
+          unitSuffix: T("foliplus.unit_px"),
         })
       : null;
     // Live on input, clamp on commit — same bindLive* recipe as the
@@ -125,7 +126,8 @@ const renderLabelControls = (opts: RenderLabelControlsOptions): LabelControlsRes
       });
     }
     if (sizeInput) {
-      bindLiveNumber(sizeInput as HTMLInputElement, {
+      const sizeField = sizeInput.querySelector("input") as HTMLInputElement;
+      bindLiveNumber(sizeField, {
         min: LABEL_SIZE.SIZE_MIN,
         max: LABEL_SIZE.SIZE_MAX,
         fallback: LABEL_SIZE.SIZE_DEFAULT,

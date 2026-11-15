@@ -23,5 +23,7 @@
   "foliplus.classification_jenks": "Natural Breaks",
   "foliplus.classification_quantile": "Quantile",
   "foliplus.classification_equal": "Equal Interval",
-  "foliplus.classification_heads": "Equal Count"
+  "foliplus.classification_heads": "Equal Count",
+  "foliplus.unit_px": "px",
+  "foliplus.unit_pct": "%"
 }

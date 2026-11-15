@@ -23,12 +23,15 @@ import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.
  *  the `stroke` capability slot (the descriptor's key is the UI name, the
  *  slot is the surface name) — everything else is identity. */
 const DIM_TO_DIM: Record<string, string> = {
-  [DIM.OPACITY]: "opacity",
-  [DIM.LABEL]: "label",
-  [DIM.ZOOM_RANGE]: "zoomRange",
-  [DIM.SIZE]: "size",
-  [DIM.ICON]: "icon",
   [DIM.BORDER]: "border",
+  [DIM.FILL]: "fill",
+  [DIM.ICON]: "icon",
+  [DIM.ICON_COLOR]: "iconColor",
+  [DIM.LABEL]: "label",
+  [DIM.MARKER_COLOR]: "markerColor",
+  [DIM.OPACITY]: "opacity",
+  [DIM.SIZE]: "size",
+  [DIM.ZOOM_RANGE]: "zoomRange",
 };
 
 /** Every published dimension must mirror a registered built-in dimension —
@@ -36,7 +39,17 @@ const DIM_TO_DIM: Record<string, string> = {
  *  a gate to parity against. */
 it("mirrors every published dimension to a registered built-in dimension", () => {
   const keys = Object.keys(DIM_TO_DIM);
-  expect(keys).toEqual(["opacity", "label", "zoomRange", "size", "icon", "border"]);
+  expect(keys).toEqual([
+    "border",
+    "fill",
+    "icon",
+    "iconColor",
+    "label",
+    "markerColor",
+    "opacity",
+    "size",
+    "zoomRange",
+  ]);
   for (const key of keys) {
     expect(getDimension(key), `missing dimension ${key}`).toBeDefined();
   }
@@ -90,14 +103,13 @@ describe("styleCapability parity with the per-dimension gates", () => {
   };
 
   const makeMarker = (icon?: unknown) => {
-    const leaf: any = {
-      feature: { properties: {} },
-      options: { icon },
-      setIcon: vi.fn((next: unknown) => {
-        leaf.options.icon = next;
-        return leaf;
-      }),
-    };
+    const leaf: any = Object.create((window.L as any).Marker.prototype);
+    leaf.feature = { properties: {} };
+    leaf.options = { icon };
+    leaf.setIcon = vi.fn((next: unknown) => {
+      leaf.options.icon = next;
+      return leaf;
+    });
     return leaf;
   };
 
@@ -171,7 +183,13 @@ describe("styleCapability parity with the per-dimension gates", () => {
     manager.registerLayer({
       id: "cluster",
       name: "Cluster",
-      layer: { options: {}, eachLayer: vi.fn(), _topClusterLevel: {} } as never,
+      layer: {
+        options: {},
+        eachLayer: vi.fn((fn: (c: unknown) => void) =>
+          [makeMarker(), makeMarker()].forEach(fn),
+        ),
+        _topClusterLevel: {},
+      } as never,
     });
     return [
       "poly",
@@ -200,7 +218,17 @@ describe("styleCapability parity with the per-dimension gates", () => {
 
   it("returns all-false for a layer outside the registry", () => {
     const cap = styleCapability(ui, "not-a-real-layer");
-    expect(Object.values(cap.dims)).toEqual([false, false, false, false, false, false]);
+    expect(Object.values(cap.dims)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
     expect(cap.styleDelegation).toBe(false);
     // The missing-layer short circuit publishes every key (border included),
     // so a reader never sees an undefined dim.
@@ -213,34 +241,64 @@ describe("styleCapability parity with the per-dimension gates", () => {
     expect(cap.dims.opacity).toBe(true);
     expect(cap.dims.zoomRange).toBe(true);
     expect(cap.dims.label).toBe(false);
-    // fill is not a published dim — it answers through its own gate.
-    expect("fill" in cap.dims).toBe(false);
     expect(cap.dims.border).toBe(true);
+    expect(cap.dims.fill).toBe(true);
+    expect(cap.dims.iconColor).toBe(false);
+    expect(cap.dims.markerColor).toBe(false);
+    expect(cap.geometry).toBe("polygon");
   });
 
   it("a line surface exposes the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[1]);
     expect(cap.dims.opacity).toBe(true);
     expect(cap.dims.zoomRange).toBe(true);
+    expect(cap.dims.fill).toBe(false);
+    expect(cap.dims.iconColor).toBe(false);
+    expect(cap.dims.markerColor).toBe(false);
+    expect(cap.geometry).toBe("line");
   });
 
   it("a marker surface exposes only the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[3]);
     expect(cap.dims.icon).toBe(true);
-    expect("fill" in cap.dims).toBe(false);
     expect(cap.dims.border).toBe(false);
+    expect(cap.dims.fill).toBe(false);
+    expect(cap.dims.iconColor).toBe(false);
+    expect(cap.dims.markerColor).toBe(false);
+    expect(cap.geometry).toBe("point");
   });
 
   it("a color basemap exposes the published dimensions", () => {
     const cap = styleCapability(ui, registerSet()[6]);
-    expect("fill" in cap.dims).toBe(false);
     expect(cap.dims.size).toBe(false);
     expect(cap.dims.icon).toBe(false);
+    // The color basemap's paint *is* the fill, so the fill row renders, but
+    // the geometry synthesis reports the basemap class, not a surface answer.
+    expect(cap.dims.fill).toBe(true);
+    expect(cap.dims.iconColor).toBe(false);
+    expect(cap.dims.markerColor).toBe(false);
+    expect(cap.geometry).toBe("basemap");
   });
 
   it("a cluster surface exposes nothing configurable", () => {
     const cap = styleCapability(ui, registerSet()[7]);
     expect(Object.values(cap.dims).every(v => v === false)).toBe(true);
+  });
+
+  it("geometry reflects the surface geometry type", () => {
+    // point / line / polygon come from the surface's own geometryType().
+    expect(styleCapability(ui, registerSet()[3]).geometry).toBe("point");
+    expect(styleCapability(ui, registerSet()[1]).geometry).toBe("line");
+    expect(styleCapability(ui, registerSet()[0]).geometry).toBe("polygon");
+    // A color basemap is a UI synthesis, not a surface-native geometry.
+    expect(styleCapability(ui, registerSet()[6]).geometry).toBe("basemap");
+    // A cluster surface reports its underlying leaf geometry.
+    expect(styleCapability(ui, registerSet()[7]).geometry).toBe("point");
+  });
+
+  it("geometry is null for a layer outside the registry", () => {
+    const cap = styleCapability(ui, "not-a-real-layer");
+    expect(cap.geometry).toBeNull();
   });
 
   it("styleDelegation parity with layerHasStyleDelegation", () => {

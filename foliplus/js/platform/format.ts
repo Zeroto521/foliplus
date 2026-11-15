@@ -138,8 +138,19 @@ const formatTimestamp = (value: number | string, locale: string = "en"): string 
   });
 };
 
+/**
+ * Append a unit to a UI label: withUnit("Border width", "pixels") →
+ * "Border width (pixels)". The parenthesis is always the half-width form,
+ * en and zh alike, so a Chinese label reads "border width (像素)".
+ * The unit is a locale word (unit_px / unit_pct), never a hardcoded suffix;
+ * the caller passes the already-localised label and unit, this helper only
+ * joins them.
+ */
+const withUnit = (label: string, unit: string): string => `${label} (${unit})`;
+
 export {
   NUMBER_FORMAT,
+  withUnit,
   formatNumber,
   formatTimestamp,
   LAT_LNG_PRECISION,

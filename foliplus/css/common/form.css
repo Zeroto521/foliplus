@@ -97,7 +97,51 @@
   box-sizing: border-box;
 }
 
-/* Compact integer / weight field beside a color swatch. */
+/* Compact integer / weight field beside a color swatch. The wrapper is the
+   positioned box the number input and its unit suffix share: the suffix sits
+   inside the input's own right padding, so the field keeps its width and the
+   group behaves exactly like the bare input in every flex row. */
+.foliplus-form-number-group {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* The unit suffix drawn inside the number field's right padding (e.g. "px"
+   next to the border weight). Visual only: aria-hidden, the field's
+   aria-label already carries the unit for screen readers. Reads the existing
+   muted/type tokens — no new variable, so the suffix cannot drift from the
+   panel's other secondary text. Its inset follows the number field's own
+   right padding (size-6), not the shared ctrl-inset-x, so the single-source
+   control-inset guard stays satisfied. While the field is focused the wrapper gets
+   the editing class and the suffix is hidden so it is never read as part of
+   the number. */
+.foliplus-form-number-suffix {
+  position: absolute;
+  /* The digit right edge is right-aligned at (field right - border - size-16);
+     the suffix left edge sits (space-xs) later, so the digit-to-unit gap is a
+     constant 2px for every count and unit instead of drifting with the field
+     width. size-16 is the suffixed field's own right padding (the group rule) —
+     wide enough for the widest suffix ("px") plus the gap — space-xs the fixed
+     gap, border-thin the field's own border. */
+  inset-inline-start: calc(
+    100% - var(--foliplus-size-16) - var(--foliplus-border-thin) +
+      var(--foliplus-space-xs)
+  );
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-muted);
+  white-space: nowrap;
+  line-height: 1;
+  pointer-events: none;
+  transition: opacity var(--foliplus-transition-input);
+}
+
+.foliplus-form-number-group.is-editing .foliplus-form-number-suffix {
+  opacity: 0;
+}
+
 .foliplus-form-number-input {
   width: var(--foliplus-form-secondary-width);
   padding: 0 var(--foliplus-size-6);
@@ -113,6 +157,16 @@
   &[type="number"] {
     appearance: textfield;
   }
+}
+
+/* A number field with a unit suffix right-aligns its value and reserves the
+   suffix width plus a fixed gap in its own right padding, so the unit always
+   follows the last digit at the same visual offset instead of drifting with
+   the field width. Right-align applies only to the suffixed field — a bare
+   number input keeps its centered value. */
+.foliplus-form-number-group .foliplus-form-number-input {
+  text-align: right;
+  padding-inline-end: var(--foliplus-size-16);
 }
 
 /* Shared select (mirrors HeatmapControl's form-select visual). The wide

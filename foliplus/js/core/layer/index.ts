@@ -44,14 +44,36 @@ export {
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
+  LAYOUT_DOC_KEY,
   normalizeFolderName,
+  folderDisplayName,
+  emptyFolderLayout,
+  ensureFolderLayout,
+  createFolderLayoutManager,
+  readFolderLayout,
+  writeFolderLayout,
+  isFolderLayout,
+  seedFolderLayout,
+  folderOf,
+  groupByFolder,
   sectionOrder,
   fullDisplayOrder,
   freezeSectionOrder,
-  deleteFolderFromOrder,
-  renameFolderInOrder,
-} from "./folderOrder.js";
-export type { FolderOrder, FolderSection } from "./folderOrder.js";
+  createFolder,
+  renameFolder,
+  deleteFolder,
+  moveLayerToFolder,
+  moveLayerToRoot,
+  dropLayer,
+  restoreAuthorLayout,
+} from "./folderLayout.js";
+export type {
+  FolderLayout,
+  FolderEntry,
+  FolderSection,
+  FolderMember,
+  FolderLayoutManager,
+} from "./folderLayout.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both

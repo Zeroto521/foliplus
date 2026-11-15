@@ -144,7 +144,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ariaLabel: ctrl.T("field"),
     fields: [],
     value: "",
-    rowClass: `${CONST.CLASSES.FIELD} foliplus-hidden`,
+    rowClass: `${CONST.CLASSES.FIELD} ${PANEL_CLASS.HIDDEN}`,
     rowAttributes: { [CONST.DATA_ATTR.FIELD]: "" },
     selectAttributes: { [CONST.DATA_ATTR.FIELD_SELECT]: "" },
     surface,
