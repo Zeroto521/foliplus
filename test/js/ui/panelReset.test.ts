@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPanelResetOutcome, finishPanelReset } from "#ui/index.js";
+import {
+  createPanelResetOutcome,
+  finishPanelReset,
+  firstUsableControl,
+} from "#ui/index.js";
 
 const focusTarget = (focus: () => void): HTMLElement =>
   ({ focus }) as unknown as HTMLElement;
@@ -52,6 +56,21 @@ describe("finishPanelReset", () => {
       finishPanelReset({ restore: vi.fn(), close, focus: () => null }),
     ).not.toThrow();
     expect(close).not.toHaveBeenCalled();
+  });
+});
+
+describe("firstUsableControl", () => {
+  it("skips a disabled trigger and returns the next usable control", () => {
+    document.body.innerHTML =
+      '<button id="dead" disabled>Reset</button><button id="next">Next</button>';
+
+    expect(firstUsableControl(document.body)?.id).toBe("next");
+  });
+
+  it("returns null when every control is disabled", () => {
+    document.body.innerHTML = "<button disabled>Reset</button>";
+
+    expect(firstUsableControl(document.body)).toBeNull();
   });
 });
 

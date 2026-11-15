@@ -882,8 +882,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the neighbouring line lost its own stroke\n{row['strokes']}"
             )
 
-    def test_reset_keeps_style_panel_open_and_focuses_reset(self, browser, tmp_path):
-        """Reset restores values without dismissing the panel; focus stays on it."""
+    def test_reset_keeps_style_panel_open_and_focus_inside(self, browser, tmp_path):
+        """Reset restores values without dismissing the panel; focus stays inside it.
+
+        Reset disables itself once the layer is back on its declared style, so
+        the focus contract is "inside the panel", not "on the (now disabled)
+        trigger": a disabled button cannot take focus."""
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
         fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
         folium.CircleMarker(
@@ -909,8 +913,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 timeout=10000,
             )
             panel_ready(page)
+            # Write a border first: a pristine layer disables Reset, and the
+            # no-move / focus assertions need a live trigger.
             opened = page.evaluate(
-                _js("LayerControl/border_set_and_read"), ["Facility Points"]
+                _js("LayerControl/border_set_and_read"),
+                ["Facility Points", "#ff0000", 3],
             )
             assert opened.get("panel"), f"the style panel did not open: {opened}"
             # Let the panel's own entrance animation settle; the assertion below
@@ -939,8 +946,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert state["panelOpen"] is True, (
                 f"Reset must keep the style panel open: {state}"
             )
-            assert state["focusIsReset"] is True, (
-                f"Reset must keep focus on its own button: {state}"
+            assert state["resetDisabled"] is True, (
+                f"Reset must disable itself once the layer is back on its default: {state}"
+            )
+            assert state["focusInPanel"] is True, (
+                f"Reset must leave focus inside the panel: {state}"
             )
 
     def test_circlemarker_stroke_false_border_write_is_visible_and_resettable(

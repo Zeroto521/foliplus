@@ -58,6 +58,7 @@ import {
   dropdownOverlay,
   finishPanelReset,
   finishSlidersIn,
+  firstUsableControl,
   panelButton,
   sectionDivider,
 } from "#ui/index.js";
@@ -235,14 +236,13 @@ const buildFooter = (
       restore: () => hooks.write(undefined),
       close,
       // Clearing disables Clear itself; focus falls to the panel's first
-      // usable control so keyboard users can keep going.
+      // usable control so keyboard users can keep going (the same resolver
+      // the style panel's Reset uses).
       focus: () => {
         const panel = clear.closest<HTMLElement>(
           `.${CONST.CLASSES.FILTER_PANEL}`,
         ) as HTMLElement;
-        return panel.querySelector<HTMLElement>(
-          "button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex='-1'])",
-        );
+        return firstUsableControl(panel);
       },
     });
   });

@@ -43,4 +43,21 @@ const createPanelResetOutcome =
 /** A reset restores values; it does not dismiss the panel. */
 const finishPanelReset = createPanelResetOutcome(false);
 
-export { createPanelResetOutcome, finishPanelReset };
+/** The focusable controls a reset may hand focus to when its own trigger is
+ *  hidden or disabled. A disabled button cannot take focus (the browser drops
+ *  the call), so every reset surface resolves this fallback instead of
+ *  focusing a dead target and leaving focus on `<body>`.
+ *
+ *  Document order is the contract: the first usable control is the one a
+ *  keyboard user reaches with the next Tab press. */
+const PANEL_FOCUSABLE = [
+  "button:not(:disabled)",
+  "select:not(:disabled)",
+  "input:not(:disabled)",
+  "[tabindex]:not([tabindex='-1'])",
+].join(", ");
+
+const firstUsableControl = (root: ParentNode): HTMLElement | null =>
+  root.querySelector<HTMLElement>(PANEL_FOCUSABLE);
+
+export { createPanelResetOutcome, finishPanelReset, firstUsableControl };

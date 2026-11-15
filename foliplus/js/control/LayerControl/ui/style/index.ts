@@ -25,6 +25,7 @@ import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label
 import { resetLayerMarkerColor } from "./markerColor.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
+import { syncResetButton } from "./resetState.js";
 import { bindSizeRow, resetLayerSize } from "./size.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
@@ -48,6 +49,7 @@ import {
   bindLiveNumber,
   finishPanelReset,
   finishSlidersIn,
+  firstUsableControl,
   normalizeHexColor,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -229,6 +231,10 @@ const bindStylePanel = (
     } else {
       return;
     }
+    // A label write is the one style edit that does not publish
+    // LAYER_STYLE_CHANGE (its owner keeps a separate config map), so the
+    // footer's state is refreshed here.
+    syncResetButton(ui, layerId, panel);
     // Only the label panel's change reaches here (delegated label controls
     // stop the shared root). Stop the change from bubbling to the map: a
     // change is not a click, so it would not dismiss the panel on its own,
@@ -300,10 +306,19 @@ const bindStylePanel = (
         },
         close: closeStylePanel.bind(null, ui, true),
         refresh: () => refreshStylePanel(ui, layerId),
-        focus: () =>
-          ui.uiContainer?.querySelector<HTMLElement>(
-            `.${CONST.CLASSES.STYLE_PANEL} .${CONST.CLASSES.STYLE_RESET_BTN}`,
-          ) ?? null,
+        // Reset may be disabled by its own outcome (the layer is back on the
+        // declared style). A disabled button cannot take focus, so the
+        // fallback is the panel's first usable control — the filter Clear's
+        // rule, applied after the refresh replaced the panel.
+        focus: () => {
+          const livePanel = ui.overlayPanel.stylePanelEl;
+          if (!livePanel) return null;
+          const reset = livePanel.querySelector<HTMLButtonElement>(
+            `.${CONST.CLASSES.STYLE_RESET_BTN}`,
+          );
+          if (reset && !reset.disabled) return reset;
+          return firstUsableControl(livePanel);
+        },
       });
       // One notify for the whole operation, merged across its dimensions and
       // resolved against the registry at publish time: if the entry is gone
@@ -330,21 +345,21 @@ const bindStylePanel = (
   // <body> to paint above the drawer, so it is outside the panel's subtree
   // while still being part of the interaction. A press there must not dismiss
   // the drawer — that press is what selects a color.
-  // When the component's own panel changes a style value while this drawer is
-  // open, pull the fresh values and refresh the controls. The shared module's
-  // refresh reads from styleProvider and writes every control, skipping the
-  // one under activeElement.
-  if (delegated) {
-    const bus = ui.c.events;
-    const refresh = ui.overlayPanel.styleRefresh;
-    ui.overlayPanel.styleUnsubscribe = bus.on(
-      EVENTS.LAYER_STYLE_CHANGE,
-      (payload: { id: string }) => {
-        if (payload.id !== layerId) return;
-        refresh?.();
-      },
-    );
-  }
+  // When a style value changes while this drawer is open — the component's own
+  // panel, a delegated setter, or any external write — re-read the footer and
+  // (delegated only) pull the fresh control values. The shared module's refresh
+  // reads from styleProvider and writes every control, skipping the one under
+  // activeElement. Synced here, at bind time, so an open panel starts from the
+  // same predicate every later write re-evaluates.
+  syncResetButton(ui, layerId, panel);
+  ui.overlayPanel.styleUnsubscribe = ui.c.events.on(
+    EVENTS.LAYER_STYLE_CHANGE,
+    (payload: { id: string }) => {
+      if (payload.id !== layerId) return;
+      syncResetButton(ui, layerId, panel);
+      ui.overlayPanel.styleRefresh?.();
+    },
+  );
 
   // While the panel is open, a zoom change must move the current-zoom marker
   // on the zoom-range row and refresh its out-of-range state. The map-level
