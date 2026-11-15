@@ -72,7 +72,9 @@ def _strip_comments_and_strings(source: str) -> str:
         # Block comment: skip to closing */.
         if ch == "/" and nxt == "*":
             i += 2
-            while i < n and not (source[i] == "*" and i + 1 < n and source[i + 1] == "/"):
+            while i < n and not (
+                source[i] == "*" and i + 1 < n and source[i + 1] == "/"
+            ):
                 if source[i] == "\n":
                     out.append("\n")
                 i += 1
@@ -116,7 +118,9 @@ def _find_bare_reloads(source: str) -> list[int]:
     """Return 1-based line numbers of bare ``.reload()`` call sites."""
     stripped = _strip_comments_and_strings(source)
     return [
-        i + 1 for i, line in enumerate(stripped.split("\n")) if _BARE_RELOAD.search(line)
+        i + 1
+        for i, line in enumerate(stripped.split("\n"))
+        if _BARE_RELOAD.search(line)
     ]
 
 
@@ -124,7 +128,9 @@ def _find_reload_aliases(source: str) -> list[int]:
     """Return 1-based line numbers of ``x = ... .reload`` alias assignments."""
     stripped = _strip_comments_and_strings(source)
     return [
-        i + 1 for i, line in enumerate(stripped.split("\n")) if _RELOAD_ALIAS.search(line)
+        i + 1
+        for i, line in enumerate(stripped.split("\n"))
+        if _RELOAD_ALIAS.search(line)
     ]
 
 
