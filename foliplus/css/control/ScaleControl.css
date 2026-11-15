@@ -3,11 +3,12 @@
   display: inline-flex;
   align-items: center;
   margin: 0;
-  /* The shared rounded-control rule (common/reset.css) sets both; restating
-     them here keeps this bundle self-sufficient, so the control's height no
-     longer depends on that file being parsed before the first measurement. */
+  /* The shared rounded-control rule (common/reset.css) sets the line box;
+     restating it here keeps this bundle self-sufficient, so the control's
+     height no longer depends on that file being parsed first. The font size
+     stays inherited: the scale line must keep matching the attribution's own
+     size, whatever the page resolves it to. */
   line-height: 14px;
-  font-size: var(--foliplus-font-size-xs);
 
   .leaflet-control-scale-line,
   .foliplus-scale-zoom-label {

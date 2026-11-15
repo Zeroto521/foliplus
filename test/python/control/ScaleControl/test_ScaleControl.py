@@ -10,10 +10,15 @@ from conftest import (
     assert_locale,
     make_browser_page,
     render_control,
+    snippet,
     use_page,
 )
 
 from foliplus import ScaleControl
+
+# The control is style-dependent: wait until the stylesheet has resolved the
+# line box before any height assertion reads it.
+_SCALE_READY = snippet("ScaleControl/scale_ready")
 
 
 class TestScaleControlConstructor:
@@ -102,11 +107,7 @@ class TestScaleControlBrowser:
         # The control's height is measured below: wait until the stylesheet has
         # actually resolved it, otherwise a page that attached the DOM before
         # the CSS landed reports the browser's default line box instead.
-        page.wait_for_function(
-            "() => { const w = document.querySelector('.foliplus-scale-wrap');"
-            " return !!w && getComputedStyle(w).lineHeight === '14px'; }",
-            timeout=10000,
-        )
+        page.wait_for_function(_SCALE_READY, timeout=10000)
         return page, errors
 
     def test_scale_visible(self, browser, tmp_path):
