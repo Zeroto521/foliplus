@@ -11,13 +11,12 @@ tests pin the anchored regex behaviour: only the real body open tag is hit.
 from __future__ import annotations
 
 import pytest
-
 from conftest import inject_fullscreen_stub
 
 
 def test_stub_injects_once_at_real_body():
     """The stub is inserted exactly once, right after the real <body> tag."""
-    html = "<html><head></head><body class=\"map-page\"><script>var x = 1;</script></body></html>"
+    html = '<html><head></head><body class="map-page"><script>var x = 1;</script></body></html>'
     out = inject_fullscreen_stub(html)
     assert out.count("fullscreenEnabled") == 1
     assert out.count("<body") == 1
