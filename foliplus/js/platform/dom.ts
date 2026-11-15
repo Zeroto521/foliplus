@@ -5,6 +5,7 @@
 // it lives in the runtime singleton (geocode.js) and is accessed
 // lazily via `foliplus.reverseGeocode` at call time, so the geocoder's shared
 // cache/throttle state is not duplicated into every component bundle.
+import { DOM_CLASS } from "./domClassName.js";
 import { formatCoord } from "./format.js";
 import * as SVGs from "./icon.js";
 
@@ -185,7 +186,7 @@ const buildPopupEl = (
     : [addr!];
   return dom.el(
     "div",
-    { class: "foliplus-popup-content" },
+    { class: DOM_CLASS.POPUP_CONTENT },
     dom.el("b", null, titleText),
     { html: "<br>" },
     `${locLabelText}${formatCoord(lng)}, ${formatCoord(lat)}`,
