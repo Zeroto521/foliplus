@@ -22,10 +22,4 @@ const ICON_POLYGON = `
     <circle cx="3" cy="9" r="1.5" class="solid"/>
   </svg>`;
 
-const ICON_EDIT_NODES = `
-  <svg viewBox="0 0 24 24">
-    <path d="M12 20h9"/>
-    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-  </svg>`;
-
-export { ICON_CIRCLE, ICON_EDIT_NODES, ICON_POLYGON, ICON_RULER };
+export { ICON_CIRCLE, ICON_POLYGON, ICON_RULER };
