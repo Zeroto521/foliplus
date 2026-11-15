@@ -1,0 +1,1743 @@
+{
+  "fill": {
+    "original": {
+      "point": {
+        "present": false,
+        "reason": "no-fill-block"
+      },
+      "line": {
+        "present": false,
+        "reason": "no-fill-block"
+      },
+      "polygon": {
+        "present": true,
+        "mode": "original",
+        "dim": "fill",
+        "offered": [
+          "original",
+          "solid",
+          "value"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-fill-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-fill-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "flex",
+            "position": "static",
+            "flexDirection": "column",
+            "gap": "2px",
+            "width": "278px",
+            "height": "36px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-fill-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "104px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(204, 204, 204)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          },
+          "number": null
+        }
+      }
+    },
+    "solid": {
+      "point": {
+        "present": false,
+        "reason": "no-fill-block"
+      },
+      "line": {
+        "present": false,
+        "reason": "no-fill-block"
+      },
+      "polygon": {
+        "present": true,
+        "mode": "solid",
+        "dim": "fill",
+        "offered": [
+          "original",
+          "solid",
+          "value"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-fill-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-fill-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "flex",
+            "position": "static",
+            "flexDirection": "column",
+            "gap": "2px",
+            "width": "278px",
+            "height": "36px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-fill-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "104px",
+            "height": "30px",
+            "color": "rgb(0, 0, 0)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          },
+          "number": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "52px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        }
+      }
+    },
+    "value": {
+      "point": {
+        "present": false,
+        "reason": "no-fill-block"
+      },
+      "line": {
+        "present": false,
+        "reason": "no-fill-block"
+      },
+      "polygon": {
+        "present": true,
+        "mode": "value",
+        "dim": "fill",
+        "offered": [
+          "original",
+          "solid",
+          "value"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-fill-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-fill-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "flex",
+            "position": "static",
+            "flexDirection": "column",
+            "gap": "2px",
+            "width": "278px",
+            "height": "112px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-fill-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": null,
+          "number": null
+        }
+      }
+    }
+  },
+  "border": {
+    "original": {
+      "point": {
+        "present": false,
+        "reason": "no-border-block"
+      },
+      "line": {
+        "present": true,
+        "mode": "original",
+        "dim": "border",
+        "offered": [
+          "original",
+          "solid",
+          "value"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-border-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-border-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-border-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "278px",
+            "height": "36px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-border-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "104px",
+            "height": "30px",
+            "color": "rgba(16, 16, 16, 0.3)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          },
+          "number": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "52px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        }
+      },
+      "polygon": {
+        "present": true,
+        "mode": "original",
+        "dim": "border",
+        "offered": [
+          "original",
+          "solid",
+          "followFill"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-border-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-border-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-border-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "278px",
+            "height": "36px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-border-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "104px",
+            "height": "30px",
+            "color": "rgba(16, 16, 16, 0.3)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          },
+          "number": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "52px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        }
+      }
+    },
+    "solid": {
+      "point": {
+        "present": false,
+        "reason": "no-border-block"
+      },
+      "line": {
+        "present": true,
+        "mode": "solid",
+        "dim": "border",
+        "offered": [
+          "original",
+          "solid",
+          "value"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-border-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-border-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-border-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "278px",
+            "height": "36px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-border-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "104px",
+            "height": "30px",
+            "color": "rgb(0, 0, 0)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          },
+          "number": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "52px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        }
+      },
+      "polygon": {
+        "present": true,
+        "mode": "solid",
+        "dim": "border",
+        "offered": [
+          "original",
+          "solid",
+          "followFill"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-border-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-border-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-border-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "278px",
+            "height": "36px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-border-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "104px",
+            "height": "30px",
+            "color": "rgb(0, 0, 0)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          },
+          "number": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "52px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        }
+      }
+    },
+    "followFill": {
+      "point": {
+        "present": false,
+        "reason": "no-border-block"
+      },
+      "polygon": {
+        "present": true,
+        "mode": "followFill",
+        "dim": "border",
+        "offered": [
+          "original",
+          "solid",
+          "followFill"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-border-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-border-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-border-row",
+                "foliplus-style-size-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "278px",
+            "height": "36px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-border-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": null,
+          "number": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "52px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        }
+      }
+    },
+    "value": {
+      "line": {
+        "present": true,
+        "mode": "value",
+        "dim": "border",
+        "offered": [
+          "original",
+          "solid",
+          "value"
+        ],
+        "row": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-form-row",
+            "foliplus-style-border-row"
+          ],
+          "children": [
+            {
+              "tag": "LABEL",
+              "cls": [
+                "foliplus-form-label"
+              ],
+              "role": null,
+              "action": null,
+              "children": []
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-control"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-inline"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {}
+        },
+        "detail": {
+          "tag": "DIV",
+          "cls": [
+            "foliplus-style-border-detail"
+          ],
+          "children": [
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-dropdown",
+                        "foliplus-dropdown-native-host"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-fill-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "tag": "DIV",
+              "cls": [
+                "foliplus-form-row",
+                "foliplus-style-border-row",
+                "foliplus-style-size-row"
+              ],
+              "role": null,
+              "action": null,
+              "children": [
+                {
+                  "tag": "LABEL",
+                  "cls": [
+                    "foliplus-form-label"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": []
+                },
+                {
+                  "tag": "DIV",
+                  "cls": [
+                    "foliplus-form-control"
+                  ],
+                  "role": null,
+                  "action": null,
+                  "children": [
+                    {
+                      "tag": "DIV",
+                      "cls": [
+                        "foliplus-form-inline"
+                      ],
+                      "role": null,
+                      "action": null,
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aria": {},
+          "computed": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "278px",
+            "height": "144px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(51, 51, 51)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "select": {
+          "tag": "SELECT",
+          "cls": [
+            "foliplus-input-skin",
+            "foliplus-form-select",
+            "foliplus-style-border-mode-select"
+          ],
+          "aria": {
+            "aria-hidden": "true"
+          },
+          "computed": {
+            "display": "none",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "100%",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        },
+        "keyComputed": {
+          "color": null,
+          "number": {
+            "display": "block",
+            "position": "static",
+            "flexDirection": "row",
+            "gap": "normal",
+            "width": "52px",
+            "height": "30px",
+            "color": "rgb(51, 51, 51)",
+            "backgroundColor": "rgb(255, 255, 255)",
+            "borderColor": "rgb(224, 224, 224)",
+            "visibility": "visible",
+            "opacity": "1"
+          }
+        }
+      }
+    }
+  }
+}
