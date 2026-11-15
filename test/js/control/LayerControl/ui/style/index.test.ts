@@ -3424,9 +3424,10 @@ describe("LayerUI style panel", () => {
     expect(btn.disabled).toBe(true);
 
     vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
-    (
-      manager.events as unknown as { emit: (e: string, p: unknown) => void }
-    ).emit("foliplus:layer:style-change", { id: "overlay1" });
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "overlay1" },
+    );
 
     expect(btn.disabled).toBe(true);
   });
@@ -3443,9 +3444,9 @@ describe("LayerUI style panel", () => {
     const short = findItem(ui, "heat1");
     ui.openStylePanel("heat1");
     expect(
-      panelOf(short)!.querySelector(".foliplus-style-reset-btn")!.hasAttribute(
-        "disabled",
-      ),
+      panelOf(short)!
+        .querySelector(".foliplus-style-reset-btn")!
+        .hasAttribute("disabled"),
     ).toBe(false);
     closeStylePanel(ui, false);
 
@@ -3455,14 +3456,17 @@ describe("LayerUI style panel", () => {
       canvas: document.createElement("canvas"),
       styleProvider: () => ({ labelShow: true, zoom: [1, 9] }),
       styleSetters: { labelShow: vi.fn() },
-      styleDefaultsProvider: () => ({ labelShow: true, zoom: 1 as unknown as number[] }),
+      styleDefaultsProvider: () => ({
+        labelShow: true,
+        zoom: 1 as unknown as number[],
+      }),
     });
     const scalar = findItem(ui, "heat2");
     ui.openStylePanel("heat2");
     expect(
-      panelOf(scalar)!.querySelector(".foliplus-style-reset-btn")!.hasAttribute(
-        "disabled",
-      ),
+      panelOf(scalar)!
+        .querySelector(".foliplus-style-reset-btn")!
+        .hasAttribute("disabled"),
     ).toBe(false);
   });
 

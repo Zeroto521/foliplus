@@ -62,6 +62,11 @@ class OverlayPanel {
   /** Refresh function for the shared label controls (set by
    *  `renderDelegatedStylePanel`). */
   styleRefresh: (() => void) | null = null;
+  /** Re-read the open style panel's Reset state. Zoom range is a
+   *  map-membership dimension, so its commit deliberately does not broadcast
+   *  LAYER_STYLE_CHANGE; it calls this hook instead so an open drawer still
+   *  re-evaluates its Reset the moment the range is committed. */
+  styleResetSync: (() => void) | null = null;
   /** Map zoomend handler for the open style panel's zoom-range row. */
   styleZoomEndHandler: (() => void) | null = null;
   /** Layer id whose label style panel is open, or null. */

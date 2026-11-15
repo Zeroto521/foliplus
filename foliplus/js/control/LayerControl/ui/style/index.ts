@@ -352,6 +352,9 @@ const bindStylePanel = (
   // activeElement. Synced here, at bind time, so an open panel starts from the
   // same predicate every later write re-evaluates.
   syncResetButton(ui, layerId, panel);
+  // Zoom range commits are not LAYER_STYLE_CHANGE (they are a map-membership
+  // concern); the descriptor calls this hook instead of broadcasting.
+  ui.overlayPanel.styleResetSync = () => syncResetButton(ui, layerId, panel);
   ui.overlayPanel.styleUnsubscribe = ui.c.events.on(
     EVENTS.LAYER_STYLE_CHANGE,
     (payload: { id: string }) => {
@@ -506,6 +509,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;
+  ui.overlayPanel.styleResetSync = null;
   ui.overlayPanel.styleZoomEndHandler = null;
   // Flushing the panel's live slider sessions can announce, and a subscriber
   // that destroys the manager mid-notify has already nulled the container.
