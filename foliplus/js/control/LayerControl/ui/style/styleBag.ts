@@ -730,4 +730,4 @@ export {
   walkFillLeaves,
   walkStyleLeaves,
 };
-export type { StyleCarrier, SchedulerFace, StyleApplyFailure, StyleSetter, StyleFace };
+export type { StyleBag, StyleCarrier, SchedulerFace, StyleApplyFailure, StyleSetter, StyleFace };
