@@ -36,7 +36,7 @@
 - `ui`: every floating surface places through one kernel (`ui/placement.ts`) and one DOM adapter (`ui/placementAdapter.ts`) ([#1134](https://github.com/Zeroto521/foliplus/pull/1134), [#1135](https://github.com/Zeroto521/foliplus/pull/1135), [#1136](https://github.com/Zeroto521/foliplus/pull/1136), [#1137](https://github.com/Zeroto521/foliplus/pull/1137), [#1146](https://github.com/Zeroto521/foliplus/pull/1146), [#1147](https://github.com/Zeroto521/foliplus/pull/1147), [#1151](https://github.com/Zeroto521/foliplus/pull/1151), [#1155](https://github.com/Zeroto521/foliplus/pull/1155), [#1156](https://github.com/Zeroto521/foliplus/pull/1156))
 - `LayerControl`: style capability checks and mode resolution read one projection and one resolver, each shared with its guard test ([#1138](https://github.com/Zeroto521/foliplus/pull/1138), [#1141](https://github.com/Zeroto521/foliplus/pull/1141), [#1148](https://github.com/Zeroto521/foliplus/pull/1148), [#1157](https://github.com/Zeroto521/foliplus/pull/1157))
 - `LayerControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
-- `HeatmapControl`: Clear restores the defaults and keeps its panel expanded, moving focus to the layer selector when the Clear row disappears ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
+- `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 
 ### Removed
 
