@@ -47,6 +47,7 @@ import {
   buildMonochromeOriginalDetail,
   buildOriginalDetail,
 } from "./originalDetail.js";
+import { renderPaintDetail } from "./paintDimension.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -423,6 +424,38 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
     ),
   ];
 };
+/** The fill detail builder for one mode. The shared engine owns the
+ *  dispose/replace/append shape; this closure is the channel's one difference
+ *  (which mode builds which rows). */
+const fillDetailBuilder = (
+  mode: StyleMode,
+): ((ui: LayerUI, layerId: string) => HTMLElement[]) => {
+  // The original-colors mode shows what the author declared and nothing
+  // editable: the column (when a scale paired), the colors as one order, and
+  // how many there are. No classification controls — those belong to the
+  // user's own value fill.
+  if (mode === STYLE_MODE.ORIGINAL) {
+    return (ui, layerId) => {
+      // A single-colour author has one paint to show: the compact [swatch |
+      // opacity] read-only row (design §2.1). A per-feature author has no
+      // single colour to put in a swatch — the shared original-colors detail
+      // (column/colors/method/count) is the honest readout.
+      if (paintsPerFeatureFill(ui, layerId)) {
+        return buildOriginalDetail(ui, layerId);
+      }
+      return buildMonochromeOriginalDetail(ui, layerId);
+    };
+  }
+  if (mode === STYLE_MODE.VALUE) {
+    return (ui, layerId) => {
+      if (!hasValueField(ui, layerId)) return buildSolidDetail(ui, layerId);
+      const fields = valueFields(ui, layerId);
+      return buildValueDetail(ui, layerId, fields, valueForUi(ui, layerId, fields));
+    };
+  }
+  return (ui, layerId) => buildSolidDetail(ui, layerId);
+};
+
 /** Fill one detail slot for the active mode. Always disposes the previous
  *  scheme picker first: rebuilding the value detail must not leave a picker
  *  answering clicks for a trigger that no longer exists. */
@@ -432,32 +465,13 @@ const renderFillDetail = (
   detail: HTMLElement,
   mode: StyleMode,
 ): void => {
-  disposeFillRow(ui);
-  detail.innerHTML = "";
-  // The original-colors mode shows what the author declared and nothing
-  // editable: the column (when a scale paired), the colors as one order, and
-  // how many there are. No classification controls — those belong to the
-  // user's own value fill.
-  if (mode === STYLE_MODE.ORIGINAL) {
-    // A single-colour author has one paint to show: the compact [swatch |
-    // opacity] read-only row (design §2.1). A per-feature author has no
-    // single colour to put in a swatch — the shared original-colors detail
-    // (column/colors/method/count) is the honest readout.
-    if (paintsPerFeatureFill(ui, layerId)) {
-      detail.append(...buildOriginalDetail(ui, layerId));
-    } else {
-      detail.append(...buildMonochromeOriginalDetail(ui, layerId));
-    }
-    return;
-  }
-  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
-    const fields = valueFields(ui, layerId);
-    detail.append(
-      ...buildValueDetail(ui, layerId, fields, valueForUi(ui, layerId, fields)),
-    );
-    return;
-  }
-  detail.append(...buildSolidDetail(ui, layerId));
+  renderPaintDetail(
+    { dispose: disposeFillRow, detailBuilder: fillDetailBuilder },
+    ui,
+    layerId,
+    detail,
+    mode,
+  );
 };
 /** Build the fill form block. A layer with numeric fields gets the mode row
  *  (solid / color by value) plus the active mode's detail; a layer without one

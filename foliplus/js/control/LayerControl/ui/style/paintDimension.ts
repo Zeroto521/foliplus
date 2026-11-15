@@ -141,7 +141,7 @@ const modeKeyOf = (mode: StyleMode): string => {
     case STYLE_MODE.VALUE:
       return STYLE_MODE_KEY.BY_VALUE;
     case STYLE_MODE.FOLLOW_FILL:
-      return "style_border_follow_fill";
+      return STYLE_MODE_KEY.FOLLOW_FILL;
   }
 };
 
@@ -200,7 +200,7 @@ const buildPaintRow = (
 /** Render the active mode's detail into the detail slot: dispose the channel's
  *  picker state, clear the slot, then build the mode's rows. */
 const renderPaintDetail = (
-  dim: PaintDimension,
+  dim: Pick<PaintDimension, "dispose" | "detailBuilder">,
   ui: LayerUI,
   layerId: string,
   detail: HTMLElement,
@@ -269,6 +269,10 @@ const applyPaintToLayer = (dim: PaintDimension, ui: LayerUI, layerId: string): v
     return;
   }
   if (mode === STYLE_MODE.FOLLOW_FILL) {
+    // FOLLOW_FILL is the border mode that follows the fill face: the border
+    // derives its colour from the fill, so the apply hook receives no base of
+    // its own — the channel resolves the fill's colour itself (the "follow
+    // fill" semantic, not an omitted base).
     dim.applyHooks.solid(ui, layerId, undefined);
     return;
   }

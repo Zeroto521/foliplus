@@ -16,6 +16,7 @@ const STYLE_MODE_KEY = {
   ORIGINAL: "style_mode_original",
   SINGLE: "style_mode_single",
   BY_VALUE: "style_mode_by_value",
+  FOLLOW_FILL: "style_border_follow_fill",
 } as const;
 
 export { STYLE_MODE_KEY };
