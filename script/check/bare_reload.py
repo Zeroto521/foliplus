@@ -170,5 +170,7 @@ def main() -> int:
     return 1
 
 
-if __name__ == "__main__":  # pragma: no cover - CLI entry point, exercised by pre-commit only
+if (
+    __name__ == "__main__"
+):  # pragma: no cover - CLI entry point, exercised by pre-commit only
     sys.exit(main())
