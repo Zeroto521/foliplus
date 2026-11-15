@@ -2,14 +2,11 @@
 /**
  * Guard: every popup coordinate write lives in a shared placement adapter.
  *
- * `ui/placement.ts` is the one geometry kernel. Coordinates are written by the
- * shared DOM adapter, `ui/placeSurface.ts` (measure -> kernel -> write), or by
- * the two surfaces that still own a placement policy and write their own
- * coordinates:
- *
- *   ui/placementAdapter.ts shared DOM adapter (every migrated surface uses it)
- *   ui/listbox.ts          dropdown + scheme picker (width preference, bottom anchor)
- *   core/leaflet/panel.ts  pinned row panel (8px top inset)
+ * `ui/placement.ts` is the one geometry kernel and `ui/placementAdapter.ts`
+ * the one DOM writer: every surface places through the adapter (measure ->
+ * kernel -> write, or apply an already-computed placement). No surface file
+ * writes top/left/bottom itself; the listbox's in-flow `right` reset is one
+ * line exemption, alongside the non-popup sites and the slider's rail layout.
  *
  * This scan flags, in any other file under `foliplus/js`:
  *
@@ -52,15 +49,12 @@ import path from "node:path";
 /** Production source root, relative to the repo root. */
 const JS_ROOT_REL = path.join("foliplus", "js");
 
-/** Files allowed to write a floating surface's coordinates: the kernel itself,
- *  the shared DOM adapter, and the surfaces that still write their own
- *  coordinates. Adding a surface means routing it through placeSurface (or
- *  adding it here with a reason) — never a second flip implementation. */
+/** Files allowed to write a floating surface's coordinates: the kernel itself
+ *  and the shared DOM adapter. Adding a surface means routing it through the
+ *  adapter — never a second flip implementation. */
 const ADAPTER_FILES = new Set([
   "foliplus/js/ui/placement.ts",
   "foliplus/js/ui/placementAdapter.ts",
-  "foliplus/js/ui/listbox.ts",
-  "foliplus/js/core/leaflet/panel.ts",
 ]);
 
 /** The line-level exemption marker. The reason after the colon is mandatory. */
@@ -215,8 +209,8 @@ const main = (argv = [], root = process.cwd()) => {
     console.error(`  ${hit.file}:${hit.line}  ${hit.rule}  ${hit.text}`);
   }
   console.error(
-    "Call ui/placement.ts from the surface's adapter (add a new adapter to " +
-      "ADAPTER_FILES), or annotate the line with `// placement-adapter: <reason>` " +
+    "Route the coordinate write through ui/placementAdapter.ts (placeSurface / " +
+      "applyPlacement), or annotate the line with `// placement-adapter: <reason>` " +
       "when it is not popup placement.",
   );
   return check ? 1 : 0;

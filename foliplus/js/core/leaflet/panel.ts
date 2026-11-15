@@ -12,8 +12,10 @@ import { throttleRaf } from "#platform/throttle.js";
 import {
   PANEL_CLASS,
   type Placement,
+  applyPlacement,
   closeButton,
   computePlacement,
+  viewportBounds,
 } from "#ui/index.js";
 
 // ── Panel CSS classes ───────────────────────────────────────────
@@ -500,12 +502,7 @@ let rowPanelEventsBound = false;
  *  than the page, and a page can scroll part of the map off screen. Without a
  *  map (a row panel outside Leaflet) the viewport is the whole box. */
 const visibleRowPanelBounds = (panel: HTMLElement): RowPanelBounds => {
-  const viewport: RowPanelBounds = {
-    top: 0,
-    left: 0,
-    right: window.innerWidth,
-    bottom: window.innerHeight,
-  };
+  const viewport: RowPanelBounds = viewportBounds();
   const mapEl = panel.closest(".leaflet-container") as HTMLElement | null;
   const mapRect = mapEl?.getBoundingClientRect();
   if (!mapRect || mapRect.width === 0 || mapRect.height === 0) return viewport;
@@ -552,11 +549,17 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   } else {
     panel.style.removeProperty("max-width");
   }
-  panel.style.left = `${fit.placement.left}px`;
-
   // A row inside a collapsed group has a width but no height: there is no strip
   // to fit, so the card keeps the horizontal placement and writes no top/cap.
-  if (row.height === 0) return;
+  if (row.height === 0) {
+    applyPlacement(panel, fit.placement, { writeTop: false });
+    return;
+  }
+
+  // The adapter writes the kernel's left/top. The one surface-policy option is
+  // the 8px top inset: a floor-height card over an embedded map must not park
+  // on the map's very top edge.
+  applyPlacement(panel, fit.placement, { minTop: bounds.top + ROW_PANEL_EDGE });
 
   const flipUp = fit.placement.side === "above";
   panel.style.setProperty(
@@ -564,12 +567,6 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
     `${fit.placement.maxHeight}px`,
   );
   panel.classList.toggle(PANEL_CLASS.ROW_PANEL_UP, flipUp);
-
-  // The kernel owns the vertical clamp (against the height the card renders).
-  // The one surface-policy line left is the 8px top inset: a floor-height card
-  // over an embedded map must not park on the map's very top edge.
-  const minTop = bounds.top + ROW_PANEL_EDGE;
-  panel.style.top = `${Math.max(minTop, fit.placement.top)}px`;
 };
 
 const resetPinnedPanel = (panel: HTMLElement): void => {

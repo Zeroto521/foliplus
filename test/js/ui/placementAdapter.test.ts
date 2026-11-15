@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { placeSurface } from "#ui/index.js";
+import { applyPlacement, placeSurface, viewportBounds } from "#ui/index.js";
 
 const surfaces: HTMLElement[] = [];
 
@@ -77,5 +77,99 @@ describe("placeSurface", () => {
     // No room below, room above: the side is above and both markers agree.
     expect(surface.dataset.side).toBe("above");
     expect(onSide).toHaveBeenCalledWith("above");
+  });
+});
+describe("applyPlacement", () => {
+  const placement = {
+    top: 100,
+    left: 40,
+    side: "above" as const,
+    maxWidth: 160,
+    maxHeight: 80,
+  };
+
+  it("writes an existing placement's edges", () => {
+    const surface = makeSurface(160, 40);
+    applyPlacement(surface, placement);
+
+    expect(surface.style.left).toBe("40px");
+    expect(surface.style.top).toBe("100px");
+    expect(surface.style.bottom).toBe("");
+  });
+
+  it("anchors an above-flipped box by its bottom edge", () => {
+    const surface = makeSurface(160, 40);
+    applyPlacement(surface, placement, {
+      bottomWhenAbove: true,
+      bounds: rect(0, 300, 800, 0),
+      size: { width: 160, height: 40 },
+    });
+
+    // 800 - 100 - min(40, 80) = 660.
+    expect(surface.style.top).toBe("");
+    expect(surface.style.bottom).toBe("660px");
+  });
+
+  it("keeps the top anchor when the side is below", () => {
+    const surface = makeSurface(160, 40);
+    applyPlacement(
+      surface,
+      { ...placement, side: "below" },
+      {
+        bottomWhenAbove: true,
+      },
+    );
+
+    expect(surface.style.top).toBe("100px");
+    expect(surface.style.bottom).toBe("");
+  });
+
+  it("defaults the bottom offset to the border box and the viewport", () => {
+    const surface = makeSurface(160, 40);
+    applyPlacement(surface, placement, { bottomWhenAbove: true });
+
+    // jsdom viewport height 768 - 100 - 40.
+    expect(surface.style.bottom).toBe("628px");
+  });
+
+  it("clamps the written top with minTop", () => {
+    const surface = makeSurface(160, 40);
+    applyPlacement(surface, placement, { minTop: 120 });
+
+    expect(surface.style.top).toBe("120px");
+  });
+
+  it("skips the vertical write with writeTop: false", () => {
+    const surface = makeSurface(160, 40);
+    surface.style.top = "7px";
+    applyPlacement(surface, placement, { writeTop: false });
+
+    expect(surface.style.left).toBe("40px");
+    expect(surface.style.top).toBe("7px");
+  });
+
+  it("writes the centre and the side markers", () => {
+    const surface = makeSurface(160, 40);
+    const onSide = vi.fn();
+    applyPlacement(surface, placement, {
+      origin: "center",
+      sideAttribute: "side",
+      onSide,
+    });
+
+    expect(surface.style.left).toBe("120px");
+    expect(surface.dataset.side).toBe("above");
+    expect(onSide).toHaveBeenCalledWith("above");
+  });
+});
+
+describe("viewportBounds", () => {
+  it("is the viewport box", () => {
+    expect(viewportBounds()).toEqual({
+      left: 0,
+      top: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+    });
   });
 });

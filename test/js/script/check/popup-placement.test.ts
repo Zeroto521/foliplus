@@ -167,20 +167,20 @@ describe("scan — adapter allow-list", () => {
     expect(scan(root).findings).toEqual([]);
   });
 
-  it("reports an allow-listed adapter that does not reference the kernel", () => {
+  it("reports the allow-listed adapter when it stops referencing the kernel", () => {
     const root = tempRoot({
-      "foliplus/js/ui/listbox.ts":
+      "foliplus/js/ui/placementAdapter.ts":
         '// computePlacement is mentioned here only in prose\nel.style.left = "1px";\n',
     });
     const findings = scan(root).findings;
     expect(findings).toHaveLength(1);
     expect(findings[0].rule).toBe("adapter-without-kernel");
-    expect(findings[0].file).toBe("foliplus/js/ui/listbox.ts");
+    expect(findings[0].file).toBe("foliplus/js/ui/placementAdapter.ts");
   });
 
-  it("accepts an adapter that uses the kernel and writes coordinates", () => {
+  it("accepts the adapter when it uses the kernel and writes coordinates", () => {
     const root = tempRoot({
-      "foliplus/js/ui/listbox.ts":
+      "foliplus/js/ui/placementAdapter.ts":
         'import { computePlacement } from "./placement.js";\n' +
         'const p = computePlacement(a, s, b);\nel.style.left = "1px";\n' +
         "const w = window.innerWidth;\n",
