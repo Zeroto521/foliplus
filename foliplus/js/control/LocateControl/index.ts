@@ -1,3 +1,4 @@
+import { CLASSES } from "./const.js";
 import { locateMe, removeMarker } from "./logic.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { ensureHint } from "#core/overlay/index.js";
@@ -29,7 +30,7 @@ const LocateControl = defineControl({
     const outer = dom.el("div", { class: "leaflet-bar leaflet-control" });
     const container = dom.el("div", { class: PANEL_CLASS.FOLD, parent: outer });
     this.btn = createIconButton({
-      class: `${PANEL_CLASS.TOOL_BTN} foliplus-locate-btn`,
+      class: `${PANEL_CLASS.TOOL_BTN} ${CLASSES.LOCATE_BTN}`,
       title: this.T("title"),
       ariaLabel: this.T("title"),
       svg: BTN_HTML,

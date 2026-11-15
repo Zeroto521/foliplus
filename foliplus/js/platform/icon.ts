@@ -1,19 +1,19 @@
 // platform/icon — Shared SVG icons for the foliplus runtime.
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Shared SVG Icons for the foliplus runtime.
 // These are loaded once per map as part of the shared header. Component-specific
 // icons live in each component's own `{Name}.icon.js` file instead.
 // ──────────────────────────────────────────────────────────────────────────────
-
 // Paint is set on the icon itself rather than inherited from the host button.
 // ICON_LOADING is shared by four consumers; the ones in Leaflet popups (LocateControl,
 // SearchControl) sit outside any `svg { fill: none }` rule, so with no local paint
 // the arc — a closed path — fell back to fill: black and rendered as a solid pie
 // slice with a notch instead of an open ring. Inline presentation attributes have
 // the lowest CSS priority, so a component can still recolor it from CSS.
+import { ICON_CLASS } from "./iconClassName.js";
+
 const ICON_LOADING = `
-  <svg class="foliplus-spin" viewBox="0 0 24 24">
+  <svg class="${ICON_CLASS.SPIN}" viewBox="0 0 24 24">
     <path fill="none" stroke="currentColor" stroke-width="2.4"
       stroke-linecap="round" d="M21 12a9 9 0 1 1-6.2-8.6"/>
   </svg>`;
@@ -24,7 +24,7 @@ const ICON_CLOSE = `
   </svg>`;
 
 const ICON_PIN = `
-  <div class="foliplus-pin">
+  <div class="${ICON_CLASS.PIN}">
     <svg width="24" height="36" viewBox="0 0 24 36">
       <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24 C24 5.4 18.6 0 12 0z"
           fill="currentColor" stroke="#fff" stroke-width="1.5"/>

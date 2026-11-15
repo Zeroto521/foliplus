@@ -32,6 +32,7 @@ import {
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+import { MARKER_CLASS } from "./markerClassName.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons, mountedIconElement } from "#core/leafletAdapter.js";
@@ -260,7 +261,7 @@ const buildMarkerIcon = (opts: {
     // color, the same default the derive path uses. One color, one alpha.
     const defaultPaint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
     return L.divIcon({
-      className: "foliplus-marker-default",
+      className: MARKER_CLASS.DEFAULT,
       html: glyphHtml(glyph, "", `color:${defaultPaint}`, prefix),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
@@ -360,7 +361,7 @@ const buildMarkerIcon = (opts: {
       if (sprite) {
         div.style.backgroundImage = "none";
         const span = document.createElement("span");
-        span.className = "foliplus-marker-chassis";
+        span.className = MARKER_CLASS.CHASSIS;
         if (chassisPreset) {
           span.style.backgroundImage = sprite.url;
           span.style.backgroundPosition = sprite.position;
@@ -417,7 +418,7 @@ const paintMountedChassis = (
   const chassisPreset = presetNameOfHex(markerColor);
   const opacity = markerColorOpacity ?? 100;
   const wantSpan = chassisPreset === null || opacity < 100;
-  const span = el.querySelector(".foliplus-marker-chassis") as HTMLElement | null;
+  const span = el.querySelector(`.${MARKER_CLASS.CHASSIS}`) as HTMLElement | null;
   if (!span || !wantSpan) return false;
   // Re-derive the span's full paint so a preset-to-custom mechanism switch is
   // still a single in-place write (clear both faces, then apply the new one).

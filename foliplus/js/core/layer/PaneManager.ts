@@ -11,6 +11,7 @@
 //     invalidateDiscoveryCache / destroy
 import { PaneLedger } from "./PaneLedger.js";
 import * as CONST from "./const.js";
+import { LAYER_PANE_CLASS } from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
 import { isContainerNode, walkLeaf, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
@@ -246,7 +247,7 @@ class PaneManager {
     let pane = this.map.getPane(paneName);
     if (!pane) {
       pane = this.map.createPane(paneName);
-      pane.classList.add("foliplus-layer-pane");
+      pane.classList.add(LAYER_PANE_CLASS);
       // Provisional z so panes of one layer already draw in the right relative
       // order before the ordering pass assigns their position-based base
       // (which may never come if LayerControl is absent).
@@ -262,12 +263,12 @@ class PaneManager {
       // pane foliplus created into an adopted one, so the owner's destroy then
       // retired the lease and left the element on the map.
       const created = held ? held.owns : false;
-      if (!pane.classList.contains("foliplus-layer-pane")) {
+      if (!pane.classList.contains(LAYER_PANE_CLASS)) {
         // An adopted pre-built pane must satisfy the same CSS contract as a
         // created one: the focus hide rule and the pointer-events rules key on
         // this class, and an adopted pane without it would stay visible (and
         // clickable) in focus mode.
-        pane.classList.add("foliplus-layer-pane");
+        pane.classList.add(LAYER_PANE_CLASS);
       }
       this.paneLedger.claim(paneName, owner, created);
     }
@@ -300,7 +301,7 @@ class PaneManager {
     // A pane foliplus already stamped is its own — the unregister/re-register
     // cycle re-adopts it, children included. A plain pane with content is
     // somebody else's; an empty one is a caller preparing for its layer.
-    if (existing.classList.contains("foliplus-layer-pane")) return true;
+    if (existing.classList.contains(LAYER_PANE_CLASS)) return true;
     return existing.childElementCount === 0;
   }
 
@@ -320,8 +321,7 @@ class PaneManager {
    *  unregister/re-register cycle of a declared pane re-adoptable. */
   private isForeignPane(existing: HTMLElement): boolean {
     return (
-      !existing.classList.contains("foliplus-layer-pane") &&
-      existing.childElementCount > 0
+      !existing.classList.contains(LAYER_PANE_CLASS) && existing.childElementCount > 0
     );
   }
 
