@@ -1,1 +1,1 @@
-z => window.map.setZoom(z)
+z => window.map.setZoom(z);

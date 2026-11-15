@@ -4,4 +4,4 @@
   if (!wrap || !attr) return false;
   const line = getComputedStyle(wrap).lineHeight;
   return line !== "normal" && line === getComputedStyle(attr).lineHeight;
-}
+};

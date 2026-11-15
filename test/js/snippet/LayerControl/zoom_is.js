@@ -1,1 +1,1 @@
-z => window.map.getZoom() === z
+z => window.map.getZoom() === z;
