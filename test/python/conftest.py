@@ -875,13 +875,16 @@ def assert_map_unchanged(before: list[float], after: list[float]) -> None:
 def pytest_collection_modifyitems(config, items):
     """Auto-mark tests that need a browser as pytest.mark.browser.
 
-    Browser-based tests live in classes whose name ends with ``Browser`` (e.g.
-    ``TestXxxBrowser``). This lets ``-m "not browser"`` exclude all playwright
-    tests from the fast unit-test run.
+    A test needs a browser when it lives in a class whose name ends with
+    ``Browser`` (e.g. ``TestXxxBrowser``) or when it requests the ``browser``
+    fixture directly. The fixture check keeps a module-level browser test from
+    running in the fast, Playwright-less matrix by accident. This lets
+    ``-m "not browser"`` exclude every playwright test from that run.
     """
     for item in items:
         cls = item.getparent(pytest.Class)
-        if cls is not None and cls.name.endswith("Browser"):
+        class_browser = cls is not None and cls.name.endswith("Browser")
+        if class_browser or "browser" in item.fixturenames:
             item.add_marker(pytest.mark.browser)
 
 
