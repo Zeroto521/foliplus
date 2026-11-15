@@ -104,59 +104,13 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   return panel;
 };
 
-/** Open the label style panel for a layer. The panel is anchored to the
- *  layer's own row — the same "drop below the trigger" rule the attributes
- *  panel uses — through the shared fixed-position pin, so it is not clipped by
- *  the row list's scroll box. */
-const openStylePanel = (ui: LayerUI, layerId: string): void => {
-  if (!layerId) return;
-
-  // The row-lookup guard runs before teardown: an unknown id would clear
-  // whatever the user had open and then fail to open anything. The panel
-  // render stays after closeOverlays — `renderDelegatedStylePanel` sets
-  // `ui.overlayPanel.styleRefresh` on this call, which `closeStylePanel` would wipe.
-  const item = ui.uiContainer?.querySelector(
-    `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
-  ) as HTMLElement | null;
-  if (!item) return;
-
-  closeOverlays(ui);
-  const panel = renderStylePanel(ui, layerId);
-  if (!panel) return;
-
-  // The panel sits inside a draggable layer row: a press on the panel must
-  // neither start a row drag nor inherit `user-select: none` (attrs recipe).
-  // The mousedown is stopped here; whether the press landed inside the panel is
-  // recorded by the outside handler below, because `dragstart` is dispatched on
-  // the draggable row and so cannot answer it.
-  ui.overlayPanel.stylePanelEl = panel;
-  // Division of labour (single authority, no overlap): the PanelController
-  // owns the dismissal contract (outside press, Escape, closeFromClick,
-  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
-  // fields keep the display state (item/panel/layerId) and the detach pipe
-  // (each close detaches exactly once so the next open can re-attach) — a
-  // controller is rebuilt per open, so it is not a persistent handle. Slices
-  // 1-2 removed the inline register object (the true double bookkeeping);
-  // these fields are not a second open/closed state.
-  const controller: PanelController = createPanel({
-    owner: "layer",
-    localId: "style",
-    rank: 500,
-    exclusiveGroup: "layer:rows",
-    clearsCursorOnClose: true,
-    dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
-    root: () => ui.overlayPanel.stylePanelEl ?? null,
-    open: () => {
-      item.style.position = "relative";
-      item.appendChild(panel);
-      pinRowPanel(panel, item);
-    },
-    close: ({ restoreFocus }) => {
-      closeStylePanel(ui, restoreFocus);
-      return true;
-    },
-  });
-
+/** Bind the panel DOM shared by an open and an in-place refresh. */
+const bindStylePanel = (
+  ui: LayerUI,
+  layerId: string,
+  panel: HTMLElement,
+  controller: PanelController,
+): void => {
   bindPanelPress(panel, controller);
 
   // Border row: a self-managed dimension that writes `setStyle` directly, so
@@ -343,12 +297,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       }
       finishPanelReset({
         close: () => closeStylePanel(ui, true),
-        // The panel has to re-read every control from the restored state; a
-        // close/open pair renders it in place, before the browser paints.
-        refresh: () => {
-          closeStylePanel(ui, false);
-          openStylePanel(ui, layerId);
-        },
+        refresh: () => refreshStylePanel(ui, layerId),
         focus: () =>
           ui.uiContainer?.querySelector<HTMLElement>(
             `.${CONST.CLASSES.STYLE_PANEL} .${CONST.CLASSES.STYLE_RESET_BTN}`,
@@ -409,6 +358,63 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
       if (zoomRangeRow.isConnected) syncZoomRangeRow(ui, layerId, zoomRangeRow);
     };
   }
+};
+
+/** Open the label style panel for a layer. The panel is anchored to the
+ *  layer's own row — the same "drop below the trigger" rule the attributes
+ *  panel uses — through the shared fixed-position pin, so it is not clipped by
+ *  the row list's scroll box. */
+const openStylePanel = (ui: LayerUI, layerId: string): void => {
+  if (!layerId) return;
+
+  // The row-lookup guard runs before teardown: an unknown id would clear
+  // whatever the user had open and then fail to open anything. The panel
+  // render stays after closeOverlays — `renderDelegatedStylePanel` sets
+  // `ui.overlayPanel.styleRefresh` on this call, which `closeStylePanel` would wipe.
+  const item = ui.uiContainer?.querySelector(
+    `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+  ) as HTMLElement | null;
+  if (!item) return;
+
+  closeOverlays(ui);
+  const panel = renderStylePanel(ui, layerId);
+  if (!panel) return;
+
+  // The panel sits inside a draggable layer row: a press on the panel must
+  // neither start a row drag nor inherit `user-select: none` (attrs recipe).
+  // The mousedown is stopped here; whether the press landed inside the panel is
+  // recorded by the outside handler below, because `dragstart` is dispatched on
+  // the draggable row and so cannot answer it.
+  ui.overlayPanel.stylePanelEl = panel;
+  // Division of labour (single authority, no overlap): the PanelController
+  // owns the dismissal contract (outside press, Escape, closeFromClick,
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
+  // fields keep the display state (item/panel/layerId) and the detach pipe
+  // (each close detaches exactly once so the next open can re-attach) — a
+  // controller is rebuilt per open, so it is not a persistent handle. Slices
+  // 1-2 removed the inline register object (the true double bookkeeping);
+  // these fields are not a second open/closed state.
+  const controller: PanelController = createPanel({
+    owner: "layer",
+    localId: "style",
+    rank: 500,
+    exclusiveGroup: "layer:rows",
+    clearsCursorOnClose: true,
+    dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
+    root: () => ui.overlayPanel.stylePanelEl ?? null,
+    open: () => {
+      item.style.position = "relative";
+      item.appendChild(panel);
+      pinRowPanel(panel, item);
+    },
+    close: ({ restoreFocus }) => {
+      closeStylePanel(ui, restoreFocus);
+      return true;
+    },
+  });
+  ui.overlayPanel.stylePanelController = controller;
+
+  bindStylePanel(ui, layerId, panel, controller);
 
   ui.overlayPanel.stylePanelLayerId = layerId;
   // Same PanelController wiring: the dismissal contract and registry identity
@@ -416,6 +422,44 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // generates the entry (id "layer.style") and returns the detach.
   ui.overlayPanel.styleOverlayUnregister = attachPanel(ui.c.map, controller);
   controller.open();
+};
+
+/** Refresh the open style panel in place after a Reset.
+ *
+ *  The panel must re-read every control from the restored state without
+ *  leaving the row: a close/open pair makes the card disappear and reappear.
+ *  The controller, overlay entry and pin stay; only the panel DOM and its row
+ *  binders are replaced, preserving the scroll position.
+ */
+const refreshStylePanel = (ui: LayerUI, layerId: string): void => {
+  const item = ui.uiContainer?.querySelector(
+    `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
+  ) as HTMLElement | null;
+  const panel = ui.overlayPanel.stylePanelEl;
+  const controller = ui.overlayPanel.stylePanelController;
+  if (!item || !panel || !controller) return;
+
+  const content = panel.querySelector<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
+  const scrollTop = content?.scrollTop ?? 0;
+  ui.overlayPanel.styleUnsubscribe?.();
+  ui.overlayPanel.styleUnsubscribe = null;
+  ui.overlayPanel.styleZoomEndHandler = null;
+  disposeFillRow(ui);
+  disposeBorderRow(ui);
+  finishSlidersIn(panel);
+  unpinRowPanel(panel);
+
+  const next = renderStylePanel(ui, layerId);
+  if (!next) {
+    closeStylePanel(ui, false);
+    return;
+  }
+  panel.replaceWith(next);
+  ui.overlayPanel.stylePanelEl = next;
+  pinRowPanel(next, item);
+  const nextContent = next.querySelector<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
+  if (nextContent) nextContent.scrollTop = scrollTop;
+  bindStylePanel(ui, layerId, next, controller);
 };
 
 /** Close the style panel. setFocus = true returns focus to the layer row. */
@@ -430,6 +474,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.overlayPanel.styleOverlayUnregister?.();
   ui.overlayPanel.styleOverlayUnregister = null;
   ui.overlayPanel.stylePanelEl = null;
+  ui.overlayPanel.stylePanelController = null;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
   ui.overlayPanel.styleRefresh = null;

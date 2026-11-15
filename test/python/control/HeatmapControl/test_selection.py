@@ -160,14 +160,13 @@ class TestHeatmapControlSelectionBrowser:
             heatmap_ready(page)
 
             page.locator("[data-heatmap-btn-clear]").click()
-            assert (
-                page.locator(".foliplus-heatmap-ctrl.foliplus-is-expanded").count() == 1
+            state = page.evaluate(_js("HeatmapControl/clear_kept_open"))
+            assert state["expanded"] is True, (
+                f"Clear must keep the heatmap panel expanded: {state}"
             )
-            assert page.evaluate(
-                "document.activeElement === document.querySelector("
-                "'.foliplus-heatmap-ctrl [data-heatmap-layer]')"
-                "?.parentElement?.querySelector('button')"
-            ), "Clear must leave focus on the layer dropdown trigger"
+            assert state["focusIsLayerTrigger"] is True, (
+                f"Clear must leave focus on the layer dropdown trigger: {state}"
+            )
             assert not errors, f"JS errors: {errors}"
 
     def test_declared_layer_and_field_select_on_load(self, browser, tmp_path):

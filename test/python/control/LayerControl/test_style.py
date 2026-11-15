@@ -917,11 +917,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
             page.locator(
                 ".foliplus-layer-style-panel .foliplus-style-reset-btn"
             ).click()
-            assert page.locator(".foliplus-layer-style-panel").count() == 1
-            assert page.evaluate(
-                "document.activeElement?.classList.contains("
-                "'foliplus-style-reset-btn') === true"
-            ), "Reset must keep focus on its own button"
+            state = page.evaluate(_js("LayerControl/style_reset_kept_open"))
+            assert state["panelOpen"] is True, (
+                f"Reset must keep the style panel open: {state}"
+            )
+            assert state["focusIsReset"] is True, (
+                f"Reset must keep focus on its own button: {state}"
+            )
 
     def test_circlemarker_stroke_false_border_write_is_visible_and_resettable(
         self, browser, tmp_path
