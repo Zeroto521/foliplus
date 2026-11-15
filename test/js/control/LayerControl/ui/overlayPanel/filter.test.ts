@@ -502,6 +502,59 @@ describe("LayerUI filter panel", () => {
         expect(ui.overlayPanel.activeFilterPanel).toBeNull();
       });
 
+      it("selectField rebuilds for the newly chosen field", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const select = panel.querySelector("select") as HTMLSelectElement;
+        select.value = "depth";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        // onField cleared the committed filter and the body rebuilt for the
+        // new field: the depth slider replaced the mag one.
+        expect(owner.filter).toBeUndefined();
+        expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).not.toBeNull();
+        const rowLabels = panel.querySelectorAll(
+          ".foliplus-form-row .foliplus-form-label",
+        );
+        // The first label is the field row's caption; the range row is second.
+        expect(rowLabels[1].textContent).toBe(ui.T("filter_range"));
+      });
+
+      it("closeFilterPanel destroys a rows body but leaves the empty body alone", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+        ui.closeFilterPanel(false);
+        // No throw and no leak: the rows view's destroy ran, the panel is gone.
+        expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+        expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      });
+
+      it("closeFilterPanel leaves the empty body alone and removes the panel", () => {
+        registerPoints();
+        // A row with no capability: the panel shows the empty body, and the
+        // close path must skip the rows-body destroy (there is none).
+        const item = findItem(ui, "overlay1");
+        ui.openFilterPanel(item);
+        expect(item.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
+        ui.closeFilterPanel(false);
+        expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+        expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      });
+
       it("falls back to the first field when the committed atom names an unknown field", () => {
         // A persisted atom whose field is not offered falls back to the
         // first available field (D8) without throwing.
