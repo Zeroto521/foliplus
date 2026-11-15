@@ -5,7 +5,8 @@
  * `ui/placement.ts` is the one geometry kernel and `ui/placementAdapter.ts`
  * the one DOM writer: every surface places through the adapter (measure ->
  * kernel -> write, or apply an already-computed placement). No surface file
- * writes a coordinate itself.
+ * writes top/left/bottom itself; the listbox's in-flow `right` reset is one
+ * line exemption, alongside the non-popup sites and the slider's rail layout.
  *
  * This scan flags, in any other file under `foliplus/js`:
  *
@@ -208,8 +209,8 @@ const main = (argv = [], root = process.cwd()) => {
     console.error(`  ${hit.file}:${hit.line}  ${hit.rule}  ${hit.text}`);
   }
   console.error(
-    "Call ui/placement.ts from the surface's adapter (add a new adapter to " +
-      "ADAPTER_FILES), or annotate the line with `// placement-adapter: <reason>` " +
+    "Route the coordinate write through ui/placementAdapter.ts (placeSurface / " +
+      "applyPlacement), or annotate the line with `// placement-adapter: <reason>` " +
       "when it is not popup placement.",
   );
   return check ? 1 : 0;

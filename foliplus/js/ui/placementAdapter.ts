@@ -33,13 +33,16 @@ interface PlacementApplyOpts {
    * For a portal whose CSS contract anchors an up-flipped box by its bottom.
    */
   bottomWhenAbove?: boolean;
-  /** Skip the vertical write (horizontal-only placement). Defaults to true. */
+  /** Skip the vertical write for a horizontal-only placement. Defaults to false. */
   writeTop?: boolean;
   /** Clamp the written `top` to at least this value (surface policy, e.g. an edge inset). */
   minTop?: number;
   /** The bounds the placement was computed against (needed for the bottom offset). */
   bounds?: PlacementBox;
-  /** The surface's measured size (needed for the bottom offset). */
+  /**
+   * The surface's natural (border-box) size. Its height feeds the bottom
+   * offset; the rendered height is `min(size.height, maxHeight)`.
+   */
   size?: SurfaceSize;
   /** Write the resolved side to this data attribute (`"side"` -> `data-side`). */
   sideAttribute?: string;
@@ -57,8 +60,9 @@ interface PlaceSurfaceOpts extends PlacementOpts, PlacementApplyOpts {
  *
  * The default vertical write is `top`; a surface that anchors an up-flipped
  * box by its bottom edge passes `bottomWhenAbove`. The bottom offset uses the
- * height the box actually renders (`min(size.height, maxHeight)`), so a cap
- * taller than the content does not shift it.
+ * height the box renders (`min(size.height, maxHeight)`, with `size.height`
+ * the surface's natural height), so a cap taller than the content does not
+ * shift it.
  */
 const applyPlacement = (
   surface: HTMLElement,
