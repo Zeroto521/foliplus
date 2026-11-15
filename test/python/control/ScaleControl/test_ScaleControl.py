@@ -10,10 +10,15 @@ from conftest import (
     assert_locale,
     make_browser_page,
     render_control,
+    snippet,
     use_page,
 )
 
 from foliplus import ScaleControl
+
+# The control is style-dependent: wait until the stylesheet has resolved the
+# line box before any height assertion reads it.
+_SCALE_READY = snippet("ScaleControl/scale_ready")
 
 
 class TestScaleControlConstructor:
@@ -99,6 +104,10 @@ class TestScaleControlBrowser:
         html = m.get_root().render()
         page, errors = make_browser_page(browser, tmp_path, html, "scale")
         page.wait_for_selector(".foliplus-scale-wrap", state="attached", timeout=10000)
+        # The control's height is measured below: wait until the stylesheet has
+        # actually resolved it, otherwise a page that attached the DOM before
+        # the CSS landed reports the browser's default line box instead.
+        page.wait_for_function(_SCALE_READY, timeout=10000)
         return page, errors
 
     def test_scale_visible(self, browser, tmp_path):
@@ -200,6 +209,25 @@ class TestScaleControlBrowser:
                 assert zl["family"] == attr["family"]
                 assert zl["size"] == attr["size"]
                 assert zl["weight"] == attr["weight"]
+            assert not errors, f"JS errors: {errors}"
+
+    def test_attribution_uses_the_foliplus_type_base(self, browser, tmp_path):
+        """The attribution keeps the map type base even without a host baseline.
+
+        The page used to inherit 10px from Bootstrap 3 (html: 62.5%); when
+        that sheet is absent the browser default (16px) made the attribution,
+        the scale line and tooltips all grow. The container now owns the size.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            fonts = page.evaluate(_js("ScaleControl/read_fonts"))
+            assert fonts is not None, "elements not found"
+            # --foliplus-font-size-xs is 10px; the exact value is the point:
+            # it must not drift with the host page.
+            assert fonts["attr"]["size"] == "10px", (
+                f"attribution font-size is {fonts['attr']['size']}, not the "
+                f"10px map base"
+            )
+            assert fonts["scaleLine"]["size"] == "10px"
             assert not errors, f"JS errors: {errors}"
 
     def test_line_height_matches_attribution(self, browser, tmp_path):

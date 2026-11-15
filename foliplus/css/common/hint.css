@@ -21,6 +21,12 @@
   border-radius: var(--foliplus-radius-lg);
   padding: var(--foliplus-space-md) var(--foliplus-space-xl);
   box-sizing: border-box;
+  /* An absolutely positioned box with `left: 50%` computes its available
+     width as half the containing block, so shrink-to-fit caps it at ~188px on
+     a 375px phone and `max-width` never binds. `max-content` opts out of that
+     available-width constraint: the box grows to the text, then `max-width`
+     is the only cap, so the phone media block can actually widen it. */
+  width: max-content;
   max-width: min(var(--foliplus-hint-max-width), 80vw);
   white-space: normal;
   color: var(--foliplus-on-accent);
