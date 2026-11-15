@@ -154,5 +154,17 @@
   "foliplus-dropdown-native-host": {
     "status": "deferred",
     "reason": "Owned at ui/dropdown.ts:48; scanner-blind."
+  },
+  "foliplus-dropdown-search": {
+    "status": "deferred",
+    "reason": "Added by the filter-enum search feature in ui/dropdown.ts DROPDOWN_CLASSES; the vocabulary lives in a non-owner module, so a follow-up card moves it into a dropdownClassName.ts owner module."
+  },
+  "foliplus-dropdown-search-input": {
+    "status": "deferred",
+    "reason": "Added by the filter-enum search feature in ui/dropdown.ts DROPDOWN_CLASSES; the vocabulary lives in a non-owner module, so a follow-up card moves it into a dropdownClassName.ts owner module."
+  },
+  "foliplus-dropdown-no-result": {
+    "status": "deferred",
+    "reason": "Added by the filter-enum search feature in ui/dropdown.ts DROPDOWN_CLASSES; the vocabulary lives in a non-owner module, so a follow-up card moves it into a dropdownClassName.ts owner module."
   }
 }
