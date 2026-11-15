@@ -7273,6 +7273,35 @@ describe("genericFilterModel — enum dimensions", () => {
 
     expect(manager.genericFilterModel("overlay1")).toBeNull();
   });
+  it("treats an enum-only field set as filterable through the injected gate", () => {
+    // The two disjuncts are separate evidence: a categorical-only layer
+    // (no measurable attribute at all) must open the panel as well, so the
+    // gate cannot reduce to "has a numeric field".
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({
+        enumFields: ["kind"],
+        enumValues: { kind: ["a", "b"] },
+        total: 2,
+      }),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+    // Numeric fields stay empty: the enumeration alone must carry the gate.
+    expect(manager.genericFilterModel("overlay1")!.fields).toEqual([
+      { value: "kind", label: "kind", numeric: false },
+    ]);
+    const info = manager.layerRegistry.get("overlay1")!;
+    expect(info.hasFilterFields?.()).toBe(true);
+  });
 
   it("truncates a large enum domain to the panel limit and marks it", () => {
     const manager = makeManager();
