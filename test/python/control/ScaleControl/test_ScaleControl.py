@@ -99,6 +99,14 @@ class TestScaleControlBrowser:
         html = m.get_root().render()
         page, errors = make_browser_page(browser, tmp_path, html, "scale")
         page.wait_for_selector(".foliplus-scale-wrap", state="attached", timeout=10000)
+        # The control's height is measured below: wait until the stylesheet has
+        # actually resolved it, otherwise a page that attached the DOM before
+        # the CSS landed reports the browser's default line box instead.
+        page.wait_for_function(
+            "() => { const w = document.querySelector('.foliplus-scale-wrap');"
+            " return !!w && getComputedStyle(w).lineHeight === '14px'; }",
+            timeout=10000,
+        )
         return page, errors
 
     def test_scale_visible(self, browser, tmp_path):

@@ -3,6 +3,11 @@
   display: inline-flex;
   align-items: center;
   margin: 0;
+  /* The shared rounded-control rule (common/reset.css) sets both; restating
+     them here keeps this bundle self-sufficient, so the control's height no
+     longer depends on that file being parsed before the first measurement. */
+  line-height: 14px;
+  font-size: var(--foliplus-font-size-xs);
 
   .leaflet-control-scale-line,
   .foliplus-scale-zoom-label {
