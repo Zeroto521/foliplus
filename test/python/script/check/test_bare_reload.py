@@ -66,23 +66,12 @@ class TestScanHelpers:
 
     def test_strip_removes_comment_and_string_reloads(self):
         """A reload inside a comment or string must not count."""
-        src = (
-            "# obj.reload()\n"
-            '"""\n'
-            "obj.reload()\n"
-            '"""\n'
-            "obj.reload()\n"
-        )
+        src = '# obj.reload()\n"""\nobj.reload()\n"""\nobj.reload()\n'
         assert _mod["_find_bare_reloads"](src) == [5]
 
     def test_strip_preserves_line_structure_across_strings(self):
         """Stripping a multi-line string must not collapse line numbers."""
-        src = (
-            'x = "a\n'
-            "obj.reload()\n"
-            'b"\n'
-            "obj.reload()\n"
-        )
+        src = 'x = "a\nobj.reload()\nb"\nobj.reload()\n'
         assert _mod["_find_bare_reloads"](src) == [4]
 
     def test_strip_preserves_line_numbers_across_comment(self):
@@ -106,14 +95,20 @@ def test_single_quote_string_with_newline_and_escape():
 class TestMain:
     def test_main_returns_zero_on_clean_tree(self, tmp_path, monkeypatch):
         """``main()`` returns 0 when no file has a bare reload or alias."""
-        _make(tmp_path, "test/python/control/MeasureControl/test_mode.py",
-              'page.reload(wait_until="domcontentloaded")\n')
+        _make(
+            tmp_path,
+            "test/python/control/MeasureControl/test_mode.py",
+            'page.reload(wait_until="domcontentloaded")\n',
+        )
         assert _run_main(tmp_path, monkeypatch) == 0
 
     def test_main_reports_bare_reload_line(self, tmp_path, monkeypatch, capsys):
         """``main()`` returns 1 and reports file:line for a bare reload."""
-        _make(tmp_path, "test/python/control/MeasureControl/test_mode.py",
-              "page.reload()\n")
+        _make(
+            tmp_path,
+            "test/python/control/MeasureControl/test_mode.py",
+            "page.reload()\n",
+        )
         assert _run_main(tmp_path, monkeypatch) == 1
         err = capsys.readouterr().err
         assert "test_mode.py:1" in err
@@ -121,8 +116,11 @@ class TestMain:
 
     def test_main_reports_alias(self, tmp_path, monkeypatch, capsys):
         """``main()`` returns 1 and reports an alias assignment."""
-        _make(tmp_path, "test/python/control/HeatmapControl/test_persist.py",
-              "r = page.reload\n")
+        _make(
+            tmp_path,
+            "test/python/control/HeatmapControl/test_persist.py",
+            "r = page.reload\n",
+        )
         assert _run_main(tmp_path, monkeypatch) == 1
         err = capsys.readouterr().err
         assert "test_persist.py:1" in err
