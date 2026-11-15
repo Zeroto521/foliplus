@@ -214,8 +214,7 @@
 /* Active row (aria-activedescendant / keyboard moved): same wash as hover
    but without the pointer cue, so the keyboard path and the mouse path can
    never look like two different selections. */
-.foliplus-dropdown-option-active,
-.foliplus-dropdown-option[aria-activedescendant="true"] {
+.foliplus-dropdown-option-active {
   background: var(--foliplus-menu-row-hover-bg);
 }
 /* Status/footer: one region below the options (the design keeps no-result

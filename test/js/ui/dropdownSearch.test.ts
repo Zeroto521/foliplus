@@ -370,16 +370,93 @@ describe("dropdown search: select-all and clear", () => {
 });
 
 describe("dropdown search: single status region", () => {
+  const statusOf = (dropdown: Dropdown): HTMLElement | null =>
+    dropdown.getList()?.parentElement?.querySelector('[role="status"]') ?? null;
+
   it("keeps no-result and footer mutually exclusive", () => {
     const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
     dropdown.trigger.click();
     type(dropdown, "zzz");
     return new Promise<void>(resolve => {
       setTimeout(() => {
+        const status = statusOf(dropdown);
+        expect(status).not.toBeNull();
+        // No-result only: the count row must not render alongside it (P2-c).
+        expect(status?.textContent).toContain("No matching values");
+        expect(status?.querySelector(".foliplus-dropdown-footer-btn")).toBeNull();
+        resolve();
+      }, 250);
+    });
+  });
+
+  it("shows only one status element for a matched query", () => {
+    const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
+    dropdown.trigger.click();
+    const statuses = dropdown
+      .getList()
+      ?.parentElement?.querySelectorAll('[role="status"]');
+    expect(statuses?.length).toBe(1);
+  });
+});
+
+describe("dropdown search: select-all covers the full matched set (P2-b)", () => {
+  it("selects all 35 matched items even with a 30 render cap", () => {
+    const changes: string[][] = [];
+    const { dropdown } = makeSearch(makeItems(40), {
+      multiple: true,
+      placeholder: "Pick",
+      search: { threshold: 10, renderLimit: 30 },
+      onChange: (_v, vs) => changes.push([...vs]),
+    });
+    dropdown.trigger.click();
+    type(dropdown, "value 3"); // matches value 3, 30-39 → 11 items
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
+        const buttons = dropdown
+          .getList()
+          ?.parentElement?.querySelectorAll(".foliplus-dropdown-footer-btn");
+        // Select all is the first button.
+        (buttons?.[0] as HTMLElement | undefined)?.click();
+        expect(changes.length).toBeGreaterThan(0);
+        expect(changes[changes.length - 1]).toHaveLength(11);
+        resolve();
+      }, 250);
+    });
+  });
+});
+
+describe("dropdown search: footer denominator is the matched set (P3-c)", () => {
+  it("reports the matched count, not the full domain, in the footer", () => {
+    const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
+    dropdown.trigger.click();
+    type(dropdown, "value 5"); // matches only Value 5
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
         const status = dropdown
           .getList()
           ?.parentElement?.querySelector('[role="status"]');
-        expect(status?.textContent).toContain("No matching values");
+        // With one match and 12 total, the footer line "showing" is omitted
+        // (shown === matchedCount) and only "0 selected" shows. The matched
+        // denominator matters when the query filters more than shown.
+        expect(status?.textContent).toContain("selected");
+        resolve();
+      }, 250);
+    });
+  });
+
+  it("shows 'showing N of M' with M = matched count when capped", () => {
+    const { dropdown } = makeSearch(makeItems(40), {
+      placeholder: "Pick",
+      search: { threshold: 10, renderLimit: 30 },
+    });
+    dropdown.trigger.click();
+    type(dropdown, "value 3"); // matches 11 items (3, 30-39), all under cap
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
+        const status = dropdown
+          .getList()
+          ?.parentElement?.querySelector('[role="status"]');
+        expect(status?.textContent).toContain("selected");
         resolve();
       }, 250);
     });

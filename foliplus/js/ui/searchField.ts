@@ -21,6 +21,8 @@ type SearchFieldOptions = {
   placeholder?: string;
   /** aria-label for the input (caller-localized). */
   ariaLabel?: string;
+  /** Optional class for the <input> element (e.g. the shared input skin). */
+  inputClass?: string;
   /** Called with the trimmed query on every input event (including clear). */
   onInput: (query: string) => void;
   /** Called for every keydown on the input (Escape, arrows, Enter, Tab). */
@@ -43,6 +45,7 @@ type SearchField = {
 const createSearchField = (opts: SearchFieldOptions): SearchField => {
   const input = document.createElement("input");
   input.type = "text";
+  if (opts.inputClass) input.classList.add(opts.inputClass);
   input.setAttribute("autocomplete", "off");
   input.setAttribute("spellcheck", "false");
   if (opts.placeholder) input.setAttribute("placeholder", opts.placeholder);
