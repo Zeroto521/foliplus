@@ -11,7 +11,7 @@
 import type { LayerUI } from "../surface.js";
 import { type AuthorFill, authorFill, methodLabel } from "./fillAuthor.js";
 import { originalGradient } from "./originalColor.js";
-import { type StyleCarrier, styleBagOf, walkFillLeaves } from "./styleBag.js";
+import { FACE, authorFaceOf } from "./styleBag.js";
 import { METHOD } from "#core/value/index.js";
 import { dom } from "#platform/dom.js";
 import {
@@ -213,22 +213,14 @@ const buildOriginalDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
 const authorFillPaint = (
   ui: LayerUI,
   layerId: string,
-): { color: string; opacity: number | null } => {
-  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
-  if (!layer) return { color: CONST.COLOR.DEFAULT, opacity: null };
-  let color: string | null = null;
-  let opacity: number | null = null;
-  let found = false;
-  walkFillLeaves(layer, node => {
-    if (found) return;
-    found = true;
-    const bag = styleBagOf(node);
-    const opts = node.options ?? {};
-    color = bag?.fillColor ?? opts.fillColor ?? null;
-    opacity = bag?.fillOpacity ?? opts.fillOpacity ?? null;
-  });
-  return { color: color ?? CONST.COLOR.DEFAULT, opacity };
-};
+): { color: string; opacity: number | null } => ({
+  // One shared reader per face + key (authorFaceOf): the captured author bag
+  // wins, the live options fall back, then the face default. Same priority the
+  // solid row's swatch uses, so the original readout and the map cannot
+  // disagree about what the author painted.
+  color: authorFaceOf(ui, layerId, FACE.FILL, "fillColor") ?? CONST.COLOR.DEFAULT,
+  opacity: authorFaceOf(ui, layerId, FACE.FILL, "fillOpacity") ?? null,
+});
 
 /** The monochrome original-colors readout: ONE form-row holding the author's
  *  colour swatch and fill opacity side by side, both read-only (design §2.1).

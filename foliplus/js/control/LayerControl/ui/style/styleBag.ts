@@ -16,7 +16,7 @@
 // A node with `setStyle` alone is not a carrier (L.GeoJSON owns one too),
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
 import type { LayerUI } from "../surface.js";
-import { isColorBasemap } from "./fillAuthor.js";
+import { isColorBasemap, paintsPerFeatureFill } from "./fillAuthor.js";
 import { EVENTS, publish } from "#core/event/index.js";
 import { findLeaf, isArealStyleLeaf, walkLeaf } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
@@ -200,6 +200,58 @@ const firstStyleLeaf = (node: StyleCarrier): StyleSetter | null =>
 const firstFillLeaf = (node: StyleCarrier): StyleSetter | null =>
   firstLeafWhere(node, isArealStyleLeaf);
 
+/** The author's declared value for one style face + key, before any user
+ *  write. One shared reader for the "bag ?? options ?? default" priority: the
+ *  captured author bag wins (setStyle mutates options in place, so after a
+ *  write the live options hold the user's last drag, not the author's paint),
+ *  the live options are the mid fallback (a leaf the capture never saw — a
+ *  streaming addData — still has its authored options), and the face's own
+ *  default is the floor.
+ *
+ *  The carrier is per-face: fill reads the first areal leaf, stroke the first
+ *  setter — a dimension never reads a value from a leaf its write cannot
+ *  reach. See {@link firstFillLeaf} / {@link firstStyleLeaf}.
+ *
+ *  markerColor and iconColor read a different captured carrier (the author
+ *  icon object, not the style bag) with the same "captured ?? options ??
+ *  default" priority — see {@link authorMarkerColor} / {@link authorIconColor}
+ *  in their own modules. The two carrier families stay separate: their keys
+ *  are not StyleBag fields and a value on one is not the answer for the other.
+ */
+const authorFaceOf = <K extends keyof StyleBag>(
+  ui: LayerUI,
+  layerId: string,
+  face: StyleFace,
+  key: K,
+): StyleBag[K] | undefined => {
+  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
+  if (!layer) return undefined;
+  const carrier = face === FACE.FILL ? firstFillLeaf(layer) : firstStyleLeaf(layer);
+  if (!carrier) return undefined;
+  const bag = styleBagOf(carrier);
+  const opts = (carrier.options ?? {}) as Partial<StyleBag>;
+  return bag?.[key] ?? opts[key] ?? undefined;
+};
+
+/** Whether this face needs a per-feature derivation when no intent exists.
+ *  A uniform layer's author face is already one value (no walk); only a
+ *  per-feature layer needs the derivation. Both faces gate on the author's
+ *  per-feature record: the border apply's deriveSolidBase is per-feature-gated
+ *  for stroke too, because a uniform line layer's author stroke is already one
+ *  value — no intent means no walk (locked by the border apply suite). The
+ *  `face` parameter stays in the signature so a future dimension whose
+ *  derivation rule genuinely differs by face can extend the decision.
+ *  Shared by the fill and border apply paths so the two cannot disagree about
+ *  whether a derivation is owed. */
+const needsDerivation = (ui: LayerUI, layerId: string, face: StyleFace): boolean => {
+  // Both faces use the per-feature record today. The stroke face is NOT
+  // unconditionally true: that would make a solid border with no intent write
+  // the author stroke as a user override on a uniform layer (border.apply
+  // deriveSolidBase contract, locked by 20 border tests).
+  void face;
+  return paintsPerFeatureFill(ui, layerId);
+};
+
 /** The derived base colour for the solid mode, or undefined when the layer
  *  does not qualify.
  *
@@ -225,8 +277,13 @@ const solidColorOf = (
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return undefined;
   if (opts.excludeBasemap && isColorBasemap(layerInfo)) return undefined;
-  const base = styleBaseOf(ui, layerId);
-  return face === FACE.STROKE ? base.color : base.fillColor;
+  // One reader per face + key (authorFaceOf). The old form went through
+  // styleBaseOf, which read both faces' carriers up front; reading just the
+  // requested face is the same value with one carrier lookup instead of two.
+  return (
+    authorFaceOf(ui, layerId, face, face === FACE.STROKE ? "color" : "fillColor") ??
+    (face === FACE.STROKE ? STYLE_BAG_DEFAULTS.color : STYLE_BAG_DEFAULTS.fillColor)
+  );
 };
 
 /**
@@ -261,24 +318,16 @@ const styleBaseOf = (
   fillOpacity: number | null;
   color: string;
   weight: number;
-} => {
-  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
-  // Each face reads from the carrier its own write reaches - fill from the
-  // first areal leaf, stroke from the first setter. One shared carrier made a
-  // line-first mixed layer show the line's color as its fill.
-  const fillCarrier = layer ? firstFillLeaf(layer) : null;
-  const strokeCarrier = layer ? firstStyleLeaf(layer) : null;
-  const fillBag = fillCarrier ? styleBagOf(fillCarrier) : undefined;
-  const strokeBag = strokeCarrier ? styleBagOf(strokeCarrier) : undefined;
-  const fillOpts = (fillCarrier?.options ?? {}) as Partial<StyleBag>;
-  const strokeOpts = (strokeCarrier?.options ?? {}) as Partial<StyleBag>;
-  return {
-    fillColor: fillBag?.fillColor ?? fillOpts.fillColor ?? STYLE_BAG_DEFAULTS.fillColor,
-    fillOpacity: fillBag?.fillOpacity ?? fillOpts.fillOpacity ?? null,
-    color: strokeBag?.color ?? strokeOpts.color ?? STYLE_BAG_DEFAULTS.color,
-    weight: strokeBag?.weight ?? strokeOpts.weight ?? STYLE_BAG_DEFAULTS.weight,
-  };
-};
+} => ({
+  // One shared reader per face + key. The carriers differ by face (fill =
+  // first areal leaf, stroke = first setter), so a line-first mixed layer
+  // still shows the polygon's fill — the same rule each face's write reaches.
+  fillColor:
+    authorFaceOf(ui, layerId, FACE.FILL, "fillColor") ?? STYLE_BAG_DEFAULTS.fillColor,
+  fillOpacity: authorFaceOf(ui, layerId, FACE.FILL, "fillOpacity") ?? null,
+  color: authorFaceOf(ui, layerId, FACE.STROKE, "color") ?? STYLE_BAG_DEFAULTS.color,
+  weight: authorFaceOf(ui, layerId, FACE.STROKE, "weight") ?? STYLE_BAG_DEFAULTS.weight,
+});
 
 /** Build a write payload from the user's value keys, always lighting the
  *  face's visibility bit. Omit a value key to leave the author's default
@@ -656,6 +705,7 @@ export {
   FACE,
   STYLE_APPLY_SOURCE,
   STYLE_BAG_DEFAULTS,
+  authorFaceOf,
   cancelStyleDimApply,
   captureStyleBag,
   commitStyleDim,
@@ -667,6 +717,7 @@ export {
   flushStyleDimApplies,
   hasStyleDimApply,
   isStyleSetter,
+  needsDerivation,
   releaseStyleApplyOwner,
   restoreStyleDim,
   scheduleStyleDimApply,
