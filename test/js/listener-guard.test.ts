@@ -207,10 +207,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/dropdown.ts",
-    n: 1,
+    n: 4,
     pairedOff: 0,
     reason:
-      "the bridged select's own change bridge: a programmatic `change` is the one signal that the select moved (a preset loader, another control), so the adapter re-reads the value and refreshes its label and the open popup. The adapter owns the value model and the trigger label; every popup/lifecycle listener lives in ui/listbox.ts (the engine owns all dropdown mechanism)",
+      "shared select-replacement ADAPTER over ui/listbox.ts: the bridged select change bridge stays here (a programmatic change is the one signal that the select moved), plus the three search-field listeners (input, Escape keydown, ArrowDown keydown) on a per-open search input built by buildSearch and collected with the element when the popup is destroyed — the adapter owns the value model, trigger label and search field; every popup/lifecycle listener moved into ui/listbox.ts (the engine owns all dropdown mechanism)",
   },
   {
     f: "ui/listbox.ts",
