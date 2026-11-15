@@ -1,19 +1,23 @@
-// paintDimension — the shared paint-dimension engine (S6.1 skeleton).
+// paintDimension — the shared paint-dimension engine (the shared-engine skeleton).
 //
-// The engine is consumer-free until S6.4/S6.5 wire the fill/border adapters,
+// The engine is consumer-free until the fill/border adapters wire in,
 // so this suite tests the three-layer shape and the apply skeleton against a
 // mock adapter (a minimal PaintDimension) rather than the real channels. The
-// mock adapter's fields are the seam S6.4/S6.5 will fill with the real ones;
+// mock adapter's fields are the seam the adapters will fill with the real ones;
 // the engine's contract — resolve mode from displaySpec, dispatch apply to the
 // hooks, rebuild the detail on a mode switch — is what this locks.
 import { describe, expect, it, vi } from "vitest";
 import { STYLE_MODE } from "#core/layer/index.js";
 import {
+  type PaintDimension,
+  type PaintSubDimension,
   applyPaintToLayer,
+  bindPaintDetail,
   bindPaintRow,
   buildPaintRow,
   renderPaintDetail,
 } from "#control/LayerControl/ui/style/paintDimension.js";
+import type { StyleBag, StyleFace } from "#control/LayerControl/ui/style/styleBag.js";
 
 /** A minimal LayerUI duck — the engine only touches ui.c.map.getContainer()
  *  and ui.T() for the row, so a plain object satisfies it. */
@@ -32,15 +36,8 @@ const makeUI = () => {
   } as any;
 };
 
-/** A minimal overlay-registry duck for dropdownOverlay. */
-const overlayDuck = {
-  id: "paint",
-  rank: 900,
-  register: () => () => {},
-};
-
 /** A mock PaintDimension adapter — the engine's seam. */
-const makeDim = (overrides: Record<string, any> = {}) => {
+const makeDim = (overrides: Record<string, any> = {}): PaintDimension => {
   const dim = {
     __stored: undefined as any,
     __displaySpec() {
@@ -61,12 +58,12 @@ const makeDim = (overrides: Record<string, any> = {}) => {
       label: "Fill",
     },
     intentKeys: ["fillColor", "fillOpacity", "fillValue", "fillStyleMode"] as const,
-    face: "fill",
+    face: "fill" as StyleFace,
     gate: () => true,
-    authorFace: (_ui: any, _id: string, key: string) =>
-      key === "fillColor" ? "#aabbcc" : undefined,
+    authorFace: <K extends keyof StyleBag>(_ui: any, _id: string, key: K) =>
+      (key === "fillColor" ? "#aabbcc" : undefined) as StyleBag[K] | undefined,
     needsDerivation: () => false,
-    displaySpec: (ui: any, id: string) => dim.__displaySpec(),
+    displaySpec: (_ui: any, _id: string) => dim.__displaySpec(),
     modes: () => [STYLE_MODE.ORIGINAL, STYLE_MODE.SOLID, STYLE_MODE.VALUE],
     inherits: undefined,
     subs: [],
@@ -82,7 +79,7 @@ const makeDim = (overrides: Record<string, any> = {}) => {
       solid: vi.fn(),
     },
     hasValue: () => true,
-    derivedKey: () => "fillColor",
+    derivedKey: (): keyof StyleBag => "fillColor",
     writeMode: vi.fn((_ui: any, _id: string, mode: string) => {
       dim.__stored = mode;
       return true;
@@ -167,6 +164,15 @@ describe("bindPaintRow", () => {
     expect(detail.firstElementChild!.getAttribute("data-mode")).toBe("original");
   });
 
+  it("binds the active detail controls through the adapter's binder", () => {
+    const ui = makeUI();
+    const detailBinder = vi.fn();
+    const dim = makeDim({ detailBinder: () => detailBinder });
+    const detail = document.createElement("div");
+    bindPaintDetail(dim, ui, "overlay1", detail, STYLE_MODE.SOLID);
+    expect(detailBinder).toHaveBeenCalledWith(ui, "overlay1", detail);
+  });
+
   it("binds a sub-dimension input alongside the active detail", () => {
     const ui = makeUI();
     const bindInput = vi.fn();
@@ -181,7 +187,7 @@ describe("bindPaintRow", () => {
           },
           bindInput,
           commit: () => {},
-        },
+        } satisfies PaintSubDimension,
       ],
       detailBuilder: (mode: string) => (_ui: any, _id: string) => {
         const el = document.createElement("div");
@@ -193,7 +199,6 @@ describe("bindPaintRow", () => {
       },
     });
     const row = buildPaintRow(dim, ui, "overlay1");
-    const detail = row.querySelector(".test-fill-detail")!;
     bindPaintRow(dim, ui, "overlay1", row);
     expect(bindInput).toHaveBeenCalled();
   });

@@ -5,8 +5,8 @@
 // (intent keys, paint face, gate, mode vocabulary, sub-dimension, detail
 // builders). Everything else — the mode select row, the detail slot, the
 // mode-switch re-render, the apply skeleton — is one engine here. The
-// adapters (S6.4 fill, S6.5 border) supply the channel differences; this
-// module is deliberately consumer-free until those steps (S6.1 ships the
+// adapters (the fill / border adapters) supply the channel differences; this
+// module is deliberately consumer-free until the adapters land; this ships the
 // interface + engine only, no wiring).
 //
 // The engine is a shared three-layer shape plus an apply skeleton:
@@ -25,10 +25,10 @@ import type { StyleBag, StyleFace } from "./styleBag.js";
 import { type IntentKey, STYLE_MODE, type StyleMode } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
+  type DisplayModeSpec,
   resolveDisplayAndDetail,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
-import type { DisplayModeSpec } from "#foliplus/style/displayMode.js";
 import { dom } from "#platform/dom.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import { STYLE_MODE_KEY, dropdownOverlay } from "#ui/index.js";
@@ -115,7 +115,7 @@ interface PaintDimension {
 
 /** One channel's sub-dimension — a value that rides every mode and never
  *  sinks the display mode. The engine binds it alongside the active detail
- *  (S6.2/S6.5); the commit path is the channel's own. */
+ *  (the consumer wiring step); the commit path is the channel's own. */
 interface PaintSubDimension {
   key: "opacity" | "weight";
   buildInput: (ui: LayerUI, layerId: string) => HTMLElement;
