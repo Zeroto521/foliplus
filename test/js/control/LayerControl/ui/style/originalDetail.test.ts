@@ -268,6 +268,21 @@ describe("monochrome original detail (P2)", () => {
     // First leaf wins: 0.55 reads 55% (not the second leaf's 30%).
     expect(text(opacityBox as HTMLElement)).toContain("55%");
   });
+  it("the cmap original opacity box falls back to 20% when the leaf carries no fillOpacity", () => {
+    // A per-feature author whose fill leaves never set a fillOpacity reads
+    // the Leaflet default, not a fabricated number — the cmap fallback arm.
+    const { ui } = makeFillLayer([{ fillColor: "#aabbcc", fill: true }], {
+      perFeature: true,
+      distinct: 1,
+      stops: ["#aabbcc"],
+      scale: { kind: "continuous", column: "value" },
+    });
+    const block = buildFillRow(ui, "overlay1");
+    const d = detail(block);
+    const opacityBox = d.querySelector(`.${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`);
+    expect(opacityBox).not.toBeNull();
+    expect(text(opacityBox as HTMLElement)).toContain("20%");
+  });
 
   it("the cmap original opacity row is read-only (#953)", () => {
     const { ui } = makeFillLayer(

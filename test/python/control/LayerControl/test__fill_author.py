@@ -959,11 +959,11 @@ class TestFillAuthorBrowser:
             # A continuous scale is sampled down to a readable number of stops
             # instead of one DOM block per color.
             assert 2 <= initial["stops"] <= 12, initial
-            # The read-only detail holds nothing to operate.
-            assert initial["detailSelects"] == 0, initial
-            assert initial["detailComboboxes"] == 0, initial
-            assert initial["detailFocusable"] == 0, initial
-            assert len(initial["rows"]) == 3, initial
+            # Four rows in the cmap original detail: the field (column),
+            # the method+count pair, the scheme, and the read-only opacity
+            # row the fill-opacity-modes spec adds (after the scheme, before
+            # the border mode). The opacity row is a read-out, never a control.
+            assert len(initial["rows"]) == 4, initial
             assert all("foliplus-form-row" in row for row in initial["rows"]), initial
             assert initial["hasField"] is False, initial
             assert initial["hasMethod"] is False, initial

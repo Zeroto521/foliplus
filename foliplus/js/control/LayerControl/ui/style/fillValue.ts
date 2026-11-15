@@ -689,18 +689,20 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
       convergeClassesRow(classesSelect, next.classes);
     };
   }
+  // The opacity input is built unconditionally by `buildValueDetail` above,
+  // so the query casts instead of re-testing for null (the same convention the
+  // file's header comment states: a guard here could never take its false mode
+  // and would just read as an uncovered branch).
   const opacityEl = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
-  ) as HTMLInputElement | null;
-  if (opacityEl !== null) {
-    bindLiveNumber(opacityEl, {
-      min: 0,
-      max: 100,
-      fallback: VISIBLE_FILL_OPACITY * 100,
-      // One decimal place in percent space: 0.555 reads and writes 55.5,
-      // never 55.49999... — display and commit agree through the same step.
-      normalize: pct => Math.round(pct * 10) / 10,
-      onCommit: pct => commitFillOpacity(ui, layerId, pct),
-    });
-  }
+  ) as HTMLInputElement;
+  bindLiveNumber(opacityEl, {
+    min: 0,
+    max: 100,
+    fallback: VISIBLE_FILL_OPACITY * 100,
+    // One decimal place in percent space: 0.555 reads and writes 55.5,
+    // never 55.49999... — display and commit agree through the same step.
+    normalize: pct => Math.round(pct * 10) / 10,
+    onCommit: pct => commitFillOpacity(ui, layerId, pct),
+  });
 };

@@ -276,7 +276,9 @@ const buildMonochromeOriginalDetail = (ui: LayerUI, layerId: string): HTMLElemen
     "aria-disabled": "true",
   });
   const opacityBox = readOnlyValue(
-    { className: CONST.CLASSES.STYLE_FILL_READONLY },
+    {
+      className: `${CONST.CLASSES.STYLE_FILL_READONLY} ${CONST.CLASSES.STYLE_FILL_ORIGINAL_OPACITY}`,
+    },
     dom.el(
       "span",
       { class: CONST.CLASSES.STYLE_FILL_ORIGINAL_VALUE },
