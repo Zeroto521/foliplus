@@ -3,7 +3,7 @@ import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
-import { isFilterCapable } from "./filter.js";
+import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { EVENTS } from "#core/event/index.js";
 import { sectionOf } from "#core/layer/index.js";
 import {
@@ -156,11 +156,13 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       ? ui.T(focusDisabledLocaleKey(focusReason))
       : ui.T("focus_layer_tooltip");
 
-  // Filter leads when the row declares the capability. Unsupported rows get
-  // NO entry: a permanently disabled control is noise; a new capability only
-  // adds its own gate without changing this rule.
-  const filterSupported = layerSupportsFilter(ui, layerId);
-  if (filterSupported) {
+  // Capability gate: only rows that declare the filter capability render the
+  // entry. A capable row with no filterable field stays visible but disabled
+  // (with the empty-state reason as tooltip) so the user is told why, instead
+  // of opening an empty panel.
+  const filterInfo = filterCapabilityOf(ui, layerId);
+  const filterHasFields = layerSupportsFilter(ui, layerId);
+  if (filterInfo) {
     menu.appendChild(
       dom.el(
         "button",
@@ -168,8 +170,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           type: "button",
           "data-action": CONST.ACTION.FILTER_LAYER,
           role: "menuitem",
-          title: ui.T("filter_layer_tooltip"),
-          "aria-disabled": "false",
+          title: filterHasFields ? ui.T("filter_layer_tooltip") : ui.T("filter_empty"),
+          "aria-disabled": filterHasFields ? "false" : "true",
         },
         { html: SVGs.ICON_FILTER },
         ui.T("filter_layer"),
@@ -434,8 +436,16 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
  *  style delegation too and its rows are not filterable. The panel's
  *  reads and writes derive from the same declaration, so the gate, the
  *  panel and the owner cannot drift apart. */
-const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean =>
-  isFilterCapable(ui.c.layerRegistry.get(layerId));
+const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
+  const layer = ui.c.layerRegistry.get(layerId);
+  if (!isFilterCapable(layer)) return false;
+  // A capability row is still filterable only when it actually has a field to
+  // filter on: a generic layer with an empty model (no numeric/enum fields)
+  // must not open the empty panel. The cheap gate reads only the cached
+  // filter-features row; a full filterProvider() build is the fallback.
+  if (layer.hasFilterFields) return layer.hasFilterFields();
+  return layer.filterProvider() !== null;
+};
 
 const buildDeleteItem = (
   ui: LayerUI,

@@ -210,7 +210,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     n: 1,
     pairedOff: 0,
     reason:
-      "shared select-replacement ADAPTER over ui/listbox.ts: only the bridged select change bridge stays here (a programmatic change is the one signal that the select moved). Every popup/lifecycle listener moved into ui/listbox.ts — the engine owns all dropdown mechanism now; the adapter owns only the value model and trigger label",
+      "the bridged select's own change bridge: a programmatic `change` is the one signal that the select moved (a preset loader, another control), so the adapter re-reads the value and refreshes its label and the open popup. The adapter owns the value model and the trigger label; every popup/lifecycle listener lives in ui/listbox.ts (the engine owns all dropdown mechanism)",
   },
   {
     f: "ui/listbox.ts",

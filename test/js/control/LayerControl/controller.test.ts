@@ -6695,6 +6695,76 @@ describe("cleanEmptyFolders", () => {
     applySpy.mockRestore();
   });
 });
+it("routes the injected generic filterSetter through setLayerFilter", () => {
+  const { manager } = initFixture({
+    data: [
+      { id: "overlay1", name: "Polygons", role: "overlay", layer: polygonLayer() },
+    ],
+  });
+  manager.uiContainer = document.createElement("div");
+  manager.ui = {
+    intentStore: makeStore(),
+    runtimeStore: (() => {
+      const s = new LayerRuntimeStore();
+      s.setFilterFeatures("overlay1", {
+        features: [],
+        numericFields: ["mag"],
+        ranges: { mag: [0, 10] },
+        enumFields: [],
+        enumValues: {},
+        total: 5,
+      } as any);
+      return s;
+    })(),
+    colorSurface: {} as any,
+    currentColor: "#000000",
+    dropPersistedLayerState: vi.fn(),
+    saveState: vi.fn(),
+    syncToggleAll: vi.fn(),
+    syncNoBasemap: vi.fn(),
+    renamedNames: {},
+    saveNamesState: vi.fn(),
+    invalidateFields: vi.fn(),
+  } as any;
+
+  // A plain data layer owns no caller capability, so the gate injects the
+  // generic pair; the row carries it onto the registry entry.
+  const info = manager.layerRegistry.get("overlay1")!;
+  expect(info.filterSetter).toBeTypeOf("function");
+  expect(info.hasFilterFields?.()).toBe(true);
+
+  const setSpy = vi.spyOn(manager, "setLayerFilter");
+  info.filterSetter!({
+    kind: "atom",
+    field: "mag",
+    op: "between",
+    range: [2, 8],
+  } as any);
+  // The injected closure is a plain delegation: it must not own the write,
+  // so setLayerFilter is the only carrier into the shared store.
+  expect(setSpy).toHaveBeenCalledWith("overlay1", {
+    kind: "atom",
+    field: "mag",
+    op: "between",
+    range: [2, 8],
+  });
+  expect(info.filter).toEqual({
+    kind: "atom",
+    field: "mag",
+    op: "between",
+    range: [2, 8],
+  });
+  expect(
+    (manager as any).filterStore.getFilter("overlay1", FILTER_SOURCE.GENERIC),
+  ).toEqual({
+    kind: "atom",
+    field: "mag",
+    op: "between",
+    range: [2, 8],
+  });
+  setSpy.mockRestore();
+});
+
 describe("createFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -7202,6 +7272,35 @@ describe("genericFilterModel — enum dimensions", () => {
     } as any;
 
     expect(manager.genericFilterModel("overlay1")).toBeNull();
+  });
+  it("treats an enum-only field set as filterable through the injected gate", () => {
+    // The two disjuncts are separate evidence: a categorical-only layer
+    // (no measurable attribute at all) must open the panel as well, so the
+    // gate cannot reduce to "has a numeric field".
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      runtimeStore: makeRuntimeStore({
+        enumFields: ["kind"],
+        enumValues: { kind: ["a", "b"] },
+        total: 2,
+      }),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+    // Numeric fields stay empty: the enumeration alone must carry the gate.
+    expect(manager.genericFilterModel("overlay1")!.fields).toEqual([
+      { value: "kind", label: "kind", numeric: false },
+    ]);
+    const info = manager.layerRegistry.get("overlay1")!;
+    expect(info.hasFilterFields?.()).toBe(true);
   });
 
   it("truncates a large enum domain to the panel limit and marks it", () => {
