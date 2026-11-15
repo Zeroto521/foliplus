@@ -19,10 +19,6 @@
     "status": "deferred",
     "reason": "Owned as compound in MeasureControl/const.ts NODE_SOLID + ExportControl/const.ts; scanner-blind (compound value)."
   },
-  "foliplus-focus-overlay": {
-    "status": "deferred",
-    "reason": "Owned in LayerControl/const.ts; scanner-blind (value not seen as owner by class-owner)."
-  },
   "foliplus-measure-path": {
     "status": "deferred",
     "reason": "Owned as compound in MeasureControl/const.ts PATH_SOLID/PATH_DASHED/PATH_PREVIEW; scanner-blind."
