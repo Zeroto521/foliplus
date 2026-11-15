@@ -8128,7 +8128,6 @@ describe("genericFilterModel — enum dimensions", () => {
         ],
         multi: true,
         truncated: false,
-        allValues: ["a", "b", "c"],
       },
     ]);
     expect(model!.fields).toEqual([{ value: "kind", label: "kind", numeric: false }]);

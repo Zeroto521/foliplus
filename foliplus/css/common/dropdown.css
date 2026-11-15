@@ -184,33 +184,3 @@
 /* The multi-select row used to reserve a tick column here. It is gone on
    purpose: the trigger already reports "N selected", and the inset bar above
    carries the selected state for single and multiple alike. */
-
-/* S2 (filter enum): the search box pinned above the option list. The
-   dropdown is shared; the filter enum body opts in. */
-.foliplus-dropdown-search {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
-  background: var(--foliplus-input-bg);
-  border-bottom: 1px solid var(--foliplus-input-border);
-}
-
-.foliplus-dropdown-search-input {
-  width: 100%;
-  box-sizing: border-box;
-  height: var(--foliplus-ctrl-size);
-  padding: 0 var(--foliplus-ctrl-inset-x);
-  border: 1px solid var(--foliplus-input-border);
-  border-radius: var(--foliplus-radius-sm);
-  background: var(--foliplus-input-bg);
-  color: var(--foliplus-text);
-  font-size: var(--foliplus-font-md);
-}
-
-.foliplus-dropdown-no-result {
-  padding: var(--foliplus-space-sm) var(--foliplus-space-md);
-  font-size: var(--foliplus-font-sm);
-  color: var(--foliplus-text-muted);
-  text-align: center;
-}
