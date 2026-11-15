@@ -1198,8 +1198,9 @@ describe("portal position clamps", () => {
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const dropdown = picker.getDropdown()!;
 
-    // Trigger near the bottom-right corner, dropdown taller/wider than the
-    // room left: the pass must clamp right, flip above and floor at 8px.
+    // Trigger near the bottom-right corner, list content taller/wider than the
+    // room left: the popup keeps the trigger width, is clamped to the 8px
+    // frame on the right, stays below (no room above) and is height-capped.
     vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
       rect({ top: 10, bottom: 40, left: 700, right: 800, width: 100, height: 30 }),
     );
@@ -1212,14 +1213,24 @@ describe("portal position clamps", () => {
     Object.defineProperty(window, "innerHeight", { value: 100, configurable: true });
     try {
       window.dispatchEvent(new Event("scroll"));
-      expect(dropdown.style.left).toBe("392px");
-      expect(dropdown.style.top).toBe("8px");
+      // The picker keeps the trigger width (100px — widthMode "container"),
+      // anchored to the trigger's right edge (700px), then clamped to the
+      // 8px frame (800 - 8 - 100). The old 392px expectation came from the
+      // jsdom mock reporting the pre-width-override 400px content box, a
+      // geometry a real browser never renders for a fixed-width popup.
+      expect(dropdown.style.left).toBe("692px");
+      // The kernel caps with the height the box actually renders (the room
+      // below, 48px), so the box hugs the trigger and its bottom edge lands
+      // on the frame bottom (44 + 48 = 92 = 100 - 8) instead of the old rule,
+      // which clamped with the uncapped 300px content height and floored the
+      // box at the 8px viewport top leaving a dead gap below it.
+      expect(dropdown.style.top).toBe("44px");
       // P2-1: a fixed (portalled) mount must not stack the CSS in-flow gap
       // on top of the offset gap — the 4px menu-gap is expressed once.
       expect(dropdown.style.marginTop).toBe("0px");
 
       window.dispatchEvent(new Event("resize"));
-      expect(dropdown.style.top).toBe("8px");
+      expect(dropdown.style.top).toBe("44px");
 
       // Flip above with room to spare: the computed top wins over the floor.
       vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue(
@@ -1227,7 +1238,11 @@ describe("portal position clamps", () => {
       );
       Object.defineProperty(window, "innerHeight", { value: 500, configurable: true });
       window.dispatchEvent(new Event("scroll"));
-      expect(dropdown.style.top).toBe("96px");
+      // The kernel clamps with the rendered box height (maxHeight 192px), so
+      // the box bottom hugs the trigger 4px above it (204 + 192 = 396) instead
+      // of the old rule, which subtracted the uncapped 300px content height
+      // and floated the box 112px above its trigger.
+      expect(dropdown.style.top).toBe("204px");
       expect(dropdown.style.marginTop).toBe("0px");
     } finally {
       if (innerWidth) Object.defineProperty(window, "innerWidth", innerWidth);

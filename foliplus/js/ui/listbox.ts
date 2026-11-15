@@ -22,8 +22,9 @@
 // The shape slots are fixed and documented here so they never become a second
 // divergence source: each has a contract-test case on both sides.
 import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
+import { computePlacement } from "./placement.js";
 import { ensureActiveVisible } from "./scrollIntoView.js";
-import type { DropdownSurface } from "./type.js";
+import type { DropdownSurface, PlacementBox } from "./type.js";
 import { dom } from "#platform/dom.js";
 import {
   type Floating,
@@ -156,7 +157,9 @@ interface ListboxSpec {
   /** Positioning strategy. "auto" (default) is the shared dropdown rule
    *  (max-content width, room-based clamp, flip by a two-row minimum). "fixed"
    *  fixes the popup to the trigger width with an 8px viewport edge clamp and
-   *  flips by the full popup height (the scheme picker's historical rule). */
+   *  flips by the full popup height (the scheme picker's historical rule).
+   *  Both are strategy parameters of one kernel call (computePlacement:
+   *  width / minRoom / edgeGap), not two implementations. */
   place?: "auto" | "fixed";
   /** Focus a row on open. The picker lands on the selected row (fallback row
    *  0); the dropdown focuses nothing (its rows are reached by keyboard). */
@@ -223,15 +226,6 @@ interface InternalState {
 /** Open popups, newest last. One at a time: two portalled lists on <body>
  *  would stack z-index on each other and orphan the older node. */
 const openStates: InternalState[] = [];
-
-/** Space the popup may use, above and below the trigger, in viewport terms. */
-const spaceAround = (trigger: HTMLElement): { below: number; above: number } => {
-  const rect = trigger.getBoundingClientRect();
-  return {
-    below: window.innerHeight - rect.bottom - POPUP_EDGE_GAP,
-    above: rect.top - POPUP_EDGE_GAP,
-  };
-};
 
 const itemDisabled = (item: ListboxItem | undefined): boolean => !!item?.disabled;
 
@@ -367,16 +361,23 @@ const renderRows = (state: InternalState): void => {
   state.list.append(...state.rowEls);
 };
 
-/** Pin the popup to the trigger in viewport coordinates: below it when there
- *  is room for at least two rows, otherwise above it, and clamped to the room
- *  the viewport leaves. */
-/** Pin the popup to the trigger in viewport coordinates: below it when there
- *  is room for at least two rows, otherwise above it, and clamped to the room
- *  the viewport leaves. The picker mode keeps the scheme picker's historical
- *  rule (fixed trigger width, 8px viewport edge clamp, flip by full height). */
-/** classList.add/remove throw on an empty token; the scheme picker's up slot
- *  is deliberately empty (its stylesheet keys nothing off the flipped class).
- *  Skip empty strings. */
+/** Pin the popup to the trigger in viewport coordinates. The flip verdict,
+ *  the vertical clamp, the edge gap and the max-height all come from the
+ *  shared placement kernel (computePlacement); the two historical rules are
+ *  parameters, not a second implementation:
+ *    - "auto" (the dropdown rule) flips above only when the below strip
+ *      cannot hold the two-row minimum;
+ *    - "fixed" (the scheme picker rule) flips above when the below strip
+ *      cannot hold the whole popup.
+ *  The kernel also resolves the horizontal edge clamp. What stays here is the
+ *  width preference (grow to the content, never below the trigger width, cap
+ *  at the owning cell); it is handed to the kernel so the box is positioned
+ *  against the width it actually renders — a horizontal policy, not a second
+ *  flip/clamp.
+ *
+ *  classList.add/remove throw on an empty token; the scheme picker's up
+ *  slot is deliberately empty (its stylesheet keys nothing off the flipped
+ *  class). Skip empty strings. */
 const classAdd = (el: HTMLElement, cls: string): void => {
   if (cls) el.classList.add(cls);
 };
@@ -392,16 +393,7 @@ const positionList = (state: InternalState): void => {
   const natural = list.getBoundingClientRect().height;
   const rowHeight = Math.max(24, ...state.rowEls.map(row => row.offsetHeight));
   const desired = Math.min(natural, rowHeight * MAX_VISIBLE_ROWS);
-  const space = spaceAround(state.trigger);
-  const fitsBelow =
-    state.spec.place === "fixed"
-      ? space.below >= natural
-      : space.below >= Math.min(desired, rowHeight * MIN_ROWS_BELOW);
-  const up = !fitsBelow && space.above > space.below;
-  const height = Math.max(
-    rowHeight,
-    Math.min(desired, Math.max(up ? space.above : space.below, rowHeight)),
-  );
+  const fixed = state.spec.place === "fixed";
 
   list.style.position = "fixed";
   // CSS gives in-flow mounts the gap via margin-top; a fixed (portalled) mount
@@ -409,44 +401,70 @@ const positionList = (state: InternalState): void => {
   // two stack and every real scheme dropdown sits 4px low (P2-1).
   list.style.marginTop = "0px";
   list.style.right = "auto";
-  list.style.left = `${String(rect.left)}px`;
   list.style.width = "max-content";
   const contentWidth = list.getBoundingClientRect().width;
   const cell = state.trigger.parentElement?.parentElement ?? null;
   const room = cell ? cell.getBoundingClientRect().right - rect.left : rect.width;
-  const width = Math.max(
-    rect.width,
-    Math.min(contentWidth, Math.max(rect.width, room)),
+
+  // The auto shape's width preference: grow to the content, never below the
+  // trigger width, never past the owning cell. It is resolved before the
+  // kernel so the horizontal placement uses the width that actually renders;
+  // the fixed shape takes the anchor width instead.
+  const boxWidth = fixed
+    ? "anchor"
+    : Math.max(rect.width, Math.min(contentWidth, Math.max(rect.width, room)));
+
+  // Flip verdict, vertical clamp, edge gap, width and height cap: ONE kernel
+  // call. The two shapes differ only in the flip threshold (minRoom) and in
+  // the width they hand the kernel.
+  const viewport: PlacementBox = {
+    left: 0,
+    right: window.innerWidth,
+    top: 0,
+    bottom: window.innerHeight,
+  };
+  const placement = computePlacement(
+    rect,
+    { width: contentWidth, height: desired },
+    viewport,
+    {
+      gap: POPUP_GAP,
+      edgeGap: POPUP_EDGE_GAP,
+      width: boxWidth,
+      // Both shapes always keep at least one row on screen.
+      minRows: 1,
+      rowHeight,
+      align: "left",
+      // "auto": two visible rows are enough to open downward. "fixed": the
+      // whole popup must fit below or it flips (the picker's historical rule).
+      minRoom: fixed ? desired : Math.min(desired, rowHeight * MIN_ROWS_BELOW),
+    },
   );
-  list.style.width = `${String(width)}px`;
-  if (state.spec.place === "fixed") {
-    // Fixed trigger width, right-edge clamp at 8px, top/bottom clamp at 8px.
-    list.style.width = `${String(rect.width)}px`;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    let left = rect.left;
-    const listRect = list.getBoundingClientRect();
-    if (left + listRect.width > vw - 8) {
-      left = Math.max(8, vw - listRect.width - 8);
-    }
-    let top = up ? rect.top - listRect.height - POPUP_GAP : rect.bottom + POPUP_GAP;
-    top = Math.max(8, Math.min(top, vh - 8 - listRect.height));
-    list.style.left = `${String(left)}px`;
+  const up = placement.side === "above";
+
+  list.style.width = `${String(placement.maxWidth)}px`;
+  list.style.left = `${String(placement.left)}px`;
+
+  if (fixed) {
     list.style.bottom = "";
-    list.style.top = `${String(top)}px`;
-    if (up) {
-      classAdd(list, state.spec.classes.up);
-    }
+    list.style.top = `${String(placement.top)}px`;
+    if (up) classAdd(list, state.spec.classes.up);
   } else if (up) {
+    // An up-flipped portal has always been anchored by its bottom edge; express
+    // the kernel's top as that offset (the box bottom lands at the trigger's
+    // top edge minus the gap) instead of computing a second top.
+    const bottomOffset = viewport.bottom - placement.top - placement.maxHeight;
     list.style.top = "";
-    list.style.bottom = `${String(window.innerHeight - rect.top + POPUP_GAP)}px`;
+    list.style.bottom = `${String(bottomOffset)}px`;
     classAdd(list, state.spec.classes.up);
   } else {
     list.style.bottom = "";
-    list.style.top = `${String(rect.bottom + POPUP_GAP)}px`;
+    list.style.top = `${String(placement.top)}px`;
   }
   list.classList.add(state.spec.classes.portal);
-  if (height < natural) list.style.maxHeight = `${String(Math.round(height))}px`;
+  if (placement.maxHeight < natural) {
+    list.style.maxHeight = `${String(Math.round(placement.maxHeight))}px`;
+  }
   state.spec.onPosition?.();
 };
 const close = (state: InternalState, opts?: { restoreFocus?: boolean }): void => {

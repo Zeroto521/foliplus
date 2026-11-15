@@ -59,18 +59,33 @@ interface PlacementOpts {
   /** Gap between the anchor and the floating surface. Defaults to 0. */
   gap?: number;
   /**
-   * Width strategy: "anchor" uses the anchor's width, a number uses that
-   * fixed width, and the default (omitted) uses the surface's natural width.
-   * The result is reported as maxWidth, which shrinks to the bounds when
-   * the preferred width does not fit.
+   * The box width the surface will render: "anchor" uses the anchor's width,
+   * a number uses that fixed width, and the default (omitted) uses the
+   * surface's natural width. The result is reported as maxWidth, which shrinks
+   * to the edge-inset frame when the width does not fit, and the horizontal
+   * placement is computed against it.
    */
   width?: "anchor" | number;
   /**
-   * Optional natural (content) size, overriding surface for the width and
-   * height caps. Use this when the caller measures a provisional size but
-   * knows the content's true natural size.
+   * Minimum below-room (px) that counts as "fits below" for the flip
+   * decision. A two-row minimum lets a popup flip above early while it
+   * still has partial room below; the default (the surface's full height)
+   * flips only when the below strip cannot hold the whole surface.
    */
-  natural?: SurfaceSize;
+  minRoom?: number;
+  /**
+   * Inset the bounds before computing. A number insets all four sides; { x }
+   * or { y } insets one axis only (a surface that keeps a horizontal edge but
+   * must not shave the vertical strip the height cap is measured against).
+   * Defaults to 0.
+   */
+  edgeGap?: number | { x?: number; y?: number };
+  /**
+   * Horizontal alignment of the surface relative to the anchor. "right"
+   * (default) right-aligns, "left" left-aligns, "center" centres. All are
+   * clamped into the edge-inset frame.
+   */
+  align?: "left" | "right" | "center";
 }
 
 interface Placement {
