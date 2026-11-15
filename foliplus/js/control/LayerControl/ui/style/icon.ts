@@ -353,7 +353,7 @@ const buildGlyphGrid = (
   const cursor = new ListCursor({
     root: grid,
     itemSelector: `.${CONST.CLASSES.STYLE_ICON_CELL}`,
-    activeClass: "foliplus-icon-grid-cursor",
+    activeClass: CONST.CLASSES.ICON_GRID_CURSOR,
     mode: "roving",
     cols: GLYPH_GRID_COLS,
     roles: { list: "grid", item: "gridcell" },
