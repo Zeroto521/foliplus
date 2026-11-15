@@ -357,6 +357,8 @@ const CLASSES = {
   FILTER_ENUM: "foliplus-filter-enum",
   /** Truncation hint under the enum dropdown (large discrete domain). */
   FILTER_ENUM_HINT: "foliplus-filter-enum-hint",
+  FILTER_FIELD_HINT: "foliplus-filter-field-hint",
+  FILTER_FIELD_HINT_TEXT: "foliplus-filter-field-hint-text",
 };
 
 /** Data attribute names. */

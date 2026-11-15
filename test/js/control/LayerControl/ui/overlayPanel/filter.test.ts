@@ -458,7 +458,7 @@ describe("LayerUI filter panel", () => {
         expect(rt[1].getAttribute("aria-valuenow")).toBe("100");
       });
 
-      it("switches fields without a transient notice row", () => {
+      it("shows the field-switch hint when the switch discarded a committed condition", () => {
         registerPoints();
         const owner = makeMultiFieldOwner();
         const reg = ui.c.layerRegistry.get("pnt") as any;
@@ -469,14 +469,8 @@ describe("LayerUI filter panel", () => {
         const panel = item.querySelector(
           `.${CONST.CLASSES.FILTER_PANEL}`,
         ) as HTMLElement;
-        const rowsBefore = panel.querySelectorAll(".foliplus-form-row").length;
 
-        // No auto-hide timer may be scheduled for a notice: the switch is
-        // silent, so the panel body keeps exactly its own rows.
-        const timerSpy = vi.spyOn(window, "setTimeout");
-
-        // Commit a mag atom, then switch to depth: the switch discards the
-        // committed condition, and the panel says nothing about it.
+        // Commit a mag atom, then switch to depth: the switch discards it.
         owner.filterSetter({
           kind: "atom",
           field: "mag",
@@ -487,12 +481,32 @@ describe("LayerUI filter panel", () => {
         select.value = "depth";
         select.dispatchEvent(new Event("change", { bubbles: true }));
 
-        expect(timerSpy.mock.calls.some(call => Number(call[1]) === 4000)).toBe(false);
-        timerSpy.mockRestore();
-        expect(document.querySelector(".foliplus-filter-field-hint")).toBeNull();
-        expect(panel.querySelectorAll(".foliplus-form-row").length).toBe(rowsBefore);
-        // The switch still lands: the depth slider replaced the mag one.
-        expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).not.toBeNull();
+        const hint = panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT}`);
+        expect(hint).not.toBeNull();
+        const text = hint?.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT_TEXT}`);
+        expect(text?.textContent).toBeTruthy();
+        expect(text?.getAttribute("aria-live")).toBe("polite");
+      });
+
+      it("shows no field-switch hint when nothing was cleared", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+
+        // No committed filter: switching fields must not show the hint.
+        const select = panel.querySelector("select") as HTMLSelectElement;
+        select.value = "depth";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        const hint = panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT}`);
+        expect(hint).toBeNull();
       });
 
       it("a stale select change after the panel closed does not rebuild", () => {
@@ -999,6 +1013,7 @@ describe("LayerUI filter panel", () => {
             filter_result: "{kept} of {total}",
             filter_enum_any: "All",
             filter_enum_count: "{n} selected",
+            filter_field_switch_hint: "The previous filter for this field was cleared.",
           })[key] ?? `LayerControl.${key}`,
       );
 
