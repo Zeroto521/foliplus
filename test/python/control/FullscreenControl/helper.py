@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 import folium
-from conftest import _js, inject_fullscreen_stub, make_browser_page, snippet
+from conftest import _js, inject_fullscreen_stub, make_browser_page
 
 from foliplus import FullscreenControl
 

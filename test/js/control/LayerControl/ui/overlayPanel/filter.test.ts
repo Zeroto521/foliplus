@@ -113,8 +113,9 @@ const makeEnumOwner = (
 };
 
 /** An enum owner whose value domain is larger than the panel's shown list
- *  (truncated). The FULL set rides `allValues` so the search box can find
- *  a value beyond the first N — the card's whole point. */
+ *  (truncated): the option list is capped, so a value beyond the first N is
+ *  not offered while the popup is open, and only the truncation hint says the
+ *  domain is larger. */
 const makeTruncatedEnumOwner = (allValues: string[], limit = 4) => {
   let filter: LayerFilter | undefined;
   return {
@@ -136,7 +137,6 @@ const makeTruncatedEnumOwner = (allValues: string[], limit = 4) => {
             multi: true,
             options,
             truncated: true,
-            allValues,
           },
         ],
         filter,
@@ -458,7 +458,7 @@ describe("LayerUI filter panel", () => {
         expect(rt[1].getAttribute("aria-valuenow")).toBe("100");
       });
 
-      it("shows the field-switch hint when the switch discarded a committed condition", () => {
+      it("switches fields without a transient notice row", () => {
         registerPoints();
         const owner = makeMultiFieldOwner();
         const reg = ui.c.layerRegistry.get("pnt") as any;
@@ -469,8 +469,14 @@ describe("LayerUI filter panel", () => {
         const panel = item.querySelector(
           `.${CONST.CLASSES.FILTER_PANEL}`,
         ) as HTMLElement;
+        const rowsBefore = panel.querySelectorAll(".foliplus-form-row").length;
 
-        // Commit a mag atom, then switch to depth: the switch discards it.
+        // No auto-hide timer may be scheduled for a notice: the switch is
+        // silent, so the panel body keeps exactly its own rows.
+        const timerSpy = vi.spyOn(window, "setTimeout");
+
+        // Commit a mag atom, then switch to depth: the switch discards the
+        // committed condition, and the panel says nothing about it.
         owner.filterSetter({
           kind: "atom",
           field: "mag",
@@ -481,32 +487,12 @@ describe("LayerUI filter panel", () => {
         select.value = "depth";
         select.dispatchEvent(new Event("change", { bubbles: true }));
 
-        const hint = panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT}`);
-        expect(hint).not.toBeNull();
-        const text = hint?.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT_TEXT}`);
-        expect(text?.textContent).toBeTruthy();
-        expect(text?.getAttribute("aria-live")).toBe("polite");
-      });
-
-      it("shows no field-switch hint when nothing was cleared", () => {
-        registerPoints();
-        const owner = makeMultiFieldOwner();
-        const reg = ui.c.layerRegistry.get("pnt") as any;
-        reg.filterProvider = owner.filterProvider;
-        reg.filterSetter = owner.filterSetter;
-        const item = findItem(ui, "pnt");
-        ui.openFilterPanel(item);
-        const panel = item.querySelector(
-          `.${CONST.CLASSES.FILTER_PANEL}`,
-        ) as HTMLElement;
-
-        // No committed filter: switching fields must not show the hint.
-        const select = panel.querySelector("select") as HTMLSelectElement;
-        select.value = "depth";
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-
-        const hint = panel.querySelector(`.${CONST.CLASSES.FILTER_FIELD_HINT}`);
-        expect(hint).toBeNull();
+        expect(timerSpy.mock.calls.some(call => Number(call[1]) === 4000)).toBe(false);
+        timerSpy.mockRestore();
+        expect(document.querySelector(".foliplus-filter-field-hint")).toBeNull();
+        expect(panel.querySelectorAll(".foliplus-form-row").length).toBe(rowsBefore);
+        // The switch still lands: the depth slider replaced the mag one.
+        expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).not.toBeNull();
       });
 
       it("a stale select change after the panel closed does not rebuild", () => {
@@ -946,7 +932,6 @@ describe("LayerUI filter panel", () => {
             filter_result: "{kept} of {total}",
             filter_enum_any: "All",
             filter_enum_count: "{n} selected",
-            filter_field_switch_hint: "The previous filter for this field was cleared.",
           })[key] ?? `LayerControl.${key}`,
       );
 
@@ -1440,108 +1425,6 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM_HINT}`)).toBeNull();
-    });
-    // ---- S2: enum search box (the truncated-domain case) ----
-
-    it("finds and selects a value beyond the shown first N through the search box", () => {
-      const spy = spyTranslator();
-      const allValues = Array.from({ length: 12 }, (_, i) => `val${i}`);
-      const owner = makeTruncatedEnumOwner(allValues, 4);
-      const { item } = registerEnum(owner);
-      ui.openFilterPanel(item);
-
-      const trigger = triggerOf(item);
-      expect(trigger.textContent).toContain("All");
-      openList(item);
-      const initial = optionValuesOf();
-      expect(initial).toHaveLength(4);
-      expect(initial).toEqual(["val0", "val1", "val2", "val3"]);
-
-      const search = document.querySelector<HTMLInputElement>(
-        ".foliplus-dropdown-search-input",
-      )!;
-      expect(search).not.toBeNull();
-      search.value = "val9";
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-
-      const filtered = optionValuesOf();
-      expect(filtered).toEqual(["val9"]);
-      clickOption("val9");
-
-      const ownerFilter = owner.filter;
-      expect(ownerFilter).toEqual({ kind: "enum", field: "type", values: ["val9"] });
-      expect(labelOf(item)).toContain("val9");
-      spy.mockRestore();
-    });
-
-    it("shows the no-result notice for a query with no matches", () => {
-      const spy = spyTranslator();
-      const owner = makeTruncatedEnumOwner(
-        Array.from({ length: 12 }, (_, i) => `val${i}`),
-        4,
-      );
-      const { item } = registerEnum(owner);
-      ui.openFilterPanel(item);
-      openList(item);
-
-      const search = document.querySelector<HTMLInputElement>(
-        ".foliplus-dropdown-search-input",
-      )!;
-      search.value = "zzz-no-match";
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-
-      const notice = document.querySelector(".foliplus-dropdown-no-result");
-      expect(notice).not.toBeNull();
-      expect((notice as HTMLElement).hidden).toBe(false);
-      expect(optionValuesOf()).toHaveLength(0);
-      spy.mockRestore();
-    });
-
-    it("clearing the search restores the full shown list", () => {
-      const spy = spyTranslator();
-      const owner = makeTruncatedEnumOwner(
-        Array.from({ length: 12 }, (_, i) => `val${i}`),
-        4,
-      );
-      const { item } = registerEnum(owner);
-      ui.openFilterPanel(item);
-      openList(item);
-
-      const search = document.querySelector<HTMLInputElement>(
-        ".foliplus-dropdown-search-input",
-      )!;
-      search.value = "val2";
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-      expect(optionValuesOf()).toEqual(["val2"]);
-
-      search.value = "";
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-      expect(optionValuesOf()).toHaveLength(4);
-      spy.mockRestore();
-    });
-
-    it("selected state survives a search (toggle then clear)", () => {
-      const spy = spyTranslator();
-      const owner = makeTruncatedEnumOwner(
-        Array.from({ length: 12 }, (_, i) => `val${i}`),
-        4,
-      );
-      const { item } = registerEnum(owner);
-      ui.openFilterPanel(item);
-      openList(item);
-
-      const search = document.querySelector<HTMLInputElement>(
-        ".foliplus-dropdown-search-input",
-      )!;
-      search.value = "val2";
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-      clickOption("val2");
-      expect(selectedOf()).toEqual(["val2"]);
-
-      search.value = "";
-      search.dispatchEvent(new Event("input", { bubbles: true }));
-      expect(selectedOf()).toContain("val2");
-      spy.mockRestore();
     });
   });
 

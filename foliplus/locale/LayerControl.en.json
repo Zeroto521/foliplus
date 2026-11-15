@@ -118,11 +118,8 @@
   "LayerControl.filter_row_title": "{kept} / {total} filtered · {type}",
   "LayerControl.filter_empty": "No filterable fields on this layer",
   "LayerControl.filter_enum_truncated": "Showing the first 50 of the values in this field",
-  "LayerControl.filter_enum_search_placeholder": "Search values",
-  "LayerControl.filter_enum_no_result": "No matching values",
   "LayerControl.style_border_mode": "Border Mode",
   "LayerControl.style_border_follow_fill": "Follow Fill",
   "LayerControl.style_marker_color": "Marker Color",
-  "LayerControl.style_marker_color_opacity": "Marker Opacity",
-  "LayerControl.filter_field_switch_hint": "The previous filter for this field was cleared."
+  "LayerControl.style_marker_color_opacity": "Marker Opacity"
 }

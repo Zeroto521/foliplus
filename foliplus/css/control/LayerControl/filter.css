@@ -84,7 +84,6 @@
     margin-top: var(--foliplus-space-xs);
   }
 }
-
 /* Hide a filtered leaf. Plain display:none (no !important) is enough: this
    rule loads after Leaflet's CSS and wins the equal-specificity cascade, so a
    path (inline) and a marker icon (block) both resolve to none — verified in a
@@ -95,18 +94,4 @@
    wins the cascade without masking why. */
 .foliplus-feature-filtered {
   display: none;
-}
-
-/* S3: field-switch hint — a non-blocking panel row shown only when the
-   switch discarded a committed condition. Same row vocabulary as the
-   result row; the text is muted and the label is hidden. */
-.foliplus-filter-field-hint {
-  align-items: center;
-}
-.foliplus-filter-field-hint .foliplus-form-label {
-  visibility: hidden;
-}
-.foliplus-filter-field-hint-text {
-  font-size: var(--foliplus-font-size-sm);
-  color: var(--foliplus-text-muted);
 }

@@ -20,9 +20,6 @@ const DROPDOWN_CLASS = {
   PORTAL: "foliplus-dropdown-portal",
   SELECTED: "foliplus-is-selected",
   NATIVE_HOST: "foliplus-dropdown-native-host",
-  SEARCH: "foliplus-dropdown-search",
-  SEARCH_INPUT: "foliplus-dropdown-search-input",
-  NO_RESULT: "foliplus-dropdown-no-result",
 } as const;
 
 export { DROPDOWN_CLASS };

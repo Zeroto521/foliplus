@@ -101,22 +101,6 @@ interface DropdownOptions extends DropdownSurface {
   selectedLabel?: (labels: readonly string[]) => string;
   onChange?: (value: string, values: readonly string[]) => void;
   onToggle?: (open: boolean, list: HTMLElement | null) => void;
-  /**
-   *  Optional search box pinned above the option list. When present, the
-   *  popup opens with a search input; typing filters the displayed options
-   *  (case-insensitive substring over the label). Empty results render a
-   *  shared no-result notice. This is a DROPDOWN-level feature (the filter
-   *  enum domain) — the listbox engine contract is untouched.
-   */
-  search?: {
-    placeholder: string;
-    noResult: string;
-    /**
-     *  The full value set searched when a query is active. Defaults to
-     *  `items` — a truncated list still shows the rest while searching.
-     */
-    allItems?: () => readonly DropdownItem[];
-  };
 }
 
 interface InternalState {
@@ -133,10 +117,6 @@ interface InternalState {
   onChange: ((value: string, values: readonly string[]) => void) | null;
   destroyed: boolean;
   listbox: ReturnType<typeof createListbox> | null;
-  /** Active search query ('' = show all). S2 filter-enum search. */
-  query: string;
-  /** The S2 search box state (null when the consumer did not opt in). */
-  search: NonNullable<DropdownOptions["search"]> | null;
 }
 
 let idCounter = 0;
@@ -165,18 +145,7 @@ const valuesOf = (state: InternalState): string[] =>
 
 const selectedItems = (state: InternalState): DropdownItem[] => {
   const selected = new Set(valuesOf(state));
-  // When a search box narrows the domain, the shown list may be truncated;
-  // the label must still count a value picked from the FULL set (S2).
-  const source = state.search?.allItems?.() ?? state.items;
-  return source.filter(item => selected.has(item.value));
-};
-/** The options shown to the user: the query narrows the full set (search
- *  runs over the whole domain, not just the first N shown when closed). */
-const filteredItems = (state: InternalState): DropdownItem[] => {
-  const query = state.query.trim().toLowerCase();
-  if (!query) return state.items;
-  const source = state.search?.allItems?.() ?? state.items;
-  return source.filter(item => item.label.toLowerCase().includes(query));
+  return state.items.filter(item => selected.has(item.value));
 };
 
 /** Trigger text: the selected label (single), or placeholder / one label /
@@ -300,8 +269,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     onChange: opts.onChange ?? null,
     destroyed: false,
     listbox: null,
-    search: opts.search ?? null,
-    query: "",
   };
 
   wrapper.append(trigger);
@@ -315,12 +282,9 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     wrapper.append(native);
   }
 
-  /** S2: the search box, created after the engine list (needs `listbox`).
-   *  Wired through a holder so onToggle can re-insert it on every open. */
-  let searchBox: ReturnType<typeof buildSearch> | null = null;
   const listbox = createListbox({
     trigger,
-    items: () => filteredItems(state),
+    items: () => state.items,
     selected: () => valuesOf(state),
     multiple,
     shape: {
@@ -357,7 +321,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     renderTrigger: () => renderLabel(state),
     onRowActivate: index => activateRow(state, index),
     onToggle: open => {
-      if (open) searchBox?.ensure();
       opts.onToggle?.(open, listbox.getList());
     },
   });
@@ -376,66 +339,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 
   wrapper.append(engineList!);
 
-  /** S2: build the search box (input + no-result notice) pinned above the
-   *  option list. Only created when the consumer opts in. Returns the DOM
-   *  trio and a refresh that re-inserts them after a renderRows wipe. */
-  const buildSearch = (search: NonNullable<DropdownOptions["search"]>) => {
-    const searchEl = dom.el("div", { class: DROPDOWN_CLASS.SEARCH });
-    const input = dom.el("input", {
-      type: "search",
-      class: DROPDOWN_CLASS.SEARCH_INPUT,
-      placeholder: search.placeholder,
-      "aria-label": search.placeholder,
-      autocomplete: "off",
-      spellcheck: "false",
-    }) as HTMLInputElement;
-    const noResult = dom.el(
-      "div",
-      { class: DROPDOWN_CLASS.NO_RESULT, hidden: "" },
-      search.noResult,
-    );
-    searchEl.append(input, noResult);
-
-    // Keep the search box pinned to the top of the popup: the engine's
-    // renderRows wipes the list and appends fresh rows, so a refresh must
-    // re-insert the box (and the no-result notice) before the first row.
-    const ensure = (): void => {
-      const list = listbox.getList();
-      if (!list) return;
-      const first = list.firstElementChild;
-      if (first !== searchEl) list.insertBefore(searchEl, first);
-      const rows = list.querySelectorAll(`.${DROPDOWN_CLASS.OPTION}`);
-      const empty = rows.length === 0 && state.query.trim() !== "";
-      noResult.hidden = !empty;
-    };
-
-    input.addEventListener("input", () => {
-      state.query = input.value;
-      if (listbox.isOpen()) {
-        listbox.refresh();
-        ensure();
-      }
-    });
-    // Arrow/Escape ownership for the search field lives in the engine
-    // (bindSearchField) — the field is a sibling of the list, not a row, so
-    // the engine's own list keydown never sees it, but the engine still owns
-    // the key comparison. Escape closes the popup, ArrowDown focuses the
-    // first enabled row.
-    listbox.bindSearchField(input);
-
-    return {
-      input,
-      ensure,
-      reset: () => {
-        state.query = "";
-        input.value = "";
-      },
-    };
-  };
-
-  const search = opts.search ? buildSearch(opts.search) : null;
-  searchBox = search;
-  if (search) search.ensure();
   const syncFromNative = (): void => {
     if (!state.native) return;
     state.items = nativeItemsOf(state.native);
@@ -448,7 +351,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     renderLabel(state);
     if (listboxOf(state).isOpen()) {
       listboxOf(state).refresh();
-      search?.ensure();
     }
   };
   // A programmatic `change` (tests, a preset loader, another control) is the
@@ -497,9 +399,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     },
     open() {
       if (state.destroyed) return;
-      search?.reset();
       listboxOf(state).open();
-      search?.ensure();
     },
     close(closeOpts) {
       if (state.destroyed) return;
@@ -526,7 +426,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 
 /** Activate row `index` in the dropdown's value model and fire the change. */
 const activateRow = (state: InternalState, index: number): void => {
-  const item = filteredItems(state)[index];
+  const item = state.items[index];
   // The engine only calls onRowActivate for enabled, in-range rows, so a
   // disabled/undefined item cannot reach here (the engine blocks them first).
   if (state.multiple) {

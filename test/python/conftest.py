@@ -62,19 +62,26 @@ def snippet(path: str) -> str:
 def inject_fullscreen_stub(html: str) -> str:
     """Insert the fullscreen-API stub right after the real ``<body>`` open tag.
 
-    Uses a single anchored regex replace so a literal ``<body>`` inside a JS
-    comment or string elsewhere in the HTML is never touched — a naive
-    ``str.replace("<body>", ...)`` would inject the stub there and break the
-    inline bundle the same way the S1 comment did. Asserts the body tag exists.
+    The body tag is anchored to the document structure, not to the first
+    ``<body`` literal anywhere in the HTML: a component bundle can be inlined
+    in ``<head>`` with a ``<body>`` literal inside a JS comment or string
+    (both earlier and later than the real tag), so "find the first ``<body``"
+    can hit the comment and inject a nested ``<script>`` into the bundle.
+    The stub goes after the first ``<body>`` that follows the last ``</head>``
+    — the real document body. Raises when either anchor is missing.
     """
-    match = re.search(r"<body([^>]*)>", html)
+    head_close = html.rfind("</head>")
+    if head_close < 0:
+        raise ValueError("no </head> tag found to anchor the fullscreen stub")
+    match = re.search(r"<body\b[^>]*>", html[head_close:])
     if match is None:
         raise ValueError("no <body> tag found to inject the fullscreen stub")
     stub = snippet("common/fullscreen_stub").strip()
+    insert_at = head_close + match.end()
     return (
-        html[: match.start()]
-        + f"<body{match.group(1)}>\n        <script>\n          {stub}\n        </script>"
-        + html[match.end() :]
+        html[:insert_at]
+        + f"\n        <script>\n          {stub}\n        </script>"
+        + html[insert_at:]
     )
 
 
