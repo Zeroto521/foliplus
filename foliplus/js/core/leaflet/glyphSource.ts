@@ -220,6 +220,7 @@ const glyphHtml = (
 export {
   PICKER_GLYPHS,
   GLYPH_PREFIXES,
+  GLYPH_SHELL_CLASS,
   DEFAULT_GLYPH_PREFIX,
   coerceGlyphPrefix,
   glyphAvailable,

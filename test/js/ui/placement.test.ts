@@ -249,3 +249,122 @@ describe("computePlacement — regression: row floor vs bounds (Copilot #2)", ()
     expect(p.maxHeight).toBe(40);
   });
 });
+
+describe("computePlacement — strategy params (kill-tests)", () => {
+  it("minRoom: a low room below keeps the popup below even when the full surface does not fit", () => {
+    // Below fits 20px (less than the 120px surface) but passes the two-row
+    // minimum; above has more room but the minRoom rule keeps it below.
+    const anchor = rect(660, 220, 700, 120);
+    const p = computePlacement(anchor, { width: 200, height: 120 }, viewport, {
+      minRoom: 10,
+    });
+    expect(p.side).toBe("below");
+  });
+
+  it("minRoom: the default (full surface height) flips above when below is short", () => {
+    const anchor = rect(660, 220, 700, 120);
+    const p = computePlacement(anchor, { width: 200, height: 120 }, viewport);
+    expect(p.side).toBe("above");
+  });
+
+  it("align: right aligns the popup to the anchor right edge (default)", () => {
+    const anchor = rect(20, 220, 60, 120);
+    const p = computePlacement(anchor, { width: 200, height: 120 }, viewport);
+    expect(p.left).toBe(20); // anchor.right (220) - maxWidth (200)
+  });
+
+  it("align: left aligns the popup to the anchor left edge", () => {
+    const anchor = rect(20, 220, 60, 120);
+    const p = computePlacement(anchor, { width: 200, height: 120 }, viewport, {
+      align: "left",
+    });
+    expect(p.left).toBe(120); // anchor.left
+  });
+
+  it("align: center centres the popup on the anchor", () => {
+    const anchor = rect(20, 220, 60, 120);
+    const p = computePlacement(anchor, { width: 200, height: 120 }, viewport, {
+      align: "center",
+    });
+    expect(p.left).toBe(70); // anchor.left + anchorW/2 - maxWidth/2
+  });
+
+  it("edgeGap: insets the bounds so the popup keeps a gap from every edge", () => {
+    // Bounds height 100, anchor bottom 60 -> 40px below without a gap.
+    // With an 8px inset the usable frame bottom is 92 -> 32px below.
+    const shortBounds: PlacementBox = rect(0, 1280, 100, 0);
+    const anchor = rect(30, 220, 60, 120);
+    const plain = computePlacement(anchor, { width: 200, height: 120 }, shortBounds);
+    const gapped = computePlacement(anchor, { width: 200, height: 120 }, shortBounds, {
+      edgeGap: 8,
+    });
+    expect(plain.maxHeight).toBe(40);
+    expect(gapped.maxHeight).toBe(32);
+  });
+
+  it("edgeGap { x } / { y }: insets only the requested axis", () => {
+    // Horizontal only: the left clamp moves to the 8px inset while the
+    // vertical strip (and its cap) stays exactly as it was.
+    const anchor = rect(20, 100, 60, 0);
+    expect(computePlacement(anchor, { width: 300, height: 100 }, viewport).left).toBe(
+      0,
+    );
+    expect(
+      computePlacement(anchor, { width: 300, height: 100 }, viewport, {
+        edgeGap: { x: 8 },
+      }).left,
+    ).toBe(8);
+
+    // Vertical only: the below strip shrinks by the inset, { x } leaves it.
+    const shortBounds: PlacementBox = rect(0, 1280, 100, 0);
+    const lowAnchor = rect(30, 220, 60, 120);
+    const surface = { width: 200, height: 120 };
+    expect(
+      computePlacement(lowAnchor, surface, shortBounds, { edgeGap: { x: 8 } })
+        .maxHeight,
+    ).toBe(40);
+    expect(
+      computePlacement(lowAnchor, surface, shortBounds, { edgeGap: { y: 8 } })
+        .maxHeight,
+    ).toBe(32);
+  });
+});
+
+describe("computePlacement — side preference", () => {
+  it("tries below first when both strips fit (default)", () => {
+    const anchor = rect(400, 220, 430, 120);
+    const p = computePlacement(anchor, { width: 200, height: 100 }, viewport);
+    expect(p.side).toBe("below");
+  });
+
+  it("tries above first with prefer: 'above' even when below also fits", () => {
+    const anchor = rect(300, 220, 330, 120);
+    const p = computePlacement(anchor, { width: 200, height: 100 }, viewport, {
+      prefer: "above",
+    });
+    expect(p.side).toBe("above");
+    expect(p.top).toBe(200); // anchor.top (300) - maxHeight (100)
+  });
+
+  it("flips below with prefer: 'above' when the above strip is short", () => {
+    const shortBounds: PlacementBox = rect(0, 1280, 100, 0);
+    const anchor = rect(20, 220, 40, 120);
+    const p = computePlacement(anchor, { width: 200, height: 50 }, shortBounds, {
+      prefer: "above",
+    });
+    expect(p.side).toBe("below");
+  });
+
+  it("flips below with prefer: 'above' even when the below strip has less room", () => {
+    // Above holds 30px and below 20px: the default picks above (more room),
+    // while the above-first rule flips down because the above strip cannot
+    // hold the 50px surface. This is the slider bubble's rule.
+    const shortBounds: PlacementBox = rect(0, 1280, 100, 0);
+    const anchor = rect(30, 220, 80, 120);
+    const surface = { width: 200, height: 50 };
+    expect(computePlacement(anchor, surface, shortBounds).side).toBe("above");
+    expect(
+      computePlacement(anchor, surface, shortBounds, { prefer: "above" }).side,
+    ).toBe("below");
+  });
+});

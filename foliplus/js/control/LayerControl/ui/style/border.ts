@@ -72,7 +72,9 @@ import {
   getColorScale,
   inferFieldKind,
 } from "#core/value/index.js";
+import { resolveDisplayMode } from "#foliplus/style/displayMode.js";
 import { dom } from "#platform/dom.js";
+import { withUnit } from "#platform/format.js";
 import {
   dropdownSurface,
   fullscreenSurface,
@@ -127,6 +129,8 @@ interface BorderRowBuildTarget {
   colorAria?: string;
   /** Optional aria-label for the width input. */
   weightAria?: string;
+  /** Optional visible unit suffix for the width input (e.g. "px"). */
+  weightUnit?: string;
   /** Render the color input inert (the author's own stroke in ORIGINAL mode).
    *  Same swatch control as the editable mode, so the row stays pixel-identical
    *  and only its editability differs. Absent = editable. */
@@ -622,6 +626,7 @@ const buildBorderRowShell = (target: BorderRowBuildTarget): HTMLElement => {
         step: BORDER_WEIGHT.STEP,
         className: target.weightClassName,
         ariaLabel: target.weightAria,
+        unitSuffix: target.weightUnit,
       }),
     );
   }
@@ -706,7 +711,8 @@ const buildBorderWidthOnlyRow = (
     className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
     weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
     colorAria: ui.T("style_border_color"),
-    weightAria: ui.T("style_border_weight"),
+    weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
+    weightUnit: ui._("foliplus.unit_px"),
   });
 };
 /** The solid mode's border detail: color swatch + width number, one row.
@@ -763,7 +769,8 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
         className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
         weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
         colorAria: ui.T("style_border_color"),
-        weightAria: ui.T("style_border_weight"),
+        weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
+        weightUnit: ui._("foliplus.unit_px"),
         colorReadOnly: true,
       }),
     ];
@@ -779,7 +786,8 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
       weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
       colorAria: ui.T("style_border_color"),
-      weightAria: ui.T("style_border_weight"),
+      weightAria: withUnit(ui.T("style_border_weight"), ui._("foliplus.unit_px")),
+      weightUnit: ui._("foliplus.unit_px"),
     }),
   ];
 };
@@ -801,26 +809,14 @@ const disposeBorderRow = (ui: LayerUI): void => {
  *  migration is performed. */
 const displayBorderMode = (ui: LayerUI, layerId: string): StyleMode => {
   const stored = getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE);
-  // Same pre-mode record shape the fill side reads: a stored colour without a
-  // mode means the user already painted the solid mode (the record written
-  // before this mode existed, and a programmatic colour write). An absent
-  // mode plus only a weight keeps the author's stroke — the weight rides both
-  // modes and does not move the mode, same rule as the fill's opacity.
-  if (stored === undefined) {
-    if (getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined) {
-      return STYLE_MODE.SOLID;
-    }
-    return STYLE_MODE.ORIGINAL;
-  }
-  if (stored === STYLE_MODE.VALUE && !borderCarriesValue(ui, layerId)) {
-    return STYLE_MODE.ORIGINAL;
-  }
-  // FOLLOW_FILL is a per-leaf derived paint: it holds across every fill
-  // state (solid / by-value / original), because the border follows each
-  // leaf's CURRENT fill colour — the single fill colour, the classified
-  // colour the leaf actually paints, or the author's per-feature colour.
-  // The stored mode always wins; no fallback narrows it to solid.
-  return stored;
+  return resolveDisplayMode({
+    stored,
+    declaredValue: false, // border never declares value
+    colorIntent: getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined,
+    valueIntent: effectiveBorderValue(ui, layerId) !== undefined,
+    carriesValue: borderCarriesValue(ui, layerId),
+    supportsInherit: true, // border has INHERIT (FOLLOW_FILL)
+  });
 };
 
 /** Whether the border face can paint by value: the border is the element's

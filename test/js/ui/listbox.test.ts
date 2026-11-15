@@ -778,7 +778,7 @@ describe("dropdown adapter via engine (partial-branch coverage)", () => {
 });
 
 describe("listbox engine: portalled popup geometry (marginTop zeroed)", () => {
-  const pinRect = (el: HTMLElement, top: number, height: number): void => {
+  const pinRect = (el: HTMLElement, top: number, height: number, width = 160): void => {
     Object.defineProperty(el, "getBoundingClientRect", {
       value: () =>
         ({
@@ -787,29 +787,37 @@ describe("listbox engine: portalled popup geometry (marginTop zeroed)", () => {
           top,
           bottom: top + height,
           left: 0,
-          right: 160,
-          width: 160,
+          right: width,
+          width,
           height,
           toJSON: () => ({}),
         }) as DOMRect,
       configurable: true,
     });
   };
-  const setViewport = (height: number): (() => void) => {
-    const original = Object.getOwnPropertyDescriptor(window, "innerHeight");
+  const setViewport = (height: number, width = 1024): (() => void) => {
+    const heightDesc = Object.getOwnPropertyDescriptor(window, "innerHeight");
+    const widthDesc = Object.getOwnPropertyDescriptor(window, "innerWidth");
     Object.defineProperty(window, "innerHeight", { value: height, configurable: true });
+    Object.defineProperty(window, "innerWidth", { value: width, configurable: true });
     return () => {
-      if (original) Object.defineProperty(window, "innerHeight", original);
+      if (heightDesc) Object.defineProperty(window, "innerHeight", heightDesc);
+      if (widthDesc) Object.defineProperty(window, "innerWidth", widthDesc);
     };
   };
-  const makeGeom = () => {
+  const makeGeom = (place?: "auto" | "fixed") => {
     const trigger = document.createElement("button");
     trigger.type = "button";
     trigger.className = "geom-trigger";
     const cell = document.createElement("div");
     cell.className = "geom-cell";
+    // The engine reads the owning cell as trigger.parentElement.parentElement;
+    // the outer wrapper makes that cell a pinnable box in the width case.
+    const outer = document.createElement("div");
+    outer.className = "geom-outer";
     cell.appendChild(trigger);
-    document.body.appendChild(cell);
+    outer.appendChild(cell);
+    document.body.appendChild(outer);
     const listbox = createListbox({
       trigger,
       items: () => [{ value: "a", label: "Alpha" }],
@@ -830,10 +838,11 @@ describe("listbox engine: portalled popup geometry (marginTop zeroed)", () => {
       },
       surface: { onSurfaceChange: () => () => {} },
       dismiss: { kind: "local" },
+      place,
       onRowActivate: () => {},
     });
     cleanup.push(() => listbox.destroy());
-    return { trigger, listbox };
+    return { trigger, cell: outer, listbox };
   };
 
   it("zeroes margin-top on a down-portalled popup (fixed mount uses offset, not the in-flow gap)", () => {
@@ -868,6 +877,107 @@ describe("listbox engine: portalled popup geometry (marginTop zeroed)", () => {
     expect(list.style.top).toBe("");
     expect(list.style.bottom).toBe("54px"); // innerHeight(400) - rect.top(350) + POPUP_GAP(4)
     expect(list.classList.contains("geom-up")).toBe(true);
+    listbox.close();
+  });
+
+  it("caps maxHeight to the frame's room below (edgeGap and gap paid once)", () => {
+    const restore = setViewport(300);
+    cleanup.push(restore);
+    const { trigger, listbox } = makeGeom();
+    const list = listbox.getList() as HTMLElement;
+    pinRect(list, 134, 200);
+    pinRect(trigger, 100, 30);
+    listbox.open();
+    // 300 - 8 (edge) - 130 (trigger bottom) - 4 (gap) = 158. The pre-kernel
+    // rule measured 300 - 130 - 8 = 162 and then spent the 4px gap on the
+    // offset, so the same gap was paid twice and the box could reach 4px from
+    // the viewport edge. Both the cap and the offset now come from one frame.
+    expect(list.style.top).toBe("134px");
+    expect(list.style.maxHeight).toBe("158px");
+    listbox.close();
+  });
+
+  it("flips by a two-row minimum in auto mode and by the whole box in fixed mode", () => {
+    const restore = setViewport(300);
+    cleanup.push(restore);
+    // 58px below and 188px above: two rows (48px) fit below, the whole 100px
+    // box does not. minRoom is the ONLY difference between the shapes, so a
+    // dropped/ignored minRoom wiring makes these two verdicts agree and this
+    // test red.
+    const auto = makeGeom();
+    const autoList = auto.listbox.getList() as HTMLElement;
+    pinRect(autoList, 250, 100);
+    pinRect(auto.trigger, 200, 30);
+    auto.listbox.open();
+    expect(autoList.classList.contains("geom-up")).toBe(false);
+    expect(autoList.style.top).toBe("234px");
+    expect(autoList.style.maxHeight).toBe("58px");
+    auto.listbox.close();
+
+    const fixed = makeGeom("fixed");
+    const fixedList = fixed.listbox.getList() as HTMLElement;
+    pinRect(fixedList, 250, 100);
+    pinRect(fixed.trigger, 200, 30);
+    fixed.listbox.open();
+    expect(fixedList.classList.contains("geom-up")).toBe(true);
+    // Fixed mode always top-anchors (the picker's historical rule); the box
+    // bottom lands at the trigger top minus the gap: 200 - 4 - 100 = 96.
+    expect(fixedList.style.top).toBe("96px");
+    expect(fixedList.style.bottom).toBe("");
+    expect(fixedList.style.maxHeight).toBe("");
+    fixed.listbox.close();
+  });
+
+  it("uses max-content width in auto mode and the trigger width in fixed mode", () => {
+    const restore = setViewport(600);
+    cleanup.push(restore);
+    // The owning cell is 600px wide, so the auto popup may grow to its 400px
+    // content; the fixed popup is the trigger width (widthMode "container").
+    const auto = makeGeom();
+    const autoList = auto.listbox.getList() as HTMLElement;
+    pinRect(auto.cell, 0, 600, 600);
+    pinRect(autoList, 130, 100, 400);
+    pinRect(auto.trigger, 100, 30);
+    auto.listbox.open();
+    expect(autoList.style.width).toBe("400px");
+    auto.listbox.close();
+
+    const fixed = makeGeom("fixed");
+    const fixedList = fixed.listbox.getList() as HTMLElement;
+    pinRect(fixed.cell, 0, 600, 600);
+    pinRect(fixedList, 130, 100, 400);
+    pinRect(fixed.trigger, 100, 30);
+    fixed.listbox.open();
+    expect(fixedList.style.width).toBe("160px");
+    fixed.listbox.close();
+  });
+
+  it("positions a right-edge auto popup against the width it renders", () => {
+    const restore = setViewport(720, 1280);
+    cleanup.push(restore);
+    // Trigger 1100..1200 in a 1280 viewport, 400px of content but only 180px
+    // of owning cell. The popup is 180px wide and must stay attached to its
+    // trigger (the 8px frame clamp puts it at 1092), not be positioned as if
+    // it were 400px wide (which put it at 872, 228px away from the trigger).
+    const { trigger, cell, listbox } = makeGeom();
+    const list = listbox.getList() as HTMLElement;
+    pinRect(cell, 0, 720, 1280);
+    pinRect(list, 130, 100, 400);
+    trigger.getBoundingClientRect = () =>
+      ({
+        x: 1100,
+        y: 100,
+        left: 1100,
+        top: 100,
+        right: 1200,
+        bottom: 130,
+        width: 100,
+        height: 30,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    listbox.open();
+    expect(list.style.width).toBe("180px");
+    expect(list.style.left).toBe("1092px");
     listbox.close();
   });
 });

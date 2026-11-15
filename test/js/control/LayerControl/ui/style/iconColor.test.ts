@@ -221,7 +221,12 @@ describe("buildIconColorRow", () => {
     const row = buildIconColorRow(ui, "overlay1")!;
     const input = row.querySelector("input[type=number]") as HTMLInputElement;
     expect(input).not.toBeNull();
-    expect(input.parentElement!.classList.contains("foliplus-form-inline")).toBe(true);
+    expect(input.parentElement!.classList.contains("foliplus-form-number-group")).toBe(
+      true,
+    );
+    expect(
+      input.parentElement!.parentElement!.classList.contains("foliplus-form-inline"),
+    ).toBe(true);
     expect(input.value).toBe("100");
   });
 

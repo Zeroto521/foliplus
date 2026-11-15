@@ -3136,6 +3136,61 @@ class TestPanelBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_row_panel_horizontal_box_and_flip(self, browser, tmp_path):
+        """The pinned card's horizontal box still obeys the card policy.
+
+        The card is right-aligned with its row while the map is wide, shrinks to
+        the map's 8px edge inset when the map is narrower than the card, and
+        still flips above its row on a short map. The measured box is compared
+        against the map and the anchor row, never a hardcoded coordinate.
+        """
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            self._ramp_layer(),
+            slug="row_panel_geometry",
+        ) as (page, errors):
+            page.set_viewport_size({"width": 900, "height": 720})
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+            page.wait_for_timeout(200)
+
+            wide = page.evaluate(_js("LayerControl/row_panel_geometry"))
+            assert wide["panel"] is not None, wide
+            # Right-aligned with its row: the card's right edge is the row's.
+            assert abs(wide["panel"]["right"] - wide["row"]["right"]) <= 1, wide
+            assert wide["maxWidth"] == "", wide
+            assert wide["panel"]["left"] >= wide["map"]["left"] + 7.5, wide
+            assert wide["panel"]["right"] <= wide["map"]["right"] - 7.5, wide
+
+            page.set_viewport_size({"width": 260, "height": 600})
+            page.wait_for_timeout(400)
+            narrow = page.evaluate(_js("LayerControl/row_panel_geometry"))
+            map_box, card = narrow["map"], narrow["panel"]
+            assert narrow["maxWidth"] != "", narrow
+            assert abs(card["width"] - (map_box["width"] - 16)) <= 1, narrow
+            assert abs(card["left"] - (map_box["left"] + 8)) <= 1, narrow
+            assert abs(card["right"] - (map_box["right"] - 8)) <= 1, narrow
+
+            page.set_viewport_size({"width": 260, "height": 320})
+            page.wait_for_timeout(400)
+            short = page.evaluate(_js("LayerControl/row_panel_geometry"))
+            assert short["flipped"] is True, short
+            assert abs(short["panel"]["top"] - (short["map"]["top"] + 8)) <= 1, short
+            assert short["panel"]["bottom"] <= short["map"]["bottom"] - 8, short
+            assert not errors, f"JS errors: {errors}"
+
     def test_initlayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
         """initLayerItem stamps the row named by data-layer-id, not the one at
         the layer's registry index."""

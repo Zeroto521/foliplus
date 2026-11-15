@@ -49,7 +49,7 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import type { Logger } from "#platform/type.js";
-import { PANEL_CLASS } from "#ui/index.js";
+import { PANEL_CLASS, computePlacement } from "#ui/index.js";
 
 /** Measurement types in toolbar order with the locale key of their tool name.
  *  This is the filter's whole domain and its option order: the panel offers
@@ -782,22 +782,21 @@ class MeasureManager {
       // a bare `{ latlng }`. `latlng` is the contract both share.
       const { x, y } = this.map.latLngToContainerPoint(event.latlng);
       const size = this.map.getSize();
-      const gap = CONST.READOUT.ANCHOR_GAP;
-      // The chip is centered on the cursor and dropped `gap` px below it —
-      // due south of it, the same way the area label sits south of the centroid
-      // dot. When that would push it past the bottom edge, the flip re-anchors
-      // it above the cursor instead.
-      const h = container.offsetHeight;
-      const cx = Math.max(
-        container.offsetWidth / 2,
-        Math.min(size.x - container.offsetWidth / 2, x),
+      // The chip is a point-anchored popup in the container's coordinate space:
+      // the shared kernel owns the below-first flip, the horizontal clamp and
+      // the gap. Its `left` is the box edge; the CSS transform centres the box,
+      // so the inline left stays the centre coordinate.
+      const width = container.offsetWidth;
+      const height = container.offsetHeight;
+      const placement = computePlacement(
+        { left: x, right: x, top: y, bottom: y },
+        { width, height },
+        { left: 0, right: size.x, top: 0, bottom: size.y },
+        { gap: CONST.READOUT.ANCHOR_GAP, align: "center", prefer: "below" },
       );
-      container.style.left = `${cx}px`;
-      container.style.top = `${y}px`;
-      container.classList.toggle(
-        CONST.READOUT.CLASS_FLIP,
-        y + h + gap > size.y && y >= h,
-      );
+      container.style.left = `${String(placement.left + placement.maxWidth / 2)}px`;
+      container.style.top = `${String(placement.top)}px`;
+      container.dataset.side = placement.side;
       container.textContent = Util.coordText(this.map, event.latlng, this.log);
       // Reveal only once it has a real position. Showing it before the first
       // mousemove would leave it at the container's default spot (by the hint)

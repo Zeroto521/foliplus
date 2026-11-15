@@ -18,6 +18,7 @@ import {
 import { type EventBus, ensureEvents } from "#core/event/index.js";
 import type { GeoBounds } from "#core/geo/index.js";
 import { type ModeManager, ensureModes } from "#core/lifecycle/index.js";
+import type { DragSession } from "#platform/dragSession.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import { type RafLoop } from "#platform/rafLoop.js";
 
@@ -64,10 +65,12 @@ class ExportManager {
   modes: ModeManager;
   events: EventBus;
   dragCleanup?: () => void;
-  /** Releases the page-level "the pointer is gone" subscription while a crop
-   *  gesture can be live (platform/gesture). Held only between the first press
-   *  and the last release, so a page with no crop gesture pays nothing. */
-  dragRetireCleanup?: (() => void) | null;
+  /** The live crop gesture, or null. Owned by platform/dragSession, so the
+   *  ending is the same one every other drag in the tree gets. */
+  dragSession?: DragSession | null;
+  /** The release's own event, when a release is what ends the gesture; an
+   *  interrupt names no target, so the recorded capture is used instead. */
+  dragEndEvent?: PointerEvent | null;
   interactionCleanup?: () => void;
   escapeCleanup?: () => void;
   cropMousedownCleanup?: () => void;
@@ -115,12 +118,7 @@ class ExportManager {
   // matches the pre-split public surface.
   declare onPointerDown: (event: PointerEvent) => void;
   declare onPointerMove: (event: PointerEvent) => void;
-  declare onPointerUp: (
-    event: PointerEvent,
-    /** What to release when the event itself names no usable target — the
-     *  interrupt path passes the gesture's recorded capture. */
-    capture?: { pointerId: number | null; captureTarget: Element | null },
-  ) => void;
+  declare onPointerUp: (event: PointerEvent) => void;
   declare onPointerCancel: (event: PointerEvent) => void;
   declare onKeyDown: (event: KeyboardEvent) => void;
   declare onKeyUp: (event: KeyboardEvent) => void;

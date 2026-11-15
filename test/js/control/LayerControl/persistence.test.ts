@@ -1615,102 +1615,22 @@ describe("LayerPersistence", () => {
       expect(() => p.destroy()).not.toThrow();
     });
   });
-  describe("folderOrder persistence", () => {
-    it("round-trips a valid folder order", () => {
-      seedStorage({
-        version: RECORD_VERSION,
-        folderOrder: { version: 1, sections: { overlay: ["a", "b"], base: ["c"] } },
-      });
-      expect(makePersistence().load().folderOrder).toEqual({
-        version: 1,
-        sections: { overlay: ["a", "b"], base: ["c"] },
-      });
-    });
-
-    it("drops a folder order whose version is not 1", () => {
-      seedStorage({
-        version: RECORD_VERSION,
-        folderOrder: { version: 2, sections: { overlay: ["a"] } },
-      });
-      expect(makePersistence().load().folderOrder).toBeUndefined();
-    });
-
-    it("drops a folder order whose sections are not an object", () => {
-      for (const sections of [null, "overlay", ["a"], 42]) {
-        seedStorage({ version: RECORD_VERSION, folderOrder: { version: 1, sections } });
-        expect(
-          makePersistence().load().folderOrder,
-          JSON.stringify(sections),
-        ).toBeUndefined();
-      }
-    });
-
-    it("drops a folder order that names a section other than overlay/base", () => {
-      seedStorage({
-        version: RECORD_VERSION,
-        folderOrder: { version: 1, sections: { middle: ["a"] } },
-      });
-      expect(makePersistence().load().folderOrder).toBeUndefined();
-    });
-
-    it("drops a folder order whose section values are not string arrays", () => {
-      for (const names of ["a", [1, 2], [null], ["a", 2], {}]) {
-        seedStorage({
-          version: RECORD_VERSION,
-          folderOrder: { version: 1, sections: { overlay: names } },
-        });
-        expect(
-          makePersistence().load().folderOrder,
-          JSON.stringify(names),
-        ).toBeUndefined();
-      }
-    });
-
-    it("drops a folder order that is not an object", () => {
-      for (const bad of [null, undefined, "order", 7, ["a"]]) {
-        seedStorage({ version: RECORD_VERSION, folderOrder: bad });
-        expect(
-          makePersistence().load().folderOrder,
-          JSON.stringify(bad),
-        ).toBeUndefined();
-      }
-    });
-
-    it("leaves an old archive without a folder order field alone", () => {
-      seedStorage({ version: RECORD_VERSION, order: ["a"] });
-      expect(makePersistence().load().folderOrder).toBeUndefined();
-    });
-
-    it("does not invent an empty folder order when the live state is null", () => {
-      // mergeFields must not produce folderOrder: [] from an empty live state:
-      // the getter returns null (no order yet), and the write lands null, not
-      // an empty sections object that would look like a freeze.
-      vi.useFakeTimers();
-      const save = spySave();
-      const p = makePersistence();
-      p.schedule({ folderOrder: () => null });
-      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
-      expect(lastRecord(save).folderOrder).toBeNull();
-      save.mockRestore();
-      vi.useRealTimers();
-    });
-
-    it("passes a stored folder order through a write that never schedules it", () => {
+  describe("folder layout storage independence", () => {
+    it("does not read a v1 folder order from the control record", () => {
+      // The v2 layout lives under its OWN storage key; the LayerControl
+      // record must not carry (or leak) the old folderOrder field.
       seedStorage({
         version: RECORD_VERSION,
         folderOrder: { version: 1, sections: { overlay: ["a"] } },
       });
-      vi.useFakeTimers();
-      const save = spySave();
-      const p = makePersistence();
-      p.schedule({ order: () => ["a"] });
-      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
-      expect(lastRecord(save).folderOrder).toEqual({
-        version: 1,
-        sections: { overlay: ["a"] },
-      });
-      save.mockRestore();
-      vi.useRealTimers();
+      const record = makePersistence().load() as Record<string, unknown>;
+      expect(record.folderOrder).toBeUndefined();
+    });
+
+    it("does not invent a folderOrder when the live state has none", () => {
+      seedStorage({ version: RECORD_VERSION });
+      const record = makePersistence().load();
+      expect(record).not.toHaveProperty("folderOrder");
     });
   });
 });

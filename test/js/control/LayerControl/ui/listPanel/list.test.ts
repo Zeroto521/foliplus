@@ -1483,7 +1483,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     });
     // Remove the always-registered solid basemap so the base section is empty.
     manager.unregisterLayer(CONST.SOLID_BASEMAP_ID);
-    manager.folderOrder = { version: 1, sections: { base: ["Ghost"] } };
+    manager.createFolder("base", "Ghost");
     manager.ui?.reindexAfterMove?.();
     const baseHeader = attachedPanel(ui).querySelector(
       `.${CONST.CLASSES.TOGGLE_ALL}[data-role="${ROLE.BASE}"]`,
@@ -1537,7 +1537,7 @@ describe("clean-empty-folders button and section header order", () => {
   };
 
   it("runs cleanEmptyFolders when the section header clean button is clicked", () => {
-    manager.folderOrder = { version: 1, sections: { overlay: ["empty-1"] } };
+    manager.createFolder("overlay", "empty-1");
     manager.ui?.reindexAfterMove?.();
     const cleanBtn = attachedPanel(ui).querySelector(
       `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
@@ -1551,7 +1551,7 @@ describe("clean-empty-folders button and section header order", () => {
   });
 
   it("does not call cleanEmptyFolders for a clean button without data-role (defensive)", () => {
-    manager.folderOrder = { version: 1, sections: { overlay: ["empty-1"] } };
+    manager.createFolder("overlay", "empty-1");
     manager.ui?.reindexAfterMove?.();
     const spy = vi.spyOn(manager, "cleanEmptyFolders");
     // A hand-built clean button with no data-role (the renderer always writes
@@ -1565,7 +1565,7 @@ describe("clean-empty-folders button and section header order", () => {
   });
 
   it("hides the clean button once the section has no empty folder key", () => {
-    manager.folderOrder = { version: 1, sections: { overlay: [] } };
+    // no empty keys: the default layout already has none
     manager.ui?.reindexAfterMove?.();
     const cleanBtn = attachedPanel(ui).querySelector(
       `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
@@ -1612,7 +1612,7 @@ describe("clean-empty-folders button and section header order", () => {
     // Overlay keeps only an empty folder key (no live overlay rows); base has a row.
     manager.unregisterLayer("overlay1");
     manager.unregisterLayer("overlay2");
-    manager.folderOrder = { version: 1, sections: { overlay: ["empty-1"] } };
+    manager.createFolder("overlay", "empty-1");
     manager.ui?.reindexAfterMove?.();
     const container = attachedPanel(ui);
     const kinds = Array.from(container.children)
@@ -1648,7 +1648,7 @@ describe("clean-empty-folders button and section header order", () => {
     // Freeze an empty folder key, then re-register a member under the same
     // folder. LAYER_ROLE_COUNT_CHANGED → syncCleanButton must hide the button
     // without a full rebuild.
-    manager.folderOrder = { version: 1, sections: { overlay: ["my folder"] } };
+    manager.createFolder("overlay", "my folder");
     manager.ui?.reindexAfterMove?.();
     expect(
       attachedPanel(ui).querySelector(
@@ -1665,11 +1665,8 @@ describe("clean-empty-folders button and section header order", () => {
 
   it("updates the clean button count in place without stacking a second button (incremental)", () => {
     // Seed two empty folder keys directly (no live members) and rebuild.
-    manager.folderOrder = {
-      version: 1,
-      sections: { overlay: ["folder a", "folder b"] },
-    };
-    manager.ui?.reindexAfterMove?.();
+    manager.createFolder("overlay", "folder a");
+    manager.createFolder("overlay", "folder b");
     const before = attachedPanel(ui).querySelectorAll(
       `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
     );
