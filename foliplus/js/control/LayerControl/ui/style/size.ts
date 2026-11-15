@@ -47,6 +47,7 @@ import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js"
 import { styleCapability } from "./styleCapability.js";
 import { DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
 import { type PixelRadiusLeaf, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
+import { withUnit } from "#platform/format.js";
 import { bindLiveNumber, formRow, inlineControls, numberInput } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -172,7 +173,8 @@ const buildSizeRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
         max: CONST.SIZE.MAX,
         step: CONST.SIZE.STEP,
         className: CONST.CLASSES.STYLE_SIZE_INPUT,
-        ariaLabel: label,
+        ariaLabel: withUnit(label, ui._("foliplus.unit_px")),
+        unitSuffix: ui._("foliplus.unit_px"),
       }),
     ),
     CONST.CLASSES.STYLE_SIZE_ROW,
