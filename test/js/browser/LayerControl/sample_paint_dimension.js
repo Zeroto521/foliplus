@@ -15,7 +15,7 @@
 //
 // Arg: { layerName, dims?:["fill","border"], modes?: {fill:[...],border:[...]} }
 // Modes are filtered to what the panel actually offers (option values present).
-(arg) => {
+arg => {
   const a = arg || window.__PARITY_ARG__ || {};
   const layerName = a.layerName || "Polygons";
   const dims = a.dims || ["fill", "border"];
@@ -25,8 +25,9 @@
   };
 
   const findLayerRow = name => {
-    return [...document.querySelectorAll(".foliplus-layer-item[data-layer-type=overlay]")]
-      .find(r => r.textContent.includes(name));
+    return [
+      ...document.querySelectorAll(".foliplus-layer-item[data-layer-type=overlay]"),
+    ].find(r => r.textContent.includes(name));
   };
   const openStylePanel = name => {
     const row = findLayerRow(name);
@@ -44,7 +45,8 @@
     return { ok: !!panel, panel };
   };
 
-  const classNameStack = el => (el ? (el.className || "").split(/\s+/).filter(Boolean) : []);
+  const classNameStack = el =>
+    el ? (el.className || "").split(/\s+/).filter(Boolean) : [];
   const tagName = el => (el ? el.tagName : null);
   const childTree = (el, depth) => {
     if (!el || depth > 2) return [];
@@ -59,7 +61,15 @@
   const ariaOf = el => {
     if (!el) return {};
     const out = {};
-    for (const a of ["aria-label", "aria-pressed", "aria-checked", "aria-hidden", "role", "aria-expanded", "aria-disabled"]) {
+    for (const a of [
+      "aria-label",
+      "aria-pressed",
+      "aria-checked",
+      "aria-hidden",
+      "role",
+      "aria-expanded",
+      "aria-disabled",
+    ]) {
       const v = el.getAttribute(a);
       if (v !== null) out[a] = v;
     }
@@ -69,15 +79,26 @@
     if (!el) return null;
     const s = getComputedStyle(el);
     return {
-      display: s.display, position: s.position, flexDirection: s.flexDirection,
-      gap: s.gap, width: s.width, height: s.height, color: s.color,
-      backgroundColor: s.backgroundColor, borderColor: s.borderColor,
-      visibility: s.visibility, opacity: s.opacity,
+      display: s.display,
+      position: s.position,
+      flexDirection: s.flexDirection,
+      gap: s.gap,
+      width: s.width,
+      height: s.height,
+      color: s.color,
+      backgroundColor: s.backgroundColor,
+      borderColor: s.borderColor,
+      visibility: s.visibility,
+      opacity: s.opacity,
     };
   };
   let panelRoot = null;
-  const blockSel = dim => dim === "fill" ? ".foliplus-style-fill-block" : ".foliplus-style-border-block";
-  const selectSel = dim => dim === "fill" ? ".foliplus-style-fill-mode-select" : ".foliplus-style-border-mode-select";
+  const blockSel = dim =>
+    dim === "fill" ? ".foliplus-style-fill-block" : ".foliplus-style-border-block";
+  const selectSel = dim =>
+    dim === "fill"
+      ? ".foliplus-style-fill-mode-select"
+      : ".foliplus-style-border-mode-select";
 
   const sampleOne = (dim, mode) => {
     const root = panelRoot || document;
@@ -86,33 +107,57 @@
     const select = block.querySelector(selectSel(dim));
     if (!select) return { present: false, reason: "no-mode-select" };
     if (![...select.options].some(o => o.value === mode)) {
-      return { present: false, reason: "mode-not-offered", offered: [...select.options].map(o => o.value) };
+      return {
+        present: false,
+        reason: "mode-not-offered",
+        offered: [...select.options].map(o => o.value),
+      };
     }
     select.value = mode;
     select.dispatchEvent(new Event("change", { bubbles: true }));
     const detail = block.querySelector(
-      dim === "fill" ? ".foliplus-style-fill-detail" : ".foliplus-style-border-detail"
+      dim === "fill" ? ".foliplus-style-fill-detail" : ".foliplus-style-border-detail",
     );
     const rowRoot = block.querySelector(".foliplus-form-row") || block;
     return {
-      present: true, mode, dim,
+      present: true,
+      mode,
+      dim,
       offered: [...select.options].map(o => o.value),
       row: {
-        tag: tagName(rowRoot), cls: classNameStack(rowRoot),
-        children: childTree(rowRoot, 0), aria: ariaOf(rowRoot),
+        tag: tagName(rowRoot),
+        cls: classNameStack(rowRoot),
+        children: childTree(rowRoot, 0),
+        aria: ariaOf(rowRoot),
       },
-      detail: detail ? {
-        tag: tagName(detail), cls: classNameStack(detail),
-        children: childTree(detail, 0), aria: ariaOf(detail),
-        computed: computed(detail),
-      } : null,
-      select: select ? {
-        tag: tagName(select), cls: classNameStack(select),
-        aria: ariaOf(select), computed: computed(select),
-      } : null,
+      detail: detail
+        ? {
+            tag: tagName(detail),
+            cls: classNameStack(detail),
+            children: childTree(detail, 0),
+            aria: ariaOf(detail),
+            computed: computed(detail),
+          }
+        : null,
+      select: select
+        ? {
+            tag: tagName(select),
+            cls: classNameStack(select),
+            aria: ariaOf(select),
+            computed: computed(select),
+          }
+        : null,
       keyComputed: {
-        color: computed(block.querySelector(".foliplus-style-fill-color-input, .foliplus-style-border-color-input")),
-        number: computed(block.querySelector(".foliplus-style-fill-opacity-number, .foliplus-style-border-weight-input")),
+        color: computed(
+          block.querySelector(
+            ".foliplus-style-fill-color-input, .foliplus-style-border-color-input",
+          ),
+        ),
+        number: computed(
+          block.querySelector(
+            ".foliplus-style-fill-opacity-number, .foliplus-style-border-weight-input",
+          ),
+        ),
       },
     };
   };
@@ -124,7 +169,7 @@
   const snapshot = {};
   for (const dim of dims) {
     snapshot[dim] = {};
-    for (const mode of (requested[dim] || [])) {
+    for (const mode of requested[dim] || []) {
       snapshot[dim][mode] = sampleOne(dim, mode);
     }
   }
