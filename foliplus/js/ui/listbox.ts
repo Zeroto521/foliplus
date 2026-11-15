@@ -64,6 +64,9 @@ type ListboxRowShape = {
    *  focused row on the trigger; the dropdown does not (its trigger is a
    *  button that keeps its own focus, and the list rows are tabindex=-1). */
   activedescendant: "trigger" | "none";
+  /** Give every row a stable id even when the trigger does not track it (e.g.
+   *  a searchable dropdown whose input tracks aria-activedescendant instead). */
+  rowIds?: boolean;
   /** Row content: default is the label text; the picker draws a colour block. */
   renderRow?: (
     item: ListboxItem,
@@ -332,7 +335,9 @@ const buildRow = (
   }
   // The picker shape tracks the focused row on the trigger via
   // aria-activedescendant, so its rows need stable ids to reference.
-  if (shape.activedescendant === "trigger") attrs.id = nextOptionId("listbox-row");
+  if (shape.activedescendant === "trigger" || shape.rowIds) {
+    attrs.id = nextOptionId("listbox-row");
+  }
   const row = dom.el(shape.rowTag, attrs) as HTMLElement;
   applyOptionRowA11y({ el: row, selected, id: attrs.id });
   row.classList.toggle(shape.selectedClass, selected);

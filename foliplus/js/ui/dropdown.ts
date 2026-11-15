@@ -142,6 +142,16 @@ interface DropdownOptions extends DropdownSurface {
   searchNoResult?: string;
   /** Called when the filtered/total/query/selected state changes. */
   onSearchState?: (info: DropdownSearchState) => void;
+  /** Formats the footer count line (caller-localized). Default: "shown of total · selected". */
+  searchFooterText?: (info: {
+    shown: number;
+    total: number;
+    selected: number;
+  }) => string;
+  /** Label for the multi-select "select all" footer button (caller-localized). */
+  searchSelectAllText?: string;
+  /** Label for the multi-select "clear all" footer button (caller-localized). */
+  searchClearAllText?: string;
 }
 
 interface InternalState {
@@ -184,6 +194,13 @@ interface InternalState {
   /** The footer element (showing N of M · K selected + all/clear), or null. */
   footerEl: HTMLElement | null;
   onSearchState: ((info: DropdownSearchState) => void) | null;
+  /** Formats the footer count line (caller-localized). */
+  searchFooterText:
+    ((info: { shown: number; total: number; selected: number }) => string) | null;
+  /** Label for the multi-select "select all" footer button. */
+  searchSelectAllText: string;
+  /** Label for the multi-select "clear all" footer button. */
+  searchClearAllText: string;
 }
 
 let idCounter = 0;
@@ -295,9 +312,14 @@ const parseSearch = (
 /** The filtered item set the searchable dropdown renders. */
 const filteredItems = (
   state: InternalState,
-): { items: DropdownItem[]; shown: number } => {
+): { items: DropdownItem[]; shown: number; matchedCount: number } => {
   const filter = state.listFilter;
-  if (!filter) return { items: state.items, shown: state.items.length };
+  if (!filter)
+    return {
+      items: state.items,
+      shown: state.items.length,
+      matchedCount: state.items.length,
+    };
   const matched = filter.setQuery(state.query);
   const renderLimit = state.search && state.search.renderLimit;
   const pinned: DropdownItem[] = [];
@@ -310,34 +332,69 @@ const filteredItems = (
     }
   }
   const capped = renderLimit ? matched.slice(0, renderLimit) : matched;
-  return { items: [...pinned, ...capped], shown: capped.length };
+  return {
+    items: [...pinned, ...capped],
+    shown: capped.length,
+    matchedCount: matched.length,
+  };
 };
 
 /** Re-render the searchable list after a query change: re-filter, refresh the
  *  listbox, and publish the search state. */
 /** Fill the footer ("showing N of M · K selected" + select-all/clear
  *  for multi-select). Uses the search state's shown/total/selected. */
-const updateSearchFooter = (state: InternalState, shown: number): void => {
+const updateSearchFooter = (
+  state: InternalState,
+  shown: number,
+  matchedCount: number,
+): void => {
   const el = state.footerEl;
   if (!el) return;
+  // No matches: the single status region carries only the no-result line (it
+  // and the count are mutually exclusive — P2-c). Buttons do not render here.
+  if (shown === 0) {
+    el.textContent = "";
+    el.append(document.createTextNode(state.searchNoResult ?? ""));
+    return;
+  }
   const total = state.listFilter?.total() ?? 0;
   const selected = state.values.size;
+  // The footer denominator is the matched set, not the full domain: with a
+  // query active it reads "showing 5 of 12" (12 = what the query matched),
+  // and the full-domain count is what onSearchState publishes separately.
   const parts: string[] = [];
-  if (shown !== total) {
-    parts.push(`showing ${String(shown)} of ${String(total)}`);
+  if (shown !== matchedCount) {
+    parts.push("showing " + String(shown) + " of " + String(matchedCount));
   }
-  parts.push(`${String(selected)} selected`);
+  parts.push(String(selected) + " selected");
   el.textContent = "";
-  el.append(document.createTextNode(parts.join(" · ")));
+  el.append(
+    document.createTextNode(
+      state.searchFooterText
+        ? state.searchFooterText({ shown, total: matchedCount, selected })
+        : parts.join(" · "),
+    ),
+  );
   if (state.multiple) {
-    const all = dom.el("button", { class: DROPDOWN_CLASS.FOOTER_BTN }, "Select all");
+    const all = dom.el(
+      "button",
+      { class: DROPDOWN_CLASS.FOOTER_BTN },
+      state.searchSelectAllText,
+    );
     all.addEventListener("click", () => {
-      const matched = filteredItems(state).items;
-      for (const item of matched) state.values.add(item.value);
+      // Select-all covers the FULL matched set, not the renderLimit-capped
+      // view: a 40-item domain with a 30 cap must not silently drop the last
+      // ten from the selection.
+      const full = filterAll(state);
+      for (const item of full) state.values.add(item.value);
       state.onChange?.(state.values.values().next().value ?? "", [...state.values]);
       refreshSearch(state);
     });
-    const clear = dom.el("button", { class: DROPDOWN_CLASS.FOOTER_BTN }, "Clear");
+    const clear = dom.el(
+      "button",
+      { class: DROPDOWN_CLASS.FOOTER_BTN },
+      state.searchClearAllText,
+    );
     clear.addEventListener("click", () => {
       state.values.clear();
       state.onChange?.("", []);
@@ -347,13 +404,24 @@ const updateSearchFooter = (state: InternalState, shown: number): void => {
   }
 };
 
+/** The full matched set (no renderLimit cap), for select-all. */
+const filterAll = (state: InternalState): DropdownItem[] => {
+  const filter = state.listFilter;
+  if (!filter) return state.items;
+  return [...filter.setQuery(state.query)];
+};
+
 const refreshSearch = (state: InternalState): void => {
-  const { shown } = filteredItems(state);
+  const { shown, matchedCount } = filteredItems(state);
   state.listbox?.refresh();
   state.activeIndex = -1;
   setActiveRow(state, -1);
-  state.searchField?.setStatus(shown === 0 ? (state.searchNoResult ?? "") : null);
-  updateSearchFooter(state, shown);
+  // Single status region (P2-c): no-result and the footer count share the
+  // same role=status element and never coexist. With a query that matches
+  // nothing, only the no-result line shows; otherwise the count (and the
+  // multi-select buttons) render in that same region.
+  updateSearchFooter(state, shown, matchedCount);
+  state.searchField?.setStatus(null);
   state.onSearchState?.({
     shown,
     total: state.listFilter?.total() ?? 0,
@@ -506,6 +574,9 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     searchNoResult: opts.searchNoResult ?? "",
     footerEl: null,
     onSearchState: opts.onSearchState ?? null,
+    searchFooterText: opts.searchFooterText ?? null,
+    searchSelectAllText: opts.searchSelectAllText ?? "Select all",
+    searchClearAllText: opts.searchClearAllText ?? "Clear",
   };
   // Threshold gating: the search box only appears when the item set is
   // large enough that a plain list would overflow the one-screen cap
@@ -539,6 +610,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     state.searchField = createSearchField({
       placeholder: opts.searchPlaceholder ?? "",
       ariaLabel: opts.searchPlaceholder ?? "",
+      inputClass: FORM_CLASS.INPUT_SKIN,
       onInput: query => {
         state.query = query;
         if (state.searchTimer) clearTimeout(state.searchTimer);
@@ -552,12 +624,15 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     state.searchField.element.setAttribute("role", "combobox");
     state.searchField.element.setAttribute("aria-expanded", "false");
     state.searchField.element.setAttribute("aria-autocomplete", "list");
-    state.mountRoot = dom.el(
-      "div",
-      { class: DROPDOWN_CLASS.LIST },
-      state.searchField.element,
+    state.mountRoot = dom.el("div", { class: DROPDOWN_CLASS.LIST });
+    state.mountRoot.append(
+      dom.el("div", { class: DROPDOWN_CLASS.SEARCH }, state.searchField.element),
     );
-    state.footerEl = dom.el("div", { class: DROPDOWN_CLASS.STATUS });
+    state.footerEl = dom.el("div", {
+      class: DROPDOWN_CLASS.STATUS,
+      role: "status",
+      "aria-live": "polite",
+    });
   }
 
   const listbox = createListbox({
@@ -570,7 +645,8 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       dataKey: "data-value",
       selectedClass: DROPDOWN_CLASS.SELECTED,
       disabledAttr: "disabled",
-      activedescendant: state.search ? "trigger" : "none",
+      activedescendant: "none",
+      rowIds: !!state.search,
     },
     classes: {
       list: DROPDOWN_CLASS.LIST,
@@ -632,7 +708,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   if (state.search && state.mountRoot && state.searchField) {
     engineList!.classList.add(DROPDOWN_CLASS.OPTIONS);
     state.mountRoot.append(engineList!);
-    state.mountRoot.append(state.searchField.statusElement);
     state.mountRoot.append(state.footerEl!);
   } else {
     wrapper.append(engineList!);
