@@ -163,7 +163,7 @@ const renderRangeBody = (
       { at: dim.range[1], tone: "limit" },
     ],
     // S1: the filter's two end values stay visible at all times (not just
-    // during a drag/focus). The shared bubble is portaled to <body>, so this
+    // during a drag/focus). The shared bubble is portaled to the document body, so this
     // adds no panel layout; opacity/zoom-range do not opt in.
     alwaysVisible: true,
     disabled: dim.range[0] === dim.range[1],
