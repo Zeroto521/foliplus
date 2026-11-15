@@ -914,9 +914,18 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert opened.get("panel"), f"the style panel did not open: {opened}"
 
+            page.evaluate(_js("LayerControl/style_reset_geometry"), "before")
             page.locator(
                 ".foliplus-layer-style-panel .foliplus-style-reset-btn"
             ).click()
+            geometry = page.evaluate(_js("LayerControl/style_reset_geometry"), "after")
+            assert (
+                geometry["sameTop"]
+                and geometry["sameLeft"]
+                and geometry["sameHeight"]
+                and geometry["sameScrollY"]
+                and geometry["sameListScroll"]
+            ), f"Reset moved the panel or scrolled the page: {geometry}"
             state = page.evaluate(_js("LayerControl/style_reset_kept_open"))
             assert state["panelOpen"] is True, (
                 f"Reset must keep the style panel open: {state}"

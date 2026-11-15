@@ -15,6 +15,8 @@
 type PanelResetFocus = HTMLElement | (() => HTMLElement | null);
 
 interface PanelResetOutcome {
+  /** Restore this surface's values to their defaults. */
+  restore: () => void;
   /** The close path this surface would run if a reset dismissed the panel. */
   close: () => void;
   /** Re-sync the open panel's controls with the restored values. */
@@ -25,20 +27,20 @@ interface PanelResetOutcome {
 
 const createPanelResetOutcome =
   (dismisses: boolean) =>
-  ({ close, refresh, focus }: PanelResetOutcome): void => {
+  ({ restore, close, refresh, focus }: PanelResetOutcome): void => {
+    restore();
     if (dismisses) {
       close();
       return;
     }
     refresh?.();
     const target = typeof focus === "function" ? focus() : focus;
-    target?.focus();
+    // The panel did not move; focusing the rebuilt button must not scroll it
+    // (or the layer list) into view.
+    target?.focus({ preventScroll: true });
   };
 
 /** A reset restores values; it does not dismiss the panel. */
 const finishPanelReset = createPanelResetOutcome(false);
 
-/** Close the panel after a Reset/Clear; for a one-shot surface only. */
-const dismissPanelAfterReset = createPanelResetOutcome(true);
-
-export { createPanelResetOutcome, dismissPanelAfterReset, finishPanelReset };
+export { createPanelResetOutcome, finishPanelReset };

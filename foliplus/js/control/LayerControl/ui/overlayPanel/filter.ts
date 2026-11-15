@@ -231,8 +231,8 @@ const buildFooter = (
     className: CONST.CLASSES.FILTER_CLEAR,
   });
   clear.addEventListener("click", () => {
-    hooks.write(undefined);
     finishPanelReset({
+      restore: () => hooks.write(undefined),
       close,
       // Clearing disables Clear itself; focus falls to the panel's first
       // usable control so keyboard users can keep going.

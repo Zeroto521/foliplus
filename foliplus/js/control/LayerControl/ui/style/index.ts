@@ -256,46 +256,48 @@ const bindStylePanel = (
       // mid-operation would hand a subscriber a half-restored panel.
       // Fill is LayerControl-owned on the label flavour only (the gate
       // excludes delegated layers).
-      resetLayerFill(ui, layerId);
-      // Size is LayerControl-owned too: restore the author's radius and drop
-      // the persisted value, so a reload does not re-apply it.
-      resetLayerSize(ui, layerId);
-      // Icon is LayerControl-owned too: restore the author's marker icons
-      // and drop the persisted config, so a reload does not re-apply it.
-      resetLayerIcon(ui, layerId);
-      resetLayerIconColor(ui, layerId);
-      resetLayerMarkerColor(ui, layerId);
-      // Border is LayerControl-owned too: restore the author's stroke and drop
-      // the persisted color / width, so a reload does not re-apply them.
-      resetLayerBorder(ui, layerId);
-      // Opacity and zoom range are LayerControl-owned in both flavours.
-      // publish = false keeps their notify here, at the operation boundary.
       const moved: ProjectionDelta[] = [];
-      for (const delta of [
-        resetLayerOpacity(ui, layerId, false),
-        resetLayerZoomRange(ui, layerId, false),
-      ]) {
-        if (delta) moved.push(delta);
-      }
-      if (delegated) {
-        // Call each setter with its Python CONFIG default. The components own
-        // the values — never write localStorage or label config here.
-        const layerInfo = ui.c.layerRegistry.get(layerId);
-        const setters = layerInfo?.styleSetters;
-        const defaults = layerInfo?.styleDefaultsProvider?.() ?? {};
-        if (setters) {
-          for (const [key, setter] of Object.entries(setters)) {
-            if (key in defaults) setter(defaults[key]);
-          }
-        }
-      } else {
-        // Labels are a LayerControl-owned dimension too: the reset drops the
-        // layer's config entry rather than writing the defaults back in, so the
-        // author's declared label shows through again and the drop is what
-        // gets persisted (a reload does not restore the user's choice).
-        resetStyleLabel(ui, layerId);
-      }
       finishPanelReset({
+        restore: () => {
+          resetLayerFill(ui, layerId);
+          // Size is LayerControl-owned too: restore the author's radius and drop
+          // the persisted value, so a reload does not re-apply it.
+          resetLayerSize(ui, layerId);
+          // Icon is LayerControl-owned too: restore the author's marker icons
+          // and drop the persisted config, so a reload does not re-apply it.
+          resetLayerIcon(ui, layerId);
+          resetLayerIconColor(ui, layerId);
+          resetLayerMarkerColor(ui, layerId);
+          // Border is LayerControl-owned too: restore the author's stroke and drop
+          // the persisted color / width, so a reload does not re-apply them.
+          resetLayerBorder(ui, layerId);
+          // Opacity and zoom range are LayerControl-owned in both flavours.
+          // publish = false keeps their notify here, at the operation boundary.
+          for (const delta of [
+            resetLayerOpacity(ui, layerId, false),
+            resetLayerZoomRange(ui, layerId, false),
+          ]) {
+            if (delta) moved.push(delta);
+          }
+          if (delegated) {
+            // Call each setter with its Python CONFIG default. The components own
+            // the values — never write localStorage or label config here.
+            const layerInfo = ui.c.layerRegistry.get(layerId);
+            const setters = layerInfo?.styleSetters;
+            const defaults = layerInfo?.styleDefaultsProvider?.() ?? {};
+            if (setters) {
+              for (const [key, setter] of Object.entries(setters)) {
+                if (key in defaults) setter(defaults[key]);
+              }
+            }
+          } else {
+            // Labels are a LayerControl-owned dimension too: the reset drops the
+            // layer's config entry rather than writing the defaults back in, so the
+            // author's declared label shows through again and the drop is what
+            // gets persisted (a reload does not restore the user's choice).
+            resetStyleLabel(ui, layerId);
+          }
+        },
         close: () => closeStylePanel(ui, true),
         refresh: () => refreshStylePanel(ui, layerId),
         focus: () =>

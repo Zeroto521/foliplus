@@ -141,14 +141,11 @@ class TestHeatmapControlSelectionBrowser:
 
             assert not errors, f"JS errors: {errors}"
 
-    def test_clear_keeps_panel_expanded_and_focuses_next_control(
-        self, browser, tmp_path
-    ):
-        """Clear restores defaults without collapsing.
+    def test_clear_keeps_panel_expanded_and_focuses_clear(self, browser, tmp_path):
+        """Clear restores the declaration without collapsing the panel.
 
-        Clear hides the extra body (no source is selected afterwards), so its
-        own button cannot keep focus: focus falls to the layer select, the next
-        visible action.
+        The restored source keeps the Clear row visible, so focus stays on its
+        own button; the hidden-button fallback is covered by the unit test.
         """
         with use_page(_make_page, browser, tmp_path, num_layers=1) as (page, errors):
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
@@ -164,8 +161,8 @@ class TestHeatmapControlSelectionBrowser:
             assert state["expanded"] is True, (
                 f"Clear must keep the heatmap panel expanded: {state}"
             )
-            assert state["focusIsLayerTrigger"] is True, (
-                f"Clear must leave focus on the layer dropdown trigger: {state}"
+            assert state["focusIsClear"] is True, (
+                f"Clear must keep focus on its own button: {state}"
             )
             assert not errors, f"JS errors: {errors}"
 
@@ -309,28 +306,17 @@ class TestHeatmapControlSelectionBrowser:
             cleared = page.evaluate(
                 _js("HeatmapControl/read_manager_auto_select_state")
             )
-            assert cleared["selectedLayerId"] is None, "Clear must drop the selection"
             assert page.evaluate(_js("HeatmapControl/heatmap_storage_absent")), (
                 "Clear must delete the persisted record"
             )
-
-            # Close and reopen: the declaration is the starting state again.
-            page.evaluate(_js("HeatmapControl/click_close_button"))
-            page.evaluate(_js("HeatmapControl/click_toggle_button"))
-            page.wait_for_selector(
-                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
-                state="attached",
-                timeout=5000,
+            # Clear restores the declaration in the same session (no reopen):
+            # the source is selected again and the canvas is redrawn, so the
+            # row stays filterable.
+            assert cleared["selectedLayerId"] == declared, (
+                f"the declaration should come back after Clear: {cleared}"
             )
-            heatmap_ready(page)
-            again = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
-            assert again["selectedLayerId"] == declared, (
-                f"the declaration should come back after Clear: {again}"
-            )
-            # The selection coming back is not enough: the canvas was wiped by
-            # Clear, so reopening must also redraw the declared layer.
-            assert again["hasCachedFeatures"] is True, (
-                f"reopening after Clear must redraw the declared layer: {again}"
+            assert cleared["hasCachedFeatures"] is True, (
+                f"Clear must redraw the declared layer: {cleared}"
             )
             canvases = page.evaluate(snippet("HeatmapControl/selection_canvas_hidden"))
             assert canvases and not all(canvases), (

@@ -353,10 +353,16 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
   ) as HTMLButtonElement;
   clearBtn.onclick = () => {
-    resetPanel(ctrl);
-    ctrl.mgr.clearSavedConfig();
-    ctrl.mgr.clearLayerState();
     finishPanelReset({
+      restore: () => {
+        resetPanel(ctrl);
+        ctrl.mgr.clearSavedConfig();
+        ctrl.mgr.clearLayerState();
+        // Clear returns to the declared starting state in the same session:
+        // rebuild re-selects the declared (or single) layer, re-seeds the
+        // filter and repaints, so the row stays filterable without reopening.
+        rebuildLayerDropdown(ctrl);
+      },
       close: () => collapseHeatmapPanel(ctrl),
       focus: () => heatmapClearFocus(ctrl, clearBtn),
     });

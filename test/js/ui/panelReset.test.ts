@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  createPanelResetOutcome,
-  dismissPanelAfterReset,
-  finishPanelReset,
-} from "#ui/index.js";
+import { createPanelResetOutcome, finishPanelReset } from "#ui/index.js";
 
 const focusTarget = (focus: () => void): HTMLElement =>
   ({ focus }) as unknown as HTMLElement;
@@ -12,7 +8,7 @@ describe("finishPanelReset", () => {
   it("keeps the panel open and focuses the trigger", () => {
     const close = vi.fn();
     const focus = vi.fn();
-    finishPanelReset({ close, focus: focusTarget(focus) });
+    finishPanelReset({ restore: vi.fn(), close, focus: focusTarget(focus) });
 
     expect(close).not.toHaveBeenCalled();
     expect(focus).toHaveBeenCalledOnce();
@@ -20,7 +16,7 @@ describe("finishPanelReset", () => {
 
   it("leaves the close path untouched when no focus target exists", () => {
     const close = vi.fn();
-    finishPanelReset({ close });
+    finishPanelReset({ restore: vi.fn(), close });
 
     expect(close).not.toHaveBeenCalled();
   });
@@ -28,18 +24,20 @@ describe("finishPanelReset", () => {
   it("refreshes the open panel before focusing", () => {
     const order: string[] = [];
     finishPanelReset({
+      restore: () => order.push("restore"),
       close: vi.fn(),
       refresh: () => order.push("refresh"),
       focus: focusTarget(() => order.push("focus")),
     });
 
-    expect(order).toEqual(["refresh", "focus"]);
+    expect(order).toEqual(["restore", "refresh", "focus"]);
   });
 
   it("resolves a focus target when the trigger is gone", () => {
     const close = vi.fn();
     const focus = vi.fn();
     finishPanelReset({
+      restore: vi.fn(),
       close,
       focus: () => focusTarget(focus),
     });
@@ -50,36 +48,33 @@ describe("finishPanelReset", () => {
 
   it("tolerates a resolver that finds no target", () => {
     const close = vi.fn();
-    expect(() => finishPanelReset({ close, focus: () => null })).not.toThrow();
+    expect(() =>
+      finishPanelReset({ restore: vi.fn(), close, focus: () => null }),
+    ).not.toThrow();
     expect(close).not.toHaveBeenCalled();
-  });
-});
-
-describe("dismissPanelAfterReset", () => {
-  it("is the named close outcome", () => {
-    const close = vi.fn();
-    const focus = vi.fn();
-    dismissPanelAfterReset({ close, focus: focusTarget(focus) });
-
-    expect(close).toHaveBeenCalledOnce();
-    expect(focus).not.toHaveBeenCalled();
   });
 });
 
 describe("createPanelResetOutcome", () => {
   it("runs the surface close path when the policy dismisses", () => {
-    const close = vi.fn();
-    const focus = vi.fn();
-    createPanelResetOutcome(true)({ close, focus: focusTarget(focus) });
+    const order: string[] = [];
+    createPanelResetOutcome(true)({
+      restore: () => order.push("restore"),
+      close: () => order.push("close"),
+      focus: focusTarget(() => order.push("focus")),
+    });
 
-    expect(close).toHaveBeenCalledOnce();
-    expect(focus).not.toHaveBeenCalled();
+    expect(order).toEqual(["restore", "close"]);
   });
 
   it("keeps the panel open when the policy does not dismiss", () => {
     const close = vi.fn();
     const focus = vi.fn();
-    createPanelResetOutcome(false)({ close, focus: focusTarget(focus) });
+    createPanelResetOutcome(false)({
+      restore: vi.fn(),
+      close,
+      focus: focusTarget(focus),
+    });
 
     expect(close).not.toHaveBeenCalled();
     expect(focus).toHaveBeenCalledOnce();
