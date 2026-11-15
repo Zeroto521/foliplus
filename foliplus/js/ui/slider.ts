@@ -13,7 +13,7 @@
 // Consumers place the root in a form row and drive map/style state from the
 // callbacks; the exported sliderOf() gives a later pass (a reset, an external
 // commit) access to the instance without re-rendering the row.
-import { computePlacement } from "./placement.js";
+import { placeSurface } from "./placeSurface.js";
 import { SLIDER_CLASS } from "./sliderClassName.js";
 import type { SliderCurrent, SliderMark, SliderOptions, SliderValue } from "./type.js";
 import { dom } from "#platform/dom.js";
@@ -203,29 +203,24 @@ const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
   // Above-first (the bubble's rule), centred on its thumb, and never capped
   // below one full readout: a cramped viewport may push the box, but it must
   // not squash the number.
-  const placement = computePlacement(
+  const placement = placeSurface(bubble, {
     anchor,
     size,
-    { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight },
-    {
-      gap,
-      edgeGap: gap,
-      align: "center",
-      prefer: "above",
-      // A cap floor, not a row count: the readout may be pushed by the
-      // viewport edge but must never be height-capped below one full bubble.
-      minHeight: size.height,
-    },
-  );
-  // placement-adapter: the transform centres the box, so the inline `left`
-  // stays the centre coordinate the arrow variable and the pan probe read.
-  const left = placement.left + placement.maxWidth / 2;
+    gap,
+    edgeGap: gap,
+    align: "center",
+    prefer: "above",
+    // A cap floor, not a row count: the readout may be pushed by the viewport
+    // edge but must never be height-capped below one full bubble.
+    minHeight: size.height,
+    // The transform centres the box, so the inline `left` is its centre.
+    origin: "center",
+    sideAttribute: "side",
+  });
   bubble.style.transform = "translate(-50%, 0)";
-  bubble.style.left = `${left}px`;
-  bubble.style.top = `${placement.top}px`;
-  bubble.dataset.side = placement.side;
   // The arrow follows the thumb, not the bubble's centre: at the rail's ends
   // the clamped bubble would otherwise point at nothing.
+  const left = placement.left + placement.maxWidth / 2;
   bubble.style.setProperty("--foliplus-bubble-arrow", `${centre - left}px`);
 };
 
@@ -577,8 +572,9 @@ class Slider {
   private positionCurrent(): void {
     if (!this.currentEl) return;
     const centre = this.currentDotCentre();
+    // placement-adapter: slider label layout, not popup placement.
     if (centre !== null) this.currentEl.style.left = `${centre}px`;
-    else this.currentEl.style.left = "";
+    else this.currentEl.style.left = ""; // placement-adapter: slider label layout
   }
 
   private round(value: number): number {
@@ -736,7 +732,7 @@ class Slider {
   private sync(): void {
     this.thumbs.forEach((thumb, index) => {
       const value = this.values[index];
-      thumb.style.left = `${this.visualPct(value)}%`;
+      thumb.style.left = `${this.visualPct(value)}%`; // placement-adapter: thumb on the rail
       thumb.setAttribute(
         "aria-valuemin",
         String(this.range && index === 1 ? this.values[0] : this.opts.min),
@@ -757,14 +753,14 @@ class Slider {
     const hi = this.values[this.values.length - 1];
     const start = this.visualPct(lo);
     const end = this.visualPct(hi);
-    this.fill.style.left = `${Math.min(start, end)}%`;
+    this.fill.style.left = `${Math.min(start, end)}%`; // placement-adapter: fill on the rail
     this.fill.style.width = `${Math.abs(end - start)}%`;
 
     // Cached nodes: a drag re-syncs on every pointermove, and re-querying the
     // layer each frame is the one avoidable DOM read on that path.
     for (const dot of this.dotEls) {
       const at = Number(dot.dataset.at);
-      dot.style.left = `${this.visualPct(at)}%`;
+      dot.style.left = `${this.visualPct(at)}%`; // placement-adapter: mark on the rail
       dot.classList.toggle(SLIDER_CLASS.DOT_COVERED, at >= lo && at <= hi);
     }
 
