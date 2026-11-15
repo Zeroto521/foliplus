@@ -434,25 +434,12 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
         ensure();
       }
     });
-    // Escape in the search field closes the popup (the engine's list keydown
-    // never sees the search field — it is a sibling, not a row).
-    input.addEventListener("keydown", event => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        listbox.close({ restoreFocus: false });
-      }
-    });
-    // ArrowDown from the search field moves into the first visible row.
-    input.addEventListener("keydown", event => {
-      if (event.key === "ArrowDown") {
-        const list = listbox.getList();
-        const row = list?.querySelector(`.${DROPDOWN_CLASSES.option}`);
-        if (row) {
-          event.preventDefault();
-          (row as HTMLElement).focus();
-        }
-      }
-    });
+    // Arrow/Escape ownership for the search field lives in the engine
+    // (bindSearchField) — the field is a sibling of the list, not a row, so
+    // the engine's own list keydown never sees it, but the engine still owns
+    // the key comparison. Escape closes the popup, ArrowDown focuses the
+    // first enabled row.
+    listbox.bindSearchField(input);
 
     return {
       input,

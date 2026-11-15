@@ -197,6 +197,15 @@ interface Listbox {
   /** Re-render rows from a fresh items()/selected() read; re-pins while open. */
   refresh(): void;
   destroy(): void;
+  /**
+   *  Attach the engine's Arrow/Escape ownership to a search field above the
+   *  option list (a sibling of the list, not a row). The engine owns every
+   *  Arrow/Escape key comparison for the popup, so a component that builds a
+   *  search input delegates here instead of comparing the key itself. Escape
+   *  closes the popup without restoring focus to the trigger (the search
+   *  field keeps focus); ArrowDown moves focus into the first enabled row.
+   */
+  bindSearchField(input: HTMLInputElement): void;
 }
 
 /** Vertical gap kept between the popup and the viewport edge. */
@@ -775,6 +784,23 @@ const createListbox = (spec: ListboxSpec): Listbox => {
       spec.trigger.removeEventListener("keydown", onTriggerKey);
       list.removeEventListener("keydown", onListKey);
       list.remove();
+    },
+    bindSearchField(input: HTMLInputElement) {
+      if (state.destroyed) return;
+      input.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          close(state, { restoreFocus: false });
+        } else if (event.key === "ArrowDown") {
+          const total = state.rowEls.length;
+          if (total === 0) return;
+          const first = enabledFrom(state, 0, 1);
+          if (first >= 0) {
+            event.preventDefault();
+            focusOption(state, first);
+          }
+        }
+      });
     },
   };
 
