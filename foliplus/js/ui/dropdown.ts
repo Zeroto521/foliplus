@@ -23,6 +23,7 @@
 //    rewriting the options or the value programmatically.
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
+import { DROPDOWN_CLASS } from "./dropdownClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
 import { applyOptionRowA11y } from "./optionRow.js";
@@ -31,22 +32,6 @@ import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("dropdown");
-
-/** Classes this module owns. Also the seam tests and consumer CSS key off. */
-const DROPDOWN_CLASSES = {
-  wrapper: "foliplus-dropdown",
-  trigger: "foliplus-dropdown-trigger",
-  label: "foliplus-dropdown-label",
-  placeholder: "foliplus-dropdown-placeholder",
-  list: "foliplus-dropdown-list",
-  option: "foliplus-dropdown-option",
-  optionLabel: "foliplus-dropdown-option-label",
-  open: "foliplus-dropdown-open",
-  up: "foliplus-dropdown-up",
-  portal: "foliplus-dropdown-portal",
-  selected: "foliplus-is-selected",
-  nativeHost: "foliplus-dropdown-native-host",
-} as const;
 
 /** One option, mirroring the native `<option>` fields the panels already use. */
 interface DropdownItem {
@@ -179,7 +164,7 @@ const renderLabel = (state: InternalState): void => {
   const text = labelTextOf(state);
   state.labelEl.textContent = text;
   state.trigger.classList.toggle(
-    DROPDOWN_CLASSES.placeholder,
+    DROPDOWN_CLASS.PLACEHOLDER,
     selectedItems(state).length === 0,
   );
   const full =
@@ -242,7 +227,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   }
 
   const multiple = opts.multiple ?? false;
-  const wrapper = dom.el("div", { class: DROPDOWN_CLASSES.wrapper });
+  const wrapper = dom.el("div", { class: DROPDOWN_CLASS.WRAPPER });
   if (opts.className) {
     // A consumer can size or theme the wrapper with a bespoke class (e.g. the
     // compact classes-count width contract in form.css). The native select is
@@ -251,11 +236,11 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   }
   const trigger = dom.el("button", {
     type: "button",
-    class: `${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT} ${DROPDOWN_CLASSES.trigger}`,
+    class: `${FORM_CLASS.INPUT_SKIN} ${FORM_CLASS.FORM_SELECT} ${DROPDOWN_CLASS.TRIGGER}`,
     "aria-haspopup": "listbox",
     "aria-expanded": "false",
   }) as HTMLButtonElement;
-  const labelEl = dom.el("span", { class: DROPDOWN_CLASSES.label });
+  const labelEl = dom.el("span", { class: DROPDOWN_CLASS.LABEL });
   trigger.appendChild(labelEl);
 
   const listId = nextListId();
@@ -288,7 +273,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 
   wrapper.append(trigger);
   if (native) {
-    wrapper.classList.add(DROPDOWN_CLASSES.nativeHost);
+    wrapper.classList.add(DROPDOWN_CLASS.NATIVE_HOST);
     native.hidden = true;
     native.tabIndex = -1;
     native.setAttribute("aria-hidden", "true");
@@ -305,17 +290,17 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     shape: {
       rowTag: "button",
       dataKey: "data-value",
-      selectedClass: DROPDOWN_CLASSES.selected,
+      selectedClass: DROPDOWN_CLASS.SELECTED,
       disabledAttr: "disabled",
       activedescendant: "none",
     },
     classes: {
-      list: DROPDOWN_CLASSES.list,
-      row: DROPDOWN_CLASSES.option,
-      rowLabel: DROPDOWN_CLASSES.optionLabel,
-      portal: DROPDOWN_CLASSES.portal,
-      up: DROPDOWN_CLASSES.up,
-      open: DROPDOWN_CLASSES.open,
+      list: DROPDOWN_CLASS.LIST,
+      row: DROPDOWN_CLASS.OPTION,
+      rowLabel: DROPDOWN_CLASS.OPTION_LABEL,
+      portal: DROPDOWN_CLASS.PORTAL,
+      up: DROPDOWN_CLASS.UP,
+      open: DROPDOWN_CLASS.OPEN,
     },
     surface: {
       resolveHost: opts.resolveHost ?? null,
