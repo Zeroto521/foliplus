@@ -83,11 +83,11 @@ const positionPanel = (ctrl: SearchControlCtx) => {
   // against the viewport, not the document).
   const anchor = ctrl.ctrl.getBoundingClientRect();
   // The map container is the final boundary: when the map is smaller than the
-  // viewport the panel must not spill past the map edge (the kernel's viewport
-  // clamp is only its intermediate result).
+  // viewport the panel must not spill past the map edge (the adapter's bounds
+  // clamp is the final word).
   const bounds = map.getContainer().getBoundingClientRect();
-  // The engine owns the gap (--foliplus-menu-gap) and the height cap is the
-  // menu-max-height token, so the kernel can flip above / clamp / cap.
+  // The adapter owns the gap (--foliplus-menu-gap) and the height cap is the
+  // menu-max-height token, so it can flip above / clamp / cap.
   const gap = parseFloat(cssVar(panel, "--foliplus-menu-gap", "4px")) || 0;
   const maxToken =
     parseFloat(cssVar(panel, "--foliplus-menu-max-height", "240px")) || 240;

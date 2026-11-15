@@ -31,6 +31,7 @@ export type { Dismiss, PanelController, PanelSpec } from "./panelController.js";
 export {
   ROW_PANEL_EDGE,
   ROW_PANEL_MIN_HEIGHT,
+  ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
   bindFoldToggle,
   bindMapSync,

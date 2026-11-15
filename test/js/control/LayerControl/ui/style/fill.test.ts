@@ -7442,6 +7442,7 @@ describe("FILL_DIMENSION.valueSource — provenance", () => {
   it("is author when the user has not set a fill slot", () => {
     vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { fill: "native" },
+      geometryType: () => "polygon",
     } as never);
 
     expect(FILL_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
@@ -7450,6 +7451,7 @@ describe("FILL_DIMENSION.valueSource — provenance", () => {
   it("is user once provenance marks a fill slot", () => {
     vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
       capabilities: { fill: "native" },
+      geometryType: () => "polygon",
     } as never);
 
     ui.intentStore.set("overlay1", "fillColor", "#ff0000");

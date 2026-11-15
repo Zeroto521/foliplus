@@ -26,53 +26,5 @@
   "foliplus-classes-select": {
     "status": "deferred",
     "reason": "Owned at rampForm.ts:27 named const; scanner-blind."
-  },
-  "foliplus-dropdown": {
-    "status": "deferred",
-    "reason": "Owned as inline vocab at ui/dropdown.ts:37; dropdown.ts is not a *ClassName.ts/const.ts owner file; scanner-blind."
-  },
-  "foliplus-dropdown-trigger": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:38; scanner-blind."
-  },
-  "foliplus-dropdown-label": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:39; scanner-blind."
-  },
-  "foliplus-dropdown-placeholder": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:40; scanner-blind."
-  },
-  "foliplus-dropdown-list": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:41; scanner-blind."
-  },
-  "foliplus-dropdown-option": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:42; scanner-blind."
-  },
-  "foliplus-dropdown-option-label": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:43; scanner-blind."
-  },
-  "foliplus-dropdown-open": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:44; scanner-blind."
-  },
-  "foliplus-dropdown-up": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:45; scanner-blind."
-  },
-  "foliplus-dropdown-portal": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:46; scanner-blind."
-  },
-  "foliplus-is-selected": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:47; scanner-blind."
-  },
-  "foliplus-dropdown-native-host": {
-    "status": "deferred",
-    "reason": "Owned at ui/dropdown.ts:48; scanner-blind."
   }
 }

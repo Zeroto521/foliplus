@@ -18,12 +18,12 @@ import { INTENT, getIntent } from "../intent.js";
 import { authorZoomRowRange } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
-  capabilityGate,
   getDimension,
   registerDimension,
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
+import { styleCapability } from "./styleCapability.js";
 import { type AuthorZoomRange, DIM } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
@@ -39,7 +39,8 @@ import * as CONST from "#control/LayerControl/const.js";
  *  basemap declares "pane" (the executor's visible op is the
  *  carrier, same as every other surface). No isColorBasemap
  *  special-case, no group exemption: capability alone decides. */
-const canShowZoomRange = capabilityGate("zoomRange", "non-none");
+const layerCanZoomRange = (ui: LayerUI, layerId: string): boolean =>
+  styleCapability(ui, layerId).dims.zoomRange;
 
 /** The current level's label is hidden when it would sit closer than this
  *  (percentage points) to either end, where the limit's own number already
@@ -278,7 +279,7 @@ const resetLayerZoomRange = (
  *  intent+persist slots. Live preview stays value-only until commit. */
 const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
   key: DIM.ZOOM_RANGE,
-  gate: canShowZoomRange,
+  gate: layerCanZoomRange,
   value: (ui, layerId) => {
     const layerInfo = ui.c.layerRegistry.get(layerId);
     if (!layerInfo) return undefined;
@@ -317,7 +318,7 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     return applyProjection(ui, layerId);
   },
   valueSource: (ui, layerId) => {
-    if (!canShowZoomRange(ui, layerId)) return "none";
+    if (!layerCanZoomRange(ui, layerId)) return "none";
     return ui.intentStore.isUserSet(layerId, INTENT.ZOOM_RANGE) ? "user" : "author";
   },
   /** No content-change replay: zoom range is a visibility gate over zoom

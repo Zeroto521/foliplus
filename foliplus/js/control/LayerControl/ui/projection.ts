@@ -130,7 +130,7 @@ const authorZoomRowRange = (
  *  case keeps that verdict; the author path degrades to "undeclared" — see
  *  {@link authorZoomPolicyRange}).
  *
- *  Deliberately NOT gated on `canShowZoomRange`: the capability check decides
+ *  Deliberately NOT gated on `layerCanZoomRange`: the capability check decides
  *  whether the panel renders a row, not whether a declaration is honoured.
  *  Gating the policy on it would silently drop the author's declaration for a
  *  layer the panel cannot show a row for — the exact "declared but ignored"

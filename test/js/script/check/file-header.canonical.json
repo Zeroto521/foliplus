@@ -57,6 +57,7 @@
   "platform/type",
   "ui/canvasLabel",
   "ui/dropdown",
+  "ui/dropdownClassName",
   "ui/form",
   "ui/formClassName",
   "ui/glyphClassName",
