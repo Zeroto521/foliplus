@@ -6,9 +6,9 @@ shared sampler; this test drives it through Playwright and compares the DOM /
 class-stack / aria / computed-style snapshot against the golden at
 test/python/control/LayerControl/golden/paint-dimension.json.
 
-The golden is the S1-S4 baseline (recorded on the pre-S5 code). It MUST be
-re-recorded after S5 merges (S6.0 re-baseline). S6.x must NOT touch the golden
-except via the explicit S6.0 re-record.
+The golden is the S1-S5 baseline (recorded on the post-S5 code — S5 merged
+before this harness landed, so there is no separate S1-S4 baseline). S6.x must
+NOT touch the golden except via the explicit S6.0 re-record.
 
 Run:
     PYTHONPATH=<worktree-root> uv run pytest -q \
