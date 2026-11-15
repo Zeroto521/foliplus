@@ -207,17 +207,17 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/dropdown.ts",
-    n: 4,
+    n: 2,
     pairedOff: 0,
     reason:
-      "shared select-replacement ADAPTER over ui/listbox.ts: the bridged select change bridge stays here (a programmatic change is the one signal that the select moved), plus the three search-field listeners (input, Escape keydown, ArrowDown keydown) on a per-open search input built by buildSearch and collected with the element when the popup is destroyed — the adapter owns the value model, trigger label and search field; every popup/lifecycle listener moved into ui/listbox.ts (the engine owns all dropdown mechanism)",
+      "shared select-replacement ADAPTER over ui/listbox.ts: the bridged select change bridge stays here (a programmatic change is the one signal that the select moved), plus the search-field input listener on a per-open search input built by buildSearch and collected with the element when the popup is destroyed — the adapter owns the value model, trigger label and search field; every popup/lifecycle listener moved into ui/listbox.ts (the engine owns all dropdown mechanism)",
   },
   {
     f: "ui/listbox.ts",
-    n: 5,
+    n: 6,
     pairedOff: 0,
     reason:
-      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), and three popup-scope listeners — the registry entry for the open popup (single outside-press + Escape dispatcher) plus the popup's own window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
+      "the ONE listbox engine (shared by ui/dropdown and ui/schemePicker): three lifecycle listeners on the trigger/list (click/keydown), one wheel stop-propagation on the persistent list (a wheel over the portalled popup must not bubble to the map container where Leaflet's scrollWheelZoom fires; the list element is removed in destroy(), so the listener goes with it), one per-row click (in renderRows; the row is rebuilt on every open), one per-row focus (activedescendant=trigger shape; the picker syncs aria-activedescendant when a row gains focus), one search-field keydown in bindSearchField (Escape closes the popup, ArrowDown focuses the first enabled row), and three popup-scope listeners — the registry entry for the open popup (single outside-press + Escape dispatcher) plus the popup's own window scroll (capture), window resize and document fullscreenchange (the portalled popup re-seats when the fullscreen element changes) — that exist only while the popup is open. Every popup-scope listener is pushed onto mountCleanup and drained by close()/destroy(); the lifecycle ones are removed by destroy(). A free-standing primitive with no BaseControl mounting signal to route through this.on",
   },
   {
     f: "platform/floating.ts",
