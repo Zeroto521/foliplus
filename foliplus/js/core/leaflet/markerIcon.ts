@@ -82,7 +82,7 @@ const readChassisSprite = (
     probe.className = `awesome-marker-icon-${presetName} awesome-marker`;
     probe.style.position = "absolute";
     probe.style.visibility = "hidden";
-    probe.style.left = "-9999px";
+    probe.style.left = "-9999px"; // placement-adapter: offscreen icon probe
     document.body.appendChild(probe);
     const computed = getComputedStyle(probe);
     url = computed.backgroundImage;

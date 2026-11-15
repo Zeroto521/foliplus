@@ -55,8 +55,8 @@ const renderToolbarActions = (
 
 /** Update crop box element position/size. */
 const updateBoxStyle = (mgr: ExportManager, el: HTMLElement, r: CropRect) => {
-  el.style.left = `${r.left}px`;
-  el.style.top = `${r.top}px`;
+  el.style.left = `${r.left}px`; // placement-adapter: crop-box overlay, not an anchored popup
+  el.style.top = `${r.top}px`; // placement-adapter: crop-box overlay, not an anchored popup
   el.style.width = `${r.width}px`;
   el.style.height = `${r.height}px`;
 };

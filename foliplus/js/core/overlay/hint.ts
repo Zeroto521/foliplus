@@ -207,7 +207,7 @@ class HintManager {
   private repositionHints() {
     let idx = 0;
     for (const v of this.hintMap.values()) {
-      v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`;
+      v.element.style.bottom = `${BASE.BOTTOM + idx * BASE.STACK_GAP}px`; // placement-adapter: hint stack, not an anchored popup
       v.element.style.zIndex = String(zIndexBase() + idx);
       idx++;
     }
