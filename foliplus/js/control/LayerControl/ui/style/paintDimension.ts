@@ -22,16 +22,16 @@
 import type { LayerUI } from "../surface.js";
 import { buildModeRow } from "./row.js";
 import type { StyleBag, StyleFace } from "./styleBag.js";
-import { STYLE_MODE, type IntentKey, type StyleMode } from "#core/layer/index.js";
+import { type IntentKey, STYLE_MODE, type StyleMode } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
-import { dropdownSurface } from "#platform/fullscreen.js";
-import { dom } from "#platform/dom.js";
-import { STYLE_MODE_KEY, dropdownOverlay } from "#ui/index.js";
 import {
   resolveDisplayAndDetail,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
 import type { DisplayModeSpec } from "#foliplus/style/displayMode.js";
+import { dom } from "#platform/dom.js";
+import { dropdownSurface } from "#platform/fullscreen.js";
+import { STYLE_MODE_KEY, dropdownOverlay } from "#ui/index.js";
 
 /** One channel's paint-dimension adapter — the ONLY channel difference the
  *  engine knows. The engine reads every channel-specific decision through
@@ -79,9 +79,7 @@ interface PaintDimension {
    *  every mode and never sink it. */
   subs: PaintSubDimension[];
   /** Build the active mode's detail rows. */
-  detailBuilder: (
-    mode: StyleMode,
-  ) => (ui: LayerUI, layerId: string) => HTMLElement[];
+  detailBuilder: (mode: StyleMode) => (ui: LayerUI, layerId: string) => HTMLElement[];
   /** Bind the active mode's detail controls. */
   detailBinder: (
     mode: StyleMode,
@@ -141,9 +139,13 @@ type PaintRowChrome = {
  *  chrome fields instead. Do not promote this table to an engine field. */
 const rowChromeFor = (key: string): PaintRowChrome => {
   return {
-    selectClass: key === "fill" ? "foliplus-style-fill-mode-select" : "foliplus-style-border-mode-select",
+    selectClass:
+      key === "fill"
+        ? "foliplus-style-fill-mode-select"
+        : "foliplus-style-border-mode-select",
     rowClass: key === "fill" ? "foliplus-style-fill-row" : "foliplus-style-border-row",
-    detailClass: key === "fill" ? "foliplus-style-fill-detail" : "foliplus-style-border-detail",
+    detailClass:
+      key === "fill" ? "foliplus-style-fill-detail" : "foliplus-style-border-detail",
     label: key === "fill" ? "Fill" : "Border",
   };
 };
@@ -239,9 +241,7 @@ const bindPaintDetail = (
 ): void => {
   dim.detailBinder(mode)(ui, layerId, detail);
   for (const sub of dim.subs) {
-    const input = detail.querySelector(
-      `[data-sub="${sub.key}"]`,
-    ) as HTMLElement | null;
+    const input = detail.querySelector(`[data-sub="${sub.key}"]`) as HTMLElement | null;
     if (input) sub.bindInput(ui, layerId, input);
   }
 };
@@ -278,11 +278,7 @@ const bindPaintRow = (
 
 /** The apply skeleton: resolve the mode, then dispatch to the channel hook
  *  (VALUE delegate / ORIGINAL walk / INHERIT follow / SOLID derived write). */
-const applyPaintToLayer = (
-  dim: PaintDimension,
-  ui: LayerUI,
-  layerId: string,
-): void => {
+const applyPaintToLayer = (dim: PaintDimension, ui: LayerUI, layerId: string): void => {
   const mode = displayMode(dim, ui, layerId);
   if (mode === STYLE_MODE.VALUE && dim.hasValue(ui, layerId)) {
     dim.applyHooks.value(ui, layerId);
@@ -304,4 +300,10 @@ const applyPaintToLayer = (
 };
 
 export type { PaintDimension, PaintSubDimension };
-export { applyPaintToLayer, bindPaintDetail, bindPaintRow, buildPaintRow, renderPaintDetail };
+export {
+  applyPaintToLayer,
+  bindPaintDetail,
+  bindPaintRow,
+  buildPaintRow,
+  renderPaintDetail,
+};
