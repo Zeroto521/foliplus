@@ -327,8 +327,12 @@ const createPanelHeader = (opts: {
 const ROW_PANEL_MIN_HEIGHT = 120;
 /** Gap between the anchor row and a pinned card. */
 const ROW_PANEL_GAP = 2;
-/** Minimum distance between a pinned card and the viewport's horizontal edges. */
+/** Minimum distance between a pinned card and the map's horizontal edges. */
 const ROW_PANEL_EDGE = 8;
+/** Top inset the vertical clamp keeps from the map's top edge. */
+const ROW_PANEL_TOP_INSET = 8;
+/** Inset the comfort floor reserves from the map's top and bottom edges. */
+const ROW_PANEL_FLOOR_INSET = 8;
 /** Each card's natural width, remembered on its first placement: a card a
  *  narrow map already narrowed reports its cap as the measured width, so
  *  re-reading it would clear its own max-width on the next pass. */
@@ -394,7 +398,7 @@ const fitRowPanel = (
   // `minHeight`: a cap floor that does not move the flip threshold. It is
   // capped to the card's own usable height first (the map's two edge insets),
   // so a short map shrinks the floor instead of overflowing it.
-  const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_EDGE * 2);
+  const usable = Math.max(0, bounds.bottom - bounds.top - ROW_PANEL_FLOOR_INSET * 2);
   const floor = Math.min(ROW_PANEL_MIN_HEIGHT, usable);
   const placement = computePlacement(
     anchorRect,
@@ -559,7 +563,7 @@ const placeRowPanel = (panel: HTMLElement, anchor: HTMLElement): void => {
   // The adapter writes the kernel's left/top. The one surface-policy option is
   // the 8px top inset: a floor-height card over an embedded map must not park
   // on the map's very top edge.
-  applyPlacement(panel, fit.placement, { minTop: bounds.top + ROW_PANEL_EDGE });
+  applyPlacement(panel, fit.placement, { minTop: bounds.top + ROW_PANEL_TOP_INSET });
 
   const flipUp = fit.placement.side === "above";
   panel.style.setProperty(
@@ -737,6 +741,7 @@ const createPanelControl = (opts: {
 export {
   ROW_PANEL_EDGE,
   ROW_PANEL_MIN_HEIGHT,
+  ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
   bindFoldToggle,
   bindMapSync,

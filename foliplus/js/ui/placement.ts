@@ -2,20 +2,13 @@
 /**
  * Pure geometry kernel for floating-surface placement.
  *
- * The project's floating surfaces (row panel, SearchControl panel, scheme
- * picker, listbox, slider bubble, MeasureControl readout, overflow menu) each
- * hand-wrote the "measure anchor -> measure surface -> decide below/above ->
- * clamp -> re-measure" loop, and their coordinate / bounds / flip definitions
- * diverged. This module is the single source of truth for that geometry: a
- * pure function with zero DOM dependencies, so a unit test can feed
- * rectangles directly.
+ * Every floating surface — the row panel, SearchControl result panel, scheme
+ * picker / shared dropdown, slider value bubble, MeasureControl cursor readout
+ * and overflow menu — places through this kernel via the shared DOM adapter
+ * (`ui/placementAdapter.ts`): the adapter measures the anchor, the surface and
+ * the bounds, calls `computePlacement`, and writes the returned coordinates.
+ * The kernel stays pure (no DOM), so a unit test can feed rectangles directly.
  *
- * Three consumers already call it in production — the row panel
- * (core/leaflet/panel.ts), the SearchControl result panel
- * (control/SearchControl/logic/panel.ts) and the LayerControl overflow menu
- * (control/LayerControl/ui/overlayPanel/menu.ts) — and the listbox engine
- * (ui/listbox.ts, behind both the shared dropdown and the scheme picker) now
- * calls it too, so all of them share ONE flip / clamp / height-cap engine.
  * Each surface's historical rule is a strategy parameter, not a second
  * implementation:
  *
@@ -34,12 +27,11 @@
  *   - `prefer` — try below first (the default, every panel) or above first
  *     (the slider bubble, which sits over its thumb and only flips down).
  *
- * When a surface changes its placement rule, the change lands in this file.
- * The adapters measure `anchor` / `surface` / `bounds` and write the returned
- * `top` / `left` / `side` / `maxWidth` / `maxHeight` onto the element; a
- * correct adapter contains no flip or clamp that duplicates the kernel.
- * Surface-specific policy (the row panel's comfort floor) stays documented at
- * that surface.
+ * When a surface changes its placement rule, the change lands here (or in a
+ * parameter). The adapter writes `top` / `left` / `side` / `maxWidth` /
+ * `maxHeight`; it contains no flip or clamp that duplicates the kernel, and
+ * surface-specific policy (the row panel's comfort floor, the listbox's width
+ * preference) is passed in as options, not re-implemented.
  */
 import type { Placement, PlacementBox, PlacementOpts, SurfaceSize } from "./type.js";
 

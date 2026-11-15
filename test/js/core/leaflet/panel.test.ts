@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ROW_PANEL_EDGE,
   ROW_PANEL_MIN_HEIGHT,
+  ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
   bindFoldToggle,
   bindMapSync,
@@ -1359,9 +1360,8 @@ describe("pinRowPanel", () => {
   });
 
   it("keeps its own floor and horizontal policy instead of the kernel outputs", () => {
-    // The row panel is a partial adapter: it consumes only placement.side
-    // and placement.maxHeight, and deliberately keeps its own ROW_PANEL_EDGE
-    // insets + comfort floor. This pins the #853 P3-3 / P3-5 decision: no
+    // The row panel keeps its own surface-policy insets (horizontal EDGE, top
+    // TOP_INSET) + comfort floor. This pins the #853 P3-3 / P3-5 decision: no
     // minRows/rowHeight is passed (no kernel row-floor), and the kernel's
     // left/top/maxWidth are not written to the card.
     //
@@ -1396,8 +1396,8 @@ describe("pinRowPanel", () => {
     pinRowPanel(panel, row);
 
     // Adapter consumes side + maxHeight; it does NOT consume left/top/maxWidth.
-    // Its own ROW_PANEL_EDGE inset wins on both axes (bounds edge + 8), and no
-    // max-width is written (the 280 card fits the usable 384 strip).
+    // Its own insets win (horizontal EDGE, top TOP_INSET), and no max-width is
+    // written (the 280 card fits the usable 384 strip).
     expect(panel.classList.contains("foliplus-row-panel-up")).toBe(
       kernel.side === "above",
     );
@@ -1406,7 +1406,7 @@ describe("pinRowPanel", () => {
     );
     expect(panel.style.maxWidth).toBe("");
     expect(panel.style.left).toBe(`${bounds.left + ROW_PANEL_EDGE}px`);
-    expect(panel.style.top).toBe(`${bounds.top + ROW_PANEL_EDGE}px`);
+    expect(panel.style.top).toBe(`${bounds.top + ROW_PANEL_TOP_INSET}px`);
   });
 
   it("applies its own comfort floor after the kernel on a short strip", () => {

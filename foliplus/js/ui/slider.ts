@@ -189,15 +189,14 @@ const hideAnchor = (anchor: HTMLElement, immediate = false): void => {
 
 /** Keep the bubble inside the viewport and pointing at *anchor*: above it
  *  when there is room, below otherwise, shifted horizontally so an edge thumb
- *  does not push it off-screen. The flip verdict, the 8px edge inset and the
- *  vertical clamp come from the shared placement kernel; this adapter only
- *  converts the kernel's box-left into the centre coordinate the bubble's
- *  -50% transform expects. */
+ *  does not push it off-screen. The flip verdict, the 8px edge inset, the
+ *  vertical clamp and the centre conversion come from the shared placement
+ *  adapter; this surface only keeps the arrow variable in sync. */
 const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
   // Same distance Web Awesome uses between the control and its tooltip: the
   // arrow (4px of it) spans part of the gap, leaving the tip just clear of
   // the thumb instead of touching it.
-  const gap = 8;
+  const BUBBLE_GAP = 8;
   const size = bubble.getBoundingClientRect();
   const centre = anchor.left + anchor.width / 2;
   // Above-first (the bubble's rule), centred on its thumb, and never capped
@@ -206,8 +205,8 @@ const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
   const placement = placeSurface(bubble, {
     anchor,
     size,
-    gap,
-    edgeGap: gap,
+    gap: BUBBLE_GAP,
+    edgeGap: BUBBLE_GAP,
     align: "center",
     prefer: "above",
     // A cap floor, not a row count: the readout may be pushed by the viewport

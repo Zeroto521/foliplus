@@ -363,15 +363,15 @@ const renderRows = (state: InternalState): void => {
 
 /** Pin the popup to the trigger in viewport coordinates. The flip verdict,
  *  the vertical clamp, the edge gap and the max-height all come from the
- *  shared placement kernel (computePlacement); the two historical rules are
+ *  shared placement adapter (placeSurface); the two historical rules are
  *  parameters, not a second implementation:
  *    - "auto" (the dropdown rule) flips above only when the below strip
  *      cannot hold the two-row minimum;
  *    - "fixed" (the scheme picker rule) flips above when the below strip
  *      cannot hold the whole popup.
- *  The kernel also resolves the horizontal edge clamp. What stays here is the
+ *  The adapter also resolves the horizontal edge clamp. What stays here is the
  *  width preference (grow to the content, never below the trigger width, cap
- *  at the owning cell); it is handed to the kernel so the box is positioned
+ *  at the owning cell); it is handed to the adapter so the box is positioned
  *  against the width it actually renders — a horizontal policy, not a second
  *  flip/clamp.
  *
