@@ -37,12 +37,7 @@
 // keystroke, and a bulk add of leaves to one layer coalesces the same way.
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
-import {
-  capabilityGate,
-  registerDimension,
-  resetIntentKeys,
-  writeIntentKeys,
-} from "./registry.js";
+import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { styleCapability } from "./styleCapability.js";
 import { DIM, findLeaf, walkLeaf } from "#core/layer/index.js";
@@ -60,7 +55,8 @@ const authorRadius = new WeakMap<PixelRadiusLeaf, number>();
 /** Whether the layer's surface can honestly carry a radius write. The same
  *  two-layer gate every other dimension uses: the layer must be in the
  *  registry, then `capabilities.size === "native"`. */
-const layerCanSize = capabilityGate("size", "native");
+const layerCanSize = (ui: LayerUI, layerId: string): boolean =>
+  styleCapability(ui, layerId).dims.size;
 
 /** Apply the layer's stored size to every pixel-radius leaf, capturing each
  *  leaf's authored radius on first write. A missing intent is a no-op — a
