@@ -913,11 +913,28 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 _js("LayerControl/border_set_and_read"), ["Facility Points"]
             )
             assert opened.get("panel"), f"the style panel did not open: {opened}"
+            # Let the panel's own entrance animation settle; the assertion below
+            # is about the Reset refresh, not the opening animation.
+            page.wait_for_timeout(250)
 
             page.evaluate(_js("LayerControl/style_reset_geometry"), "before")
-            page.locator(
-                ".foliplus-layer-style-panel .foliplus-style-reset-btn"
-            ).click()
+            before = page.evaluate(_js("LayerControl/style_reset_frames"), "start")
+            clicked = page.evaluate(_js("LayerControl/style_reset_click"))
+            assert clicked is True, "the Reset button was not clickable"
+            page.wait_for_timeout(200)
+            frames = page.evaluate(_js("LayerControl/style_reset_frames"))
+            assert before, "the style panel was not measurable before Reset"
+            moved = [
+                frame
+                for frame in frames
+                if frame
+                and (
+                    abs(frame["top"] - before["top"]) > 1
+                    or abs(frame["left"] - before["left"]) > 1
+                    or abs(frame["height"] - before["height"]) > 1
+                )
+            ]
+            assert not moved, f"Reset moved the panel on a frame: {frames}"
             geometry = page.evaluate(_js("LayerControl/style_reset_geometry"), "after")
             assert (
                 geometry["sameTop"]

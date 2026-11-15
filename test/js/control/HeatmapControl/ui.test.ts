@@ -385,6 +385,16 @@ describe("clear outcome helpers", () => {
       ctrl.layerSelect.parentElement?.querySelector("button"),
     );
   });
+
+  it("falls back to clear when the layer trigger is gone", () => {
+    const { ctrl, panel } = setup(makeConfig({}));
+    const clearBtn = panel.querySelector(
+      `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
+    ) as HTMLButtonElement;
+    ctrl.layerSelect.parentElement?.querySelector("button")?.remove();
+
+    expect(heatmapClearFocus(ctrl, clearBtn)).toBe(clearBtn);
+  });
 });
 
 describe("bindControls — clear (reset) button", () => {

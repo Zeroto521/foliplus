@@ -35,6 +35,7 @@ import {
   closeStylePanel,
   layerHasLabelFields,
   layerHasStyleDelegation,
+  refreshStylePanel,
 } from "#control/LayerControl/ui/style/index.js";
 import { coerceAnnotationFields } from "#control/LayerControl/ui/style/label.js";
 import { clampPct, resetLayerOpacity } from "#control/LayerControl/ui/style/opacity.js";
@@ -986,6 +987,15 @@ describe("LayerUI style panel", () => {
     expect(
       (next.querySelector(".foliplus-panel-content") as HTMLElement).scrollTop,
     ).toBe(37);
+  });
+
+  it("closes the panel when the refresh cannot render", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+
+    refreshStylePanel(ui, "overlay1", () => null);
+
+    expect(panelOf(item)).toBeUndefined();
   });
 
   it("reset keeps the panel when the refresh has no panel handle", () => {

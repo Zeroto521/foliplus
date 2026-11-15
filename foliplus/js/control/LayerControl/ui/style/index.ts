@@ -298,7 +298,7 @@ const bindStylePanel = (
             resetStyleLabel(ui, layerId);
           }
         },
-        close: () => closeStylePanel(ui, true),
+        close: closeStylePanel.bind(null, ui, true),
         refresh: () => refreshStylePanel(ui, layerId),
         focus: () =>
           ui.uiContainer?.querySelector<HTMLElement>(
@@ -433,7 +433,11 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
  *  The controller, overlay entry and pin stay; only the panel DOM and its row
  *  binders are replaced, preserving the scroll position.
  */
-const refreshStylePanel = (ui: LayerUI, layerId: string): void => {
+const refreshStylePanel = (
+  ui: LayerUI,
+  layerId: string,
+  render: (ui: LayerUI, layerId: string) => HTMLElement | null = renderStylePanel,
+): void => {
   const item = ui.uiContainer?.querySelector(
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
@@ -452,13 +456,19 @@ const refreshStylePanel = (ui: LayerUI, layerId: string): void => {
   disposeFillRow(ui);
   disposeBorderRow(ui);
   finishSlidersIn(panel);
-  unpinRowPanel(panel);
 
-  const next = renderStylePanel(ui, layerId);
+  const next = render(ui, layerId);
   if (!next) {
     closeStylePanel(ui, false);
     return;
   }
+  // Keep the card fixed at the old geometry for the replacement beat; pin
+  // recalculates it immediately, so the panel never spends a frame in flow.
+  next.style.cssText = panel.style.cssText;
+  // The row-panel CSS plays an entrance animation on mount; this is the same
+  // open card, so the refreshed node must not replay it.
+  next.style.animation = "none";
+  next.classList.add(PANEL_CLASS.PINNED);
   panel.replaceWith(next);
   ui.overlayPanel.stylePanelEl = next;
   pinRowPanel(next, item);
@@ -516,7 +526,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   if (setFocus) item?.focus();
 };
 
-export { closeStylePanel, openStylePanel };
+export { closeStylePanel, openStylePanel, refreshStylePanel };
 
 // Re-exports for external callers (menu.ts, attr.ts, ui/index.ts, tests):
 // the style barrel still surfaces the same six symbols the pre-split

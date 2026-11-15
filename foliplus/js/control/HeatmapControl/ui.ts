@@ -363,7 +363,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
         // filter and repaints, so the row stays filterable without reopening.
         rebuildLayerDropdown(ctrl);
       },
-      close: () => collapseHeatmapPanel(ctrl),
+      close: collapseHeatmapPanel.bind(null, ctrl),
       focus: () => heatmapClearFocus(ctrl, clearBtn),
     });
   };
@@ -688,9 +688,8 @@ const heatmapClearFocus = (
   clearBtn: HTMLButtonElement,
 ): HTMLElement => {
   if (clearBtn.offsetParent) return clearBtn;
-  return (
-    ctrl.layerSelect.parentElement?.querySelector<HTMLElement>("button") ?? clearBtn
-  );
+  const trigger = ctrl.layerSelect.parentElement!.querySelector<HTMLElement>("button");
+  return trigger ?? clearBtn;
 };
 
 /** Reset the panel to its initial state — manager state back to the declared
