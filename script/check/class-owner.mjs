@@ -19,10 +19,10 @@
  *      single source exists yet. The baseline allowlist
  *      (test/js/script/check/class-owner.baseline.json) records the
  *      legitimate exceptions: a permanent non-class token (asset name,
- *      id prefix) or a real class awaiting its owner batch (task-122 /
- *      task-125). A new no-owner bare write not in the baseline is a
- *      drift; a baseline token that later gains an owner is stale and
- *      the entry must be deleted.
+ *      id prefix) marked "permanent": true, or a real class whose owner
+ *      move is deferred, marked "status": "deferred". A new no-owner
+ *      bare write not in the baseline is a drift; a baseline token that
+ *      later gains an owner is stale and the entry must be deleted.
  *
  * Owner files are the shared vocabulary modules
  * (`foliplus/js/ui/*ClassName.ts`, one exported `*_CLASS` object each) and
@@ -255,8 +255,8 @@ const scanPyConsumers = (root, ownerMap) => {
 
 /** Find every bare `foliplus-...` literal in a non-owner file whose token
  *  has NO declared owner. The baseline allowlist decides whether a
- *  no-owner literal is a known exception (permanent or awaiting an owner
- *  batch) or a new drift. Mirrors scanConsumers but collects unowned.
+ *  no-owner literal is a known exception (permanent or deferred) or a
+ *  new drift. Mirrors scanConsumers but collects unowned.
  */
 const scanUnownedConsumers = (root, ownerMap, { includeCore }) => {
   const hits = [];
@@ -308,8 +308,8 @@ const scanUnownedPyConsumers = (root, ownerMap) => {
 
 /** Load the baseline allowlist. The baseline lists every no-owner token
  *  that is legitimately written bare, each with the reason it is exempt
- *  and, for a real class awaiting its owner batch, the task that owns the
- *  fix. A missing or unreadable file yields an empty map, so any unowned
+ *  and, for a real class awaiting its owner move, "status": "deferred".
+ *  A missing or unreadable file yields an empty map, so any unowned
  *  bare write is then a drift. */
 const loadBaseline = root => {
   const file = path.join(
