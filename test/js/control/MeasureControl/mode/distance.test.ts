@@ -1,9 +1,9 @@
 import { initMocks, makeEnv, makeManagerMock } from "./setup.js";
 import { type Mock, beforeEach, describe, expect, it, vi } from "vitest";
-import * as Util from "#control/MeasureControl/util.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
 import { DistanceMode } from "#control/MeasureControl/mode/index.js";
+import * as Util from "#control/MeasureControl/util.js";
 
 // Capture attachDistanceUI's opts so restore's onDelete/onUpdate callbacks can
 // be exercised directly (these are the lines codecov flags as missing).

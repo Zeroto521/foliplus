@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { PANEL_CLASS, BUTTON_CLASS } from "#ui/index.js";
+import { BUTTON_CLASS, PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/ExportControl/const.js";
 import { dotClass } from "#control/ExportControl/ui.js";
 

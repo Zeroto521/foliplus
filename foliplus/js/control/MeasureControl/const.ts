@@ -64,13 +64,7 @@ const UNIT_FORMAT = {
   KM2_DECIMALS: 2,
 };
 
-/** IDs and pane names. Hyphenated + foliplus-namespaced like label/canvas. */
 const ID = "foliplus_measure";
-const PANES = {
-  GRAPH: "foliplus-measure-graph",
-  NODE: "foliplus-measure-node",
-  LABEL: "foliplus-measure-label",
-};
 
 /** CSS class names. */
 const CLASSES = {
@@ -95,6 +89,12 @@ const CLASSES = {
   DASH_SWEEP: "foliplus-measure-dash-sweep",
   MEASURING: "foliplus-measuring",
   EDITING: "foliplus-measure-editing",
+};
+/** IDs and pane names. Hyphenated + foliplus-namespaced like label/canvas. */
+const PANES = {
+  GRAPH: "foliplus-measure-graph",
+  NODE: CLASSES.NODE,
+  LABEL: LABEL.CLASS,
 };
 
 /** Style property names. */
