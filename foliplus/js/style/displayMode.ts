@@ -32,6 +32,19 @@ interface DisplayModeSpec {
   supportsInherit: boolean;
 }
 
+/** The display mode and its detail-render mode.
+ *
+ *  `display` is the mode the row shows (the mode select's value).
+ *  `detail` is the mode the detail slot renders. For most combinations
+ *  they agree; the one deliberate collapse is border ORIGINAL → SOLID
+ *  detail (original and solid both render solid controls; the builder
+ *  reads display again to disable the colorInput in ORIGINAL).
+ */
+interface DisplayAndDetail {
+  display: StyleMode;
+  detail: StyleMode;
+}
+
 /** Resolve the display mode for one paint dimension.
  *
  *  Precedence (highest first):
@@ -51,7 +64,7 @@ interface DisplayModeSpec {
  *         presence alone means "paint by value");
  *    5. fallback → SOLID.
  */
-const resolveDisplayMode = (spec: DisplayModeSpec): StyleMode => {
+const resolveDisplay = (spec: DisplayModeSpec): StyleMode => {
   if (spec.stored !== undefined) {
     if (spec.stored === STYLE_MODE.VALUE && !spec.carriesValue) {
       return STYLE_MODE.ORIGINAL;
@@ -67,5 +80,30 @@ const resolveDisplayMode = (spec: DisplayModeSpec): StyleMode => {
   return STYLE_MODE.SOLID;
 };
 
-export type { DisplayModeSpec };
-export { resolveDisplayMode };
+/** Resolve the display mode for one paint dimension (convenience access to
+ *  `resolveDisplayAndDetail(spec).display` — the S3 signature is unchanged). */
+const resolveDisplayMode = (spec: DisplayModeSpec): StyleMode => resolveDisplay(spec);
+
+/** Resolve both the display mode and the detail-render mode for one paint
+ *  dimension.
+ *
+ *  `detail` equals `display` except for the one deliberate border collapse:
+ *  ORIGINAL → SOLID (original and solid both render solid controls; the
+ *  border builder reads display again to disable the colour input while the
+ *  layer is still on the author's own paint). The collapse is border-only
+ *  opt-in — fill never folds its ORIGINAL detail, so the default keeps the
+ *  detail identical to the display. */
+const resolveDisplayAndDetail = (
+  spec: DisplayModeSpec,
+  opts: { collapseOriginalDetail: boolean } = { collapseOriginalDetail: false },
+): DisplayAndDetail => {
+  const display = resolveDisplay(spec);
+  const detail =
+    opts.collapseOriginalDetail && display === STYLE_MODE.ORIGINAL
+      ? STYLE_MODE.SOLID
+      : display;
+  return { display, detail };
+};
+
+export type { DisplayAndDetail, DisplayModeSpec };
+export { resolveDisplayAndDetail, resolveDisplayMode };
