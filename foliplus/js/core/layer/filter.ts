@@ -89,6 +89,12 @@ type FilterEnumDimension = {
    *  matches. The body shows the shared hint when set. */
   readonly truncated?: boolean;
   readonly multi?: boolean;
+  /**
+   *  The FULL value set for the field, present when the option list was
+   *  truncated for display. The search box runs over this set, so a value
+   *  beyond the shown first N is still findable and selectable.
+   */
+  readonly allValues?: ReadonlyArray<string>;
 };
 
 type FilterDimension = FilterRangeDimension | FilterEnumDimension;

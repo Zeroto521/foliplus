@@ -112,6 +112,47 @@ const makeEnumOwner = (
   };
 };
 
+/** An enum owner whose value domain is larger than the panel's shown list
+ *  (truncated). The FULL set rides `allValues` so the search box can find
+ *  a value beyond the first N — the card's whole point. */
+const makeTruncatedEnumOwner = (allValues: string[], limit = 4) => {
+  let filter: LayerFilter | undefined;
+  return {
+    filterProvider: (): LayerFilterModel => {
+      const options = allValues.slice(0, limit).map(value => ({
+        value,
+        label: value.toUpperCase(),
+      }));
+      const committed = filter;
+      const selected =
+        committed?.kind === "enum"
+          ? options.filter(option => committed.values.includes(option.value)).length
+          : options.length;
+      return {
+        dimensions: [
+          {
+            kind: "enum",
+            field: "type",
+            multi: true,
+            options,
+            truncated: true,
+            allValues,
+          },
+        ],
+        filter,
+        kept: selected * 2,
+        total: options.length * 2,
+      };
+    },
+    filterSetter: (next: LayerFilter) => {
+      filter = next;
+    },
+    get filter() {
+      return filter;
+    },
+  };
+};
+
 /** The action names of an open ⋮ menu, in DOM order (dividers carry no
  *  data-action and drop out). */
 const menuActionNames = (item: HTMLElement): string[] =>
@@ -1346,6 +1387,108 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM_HINT}`)).toBeNull();
+    });
+    // ---- S2: enum search box (the truncated-domain case) ----
+
+    it("finds and selects a value beyond the shown first N through the search box", () => {
+      const spy = spyTranslator();
+      const allValues = Array.from({ length: 12 }, (_, i) => `val${i}`);
+      const owner = makeTruncatedEnumOwner(allValues, 4);
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+
+      const trigger = triggerOf(item);
+      expect(trigger.textContent).toContain("All");
+      openList(item);
+      const initial = optionValuesOf();
+      expect(initial).toHaveLength(4);
+      expect(initial).toEqual(["val0", "val1", "val2", "val3"]);
+
+      const search = document.querySelector<HTMLInputElement>(
+        ".foliplus-dropdown-search-input",
+      )!;
+      expect(search).not.toBeNull();
+      search.value = "val9";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+
+      const filtered = optionValuesOf();
+      expect(filtered).toEqual(["val9"]);
+      clickOption("val9");
+
+      const ownerFilter = owner.filter;
+      expect(ownerFilter).toEqual({ kind: "enum", field: "type", values: ["val9"] });
+      expect(labelOf(item)).toContain("val9");
+      spy.mockRestore();
+    });
+
+    it("shows the no-result notice for a query with no matches", () => {
+      const spy = spyTranslator();
+      const owner = makeTruncatedEnumOwner(
+        Array.from({ length: 12 }, (_, i) => `val${i}`),
+        4,
+      );
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+      openList(item);
+
+      const search = document.querySelector<HTMLInputElement>(
+        ".foliplus-dropdown-search-input",
+      )!;
+      search.value = "zzz-no-match";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+
+      const notice = document.querySelector(".foliplus-dropdown-no-result");
+      expect(notice).not.toBeNull();
+      expect((notice as HTMLElement).hidden).toBe(false);
+      expect(optionValuesOf()).toHaveLength(0);
+      spy.mockRestore();
+    });
+
+    it("clearing the search restores the full shown list", () => {
+      const spy = spyTranslator();
+      const owner = makeTruncatedEnumOwner(
+        Array.from({ length: 12 }, (_, i) => `val${i}`),
+        4,
+      );
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+      openList(item);
+
+      const search = document.querySelector<HTMLInputElement>(
+        ".foliplus-dropdown-search-input",
+      )!;
+      search.value = "val2";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(optionValuesOf()).toEqual(["val2"]);
+
+      search.value = "";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(optionValuesOf()).toHaveLength(4);
+      spy.mockRestore();
+    });
+
+    it("selected state survives a search (toggle then clear)", () => {
+      const spy = spyTranslator();
+      const owner = makeTruncatedEnumOwner(
+        Array.from({ length: 12 }, (_, i) => `val${i}`),
+        4,
+      );
+      const { item } = registerEnum(owner);
+      ui.openFilterPanel(item);
+      openList(item);
+
+      const search = document.querySelector<HTMLInputElement>(
+        ".foliplus-dropdown-search-input",
+      )!;
+      search.value = "val2";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      clickOption("val2");
+      expect(selectedOf()).toEqual(["val2"]);
+
+      search.value = "";
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(selectedOf()).toContain("val2");
+      spy.mockRestore();
     });
   });
 
