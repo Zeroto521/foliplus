@@ -40,10 +40,10 @@ interface DisplayModeSpec {
  *  detail (original and solid both render solid controls; the builder
  *  reads display again to disable the colorInput in ORIGINAL).
  */
-interface DisplayAndDetail {
+type DisplayAndDetail = {
   display: StyleMode;
   detail: StyleMode;
-}
+};
 
 /** Resolve the display mode for one paint dimension.
  *
@@ -105,5 +105,5 @@ const resolveDisplayAndDetail = (
   return { display, detail };
 };
 
-export type { DisplayAndDetail, DisplayModeSpec };
+export type { DisplayModeSpec };
 export { resolveDisplayAndDetail, resolveDisplayMode };
