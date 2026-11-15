@@ -54,7 +54,13 @@ const makeDim = (overrides: Record<string, any> = {}) => {
       };
     },
     key: "fill",
-    intentKeys: ["fillColor", "fillOpacity", "fillValue", "fillStyleMode"],
+    chrome: {
+      selectClass: "test-fill-mode-select",
+      rowClass: "test-fill-row",
+      detailClass: "test-fill-detail",
+      label: "Fill",
+    },
+    intentKeys: ["fillColor", "fillOpacity", "fillValue", "fillStyleMode"] as const,
     face: "fill",
     gate: () => true,
     authorFace: (_ui: any, _id: string, key: string) =>
@@ -98,7 +104,7 @@ describe("buildPaintRow", () => {
       "solid",
       "value",
     ]);
-    const detail = row.querySelector(".foliplus-style-fill-detail")!;
+    const detail = row.querySelector(".test-fill-detail")!;
     expect(detail.childElementCount).toBe(1);
     expect(detail.firstElementChild!.getAttribute("data-mode")).toBe("original");
   });
@@ -138,13 +144,58 @@ describe("bindPaintRow", () => {
     const dim = makeDim();
     const row = buildPaintRow(dim, ui, "overlay1");
     const select = row.querySelector("select")! as HTMLSelectElement;
-    const detail = row.querySelector(".foliplus-style-fill-detail")!;
+    const detail = row.querySelector(".test-fill-detail")!;
     bindPaintRow(dim, ui, "overlay1", row);
     select.value = "solid";
     select.dispatchEvent(new Event("change"));
     expect(dim.writeMode).toHaveBeenCalledWith(ui, "overlay1", "solid");
     expect(detail.childElementCount).toBe(1);
     expect(detail.firstElementChild!.getAttribute("data-mode")).toBe("solid");
+  });
+
+  it("does not rebuild the detail when writeMode refuses the switch", () => {
+    const ui = makeUI();
+    const dim = makeDim({ writeMode: vi.fn(() => false) });
+    const row = buildPaintRow(dim, ui, "overlay1");
+    const select = row.querySelector("select")! as HTMLSelectElement;
+    const detail = row.querySelector(".test-fill-detail")!;
+    bindPaintRow(dim, ui, "overlay1", row);
+    select.value = "solid";
+    select.dispatchEvent(new Event("change"));
+    expect(dim.writeMode).toHaveBeenCalledWith(ui, "overlay1", "solid");
+    expect(detail.childElementCount).toBe(1);
+    expect(detail.firstElementChild!.getAttribute("data-mode")).toBe("original");
+  });
+
+  it("binds a sub-dimension input alongside the active detail", () => {
+    const ui = makeUI();
+    const bindInput = vi.fn();
+    const dim = makeDim({
+      subs: [
+        {
+          key: "opacity",
+          buildInput: () => {
+            const el = document.createElement("div");
+            el.dataset.sub = "opacity";
+            return el;
+          },
+          bindInput,
+          commit: () => {},
+        },
+      ],
+      detailBuilder: (mode: string) => (_ui: any, _id: string) => {
+        const el = document.createElement("div");
+        el.dataset.mode = mode;
+        const sub = document.createElement("div");
+        sub.dataset.sub = "opacity";
+        el.appendChild(sub);
+        return [el];
+      },
+    });
+    const row = buildPaintRow(dim, ui, "overlay1");
+    const detail = row.querySelector(".test-fill-detail")!;
+    bindPaintRow(dim, ui, "overlay1", row);
+    expect(bindInput).toHaveBeenCalled();
   });
 });
 
@@ -196,5 +247,57 @@ describe("applyPaintToLayer", () => {
     });
     applyPaintToLayer(dim, ui, "overlay1");
     expect(dim.applyHooks.solid).toHaveBeenCalledWith(ui, "overlay1", "#aabbcc");
+  });
+
+  it("dispatches FOLLOW_FILL to the solid hook with an undefined base", () => {
+    const ui = makeUI();
+    const dim = makeDim({
+      displaySpec: () => ({
+        stored: STYLE_MODE.FOLLOW_FILL,
+        declaredValue: false,
+        colorIntent: false,
+        valueIntent: false,
+        carriesValue: true,
+        supportsInherit: true,
+      }),
+    });
+    applyPaintToLayer(dim, ui, "overlay1");
+    expect(dim.applyHooks.solid).toHaveBeenCalledWith(ui, "overlay1", undefined);
+  });
+
+  it("dispatches SOLID with an undefined base when no derivation is owed", () => {
+    const ui = makeUI();
+    const dim = makeDim({
+      displaySpec: () => ({
+        stored: STYLE_MODE.SOLID,
+        declaredValue: false,
+        colorIntent: false,
+        valueIntent: false,
+        carriesValue: true,
+        supportsInherit: false,
+      }),
+      needsDerivation: () => false,
+    });
+    applyPaintToLayer(dim, ui, "overlay1");
+    expect(dim.applyHooks.solid).toHaveBeenCalledWith(ui, "overlay1", undefined);
+  });
+
+  it("falls through to the solid hook when VALUE is in the spec but no value is in force", () => {
+    const ui = makeUI();
+    const dim = makeDim({
+      displaySpec: () => ({
+        stored: STYLE_MODE.VALUE,
+        declaredValue: false,
+        colorIntent: false,
+        valueIntent: true,
+        carriesValue: true,
+        supportsInherit: false,
+      }),
+      hasValue: () => false,
+      needsDerivation: () => false,
+    });
+    applyPaintToLayer(dim, ui, "overlay1");
+    expect(dim.applyHooks.value).not.toHaveBeenCalled();
+    expect(dim.applyHooks.solid).toHaveBeenCalledWith(ui, "overlay1", undefined);
   });
 });

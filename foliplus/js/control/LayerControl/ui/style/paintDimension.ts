@@ -52,6 +52,10 @@ import { STYLE_MODE_KEY, dropdownOverlay } from "#ui/index.js";
 interface PaintDimension {
   /** Channel identifier (DIM.FILL / DIM.BORDER) — the row's data-style-dim. */
   key: string;
+  /** The dimension's own chrome vocabulary (select/row/detail class + label).
+   *  Each channel owns its class names (STYLE_FILL_MODE_SELECT etc.) — the
+   *  engine never hard-codes a dimension's chrome. */
+  chrome: PaintRowChrome;
   /** The intent keys this channel owns (FILL_INTENT_KEYS / BORDER_INTENT_KEYS). */
   intentKeys: readonly IntentKey[];
   /** The style face this channel paints (FACE.FILL / FACE.STROKE). */
@@ -127,29 +131,6 @@ type PaintRowChrome = {
   label: string;
 };
 
-/** Resolve the row chrome from the channel key. The fill and border rows each
- *  own their class names (STYLE_FILL_MODE_SELECT / STYLE_BORDER_MODE_SELECT
- *  etc.); the engine keys on the adapter's key so a third channel can add its
- *  own.
- *
- *  TEMPORARY SEAM (S6.1): the chrome table is hard-coded here because S6.1
- *  ships no adapter. Per lead decision, selectClass / rowClass / detailClass /
- *  label belong on the ADAPTER (each dimension owns its chrome vocabulary),
- *  not the engine — S6.4/S6.5 remove this table and read the adapter's
- *  chrome fields instead. Do not promote this table to an engine field. */
-const rowChromeFor = (key: string): PaintRowChrome => {
-  return {
-    selectClass:
-      key === "fill"
-        ? "foliplus-style-fill-mode-select"
-        : "foliplus-style-border-mode-select",
-    rowClass: key === "fill" ? "foliplus-style-fill-row" : "foliplus-style-border-row",
-    detailClass:
-      key === "fill" ? "foliplus-style-fill-detail" : "foliplus-style-border-detail",
-    label: key === "fill" ? "Fill" : "Border",
-  };
-};
-
 /** The locale key for a mode's option label. */
 const modeKeyOf = (mode: StyleMode): string => {
   switch (mode) {
@@ -201,12 +182,11 @@ const buildPaintRow = (
     value: m,
     label: ui.T(modeKeyOf(m)),
   }));
-  const chrome = rowChromeFor(dim.key);
   const { block: modeRow, detail } = buildModeRow({
-    label: chrome.label,
-    selectClass: chrome.selectClass,
-    rowClass: chrome.rowClass,
-    detailClass: chrome.detailClass,
+    label: dim.chrome.label,
+    selectClass: dim.chrome.selectClass,
+    rowClass: dim.chrome.rowClass,
+    detailClass: dim.chrome.detailClass,
     value: mode,
     options,
     surface: dropdownSurface(ui.c.map.getContainer()),
@@ -260,7 +240,7 @@ const bindPaintRow = (
   const select = block.querySelector("select") as HTMLSelectElement | null;
   if (!select) return;
   const detail = block.querySelector(
-    `.${rowChromeFor(dim.key).detailClass}`,
+    `.${dim.chrome.detailClass}`,
   ) as HTMLElement | null;
   select.onchange = () => {
     const previous = displayMode(dim, ui, layerId);
