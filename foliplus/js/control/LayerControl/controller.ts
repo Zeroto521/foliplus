@@ -195,12 +195,6 @@ interface EnforceOrderResult {
 const capabilityKey = (caps: LayerCapabilities): string =>
   `${caps.opacity}|${caps.fill}|${caps.stroke}|${caps.size}|${caps.icon}|${caps.zoomRange}|${caps.visibility}|${caps.label}|${caps.relocatable ? 1 : 0}|${caps.bounds ? 1 : 0}`;
 
-/** The generic enum filter truncates a large discrete domain for the panel.
- *  The truncation is a display-layer policy only: the matching semantics never
- *  change, so a value beyond the shown list still matches the committed filter.
- *  The panel shows the shared hint so the user knows the list is partial. */
-const ENUM_OPTION_LIMIT = 50;
-
 /** The generic filter presence probe scans at most this many geometry leaves.
  *  Column-shaped GeoJSON means the first K leaves represent the field shape
  *  with near-certainty, so an O(K) bounded scan answers
@@ -296,8 +290,7 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     return {
       border: {
         color: v.color,
-        weight: v.weight,
-        mode: v.mode,
+        weight: v.weight,        mode: v.mode,
         value: v.value,
         // Border per-feature is the ORIGINAL mode (author's own stroke).
         perFeature: v.mode === "original",
@@ -350,7 +343,6 @@ const getStyleSnapshot = (
   }
   return out;
 };
-
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -2882,11 +2874,19 @@ class LayerController implements LayerAPI {
     }));
     const enums: FilterEnumDimension[] = features.enumFields.map(field => {
       const all = features.enumValues[field] ?? [];
-      const truncated = all.length > ENUM_OPTION_LIMIT;
-      const options = (truncated ? all.slice(0, ENUM_OPTION_LIMIT) : all).map(
-        value => ({ value, label: value }),
-      );
-      return { kind: "enum", field, options, multi: true, truncated, allValues: all };
+      const truncated = all.length > CONST.ENUM_OPTION_LIMIT;
+      // The model publishes the FULL domain; the search engine applies the
+      // render limit (CONST.ENUM_OPTION_LIMIT) as a display-layer cap only, so a
+      // value beyond the shown list is still selectable via search.
+      const options = all.map(value => ({ value, label: value }));
+      return {
+        kind: "enum",
+        field,
+        options,
+        multi: true,
+        truncated,
+        total: all.length,
+      };
     });
     return [...range, ...enums];
   }

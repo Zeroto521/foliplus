@@ -89,6 +89,9 @@ type FilterEnumDimension = {
    *  matches. The body shows the shared hint when set. */
   readonly truncated?: boolean;
   readonly multi?: boolean;
+  /** The full domain length (published by the owner; may exceed the shown
+   *  option list when the panel truncates it). */
+  readonly total?: number;
 };
 
 type FilterDimension = FilterRangeDimension | FilterEnumDimension;
