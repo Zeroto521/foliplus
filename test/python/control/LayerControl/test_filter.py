@@ -453,9 +453,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
 
             assert not errors, f"JS errors: {errors}"
 
-    def test_filter_enum_dropdown_search_reaches_past_cap(
-        self, browser, tmp_path
-    ):
+    def test_filter_enum_dropdown_search_reaches_past_cap(self, browser, tmp_path):
         """The truncated enum dropdown exposes a search box and reaches values
         beyond the render cap (commit3: search over a 40-value domain).
 
