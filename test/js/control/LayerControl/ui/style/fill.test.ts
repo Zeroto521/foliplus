@@ -5468,6 +5468,54 @@ describe("fill mode switch after the layer's fields changed", () => {
 
     expect(getIntent(fixture.ui, "overlay1", "fillValue")).toBeUndefined();
   });
+  // Patch-coverage evidence (codecov fill.ts patch 93.22% -> target >=95%):
+  // The two remaining uncovered patch branches are unreachable by design, not
+  // missing coverage:
+  //   - fill.ts:159 applyValueFillToLayer `if (value === undefined) return;` — the
+  //     value hook is only invoked when dim.hasValue(ui, layerId) is true
+  //     (paintDimension applyPaintToLayer: mode===VALUE && dim.hasValue), and
+  //     hasValue is effectiveFillValue(...) !== undefined, so `value` is always
+  //     defined when applyValueFillToLayer runs. The guard is a defensive
+  //     invariant, not a reachable branch.
+  //   - fill.ts:498 fillModeRowHint `if (original) original.title = note;` — the
+  //     mode row always starts with [ORIGINAL, SOLID] (FILL_ADAPTER.modes), so
+  //     option[value="original"] is always present when the hint runs. The
+  //     null arm is a defensive invariant, not a reachable branch.
+  // The test below covers the third patch gap (L574/L573: stored VALUE mode on
+  // a layer whose fields are gone degrades to the solid binder).
+  it("binds the solid detail when a stored VALUE mode loses its numeric field", () => {
+    // A stored by-value choice can outlive the data: the layer's numeric
+    // field disappears (a streamed replacement, a filter) while the panel
+    // stays open. The mode select no longer offers VALUE (modes() omits it),
+    // but the stored mode still resolves the display to VALUE - the detail
+    // builder and binder must degrade to the SOLID controls rather than
+    // render a value ramp with an empty field or throw.
+    // A layer whose features carry no property bag (a streamed replacement
+    // with no fields): the VALUE mode cannot classify anything, so the row
+    // degrades to the SOLID controls instead of a value ramp.
+    const { ui } = initWithPerFeatureLayer({ withProperties: false });
+    ui.runtimeStore.setFields("feature1", []);
+    setIntent(ui, "feature1", "fillStyleMode", "value");
+
+    const row = buildFillRow(ui, "feature1");
+    document.body.append(row);
+    // The detail slot renders the solid controls (the VALUE builder's
+    // no-field fallback): a colour swatch, no value-field/method/class selects.
+    expect(
+      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
+    ).not.toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`)).toBeNull();
+
+    // Binding follows the same fallback: the solid binder attaches the swatch
+    // and commits to the fill dimension instead of touching a missing ramp.
+    expect(() => bindFillRow(ui, "feature1", row)).not.toThrow();
+    const color = row.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+    color.value = "#123456";
+    color.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(getIntent(ui, "feature1", "fillColor")).toBe("#123456");
+  });
 });
 
 describe("content-change replay", () => {
