@@ -13,7 +13,6 @@ import type { LayerUI } from "../surface.js";
 import { layerHasStyleDelegation } from "./delegated.js";
 import type { LayerInfo, LayerOverride } from "#core/layer/index.js";
 import { syncPanelAction } from "#ui/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 
 /** The intent dimensions the style panel can restore. `visible` is excluded:
  *  it is a list-row toggle, not part of this panel — resetting it here would
@@ -94,11 +93,16 @@ const layerStyleIsPristine = (ui: LayerUI, layerId: string): boolean => {
 /** Paint the footer's Reset from the live state: disabled exactly when the
  *  layer is still on its declared style. `aria-disabled` mirrors the native
  *  attribute for the row's screen-reader announcement, and the tooltip explains
- *  the disabled state instead of leaving a mute button. */
-const syncResetButton = (ui: LayerUI, layerId: string, panel: ParentNode): void => {
-  const button = panel.querySelector<HTMLButtonElement>(
-    `.${CONST.CLASSES.STYLE_RESET_BTN}`,
-  );
+ *  the disabled state instead of leaving a mute button.
+ *
+ *  The caller hands in the button it already holds (a panel bind resolves it
+ *  once): a live drag publishes a style change per frame, and re-querying the
+ *  panel on every one of them buys nothing. */
+const syncResetButton = (
+  ui: LayerUI,
+  layerId: string,
+  button: HTMLButtonElement | null,
+): void => {
   if (!button) return;
   syncPanelAction(button, {
     disabled: layerStyleIsPristine(ui, layerId),

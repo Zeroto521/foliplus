@@ -115,6 +115,12 @@ const bindStylePanel = (
 ): void => {
   bindPanelPress(panel, controller);
 
+  // Resolved once per bind: the change/click/zoom paths below only repaint it,
+  // and a live drag can call the repaint on every frame.
+  const resetButton = panel.querySelector<HTMLButtonElement>(
+    `.${CONST.CLASSES.STYLE_RESET_BTN}`,
+  );
+
   // Border row: a self-managed dimension that writes `setStyle` directly, so
   // its live binders attach to the row instead of going through the panel's
   // change delegation — that only knows opacity, zoom range and the label
@@ -234,7 +240,7 @@ const bindStylePanel = (
     // A label write is the one style edit that does not publish
     // LAYER_STYLE_CHANGE (its owner keeps a separate config map), so the
     // footer's state is refreshed here.
-    syncResetButton(ui, layerId, panel);
+    syncResetButton(ui, layerId, resetButton);
     // Only the label panel's change reaches here (delegated label controls
     // stop the shared root). Stop the change from bubbling to the map: a
     // change is not a click, so it would not dismiss the panel on its own,
@@ -371,15 +377,15 @@ const bindStylePanel = (
   // reads from styleProvider and writes every control, skipping the one under
   // activeElement. Synced here, at bind time, so an open panel starts from the
   // same predicate every later write re-evaluates.
-  syncResetButton(ui, layerId, panel);
+  syncResetButton(ui, layerId, resetButton);
   // Zoom range commits are not LAYER_STYLE_CHANGE (they are a map-membership
   // concern); the descriptor calls this hook instead of broadcasting.
-  ui.overlayPanel.styleResetSync = () => syncResetButton(ui, layerId, panel);
+  ui.overlayPanel.styleResetSync = () => syncResetButton(ui, layerId, resetButton);
   ui.overlayPanel.styleUnsubscribe = ui.c.events.on(
     EVENTS.LAYER_STYLE_CHANGE,
     (payload: { id: string }) => {
       if (payload.id !== layerId) return;
-      syncResetButton(ui, layerId, panel);
+      syncResetButton(ui, layerId, resetButton);
       ui.overlayPanel.styleRefresh?.();
     },
   );

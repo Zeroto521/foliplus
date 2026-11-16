@@ -119,9 +119,20 @@ const syncPanelAction = (
   button: HTMLButtonElement,
   { disabled, enabledTitle, disabledTitle }: PanelActionState,
 ): void => {
+  const title = disabled ? disabledTitle : enabledTitle;
+  const aria = disabled ? "true" : "false";
+  // A live drag can publish one style change per frame; the DOM writes are
+  // cheap but a no-op guard keeps title/aria churn out of the busy path.
+  if (
+    button.disabled === disabled &&
+    button.getAttribute("aria-disabled") === aria &&
+    button.title === title
+  ) {
+    return;
+  }
   button.disabled = disabled;
-  button.setAttribute("aria-disabled", disabled ? "true" : "false");
-  button.title = disabled ? disabledTitle : enabledTitle;
+  button.setAttribute("aria-disabled", aria);
+  button.title = title;
 };
 
 export {
