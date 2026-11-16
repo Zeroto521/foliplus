@@ -1401,7 +1401,7 @@ describe("LayerUI filter panel", () => {
       expect(triggerOf(item)).toBe(trigger);
       spy.mockRestore();
     });
-    it("shows the truncation hint when the owner truncated the domain", () => {
+    it("shows a search box when the owner truncated the domain", () => {
       const owner = makeEnumOwner(Array.from({ length: 60 }, (_, i) => `v${i}`));
       // Patch the provider to set truncated=true on the dimension.
       const baseProvider = owner.filterProvider;
@@ -1425,18 +1425,19 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      const hint = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_ENUM_HINT}`,
-      ) as HTMLElement;
-      expect(hint).not.toBeNull();
-      expect(hint.textContent).toBe("LayerControl.filter_enum_truncated");
+      // The truncated domain gets a search box inside the enum dropdown.
+      const search = panel.querySelector("input");
+      expect(search).not.toBeNull();
+      expect(search?.getAttribute("placeholder")).toBe(
+        "LayerControl.filter_enum_search_placeholder",
+      );
     });
 
-    it("renders no truncation hint for a full domain", () => {
+    it("renders no search box for a full domain", () => {
       const { item } = registerEnum();
       ui.openFilterPanel(item);
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM_HINT}`)).toBeNull();
+      expect(panel.querySelector("input")).toBeNull();
     });
   });
 
