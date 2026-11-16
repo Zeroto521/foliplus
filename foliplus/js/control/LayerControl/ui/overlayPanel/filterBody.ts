@@ -296,11 +296,15 @@ const renderEnumBody = (
     // engine applies the display cap); a full domain stays a plain list.
     ...(dim.truncated
       ? {
-          search: { threshold: CONST.ENUM_OPTION_LIMIT, renderLimit: CONST.ENUM_OPTION_LIMIT },
+          search: {
+            threshold: CONST.ENUM_OPTION_LIMIT,
+            renderLimit: CONST.ENUM_OPTION_LIMIT,
+          },
           searchPlaceholder: deps.T("filter_enum_search_placeholder"),
           searchNoResult: deps.T("filter_enum_search_no_result"),
           searchFooterText: info =>
-            deps.T("filter_enum_showing")
+            deps
+              .T("filter_enum_showing")
               .replace("{shown}", String(info.shown))
               .replace("{total}", String(info.total)),
         }

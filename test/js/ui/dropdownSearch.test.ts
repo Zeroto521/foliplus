@@ -12,18 +12,16 @@ import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
   DROPDOWN_SEARCH_AUTO_THRESHOLD,
   type Dropdown,
+  type DropdownOptions,
   createDropdown,
 } from "#ui/index.js";
 
-let activeRegistry: ReturnType<typeof ensureOverlayRegistry> | null = null;
 const cleanup: (() => void)[] = [];
 
 const mockOverlay = () => {
   const map = { on: (_e: string, _h: () => void) => {} } as unknown as L.Map;
   const registry = ensureOverlayRegistry(map);
-  activeRegistry = registry;
   cleanup.push(() => {
-    activeRegistry = null;
     registry.destroy();
   });
   return {
@@ -59,7 +57,7 @@ const makeItems = (n: number): { value: string; label: string }[] =>
 
 const makeSearch = (
   items: { value: string; label: string }[],
-  extra: Record<string, unknown> = {},
+  extra: Partial<DropdownOptions> = {},
 ): { dropdown: Dropdown; states: Record<string, unknown>[] } => {
   const states: Record<string, unknown>[] = [];
   const dropdown = createDropdown({
@@ -89,12 +87,6 @@ const type = (dropdown: Dropdown, query: string): void => {
   if (!input) throw new Error("no search input");
   input.value = query;
   input.dispatchEvent(new Event("input", { bubbles: true }));
-};
-
-const flush = (): void => {
-  // The engine debounces (150ms). A real timer flush is needed for the
-  // refresh to run; use a tiny await so the microtask/timer drains.
-  return undefined;
 };
 
 describe("dropdown search: threshold gating", () => {

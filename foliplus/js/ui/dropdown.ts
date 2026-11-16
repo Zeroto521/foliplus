@@ -25,10 +25,9 @@
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
-import { createListFilter } from "./listFilter.js";
-import type { ListFilter } from "./listFilter.js";
+import { type ListFilter, createListFilter } from "./listFilter.js";
 import { createListbox } from "./listbox.js";
-import { applyOptionRowA11y, nextOptionId } from "./optionRow.js";
+import { applyOptionRowA11y } from "./optionRow.js";
 import { createSearchField } from "./searchField.js";
 import type { Dropdown, DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
@@ -316,14 +315,15 @@ const filteredItems = (
   state: InternalState,
 ): { items: DropdownItem[]; shown: number; matchedCount: number } => {
   const filter = state.listFilter;
-  if (!filter)
+  if (!filter) {
     return {
       items: state.items,
       shown: state.items.length,
       matchedCount: state.items.length,
     };
+  }
   const matched = filter.setQuery(state.query);
-  const renderLimit = state.search && state.search.renderLimit;
+  const renderLimit = state.search?.renderLimit;
   const pinned: DropdownItem[] = [];
   const matchedValues = new Set(matched.map(item => item.value));
   if (state.multiple) {
@@ -360,16 +360,15 @@ const updateSearchFooter = (
     statusEl.textContent = state.searchNoResult ?? "";
     return;
   }
-  const total = state.listFilter?.total() ?? 0;
   const selected = state.values.size;
   // The footer denominator is the matched set, not the full domain: with a
   // query active it reads "showing 5 of 12" (12 = what the query matched),
   // and the full-domain count is what onSearchState publishes separately.
   const parts: string[] = [];
   if (shown !== matchedCount) {
-    parts.push("showing " + String(shown) + " of " + String(matchedCount));
+    parts.push(`showing ${String(shown)} of ${String(matchedCount)}`);
   }
-  parts.push(String(selected) + " selected");
+  parts.push(`${String(selected)} selected`);
   statusEl.textContent = state.searchFooterText
     ? state.searchFooterText({ shown, total: matchedCount, selected })
     : parts.join(" · ");
@@ -434,7 +433,7 @@ const refreshSearch = (state: InternalState): void => {
 const searchKeyDown = (state: InternalState, event: KeyboardEvent): void => {
   const listbox = state.listbox;
   if (!listbox) return;
-  const rows = listbox.getList()?.querySelectorAll("button") ?? [];
+  const rows = listbox.getRows();
   switch (event.key) {
     case "ArrowDown": {
       event.preventDefault();
@@ -468,12 +467,23 @@ const searchKeyDown = (state: InternalState, event: KeyboardEvent): void => {
       if (el) el.scrollIntoView({ block: "nearest" });
       break;
     }
-    case "Enter":
+    case "Enter": {
+      if (state.activeIndex >= 0 && rows[state.activeIndex]) {
+        event.preventDefault();
+        (rows[state.activeIndex] as HTMLButtonElement).click();
+      }
+      break;
+    }
     case " ": {
       // Space mirrors Enter (a search input cannot be the Space activator
       // otherwise): both activate the active row. Matches the non-search
-      // listbox path where Space toggles the focused row.
-      if (state.activeIndex >= 0 && rows[state.activeIndex]) {
+      // listbox path where Space toggles the focused row. A query that ends
+      // in a space is still being typed, so Space there must not activate.
+      if (
+        state.activeIndex >= 0 &&
+        !state.query.endsWith(" ") &&
+        rows[state.activeIndex]
+      ) {
         event.preventDefault();
         (rows[state.activeIndex] as HTMLButtonElement).click();
       }
@@ -504,11 +514,9 @@ const searchKeyDown = (state: InternalState, event: KeyboardEvent): void => {
 };
 
 const setActiveRow = (state: InternalState, index: number): void => {
-  const list = state.listbox?.getList();
-  if (!list) return;
-  const rows = list.querySelectorAll("button");
+  const rows = state.listbox?.getRows() ?? [];
   rows.forEach(row => row.classList.remove(DROPDOWN_CLASS.ACTIVE));
-  const row = rows[index] as HTMLElement | undefined;
+  const row = rows[index];
   if (row) row.classList.add(DROPDOWN_CLASS.ACTIVE);
   state.searchField?.setAriaActive(row?.id ?? null);
 };
@@ -869,4 +877,4 @@ export {
   dropdownOf,
   dropdownOverlay,
 };
-export type { DropdownOverlay };
+export type { DropdownOverlay, DropdownOptions };
