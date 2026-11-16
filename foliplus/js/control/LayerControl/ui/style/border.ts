@@ -423,11 +423,11 @@ const applySolidStrokeToLayer = (
 ): void => {
   const solid = !original && !followFill;
   const deriveSolidBase = solid && needsDerivation(ui, layerId, FACE.STROKE);
-  // P3(a): the engine passes the derived author base for a per-feature layer;
-  // the hook consumes it first, then the colour intent, then the shared
+  // The engine passes the derived author base for a per-feature layer; the
+  // hook consumes it first, then the colour intent, then the shared
   // solidColorOf (which applies the defaults fallback itself). For a
-  // no-intent deriving layer base and solidColorOf are the same reader
-  // (authorFace ?? DEFAULT), so this is behaviour-identical to the old
+  // no-intent deriving layer the base and solidColorOf read the same
+  // author face, so this is behaviour-identical to the old
   // getIntent ?? solidColorOf while making the engine-passed base the
   // authoritative source instead of an advisory dead parameter.
   const solidColor =
@@ -522,11 +522,11 @@ const applySolidStrokeToLayer = (
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // Register this UI's stroke replay once (idempotent): a follow-fill border
   // re-derives from the leaf's current fill, and the fill writer asks for
-  // this replay by face — no direct fill → border import, no cycle.
+  // this replay by face — no direct fill -> border import, no cycle.
   registerFaceReplay(ui, FACE.STROKE, id => applyBorderToLayer(ui, id));
   // Everything after the replay registration is the shared engine dispatch:
-  // VALUE+hasValue→applyValueStrokeToLayer; ORIGINAL→original; FOLLOW_FILL→
-  // solid(undefined); else→needsDerivation→authorFace("color")→solid(base).
+  // VALUE+hasValue->applyValueStrokeToLayer; ORIGINAL->original; FOLLOW_FILL->
+  // solid(undefined); else->needsDerivation->authorFace("color")->solid(base).
   applyPaintToLayer(BORDER_ADAPTER, ui, layerId);
 };
 /** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame.

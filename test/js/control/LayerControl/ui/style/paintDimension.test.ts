@@ -409,4 +409,62 @@ describe("applyPaintToLayer", () => {
     expect(dim.applyHooks.value).not.toHaveBeenCalled();
     expect(dim.applyHooks.solid).toHaveBeenCalledWith(ui, "overlay1", undefined);
   });
+
+  it("dispatches through applyMode when the adapter overrides the apply mode", () => {
+    const ui = makeUI();
+    const dim = makeDim({
+      displaySpec: () => ({
+        stored: undefined,
+        declaredValue: false,
+        colorIntent: false,
+        valueIntent: false,
+        carriesValue: true,
+        supportsInherit: false,
+      }),
+      // The display mode would read ORIGINAL (no stored, no color intent),
+      // but the adapter's applyMode (border's effectiveBorderMode) reads SOLID.
+      applyMode: () => STYLE_MODE.SOLID,
+      needsDerivation: () => false,
+    });
+    applyPaintToLayer(dim, ui, "overlay1");
+    expect(dim.applyHooks.original).not.toHaveBeenCalled();
+    expect(dim.applyHooks.solid).toHaveBeenCalledWith(ui, "overlay1", undefined);
+  });
+
+  it("dispatches FOLLOW_FILL to the followFill hook when the adapter exposes it", () => {
+    const ui = makeUI();
+    const followFill = vi.fn();
+    const dim = makeDim({
+      displaySpec: () => ({
+        stored: STYLE_MODE.FOLLOW_FILL,
+        declaredValue: false,
+        colorIntent: false,
+        valueIntent: false,
+        carriesValue: true,
+        supportsInherit: true,
+      }),
+      applyHooks: {
+        value: vi.fn(),
+        original: vi.fn(),
+        solid: vi.fn(),
+        followFill,
+      },
+    });
+    applyPaintToLayer(dim, ui, "overlay1");
+    expect(followFill).toHaveBeenCalledWith(ui, "overlay1");
+    expect(dim.applyHooks.solid).not.toHaveBeenCalled();
+  });
+
+  it("renders the detail directly with no select when the adapter offers no modes", () => {
+    const ui = makeUI();
+    const dim = makeDim({
+      modes: () => [],
+    });
+    const row = buildPaintRow(dim, ui, "overlay1");
+    expect(row.querySelector("select")).toBeNull();
+    // The no-select shape appends the active mode's detail rows directly to
+    // the block (no detail-slot wrapper) — the channel's own one-mode look.
+    expect(row.childElementCount).toBe(1);
+    expect(row.firstElementChild!.getAttribute("data-mode")).toBe("original");
+  });
 });
