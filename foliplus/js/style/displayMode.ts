@@ -25,6 +25,10 @@ import { STYLE_MODE, type StyleMode } from "#core/layer/index.js";
  */
 interface DisplayModeSpec {
   stored: StyleMode | undefined;
+  /** The author's declared default mode (border: follow_fill from
+   *  foliplus.border). Read-time default only — a stored mode intent always
+   *  wins; absent, the declaration replaces the derived fallback. */
+  declaredMode?: StyleMode;
   declaredValue: boolean;
   colorIntent: boolean;
   valueIntent: boolean;
@@ -55,14 +59,17 @@ type DisplayAndDetail = {
  *       - INHERIT stored on a channel that does not support it → SOLID
  *         (defensive: fill cannot INHERIT, so a stray stored INHERIT
  *         reads as SOLID rather than throwing);
- *    2. the author's declared value fill (#789) → VALUE (fill only;
+ *    2. the author's declared mode default (border: follow_fill) → the
+ *         declared mode when the channel supports it (FOLLOW_FILL needs
+ *         supportsInherit); steps aside when unsupported;
+ *    3. the author's declared value fill (#789) → VALUE (fill only;
  *         border never sets declaredValue);
- *    3. neither color nor value intent → ORIGINAL (the map paints the
+ *    4. neither color nor value intent → ORIGINAL (the map paints the
  *         author's own colours; claiming SOLID would lie about "the user
  *         picked a colour");
- *    4. value intent → VALUE (pre-fillMode record shape: the config's
+ *    5. value intent → VALUE (pre-fillMode record shape: the config's
  *         presence alone means "paint by value");
- *    5. fallback → SOLID.
+ *    6. fallback → SOLID.
  */
 const resolveDisplay = (spec: DisplayModeSpec): StyleMode => {
   if (spec.stored !== undefined) {
@@ -73,6 +80,17 @@ const resolveDisplay = (spec: DisplayModeSpec): StyleMode => {
       return STYLE_MODE.SOLID;
     }
     return spec.stored;
+  }
+  // The author's declared mode default sits below a stored intent but above
+  // the derived fallback (the same rank declaredValue holds). An unsupported
+  // declared mode (FOLLOW_FILL on a channel that cannot INHERIT) steps aside
+  // rather than forcing a mode the channel cannot paint.
+  if (spec.declaredMode !== undefined) {
+    if (spec.declaredMode === STYLE_MODE.FOLLOW_FILL && !spec.supportsInherit) {
+      // fall through to the derived chain
+    } else {
+      return spec.declaredMode;
+    }
   }
   if (spec.declaredValue) return STYLE_MODE.VALUE;
   if (!spec.colorIntent && !spec.valueIntent) return STYLE_MODE.ORIGINAL;

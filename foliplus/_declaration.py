@@ -79,6 +79,10 @@ FILL_KEY = "fill"
 LABEL_KEY = "label"
 #: The per-layer filter declaration key.
 FILTER_KEY = "filter"
+#: The per-layer border declaration key (task-159): the author declares a
+#: border mode default (follow_fill) on the layer, read by the JS panel as a
+#: read-time default under the user's stored choice.
+BORDER_KEY = "border"
 #: The filter's kind discriminator (a declared filter is a range or an enum).
 FilterKind = Literal["range", "enum"]
 
@@ -499,6 +503,56 @@ def normalise_layer_filter(
         report=reject,
     )
 
+
+
+# ── Border declaration ────────────────────────────────────────────────
+def normalise_border(
+    raw: object,
+    *,
+    owner: str,
+    subject: str | None = None,
+    source: str | None = None,
+) -> dict[str, str] | None:
+    """Normalise one declared ``{"mode": "follow_fill"}`` border.
+
+    Returns ``{"mode": "follow_fill"}`` when the declaration is usable, else
+    ``None``: "not declared" and "declared but invalid" are the same state
+    downstream - the border stays on its derived default (original/solid)
+    rather than painting a mode the author never saw validated.
+
+    ``owner`` names the control and ``subject`` the specific subject (a layer
+    name), so every message and de-duplication note is attributable.
+    ``source`` is how the caller wrote it (the layer's ``foliplus['border']``),
+    so the warning points at the entry point they used. The only recognised
+    mode is ``follow_fill``; a missing/unknown mode warns once and is ignored.
+    """
+    if raw is None:
+        return None
+
+    where = f"{owner}: {subject}" if subject else owner
+    declared = source or f"foliplus[{BORDER_KEY!r}]"
+
+    def reject(reason: str) -> None:
+        note = f"{owner}:{subject or '-'}:border:{reason}"
+        warn_foliplus(
+            note,
+            f"{where} declares {declared} {reason} - ignored",
+        )
+
+    if not isinstance(raw, Mapping):
+        reject(f"as {type(raw).__name__}; expected a mapping")
+        return None
+    # An extra key is a typo to surface, never a reason to drop the
+    # author's follow_fill intent: warn one-by-one and keep the valid mode
+    # (the same contract the JS reader follows, so Python and JS can never
+    # disagree about whether the declaration survived).
+    for key in sorted((key for key in raw if key != "mode"), key=repr):
+        reject(f"with unknown key {key!r}; expected only mode")
+    mode = raw.get("mode")
+    if mode != "follow_fill":
+        reject(f"with a mode {mode!r}; expected 'follow_fill'")
+        return None
+    return {"mode": mode}
 
 # ── Folder declaration ───────────────────────────────────────────────────
 def normalise_folder(

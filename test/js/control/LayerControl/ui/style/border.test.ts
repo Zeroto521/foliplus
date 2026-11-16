@@ -2857,6 +2857,101 @@ describe("follow-fill border mode", () => {
     // Width input present too.
     expect(block.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
   });
+  // ── declared follow_fill (foliplus.border) ─────────────────────────────
+  // The declaration is a read-time mode default: no stored intent, no
+  // derived value — the border shows and paints follow_fill from the
+  // author's foliplus.border, and a stored mode/Reset behave as declared.
+
+  /** A feature group whose own options carry a foliplus border declaration
+   *  (the same stamp folium lays on the registered layer). */
+  const makeDeclaredGroup = (declaration: unknown, ...leaves: any[]): any => ({
+    options: { foliplus: { border: declaration } },
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const leaf of leaves) fn(leaf);
+    }),
+    leaves,
+  });
+
+  const registerDeclared = (id: string, declaration: unknown, leaves: any[]): void => {
+    installLeafletGlobals();
+    manager.registerLayer({
+      id,
+      name: id,
+      layer: makeDeclaredGroup(declaration, ...leaves),
+    });
+    ui.runtimeStore.setFields(id, [{ name: "count", numeric: true }]);
+  };
+
+  it("declared follow_fill drives the display with no stored mode", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
+    registerDeclared("dpoly1", { mode: "follow_fill" }, leaves);
+    const block = buildBorderRow(ui, "dpoly1") as HTMLElement;
+    document.body.appendChild(block);
+    const select = selectOf(block)!;
+    // The declaration is the default mode: the select shows followFill, and
+    // the option is offered (polygon: the natural follow-fill channel).
+    expect(select.value).toBe("followFill");
+    expect(Array.from(select.options).map(o => o.value)).toContain("followFill");
+  });
+
+  it("declared follow_fill paints the derived fill colour on apply", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("dpoly2", { mode: "follow_fill" }, leaves);
+    applyBorderToLayer(ui, "dpoly2");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#123456");
+    // No border colour intent is written: the derivation reads the leaf live.
+    expect(getIntent(ui, "dpoly2", "borderColor")).toBeUndefined();
+  });
+
+  it("declared follow_fill is inapplicable on a line (no fill to follow)", () => {
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    registerDeclared("dline1", { mode: "follow_fill" }, leaves);
+    const block = buildBorderRow(ui, "dline1") as HTMLElement;
+    document.body.appendChild(block);
+    const select = selectOf(block);
+    // A line cannot paint follow_fill: the declaration steps aside, so the
+    // select falls to the derived default and the mode option stays absent.
+    expect(select!.value).not.toBe("followFill");
+    expect(Array.from(select!.options).map(o => o.value)).not.toContain("followFill");
+  });
+
+  it("stored solid beats the declared follow_fill (intent > declaration)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("dpoly3", { mode: "follow_fill" }, leaves);
+    setIntent(ui, "dpoly3", "borderStyleMode", "solid");
+    setIntent(ui, "dpoly3", "borderColor", "#abcdef");
+    applyBorderToLayer(ui, "dpoly3");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+  });
+
+  it("reset reveals the declared follow_fill (not the author stroke)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("dpoly4", { mode: "follow_fill" }, leaves);
+    // User commits a solid colour first, then resets.
+    setIntent(ui, "dpoly4", "borderStyleMode", "solid");
+    setIntent(ui, "dpoly4", "borderColor", "#abcdef");
+    applyBorderToLayer(ui, "dpoly4");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+    resetLayerBorder(ui, "dpoly4");
+    // Reset clears the intents and re-applies the declaration: the border
+    // re-derives from the leaf's current fill (the author's default paint).
+    expect(getIntent(ui, "dpoly4", "borderStyleMode")).toBeUndefined();
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#123456");
+  });
+
+  it("fill edit replays a declared follow_fill border (fill write gate)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
+    registerDeclared("dpoly5", { mode: "follow_fill" }, leaves);
+    applyBorderToLayer(ui, "dpoly5");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#111111");
+    // Change the fill through the FILL write (the single commit path). The
+    // border replay must ride it even without a stored border mode; the
+    // replay is frame-coalesced, so flush the stroke frame.
+    FILL_DIMENSION.write!(ui, "dpoly5", { color: "#abcdef" });
+    flushStyleDimApply(FACE.FILL, "dpoly5");
+    flushStyleDimApply(FACE.STROKE, "dpoly5");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+  });
 });
 
 describe("border partial-coverage invariants (partial-coverage)", () => {

@@ -61,7 +61,7 @@ import {
   saveState,
   setVisibleIntent,
 } from "./state.js";
-import { applyBorderToLayer } from "./style/border.js";
+import { applyBorderToLayer, replayDeclaredBorder } from "./style/border.js";
 import { applyIconToLayer } from "./style/icon.js";
 import { applyIconColorToLayer } from "./style/iconColor.js";
 import {
@@ -330,6 +330,7 @@ class LayerUI implements LayerUISurface {
     if (id === undefined) {
       for (const layerInfo of this.c.layerRegistry.layers) {
         replayDeclaredFill(this, layerInfo.id);
+        replayDeclaredBorder(this, layerInfo.id);
       }
     }
     return moved;
