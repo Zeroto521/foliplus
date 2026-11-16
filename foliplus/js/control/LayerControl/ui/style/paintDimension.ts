@@ -187,6 +187,15 @@ const buildPaintRow = (
     value: m,
     label: ui.T(modeKeyOf(m)),
   }));
+  if (options.length === 0) {
+    // One-mode channel (border without a value field): the channel offers a
+    // single mode, so there is no mode row to switch — render the active
+    // mode's detail rows directly into the block, the channel's own no-select
+    // shape (no detail-slot wrapper). Fill never returns an empty mode list,
+    // so this branch is border-only and leaves the fill parity baseline alone.
+    block.append(...dim.detailBuilder(detailMode(dim, ui, layerId))(ui, layerId));
+    return block;
+  }
   const {
     block: modeRow,
     select,
