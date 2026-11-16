@@ -193,6 +193,8 @@ interface InternalState {
   searchNoResult: string;
   /** The footer element (showing N of M · K selected + all/clear), or null. */
   footerEl: HTMLElement | null;
+  /** The text-only live region inside the footer (role=status), or null. */
+  statusTextEl: HTMLElement | null;
   onSearchState: ((info: DropdownSearchState) => void) | null;
   /** Formats the footer count line (caller-localized). */
   searchFooterText:
@@ -350,11 +352,12 @@ const updateSearchFooter = (
 ): void => {
   const el = state.footerEl;
   if (!el) return;
+  const statusEl = state.statusTextEl;
+  if (!statusEl) return;
   // No matches: the single status region carries only the no-result line (it
   // and the count are mutually exclusive — P2-c). Buttons do not render here.
   if (shown === 0) {
-    el.textContent = "";
-    el.append(document.createTextNode(state.searchNoResult ?? ""));
+    statusEl.textContent = state.searchNoResult ?? "";
     return;
   }
   const total = state.listFilter?.total() ?? 0;
@@ -367,14 +370,9 @@ const updateSearchFooter = (
     parts.push("showing " + String(shown) + " of " + String(matchedCount));
   }
   parts.push(String(selected) + " selected");
-  el.textContent = "";
-  el.append(
-    document.createTextNode(
-      state.searchFooterText
-        ? state.searchFooterText({ shown, total: matchedCount, selected })
-        : parts.join(" · "),
-    ),
-  );
+  statusEl.textContent = state.searchFooterText
+    ? state.searchFooterText({ shown, total: matchedCount, selected })
+    : parts.join(" · ");
   if (state.multiple) {
     const all = dom.el(
       "button",
@@ -400,6 +398,9 @@ const updateSearchFooter = (
       state.onChange?.("", []);
       refreshSearch(state);
     });
+    // Replace the action row on every refresh (select-all/clear rebuild through
+    // refreshSearch), keeping exactly one pair of buttons.
+    el.querySelectorAll(`.${DROPDOWN_CLASS.FOOTER_BTN}`).forEach(node => node.remove());
     el.append(all, clear);
   }
 };
@@ -421,7 +422,6 @@ const refreshSearch = (state: InternalState): void => {
   // nothing, only the no-result line shows; otherwise the count (and the
   // multi-select buttons) render in that same region.
   updateSearchFooter(state, shown, matchedCount);
-  state.searchField?.setStatus(null);
   state.onSearchState?.({
     shown,
     total: state.listFilter?.total() ?? 0,
@@ -468,7 +468,11 @@ const searchKeyDown = (state: InternalState, event: KeyboardEvent): void => {
       if (el) el.scrollIntoView({ block: "nearest" });
       break;
     }
-    case "Enter": {
+    case "Enter":
+    case " ": {
+      // Space mirrors Enter (a search input cannot be the Space activator
+      // otherwise): both activate the active row. Matches the non-search
+      // listbox path where Space toggles the focused row.
       if (state.activeIndex >= 0 && rows[state.activeIndex]) {
         event.preventDefault();
         (rows[state.activeIndex] as HTMLButtonElement).click();
@@ -477,14 +481,16 @@ const searchKeyDown = (state: InternalState, event: KeyboardEvent): void => {
     }
     case "Escape": {
       if (state.query) {
+        // Consume the Escape so the popup stays open; the registry's
+        // escPassthroughOnEditable already guarantees only the editable gets
+        // the event, so we must NOT stopPropagation (that would break the
+        // "one Escape closes one layer" contract for the parent dispatcher).
         event.preventDefault();
-        event.stopPropagation();
         state.query = "";
         state.searchField?.clear();
         refreshSearch(state);
       } else {
         event.preventDefault();
-        event.stopPropagation();
         listbox.close();
       }
       break;
@@ -573,6 +579,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     searchRenderLimitApplied: false,
     searchNoResult: opts.searchNoResult ?? "",
     footerEl: null,
+    statusTextEl: null,
     onSearchState: opts.onSearchState ?? null,
     searchFooterText: opts.searchFooterText ?? null,
     searchSelectAllText: opts.searchSelectAllText ?? "Select all",
@@ -628,11 +635,15 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     state.mountRoot.append(
       dom.el("div", { class: DROPDOWN_CLASS.SEARCH }, state.searchField.element),
     );
-    state.footerEl = dom.el("div", {
-      class: DROPDOWN_CLASS.STATUS,
+    // The footer row splits the live status text (role=status + aria-live,
+    // text only — P2-B) from the action buttons so the live region never
+    // announces a button press as a status update.
+    state.footerEl = dom.el("div", { class: DROPDOWN_CLASS.STATUS });
+    state.statusTextEl = dom.el("span", {
       role: "status",
       "aria-live": "polite",
     });
+    state.footerEl.append(state.statusTextEl);
   }
 
   const listbox = createListbox({
@@ -829,6 +840,10 @@ const activateRow = (state: InternalState, index: number): void => {
     else state.values.add(item.value);
     commit(state);
     renderLabel(state);
+    // Multi-select keeps the popup open and the keyboard path must stay on the
+    // search input (P2-F); refresh the list so pinned rows repaint.
+    if (state.search) refreshSearch(state);
+    state.searchField?.focus();
     return;
   }
   if (state.native) state.native.value = item.value;

@@ -7,7 +7,7 @@
 // Enter activation, multi-select pinned selection, select-all/clear and the
 // onSearchState payload.
 import type * as L from "leaflet";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
   DROPDOWN_SEARCH_AUTO_THRESHOLD,
@@ -460,5 +460,123 @@ describe("dropdown search: footer denominator is the matched set (P3-c)", () => 
         resolve();
       }, 250);
     });
+  });
+});
+
+describe("dropdown search: prereview a11y fixes", () => {
+  const statusOf = (dropdown: Dropdown): HTMLElement | null =>
+    dropdown.getList()?.parentElement?.querySelector('[role="status"]') ?? null;
+  const popup = (dropdown: Dropdown): HTMLElement | null =>
+    dropdown.getList()?.parentElement ?? null;
+
+  it("P1-A: has exactly one role=status in the whole popup, owned by the footer", () => {
+    const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
+    dropdown.trigger.click();
+    const statuses = popup(dropdown)?.querySelectorAll('[role="status"]');
+    expect(statuses?.length).toBe(1);
+    // The status region is the footer's text span (not a sibling dead node).
+    const status = statusOf(dropdown);
+    expect(status?.classList.contains("foliplus-dropdown-status")).toBe(false);
+    expect(status?.closest(".foliplus-dropdown-status")).not.toBeNull();
+  });
+
+  it("P1-J: Escape with a query clears it and does not close the popup", () => {
+    const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    type(dropdown, "value 5");
+    return new Promise<void>(resolve => {
+      // Wait for the debounce to run so the query is live in state.
+      setTimeout(() => {
+        input?.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Escape",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        expect(input?.value).toBe("");
+        expect(dropdown.isOpen()).toBe(true); // still open
+        resolve();
+      }, 250);
+    });
+  });
+
+  it("P1-J: Escape with an empty query closes the popup", () => {
+    const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
+    );
+    const list = dropdown.getList();
+    expect(list?.hidden).toBe(true);
+  });
+
+  it("P2-C: Space activates the active row", () => {
+    const picks: string[] = [];
+    const { dropdown } = makeSearch(makeItems(11), {
+      onChange: v => picks.push(String(v)),
+    });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
+    );
+    expect(picks.length).toBe(1);
+  });
+
+  it("P2-D: Tab moves focus out of the popup and closes it", () => {
+    const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }),
+    );
+    const list = dropdown.getList();
+    // Tab clears the active row; the popup closes on blur (engine behavior).
+    expect(list?.hidden).toBe(true);
+  });
+
+  it("P2-F: after a multi-select toggle the focus returns to the search input", () => {
+    const { dropdown } = makeSearch(makeItems(11), {
+      multiple: true,
+      placeholder: "Pick",
+    });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    const focusSpy = vi.fn();
+    if (input) input.focus = focusSpy;
+    // Open, type to filter, then activate a row with Enter (multi keeps popup open).
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(dropdown.isOpen()).toBe(true); // multi keeps the popup open
+    // The search input is refocused after the toggle so the keyboard path stays live.
+    expect(focusSpy).toHaveBeenCalled();
+  });
+
+  it("P2-G: aria-expanded tracks the open state on the combobox", () => {
+    const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
+    const input = inputOf(dropdown);
+    expect(input?.getAttribute("aria-expanded")).toBe("false");
+    dropdown.trigger.click();
+    expect(input?.getAttribute("aria-expanded")).toBe("true");
+    dropdown.close();
+    expect(input?.getAttribute("aria-expanded")).toBe("false");
   });
 });

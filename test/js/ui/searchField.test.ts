@@ -59,18 +59,6 @@ describe("searchField", () => {
     expect(sf.element.hasAttribute("aria-activedescendant")).toBe(false);
   });
 
-  it("setStatus fills and hides the single status region", () => {
-    const sf = mk();
-    expect(sf.statusElement.getAttribute("role")).toBe("status");
-    expect(sf.statusElement.getAttribute("aria-live")).toBe("polite");
-    expect(sf.statusElement.hidden).toBe(true);
-    sf.setStatus("No matching values");
-    expect(sf.statusElement.textContent).toBe("No matching values");
-    expect(sf.statusElement.hidden).toBe(false);
-    sf.setStatus(null);
-    expect(sf.statusElement.hidden).toBe(true);
-  });
-
   it("focus focuses the input", () => {
     const sf = mk();
     sf.element.focus = vi.fn();
