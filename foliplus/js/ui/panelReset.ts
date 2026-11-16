@@ -82,4 +82,63 @@ const createPanelResetOutcome =
 /** A reset restores values; it does not dismiss the panel. */
 const finishPanelReset = createPanelResetOutcome(false);
 
-export { createPanelResetOutcome, finishPanelReset, runResetSteps };
+/** The focusable controls a reset may hand focus to when its own trigger is
+ *  hidden or disabled. A disabled button cannot take focus (the browser drops
+ *  the call), so every reset surface resolves this fallback instead of
+ *  focusing a dead target and leaving focus on `<body>`.
+ *
+ *  Document order is the contract: the first usable control is the one a
+ *  keyboard user reaches with the next Tab press. */
+const PANEL_FOCUSABLE = [
+  "button:not(:disabled)",
+  "select:not(:disabled)",
+  "input:not(:disabled)",
+  "[tabindex]:not([tabindex='-1'])",
+].join(", ");
+
+const firstUsableControl = (root: ParentNode): HTMLElement | null =>
+  root.querySelector<HTMLElement>(PANEL_FOCUSABLE);
+
+/** Paint a panel-wide Reset/Clear trigger from its live state.
+ *
+ *  The native `disabled` attribute is the behaviour (no press, no focus, out
+ *  of the Tab order); `aria-disabled` mirrors it for assistive tech, and the
+ *  tooltip explains the disabled state instead of leaving a mute button. One
+ *  helper keeps the style panel's Reset and the filter panel's Clear on the
+ *  same contract — the two must not drift on "what a disabled action looks
+ *  like". */
+interface PanelActionState {
+  disabled: boolean;
+  /** Tooltip while the action can run. */
+  enabledTitle: string;
+  /** Tooltip while it cannot (nothing to restore / clear). */
+  disabledTitle: string;
+}
+
+const syncPanelAction = (
+  button: HTMLButtonElement,
+  { disabled, enabledTitle, disabledTitle }: PanelActionState,
+): void => {
+  const title = disabled ? disabledTitle : enabledTitle;
+  const aria = disabled ? "true" : "false";
+  // A live drag can publish one style change per frame; the DOM writes are
+  // cheap but a no-op guard keeps title/aria churn out of the busy path.
+  if (
+    button.disabled === disabled &&
+    button.getAttribute("aria-disabled") === aria &&
+    button.title === title
+  ) {
+    return;
+  }
+  button.disabled = disabled;
+  button.setAttribute("aria-disabled", aria);
+  button.title = title;
+};
+
+export {
+  createPanelResetOutcome,
+  finishPanelReset,
+  firstUsableControl,
+  runResetSteps,
+  syncPanelAction,
+};

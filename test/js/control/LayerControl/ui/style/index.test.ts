@@ -940,6 +940,100 @@ describe("LayerUI style panel", () => {
     expect(manager.label.getConfig("overlay1").format).toBe(NUMBER_FORMAT.COMMA);
   });
 
+  it("Reset is disabled while the layer is on its declared style", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
+    expect(btn.title).toBe("LayerControl.style_reset_disabled");
+  });
+
+  it("a style write enables Reset live, and Reset disables it again", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+
+    // A label write is the one path that does not publish LAYER_STYLE_CHANGE:
+    // the panel refreshes the footer itself.
+    const toggle = panel.querySelector(
+      ".foliplus-style-toggle-input",
+    ) as HTMLInputElement;
+    toggle.checked = true;
+    toggle.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute("aria-disabled")).toBe("false");
+    expect(btn.title).toBe("LayerControl.style_reset_tooltip");
+
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+    const next = panelOf(item)!;
+    const nextBtn = next.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(nextBtn.disabled).toBe(true);
+    // The disabled trigger cannot take focus; the panel keeps it.
+    expect(next.contains(document.activeElement)).toBe(true);
+  });
+
+  it("an external style change re-reads the footer's state", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+
+    ui.intentStore.set("overlay1", "opacity", 0.4);
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "overlay1" },
+    );
+
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute("aria-disabled")).toBe("false");
+  });
+
+  it("an opacity drag enables Reset", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+
+    const host = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_OPACITY_TRACK}`,
+    ) as HTMLElement;
+    sliderOf(host)!.setValue(30);
+
+    expect(btn.disabled).toBe(false);
+  });
+
+  it("a zoom-range commit enables Reset", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const panel = panelOf(item)!;
+    const btn = panel.querySelector(".foliplus-style-reset-btn") as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+
+    const row = panel.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    ) as HTMLElement;
+    const host = row.querySelector(
+      `.${CONST.CLASSES.STYLE_ZOOM_RANGE_CONTROL}`,
+    ) as HTMLElement;
+    const slider = sliderOf(host)!;
+    slider.setValue([4, map.getMaxZoom()]);
+    slider.commit();
+
+    expect(btn.disabled).toBe(false);
+  });
+
   it("reports a throwing reset dimension and still refreshes", () => {
     const item = findItem(ui, "overlay1");
     manager.label.setConfig("overlay1", { show: true, field: "count" } as any);
@@ -987,13 +1081,20 @@ describe("LayerUI style panel", () => {
     });
     expect(panelOf(item)).toBeDefined();
     expect(focusSpy).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(
-      panelOf(item)!.querySelector(".foliplus-style-reset-btn"),
-    );
+    // Reset has nothing left to restore, so the rebuilt button is disabled and
+    // cannot take focus: focus falls to the panel's first usable control (the
+    // header close button) rather than to a dead target.
+    const nextBtn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(nextBtn.disabled).toBe(true);
+    expect(panelOf(item)!.contains(document.activeElement)).toBe(true);
   });
 
   it("reset preserves the panel's scroll position", () => {
     const item = findItem(ui, "overlay1");
+    // A pristine layer disables Reset; the scroll contract needs a live one.
+    manager.label.setConfig("overlay1", { show: true, field: "count" } as any);
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     const content = panel.querySelector(".foliplus-panel-content") as HTMLElement;
@@ -1020,6 +1121,7 @@ describe("LayerUI style panel", () => {
 
   it("reset keeps the panel when the refresh has no panel handle", () => {
     const item = findItem(ui, "overlay1");
+    manager.label.setConfig("overlay1", { show: true, field: "count" } as any);
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     ui.overlayPanel.stylePanelEl = null;
@@ -1037,6 +1139,7 @@ describe("LayerUI style panel", () => {
     // keep walking its original path with no live control ancestor and land on
     // the map (the same guarantee as the ⋮ menu — #807).
     const item = findItem(ui, "overlay1");
+    manager.label.setConfig("overlay1", { show: true, field: "count" } as any);
     ui.openStylePanel("overlay1");
     const bubbled = vi.fn();
     item.addEventListener("click", bubbled);
@@ -1486,6 +1589,7 @@ describe("LayerUI style panel", () => {
 
   it("Reset survives a layer that vanished while the panel was open", () => {
     const item = findItem(ui, "overlay1");
+    manager.label.setConfig("overlay1", { show: true, field: "count" } as any);
     ui.openStylePanel("overlay1");
     const panel = panelOf(item)!;
     vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
@@ -3195,6 +3299,195 @@ describe("LayerUI style panel", () => {
     ) as HTMLButtonElement;
     expect(btn).not.toBeNull();
     expect(btn.textContent).toBe("LayerControl.style_reset");
+  });
+
+  it("delegated Reset is disabled when the component style equals its defaults", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("delegated Reset enables when the component style moved off its defaults", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: false }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute("aria-disabled")).toBe("false");
+  });
+
+  it("delegated Reset compares nested style values structurally", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, zoom: [1, 9], opts: { a: 1 } }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true, zoom: [1, 9], opts: { a: 1 } }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it("delegated Reset treats a changed nested value as moved", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, opts: { a: 2 } }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true, opts: { a: 1 } }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+  });
+
+  it("delegated Reset treats an extra nested key as moved", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, opts: { a: 1, b: 2 } }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true, opts: { a: 1 } }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+  });
+
+  it("delegated Reset reads a missing provider as pristine", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it("delegated Reset tolerates a provider that returns nothing", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: (() => undefined) as unknown as () => Record<string, unknown>,
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true }),
+    });
+    const item = findItem(ui, "heat1");
+
+    ui.openStylePanel("heat1");
+
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(false);
+  });
+
+  it("a vanished layer reads as pristine on the next style signal", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openStylePanel("overlay1");
+    const btn = panelOf(item)!.querySelector(
+      ".foliplus-style-reset-btn",
+    ) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+
+    vi.spyOn(manager.layerRegistry, "get").mockReturnValue(undefined);
+    (manager.events as unknown as { emit: (e: string, p: unknown) => void }).emit(
+      "foliplus:layer:style-change",
+      { id: "overlay1" },
+    );
+
+    expect(btn.disabled).toBe(true);
+  });
+
+  it("delegated Reset treats an array of another length or type as moved", () => {
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, zoom: [1, 9] }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({ labelShow: true, zoom: [1] }),
+    });
+    const short = findItem(ui, "heat1");
+    ui.openStylePanel("heat1");
+    expect(
+      panelOf(short)!
+        .querySelector(".foliplus-style-reset-btn")!
+        .hasAttribute("disabled"),
+    ).toBe(false);
+    closeStylePanel(ui, false);
+
+    manager.registerLayer({
+      id: "heat2",
+      name: "Heat 2",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true, zoom: [1, 9] }),
+      styleSetters: { labelShow: vi.fn() },
+      styleDefaultsProvider: () => ({
+        labelShow: true,
+        zoom: 1 as unknown as number[],
+      }),
+    });
+    const scalar = findItem(ui, "heat2");
+    ui.openStylePanel("heat2");
+    expect(
+      panelOf(scalar)!
+        .querySelector(".foliplus-style-reset-btn")!
+        .hasAttribute("disabled"),
+    ).toBe(false);
   });
 
   it("delegated Reset calls each setter and keeps the panel open", () => {

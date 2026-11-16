@@ -118,8 +118,13 @@ class TestRowPressScopeBrowser:
             )
             page.wait_for_timeout(200)  # let the panel settle
 
-            # Press on the reset button inside the panel.
-            btn = page.locator(".foliplus-layer-style-panel .foliplus-style-reset-btn")
+            # Press on a control inside the panel. The Reset button is
+            # disabled on a pristine layer (nothing to restore) and a disabled
+            # button rejects pointer events, so the opacity row stands in for
+            # "a control inside the panel" here.
+            btn = page.locator(
+                ".foliplus-layer-style-panel .foliplus-style-opacity-track"
+            )
             btn.hover()
             page.mouse.down()
             try:

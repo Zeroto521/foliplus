@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPanelResetOutcome, finishPanelReset, runResetSteps } from "#ui/index.js";
+import {
+  createPanelResetOutcome,
+  finishPanelReset,
+  firstUsableControl,
+  runResetSteps,
+  syncPanelAction,
+} from "#ui/index.js";
 
 const focusTarget = (focus: () => void): HTMLElement =>
   ({ focus }) as unknown as HTMLElement;
@@ -114,6 +120,53 @@ describe("finishPanelReset", () => {
       finishPanelReset({ restore: () => {}, close, focus: () => null }),
     ).not.toThrow();
     expect(close).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncPanelAction", () => {
+  it("writes disabled, aria and title, then skips an unchanged repaint", () => {
+    const button = document.createElement("button");
+    syncPanelAction(button, {
+      disabled: true,
+      enabledTitle: "Reset",
+      disabledTitle: "Nothing to reset",
+    });
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    expect(button.title).toBe("Nothing to reset");
+
+    const setAttribute = vi.spyOn(button, "setAttribute");
+    syncPanelAction(button, {
+      disabled: true,
+      enabledTitle: "Reset",
+      disabledTitle: "Nothing to reset",
+    });
+    expect(setAttribute).not.toHaveBeenCalled();
+    setAttribute.mockRestore();
+
+    syncPanelAction(button, {
+      disabled: false,
+      enabledTitle: "Reset",
+      disabledTitle: "Nothing to reset",
+    });
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("aria-disabled")).toBe("false");
+    expect(button.title).toBe("Reset");
+  });
+});
+
+describe("firstUsableControl", () => {
+  it("skips a disabled trigger and returns the next usable control", () => {
+    document.body.innerHTML =
+      '<button id="dead" disabled>Reset</button><button id="next">Next</button>';
+
+    expect(firstUsableControl(document.body)?.id).toBe("next");
+  });
+
+  it("returns null when every control is disabled", () => {
+    document.body.innerHTML = "<button disabled>Reset</button>";
+
+    expect(firstUsableControl(document.body)).toBeNull();
   });
 });
 
