@@ -6731,7 +6731,7 @@ it("routes the injected generic filterSetter through setLayerFilter", () => {
   // generic pair; the row carries it onto the registry entry.
   const info = manager.layerRegistry.get("overlay1")!;
   expect(info.filterSetter).toBeTypeOf("function");
-  expect(info.hasFilterFields?.()).toBe(true);
+  expect(manager.hasFilterableFields("overlay1")).toBe(true);
 
   const setSpy = vi.spyOn(manager, "setLayerFilter");
   info.filterSetter!({
@@ -7300,7 +7300,7 @@ describe("genericFilterModel — enum dimensions", () => {
       { value: "kind", label: "kind", numeric: false },
     ]);
     const info = manager.layerRegistry.get("overlay1")!;
-    expect(info.hasFilterFields?.()).toBe(true);
+  expect(manager.hasFilterableFields("overlay1")).toBe(true);
   });
 
   it("truncates a large enum domain to the panel limit and marks it", () => {

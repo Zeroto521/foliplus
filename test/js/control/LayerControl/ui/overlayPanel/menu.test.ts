@@ -146,9 +146,12 @@ describe("LayerUI menu", () => {
         name: "Has Fields",
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
-        filterProvider: () => null,
+        filterProvider: () => ({
+          dimensions: [{ kind: "enum", field: "kind", options: [], multi: true, truncated: false }],
+          kept: 1,
+          total: 1,
+        }),
         filterSetter: () => {},
-        hasFilterFields: () => true,
       });
       const item = findItem(ui, "has-fields");
 
@@ -170,7 +173,6 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => null,
         filterSetter: () => {},
-        hasFilterFields: () => false,
       });
       const item = findItem(ui, "no-fields");
 
@@ -1358,7 +1360,6 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => null,
         filterSetter: () => {},
-        hasFilterFields: () => false,
       } as any);
       const item = findItem(ui, "noFields");
 
@@ -1378,9 +1379,12 @@ describe("LayerUI menu", () => {
         name: "Points",
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
-        filterProvider: () => null,
+        filterProvider: () => ({
+          dimensions: [{ kind: "enum", field: "kind", options: [], multi: true, truncated: false }],
+          kept: 1,
+          total: 1,
+        }),
         filterSetter: () => {},
-        hasFilterFields: () => true,
       } as any);
       const item = findItem(ui, "hasFields");
 
