@@ -47,6 +47,13 @@ import {
   buildMonochromeOriginalDetail,
   buildOriginalDetail,
 } from "./originalDetail.js";
+import {
+  type PaintDimension,
+  type PaintSubDimension,
+  applyPaintToLayer,
+  bindPaintRow,
+  buildPaintRow,
+} from "./paintDimension.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -55,11 +62,11 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 import { replayFace } from "./replay.js";
-import { buildModeRow } from "./row.js";
 import {
   FACE,
   STYLE_BAG_DEFAULTS,
   type StyleCarrier,
+  authorFaceOf,
   cancelStyleDimApply,
   commitStyleDim,
   commitStyleDimMerged,
@@ -82,17 +89,13 @@ import {
   type ValueConfig,
   readFeatureFillColors,
 } from "#core/layer/index.js";
-import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { resolveDisplayMode } from "#foliplus/style/displayMode.js";
 import { isHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
-import { dropdownSurface } from "#platform/fullscreen.js";
 import {
   PANEL_CLASS,
-  STYLE_MODE_KEY,
   bindLiveColor,
   bindLiveNumber,
-  dropdownOverlay,
   colorInput as formColorInput,
   formRow,
   inlineControls,
@@ -145,69 +148,47 @@ const FILL_INTENT_KEYS: readonly LayerOverride[] = [
   INTENT.FILL_MODE,
 ];
 
-/** Commit the current fill color and opacity to the layer. Walks the layer
- *  tree and calls `setStyle({fillColor?, fillOpacity?})` on every leaf that
- *  has a `setStyle`. A node without a setter is skipped silently.
- *
- *  Reads both values from the intent record (`fillColor` / `fillOpacity`);
- *  a dimension not in the map is omitted from the `setStyle` call so the
- *  author's declared default stays in force.
- *
- *  Kept separate from the persistence plumbing (`commitFillColor`,
- *  `commitFillOpacity`) so the walk is unit-testable without a storage timer. */
-const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-
-  // Mode selection goes through the panel's resolver: an absent mode is solid,
-  // a value config with no explicit mode is the pre-fillMode record shape (so
-  // the config's presence alone means "paint by value"), and an explore layer
-  // with neither is in the author's own original colors. The modes are mutually
-  // exclusive on apply, even though every config stays stored (a mode switch
-  // back must restore the other mode).
-  // A declared value fill (#789) is a read-time default, so this mode can be "value"
-  // with nothing in the intent store: `effectiveFillValue` is the same chain
-  // the panel reads, so the map and the row cannot disagree about it.
+/** Apply the value-fill branch: paint the column the row shows (the stored
+ *  config's field resolved against the current data, the same rule
+ *  valueForUi applies). A solid-color basemap has no leaves to classify, so a
+ *  value fill degrades to the authored pane paint instead of painting nothing.
+ *  The live reader is the same chain, so the highlight pin replays the declared
+ *  value fill on mouseout instead of folium's flat author face. */
+const applyValueFillToLayer = (ui: LayerUI, layerId: string): void => {
   const value = effectiveFillValue(ui, layerId);
-  const mode = displayFillMode(ui, layerId);
+  if (value === undefined) return;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  if (isColorBasemap(layerInfo)) return;
+  applyValueFill(
+    ui,
+    layerId,
+    resolvedValue(ui, layerId, value)!,
+    stored => resolvedValue(ui, layerId, stored)!,
+    () => effectiveFillValue(ui, layerId),
+  );
+};
 
-  if (mode === STYLE_MODE.VALUE && value !== undefined) {
-    // A solid-color basemap has no leaves to classify, so a value fill degrades to
-    // the authored pane paint instead of painting nothing.
-    if (!isColorBasemap(layerInfo)) {
-      // Paint the column the row shows: the stored config's field resolved
-      // against the current data, the same rule `valueForUi` applies. The live
-      // reader is that chain again, so the highlight pin replays the declared
-      // value fill on mouseout instead of folium's flat author face.
-      applyValueFill(
-        ui,
-        layerId,
-        resolvedValue(ui, layerId, value)!,
-        stored => resolvedValue(ui, layerId, stored)!,
-        () => effectiveFillValue(ui, layerId),
-      );
-    }
-    return;
-  }
-
-  // The original-colors mode owns no fill value: the author's per-feature paint
-  // is the target, so the overrides are treated as absent and the walk below
-  // restores each leaf's captured author face. They stay in the intent record
-  // rather than being cleared, so a later switch back to solid still restores
-  // the user's color and opacity.
-  const original = mode === STYLE_MODE.ORIGINAL;
-  const solid = mode === STYLE_MODE.SOLID;
+/** Apply the solid / original branch: one colour (or none, in ORIGINAL — the
+ *  author's per-feature paint is the target) plus the opacity override that
+ *  rides both modes. Walks the layer tree, committing or restoring each leaf's
+ *  author face. */
+const applySolidFillToLayer = (
+  ui: LayerUI,
+  layerId: string,
+  original: boolean,
+): void => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const solid = !original;
   // SOLID owns exactly one colour. When no FILL_COLOR intent exists the base
   // colour is the layer's authored base — NOT each leaf's captured author bag,
   // which for a per-feature layer holds a different colour per leaf (restoring
   // it is the original mode's job, not solid's). The base is the same reader
   // the solid row's swatch uses (buildSolidDetail), so the panel and the map
-  // cannot disagree about what "solid" means. Computed once and captured: the
-  // highlight getter below replays the same value without a per-hover walk.
-  // Only a per-feature layer needs the derivation: a uniform layer's author
-  // face is already one colour, so no intent means no walk (an uncommitted
-  // layer keeps folium's own hover handling and gains no listener). A
-  // degenerate value record (mode=value, no config) and a colour basemap own
-  // no derivable base either.
+  // cannot disagree about what "solid" means. Only a per-feature layer needs
+  // the derivation: a uniform layer's author face is already one colour, so no
+  // intent means no walk (an uncommitted layer keeps folium's own hover
+  // handling and gains no listener). A degenerate value record (mode=value, no
+  // config) and a colour basemap own no derivable base either.
   const deriveSolidBase =
     solid && !isColorBasemap(layerInfo) && needsDerivation(ui, layerId, FACE.FILL);
   const solidColor =
@@ -218,7 +199,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   const color = original ? undefined : solidColor;
   // An opacity override rides BOTH modes (#953): even in ORIGINAL the user's
   // transparency is a real face the map must paint (the colour stays the
-  // author's). The `original ? undefined` guard would silently drop an
+  // author's). The original-guard would silently drop an
   // opacity-only override the moment the mode reads ORIGINAL.
   const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
 
@@ -234,11 +215,11 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     return;
   }
 
-  // Snapshot-then-resolve: the registry's own `layer` reference is fast and
-  // stable once populated, so it wins; the controller's `findLayer` re-resolves
+  // Snapshot-then-resolve: the registry's own layer reference is fast and
+  // stable once populated, so it wins; the controller's findLayer re-resolves
   // against the live map for a folium layer whose registry reference is still
-  // null. Same late-binding defense used by `applyBorderToLayer` and
-  // `FILL_DIMENSION.reset`.
+  // null. Same late-binding defense used by applyBorderToLayer and
+  // FILL_DIMENSION.reset.
   const layer = (layerInfo?.layer ?? ui.c.findLayer(layerId)) as StyleCarrier | null;
   if (!layer) return;
   const values: Record<string, unknown> = {};
@@ -251,13 +232,13 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
     // restore, no listener. An uncommitted layer keeps folium's own hover
     // handling and gains no per-leaf cost.
     if (!hasOverride && !written) return;
-    // One `setStyle` per leaf, never a restore followed by a commit - the
+    // One setStyle per leaf, never a restore followed by a commit - the
     // two-call form wrote the same face twice per leaf, which doubled the DOM
     // and SVG attribute work on top of the walk.
     if (hasOverride && values.fillColor !== undefined) {
       // A color commit is minimal: it replaces every key the previous mode
       // could have left stale, and the user's opacity never arrives here
-      // unset - `fillOpacity` is set on this same payload whenever the user
+      // unset - fillOpacity is set on this same payload whenever the user
       // has chosen one. Leaving the opacity unnamed keeps the author's value,
       // which is the only value on the leaf while no opacity is chosen.
       commitStyleDim(node, values, FACE.FILL);
@@ -276,7 +257,7 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
 
     // Folium's highlight_on_hover restores the original style on mouseout;
     // pinStyleOnHighlight reapplies the user's fill after folium's handler
-    // fires so the color survives the hover. `walkFillLeaves` already
+    // fires so the color survives the hover. walkFillLeaves already
     // guarantees a setStyle, so no isStyleSetter guard is needed here.
     // The "fill" key makes each commit replace this dimension's getter
     // instead of stacking a fresh closure.
@@ -316,6 +297,19 @@ const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
   });
 };
 
+/** Commit the current fill color and opacity to the layer. Walks the layer
+ *  tree and calls setStyle({fillColor?, fillOpacity?}) on every leaf that
+ *  has a setStyle. A node without a setter is skipped silently.
+ *
+ *  The engine resolves the mode (the panel's resolver) and dispatches to the
+ *  adapter's apply hooks — the same precedence the row uses, so the map and
+ *  the panel cannot disagree about which mode is in force.
+ *
+ *  Kept separate from the persistence plumbing (commitFillColor,
+ *  commitFillOpacity) so the walk is unit-testable without a storage timer. */
+const applyFillToLayer = (ui: LayerUI, layerId: string): void => {
+  applyPaintToLayer(FILL_ADAPTER, ui, layerId);
+};
 /** Shared apply scheduler (styleBag, face=`fill`): one walk per frame.
  *  The wrapper exists only to bind this face's apply fn — flush / drop /
  *  has go straight to styleBag at the call site. */
@@ -423,132 +417,95 @@ const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
     ),
   ];
 };
-/** Fill one detail slot for the active mode. Always disposes the previous
- *  scheme picker first: rebuilding the value detail must not leave a picker
- *  answering clicks for a trigger that no longer exists. */
-const renderFillDetail = (
-  ui: LayerUI,
-  layerId: string,
-  detail: HTMLElement,
+/** The fill detail builder for one mode. The shared engine owns the
+ *  dispose/replace/append shape; this closure is the channel's one difference
+ *  (which mode builds which rows). */
+const fillDetailBuilder = (
   mode: StyleMode,
-): void => {
-  disposeFillRow(ui);
-  detail.innerHTML = "";
+): ((ui: LayerUI, layerId: string) => HTMLElement[]) => {
   // The original-colors mode shows what the author declared and nothing
   // editable: the column (when a scale paired), the colors as one order, and
   // how many there are. No classification controls — those belong to the
   // user's own value fill.
   if (mode === STYLE_MODE.ORIGINAL) {
-    // A single-colour author has one paint to show: the compact [swatch |
-    // opacity] read-only row (design §2.1). A per-feature author has no
-    // single colour to put in a swatch — the shared original-colors detail
-    // (column/colors/method/count) is the honest readout.
-    if (paintsPerFeatureFill(ui, layerId)) {
-      detail.append(...buildOriginalDetail(ui, layerId));
-    } else {
-      detail.append(...buildMonochromeOriginalDetail(ui, layerId));
-    }
-    return;
+    return (ui, layerId) => {
+      // A single-colour author has one paint to show: the compact [swatch |
+      // opacity] read-only row (design §2.1). A per-feature author has no
+      // single colour to put in a swatch — the shared original-colors detail
+      // (column/colors/method/count) is the honest readout.
+      if (paintsPerFeatureFill(ui, layerId)) {
+        return buildOriginalDetail(ui, layerId);
+      }
+      return buildMonochromeOriginalDetail(ui, layerId);
+    };
   }
-  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
-    const fields = valueFields(ui, layerId);
-    detail.append(
-      ...buildValueDetail(ui, layerId, fields, valueForUi(ui, layerId, fields)),
-    );
-    return;
+  if (mode === STYLE_MODE.VALUE) {
+    return (ui, layerId) => {
+      if (!hasValueField(ui, layerId)) return buildSolidDetail(ui, layerId);
+      const fields = valueFields(ui, layerId);
+      return buildValueDetail(ui, layerId, fields, valueForUi(ui, layerId, fields));
+    };
   }
-  detail.append(...buildSolidDetail(ui, layerId));
+  return (ui, layerId) => buildSolidDetail(ui, layerId);
 };
+
+/** The color-basemap row: the pane's paint is the fill, so the single
+ *  swatch row (no modes, no per-feature values to classify). */
+const buildFillBasemapRow = (ui: LayerUI, layerId: string): HTMLElement => {
+  const colorInput = formColorInput({
+    value: toHexColor(getIntent(ui, layerId, INTENT.FILL_COLOR) ?? CONST.COLOR.DEFAULT),
+    className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
+    ariaLabel: ui.T("style_fill"),
+  }) as HTMLInputElement;
+  const row = formRow(
+    ui.T("style_fill"),
+    dom.el("div", { class: PANEL_CLASS.FORM_INLINE }, colorInput),
+    CONST.CLASSES.STYLE_FILL_ROW,
+  );
+  return dom.el(
+    "div",
+    { class: CONST.CLASSES.STYLE_FILL_BLOCK, "data-style-dim": "fill" },
+    row,
+  );
+};
+
+/** The fill row chrome: the class vocabulary (static) + the translated mode
+ *  label (per-UI). The engine reads the chrome from the adapter. */
+const fillChrome = (ui: LayerUI) => ({
+  blockClass: CONST.CLASSES.STYLE_FILL_BLOCK,
+  selectClass: CONST.CLASSES.STYLE_FILL_MODE_SELECT,
+  rowClass: CONST.CLASSES.STYLE_FILL_ROW,
+  detailClass: CONST.CLASSES.STYLE_FILL_DETAIL,
+  label: ui.T("style_fill_mode"),
+});
+
+/** The fill mode-row decoration: the per-feature explanation rides the
+ *  control, not the drawer — the select and its original-colors option both
+ *  carry the sentence as a tooltip/description, so hovering or a screen
+ *  reader still gets it while the panel stays compact. */
+const fillModeRowHint = (
+  ui: LayerUI,
+  layerId: string,
+  select: HTMLSelectElement,
+): void => {
+  if (!paintsPerFeatureFill(ui, layerId)) return;
+  const note = ui.T("style_fill_per_feature_note");
+  select.title = note;
+  select.setAttribute("aria-description", note);
+  const original = select.querySelector(
+    'option[value="original"]',
+  ) as HTMLOptionElement | null;
+  if (original) original.title = note;
+};
+
 /** Build the fill form block. A layer with numeric fields gets the mode row
  *  (solid / color by value) plus the active mode's detail; a layer without one
  *  gets the solid controls only — there is nothing to classify, so offering a
  *  disabled "Color by value" option would just be noise. A color basemap keeps
  *  the pre-existing single swatch row: its fill is the pane paint, which has no
  *  per-feature values to classify. */
-const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (isColorBasemap(layerInfo!)) {
-    const colorInput = formColorInput({
-      value: toHexColor(
-        getIntent(ui, layerId, INTENT.FILL_COLOR) ?? CONST.COLOR.DEFAULT,
-      ),
-      className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
-      ariaLabel: ui.T("style_fill"),
-    }) as HTMLInputElement;
-    const row = formRow(
-      ui.T("style_fill"),
-      dom.el("div", { class: PANEL_CLASS.FORM_INLINE }, colorInput),
-      CONST.CLASSES.STYLE_FILL_ROW,
-    );
-    return dom.el(
-      "div",
-      { class: CONST.CLASSES.STYLE_FILL_BLOCK, "data-style-dim": "fill" },
-      row,
-    );
-  }
-
-  const perFeature = paintsPerFeatureFill(ui, layerId);
-  // Opening on the original colors writes no intent: the map keeps the
-  // author's own paint until the user edits a fill control, and the row states
-  // what it is looking at. Once the user picks it, the choice is a stored mode
-  // like the other two, so it can be left and come back to.
-  const mode = displayFillMode(ui, layerId);
-  // The three modes. "Original colors" is offered only while the author's
-  // record still paints per feature: a layer the author did not paint that way
-  // has no such state to return to, and an option that cannot paint would be a
-  // dead entry. Solid stays selectable even when the mode had no numeric field
-  // a moment ago.
-  const options = [
-    // ORIGINAL is now always offered for a fill-capable layer: the map is
-    // always painting something, and the author's own colours (or the layer
-    // defaults) are the honest baseline readout. The
-    // per-feature note is a tooltip/description only when the author painted
-    // per feature; a single-colour author offers the same state without the
-    // "per feature" sentence.
-    {
-      value: STYLE_MODE.ORIGINAL,
-      label: ui.T(STYLE_MODE_KEY.ORIGINAL),
-      ...(perFeature ? { title: ui.T("style_fill_per_feature_note") } : {}),
-    },
-    { value: STYLE_MODE.SOLID, label: ui.T(STYLE_MODE_KEY.SINGLE) },
-    ...(hasValueField(ui, layerId)
-      ? [{ value: STYLE_MODE.VALUE, label: ui.T(STYLE_MODE_KEY.BY_VALUE) }]
-      : []),
-  ];
-
-  const {
-    block: modeRow,
-    select,
-    detail,
-  } = buildModeRow({
-    label: ui.T("style_fill_mode"),
-    selectClass: CONST.CLASSES.STYLE_FILL_MODE_SELECT,
-    rowClass: CONST.CLASSES.STYLE_FILL_ROW,
-    detailClass: CONST.CLASSES.STYLE_FILL_DETAIL,
-    value: mode,
-    options,
-    surface: dropdownSurface(ui.c.map.getContainer()),
-    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
-  });
-  if (perFeature) {
-    // The explanation lives on the control, not in the drawer: the select and
-    // its original-colors option both carry the sentence as a
-    // tooltip/description, so hovering or a screen reader still gets it while
-    // the panel stays compact.
-    const note = ui.T("style_fill_per_feature_note");
-    select.title = note;
-    select.setAttribute("aria-description", note);
-  }
-
-  renderFillDetail(ui, layerId, detail, mode);
-
-  return dom.el(
-    "div",
-    { class: CONST.CLASSES.STYLE_FILL_BLOCK, "data-style-dim": "fill" },
-    modeRow,
-    detail,
-  );
-};
+const buildFillRow = (ui: LayerUI, layerId: string): HTMLElement =>
+  buildPaintRow(FILL_ADAPTER, ui, layerId);
 /** Bind the solid mode's two live controls. */
 const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): void => {
   const colorEl = detail.querySelector(
@@ -593,22 +550,37 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     opacityEl.onblur = flush;
   }
 };
-/** Bind one detail slot for the active mode (solid color/opacity or the value
- *  controls). Called on open and again after every mode switch. */
-const bindFillDetail = (
-  ui: LayerUI,
-  layerId: string,
-  detail: HTMLElement,
+/** The fill sub-dimensions that ride every mode. The fill channel's
+ *  opacity input is built inside each mode's detail row (solid, value,
+ *  original) and bound by that mode's binder, so it is not a shared
+ *  sub-element the engine sweeps separately — the sub list stays empty
+ *  until the full adapter step mounts the opacity row through one builder. */
+const fillSubs: PaintSubDimension[] = [];
+
+/** The fill detail binder for one mode. The shared engine owns the
+ *  sub-dimension sweep; this closure is the channel's one difference (which
+ *  mode binds which controls). The original-colors detail is a read-only
+ *  readout, so it binds nothing. */
+const fillDetailBinder = (
   mode: StyleMode,
-): void => {
-  // The original-colors detail is a read-only readout: nothing to bind.
-  if (mode === STYLE_MODE.ORIGINAL) return;
-  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
-    bindValueDetail(ui, layerId, detail);
-  } else {
-    bindSolidDetail(ui, layerId, detail);
+): ((ui: LayerUI, layerId: string, detail: HTMLElement) => void) => {
+  if (mode === STYLE_MODE.ORIGINAL) {
+    // The original-colors detail is a read-only readout: nothing to bind.
+    return () => undefined;
   }
+  if (mode === STYLE_MODE.VALUE) {
+    return (ui, layerId, detail) => {
+      if (hasValueField(ui, layerId)) bindValueDetail(ui, layerId, detail);
+      else bindSolidDetail(ui, layerId, detail);
+    };
+  }
+  return (ui, layerId, detail) => bindSolidDetail(ui, layerId, detail);
 };
+
+/** Wire the fill block: the mode select switches modes in place (rebuilding the
+ *  detail slot), and the active mode's controls commit through the dimension's
+ *  write path. A color basemap row or a layer with one mode (no numeric field)
+ *  has no mode select and only owns the solid controls. */
 /** Wire the fill block: the mode select switches modes in place (rebuilding the
  *  detail slot), and the active mode's controls commit through the dimension's
  *  write path. A color basemap row or a layer with one mode (no numeric field)
@@ -621,7 +593,6 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     bindSolidDetail(ui, layerId, row);
     return;
   }
-
   const select = block.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
   ) as HTMLSelectElement | null;
@@ -630,34 +601,51 @@ const bindFillRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
     bindSolidDetail(ui, layerId, block);
     return;
   }
-  const detail = block.querySelector(
-    `.${CONST.CLASSES.STYLE_FILL_DETAIL}`,
-  ) as HTMLElement;
-
-  select.onchange = () => {
-    // The mode the row was in before the browser moved the select's value. It
-    // is resolved, not read off the select, so the fallback state (an explore
-    // layer that has never been switched) is recognised as "original" too.
-    const previous = displayFillMode(ui, layerId);
-    const next: StyleMode =
-      select.value === STYLE_MODE.VALUE
-        ? STYLE_MODE.VALUE
-        : select.value === STYLE_MODE.ORIGINAL
-          ? STYLE_MODE.ORIGINAL
-          : STYLE_MODE.SOLID;
-    if (next === previous) return;
-    writeFillMode(ui, layerId, next);
-    // Leaving the original colors must repaint. The solid apply derives the
-    // base colour itself (styleBaseOf) when no FILL_COLOR intent exists, so
-    // the map takes the fill over without writing an intent the user never
-    // chose — a seed would persist a fake "user picked this" colour that a
-    // Reset would then show.
-    renderFillDetail(ui, layerId, detail, next);
-    bindFillDetail(ui, layerId, detail, next);
-  };
-
-  bindFillDetail(ui, layerId, detail, displayFillMode(ui, layerId));
+  bindPaintRow(FILL_ADAPTER, ui, layerId, row);
 };
+/** The fill channel's paint-dimension adapter: every channel difference the
+ *  engine needs, in one object. The row/apply entry points
+ *  (buildFillRow / bindFillRow / applyFillToLayer) are the thin named
+ *  delegates the registry and the panel call; the adapter carries the
+ *  channel's own vocabulary, gates, and hooks. */
+const FILL_ADAPTER: PaintDimension = {
+  key: DIM.FILL,
+  chrome: fillChrome,
+  intentKeys: FILL_INTENT_KEYS,
+  face: FACE.FILL,
+  gate: layerCanFill,
+  authorFace: (ui, layerId, key) => authorFaceOf(ui, layerId, FACE.FILL, key),
+  needsDerivation: (ui, layerId) => needsDerivation(ui, layerId, FACE.FILL),
+  displaySpec: (ui, layerId) => ({
+    stored: getIntent(ui, layerId, INTENT.FILL_MODE),
+    declaredValue: declaredValue(ui, layerId) !== undefined,
+    colorIntent: getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined,
+    valueIntent: getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined,
+    carriesValue: true,
+    supportsInherit: false,
+  }),
+  modes: (ui, layerId) => {
+    const modes: StyleMode[] = [STYLE_MODE.ORIGINAL, STYLE_MODE.SOLID];
+    if (hasValueField(ui, layerId)) modes.push(STYLE_MODE.VALUE);
+    return modes;
+  },
+  subs: fillSubs,
+  detailBuilder: fillDetailBuilder,
+  detailBinder: fillDetailBinder,
+  applyHooks: {
+    value: applyValueFillToLayer,
+    original: (ui, layerId) => applySolidFillToLayer(ui, layerId, true),
+    solid: (ui, layerId) => applySolidFillToLayer(ui, layerId, false),
+  },
+  hasValue: (ui, layerId) => effectiveFillValue(ui, layerId) !== undefined,
+  derivedKey: () => "fillColor" as const,
+  writeMode: writeFillMode,
+  dispose: disposeFillRow,
+  isBasemap: (ui, layerId) => isColorBasemap(ui.c.layerRegistry.get(layerId)),
+  buildBasemapRow: buildFillBasemapRow,
+  modeRowHint: fillModeRowHint,
+};
+
 /** One attach-sweep paint per layer: `applyUserState()` also runs on folds
  *  and renames, and a declared value fill reclassifies every leaf — an idempotent
  *  but O(N) walk the sweep should not repeat. */
