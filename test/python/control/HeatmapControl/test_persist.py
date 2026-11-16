@@ -53,7 +53,7 @@ class TestHeatmapControlPersistBrowser:
             assert saved["numClasses"] == 4
 
             # Reload: applySavedConfig must restore the layer AND re-render.
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl", state="attached", timeout=10000
             )
@@ -102,7 +102,7 @@ class TestHeatmapControlPersistBrowser:
 
             # Reload: with no saved config, multi-layer page must NOT auto-select
             # or render (defaults apply).
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-heatmap-ctrl", state="attached", timeout=10000
             )

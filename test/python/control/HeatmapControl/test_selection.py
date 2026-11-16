@@ -239,7 +239,7 @@ class TestHeatmapControlSelectionBrowser:
             field="val",
             agg="sum",
         ) as (page, errors):
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             heatmap_ready(page)
             page.evaluate(_js("HeatmapControl/click_toggle_button"))
             page.wait_for_selector(
@@ -345,7 +345,7 @@ class TestHeatmapControlSelectionBrowser:
             heatmap_ready(page)
 
             other = page.evaluate(snippet("HeatmapControl/selection_set_persisted"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             heatmap_ready(page)
 
             state = page.evaluate(_js("HeatmapControl/read_manager_auto_select_state"))
