@@ -58,8 +58,10 @@ import {
   dropdownOverlay,
   finishPanelReset,
   finishSlidersIn,
+  firstUsableControl,
   panelButton,
   sectionDivider,
+  syncPanelAction,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -78,6 +80,11 @@ const fmtValue = (v: number): string => String(Number(v.toFixed(6)));
 type FilterCapability = {
   filterProvider: () => LayerFilterModel | null;
   filterSetter: (filter: LayerFilter) => void;
+  /** Cheap read of whether the owner has at least one filterable field. The
+   *  menu gate calls this per row; a full filterProvider() model build (dimension
+   *  projection) would re-traverse the snapshot on every row render. Absent =
+   *  fall back to calling filterProvider() once in the gate. */
+  hasFilterFields?: () => boolean;
 };
 
 type FilterCapableInfo = LayerInfo & FilterCapability;
@@ -92,7 +99,7 @@ const isFilterCapable = (
   typeof info.filterProvider === "function" &&
   typeof info.filterSetter === "function";
 
-const capabilityOf = (ui: LayerUI, layerId: string): FilterCapableInfo | null => {
+const filterCapabilityOf = (ui: LayerUI, layerId: string): FilterCapableInfo | null => {
   const info = ui.c.layerRegistry.get(layerId);
   return isFilterCapable(info) ? info : null;
 };
@@ -186,11 +193,11 @@ const syncReadout = (
     .replace("{total}", fmtCount(model.total));
   // Clear is the only footer action and it is live: disabled exactly when
   // there is nothing to clear (the owner reports no committed filter).
-  view.clear.disabled = !model.filter;
-  view.clear.setAttribute("aria-disabled", model.filter ? "false" : "true");
-  view.clear.title = model.filter
-    ? ui.T("filter_clear_tooltip")
-    : ui.T("filter_clear_disabled");
+  syncPanelAction(view.clear, {
+    disabled: !model.filter,
+    enabledTitle: ui.T("filter_clear_tooltip"),
+    disabledTitle: ui.T("filter_clear_disabled"),
+  });
 };
 
 /** Push the owner's current model into the open view: the condition control
@@ -233,16 +240,18 @@ const buildFooter = (
   clear.addEventListener("click", () => {
     finishPanelReset({
       restore: () => hooks.write(undefined),
+      // The owner write is the only step here; report it instead of letting a
+      // throwing setter swallow the focus half of the reset outcome.
+      onError: error => ui.log.warn("filter clear failed", error),
       close,
       // Clearing disables Clear itself; focus falls to the panel's first
-      // usable control so keyboard users can keep going.
+      // usable control so keyboard users can keep going (the same resolver
+      // the style panel's Reset uses).
       focus: () => {
         const panel = clear.closest<HTMLElement>(
           `.${CONST.CLASSES.FILTER_PANEL}`,
         ) as HTMLElement;
-        return panel.querySelector<HTMLElement>(
-          "button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex='-1'])",
-        );
+        return firstUsableControl(panel);
       },
     });
   });
@@ -412,7 +421,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
-  const cap = capabilityOf(ui, layerId);
+  const cap = filterCapabilityOf(ui, layerId);
 
   // The row's title names the layer; the dialog itself is named by what
   // the surface is, so a screen reader announces the panel, not the layer
@@ -469,6 +478,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
         closeFilterPanel(ui, false);
         return;
       }
+
       state.activeField = field;
       state.writing = true;
       try {
@@ -573,5 +583,5 @@ const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
   if (setFocus) item.focus();
 };
 
-export { closeFilterPanel, isFilterCapable, openFilterPanel };
+export { closeFilterPanel, filterCapabilityOf, isFilterCapable, openFilterPanel };
 export type { FilterPanelState };

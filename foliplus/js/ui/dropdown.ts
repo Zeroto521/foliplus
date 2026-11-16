@@ -320,7 +320,9 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     },
     renderTrigger: () => renderLabel(state),
     onRowActivate: index => activateRow(state, index),
-    onToggle: opts.onToggle ?? undefined,
+    onToggle: open => {
+      opts.onToggle?.(open, listbox.getList());
+    },
   });
   state.listbox = listbox;
 
@@ -351,7 +353,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       listboxOf(state).refresh();
     }
   };
-
   // A programmatic `change` (tests, a preset loader, another control) is the
   // one signal we get that the select moved: re-read it.
   const onChangeNative = (): void => refresh();

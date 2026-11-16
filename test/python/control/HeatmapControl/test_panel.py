@@ -41,6 +41,7 @@ from conftest import (
     assert_map_unchanged,
     feature_collection,
     heatmap_ready,
+    inject_fullscreen_stub,
     load_geojson,
     make_browser_page,
     map_center_zoom,
@@ -279,10 +280,7 @@ class TestHeatmapControlPanelBrowser:
 def _stub_native_fullscreen(html: str) -> str:
     """Disable the Fullscreen API before the page's scripts run, so
     FullscreenControl takes its pseudo-fullscreen fallback."""
-    return html.replace(
-        "<body>",
-        f"<body>\n        <script>\n          {snippet('common/fullscreen_stub').strip()}\n        </script>",
-    )
+    return inject_fullscreen_stub(html)
 
 
 def _dropdown_make_page(browser, tmp_path, *, pseudo: bool = False):

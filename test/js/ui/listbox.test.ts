@@ -1385,6 +1385,60 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
     );
     expect(activated).toEqual([2]);
   });
+
+  it("cycle ArrowUp walks back to the previous enabled scheme and no-ops when nothing is selected", () => {
+    const activated: number[] = [];
+    let selectedNow: string[] = ["c"];
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    const cell = document.createElement("div");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+    const listbox = createListbox({
+      trigger,
+      items: () => [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta", disabled: true },
+        { value: "c", label: "Gamma" },
+      ],
+      selected: () => selectedNow,
+      shape: {
+        rowTag: "button",
+        dataKey: "data-value",
+        selectedClass: "last-selected",
+        disabledAttr: "disabled",
+        activedescendant: "none",
+      },
+      classes: {
+        list: "last-list",
+        row: "last-row",
+        portal: "last-portal",
+        up: "last-up",
+        open: "last-open",
+      },
+      surface: { onSurfaceChange: () => () => {} },
+      dismiss: { kind: "local" },
+      triggerKeys: "cycle",
+      onRowActivate: index => {
+        activated.push(index);
+      },
+    });
+    cleanup.push(() => listbox.destroy());
+    // Closed state: ArrowUp from c (index 2) walks back past the disabled
+    // b to a (index 0), never activating b.
+    trigger.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(activated).toEqual([0]);
+    activated.length = 0;
+    selectedNow = ["gone"];
+    // A selection that no item matches makes the cycle no-op (nothing to
+    // move from) rather than activating the first row by accident.
+    trigger.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true }),
+    );
+    expect(activated).toEqual([]);
+  });
 });
 
 describe("listbox engine: inline mount returns the list to its host", () => {

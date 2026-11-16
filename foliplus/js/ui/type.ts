@@ -179,6 +179,11 @@ interface SliderOptions {
   /** Id of a description element, announced with the control (and, for a
    *  range, with the group). */
   describedBy?: string;
+  /** Keep the two end readouts under the rail showing the CURRENT thumb
+   *  values (not the static extent) and refresh them on every value change.
+   *  Opt-in: the filter panel wants the current range always readable;
+   *  opacity/zoom-range keep the static extent readout. */
+  alwaysVisible?: boolean;
 }
 
 /** Everything drawing a canvas label needs, resolved from the tokens. */

@@ -157,10 +157,11 @@ describe("LayerUI filter panel", () => {
 
   describe("the ⋮ menu gate", () => {
     it("hides the filter entry for layers without the filter capability", () => {
-      const item = findItem(ui, "overlay1"); // registered without capability
+      // A base layer is excluded from the generic filter injection (role
+      // check in injectGenericFilterCapability), so its ⋮ menu has no
+      // Filter entry — a control that can never run is not rendered at all.
+      const item = findItem(ui, "base1");
       ui.openMoreMenu(item);
-      // A control that can never run is not rendered at all — no disabled
-      // row, no "not supported" tooltip sitting in every menu.
       expect(
         item.querySelector(`[data-action="${CONST.ACTION.FILTER_LAYER}"]`),
       ).toBeNull();
@@ -416,6 +417,43 @@ describe("LayerUI filter panel", () => {
         expect(rt[1].getAttribute("aria-valuenow")).toBe("100");
       });
 
+      it("switches fields without a transient notice row", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const rowsBefore = panel.querySelectorAll(".foliplus-form-row").length;
+
+        // No auto-hide timer may be scheduled for a notice: the switch is
+        // silent, so the panel body keeps exactly its own rows.
+        const timerSpy = vi.spyOn(window, "setTimeout");
+
+        // Commit a mag atom, then switch to depth: the switch discards the
+        // committed condition, and the panel says nothing about it.
+        owner.filterSetter({
+          kind: "atom",
+          field: "mag",
+          op: "between",
+          range: [2, 8],
+        });
+        const select = panel.querySelector("select") as HTMLSelectElement;
+        select.value = "depth";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        expect(timerSpy.mock.calls.some(call => Number(call[1]) === 4000)).toBe(false);
+        timerSpy.mockRestore();
+        expect(document.querySelector(".foliplus-filter-field-hint")).toBeNull();
+        expect(panel.querySelectorAll(".foliplus-form-row").length).toBe(rowsBefore);
+        // The switch still lands: the depth slider replaced the mag one.
+        expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).not.toBeNull();
+      });
+
       it("a stale select change after the panel closed does not rebuild", () => {
         registerPoints();
         const owner = makeMultiFieldOwner();
@@ -462,6 +500,59 @@ describe("LayerUI filter panel", () => {
 
         expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
         expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      });
+
+      it("selectField rebuilds for the newly chosen field", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+
+        const panel = item.querySelector(
+          `.${CONST.CLASSES.FILTER_PANEL}`,
+        ) as HTMLElement;
+        const select = panel.querySelector("select") as HTMLSelectElement;
+        select.value = "depth";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+
+        // onField cleared the committed filter and the body rebuilt for the
+        // new field: the depth slider replaced the mag one.
+        expect(owner.filter).toBeUndefined();
+        expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).not.toBeNull();
+        const rowLabels = panel.querySelectorAll(
+          ".foliplus-form-row .foliplus-form-label",
+        );
+        // The first label is the field row's caption; the range row is second.
+        expect(rowLabels[1].textContent).toBe(ui.T("filter_range"));
+      });
+
+      it("closeFilterPanel destroys a rows body but leaves the empty body alone", () => {
+        registerPoints();
+        const owner = makeMultiFieldOwner();
+        const reg = ui.c.layerRegistry.get("pnt") as any;
+        reg.filterProvider = owner.filterProvider;
+        reg.filterSetter = owner.filterSetter;
+        const item = findItem(ui, "pnt");
+        ui.openFilterPanel(item);
+        ui.closeFilterPanel(false);
+        // No throw and no leak: the rows view's destroy ran, the panel is gone.
+        expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+        expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      });
+
+      it("closeFilterPanel leaves the empty body alone and removes the panel", () => {
+        registerPoints();
+        // A row with no capability: the panel shows the empty body, and the
+        // close path must skip the rows-body destroy (there is none).
+        const item = findItem(ui, "overlay1");
+        ui.openFilterPanel(item);
+        expect(item.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
+        ui.closeFilterPanel(false);
+        expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+        expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
       });
 
       it("falls back to the first field when the committed atom names an unknown field", () => {
@@ -1948,6 +2039,29 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     expect(clear.getAttribute("aria-disabled")).toBe("false");
     clear.click();
     expect(owner.filter).toBeUndefined();
+  });
+
+  it("reports a throwing owner setter and keeps the panel open", () => {
+    const { owner } = registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    commit(owner);
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+    const reg = manager.layerRegistry.get("pnt")!;
+    (reg as unknown as { filterSetter: () => void }).filterSetter = () => {
+      throw new Error("boom");
+    };
+    const warn = vi.spyOn(ui.log, "warn").mockImplementation(() => {});
+    (
+      panel.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement
+    ).click();
+
+    expect(warn).toHaveBeenCalled();
+    // Clear keeps the panel open (keep-open policy): the focus half still ran.
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    warn.mockRestore();
   });
 
   it("Escape closes the live panel (no Done / Apply step)", () => {

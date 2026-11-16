@@ -1351,7 +1351,7 @@ class TestDeclaredFillBrowser:
             # what Reset would return to.
             page.evaluate(_PICK_SCHEME, {"scheme": "Blues"})
             page.wait_for_timeout(300)
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl .foliplus-toggle-btn",
                 state="attached",
