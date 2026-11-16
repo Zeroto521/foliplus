@@ -452,3 +452,36 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert clicked.get("folderGone") is True, clicked
 
             assert not errors, f"JS errors: {errors}"
+
+    def test_filter_enum_dropdown_search_reaches_past_cap(
+        self, browser, tmp_path
+    ):
+        """The truncated enum dropdown exposes a search box and reaches values
+        beyond the render cap (commit3: search over a 40-value domain).
+
+        A synthetic enum owner with a 40-value domain (marked truncated) is
+        registered; the panel's enum dropdown must render a search input
+        (threshold 30 <= domain size), filtering must reach the value past
+        the 30-row cap, and selecting that value must commit to the filter.
+        """
+        layer = folium.GeoJson(_geo_mixed, name="Enum search")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/filter_enum_search_body"))
+            assert res is not None, "enum search probe could not run"
+            assert res.get("ok"), res
+            # The truncated domain renders a search box (threshold <= 30).
+            assert res["searchBefore"] is True, res
+            # The dropdown opens with a search input and no query shows the
+            # render cap (30 rows for a 40-value domain).
+            assert res["searchAfterOpen"] is True, res
+            assert res["listOpen"] is True, res
+            assert res["optionCountNoQuery"] <= 30, res
+            # A query matching only the tail reaches the 31st+ value.
+            assert res["optionCountFiltered"] >= 1, res
+            assert res["filteredValue"] == "value-39", res
+            assert res["statusText"], res
+            # The value past the cap commits to the filter.
+            assert res["selectedCount"] == 1, res
+            assert res["selected"] == ["value-39"], res
+            assert not errors, f"JS errors: {errors}"
