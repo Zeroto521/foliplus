@@ -28,6 +28,15 @@ import { buildValueDetail, hasValueField, resolvedValue, valueFields } from "./f
 import { paintsPerFeatureFill } from "./fillAuthor.js";
 import { valueSchemeForUi, valueSchemes } from "./fillValue.js";
 import { buildOriginalDetail } from "./originalDetail.js";
+import {
+  type PaintDimension,
+  type PaintRowChrome,
+  type PaintSubDimension,
+  applyPaintToLayer,
+  bindPaintDetail,
+  bindPaintRow,
+  buildPaintRow,
+} from "./paintDimension.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -36,7 +45,6 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 import { registerFaceReplay } from "./replay.js";
-import { buildModeRow } from "./row.js";
 import { applyValueStroke, resolveStrokeMode } from "./strokeValue.js";
 import {
   FACE,
@@ -76,27 +84,20 @@ import {
 } from "#core/value/index.js";
 import {
   type DisplayModeSpec,
-  resolveDisplayAndDetail,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
 import { dom } from "#platform/dom.js";
 import { withUnit } from "#platform/format.js";
-import {
-  dropdownSurface,
-  fullscreenSurface,
-  onFullscreenSurfaceChange,
-} from "#platform/fullscreen.js";
+import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
 import {
   BORDER_WEIGHT,
   PANEL_CLASS,
-  STYLE_MODE_KEY,
   type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
   colorInput,
   createSchemePicker,
   dropdownOf,
-  dropdownOverlay,
   inlineControls,
   normalizeHexColor,
   numberInput,
@@ -386,54 +387,52 @@ const derivedFillColor = (node: StyleSetter): string | undefined => {
   return node.options?.color;
 };
 
-const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
-  // Register this UI's stroke replay once (idempotent): a follow-fill border
-  // re-derives from the leaf's current fill, and the fill writer asks for
-  // this replay by face — no direct fill → border import, no cycle.
-  registerFaceReplay(ui, FACE.STROKE, id => applyBorderToLayer(ui, id));
-  // Value mode: when the derived border mode is 'value' and a value exists,
-  // delegate the whole face to the stroke engine. The engine owns the
-  // per-leaf classification, the merged author+value write, and the
-  // highlight pin — this function only derives the live config so the
-  // pin's getter and a later fill-only repaint agree with this paint.
+const applyValueStrokeToLayer = (ui: LayerUI, layerId: string): void => {
+  // Value mode: the derived border mode is 'value' and a value exists — the
+  // stroke engine owns the per-leaf classification, the merged author+value
+  // write and the highlight pin. This hook only derives the live config so
+  // the pin's getter and a later fill-only repaint agree with this paint.
   const value = effectiveBorderValue(ui, layerId);
-  if (borderValueActive(ui, layerId)) {
-    applyValueStroke(
-      ui,
-      layerId,
-      resolvedValue(ui, layerId, value)!,
-      stored => resolvedValue(ui, layerId, stored)!,
-      () => effectiveBorderValue(ui, layerId),
-      () => effectiveBorderMode(ui, layerId),
-      getIntent(ui, layerId, INTENT.BORDER_WEIGHT),
-    );
-    return;
-  }
-  // Solid path (unchanged): a flat color+weight write per leaf.
-  // ORIGINAL owns no user colour: the author's per-leaf stroke is the target,
-  // so the colour override is treated as absent and the walk below restores
-  // each leaf's captured author face (mirror of fill's original mode). It stays
-  // in the intent record, so a later switch back to solid still restores it.
-  const mode = effectiveBorderMode(ui, layerId);
-  const original = mode === STYLE_MODE.ORIGINAL;
-  const solid = mode === STYLE_MODE.SOLID;
-  // FOLLOW_FILL paints the border with the fill's current colour (single mode
-  // only - displayBorderMode falls back otherwise). Never a copy: the intent
-  // stays absent, so a fill edit recomputes the border through contentChange.
-  const followFill = mode === STYLE_MODE.FOLLOW_FILL;
-  // SOLID owns exactly one colour (mirror of fill's deriveSolidBase). When no
-  // BORDER_COLOR intent exists the base is the layer's authored stroke — NOT
-  // each leaf's captured author bag, which for a per-feature layer holds a
-  // different colour per leaf (restoring it is the original mode's job, not
-  // solid's). The base is the same reader the solid row's swatch uses
-  // (buildSolidBorderDetail -> authoredBorder -> authorFaceOf), so the panel
-  // and the map cannot disagree. Only a per-feature layer needs the
-  // derivation: a uniform layer's author stroke is already one colour, and a
-  // colour basemap is excluded by the layerCanBorder capability gate.
+  if (value === undefined) return;
+  applyValueStroke(
+    ui,
+    layerId,
+    resolvedValue(ui, layerId, value)!,
+    stored => resolvedValue(ui, layerId, stored)!,
+    () => effectiveBorderValue(ui, layerId),
+    () => effectiveBorderMode(ui, layerId),
+    getIntent(ui, layerId, INTENT.BORDER_WEIGHT),
+  );
+};
+
+/** Apply the solid / original / follow-fill branch: one stroke colour (or
+ *  none, in ORIGINAL — the author's per-feature stroke is the target) plus
+ *  the weight override that rides every mode. FOLLOW_FILL re-derives each
+ *  leaf's colour from that leaf's current fill; SOLID owns exactly one
+ *  derived base when no colour intent exists. Walks the layer tree,
+ *  committing or restoring each leaf's author face.
+ *
+ *  `followFill` is a per-leaf derived paint (never a copy into the border
+ *  intent), so it is dispatched separately from the single-colour walk. */
+const applySolidStrokeToLayer = (
+  ui: LayerUI,
+  layerId: string,
+  original: boolean,
+  followFill: boolean = false,
+  base?: string,
+): void => {
+  const solid = !original && !followFill;
   const deriveSolidBase = solid && needsDerivation(ui, layerId, FACE.STROKE);
+  // P3(a): the engine passes the derived author base for a per-feature layer;
+  // the hook consumes it first, then the colour intent, then the shared
+  // solidColorOf (which applies the defaults fallback itself). For a
+  // no-intent deriving layer base and solidColorOf are the same reader
+  // (authorFace ?? DEFAULT), so this is behaviour-identical to the old
+  // getIntent ?? solidColorOf while making the engine-passed base the
+  // authoritative source instead of an advisory dead parameter.
   const solidColor =
     getIntent(ui, layerId, INTENT.BORDER_COLOR) ??
-    (deriveSolidBase ? solidColorOf(ui, layerId, FACE.STROKE) : undefined);
+    (deriveSolidBase ? (base ?? solidColorOf(ui, layerId, FACE.STROKE)) : undefined);
   const color = original
     ? undefined
     : followFill
@@ -518,6 +517,17 @@ const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
       return styleDimPayload({ color: c, weight: w }, FACE.STROKE);
     });
   });
+};
+
+const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
+  // Register this UI's stroke replay once (idempotent): a follow-fill border
+  // re-derives from the leaf's current fill, and the fill writer asks for
+  // this replay by face — no direct fill → border import, no cycle.
+  registerFaceReplay(ui, FACE.STROKE, id => applyBorderToLayer(ui, id));
+  // Everything after the replay registration is the shared engine dispatch:
+  // VALUE+hasValue→applyValueStrokeToLayer; ORIGINAL→original; FOLLOW_FILL→
+  // solid(undefined); else→needsDerivation→authorFace("color")→solid(base).
+  applyPaintToLayer(BORDER_ADAPTER, ui, layerId);
 };
 /** Shared apply scheduler (styleBag, face=`stroke`): one walk per frame.
  *  The wrapper exists only to bind this face's apply fn — flush / drop /
@@ -842,87 +852,66 @@ const geometryKindOf = (ui: LayerUI, layerId: string): string | null => {
   if (!layerInfo) return null;
   return ui.c.surfaceFor(layerInfo).geometryType();
 };
+/** The border channel's chrome: the engine owns no vocabulary, so the
+ *  adapter carries the classes and label. label is translated through the
+ *  UI so a re-render picks up a locale switch. */
+const borderChrome = (ui: LayerUI): ReturnType<PaintRowChrome> => ({
+  blockClass: CONST.CLASSES.STYLE_BORDER_BLOCK,
+  selectClass: CONST.CLASSES.STYLE_BORDER_MODE_SELECT,
+  rowClass: CONST.CLASSES.STYLE_BORDER_ROW,
+  detailClass: CONST.CLASSES.STYLE_BORDER_DETAIL,
+  label: ui.T("style_border_mode"),
+});
 
-/** Render the detail slot for the active border mode into the block's
- *  detail element. Called on open and after every mode switch. */
-/** The detail mode the border block renders for the current display mode:
- *  'original' and 'solid' both show the solid controls; only an explicit
- *  'value' choice shows the value controls. */
-const borderDetailMode = (ui: LayerUI, layerId: string): StyleMode =>
-  resolveDisplayAndDetail(borderSpec(ui, layerId), { collapseOriginalDetail: true })
-    .detail;
-
-const renderBorderDetail = (
-  ui: LayerUI,
-  layerId: string,
-  detail: HTMLElement,
-  mode: StyleMode,
-): void => {
-  disposeBorderRow(ui);
-  detail.replaceChildren();
-  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
-    const fields = valueFields(ui, layerId);
-    const value = borderValueForUi(ui, layerId, fields);
-    for (const row of buildValueDetail(ui, layerId, fields, value)) {
-      detail.append(row);
-    }
-    // The width stays editable in every border mode: the by-value detail
-    // shares the fill's field/method/scheme rows and appends the border's own
-    // width-only row (the same shell follow-fill and per-feature original
-    // use) — one width channel, no per-mode DOM shape.
-    detail.append(buildBorderWidthOnlyRow(ui, layerId, authoredBorder(ui, layerId)));
-  } else {
-    detail.append(...buildSolidBorderDetail(ui, layerId));
-  }
-};
-
-/** Build the border row block: the mode select (three states for a line,
- *  two for polygon/point) plus the active mode's detail slot. A layer with no
- *  numeric field has no mode select and only owns the solid controls.
- *
- *  The three-state vocabulary applies only where the border IS the element's
- *  primary colour (a line). A polygon/point border is the outline and offers
- *  only original + single; the by_value mode would duplicate the fill's own
- *  value config on the same face. */
-const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
-  const block = dom.el("div", {
-    class: CONST.CLASSES.STYLE_BORDER_BLOCK,
-    "data-style-dim": "border",
-  });
-  if (!hasValueField(ui, layerId)) {
-    block.append(...buildSolidBorderDetail(ui, layerId));
-    return block;
-  }
+/** The border mode options for the current layer. A line carries the
+ *  border as its own primary colour (original + single + by_value); a
+ *  polygon/point border is the outline and offers original + single +
+ *  follow_fill (the fill behind it). A layer with no numeric field offers
+ *  no mode row at all — the engine renders the solid controls directly. */
+const borderModes = (ui: LayerUI, layerId: string): StyleMode[] => {
+  if (!hasValueField(ui, layerId)) return [];
   const carriesValue = borderCarriesValue(ui, layerId);
-  // FOLLOW_FILL is offered only where the border is an outline over a filled
-  // face (polygon/point). A line's border IS its primary colour - there is no
-  // fill to follow, so a fourth option would be a permanently-falling-back
-  // dead entry on a line.
-  const canFollowFill = !carriesValue;
-  const options = [
-    { value: STYLE_MODE.ORIGINAL, label: ui.T(STYLE_MODE_KEY.ORIGINAL) },
-    { value: STYLE_MODE.SOLID, label: ui.T(STYLE_MODE_KEY.SINGLE) },
-    ...(canFollowFill
-      ? [{ value: STYLE_MODE.FOLLOW_FILL, label: ui.T(STYLE_MODE_KEY.FOLLOW_FILL) }]
-      : []),
-    ...(carriesValue
-      ? [{ value: STYLE_MODE.VALUE, label: ui.T(STYLE_MODE_KEY.BY_VALUE) }]
-      : []),
+  return [
+    STYLE_MODE.ORIGINAL,
+    STYLE_MODE.SOLID,
+    ...(carriesValue ? [STYLE_MODE.VALUE] : [STYLE_MODE.FOLLOW_FILL]),
   ];
-  const modeRow = buildModeRow({
-    label: ui.T("style_border_mode"),
-    selectClass: CONST.CLASSES.STYLE_BORDER_MODE_SELECT,
-    rowClass: CONST.CLASSES.STYLE_BORDER_ROW,
-    detailClass: CONST.CLASSES.STYLE_BORDER_DETAIL,
-    value: displayBorderMode(ui, layerId),
-    options,
-    surface: dropdownSurface(ui.c.map.getContainer()),
-    overlay: dropdownOverlay(ensureOverlayRegistry(ui.c.map)),
-  });
-  block.append(modeRow.block, modeRow.detail);
-  renderBorderDetail(ui, layerId, modeRow.detail, borderDetailMode(ui, layerId));
-  return block;
 };
+
+/** The border channel owns no sub-dimension rows: the weight/colour inputs
+ *  are bound by each mode's binder (buildSolidBorderDetail / value rows). */
+const borderSubs: PaintSubDimension[] = [];
+
+/** Build the detail rows for one border mode. The shared engine owns the
+ *  slot lifecycle (dispose + replaceChildren + append); this closure is
+ *  the channel's one difference — which rows a mode shows. */
+const borderDetailBuilder = (
+  mode: StyleMode,
+): ((ui: LayerUI, layerId: string) => HTMLElement[]) => {
+  if (mode === STYLE_MODE.VALUE) {
+    return (ui, layerId) => {
+      if (!hasValueField(ui, layerId)) return buildSolidBorderDetail(ui, layerId);
+      const fields = valueFields(ui, layerId);
+      const value = borderValueForUi(ui, layerId, fields);
+      return [
+        ...buildValueDetail(ui, layerId, fields, value),
+        // The width stays editable in every border mode: the by-value detail
+        // shares the fill's field/method/scheme rows and appends the border's
+        // own width-only row (the same shell follow-fill and per-feature
+        // original use) — one width channel, no per-mode DOM shape.
+        buildBorderWidthOnlyRow(ui, layerId, authoredBorder(ui, layerId)),
+      ];
+    };
+  }
+  return (ui, layerId) => buildSolidBorderDetail(ui, layerId);
+};
+
+/** Build the border row block: the mode select plus the active mode's
+ *  detail slot, or (no numeric field) the solid controls without a select.
+ *  The engine owns the row shape; the adapter carries the channel's mode
+ *  vocabulary. */
+const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement =>
+  buildPaintRow(BORDER_ADAPTER, ui, layerId);
 
 /** Drop the out-of-vocabulary class option once the user picks a 2..9 count;
  *  mirrors fill's convergeClassesRow. */
@@ -1012,23 +1001,36 @@ const bindBorderValueDetail = (
 
 /** Bind one detail slot for the active border mode. Called on open and after
  *  every mode switch. */
-const bindBorderDetail = (
-  ui: LayerUI,
-  layerId: string,
-  detail: HTMLElement,
+/** The border detail binder for one mode. The shared engine owns the
+ *  sub-dimension sweep; this closure is the channel's one difference
+ *  (which mode binds which controls). */
+const borderDetailBinder = (
   mode: StyleMode,
-): void => {
-  if (mode === STYLE_MODE.VALUE && hasValueField(ui, layerId)) {
-    bindBorderValueDetail(ui, layerId, detail);
-    // Bind the width-only row appended to the value detail: the same shell
-    // binder the other modes use, so the weight commits through one channel.
-    bindBorderRowShell(detail, {
-      className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
-      weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
-      onChangeWeight: value => commitBorderWeight(ui, layerId, value),
-      onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
-    });
-  } else {
+): ((ui: LayerUI, layerId: string, detail: HTMLElement) => void) => {
+  if (mode === STYLE_MODE.VALUE) {
+    return (ui, layerId, detail) => {
+      if (!hasValueField(ui, layerId)) {
+        bindBorderRowShell(detail, {
+          className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+          weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+          onChangeColor: value => commitBorderColor(ui, layerId, value),
+          onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+          onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
+        });
+        return;
+      }
+      bindBorderValueDetail(ui, layerId, detail);
+      // Bind the width-only row appended to the value detail: the same shell
+      // binder the other modes use, so the weight commits through one channel.
+      bindBorderRowShell(detail, {
+        className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
+        weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
+        onChangeWeight: value => commitBorderWeight(ui, layerId, value),
+        onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
+      });
+    };
+  }
+  return (ui, layerId, detail) => {
     bindBorderRowShell(detail, {
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
       weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
@@ -1036,17 +1038,55 @@ const bindBorderDetail = (
       onChangeWeight: value => commitBorderWeight(ui, layerId, value),
       onFlush: () => flushStyleDimApply(FACE.STROKE, layerId, ui),
     });
-  }
+  };
 };
 
 /** Wire the border block: the mode select switches modes in place (rebuilding
  *  the detail slot), and the active mode's controls commit through the
- *  dimension's write path. A layer with no numeric field has no mode select
- *  and only owns the solid controls. */
+ *  dimension's write path. A layer with no numeric field or a basemap
+ *  keeps the pre-engine fallback: no select, the solid controls only. */
+/** The border channel's paint-dimension adapter: every channel difference
+ *  the engine needs, in one object. The row/apply entry points
+ *  (buildBorderRow / bindBorderRow / applyBorderToLayer) are the thin named
+ *  delegates the registry and the panel call; the adapter carries the
+ *  channel's own vocabulary, gates, and hooks. */
+const BORDER_ADAPTER: PaintDimension = {
+  key: DIM.BORDER,
+  chrome: borderChrome,
+  intentKeys: BORDER_INTENT_KEYS,
+  face: FACE.STROKE,
+  gate: layerCanBorder,
+  authorFace: (ui, layerId, key) => authorFaceOf(ui, layerId, FACE.STROKE, key),
+  needsDerivation: (ui, layerId) => needsDerivation(ui, layerId, FACE.STROKE),
+  displaySpec: borderSpec,
+  modes: borderModes,
+  inherits: { from: "fill" },
+  subs: borderSubs,
+  detailBuilder: borderDetailBuilder,
+  detailBinder: borderDetailBinder,
+  applyHooks: {
+    value: applyValueStrokeToLayer,
+    original: (ui, layerId) => applySolidStrokeToLayer(ui, layerId, true),
+    solid: (ui, layerId, base) =>
+      applySolidStrokeToLayer(ui, layerId, false, false, base),
+    followFill: (ui, layerId) => applySolidStrokeToLayer(ui, layerId, false, true),
+  },
+  hasValue: (ui, layerId) => borderValueActive(ui, layerId),
+  derivedKey: () => "color" as const,
+  writeMode: writeBorderMode,
+  dispose: disposeBorderRow,
+  // The old border apply read effectiveBorderMode (SOLID for an uncommitted
+  // layer) while the row's select shows the display mode (ORIGINAL). The
+  // apply dispatch must follow the old writer, not the row, so a weight-only
+  // commit on a fresh layer paints { weight } in SOLID, not the original walk.
+  applyMode: (ui, layerId) => effectiveBorderMode(ui, layerId),
+};
+
 const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => {
   const block = (row.closest("[data-style-dim='border']") ??
     row.closest(`.${CONST.CLASSES.STYLE_BORDER_BLOCK}`)) as HTMLElement | null;
   if (!block) {
+    // The row shell owns no block (a direct bind call): bind the solid controls.
     bindBorderRowShell(row, {
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
       weightClassName: CONST.CLASSES.STYLE_BORDER_WEIGHT_INPUT,
@@ -1060,28 +1100,18 @@ const bindBorderRow = (ui: LayerUI, layerId: string, row: HTMLElement): void => 
     `.${CONST.CLASSES.STYLE_BORDER_MODE_SELECT}`,
   ) as HTMLSelectElement | null;
   if (!select) {
-    bindBorderDetail(ui, layerId, block, effectiveBorderMode(ui, layerId));
+    // No mode row (no value field): the block holds the solid detail rows;
+    // bind them through the engine's detail binder for the active mode.
+    bindPaintDetail(
+      BORDER_ADAPTER,
+      ui,
+      layerId,
+      block,
+      effectiveBorderMode(ui, layerId),
+    );
     return;
   }
-  const detail = block.querySelector(
-    `.${CONST.CLASSES.STYLE_BORDER_DETAIL}`,
-  ) as HTMLElement | null;
-  select.onchange = () => {
-    // Compare against the DISPLAY mode (what the select shows), so a
-    // polygon/point layer whose stored mode reads as original again does not
-    // re-write the same mode.
-    const previous = displayBorderMode(ui, layerId);
-    const raw = select.value;
-    const next = raw as StyleMode;
-    if (next === previous) return;
-    if (!writeBorderMode(ui, layerId, next)) return;
-
-    if (detail) {
-      renderBorderDetail(ui, layerId, detail, borderDetailMode(ui, layerId));
-      bindBorderDetail(ui, layerId, detail, borderDetailMode(ui, layerId));
-    }
-  };
-  if (detail) bindBorderDetail(ui, layerId, detail, borderDetailMode(ui, layerId));
+  bindPaintRow(BORDER_ADAPTER, ui, layerId, row);
 };
 /** Register border as a per-layer dimension. The descriptor wires the existing
  *  helpers plus the intent+persist slots: `write` / `reset` own store +

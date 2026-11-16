@@ -94,6 +94,9 @@ interface PaintDimension {
     value: (ui: LayerUI, layerId: string) => void;
     original: (ui: LayerUI, layerId: string) => void;
     solid: (ui: LayerUI, layerId: string, base: string | undefined) => void;
+    /** FOLLOW_FILL: the derived per-leaf walk (border only; fill has no such
+     *  mode, so the engine falls back to solid(ui, layerId, undefined)). */
+    followFill?: (ui: LayerUI, layerId: string) => void;
   };
   /** Whether a value config is actually in force (fill: effectiveFillValue
    *  !== undefined; border: borderValueActive). */
@@ -103,6 +106,12 @@ interface PaintDimension {
   derivedKey: (ui: LayerUI, layerId: string) => keyof StyleBag;
   /** Persist a mode switch + seed the value when switching to by-value. */
   writeMode: (ui: LayerUI, layerId: string, mode: StyleMode) => boolean;
+  /** The mode the apply dispatch reads, when it differs from the display mode
+   *  the row's select shows. Border's old apply read effectiveBorderMode
+   *  (resolveStrokeMode), which is SOLID for an uncommitted layer while the
+   *  display mode reads ORIGINAL — a weight-only commit paints { weight } in
+   *  SOLID, not the original walk. Defaults to the display mode. */
+  applyMode?: (ui: LayerUI, layerId: string) => StyleMode;
   /** Dispose the channel's scheme-picker state (each channel owns its
    *  WeakMap — the engine never merges them). */
   dispose: (ui: LayerUI) => void;
@@ -278,7 +287,9 @@ const bindPaintRow = (
 /** The apply skeleton: resolve the mode, then dispatch to the channel hook
  *  (VALUE delegate / ORIGINAL walk / INHERIT follow / SOLID derived write). */
 const applyPaintToLayer = (dim: PaintDimension, ui: LayerUI, layerId: string): void => {
-  const mode = displayMode(dim, ui, layerId);
+  const mode = dim.applyMode
+    ? dim.applyMode(ui, layerId)
+    : displayMode(dim, ui, layerId);
   if (mode === STYLE_MODE.VALUE && dim.hasValue(ui, layerId)) {
     dim.applyHooks.value(ui, layerId);
     return;
@@ -291,8 +302,14 @@ const applyPaintToLayer = (dim: PaintDimension, ui: LayerUI, layerId: string): v
     // FOLLOW_FILL is the border mode that follows the fill face: the border
     // derives its colour from the fill, so the apply hook receives no base of
     // its own — the channel resolves the fill's colour itself (the "follow
-    // fill" semantic, not an omitted base).
-    dim.applyHooks.solid(ui, layerId, undefined);
+    // fill" semantic, not an omitted base). The border channel owns a
+    // dedicated followFill walk; without it (fill has no such mode) the solid
+    // hook receives undefined, which for a non-deriving channel is no-op.
+    if (dim.applyHooks.followFill) {
+      dim.applyHooks.followFill(ui, layerId);
+    } else {
+      dim.applyHooks.solid(ui, layerId, undefined);
+    }
     return;
   }
   const derived = dim.needsDerivation(ui, layerId)
@@ -302,7 +319,7 @@ const applyPaintToLayer = (dim: PaintDimension, ui: LayerUI, layerId: string): v
   dim.applyHooks.solid(ui, layerId, base);
 };
 
-export type { PaintDimension, PaintSubDimension };
+export type { PaintDimension, PaintRowChrome, PaintSubDimension };
 export {
   applyPaintToLayer,
   bindPaintDetail,
