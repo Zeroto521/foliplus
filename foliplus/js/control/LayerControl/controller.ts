@@ -2140,7 +2140,7 @@ class LayerController implements LayerAPI {
     if (!layer) return false;
     const revision = this.ui?.runtimeStore.getDataRevision(id) ?? 0;
     const cached = this.filterProbe.get(id);
-    if (cached && cached.revision === revision) return cached.has;
+    if (cached?.revision === revision) return cached.has;
     // A cached filterFeatures row is an authoritative presence answer: it was
     // built by a full walk (Tier2) and is valid at this revision, so the
     // bounded probe never needs to re-scan what a full build already knows.

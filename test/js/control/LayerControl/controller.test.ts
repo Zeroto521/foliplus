@@ -6833,6 +6833,83 @@ it("escape hatch: a declared filter reports filterable even when the probe windo
   } as any);
   expect(m.hasFilterableFields("p1")).toBe(true);
 });
+it("scanGenericFields walks a wrapper's _layers registry when eachLayer is absent (T2)", () => {
+  // A wrapper exposes children through _layers but no eachLayer — the
+  // bounded scan must read the registry instead of bailing on an empty
+  // child list (a group whose only children live in _layers).
+  const leaf = {
+    options: {},
+    feature: { properties: { value: 1 } },
+    getElement: () => document.createElement("path"),
+  };
+  const wrapper = {
+    options: {},
+    _layers: { l1: leaf },
+    getBounds: () => ({ isValid: () => true }),
+  };
+  Object.setPrototypeOf(wrapper, new window.L.Path());
+  const { manager: m } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: wrapper as any }],
+  });
+  expect(m.hasFilterableFields("p1")).toBe(true);
+});
+
+it("scanGenericFields tolerates a group whose child enumeration throws (T3)", () => {
+  // A hostile/partial layer may throw from eachLayer or _layers access —
+  // the probe must degrade to "no children scanned" rather than crash a
+  // menu row render.
+  const layer = {
+    options: {},
+    eachLayer: () => {
+      throw new Error("boom");
+    },
+    getBounds: () => ({ isValid: () => true }),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager: m } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
+  });
+  // The probe reads false (nothing scannable) — but it must not throw.
+  expect(() => m.hasFilterableFields("p1")).not.toThrow();
+  expect(m.hasFilterableFields("p1")).toBe(false);
+});
+
+it("ensureGenericHost registers hasFields as a live probe (T4)", () => {
+  // The generic host carries a hasFields closure wired to hasGenericFields;
+  // nothing in the store calls it — it is a caller-side probe. Capture the
+  // registered host and invoke the closure directly: the closure must answer
+  // the bounded probe for the layer it was registered for.
+  const leaf = {
+    options: {},
+    feature: { properties: { value: 1 } },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager: m } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
+  });
+  let captured: { hasFields?: () => boolean } | undefined;
+  const spy = vi
+    .spyOn((m as any).filterStore, "registerHost")
+    .mockImplementation(
+      (id: string, name: string, host: { hasFields?: () => boolean }) => {
+        captured = host;
+      },
+    );
+  m.setLayerFilter("p1", {
+    kind: "atom",
+    field: "value",
+    op: "between",
+    range: [1, 5],
+  } as any);
+  spy.mockRestore();
+  expect(captured?.hasFields).toBeTypeOf("function");
+  expect(captured?.hasFields?.()).toBe(true);
+});
 
 describe("createFolder", () => {
   beforeEach(() => {
@@ -7368,7 +7445,6 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(manager.genericFilterModel("overlay1")!.fields).toEqual([
       { value: "kind", label: "kind", numeric: false },
     ]);
-    const info = manager.layerRegistry.get("overlay1")!;
     expect(manager.hasFilterableFields("overlay1")).toBe(true);
   });
 
