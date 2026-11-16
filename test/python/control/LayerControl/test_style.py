@@ -824,7 +824,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the user's width was erased on return: {entry}"
             )
 
-
     def test_declared_border_follow_fill_is_the_default(self, browser, tmp_path):
         """A layer stamped foliplus={"border": {"mode": "follow_fill"}} opens its
         border mode on followFill with NO stored intent, and the map paints the

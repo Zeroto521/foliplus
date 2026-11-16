@@ -484,6 +484,7 @@ def test_third_source_reuses_shared_normaliser():
 
     assert demo_declared_filter(layer, "Pop") == declared_filter(layer, "Pop")
 
+
 def test_declared_border_follow_fill_is_read():
     layer = _geo(foliplus={"border": {"mode": "follow_fill"}})
     assert declared_border(layer, "Declared") == {"mode": "follow_fill"}
@@ -499,7 +500,10 @@ def test_undeclared_border_is_none_without_a_warning():
 
 def test_invalid_border_warns_and_reads_none():
     with pytest.warns(UserWarning, match="border"):
-        assert declared_border(_geo(foliplus={"border": {"mode": "solid"}}), "Declared") is None
+        assert (
+            declared_border(_geo(foliplus={"border": {"mode": "solid"}}), "Declared")
+            is None
+        )
 
 
 def test_border_stays_out_of_conf():
@@ -508,4 +512,3 @@ def test_border_stays_out_of_conf():
     html = _render(_geo(foliplus={"border": {"mode": "follow_fill"}}))
     entry = _conf(html)["data"][0]
     assert "border" not in entry
-

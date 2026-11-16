@@ -504,7 +504,6 @@ def normalise_layer_filter(
     )
 
 
-
 # ── Border declaration ────────────────────────────────────────────────
 def normalise_border(
     raw: object,
@@ -553,6 +552,7 @@ def normalise_border(
         reject(f"with a mode {mode!r}; expected 'follow_fill'")
         return None
     return {"mode": mode}
+
 
 # ── Folder declaration ───────────────────────────────────────────────────
 def normalise_folder(

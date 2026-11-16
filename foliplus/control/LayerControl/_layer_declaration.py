@@ -24,7 +24,9 @@ from foliplus._declaration import (
 #: layer options); zoom_range and folder are normalised here into CONFIG
 #: data[].zoomRange / data[].folder so the visibility and grouping policies
 #: read one CONF fact instead of the raw namespace.
-FOLIPLUS_KEYS = frozenset({FILL_KEY, LABEL_KEY, FILTER_KEY, FOLDER_KEY, ZOOM_RANGE_KEY, BORDER_KEY})
+FOLIPLUS_KEYS = frozenset(
+    {FILL_KEY, LABEL_KEY, FILTER_KEY, FOLDER_KEY, ZOOM_RANGE_KEY, BORDER_KEY}
+)
 
 
 def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None:
@@ -74,7 +76,9 @@ def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(FOLIPLUS_KEYS)} - ignored",
             )
-        elif key in {FILL_KEY, LABEL_KEY, FILTER_KEY, BORDER_KEY} and not isinstance(value, dict):
+        elif key in {FILL_KEY, LABEL_KEY, FILTER_KEY, BORDER_KEY} and not isinstance(
+            value, dict
+        ):
             warn_foliplus(
                 f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "

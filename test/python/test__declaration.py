@@ -460,8 +460,6 @@ class TestNormaliseFolder:
                 pytest.fail(f"normalise_folder({raw!r}) raised {exc!r}")
 
 
-
-
 class TestNormaliseBorder:
     def test_absent_is_none_without_a_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
@@ -537,11 +535,21 @@ class TestNormaliseBorder:
         assert len(caught) == 1
 
     def test_never_raises_on_any_input(self) -> None:
-        for raw in [None, {"mode": "follow_fill"}, {"mode": "nope"}, {}, 42, "x", [], object()]:
+        for raw in [
+            None,
+            {"mode": "follow_fill"},
+            {"mode": "nope"},
+            {},
+            42,
+            "x",
+            [],
+            object(),
+        ]:
             try:
                 normalise_border(raw, owner="Owner")
             except Exception as exc:  # pragma: no cover - must never raise
                 pytest.fail(f"normalise_border({raw!r}) raised {exc!r}")
+
 
 # ── Module-constants placement guard ─────────────────────────────────────
 # A regression guard for the top-of-file "Module constants" block: every
