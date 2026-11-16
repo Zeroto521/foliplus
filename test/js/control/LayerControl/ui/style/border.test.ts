@@ -2139,8 +2139,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   // Drive the exported row surface (buildBorderRow/bindBorderRow) plus the
   // registered BORDER_DIMENSION — the only public doors to the module-private
   // value-detail helpers (borderValueForUi, borderSeedField, writeBorderMode,
-  // writeBorderValue, borderDetailMode, renderBorderDetail, bindBorderDetail,
-  // bindBorderValueDetail, convergeBorderClassesRow).
+  // writeBorderValue, bindBorderValueDetail, convergeBorderClassesRow).
   const openBorderRow = (
     manager: LayerController,
     ui: LayerUI,
@@ -3662,5 +3661,101 @@ describe("border category value wiring", () => {
     expect(stored.kind).toBe("category");
     expect(stored.field).toBe("name");
     expect(stored.scheme).toBe("Set3");
+  });
+});
+
+describe("border VALUE mode with no value field (defensive fallbacks)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  /** A line layer whose features carry no numeric/categorical property, so
+   *  hasValueField() is false while the geometry still offers the value mode.
+   *  This is the state a stored "value" mode can reach after the layer's
+   *  fields disappear (a data refresh), which is exactly the fallback the
+   *  detail builder and binder must survive. */
+  const registerFieldlessLine = (id: string): any => {
+    installLeafletGlobals();
+    const leaf = makeLayerForGeometry("line");
+    leaf.feature.properties = {};
+    manager.registerLayer({ id, name: id, layer: makeFeatureGroup(leaf) });
+    return leaf;
+  };
+
+  it("VALUE mode falls back to the solid detail and binds through the shell", () => {
+    const leaf = registerFieldlessLine("nf_line");
+    setIntent(ui, "nf_line", "borderStyleMode", STYLE_MODE.VALUE);
+
+    const block = buildBorderRow(ui, "nf_line") as HTMLElement;
+    document.body.appendChild(block);
+    bindBorderRow(ui, "nf_line", block);
+
+    // The detail builder's no-field arm: the solid rows, never the value rows.
+    const color = block.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLInputElement | null;
+    const weight = block.querySelector(
+      ".foliplus-style-border-weight-input",
+    ) as HTMLInputElement | null;
+    expect(color).not.toBeNull();
+    expect(weight).not.toBeNull();
+    expect(block.querySelector(".foliplus-style-fill-field-select")).toBeNull();
+
+    // The binder's no-field arm: the shell commits colour and weight.
+    color!.value = "#123456";
+    color!.dispatchEvent(new Event("input", { bubbles: true }));
+    flushStyleDimApply(FACE.STROKE, "nf_line");
+    expect(getIntent(ui, "nf_line", "borderColor")).toBe("#123456");
+
+    weight!.value = "7";
+    weight!.dispatchEvent(new Event("change", { bubbles: true }));
+    flushStyleDimApply(FACE.STROKE, "nf_line");
+    expect(getIntent(ui, "nf_line", "borderWeight")).toBe(7);
+
+    // The shell's onblur flush: the trailing frame lands on the leaf.
+    color!.dispatchEvent(new Event("blur"));
+    expect(leaf.options.color).toBe("#123456");
+  });
+
+  it("valueSource reports none / author / user", () => {
+    // none: a layer the border cannot paint at all.
+    manager.registerLayer({
+      id: "vs_canvas",
+      name: "C",
+      canvas: document.createElement("canvas"),
+    });
+    expect((BORDER_DIMENSION as any).valueSource(ui, "vs_canvas")).toBe("none");
+
+    // author: a paintable layer with no border intent.
+    registerFieldlessLine("vs_author");
+    expect((BORDER_DIMENSION as any).valueSource(ui, "vs_author")).toBe("author");
+
+    // user: one border intent is enough to make the face user-owned. The
+    // commit channel is what marks provenance (setIntent alone does not).
+    commitBorderWeight(ui, "vs_author", 4);
+    flushStyleDimApply(FACE.STROKE, "vs_author");
+    expect((BORDER_DIMENSION as any).valueSource(ui, "vs_author")).toBe("user");
+  });
+
+  it("value() returns undefined for a layer that is not registered", () => {
+    expect(BORDER_DIMENSION.value(ui, "ghost_layer")).toBeUndefined();
+  });
+
+  it("write() with no keys does not schedule an apply", () => {
+    registerFieldlessLine("nf_write");
+    expect(hasStyleDimApply(FACE.STROKE, "nf_write")).toBe(false);
+    BORDER_DIMENSION.write!(ui, "nf_write", {});
+    expect(hasStyleDimApply(FACE.STROKE, "nf_write")).toBe(false);
   });
 });
