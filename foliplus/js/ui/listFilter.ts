@@ -72,4 +72,4 @@ const createListFilter = <T extends ListFilterItem>(): ListFilter<T> => {
 };
 
 export { createListFilter };
-export type { ListFilter, ListFilterItem };
+export type { ListFilter };

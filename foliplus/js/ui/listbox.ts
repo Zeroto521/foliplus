@@ -207,6 +207,8 @@ interface ListboxSpec {
 
 interface Listbox {
   getList(): HTMLElement | null;
+  /** The currently rendered rows, in DOM order (matches the active-index space). */
+  getRows(): HTMLElement[];
   isOpen(): boolean;
   open(): void;
   close(opts?: { restoreFocus?: boolean }): void;
@@ -759,6 +761,7 @@ const createListbox = (spec: ListboxSpec): Listbox => {
 
   const listbox: Listbox = {
     getList: () => (state.destroyed ? null : state.list),
+    getRows: () => (state.destroyed ? [] : state.rowEls),
     isOpen: () => state.isOpen,
     open() {
       if (state.destroyed) return;

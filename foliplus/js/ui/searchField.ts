@@ -69,4 +69,3 @@ const createSearchField = (opts: SearchFieldOptions): SearchField => {
 };
 
 export { createSearchField };
-export type { SearchField, SearchFieldOptions };
