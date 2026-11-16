@@ -22,7 +22,6 @@
 // `inlineControls` — the same recipe as the delegated border row and the
 // label label row, so a border row reads identically whether the layer
 // paints through `setStyle` or through a component's own canvas.
-import { readDeclaredBorder } from "../../declaredBorder.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, hasValueField, resolvedValue, valueFields } from "./fill.js";
@@ -104,6 +103,7 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredBorder } from "#control/LayerControl/declaredBorder.js";
 
 /** Shared border-row shell. Two callers — the vector `buildBorderRow`
  *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's

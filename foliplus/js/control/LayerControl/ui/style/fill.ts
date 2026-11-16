@@ -19,7 +19,6 @@
 // the HeatmapControl border row and the label label row — one
 // <input type=color> inside a FORM_ROW, no reset button on the row itself
 // (the panel-wide Reset handles it, the way label color has it).
-import { readDeclaredBorder } from "../../declaredBorder.js";
 import { showSolidBasemap } from "../color.js";
 import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
@@ -103,6 +102,7 @@ import {
   normalizeHexColor,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredBorder } from "#control/LayerControl/declaredBorder.js";
 
 /** Whether the layer's surface can honestly carry a fill write.
  *  Pure capability check: `capabilities.fill === "native"`.

@@ -79,7 +79,7 @@ FILL_KEY = "fill"
 LABEL_KEY = "label"
 #: The per-layer filter declaration key.
 FILTER_KEY = "filter"
-#: The per-layer border declaration key (task-159): the author declares a
+#: The per-layer border declaration key: the author declares a
 #: border mode default (follow_fill) on the layer, read by the JS panel as a
 #: read-time default under the user's stored choice.
 BORDER_KEY = "border"
