@@ -29,6 +29,7 @@ from conftest import (
     _js,
     _prefetch_cdn_cache,
     heatmap_ready,
+    inject_fullscreen_stub,
     load_geojson,
     make_browser_page,
     panel_ready,
@@ -510,10 +511,7 @@ def _make_host_page(browser, tmp_path, *, pseudo: bool):
     """
     html = _layer_map().get_root().render()
     if pseudo:
-        html = html.replace(
-            "<body>",
-            f"<body>\n        <script>\n          {snippet('common/fullscreen_stub').strip()}\n        </script>",
-        )
+        html = inject_fullscreen_stub(html)
     return make_browser_page(
         browser,
         tmp_path,

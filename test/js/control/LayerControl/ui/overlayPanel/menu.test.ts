@@ -92,12 +92,13 @@ describe("LayerUI menu", () => {
       expect(ui.overlayPanel.menuReposition).toBeNull();
     });
 
-    it("orders style, focus, rename, attributes, then delete behind a divider", () => {
+    it("leads with Filter (generic capability), then style, focus, rename, attributes", () => {
       // Deliberate ordering, not append order: the primary configure action
       // leads, then the reversible view action, the one entry that writes to
       // the layer, the display-only attributes entry, and finally the
-      // destructive one behind its own separator. A row without the filter
-      // capability renders NO filter entry (not a disabled one).
+      // destructive one behind its own separator. A constructor-registered
+      // ordinary layer is injected with the generic filter capability, so it
+      // leads with Filter (the same gate registerLayer uses).
       const item = findItem(ui, "overlay1");
 
       ui.openMoreMenu(item);
@@ -106,6 +107,7 @@ describe("LayerUI menu", () => {
         item.querySelectorAll(".foliplus-layer-more-menu button"),
       ).map(li => (li as HTMLElement).dataset.action);
       expect(actions).toEqual([
+        CONST.ACTION.FILTER_LAYER,
         CONST.ACTION.STYLE_LAYER,
         CONST.ACTION.FOCUS_LAYER,
         CONST.ACTION.RENAME_LAYER,
@@ -113,7 +115,6 @@ describe("LayerUI menu", () => {
         CONST.ACTION.DELETE_LAYER,
       ]);
     });
-
     it("leads with Filter on a capability row, then style, focus, rename, attributes", () => {
       manager.registerLayer({
         id: "filterable",
@@ -137,6 +138,50 @@ describe("LayerUI menu", () => {
         CONST.ACTION.RENAME_LAYER,
         CONST.ACTION.ATTRS_LAYER,
       ]);
+    });
+
+    it("keeps the Filter entry enabled when the owner has a filterable field", () => {
+      manager.registerLayer({
+        id: "has-fields",
+        name: "Has Fields",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => true,
+      });
+      const item = findItem(ui, "has-fields");
+
+      ui.openMoreMenu(item);
+
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      expect(entry).not.toBeNull();
+      expect(entry.getAttribute("aria-disabled")).toBe("false");
+      expect(entry.getAttribute("title")).toBe(ui.T("filter_layer_tooltip"));
+    });
+
+    it("disables the Filter entry with the empty-state reason when the owner reports no field", () => {
+      manager.registerLayer({
+        id: "no-fields",
+        name: "No Fields",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => false,
+      });
+      const item = findItem(ui, "no-fields");
+
+      ui.openMoreMenu(item);
+
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      expect(entry).not.toBeNull();
+      expect(entry.getAttribute("aria-disabled")).toBe("true");
+      expect(entry.getAttribute("title")).toBe(ui.T("filter_empty"));
     });
 
     it("creates a menu with the focus-layer action", () => {
@@ -1300,6 +1345,53 @@ describe("LayerUI menu", () => {
       activate(item, CONST.ACTION.FILTER_LAYER, "enter");
       expect(spies.filter).toHaveBeenCalledTimes(2);
       expect(spies.filter).toHaveBeenLastCalledWith(item);
+    });
+
+    it("disables the filter entry when a capability row has no filterable field", () => {
+      // A capability row whose model carries no numeric/enum fields must not
+      // open the empty panel: the menu entry stays visible but disabled, with
+      // the empty-state reason as its tooltip.
+      manager.registerLayer({
+        id: "noFields",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => false,
+      } as any);
+      const item = findItem(ui, "noFields");
+
+      ui.openMoreMenu(item);
+
+      const btn = item.querySelector<HTMLElement>(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      );
+      expect(btn).not.toBeNull();
+      expect(btn?.getAttribute("aria-disabled")).toBe("true");
+      expect(btn?.getAttribute("title")).toBe(ui.T("filter_empty"));
+    });
+
+    it("enables the filter entry when a capability row has a filterable field", () => {
+      manager.registerLayer({
+        id: "hasFields",
+        name: "Points",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => null,
+        filterSetter: () => {},
+        hasFilterFields: () => true,
+      } as any);
+      const item = findItem(ui, "hasFields");
+
+      ui.openMoreMenu(item);
+
+      const btn = item.querySelector<HTMLElement>(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      );
+      expect(btn).not.toBeNull();
+      expect(btn?.getAttribute("aria-disabled")).toBe("false");
+      expect(btn?.getAttribute("title")).toBe(ui.T("filter_layer_tooltip"));
     });
   });
 

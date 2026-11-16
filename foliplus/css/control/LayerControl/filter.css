@@ -84,7 +84,6 @@
     margin-top: var(--foliplus-space-xs);
   }
 }
-
 /* Hide a filtered leaf. Plain display:none (no !important) is enough: this
    rule loads after Leaflet's CSS and wins the equal-specificity cascade, so a
    path (inline) and a marker icon (block) both resolve to none — verified in a

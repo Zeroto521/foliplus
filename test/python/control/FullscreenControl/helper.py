@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 import folium
-from conftest import _js, make_browser_page, snippet
+from conftest import _js, inject_fullscreen_stub, make_browser_page
 
 from foliplus import FullscreenControl
 
@@ -100,10 +100,7 @@ def _make_pseudo_page(browser, tmp_path):
     FullscreenControl(hide_self=True, hide_others=False).add_to(m)
 
     html = m.get_root().render()
-    html = html.replace(
-        "<body>",
-        f"<body>\n        <script>\n          {snippet('common/fullscreen_stub').strip()}\n        </script>",
-    )
+    html = inject_fullscreen_stub(html)
     html_path = tmp_path / "fullscreen_pseudo.html"
     html_path.write_text(html, encoding="utf-8")
 

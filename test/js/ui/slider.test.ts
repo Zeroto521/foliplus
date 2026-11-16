@@ -128,6 +128,49 @@ describe("Slider primitive", () => {
     expect(sliderOf(host)!.value).toBe(100);
   });
 
+  it("refreshes the opt-in end readouts on a value change", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      values: { min: "0", max: "100" },
+      alwaysVisible: true,
+    });
+    const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
+    const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
+    expect(minEl.textContent).toBe("20");
+    expect(maxEl.textContent).toBe("80");
+    press(thumb(host, 0), "ArrowRight");
+    expect(minEl.textContent).toBe("21");
+    press(thumb(host, 1), "ArrowLeft");
+    expect(maxEl.textContent).toBe("79");
+  });
+
+  it("falls back to the plain value when the caller opts out of a formatter", () => {
+    // An explicit `format: undefined` overrides the constructor default the
+    // way it does for the thumb aria-valuetext and the bubble, so the end
+    // readout must take the same fallback. The difference is only visible on
+    // a fractional step: the default rounds to the nearest integer, the
+    // fallback reports the value it holds.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      step: 0.5,
+      value: [20.5, 21],
+      label: "x",
+      values: { min: "0", max: "100" },
+      format: undefined,
+      alwaysVisible: true,
+    });
+    const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
+    const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
+    expect(minEl.textContent).toBe("20.5");
+    expect(maxEl.textContent).toBe("21");
+    press(thumb(host, 0), "ArrowRight");
+    expect(minEl.textContent).toBe("21");
+  });
+
   it("slides a collapsed pair together instead of dead-locking", () => {
     const { host } = make({ min: 0, max: 19, value: [10, 10], label: "x" });
     const slider = sliderOf(host)!;
