@@ -7081,6 +7081,42 @@ it("ensureGenericHost registers hasFields as a live probe (T4)", () => {
     data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
   });
   let captured: { hasFields?: () => boolean } | undefined;
+  const spy = vi
+    .spyOn((m as any).filterStore, "registerHost")
+    .mockImplementation(
+      (id: string, name: string, host: { hasFields?: () => boolean }) => {
+        captured = host;
+      },
+    );
+  m.setLayerFilter("p1", {
+    kind: "atom",
+    field: "value",
+    op: "between",
+    range: [1, 5],
+  } as any);
+  spy.mockRestore();
+  expect(captured?.hasFields).toBeTypeOf("function");
+  expect(captured?.hasFields?.()).toBe(true);
+});
+it("ensureGenericHost registers hasFields as a live probe (T4)", () => {
+  // The generic host carries a hasFields closure wired to hasGenericFields;
+  // nothing in the store calls it — it is a caller-side probe. Capture the
+  // registered host and invoke the closure directly: the closure must answer
+  // the bounded probe for the layer it was registered for.
+  const leaf = {
+    options: {},
+    feature: { properties: { value: 1 } },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager: m } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
+  });
+  let captured: { hasFields?: () => boolean } | undefined;
   const spy = vi.spyOn((m as any).filterStore, "registerHost").mockImplementation(((
     id: string,
     name: string,
