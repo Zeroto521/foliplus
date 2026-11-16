@@ -26,7 +26,6 @@
 - `core/layer`, `LayerControl`, `LayerControl.py`: the `group` vocabulary is renamed to `role` end to end (**Breaking**: CONF payloads from an older Python package and pre-v4 saved records lose their group/role distinction) ([#763](https://github.com/Zeroto521/foliplus/pull/763))
 - `LayerControl`: the layer declaration namespace key and the persisted layer-state key are renamed `annotation` → `label` (**Breaking**: the old key is no longer read, and a v4 record's label config is dropped as `RECORD_VERSION` goes 4 → 5) ([#790](https://github.com/Zeroto521/foliplus/pull/790), [#974](https://github.com/Zeroto521/foliplus/pull/974))
 - Shared dropdown: the panels' native selects share one ARIA listbox popup portalled out of the panel, so a short panel no longer clips it ([#793](https://github.com/Zeroto521/foliplus/pull/793), [#810](https://github.com/Zeroto521/foliplus/pull/810), [#817](https://github.com/Zeroto521/foliplus/pull/817), [#824](https://github.com/Zeroto521/foliplus/pull/824), [#837](https://github.com/Zeroto521/foliplus/pull/837), [#865](https://github.com/Zeroto521/foliplus/pull/865), [#894](https://github.com/Zeroto521/foliplus/pull/894), [#897](https://github.com/Zeroto521/foliplus/pull/897))
-- Shared dropdown: a large option list is searchable (combobox + listbox, live status) and a truncated filter domain reaches values past its display cap ([#1182](https://github.com/Zeroto521/foliplus/pull/1182))
 - `LayerControl`: the label field picker offers only real fields — the Auto entry is gone, and an unset or stale field resolves to the default field ([#801](https://github.com/Zeroto521/foliplus/pull/801))
 - `LayerControl`: a pinned row panel scrolls inside its height cap instead of overflowing ([#878](https://github.com/Zeroto521/foliplus/pull/878), [#1116](https://github.com/Zeroto521/foliplus/pull/1116))
 - `LayerControl`: hovering the style drawer keeps its owner row highlighted instead of dropping the highlight ([#883](https://github.com/Zeroto521/foliplus/pull/883))
@@ -39,6 +38,7 @@
 - `LayerControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
+- Shared dropdown: a large option list is searchable (combobox + listbox, live status) and a truncated filter domain reaches values past its display cap ([#1182](https://github.com/Zeroto521/foliplus/pull/1182))
 
 ### Removed
 
