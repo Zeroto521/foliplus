@@ -25,6 +25,7 @@ import {
   type CreateColorOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
+  DIM,
   FILTER_SOURCE,
   type FilterEnumDimension,
   type FilterRangeDimension,
@@ -33,6 +34,7 @@ import {
   type FolderLayoutManager,
   type FolderSection,
   GEOM_TYPE,
+  type IconIntent,
   type LabelAwareLayer,
   type LayerAPI,
   type LayerCapabilities,
@@ -47,7 +49,9 @@ import {
   PaneManager,
   ROLE,
   type RegisterLayerOpts,
+  type StyleMode,
   SurfaceIndex,
+  type ValueConfig,
   countFeatureGeometry,
   createFolder,
   deleteFolder,
@@ -66,6 +70,7 @@ import {
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
+import type { LayerStyleSnapshot, StyleProvenance } from "#core/layer/type.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
@@ -73,6 +78,7 @@ import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
+import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -952,6 +958,155 @@ class LayerController implements LayerAPI {
       pts.push({ lat: ll.lat, lng: ll.lng, marker });
     });
     return pts;
+  }
+
+  /** Read one layer's current effective style through the dimension
+   *  registry — the single source of truth the style panel already
+   *  publishes. Aggregates every dimension's `value()` reader; never a
+   *  second walk, never a copy of the colour-reading logic.
+   *
+   *  Boundary:
+   *  - Unregistered id → `null` (mirrors setVisible / getFeatureCount
+   *    for an unknown id).
+   *  - No-capability dimension → absent field + provenance "none"
+   *    (the surface cannot carry it, so the value is not reported).
+   *  - Delegated layer (Heatmap/Measure declare styleProvider) → the
+   *    provider's values are merged in under the same fill / border /
+   *    label keys so a host reads one shape regardless of owner.
+   *
+   *  Before attach (`this.ui` null) the panel has not been wired, so
+   *  this returns null — callers that need a snapshot before the panel
+   *  is ready should wait for the control's attach. */
+  getStyle(id: string): LayerStyleSnapshot | null {
+    if (!this.ui) return null;
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    const ui = this.ui;
+    const prov = (key: string): StyleProvenance => {
+      const dim = getDimension(key);
+      if (!dim) return "none";
+      if (!dim.gate(ui, id)) return "none";
+      const src = dim.valueSource?.(ui, id);
+      if (src === "user") return "user";
+      if (src === "author") return "author";
+      return "declaration";
+    };
+    const snapshot: LayerStyleSnapshot = { id, provenance: {} };
+    // Numeric / shape dimensions with their own value shape.
+    const opacity = getDimension<number>(DIM.OPACITY)?.value(ui, id);
+    if (typeof opacity === "number") snapshot.opacity = opacity;
+    snapshot.provenance.opacity = prov(DIM.OPACITY);
+    const zoomRange = getDimension<{ min: number; max: number }>(DIM.ZOOM_RANGE)?.value(
+      ui,
+      id,
+    );
+    if (zoomRange) snapshot.zoomRange = zoomRange;
+    snapshot.provenance.zoomRange = prov(DIM.ZOOM_RANGE);
+    const size = getDimension<number>(DIM.SIZE)?.value(ui, id);
+    if (typeof size === "number") snapshot.size = { radius: size };
+    snapshot.provenance.size = prov(DIM.SIZE);
+    // Paint dimensions: fill / border expose mode + per-feature semantics.
+    const fill = getDimension<{
+      color?: string;
+      opacity?: number | null;
+      mode?: StyleMode;
+      value?: ValueConfig;
+    }>(DIM.FILL)?.value(ui, id);
+    if (fill) {
+      const perFeature =
+        getDimension(DIM.FILL)!.gate(ui, id) &&
+        // Author per-feature paint wins: color is per-leaf, not single.
+        Boolean(layerInfo.fillAuthor?.perFeature);
+      snapshot.fill = {
+        color: perFeature ? undefined : fill.color,
+        opacity: fill.opacity,
+        mode: fill.mode,
+        value: fill.value,
+        perFeature,
+        note: perFeature ? ui.T("style_fill_original_note") : undefined,
+      };
+    }
+    snapshot.provenance.fill = prov(DIM.FILL);
+    const border = getDimension<{
+      color?: string;
+      weight?: number;
+      mode?: StyleMode;
+      value?: ValueConfig;
+    }>(DIM.BORDER)?.value(ui, id);
+    if (border) {
+      snapshot.border = {
+        color: border.color,
+        weight: border.weight,
+        mode: border.mode,
+        value: border.value,
+        // Border per-feature is the ORIGINAL mode (author's own stroke).
+        perFeature: border.mode === "original",
+        note:
+          border.mode === "original" ? ui.T("style_border_original_note") : undefined,
+      };
+    }
+    snapshot.provenance.border = prov(DIM.BORDER);
+    // Icon + its colour / marker colour overrides.
+    const icon = getDimension<IconIntent>(DIM.ICON)?.value(ui, id);
+    const iconColor = getDimension<{ value?: string; opacity?: number }>(
+      DIM.ICON_COLOR,
+    )?.value(ui, id);
+    const markerColor = getDimension<{ value?: string; opacity?: number }>(
+      DIM.MARKER_COLOR,
+    )?.value(ui, id);
+    if (icon || iconColor || markerColor) {
+      snapshot.icon = {
+        glyph: icon?.value,
+        color: iconColor?.value,
+        markerColor: markerColor?.value,
+      };
+    }
+    snapshot.provenance.icon = prov(DIM.ICON);
+    snapshot.provenance.iconColor = prov(DIM.ICON_COLOR);
+    snapshot.provenance.markerColor = prov(DIM.MARKER_COLOR);
+    // Label — content dimension, no provenance tiers.
+    const label = this.label.getConfig(id);
+    if (label) {
+      snapshot.label = {
+        show: label.show,
+        field: label.field,
+        color: label.color,
+        size: label.size,
+        format: label.format,
+        collide: label.collide,
+      };
+    }
+    snapshot.provenance.label = prov(DIM.LABEL);
+    // Delegated style provider (Heatmap/Measure): merge their values under
+    // the same keys so a host reads one shape regardless of who owns the
+    // paint. The provider wins on its own keys; registry values stay.
+    const provider = layerInfo.styleProvider;
+    if (typeof provider === "function") {
+      try {
+        const values = provider() as Record<string, unknown>;
+        if (typeof values.labelColor === "string") {
+          snapshot.label = { ...snapshot.label, color: values.labelColor };
+        }
+        if (typeof values.labelShow === "boolean") {
+          snapshot.label = { ...snapshot.label, show: values.labelShow };
+        }
+        if (typeof values.labelSize === "number") {
+          snapshot.label = { ...snapshot.label, size: values.labelSize };
+        }
+        if (typeof values.borderColor === "string") {
+          snapshot.border = { color: values.borderColor, ...snapshot.border };
+        }
+        if (typeof values.borderWeight === "number") {
+          snapshot.border = { weight: values.borderWeight, ...snapshot.border };
+        }
+      } catch (err) {
+        // Provider threw (canvas layer in a bad state) — return the
+        // registry values we already have; the delegated panel shows the
+        // same fallback.
+        this.log.warn(`styleProvider threw for "${id}":`, err);
+      }
+    }
+    return snapshot;
   }
 
   /** Broadcast a layer's registry / map-membership change with the id and kind

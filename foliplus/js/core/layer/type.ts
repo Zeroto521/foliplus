@@ -5,7 +5,9 @@
 // global names.
 import { type DIM, type KIND, type PANE_ROLE } from "./const.js";
 import type { LayerFilter, LayerFilterModel } from "./filter.js";
+import type { StyleMode, ValueConfig } from "./intent.js";
 import type { LayerRole } from "./role.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 
 /** One layer's projection: intent (persisted) and the derived policy state
  *  together, so a diff sees both in one comparison.
@@ -1033,6 +1035,100 @@ interface LayerAPI {
    *  False if already at the bottom of its role or unknown.
    *  Only LayerController implements this — the lightweight stub has no registry. */
   moveLayerDown?: (id: string) => boolean;
+  /** Read one layer's current effective style. Aggregates every style
+   *  dimension's `value()` reader — the single source of truth the
+   *  panel already publishes, so a host page sees the same numbers.
+   *
+   *  Boundary:
+   *  - Unregistered id → `null` (mirrors `setVisible`'s false /
+   *    `getFeatureCount`'s null for an unknown id).
+   *  - No-capability dimension → absent field +
+   *    `provenance[dim]: "none"` (the surface cannot carry it).
+   *  - Delegated layer (Heatmap/Measure declare `styleProvider`) →
+   *    the provider's values are merged in so a host reads one shape
+   *    regardless of who owns the paint.
+   *
+   *  Only LayerController implements this — the lightweight stub
+   *  returns `null`. Optional so an older foliplus-common runtime
+   *  paired with a newer component bundle keeps loading (the shared
+   *  bundle is versioned independently). Callers fall back to the
+   *  panel when the method is absent. */
+  getStyle?: (id: string) => LayerStyleSnapshot | null;
+}
+
+/** One dimension's provenance in a style snapshot — who owns the effective
+ *  value right now. `"user"` — a stored override; `"author"` — declared
+ *  default still in force; `"declaration"` — Python CONFIG seeded a
+ *  declared value (the author wrote an entry, so it is not just the
+ *  built-in default); `"none"` — the gate rejects the layer for this
+ *  dimension (the surface cannot carry it), so the read is absent. */
+type StyleProvenance = "user" | "author" | "declaration" | "none";
+
+/** A layer's current effective style, read once through
+ *  {@link LayerAPI.getStyle}. Aggregates the per-dimension `value()`
+ *  readers — never a second source of truth, so a host page sees the
+ *  same numbers the panel publishes. Each dimension's `provenance` is
+ *  reported separately so a host can tell "the author wrote this" from
+ *  "the user overrode it"; the value itself is `undefined` when the
+ *  layer does not carry that dimension (`provenance: "none"`) or
+ *  nothing has painted it yet (no leaf to walk, no intent stored).
+ */
+interface LayerStyleSnapshot {
+  /** Layer id the snapshot was read for. */
+  id: string;
+  /** Whole-layer opacity (0-1). */
+  opacity?: number;
+  /** Zoom range in force (row endpoints resolved against map bounds). */
+  zoomRange?: { min: number; max: number };
+  /** Per-dimension provenance. */
+  provenance: {
+    opacity?: StyleProvenance;
+    zoomRange?: StyleProvenance;
+    fill?: StyleProvenance;
+    border?: StyleProvenance;
+    size?: StyleProvenance;
+    icon?: StyleProvenance;
+    iconColor?: StyleProvenance;
+    markerColor?: StyleProvenance;
+    label?: StyleProvenance;
+  };
+  /** Fill paint in force. `mode` is the display mode the panel
+   *  publishes (solid / value / original / followFill); for
+   *  `mode: "value"` the classification lives on `value` (the
+   *  same `ValueConfig` the fill row reads). `perFeature` is true when
+   *  the author declared per-feature paint (a geopandas explore layer) —
+   *  `color` is then `undefined` (each leaf carries its own) and
+   *  `note` is a locale-resolved readout for host UIs. */
+  fill?: {
+    color?: string;
+    opacity?: number | null;
+    mode?: StyleMode;
+    value?: ValueConfig;
+    perFeature?: boolean;
+    note?: string;
+  };
+  /** Stroke paint. Same shape as fill, plus `weight`. */
+  border?: {
+    color?: string;
+    weight?: number;
+    mode?: StyleMode;
+    value?: ValueConfig;
+    perFeature?: boolean;
+    note?: string;
+  };
+  /** Marker radius (CircleMarker only). */
+  size?: { radius?: number };
+  /** Marker glyph + its color / markerColor overrides. */
+  icon?: { glyph?: string; color?: string; markerColor?: string };
+  /** Label config (content dimension, no provenance tiers). */
+  label?: {
+    show?: boolean;
+    field?: string;
+    color?: string;
+    size?: number;
+    format?: NumberStyle;
+    collide?: boolean;
+  };
 }
 
 /** Everything `zFor` can be told about the pane it prices. */
@@ -1117,6 +1213,7 @@ export type {
   LayerAPI,
   LayerDimKey,
   LayerKind,
+  LayerStyleSnapshot,
   LayerCapabilities,
   LayerInfo,
   LayerMutation,
@@ -1131,5 +1228,6 @@ export type {
   RegisterLayerOpts,
   SurfaceContentHandle,
   SurfaceHandle,
+  StyleProvenance,
   ZArgs,
 };

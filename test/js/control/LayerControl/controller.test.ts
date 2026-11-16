@@ -7362,3 +7362,75 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.truncated).toBe(false);
   });
 });
+
+describe("LayerAPI.getStyle", () => {
+  const makeLeaf = (props: Record<string, unknown> = {}) =>
+    Object.assign(Object.create((window.L.Path as any).prototype), {
+      options: {},
+      feature: { properties: props },
+      getElement: () => null,
+    });
+  const wrap = (...leaves: unknown[]) =>
+    ({
+      options: {},
+      eachLayer: (cb: (l: unknown) => void) => leaves.forEach(cb),
+    }) as any;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("returns null for an unregistered id", () => {
+    const { manager } = initFixture();
+    expect(manager.getStyle("ghost")).toBeNull();
+  });
+
+  it("returns null before attach (no ui)", () => {
+    const { manager } = initFixture({
+      data: [
+        { id: "p1", name: "P", role: "overlay", layer: wrap(makeLeaf({ value: 1 })) },
+      ],
+    });
+    manager.ui = null;
+    expect(manager.getStyle("p1")).toBeNull();
+  });
+
+  it("reports user provenance for opacity after an intent write", () => {
+    const layer = wrap(makeLeaf({ value: 1 }));
+    const { manager, ui } = initFixture({
+      data: [{ id: "op1", name: "Op", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "op1", name: "Op", role: "overlay", layer });
+    setIntent(ui, "op1", "opacity", 0.42);
+    ui.intentStore.seedProvenance("op1", ["opacity"] as any);
+    const snap = manager.getStyle("op1");
+    expect(snap).not.toBeNull();
+    expect(snap!.id).toBe("op1");
+    expect(snap!.opacity).toBeCloseTo(0.42, 5);
+    expect(snap!.provenance.opacity).toBe("user");
+  });
+
+  it("merges a delegated styleProvider's values into the snapshot", () => {
+    const { manager } = initFixture();
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "hm1",
+      name: "Heatmap",
+      role: "overlay",
+      layer: { options: {} },
+      styleProvider: () => ({
+        labelShow: true,
+        labelColor: "#abcdef",
+        borderWeight: 3,
+      }),
+      styleSetters: { labelColor: () => {}, borderWeight: () => {} },
+    } as any);
+    const snap = manager.getStyle("hm1");
+    expect(snap).not.toBeNull();
+    // Provider values ride through even when the paint gates are closed.
+    expect(snap!.label?.color).toBe("#abcdef");
+    expect(snap!.label?.show).toBe(true);
+  });
+});
