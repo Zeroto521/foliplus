@@ -115,7 +115,7 @@ class TestMeasureCircleBrowser:
         """restoreCircle restores a circle measurement from localStorage without ReferenceError."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/seed_circle_storage"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(2000)
             count = page.evaluate(_js("MeasureControl/read_measurements_length"))
             assert count == 1, f"expected 1 restored circle, got {count}"
@@ -255,7 +255,7 @@ class TestMeasureMarkerBrowser:
                 f"marker must be saved immediately, got {len(parsed['items'])}"
             )
             # Reload — marker must still appear
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(2000)
             count = page.evaluate(_js("MeasureControl/read_measurements_length"))
             assert count == 1, f"expected 1 measurement after reload, got {count}"
@@ -278,7 +278,7 @@ class TestMeasureMarkerBrowser:
                 ),
             )
             page.evaluate(_js("MeasureControl/seed_marker_nulladdr_storage"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(3000)
             # Address should be resolved by the onAddress callback
             addr = page.evaluate(_js("MeasureControl/read_measurements_address"))
@@ -313,7 +313,7 @@ class TestMeasureMarkerBrowser:
             )
             # Restore a marker with address:null
             page.evaluate(_js("MeasureControl/seed_marker_popup_storage"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(2000)
             # Geocode resolved while popup is closed — address backfilled
             addr = page.evaluate(_js("MeasureControl/read_measurements_address"))
@@ -334,7 +334,7 @@ class TestMeasureMarkerBrowser:
             # Pre-populate localStorage with a marker measurement
             page.evaluate(_js("MeasureControl/seed_marker_storage"))
             # Reload the page to trigger restoreMeasurements in constructor
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(2000)
             # Check measurements were restored
             count = page.evaluate(_js("MeasureControl/read_measurements_length"))
@@ -510,7 +510,7 @@ class TestMeasurePolygonBrowser:
         """restorePolygon restores a polygon measurement from localStorage."""
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/seed_polygon_storage"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_timeout(2000)
             count = page.evaluate(_js("MeasureControl/read_measurements_length"))
             assert count == 1, f"expected 1 restored polygon, got {count}"

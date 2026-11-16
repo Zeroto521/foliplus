@@ -2042,6 +2042,29 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     expect(owner.filter).toBeUndefined();
   });
 
+  it("reports a throwing owner setter and keeps the panel open", () => {
+    const { owner } = registerPoints();
+    const item = findItem(ui, "pnt");
+    ui.openFilterPanel(item);
+    const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    commit(owner);
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+
+    const reg = manager.layerRegistry.get("pnt")!;
+    (reg as unknown as { filterSetter: () => void }).filterSetter = () => {
+      throw new Error("boom");
+    };
+    const warn = vi.spyOn(ui.log, "warn").mockImplementation(() => {});
+    (
+      panel.querySelector(`.${CONST.CLASSES.FILTER_CLEAR}`) as HTMLButtonElement
+    ).click();
+
+    expect(warn).toHaveBeenCalled();
+    // Clear keeps the panel open (keep-open policy): the focus half still ran.
+    expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+    warn.mockRestore();
+  });
+
   it("Escape closes the live panel (no Done / Apply step)", () => {
     registerPoints();
     const item = findItem(ui, "pnt");

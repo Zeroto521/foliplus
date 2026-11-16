@@ -71,6 +71,8 @@
   "LayerControl.style_label_no_data": "No labelable fields on this layer",
   "LayerControl.style_label_field": "Label Field",
   "LayerControl.style_reset": "Reset",
+  "LayerControl.style_reset_tooltip": "Reset this layer's style",
+  "LayerControl.style_reset_disabled": "Nothing to reset — the layer is on its default style",
   "LayerControl.style_opacity": "Opacity",
   "LayerControl.style_zoom_range": "Zoom Range",
   "LayerControl.style_zoom_range_min": "Minimum Zoom",

@@ -1,14 +1,82 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPanelResetOutcome, finishPanelReset } from "#ui/index.js";
+import {
+  createPanelResetOutcome,
+  finishPanelReset,
+  firstUsableControl,
+  runResetSteps,
+  syncPanelAction,
+} from "#ui/index.js";
 
 const focusTarget = (focus: () => void): HTMLElement =>
   ({ focus }) as unknown as HTMLElement;
 
+describe("runResetSteps", () => {
+  it("keeps running after a step throws, reporting each failure", () => {
+    const order: string[] = [];
+    const onError = vi.fn();
+
+    const failures = runResetSteps(
+      [
+        () => order.push("fill"),
+        () => {
+          throw new Error("boom");
+        },
+        () => order.push("label"),
+      ],
+      onError,
+    );
+
+    expect(order).toEqual(["fill", "label"]);
+    expect(failures).toHaveLength(1);
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
+  it("returns an empty failure list when every step lands", () => {
+    expect(runResetSteps([() => {}, () => {}])).toEqual([]);
+  });
+
+  it("logs by default when no hook is supplied", () => {
+    // A caller that forgot onError must not swallow the failure: the shared
+    // logger is the default channel.
+    expect(() =>
+      runResetSteps([
+        () => {
+          throw new Error("boom");
+        },
+      ]),
+    ).not.toThrow();
+  });
+});
+
 describe("finishPanelReset", () => {
+  it("refreshes and focuses even when a restore step throws", () => {
+    const order: string[] = [];
+    const onError = vi.fn();
+
+    finishPanelReset({
+      restore: [
+        () => order.push("fill"),
+        () => {
+          throw new Error("boom");
+        },
+        () => order.push("label"),
+      ],
+      close: vi.fn(),
+      refresh: () => order.push("refresh"),
+      focus: focusTarget(() => order.push("focus")),
+      onError,
+    });
+
+    // The failing dimension is skipped, but the reset still finishes: the
+    // remaining dimensions, the refresh and the focus all ran.
+    expect(order).toEqual(["fill", "label", "refresh", "focus"]);
+    expect(onError).toHaveBeenCalledOnce();
+  });
+
   it("keeps the panel open and focuses the trigger", () => {
     const close = vi.fn();
     const focus = vi.fn();
-    finishPanelReset({ restore: vi.fn(), close, focus: focusTarget(focus) });
+    finishPanelReset({ restore: () => {}, close, focus: focusTarget(focus) });
 
     expect(close).not.toHaveBeenCalled();
     expect(focus).toHaveBeenCalledOnce();
@@ -16,7 +84,7 @@ describe("finishPanelReset", () => {
 
   it("leaves the close path untouched when no focus target exists", () => {
     const close = vi.fn();
-    finishPanelReset({ restore: vi.fn(), close });
+    finishPanelReset({ restore: () => {}, close });
 
     expect(close).not.toHaveBeenCalled();
   });
@@ -37,7 +105,7 @@ describe("finishPanelReset", () => {
     const close = vi.fn();
     const focus = vi.fn();
     finishPanelReset({
-      restore: vi.fn(),
+      restore: () => {},
       close,
       focus: () => focusTarget(focus),
     });
@@ -49,9 +117,56 @@ describe("finishPanelReset", () => {
   it("tolerates a resolver that finds no target", () => {
     const close = vi.fn();
     expect(() =>
-      finishPanelReset({ restore: vi.fn(), close, focus: () => null }),
+      finishPanelReset({ restore: () => {}, close, focus: () => null }),
     ).not.toThrow();
     expect(close).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncPanelAction", () => {
+  it("writes disabled, aria and title, then skips an unchanged repaint", () => {
+    const button = document.createElement("button");
+    syncPanelAction(button, {
+      disabled: true,
+      enabledTitle: "Reset",
+      disabledTitle: "Nothing to reset",
+    });
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("aria-disabled")).toBe("true");
+    expect(button.title).toBe("Nothing to reset");
+
+    const setAttribute = vi.spyOn(button, "setAttribute");
+    syncPanelAction(button, {
+      disabled: true,
+      enabledTitle: "Reset",
+      disabledTitle: "Nothing to reset",
+    });
+    expect(setAttribute).not.toHaveBeenCalled();
+    setAttribute.mockRestore();
+
+    syncPanelAction(button, {
+      disabled: false,
+      enabledTitle: "Reset",
+      disabledTitle: "Nothing to reset",
+    });
+    expect(button.disabled).toBe(false);
+    expect(button.getAttribute("aria-disabled")).toBe("false");
+    expect(button.title).toBe("Reset");
+  });
+});
+
+describe("firstUsableControl", () => {
+  it("skips a disabled trigger and returns the next usable control", () => {
+    document.body.innerHTML =
+      '<button id="dead" disabled>Reset</button><button id="next">Next</button>';
+
+    expect(firstUsableControl(document.body)?.id).toBe("next");
+  });
+
+  it("returns null when every control is disabled", () => {
+    document.body.innerHTML = "<button disabled>Reset</button>";
+
+    expect(firstUsableControl(document.body)).toBeNull();
   });
 });
 
@@ -71,7 +186,7 @@ describe("createPanelResetOutcome", () => {
     const close = vi.fn();
     const focus = vi.fn();
     createPanelResetOutcome(false)({
-      restore: vi.fn(),
+      restore: () => {},
       close,
       focus: focusTarget(focus),
     });

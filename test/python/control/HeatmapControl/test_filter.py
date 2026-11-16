@@ -335,7 +335,7 @@ class TestDeclaredHeatmapFilterBrowser:
 
             # The restored record must reproduce the first frame. A seed that
             # only ran on reload would disagree here.
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             _open_panel(page)
             _wait_for_frame(page)
             reloaded = page.evaluate(_READ)

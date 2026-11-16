@@ -458,6 +458,24 @@ describe("bindControls — clear (reset) button", () => {
     expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
   });
 
+  it("keeps the remaining clear steps after one throws", () => {
+    const { ctrl, m, panel } = setup(makeConfig({}));
+    const clearLayerState = vi.spyOn(m, "clearLayerState");
+    vi.spyOn(m, "clearSavedConfig").mockImplementation(() => {
+      throw new Error("boom");
+    });
+    ctrl.ctrl.classList.add(PANEL_CLASS.EXPANDED);
+    ctrl.ctrl.classList.remove(PANEL_CLASS.COLLAPSED);
+
+    (
+      panel.querySelector(`[${CONST.DATA_ATTR.BTN_CLEAR}]`) as HTMLButtonElement
+    ).click();
+
+    // The storage step threw; the LayerControl-state step still ran.
+    expect(clearLayerState).toHaveBeenCalledTimes(1);
+    expect(ctrl.ctrl.classList.contains(PANEL_CLASS.EXPANDED)).toBe(true);
+  });
+
   it("clear falls back to library defaults when config omits style fields", () => {
     // Python may emit a CONFIG that omits optional style fields entirely —
     // reset must fall back to the library defaults in that case.
