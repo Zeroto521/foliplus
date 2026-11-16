@@ -336,6 +336,37 @@ describe("generic data-layer filter (controller wiring)", () => {
     });
   });
 
+  it("bumpDataRevision invalidates the cached filterFeatures (Tier2 rebuild)", () => {
+    const features = makeFeatures();
+    ui.runtimeStore.setFilterFeatures("flt1", features);
+    // First read caches at revision 0.
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
+    // Bump — the cached row is now stale and must be rebuilt.
+    ui.runtimeStore.bumpDataRevision("flt1");
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
+    expect(manager.genericFilterModel("flt1")?.total).toBe(3);
+  });
+
+  it("bumpDataRevision is per-id: a sibling layer's cache is untouched", () => {
+    const features = makeFeatures();
+    ui.runtimeStore.setFilterFeatures("flt1", features);
+    ui.runtimeStore.setFilterFeatures("sib", makeFeatures());
+    manager.genericFilterModel("flt1");
+    ui.runtimeStore.bumpDataRevision("sib");
+    // flt1's cached answer stays valid (its revision did not move).
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
+    expect(manager.genericFilterModel("flt1")?.total).toBe(3);
+  });
+
+  it("a layer with no walkable layer falls back to the pre-seeded snapshot", () => {
+    // flt1 was never given a layer object (the registerLayer call carries no
+    // `layer`), so buildFilterFeatures has nothing to walk. The pre-seeded
+    // row is the source of truth and must survive.
+    const features = makeFeatures();
+    ui.runtimeStore.setFilterFeatures("flt1", features);
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
+  });
+
   describe("declared filter seeding (per-layer declaration → committed filter)", () => {
     it("seeds a declared filter as the layer's initial committed filter", () => {
       const { manager } = initFixture({

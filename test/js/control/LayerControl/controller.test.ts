@@ -6765,6 +6765,75 @@ it("routes the injected generic filterSetter through setLayerFilter", () => {
   setSpy.mockRestore();
 });
 
+it("hasGenericFields probe is bounded by PROBE_K: a field past the window is conservative false", () => {
+  // 64 leaves with no properties, then a 65th with a value. The bounded
+  // scan stops at PROBE_K, so the 65th is invisible → conservative false.
+  const leaves = Array.from({ length: 65 }, (_, i) => ({
+    options: {},
+    feature: i === 64 ? { properties: { value: 1 } } : { properties: {} },
+    getElement: () => document.createElement("path"),
+  }));
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => leaves.forEach(fn)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager: m } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
+  });
+  expect(m.hasFilterableFields("p1")).toBe(false);
+});
+
+it("hasGenericFields caches the probe answer per dataRevision (one scan, repeated reads)", () => {
+  const leaf = {
+    options: {},
+    feature: { properties: { value: 1 } },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager: m, ui } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
+  });
+  const spy = vi.spyOn(m as any, "scanGenericFields");
+  expect(m.hasFilterableFields("p1")).toBe(true);
+  expect(m.hasFilterableFields("p1")).toBe(true);
+  expect(spy).toHaveBeenCalledTimes(1);
+  // A bump invalidates the probe cache: the next read re-scans.
+  ui.runtimeStore.bumpDataRevision("p1");
+  expect(m.hasFilterableFields("p1")).toBe(true);
+  expect(spy).toHaveBeenCalledTimes(2);
+  spy.mockRestore();
+});
+
+it("escape hatch: a declared filter reports filterable even when the probe window reads false", () => {
+  const leaf = {
+    options: {},
+    feature: { properties: {} },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager: m } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
+  });
+  expect(m.hasFilterableFields("p1")).toBe(false);
+  // A committed filter (the author declared one) flips the gate on.
+  m.setLayerFilter("p1", {
+    kind: "atom",
+    field: "value",
+    op: "between",
+    range: [1, 5],
+  } as any);
+  expect(m.hasFilterableFields("p1")).toBe(true);
+});
+
 describe("createFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -7300,7 +7369,7 @@ describe("genericFilterModel — enum dimensions", () => {
       { value: "kind", label: "kind", numeric: false },
     ]);
     const info = manager.layerRegistry.get("overlay1")!;
-  expect(manager.hasFilterableFields("overlay1")).toBe(true);
+    expect(manager.hasFilterableFields("overlay1")).toBe(true);
   });
 
   it("truncates a large enum domain to the panel limit and marks it", () => {

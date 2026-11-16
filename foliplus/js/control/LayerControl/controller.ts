@@ -50,6 +50,7 @@ import {
   ROLE,
   type RegisterLayerOpts,
   SurfaceIndex,
+  buildFilterFeatures,
   countFeatureGeometry,
   createFolder,
   deleteFolder,
@@ -57,7 +58,6 @@ import {
   ensureFilterStore,
   ensureFolderLayout,
   ensureLayerAPI,
-  buildFilterFeatures,
   filterLeafSet,
   filterStep,
   findLayer,
@@ -70,7 +70,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
-import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
+import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
@@ -268,10 +268,7 @@ class LayerController implements LayerAPI {
   /** Tier1 presence-probe cache: layerId -> {revision, has}. A menu row
    *  render must not re-scan the layer, so the probe answer is cached per
    *  (layerId, dataRevision) — a stale row (unbumped) is a cache hit. */
-  private readonly filterProbe = new Map<
-    string,
-    { revision: number; has: boolean }
-  >();
+  private readonly filterProbe = new Map<string, { revision: number; has: boolean }>();
   /** Tier2 filterFeatures build revision: layerId -> dataRevision at build.
    *  The cached row is valid only while this equals the store's current
    *  dataRevision; a mismatch means the feature set changed and the row
@@ -2177,17 +2174,16 @@ class LayerController implements LayerAPI {
       if (depth > 10) return false; // mirrors walkLeaf's RECURSION.LAYER_DEPTH
       if (isGroupLike(node as Parameters<typeof isGroupLike>[0])) {
         // Enumerate children: eachLayer when present (Leaflet containers),
-        // else the _layers registry (window globals / wrappers).
+        // else the _layers registry (window globals / wrappers). Reaching
+        // through the adapter keeps the walk inside the adapter's boundary.
         let kids: L.Layer[] = [];
         try {
-          const gl = node as L.Layer & {
-            eachLayer?: (fn: (l: L.Layer) => void) => void;
-            _layers?: Record<string, L.Layer>;
-          };
-          if (typeof gl.eachLayer === "function") {
-            gl.eachLayer(k => kids.push(k));
-          } else if (gl._layers) {
-            kids = Object.values(gl._layers);
+          const tn = node as Parameters<typeof internalLayers>[0];
+          if (typeof tn.eachLayer === "function") {
+            tn.eachLayer(k => kids.push(k));
+          } else {
+            const reg = internalLayers(tn);
+            if (reg) kids = Object.values(reg);
           }
         } catch {
           kids = [];
@@ -2200,9 +2196,9 @@ class LayerController implements LayerAPI {
       }
       seen++;
       if (seen > PROBE_K) return false;
-      if ((node as unknown as { isLabel?: boolean }).isLabel) return false;
+      if ((node as LabelAwareLayer).isLabel) return false;
       const props = (
-        node as unknown as {
+        node as {
           feature?: { properties?: Record<string, unknown> };
         }
       ).feature?.properties;
@@ -2229,10 +2225,14 @@ class LayerController implements LayerAPI {
    *  the full tree and a model build reuses the same snapshot. */
   private ensureFilterFeatures(id: string): LayerFilterFeatures | null {
     const layer = this.layerRegistry.get(id)?.layer;
-    if (!layer) return null;
     const revision = this.ui?.runtimeStore.getDataRevision(id) ?? 0;
     const cached = this.ui?.runtimeStore.getFilterFeatures(id);
+    // A cached row at this revision is authoritative (Tier2 already built it).
     if (cached && this.filterFeaturesRev.get(id) === revision) return cached;
+    // No walkable layer: keep a pre-seeded row (external owner / test fixture
+    // seeded the snapshot directly) rather than dropping it. Without this, a
+    // layer whose geometry is not reachable at probe time loses its model.
+    if (!layer) return cached ?? null;
     const features = buildFilterFeatures(layer);
     this.ui?.runtimeStore.setFilterFeatures(id, features);
     this.filterFeaturesRev.set(id, revision);
