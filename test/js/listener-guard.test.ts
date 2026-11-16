@@ -178,6 +178,13 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
       "style-panel input / dropdown bindings; its document dismiss moved to core/overlay/overlayRegistry in M2-C1",
   },
   {
+    f: "ui/searchField.ts",
+    n: 2,
+    pairedOff: 0,
+    reason:
+      "search-box primitive binds input + keydown on the <input> it owns; the element is discarded with the popup and the listener dies with it (free-standing primitive, no BaseControl mounting signal)",
+  },
+  {
     f: "ui/slider.ts",
     n: 11,
     pairedOff: 0,
@@ -207,10 +214,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/dropdown.ts",
-    n: 1,
+    n: 3,
     pairedOff: 0,
     reason:
-      "the bridged select's own change bridge: a programmatic `change` is the one signal that the select moved (a preset loader, another control), so the adapter re-reads the value and refreshes its label and the open popup. The adapter owns the value model and the trigger label; every popup/lifecycle listener lives in ui/listbox.ts (the engine owns all dropdown mechanism)",
+      "the bridged select's own change bridge: a programmatic `change` is the one signal that the select moved (a preset loader, another control), so the adapter re-reads the value and refreshes its label and the open popup; plus the search-mode input bindings (input + keydown) the dropdown creates on the search field it owns and drops with the popup",
   },
   {
     f: "ui/listbox.ts",
