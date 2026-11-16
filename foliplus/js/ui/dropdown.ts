@@ -905,7 +905,10 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
 
 /** Activate row `index` in the dropdown's value model and fire the change. */
 const activateRow = (state: InternalState, index: number): void => {
-  const item = state.items[index];
+  // The engine passes the index in the RENDERED list (items() -> filteredItems),
+  // which in search mode differs from the full state.items array. Index the
+  // rendered view, not the source, or a filtered row activates the wrong item.
+  const item = filteredItems(state).items[index];
   // The engine only calls onRowActivate for enabled, in-range rows, so a
   // disabled/undefined item cannot reach here (the engine blocks them first).
   if (state.multiple) {

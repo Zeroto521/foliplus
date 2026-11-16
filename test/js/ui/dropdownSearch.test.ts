@@ -580,3 +580,23 @@ describe("dropdown search: prereview a11y fixes", () => {
     expect(input?.getAttribute("aria-expanded")).toBe("false");
   });
 });
+it("activates the item at the FILTERED index, not the source index", () => {
+  // Regression: clicking the first rendered row after a query that filters
+  // must commit that filtered item, not the same-position source item.
+  const picks: string[] = [];
+  const { dropdown } = makeSearch(makeItems(40), {
+    onChange: v => picks.push(String(v)),
+  });
+  dropdown.trigger.click();
+  type(dropdown, "Value 39"); // matches only the tail row
+  return new Promise<void>(resolve => {
+    setTimeout(() => {
+      const rows = optionEls(dropdown);
+      expect(rows.length).toBeGreaterThanOrEqual(1);
+      expect(rows[0]?.getAttribute("data-value")).toBe("v39");
+      rows[0]?.click();
+      expect(picks).toEqual(["v39"]);
+      resolve();
+    }, 250);
+  });
+});

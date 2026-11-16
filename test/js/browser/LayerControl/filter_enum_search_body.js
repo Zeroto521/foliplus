@@ -47,8 +47,7 @@ async () => {
   const list = () => document.querySelector(".foliplus-dropdown-list");
   const optionEls = () =>
     Array.from(document.querySelectorAll(".foliplus-dropdown-option"));
-  const searchInput = () =>
-    document.querySelector(".foliplus-dropdown-search input");
+  const searchInput = () => document.querySelector(".foliplus-dropdown-search input");
   const status = () => document.querySelector('[role="status"]');
   const out = { ok: false };
   try {
@@ -97,9 +96,7 @@ async () => {
     out.statusText = status() ? status().textContent : null;
 
     // Select the row past the display cap (it is renderable via search).
-    const target = optionEls().find(
-      el => el.getAttribute("data-value") === "value-39",
-    );
+    const target = optionEls().find(el => el.getAttribute("data-value") === "value-39");
     if (target) {
       target.dispatchEvent(
         new MouseEvent("pointerdown", { bubbles: true, cancelable: true }),
@@ -110,9 +107,7 @@ async () => {
       target.click();
       await wait(40);
     }
-    out.selected = filter
-      ? filter.values
-      : null;
+    out.selected = filter ? filter.values : null;
     out.selectedCount = filter ? filter.values.length : 0;
     out.ok = true;
   } finally {
