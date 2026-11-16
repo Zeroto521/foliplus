@@ -5504,9 +5504,7 @@ describe("fill mode switch after the layer's fields changed", () => {
     expect(
       row.querySelector(`.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`),
     ).not.toBeNull();
-    expect(
-      row.querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`),
-    ).toBeNull();
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`)).toBeNull();
 
     // Binding follows the same fallback: the solid binder attaches the swatch
     // and commits to the fill dimension instead of touching a missing ramp.
