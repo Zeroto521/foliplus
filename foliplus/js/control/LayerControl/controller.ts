@@ -45,11 +45,13 @@ import {
   type LayerKind,
   LayerOrder,
   type LayerRole,
+  type LayerStyleSnapshot,
   type LayerSurface,
   PaneManager,
   ROLE,
   type RegisterLayerOpts,
   type StyleMode,
+  type StyleProvenance,
   SurfaceIndex,
   type ValueConfig,
   countFeatureGeometry,
@@ -70,7 +72,6 @@ import {
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import type { LayerStyleSnapshot, StyleProvenance } from "#core/layer/type.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
@@ -1023,7 +1024,7 @@ class LayerController implements LayerAPI {
         mode: fill.mode,
         value: fill.value,
         perFeature,
-        note: perFeature ? ui.T("style_fill_original_note") : undefined,
+        note: undefined,
       };
     }
     snapshot.provenance.fill = prov(DIM.FILL);
@@ -1041,8 +1042,7 @@ class LayerController implements LayerAPI {
         value: border.value,
         // Border per-feature is the ORIGINAL mode (author's own stroke).
         perFeature: border.mode === "original",
-        note:
-          border.mode === "original" ? ui.T("style_border_original_note") : undefined,
+        note: undefined,
       };
     }
     snapshot.provenance.border = prov(DIM.BORDER);

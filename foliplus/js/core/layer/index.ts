@@ -207,6 +207,7 @@ export type {
   LayerInfo,
   LayerMutation,
   LayerSnapshot,
+  LayerStyleSnapshot,
   LayerKind,
   PaneHandle,
   PaneRole,
@@ -214,5 +215,6 @@ export type {
   PinnableNode,
   RegisterLayerOpts,
   SnapshotPoint,
+  StyleProvenance,
   ZArgs,
 } from "./type.js";
