@@ -71,6 +71,8 @@
   "LayerControl.style_label_no_data": "该图层无可标注字段",
   "LayerControl.style_label_field": "标注字段",
   "LayerControl.style_reset": "重置",
+  "LayerControl.style_reset_tooltip": "重置该图层的样式",
+  "LayerControl.style_reset_disabled": "当前为默认样式，无需重置",
   "LayerControl.style_opacity": "透明度",
   "LayerControl.style_zoom_range": "可见范围",
   "LayerControl.style_zoom_range_min": "最小级别",

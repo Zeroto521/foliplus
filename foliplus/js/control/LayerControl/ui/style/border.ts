@@ -903,7 +903,7 @@ const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement => {
     { value: STYLE_MODE.ORIGINAL, label: ui.T(STYLE_MODE_KEY.ORIGINAL) },
     { value: STYLE_MODE.SOLID, label: ui.T(STYLE_MODE_KEY.SINGLE) },
     ...(canFollowFill
-      ? [{ value: STYLE_MODE.FOLLOW_FILL, label: ui.T("style_border_follow_fill") }]
+      ? [{ value: STYLE_MODE.FOLLOW_FILL, label: ui.T(STYLE_MODE_KEY.FOLLOW_FILL) }]
       : []),
     ...(carriesValue
       ? [{ value: STYLE_MODE.VALUE, label: ui.T(STYLE_MODE_KEY.BY_VALUE) }]
