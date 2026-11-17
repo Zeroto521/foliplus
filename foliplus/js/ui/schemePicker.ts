@@ -293,10 +293,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     // after positionList in portal mode and after the inline mount).
     onPosition: () => {
       const dropdown = listbox.getList();
-      // Every position pass happens while the list is mounted, so the null branch
-      // is a defensive guard, not a reachable state.
-      /* v8 ignore next -- defensive: onPosition only runs with a mounted list */
-      if (dropdown) syncScrollbarWidth(dropdown);
+      syncScrollbarWidth(dropdown!);
     },
     inline: !options.portal,
     inlineHost: options.portal

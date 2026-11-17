@@ -128,6 +128,8 @@ const authorIconOf = (leaf: object): unknown =>
 const defaultIconProto = (): unknown => {
   // jsdom always defines the Leaflet global, so the no-L branch is a
   // Leaflet-free-DOM guard, not a state this flow produces.
+  // unreachable: this flow always runs with a Leaflet global (jsdom defines
+  // it), so the Leaflet-free-DOM arms are guards for a DOM we never reach.
   /* v8 ignore start -- Leaflet-free DOM only: this flow always runs with a
    * Leaflet global and a present Icon.Default.prototype; both arms are
    * guards for a DOM we never reach. */
@@ -439,6 +441,8 @@ const paintMountedChassis = (
     // the flat colour as the paint — the baked gradient/stroke are color
     // channels, not alpha, so they are lost (the sprite's physical limit).
     const sprite = readChassisSprite("blue", el);
+    // unreachable: the blue sprite is always readable once any span is mounted
+    // (the container that produced it painted it from the live stylesheet).
     /* v8 ignore start -- the blue sprite is always readable once any span is
      * mounted: the container that produced the span painted it from the live
      * stylesheet (or an inline background), so a re-paint reads the cached
@@ -500,8 +504,7 @@ const applyIconToLeaves = (
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
-    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
-    if (author === undefined) return;
+
     const derived = buildMarkerIcon({ author, glyph, color, opacity, prefix });
     setLeafIcon(leaf, derived);
   });
@@ -524,8 +527,7 @@ const applyIconColorToLeaves = (
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
-    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
-    if (author === undefined) return;
+
     // A colour/opacity-only write on an already-mounted leaf whose glyph is
     // unchanged paints the node in place — same element reference, no rebuild.
     const el = mountedIconElement(leaf);
@@ -564,8 +566,7 @@ const applyMarkerColorToLeaves = (
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
-    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
-    if (author === undefined) return;
+
     // A colour/opacity-only write on an already-mounted leaf whose chassis
     // span already carries the pin paints the span in place — same element
     // reference, no rebuild. A mechanism change (span dropped by a preset at

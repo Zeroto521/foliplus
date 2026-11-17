@@ -215,6 +215,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
           // Every toggle-all row is rendered with data-role (list.ts writes it
           // unconditionally, empty role included), so the empty fallback only
           // serves a row built by hand without the attribute.
+          // type-enforced: the renderer always writes data-role on this row.
           /* v8 ignore next -- the renderer always writes data-role on this row */
           toggleFold(ui, row.dataset.role ?? "");
         }
