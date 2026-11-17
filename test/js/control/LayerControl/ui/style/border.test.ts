@@ -23,6 +23,7 @@ import {
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
+  replayDeclaredBorder,
   resetLayerBorder,
   writeBorderValue,
 } from "#control/LayerControl/ui/style/border.js";
@@ -2856,6 +2857,204 @@ describe("follow-fill border mode", () => {
     expect((swatch as HTMLInputElement).readOnly).toBe(true);
     // Width input present too.
     expect(block.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
+  });
+
+  // ── declared follow_fill (foliplus.border) ─────────────────────────────
+  // The declaration is a read-time mode default: no stored intent, no
+  // derived value — the border shows and paints follow_fill from the
+  // author's foliplus.border, and a stored mode/Reset behave as declared.
+
+  /** A feature group whose own options carry a foliplus border declaration
+   *  (the same stamp folium lays on the registered layer). */
+  const makeDeclaredGroup = (declaration: unknown, ...leaves: any[]): any => ({
+    options: { foliplus: { border: declaration } },
+    eachLayer: vi.fn((fn: (child: unknown) => void) => {
+      for (const leaf of leaves) fn(leaf);
+    }),
+    leaves,
+  });
+
+  const registerDeclared = (id: string, declaration: unknown, leaves: any[]): void => {
+    installLeafletGlobals();
+    manager.registerLayer({
+      id,
+      name: id,
+      layer: makeDeclaredGroup(declaration, ...leaves),
+    });
+    ui.runtimeStore.setFields(id, [{ name: "count", numeric: true }]);
+  };
+
+  it("declared follow_fill drives the display with no stored mode", () => {
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
+    registerDeclared("dpoly1", { mode: "follow_fill" }, leaves);
+    const block = buildBorderRow(ui, "dpoly1") as HTMLElement;
+    document.body.appendChild(block);
+    const select = selectOf(block)!;
+    // The declaration is the default mode: the select shows followFill, and
+    // the option is offered (polygon: the natural follow-fill channel).
+    expect(select.value).toBe("followFill");
+    expect(Array.from(select.options).map(o => o.value)).toContain("followFill");
+  });
+
+  it("declared follow_fill paints the derived fill colour on apply", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("dpoly2", { mode: "follow_fill" }, leaves);
+    applyBorderToLayer(ui, "dpoly2");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#123456");
+    // No border colour intent is written: the derivation reads the leaf live.
+    expect(getIntent(ui, "dpoly2", "borderColor")).toBeUndefined();
+  });
+
+  it("declared follow_fill is inapplicable on a line (no fill to follow)", () => {
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    registerDeclared("dline1", { mode: "follow_fill" }, leaves);
+    const block = buildBorderRow(ui, "dline1") as HTMLElement;
+    document.body.appendChild(block);
+    const select = selectOf(block);
+    // A line cannot paint follow_fill: the declaration steps aside, so the
+    // select falls to the derived default and the mode option stays absent.
+    expect(select!.value).not.toBe("followFill");
+    expect(Array.from(select!.options).map(o => o.value)).not.toContain("followFill");
+  });
+
+  it("stored solid beats the declared follow_fill (intent > declaration)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("dpoly3", { mode: "follow_fill" }, leaves);
+    setIntent(ui, "dpoly3", "borderStyleMode", "solid");
+    setIntent(ui, "dpoly3", "borderColor", "#abcdef");
+    applyBorderToLayer(ui, "dpoly3");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+  });
+
+  it("reset reveals the declared follow_fill (not the author stroke)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("dpoly4", { mode: "follow_fill" }, leaves);
+    // User commits a solid colour first, then resets.
+    setIntent(ui, "dpoly4", "borderStyleMode", "solid");
+    setIntent(ui, "dpoly4", "borderColor", "#abcdef");
+    applyBorderToLayer(ui, "dpoly4");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+    resetLayerBorder(ui, "dpoly4");
+    // Reset clears the intents and re-applies the declaration: the border
+    // re-derives from the leaf's current fill (the author's default paint).
+    expect(getIntent(ui, "dpoly4", "borderStyleMode")).toBeUndefined();
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#123456");
+  });
+
+  it("fill edit replays a declared follow_fill border (fill write gate)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#111111" })];
+    registerDeclared("dpoly5", { mode: "follow_fill" }, leaves);
+    applyBorderToLayer(ui, "dpoly5");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#111111");
+    // Change the fill through the FILL write (the single commit path). The
+    // border replay must ride it even without a stored border mode; the
+    // replay is frame-coalesced, so flush the stroke frame.
+    FILL_DIMENSION.write!(ui, "dpoly5", { color: "#abcdef" });
+    flushStyleDimApply(FACE.FILL, "dpoly5");
+    flushStyleDimApply(FACE.STROKE, "dpoly5");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+  });
+
+  it("replayDeclaredBorder paints a declared follow_fill border with no stored intent", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep1", { mode: "follow_fill" }, leaves);
+    replayDeclaredBorder(ui, "drep1");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#123456");
+  });
+
+  it("replayDeclaredBorder is a no-op once a stored intent exists", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep2", { mode: "follow_fill" }, leaves);
+    setIntent(ui, "drep2", "borderStyleMode", "solid");
+    setIntent(ui, "drep2", "borderColor", "#abcdef");
+    const before = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "drep2");
+    expect(leaves[0].setStyle.mock.calls.length).toBe(before);
+  });
+
+  it("replayDeclaredBorder dedupes per layer (paint once)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep3", { mode: "follow_fill" }, leaves);
+    replayDeclaredBorder(ui, "drep3");
+    const calls = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "drep3");
+    expect(leaves[0].setStyle.mock.calls.length).toBe(calls);
+  });
+
+  it("replayDeclaredBorder is a no-op on a non-follow_fill layer", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep4", { mode: "solid" }, leaves);
+    replayDeclaredBorder(ui, "drep4");
+    expect(leaves[0].setStyle).not.toHaveBeenCalled();
+  });
+
+  it("per-feature solid with no intent: the engine passes the derived author base (435 base arm)", () => {
+    // Line 435 `base ?? solidColorOf`: the base (left) side is the missing
+    // branch. It is reached only when a per-feature layer derives a base AND
+    // the engine passes it — i.e. needsDerivation=true and no colour intent,
+    // so deriveSolidBase=true and the engine's authorFace("color") supplies a
+    // concrete base. A uniform layer would have base=undefined (solidColorOf
+    // side); a per-feature layer whose author paints per feature is the state
+    // that makes the engine pass a base at all.
+    const leaves = [
+      makeAreaLeaf(1, { color: "#0a0b0c" }),
+      makeAreaLeaf(5, { color: "#0d0e0f" }),
+    ];
+    installLeafletGlobals();
+    manager.registerLayer({
+      id: "pf_solid",
+      name: "pf_solid",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#0a0b0c", "#0d0e0f"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    // No borderStyleMode / borderColor / borderWeight intent: the mode
+    // resolves to SOLID (no value), needsDerivation=true, so the engine
+    // derives base=authorFace("color")=the first leaf's author stroke.
+    applyBorderToLayer(ui, "pf_solid");
+    // The walk wrote the derived base onto the leaves (the solid arm's
+    // contract — the base is the single solid colour for a per-feature layer
+    // with no user override). Both leaves receive the base, not their own
+    // per-leaf author colours (that is the ORIGINAL mode's job).
+    expect(leaves[0].setStyle).toHaveBeenCalled();
+    expect(leaves[1].setStyle).toHaveBeenCalled();
+    expect(leaves[0].options.color).toBe("#0a0b0c");
+    expect(leaves[1].options.color).toBe("#0a0b0c");
+  });
+
+  it("per-feature solid with no authored colour: the engine's undefined base falls back to solidColorOf (435 right arm)", () => {
+    // Block 26 of line 435 `base ?? solidColorOf`: the RIGHT side is reached
+    // when deriveSolidBase=true (per-feature layer) but the engine passes
+    // base=undefined. The engine derives base=authorFace("color"), which is
+    // undefined when the first style leaf carries no authored colour — the
+    // fallback then reads the shared solidColorOf (defaults applied inside).
+    const leaves = [
+      makeAreaLeaf(1, { color: undefined }),
+      makeAreaLeaf(5, { color: undefined }),
+    ];
+    installLeafletGlobals();
+    manager.registerLayer({
+      id: "pf_nocolor",
+      name: "pf_nocolor",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#0a0b0c", "#0d0e0f"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    // No intent: mode resolves to SOLID, needsDerivation=true, but the engine's
+    // authorFace returns undefined -> base=undefined -> solidColorOf supplies
+    // the face default (Leaflet's "#3388ff").
+    applyBorderToLayer(ui, "pf_nocolor");
+    expect(leaves[0].setStyle).toHaveBeenCalled();
+    expect(leaves[0].options.color).toBe("#3388ff");
+    expect(leaves[1].options.color).toBe("#3388ff");
   });
 });
 
