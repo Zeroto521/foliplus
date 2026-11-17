@@ -15,7 +15,7 @@
     .getPropertyValue("--foliplus-z-index-floating")
     .trim();
 
-  const probePoint = (cy) => {
+  const probePoint = cy => {
     const pr = panel.getBoundingClientRect();
     // Keep the probe on-screen; the top-left region is inside the scroll clip.
     const cx = pr.left + 30;
@@ -23,7 +23,10 @@
     const sib = document.createElement("div");
     sib.className = "leaflet-control foliplus-scale-wrap";
     sib.style.cssText =
-      "position:absolute;top:" + (y - 10) + "px;left:" + (cx - 10) +
+      "position:absolute;top:" +
+      (y - 10) +
+      "px;left:" +
+      (cx - 10) +
       "px;width:100px;height:20px;z-index:800;";
     section.appendChild(sib);
     const hit = document.elementFromPoint(cx, y);

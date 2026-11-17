@@ -478,6 +478,7 @@ def _make_scale_page(browser, tmp_path):
 
 
 STACK = snippet("LayerControl/row_panel_stack")
+SCALE_OVERLAP = snippet("LayerControl/row_panel_scale_overlap")
 
 
 class TestRowPanelStackBrowser:
@@ -540,26 +541,7 @@ class TestRowPanelStackBrowser:
         """The real bottom-left ScaleControl never covers the open panel."""
         with use_page(_make_scale_page, browser, tmp_path) as (page, errors):
             self._open(page)
-            covered = page.evaluate(
-                """() => {
-                  const panel = document.querySelector('.foliplus-layer-style-panel');
-                  const scale = document.querySelector('.foliplus-scale-wrap');
-                  if (!panel || !scale) return { ok:false, reason:'missing' };
-                  const pr = panel.getBoundingClientRect();
-                  const sr = scale.getBoundingClientRect();
-                  const overlap = !(pr.right < sr.left || pr.left > sr.right ||
-                                     pr.bottom < sr.top || pr.top > sr.bottom);
-                  if (!overlap) return { ok:true, overlap:false };
-                  const cx = Math.max(pr.left, sr.left) + 10;
-                  const cy = Math.max(pr.top, sr.top) + 10;
-                  const hit = document.elementFromPoint(cx, cy);
-                  return {
-                    ok:true, overlap:true,
-                    hitIsPanel: hit ? !!hit.closest('.foliplus-layer-style-panel') : false,
-                    hit: hit ? (hit.className || hit.tagName) : null,
-                  };
-                }"""
-            )
+            covered = page.evaluate(SCALE_OVERLAP)
             assert covered["ok"] is True, f"scale probe failed: {covered}"
             if covered["overlap"]:
                 assert covered["hitIsPanel"] is True, (
