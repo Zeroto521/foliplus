@@ -2857,6 +2857,75 @@ describe("follow-fill border mode", () => {
     // Width input present too.
     expect(block.querySelector(".foliplus-style-border-weight-input")).not.toBeNull();
   });
+
+  it("per-feature solid with no intent: the engine passes the derived author base (435 base arm)", () => {
+    // Line 435 `base ?? solidColorOf`: the base (left) side is the missing
+    // branch. It is reached only when a per-feature layer derives a base AND
+    // the engine passes it — i.e. needsDerivation=true and no colour intent,
+    // so deriveSolidBase=true and the engine's authorFace("color") supplies a
+    // concrete base. A uniform layer would have base=undefined (solidColorOf
+    // side); a per-feature layer whose author paints per feature is the state
+    // that makes the engine pass a base at all.
+    const leaves = [
+      makeAreaLeaf(1, { color: "#0a0b0c" }),
+      makeAreaLeaf(5, { color: "#0d0e0f" }),
+    ];
+    installLeafletGlobals();
+    manager.registerLayer({
+      id: "pf_solid",
+      name: "pf_solid",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#0a0b0c", "#0d0e0f"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    // No borderStyleMode / borderColor / borderWeight intent: the mode
+    // resolves to SOLID (no value), needsDerivation=true, so the engine
+    // derives base=authorFace("color")=the first leaf's author stroke.
+    applyBorderToLayer(ui, "pf_solid");
+    // The walk wrote the derived base onto the leaves (the solid arm's
+    // contract — the base is the single solid colour for a per-feature layer
+    // with no user override). Both leaves receive the base, not their own
+    // per-leaf author colours (that is the ORIGINAL mode's job).
+    expect(leaves[0].setStyle).toHaveBeenCalled();
+    expect(leaves[1].setStyle).toHaveBeenCalled();
+    expect(leaves[0].options.color).toBe("#0a0b0c");
+    expect(leaves[1].options.color).toBe("#0a0b0c");
+  });
+
+  it("per-feature solid with no authored colour: the engine's undefined base falls back to solidColorOf (435 right arm)", () => {
+    // Block 26 of line 435 `base ?? solidColorOf`: the RIGHT side is reached
+    // when deriveSolidBase=true (per-feature layer) but the engine passes
+    // base=undefined. The engine derives base=authorFace("color"), which is
+    // undefined when the first style leaf carries no authored colour — the
+    // fallback then reads the shared solidColorOf (defaults applied inside).
+    const leaves = [
+      makeAreaLeaf(1, { color: undefined }),
+      makeAreaLeaf(5, { color: undefined }),
+    ];
+    installLeafletGlobals();
+    manager.registerLayer({
+      id: "pf_nocolor",
+      name: "pf_nocolor",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 2,
+        stops: ["#0a0b0c", "#0d0e0f"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    // No intent: mode resolves to SOLID, needsDerivation=true, but the engine's
+    // authorFace returns undefined -> base=undefined -> solidColorOf supplies
+    // the face default (Leaflet's "#3388ff").
+    applyBorderToLayer(ui, "pf_nocolor");
+    expect(leaves[0].setStyle).toHaveBeenCalled();
+    expect(leaves[0].options.color).toBe("#3388ff");
+    expect(leaves[1].options.color).toBe("#3388ff");
+  });
 });
 
 describe("border partial-coverage invariants (partial-coverage)", () => {
