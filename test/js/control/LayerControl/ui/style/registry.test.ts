@@ -20,6 +20,7 @@ import { setIntent } from "#control/LayerControl/ui/intent.js";
 import { BORDER_DIMENSION } from "#control/LayerControl/ui/style/border.js";
 import { DELEGATED_DIM_ORDER } from "#control/LayerControl/ui/style/delegated.js";
 import { FILL_DIMENSION } from "#control/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#control/LayerControl/ui/style/index.js";
 import { LABEL_DIMENSION } from "#control/LayerControl/ui/style/labelDimension.js";
 import { OPACITY_DIMENSION } from "#control/LayerControl/ui/style/opacity.js";
 import {
@@ -32,6 +33,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "#control/LayerControl/ui/style/registry.js";
+import { SIZE_DIMENSION } from "#control/LayerControl/ui/style/size.js";
 import {
   ZOOM_RANGE_DIMENSION,
   resetLayerZoomRange,
@@ -928,10 +930,22 @@ describe("dimension bind contract", () => {
     // panel-delegated — none of them ever had a panel re-lookup, so they do
     // NOT require a bind slot (the optional ?. call is a no-op for them).
     for (const key of ["fill", "size", "border"]) {
-      expect(typeof getDimension(key)!.bind, `dimension ${key} must declare bind`).toBe("function");
+      expect(typeof getDimension(key)!.bind, `dimension ${key} must declare bind`).toBe(
+        "function",
+      );
     }
-    for (const key of ["opacity", "zoomRange", "icon", "iconColor", "markerColor", "label"]) {
-      expect(getDimension(key)!.bind, `dimension ${key} must NOT declare bind`).toBeUndefined();
+    for (const key of [
+      "opacity",
+      "zoomRange",
+      "icon",
+      "iconColor",
+      "markerColor",
+      "label",
+    ]) {
+      expect(
+        getDimension(key)!.bind,
+        `dimension ${key} must NOT declare bind`,
+      ).toBeUndefined();
     }
   });
 
@@ -958,9 +972,57 @@ describe("dimension bind contract", () => {
       const dim = getDimension(key)!;
       const row = dim.row(ui, "overlay1") as HTMLElement;
       expect(row, `row for ${key} must build`).not.toBeNull();
-      expect(row.matches(`[data-style-dim="${key}"]`), `row ${key} carries data-style-dim`).toBe(true);
-      expect(row.querySelectorAll(`[data-style-dim="${key}"]`).length, `row ${key} no nested duplicate`).toBe(0);
+      expect(
+        row.matches(`[data-style-dim="${key}"]`),
+        `row ${key} carries data-style-dim`,
+      ).toBe(true);
+      expect(
+        row.querySelectorAll(`[data-style-dim="${key}"]`).length,
+        `row ${key} no nested duplicate`,
+      ).toBe(0);
     }
+  });
+});
+// A pixel-radius leaf whose setRadius records the write — the dead-man test
+// needs a real CircleMarker-shaped layer so the size row's gate passes.
+const makeRadiusLeaf = (radius = 10): any => {
+  const leaf: any = {
+    options: { radius, color: "#000000", weight: 2 },
+    _radius: radius,
+    setStyle: vi.fn(),
+  };
+  leaf.getRadius = () => leaf._radius;
+  leaf.setRadius = vi.fn((px: number) => {
+    leaf._radius = px;
+    leaf.options.radius = px;
+    return leaf;
+  });
+  return leaf;
+};
+describe("panel calls descriptor bind with the exact row it built", () => {
+  // P2-1 dead-man: the panel MUST invoke the descriptor's bind with the row
+  // its own row() returned. If the panel stops calling dim.bind?.(...) (a
+  // regression back to a class-based re-lookup), this test goes red even
+  // though every descriptor still *declares* bind.
+  it("openStylePanel calls SIZE_DIMENSION.bind once with the size row", () => {
+    const { ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "CM", role: "overlay", layer: makeRadiusLeaf(10) },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    const spy = vi.spyOn(SIZE_DIMENSION, "bind").mockImplementation(() => {});
+    ui.openStylePanel("overlay1");
+    expect(spy).toHaveBeenCalledTimes(1);
+    const arg = spy.mock.calls[0]?.[2] as HTMLElement;
+    expect(arg.dataset.styleDim).toBe("size");
+    closeStylePanel(ui, false);
   });
 });
 describe("content dimension slot omission (label)", () => {

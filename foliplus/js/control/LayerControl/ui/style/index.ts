@@ -159,7 +159,6 @@ const bindStylePanel = (
         onCommit: value => applyPatch(ui, layerId, { size: value }),
       });
     }
-
   }
 
   // The slider rows wire their own live/commit callbacks when the primitive is
