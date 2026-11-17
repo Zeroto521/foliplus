@@ -147,7 +147,9 @@ describe("LayerUI menu", () => {
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => ({
-          dimensions: [{ kind: "enum", field: "kind", options: [], multi: true, truncated: false }],
+          dimensions: [
+            { kind: "enum", field: "kind", options: [], multi: true, truncated: false },
+          ],
           kept: 1,
           total: 1,
         }),
@@ -1380,7 +1382,9 @@ describe("LayerUI menu", () => {
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => ({
-          dimensions: [{ kind: "enum", field: "kind", options: [], multi: true, truncated: false }],
+          dimensions: [
+            { kind: "enum", field: "kind", options: [], multi: true, truncated: false },
+          ],
           kept: 1,
           total: 1,
         }),
