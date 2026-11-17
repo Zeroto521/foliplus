@@ -2981,6 +2981,26 @@ describe("follow-fill border mode", () => {
     expect(leaves[0].setStyle.mock.calls.length).toBe(calls);
   });
 
+  it("replayDeclaredBorder shares the per-ui paint set across layers (second layer first paint)", () => {
+    // The dedupe set is per-ui, not per-layer: a second declared layer on the
+    // SAME ui must paint once too, even though the set already exists (the
+    // `if (!painted)` init arm already ran for the first layer). This is the
+    // `!painted` false arm of the replay set-up — a real two-layer page, not
+    // a defensive guard.
+    const leavesA = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    const leavesB = [makeAreaLeaf(2, { fillColor: "#654321" })];
+    registerDeclared("drepA", { mode: "follow_fill" }, leavesA);
+    registerDeclared("drepB", { mode: "follow_fill" }, leavesB);
+    replayDeclaredBorder(ui, "drepA");
+    expect(leavesA[0].setStyle).toHaveBeenCalled();
+    replayDeclaredBorder(ui, "drepB");
+    expect(leavesB[0].setStyle).toHaveBeenCalled();
+    // The second paint does not re-paint the first layer.
+    const aCalls = leavesA[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "drepA");
+    expect(leavesA[0].setStyle.mock.calls.length).toBe(aCalls);
+  });
+
   it("replayDeclaredBorder is a no-op on a non-follow_fill layer", () => {
     const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
     registerDeclared("drep4", { mode: "solid" }, leaves);

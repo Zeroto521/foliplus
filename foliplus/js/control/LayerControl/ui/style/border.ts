@@ -415,6 +415,9 @@ const applyValueStrokeToLayer = (ui: LayerUI, layerId: string): void => {
   // write and the highlight pin. This hook only derives the live config so
   // the pin's getter and a later fill-only repaint agree with this paint.
   const value = effectiveBorderValue(ui, layerId);
+  // type-enforced: applyPaintToLayer dispatches here only after hasValue()
+  // read true, so a value is guaranteed to exist (both read the same intent).
+  /* v8 ignore next -- defensive: the VALUE dispatch re-reads a value hasValue already proved */
   if (value === undefined) return;
   applyValueStroke(
     ui,
