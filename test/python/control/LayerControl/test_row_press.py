@@ -33,7 +33,7 @@ from conftest import (
     use_page,
 )
 
-from foliplus import LayerControl
+from foliplus import LayerControl, ScaleControl
 
 _ROW = '.foliplus-layer-item[data-layer-type="overlay"]'
 _PANEL = ".foliplus-layer-style-panel"
@@ -461,4 +461,88 @@ class TestRowPanelLayoutBrowser:
                 f"its row top ({r['row']['top']:.1f})"
             )
             page.screenshot(path=str(SHOTS / "accept_3_style_flip.png"))
+            assert not errors, f"JS errors: {errors}"
+
+
+def _make_scale_page(browser, tmp_path):
+    """A layer list with a ScaleControl in the bottom-left corner."""
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    for i in range(5):
+        fg = folium.FeatureGroup(name=f"Layer {i}", overlay=True, show=True)
+        fg.add_to(m)
+    LayerControl(locale="en").add_to(m)
+    ScaleControl().add_to(m)
+    return make_browser_page(
+        browser, tmp_path, m.get_root().render(), "row_stack_scale"
+    )
+
+
+STACK = snippet("LayerControl/row_panel_stack")
+SCALE_OVERLAP = snippet("LayerControl/row_panel_scale_overlap")
+
+
+class TestRowPanelStackBrowser:
+    """The row panel must clear the Leaflet control band.
+
+    The unpinned card is ``position: absolute`` inside the layer list, which
+    sits inside ``.leaflet-top`` (Leaflet z-index 1000). A sibling corner
+    control such as the scale bar is a ``.leaflet-control`` at z-index 800 in
+    the same section, so the card's own z-index must be the page-level
+    floating token — never a bare literal like 10 — to stay above it.
+    """
+
+    def _open(self, page):
+        page.evaluate(_js("LayerControl/open_panel"))
+        page.wait_for_selector(
+            ".foliplus-layer-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
+        )
+        panel_ready(page)
+        opened = page.evaluate(_js("LayerControl/open_style_panel"))
+        assert opened["ok"], f"style panel did not open: {opened}"
+        page.wait_for_selector(_PANEL, state="visible", timeout=5000)
+        page.wait_for_timeout(200)
+
+    def test_row_panel_clears_control_band(self, browser, tmp_path):
+        """Unpinned row panel is above a sibling .leaflet-control (z 800)."""
+        with use_page(_make_scale_page, browser, tmp_path) as (page, errors):
+            self._open(page)
+            r = page.evaluate(STACK)
+            assert r["ok"] is True, f"stack probe failed: {r}"
+
+            # The panel computed z-index must equal the floating token, not a
+            # bare literal. This is the regression guard for the z-index:10 bug.
+            assert r["pinned"]["panelZ"] == r["token"], (
+                f"pinned panel z-index {r['pinned']['panelZ']} != token {r['token']}"
+            )
+            assert r["unpinned"]["panelZ"] == r["token"], (
+                f"unpinned panel z-index {r['unpinned']['panelZ']} != token "
+                f"{r['token']}"
+            )
+
+            # The synthetic sibling control at z:800 must not cover the panel
+            # in either state: elementFromPoint must hit the panel.
+            for state in ("pinned", "unpinned"):
+                rp = r[state]
+                assert rp["hitIsPanel"] is True, (
+                    f"{state}: sibling control covered the panel; "
+                    f"hit={rp['hit']}, panelZ={rp['panelZ']}, topZ={rp['topZ']}"
+                )
+                assert rp["hitIsScale"] is False, (
+                    f"{state}: the synthetic scale control is on top; hit={rp['hit']}"
+                )
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_real_scale_never_covers_panel(self, browser, tmp_path):
+        """The real bottom-left ScaleControl never covers the open panel."""
+        with use_page(_make_scale_page, browser, tmp_path) as (page, errors):
+            self._open(page)
+            covered = page.evaluate(SCALE_OVERLAP)
+            assert covered["ok"] is True, f"scale probe failed: {covered}"
+            if covered["overlap"]:
+                assert covered["hitIsPanel"] is True, (
+                    f"the real ScaleControl covered the panel; hit={covered['hit']}"
+                )
             assert not errors, f"JS errors: {errors}"
