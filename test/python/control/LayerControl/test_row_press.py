@@ -514,8 +514,7 @@ class TestRowPanelStackBrowser:
             # The panel computed z-index must equal the floating token, not a
             # bare literal. This is the regression guard for the z-index:10 bug.
             assert r["pinned"]["panelZ"] == r["token"], (
-                f"pinned panel z-index {r['pinned']['panelZ']} != token "
-                f"{r['token']}"
+                f"pinned panel z-index {r['pinned']['panelZ']} != token {r['token']}"
             )
             assert r["unpinned"]["panelZ"] == r["token"], (
                 f"unpinned panel z-index {r['unpinned']['panelZ']} != token "
@@ -531,8 +530,7 @@ class TestRowPanelStackBrowser:
                     f"hit={rp['hit']}, panelZ={rp['panelZ']}, topZ={rp['topZ']}"
                 )
                 assert rp["hitIsScale"] is False, (
-                    f"{state}: the synthetic scale control is on top; "
-                    f"hit={rp['hit']}"
+                    f"{state}: the synthetic scale control is on top; hit={rp['hit']}"
                 )
 
             assert not errors, f"JS errors: {errors}"
