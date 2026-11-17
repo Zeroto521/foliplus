@@ -12,7 +12,12 @@ from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._layer_declaration import declared_filter, declared_folder, declared_zoom_range
+from ._layer_declaration import (
+    declared_border,
+    declared_filter,
+    declared_folder,
+    declared_zoom_range,
+)
 
 
 class LayerControl(BaseControl):
@@ -399,6 +404,12 @@ class LayerControl(BaseControl):
             filter_decl = declared_filter(item, item.layer_name)
             if filter_decl is not None:
                 entry[FILTER_KEY] = filter_decl
+            # A border declaration is read by the JS panel straight off
+            # layer.options.foliplus (same channel as fill/label). Python's
+            # only job here is the shape validation + one-time warning: a
+            # malformed border warns at collection time instead of silently
+            # painting a mode the author never saw validated.
+            declared_border(item, item.layer_name)
             data.append(entry)
 
         # A folder name shared by several layers is a grouping intent, not a
