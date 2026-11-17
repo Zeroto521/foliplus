@@ -371,6 +371,13 @@
      tie, not a layering bug. */
   --foliplus-z-index-overlay: calc(var(--foliplus-z-index-floating) + 10);
 
+  /* Contract: page-level floating overlays (row panels, menus, dropdowns,
+     hints, fullscreen, export) MUST read these tokens — never a bare literal.
+     A small integer (1/2/3/-1) is allowed ONLY as a sibling order inside a
+     LOCAL stacking context (slider thumbs, a focused row's glow, a marker
+     chassis, a crop dim mask) and must carry a comment stating so. Do not
+     promote a local order into the page-wide ladder. */
+
   /* ══════════════════════════════════════════════════════════════════════
     Component-Specific Tokens
     Organized by consumer component. Each section is owned by its component;
