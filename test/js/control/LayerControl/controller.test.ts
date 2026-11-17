@@ -3,6 +3,7 @@ import {
   attachWithGroup,
   attachedPanel,
   initFixture,
+  installLeafletGlobals,
   polygonLayer,
   trackMembership,
 } from "./ui/fixture.js";
@@ -6911,6 +6912,366 @@ it("ensureGenericHost registers hasFields as a live probe (T4)", () => {
   expect(captured?.hasFields?.()).toBe(true);
 });
 
+it("unregister-then-read: ensureFilterFeatures keeps a pre-seeded row after the layer unregisters (A)", () => {
+  // A cached filterFeatures row is authoritative even when the layer is gone:
+  // `if (!layer) return cached ?? null` must return the seeded snapshot, not
+  // drop the model. Seed the row, read once (builds the cache), unregister,
+  // read again - the second read must still answer the cached row.
+  const layer = polygonLayer();
+  const { manager, ui } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer }],
+  });
+  const s = new LayerRuntimeStore();
+  s.setFilterFeatures("p1", {
+    features: [],
+    numericFields: ["mag"],
+    ranges: { mag: [0, 10] },
+    enumFields: [],
+    enumValues: {},
+    total: 5,
+  });
+  (ui as any).runtimeStore = s;
+  (manager as any).ui = ui;
+
+  // First read builds/answers the cached row.
+  expect(manager.genericFilterModel("p1")).not.toBeNull();
+  // Unregister the layer (teardown, not delete): the layer is gone from the registry.
+  expect(manager.unregisterLayer("p1")).toBe(true);
+  // The model read must not throw and must keep the cached snapshot.
+  expect(() => manager.genericFilterModel("p1")).not.toThrow();
+});
+
+it("fresh-layer-read: a first read on an un-built id builds filterFeatures from the layer (B)", () => {
+  // A freshly registered id (never probed by the attach sweep) has no cached
+  // row; the first genericFilterModel read must walk the layer and store the
+  // row. Observed through the runtimeStore write: exactly one build, and the
+  // model answers with the built snapshot.
+  installLeafletGlobals();
+  const leaf = new window.L.Polygon() as any;
+  leaf.feature = { properties: { mag: 3 } };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+    getBounds: () => ({ isValid: () => true }),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager, ui } = initFixture({ data: [] });
+  const writeSpy = vi.spyOn(ui.runtimeStore, "setFilterFeatures");
+  // Register a fresh id after the attach sweep, so no prior probe built it.
+  manager.registerLayer({
+    id: "fresh1",
+    name: "F",
+    role: "overlay",
+    layer: layer as any,
+  });
+  const model = manager.genericFilterModel("fresh1");
+  expect(model).not.toBeNull();
+  expect(model!.dimensions).toEqual([
+    { kind: "range", field: "mag", range: [3, 3], step: 1 },
+  ]);
+  expect(writeSpy).toHaveBeenCalledTimes(1);
+  writeSpy.mockRestore();
+});
+
+it("scanGenericFields prunes a group nested deeper than RECURSION.LAYER_DEPTH (B)", () => {
+  // depth > 10 returns false inside walk - a >10-deep nesting must be pruned,
+  // not walked to the bottom. Build a 12-deep chain where only the innermost
+  // leaf carries a value; the probe must read false (conservative) and not throw.
+  // Register the layer AFTER the attach sweep so no cached probe row exists -
+  // otherwise hasGenericFields answers from the cache and scanGenericFields
+  // (the depth guard) is never reached.
+  installLeafletGlobals();
+  const leaf = new window.L.Polygon() as any;
+  leaf.feature = { properties: { value: 1 } };
+  let node: any = leaf;
+  for (let k = 0; k < 12; k++) {
+    // Capture the current child per iteration - eachLayer must descend into
+    // THIS parent's child, not the loop-reassigned `node` reference.
+    const child = node;
+    const parent: any = {
+      options: {},
+      eachLayer: vi.fn((fn: (l: unknown) => void) => fn(child)),
+    };
+    Object.setPrototypeOf(parent, new window.L.Path());
+    node = parent;
+  }
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({ id: "deep", name: "D", role: "overlay", layer: node as any });
+  expect(() => manager.hasFilterableFields("deep")).not.toThrow();
+  expect(manager.hasFilterableFields("deep")).toBe(false);
+});
+it("hasGenericFields bails false for a registered id with no carrier layer (A)", () => {
+  // The `if (!layer) return false` arm of hasGenericFields: an id that is
+  // registered but carries no layer (layer:null / unresolved carrier) must
+  // answer false without touching the probe cache.
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({
+    id: "null1",
+    name: "N",
+    role: "overlay",
+    layer: null as any,
+  });
+  expect(manager.hasFilterableFields("null1")).toBe(false);
+});
+it("Tier2 cache hit: ensureFilterFeatures reuses the built row until dataRevision moves (D)", () => {
+  // `if (cached && this.filterFeaturesRev.get(id) === revision) return cached` -
+  // a second read at the same revision must NOT re-walk. Bump the revision and
+  // the next read re-walks. Observed by counting the runtimeStore write: the
+  // builder writes the row once per build, a cache hit never writes. A fresh
+  // id is registered after the attach sweep so the build is attributable to
+  // the model reads, not the fixture render.
+  installLeafletGlobals();
+  const leaf = new window.L.Polygon() as any;
+  leaf.feature = { properties: { mag: 3 } };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+    getBounds: () => ({ isValid: () => true }),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager, ui } = initFixture({ data: [] });
+  const writeSpy = vi.spyOn(ui.runtimeStore, "setFilterFeatures");
+  manager.registerLayer({ id: "t2", name: "T", role: "overlay", layer: layer as any });
+  // First read: build + write (1).
+  expect(manager.genericFilterModel("t2")).not.toBeNull();
+  expect(writeSpy).toHaveBeenCalledTimes(1);
+  // Same revision: cache hit, no re-walk / no re-write.
+  expect(manager.genericFilterModel("t2")).not.toBeNull();
+  expect(writeSpy).toHaveBeenCalledTimes(1);
+  // Revision moved: the next read re-walks and re-writes.
+  ui.runtimeStore.bumpDataRevision("t2");
+  expect(manager.genericFilterModel("t2")).not.toBeNull();
+  expect(writeSpy).toHaveBeenCalledTimes(2);
+  writeSpy.mockRestore();
+});
+
+it("escape hatch reverse: clearing a declared filter flips the gate back to the probe (A)", () => {
+  // The author-declaration escape hatch short-circuits to true. Clearing the
+  // declaration (setLayerFilter(id, undefined)) must fall back to the probe -
+  // the reverse arm of `if (declared !== undefined) return true`.
+  const leaf = {
+    options: {},
+    feature: { properties: {} },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({
+    data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
+  });
+  expect(manager.hasFilterableFields("p1")).toBe(false);
+  manager.setLayerFilter("p1", {
+    kind: "atom",
+    field: "value",
+    op: "between",
+    range: [1, 5],
+  } as any);
+  expect(manager.hasFilterableFields("p1")).toBe(true);
+  // Clearing the committed filter must return the gate to the probe (false here).
+  manager.setLayerFilter("p1", undefined);
+  expect(manager.hasFilterableFields("p1")).toBe(false);
+});
+
+it("hasFilterableFields answers false for an id with no registry entry (A)", () => {
+  const { manager } = initFixture({ data: [] });
+  expect(manager.hasFilterableFields("never-registered")).toBe(false);
+});
+
+it("scanGenericFields ignores a leaf that carries no feature properties (A)", () => {
+  // The `if (!props) return false` arm: a geometry leaf whose feature (or its
+  // properties) is absent must be skipped, not treated as filterable.
+  installLeafletGlobals();
+  const bare = new window.L.Polygon() as any;
+  bare.feature = undefined;
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(bare)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({
+    id: "bare1",
+    name: "B",
+    role: "overlay",
+    layer: layer as any,
+  });
+  expect(manager.hasFilterableFields("bare1")).toBe(false);
+});
+
+it("scanGenericFields treats a non-empty string property as filterable (A)", () => {
+  // The string value-kind arm: a single string prop must answer true (the
+  // probe stops at the first filterable value, so each kind needs its own
+  // layer to be observed). Plain leaf objects (not L.Polygon stubs, which
+  // can expose _layers and be misread as group-like) keep the walk on the
+  // leaf path.
+  const sLeaf = {
+    options: {},
+    feature: { properties: { name: "alpha" } },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(sLeaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({ id: "vs1", name: "V", role: "overlay", layer: layer as any });
+  expect(manager.hasFilterableFields("vs1")).toBe(true);
+});
+
+it("scanGenericFields treats a boolean property as filterable (A)", () => {
+  const bLeaf = {
+    options: {},
+    feature: { properties: { active: true } },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(bLeaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({ id: "vb1", name: "V", role: "overlay", layer: layer as any });
+  expect(manager.hasFilterableFields("vb1")).toBe(true);
+});
+
+it("scanGenericFields ignores a non-finite numeric property (A)", () => {
+  // The Number.isFinite false arm: NaN (and Infinity) must NOT count as a
+  // filterable numeric field, only finite numbers do.
+  const nLeaf = {
+    options: {},
+    feature: { properties: { bad: NaN, alsoBad: Infinity } },
+    getElement: () => document.createElement("path"),
+  };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(nLeaf)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({ id: "vn1", name: "V", role: "overlay", layer: layer as any });
+  expect(manager.hasFilterableFields("vn1")).toBe(false);
+});
+
+it("scanGenericFields probe is bounded by PROBE_K on a fresh layer (B)", () => {
+  // The `seen > PROBE_K` arm of scanGenericFields: a freshly registered id
+  // (no cached probe row) with 65 childless leaves must stop the scan at
+  // PROBE_K=64 and answer conservative false - the 65th (filterable) leaf is
+  // invisible. The committed PROBE_K test uses initFixture data, whose attach
+  // sweep caches the probe answer, so scanGenericFields (and the >PROBE_K arm)
+  // never runs there; a fresh id reaches the walk. Plain leaf objects (not
+  // L.Polygon) keep the walk on the leaf path - Polygon stubs can expose
+  // _layers and be misread as group-like.
+  const leaves = Array.from({ length: 65 }, (_, i) => ({
+    options: {},
+    feature: i === 64 ? { properties: { value: 1 } } : { properties: {} },
+    getElement: () => document.createElement("path"),
+  }));
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => leaves.forEach(fn)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({ id: "pk1", name: "P", role: "overlay", layer: layer as any });
+  expect(manager.hasFilterableFields("pk1")).toBe(false);
+});
+it("scanGenericFields treats string and boolean property values as filterable (A)", () => {
+  // The value-kind arms of the probe: a non-empty string and a boolean are
+  // both filterable; a NaN (not finite) must NOT count. Cover the branches
+  // the existing numeric-only tests skip.
+  installLeafletGlobals();
+  const sLeaf = new window.L.Polygon() as any;
+  sLeaf.feature = { properties: { name: "alpha" } };
+  const bLeaf = new window.L.Polygon() as any;
+  bLeaf.feature = { properties: { active: true } };
+  const nLeaf = new window.L.Polygon() as any;
+  nLeaf.feature = { properties: { bad: NaN } };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => {
+      fn(sLeaf);
+      fn(bLeaf);
+      fn(nLeaf);
+    }),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({ id: "vb1", name: "V", role: "overlay", layer: layer as any });
+  // string "alpha" is filterable (first hit stops the probe)
+  expect(manager.hasFilterableFields("vb1")).toBe(true);
+});
+
+it("scanGenericFields skips a label leaf (A)", () => {
+  // The `if ((node as LabelAwareLayer).isLabel) return false` arm: a label
+  // leaf must be skipped even when it carries a filterable property.
+  installLeafletGlobals();
+  const lbl = new window.L.Polygon() as any;
+  lbl.isLabel = true;
+  lbl.feature = { properties: { value: 1 } };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(lbl)),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({
+    id: "lbl1",
+    name: "L",
+    role: "overlay",
+    layer: layer as any,
+  });
+  expect(manager.hasFilterableFields("lbl1")).toBe(false);
+});
+
+it("scanGenericFields skips a wrapper with neither eachLayer nor _layers (A)", () => {
+  // The `if (reg)` arm of internalLayers: a group-like node that is neither a
+  // Leaflet container (no eachLayer) nor a registry wrapper (no _layers) must
+  // be treated as childless, not crash.
+  installLeafletGlobals();
+  const wrapper: any = { options: {} };
+  Object.setPrototypeOf(wrapper, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({
+    id: "w0",
+    name: "W",
+    role: "overlay",
+    layer: wrapper as any,
+  });
+  expect(() => manager.hasFilterableFields("w0")).not.toThrow();
+  expect(manager.hasFilterableFields("w0")).toBe(false);
+});
+
+it("genericCounts decrements kept for a leaf hidden by the active filter (A)", () => {
+  // The `if (hidden.has(feature.leaf)) kept--` arm of genericCounts: when a
+  // filter is applied and some leaves are in the hidden set, kept must drop
+  // below total. Drive it through the public path that reads counts.
+  installLeafletGlobals();
+  const leaf = new window.L.Polygon() as any;
+  leaf.feature = { properties: { mag: 3 } };
+  const layer = {
+    options: {},
+    eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+    getBounds: () => ({ isValid: () => true }),
+  };
+  Object.setPrototypeOf(layer, new window.L.Path());
+  const { manager } = initFixture({ data: [] });
+  manager.registerLayer({ id: "kc1", name: "K", role: "overlay", layer: layer as any });
+  const model = manager.genericFilterModel("kc1");
+  expect(model).not.toBeNull();
+  // Apply a filter that hides the single leaf: keep the value outside its range.
+  manager.setLayerFilter("kc1", {
+    kind: "atom",
+    field: "mag",
+    op: "between",
+    range: [9, 10],
+  } as any);
+  const counts = (manager as any).genericCounts("kc1");
+  expect(counts).toEqual({ kept: 0, total: 1 });
+});
 describe("createFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();

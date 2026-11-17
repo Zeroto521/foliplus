@@ -2088,14 +2088,18 @@ class LayerController implements LayerAPI {
     // The host's dimensions/counts pass already built (and cached) the
     // filterFeatures row, so the field picker reads the same cached
     // snapshot — never a second walk.
-    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    // Invariant: `dimensions.length > 0` (checked above) implies the
+    // host's dimensions() pass already built and cached the filterFeatures
+    // row, so the snapshot is present here — the read is a cache hit, never
+    // a null. `?.`/`??` would only hide a broken invariant.
+    const features = this.ui!.runtimeStore.getFilterFeatures(id)!;
     const fields = [
-      ...(features?.numericFields ?? []).map(field => ({
+      ...features.numericFields.map(field => ({
         value: field,
         label: field,
         numeric: true,
       })),
-      ...(features?.enumFields ?? []).map(field => ({
+      ...features.enumFields.map(field => ({
         value: field,
         label: field,
         numeric: false,
@@ -2138,7 +2142,7 @@ class LayerController implements LayerAPI {
   private hasGenericFields(id: string): boolean {
     const layer = this.layerRegistry.get(id)?.layer;
     if (!layer) return false;
-    const revision = this.ui?.runtimeStore.getDataRevision(id) ?? 0;
+    const revision = this.ui!.runtimeStore.getDataRevision(id);
     const cached = this.filterProbe.get(id);
     if (cached?.revision === revision) return cached.has;
     // A cached filterFeatures row is an authoritative presence answer: it was
@@ -2182,8 +2186,8 @@ class LayerController implements LayerAPI {
           if (typeof tn.eachLayer === "function") {
             tn.eachLayer(k => kids.push(k));
           } else {
-            const reg = internalLayers(tn);
-            if (reg) kids = Object.values(reg);
+            const reg = internalLayers(tn)!;
+            kids = Object.values(reg);
           }
         } catch {
           kids = [];
@@ -2195,7 +2199,6 @@ class LayerController implements LayerAPI {
         return false;
       }
       seen++;
-      if (seen > PROBE_K) return false;
       if ((node as LabelAwareLayer).isLabel) return false;
       const props = (
         node as {
@@ -2225,8 +2228,8 @@ class LayerController implements LayerAPI {
    *  the full tree and a model build reuses the same snapshot. */
   private ensureFilterFeatures(id: string): LayerFilterFeatures | null {
     const layer = this.layerRegistry.get(id)?.layer;
-    const revision = this.ui?.runtimeStore.getDataRevision(id) ?? 0;
-    const cached = this.ui?.runtimeStore.getFilterFeatures(id);
+    const revision = this.ui!.runtimeStore.getDataRevision(id);
+    const cached = this.ui!.runtimeStore.getFilterFeatures(id);
     // A cached row at this revision is authoritative (Tier2 already built it).
     if (cached && this.filterFeaturesRev.get(id) === revision) return cached;
     // No walkable layer: keep a pre-seeded row (external owner / test fixture
@@ -2234,7 +2237,7 @@ class LayerController implements LayerAPI {
     // layer whose geometry is not reachable at probe time loses its model.
     if (!layer) return cached ?? null;
     const features = buildFilterFeatures(layer);
-    this.ui?.runtimeStore.setFilterFeatures(id, features);
+    this.ui!.runtimeStore.setFilterFeatures(id, features);
     this.filterFeaturesRev.set(id, revision);
     return features;
   }
