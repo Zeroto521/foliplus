@@ -225,7 +225,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     owner: "layer",
     localId: "attrs",
     rank: 600,
-    exclusiveGroup: "layer:rows",
+    exclusiveGroup: "map:panel",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     root: () => ui.overlayPanel.activeAttrsPanel?.panel ?? null,

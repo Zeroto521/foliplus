@@ -1590,7 +1590,7 @@ describe("OverlayRegistry", () => {
       expect(POPUP_OVERLAY_RANK).toBeGreaterThan(orderOf(OVERLAY_IDS.LAYER_MENU));
     });
 
-  // ─────────────────── task-155: map:panel exclusivity ───────────────────
+  // ─────────────────── map:panel exclusivity ───────────────────
   //
   // The fold panels (Heatmap / Measure / Search main panels) register as
   // registry entries. Two contracts are pinned here:
@@ -1598,11 +1598,11 @@ describe("OverlayRegistry", () => {
   //  1. A press on one surface closes an open fold panel of another — the
   //     press-dispatch signal (overlayRegistry press dispatch runs on the
   //     CAPTURE phase, so the more-menu button's own stopPropagation cannot
-  //     hide it — the task-155 root cause).
+  //     hide it — the root cause).
   //  2. A press INSIDE a nested surface (a picker portalled to the fold
   //     panel) does NOT close the host — portal ownership keeps the press
   //     "inside", and an inside press must keep the panel open.
-  describe("task-155 map:panel exclusivity", () => {
+  describe("map:panel exclusivity", () => {
     it("press on the more-menu button closes the open fold panel", () => {
       const heatmap = makeEntry({
         id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,

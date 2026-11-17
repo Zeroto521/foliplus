@@ -337,6 +337,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     owner: "layer",
     localId: "menu",
     rank: 800,
+    // The menu is a map surface: opening it closes the open sibling panels of
+    // its exclusive group, so a Heatmap/Measure/Search fold panel
+    // cannot stay open beside the menu.
+    exclusiveGroup: "map:panel",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "click" } satisfies Partial<Dismiss>,
     root: () => ui.overlayPanel.activeMenu?.menu ?? null,

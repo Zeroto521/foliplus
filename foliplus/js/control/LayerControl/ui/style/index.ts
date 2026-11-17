@@ -444,7 +444,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     owner: "layer",
     localId: "style",
     rank: 500,
-    exclusiveGroup: "layer:rows",
+    exclusiveGroup: "map:panel",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     root: () => ui.overlayPanel.stylePanelEl ?? null,

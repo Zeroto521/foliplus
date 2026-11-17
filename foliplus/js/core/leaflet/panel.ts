@@ -3,6 +3,7 @@
 // Provides fold/expand controls, panel creation, and map sync utilities.
 // Statically imported by components; uses dom (dom.js) and cssVar
 // (cssvar.js) directly instead of reading them from the runtime global.
+import { type OverlayEntry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
 import { bindFloatingGestures } from "#platform/floating.js";
@@ -62,6 +63,8 @@ const bindPanelToggle = (opts: {
   container: HTMLElement;
   toggleBtn: string;
   header: string;
+  onExpand?: () => void;
+  onCollapse?: () => void;
 }): void => {
   const btn = opts.container.querySelector(opts.toggleBtn) as HTMLElement | null;
   if (btn) {
@@ -70,6 +73,7 @@ const bindPanelToggle = (opts: {
       opts.container.classList.remove(PANEL_CLASS.COLLAPSED);
       opts.container.classList.add(PANEL_CLASS.EXPANDED);
       adjustPanelZIndex({ container: opts.container, expanded: true });
+      opts.onExpand?.();
     });
   }
   const hdr = opts.container.querySelector(opts.header) as HTMLElement | null;
@@ -79,6 +83,7 @@ const bindPanelToggle = (opts: {
       opts.container.classList.remove(PANEL_CLASS.EXPANDED);
       opts.container.classList.add(PANEL_CLASS.COLLAPSED);
       adjustPanelZIndex({ container: opts.container, expanded: false });
+      opts.onCollapse?.();
     });
   }
 };
@@ -192,6 +197,76 @@ const bindOutsideCollapse = (opts: {
  * Create a fold (expand/collapse) control container with toggle button and toolbar.
  * Shared by MeasureControl and ExportControl for consistent UI.
  */
+/**
+ * Register a fold panel's open/close state with the per-map overlay registry.
+ *
+ * A fold panel (Measure / Search / Heatmap main panel) currently collapses via
+ * bindOutsideCollapse, a document-level click listener that a LayerControl row
+ * "more" button's stopPropagation can silently kill (the LayerControl press).
+ * The overlay registry's press dispatch runs in the capture phase, which no
+ * target's stopPropagation can hide from - so registering the fold panel as a
+ * registry entry makes the exclusivity contract the single mechanism, exactly
+ * like the row panels (attr / filter / style) and the ... menu.
+ *
+ * The entry reads the panel's state from the class list (EXPANDED / COLLAPSED)
+ * rather than a controller #open field, so there is exactly one source of truth
+ * and bindFoldToggle / bindPanelToggle keep driving the DOM as they do today.
+ * `close` refuses Escape (restoreFocus:true), matching the fold panels' historic
+ * behaviour: they collapse on outside press, not on Escape (the Measure / Search
+ * Escape handlers manage their own modes). A `canClose` gate replicates the
+ * skipCheck the old bindOutsideCollapse callers passed (Measure's active mode,
+ * collapse_on_outside=false).
+ *
+ * The registry entry is created once and stays registered while the control is
+ * mounted; isOpen()=false simply keeps it out of dispatch. Returns the unregister
+ * (call on control teardown) and the groupOpen hook (call from the expand path so
+ * opening this panel closes the open siblings of its exclusive group - the belt).
+ */
+const bindFoldOverlay = (opts: {
+  /** Map whose registry owns the entry. */
+  map: L.Map;
+  /** The fold panel element (carries EXPANDED / COLLAPSED). */
+  container: HTMLElement;
+  /** Registry identity (e.g. "heatmap.panel"). Not an OVERLAY_ID: fold panels
+   *  do not take part in Escape ranking. */
+  id: string;
+  /** Group name shared with the surfaces this panel is exclusive against. */
+  exclusiveGroup: string;
+  /** Press order vs the other open surfaces (higher = inspected earlier). */
+  pressPriority: number;
+  /** Optional extra panels that belong to the surface (Search's floating
+   *  results panel is attached to the map container, not the fold container). */
+  panels?: () => Element[];
+  /** Optional gate: false = this press leaves the panel open (Measure's
+   *  active mode, collapse_on_outside=false). Defaults to always closable. */
+  canClose?: () => boolean;
+}): { groupOpen: () => void; detach: () => void } => {
+  const registry = ensureOverlayRegistry(opts.map);
+  const entry: OverlayEntry = {
+    id: opts.id,
+    exclusiveGroup: opts.exclusiveGroup,
+    isOpen: () => opts.container.classList.contains(PANEL_CLASS.EXPANDED),
+    close: ({ restoreFocus }) => {
+      // Escape never closes a fold panel (restoreFocus:true is the registry's
+      // Escape source; press dispatch and group-open pass false).
+      if (restoreFocus === true) return false;
+      if (!opts.container.classList.contains(PANEL_CLASS.EXPANDED)) return false;
+      if (opts.canClose && !opts.canClose()) return false;
+      opts.container.classList.remove(PANEL_CLASS.EXPANDED);
+      opts.container.classList.add(PANEL_CLASS.COLLAPSED);
+      adjustPanelZIndex({ container: opts.container, expanded: false });
+      return true;
+    },
+    panels: () => {
+      const base = [opts.container];
+      return opts.panels ? [...base, ...opts.panels()] : base;
+    },
+    dismissOn: "mousedown",
+    pressPriority: opts.pressPriority,
+  };
+  const detach = registry.register(entry);
+  return { groupOpen: () => registry.open(entry), detach };
+};
 const createFoldControl = (opts: {
   cssClass: string;
   toggleTitle: string;
@@ -670,6 +745,15 @@ const createPanelControl = (opts: {
    *  that omits it keeps the shell's historic behavior; LayerControl passes
    *  `false` because the panel is a working surface read alongside the map. */
   collapseOnOutside?: boolean;
+  /** Belt hook: called after the toggle expands the panel (the registry's
+   *  groupOpen - opening this panel closes the open siblings of its group). */
+  onExpand?: () => void;
+  /** Belt hook: called after the toggle collapses the panel. */
+  onCollapse?: () => void;
+  /** Skip the internal bindOutsideCollapse (the caller registers the panel
+   *  on the overlay registry instead). The returned destroy then
+   *  becomes a no-op for the outside listener. */
+  skipOutsideCollapse?: boolean;
 }): {
   container: HTMLElement;
   ctrl: HTMLElement;
@@ -721,13 +805,17 @@ const createPanelControl = (opts: {
     container: ctrl,
     toggleBtn: `.${CLASSES.TOGGLE_BTN}`,
     header: `.${CLASSES.PANEL_HEADER}`,
+    onExpand: opts.onExpand,
+    onCollapse: opts.onCollapse,
   });
-  const unbindOutside = bindOutsideCollapse({
-    container: ctrl,
-    // skipCheck short-circuits the capture pass too, so the panel is inert to
-    // outside presses rather than collapsing.
-    skipCheck: opts.collapseOnOutside === false ? () => true : undefined,
-  });
+  const unbindOutside = opts.skipOutsideCollapse
+    ? () => {}
+    : bindOutsideCollapse({
+        container: ctrl,
+        // skipCheck short-circuits the capture pass too, so the panel is inert
+        // to outside presses rather than collapsing.
+        skipCheck: opts.collapseOnOutside === false ? () => true : undefined,
+      });
 
   return {
     container,
@@ -743,6 +831,7 @@ export {
   ROW_PANEL_MIN_HEIGHT,
   ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
+  bindFoldOverlay,
   bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,

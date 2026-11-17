@@ -6,6 +6,7 @@ import {
   ROW_PANEL_MIN_HEIGHT,
   ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
+  bindFoldOverlay,
   bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,
@@ -199,6 +200,100 @@ describe("bindFoldToggle", () => {
     bindFoldToggle({ container, toggleBtn: btn });
     btn.click();
     expect(domEvent.stop).toHaveBeenCalled();
+  });
+});
+
+describe("bindFoldOverlay", () => {
+  function makeFold() {
+    const container = document.createElement("div");
+    container.className = "foliplus-ctrl-fold foliplus-is-collapsed";
+    const btn = document.createElement("button");
+    btn.className = "foliplus-toggle-btn";
+    container.appendChild(btn);
+    document.body.appendChild(container);
+    return { container, btn };
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("registers the fold panel with the registry and closes on group open", () => {
+    // Minimal map stub: ensureOverlayRegistry only needs a key.
+    const on = vi.fn();
+    const map = { _leaflet_id: 1, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const { groupOpen } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.panel",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    // The entry is registered and opens through the toggle class.
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+    // groupOpen on a sibling closes this one (no sibling here, no error).
+    groupOpen();
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+  });
+
+  it("close refuses Escape and respects canClose", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 2, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const canClose = vi.fn(() => true);
+    const fold = bindFoldOverlay({
+      map,
+      container,
+      id: "test.panel2",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+
+    // A sibling in the same group opens -> the registry closes this one
+    // (restoreFocus:false path inside close()).
+    const { container: sibling } = makeFold();
+    const { groupOpen: siblingOpen } = bindFoldOverlay({
+      map,
+      container: sibling,
+      id: "test.sibling",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () => true,
+    });
+    sibling.classList.add("foliplus-is-expanded");
+    sibling.classList.remove("foliplus-is-collapsed");
+
+    siblingOpen();
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
+
+    // canClose false leaves the panel open.
+    const { container: gated } = makeFold();
+    bindFoldOverlay({
+      map,
+      container: gated,
+      id: "test.gated",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () => false,
+    });
+    gated.classList.add("foliplus-is-expanded");
+    gated.classList.remove("foliplus-is-collapsed");
+    const { groupOpen: gateOpen } = bindFoldOverlay({
+      map,
+      container: gated,
+      id: "test.gated2",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () => true,
+    });
+    gateOpen();
+    expect(gated.classList.contains("foliplus-is-expanded")).toBe(true);
   });
 });
 
