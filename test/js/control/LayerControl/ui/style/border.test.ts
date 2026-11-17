@@ -23,6 +23,7 @@ import {
   commitBorderColor,
   commitBorderWeight,
   layerCanBorder,
+  replayDeclaredBorder,
   resetLayerBorder,
   writeBorderValue,
 } from "#control/LayerControl/ui/style/border.js";
@@ -2952,6 +2953,39 @@ describe("follow-fill border mode", () => {
     flushStyleDimApply(FACE.FILL, "dpoly5");
     flushStyleDimApply(FACE.STROKE, "dpoly5");
     expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#abcdef");
+  });
+
+  it("replayDeclaredBorder paints a declared follow_fill border with no stored intent", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep1", { mode: "follow_fill" }, leaves);
+    replayDeclaredBorder(ui, "drep1");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0].color).toBe("#123456");
+  });
+
+  it("replayDeclaredBorder is a no-op once a stored intent exists", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep2", { mode: "follow_fill" }, leaves);
+    setIntent(ui, "drep2", "borderStyleMode", "solid");
+    setIntent(ui, "drep2", "borderColor", "#abcdef");
+    const before = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "drep2");
+    expect(leaves[0].setStyle.mock.calls.length).toBe(before);
+  });
+
+  it("replayDeclaredBorder dedupes per layer (paint once)", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep3", { mode: "follow_fill" }, leaves);
+    replayDeclaredBorder(ui, "drep3");
+    const calls = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "drep3");
+    expect(leaves[0].setStyle.mock.calls.length).toBe(calls);
+  });
+
+  it("replayDeclaredBorder is a no-op on a non-follow_fill layer", () => {
+    const leaves = [makeAreaLeaf(1, { fillColor: "#123456" })];
+    registerDeclared("drep4", { mode: "solid" }, leaves);
+    replayDeclaredBorder(ui, "drep4");
+    expect(leaves[0].setStyle).not.toHaveBeenCalled();
   });
 
   it("per-feature solid with no intent: the engine passes the derived author base (435 base arm)", () => {
