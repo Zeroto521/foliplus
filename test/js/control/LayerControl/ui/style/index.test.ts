@@ -143,6 +143,53 @@ describe("LayerUI style panel", () => {
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
   });
+  it("deleting the layer closes its open style panel (LAYER_REMOVED)", () => {
+    // A user-added layer retires through retireEntry → LAYER_REMOVED; the
+    // style panel must close itself rather than leave a drawer for a row
+    // that is about to disappear.
+    manager.registerLayer({
+      id: "L1",
+      name: "Added",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as any);
+    const item = findItem(ui, "L1");
+    ui.openStylePanel("L1");
+    expect(panelOf(item)).not.toBeUndefined();
+
+    expect(manager.deleteLayer("L1")).toBe(true);
+
+    // The row is gone from the DOM; the panel state must be fully closed.
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+    expect(ui.overlayPanel.styleUnsubscribe).toBeNull();
+    expect(ui.overlayPanel.styleRemovedUnsub).toBeNull();
+    expect(document.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)).toBeNull();
+  });
+
+  it("deleting another layer keeps this style panel open", () => {
+    manager.registerLayer({
+      id: "L1",
+      name: "Added",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as any);
+    manager.registerLayer({
+      id: "L2",
+      name: "Other",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as any);
+    const item = findItem(ui, "L1");
+    ui.openStylePanel("L1");
+    expect(panelOf(item)).not.toBeUndefined();
+
+    expect(manager.deleteLayer("L2")).toBe(true);
+
+    expect(panelOf(findItem(ui, "L1"))).not.toBeUndefined();
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("L1");
+    expect(ui.overlayPanel.styleRemovedUnsub).not.toBeNull();
+  });
 
   it("its registry entry reports no containment once the panel is gone", () => {
     const item = findItem(ui, "overlay1");
