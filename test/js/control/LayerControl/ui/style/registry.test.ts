@@ -912,8 +912,8 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   });
 });
 
-describe("dimension bind contract (task-167)", () => {
-  // The #154 root cause: the panel re-looked-up rows by a reused class
+describe("dimension bind contract", () => {
+  // The root cause: the panel re-looked-up rows by a reused class
   // (STYLE_SIZE_ROW matched a fill-opacity row), so a bind landed on the
   // wrong element. The fix: each descriptor owns a `bind` that receives the
   // EXACT row its `row()` built, and every row carries a unique
