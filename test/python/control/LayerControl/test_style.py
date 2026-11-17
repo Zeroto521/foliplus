@@ -824,6 +824,81 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the user's width was erased on return: {entry}"
             )
 
+    def test_declared_border_follow_fill_is_the_default(self, browser, tmp_path):
+        """A layer stamped foliplus={"border": {"mode": "follow_fill"}} opens its
+        border mode on followFill with NO stored intent, and the map paints the
+        leaf's current fill colour as the stroke (derived, never copied).
+
+        The declaration is a read-time default: no stored border mode, no
+        border colour — the panel shows followFill, the option is offered on a
+        polygon, and the border takes the fill colour. A later user solid
+        choice overrides it (intent > declaration); Reset returns to the
+        declaration.
+        """
+        m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
+        border_data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
+        for i, feat in enumerate(border_data["features"]):
+            feat["properties"] = {"score": 10 + i}
+        folium.GeoJson(
+            json.dumps(border_data),
+            name="Declared polygon data",
+            style_function=lambda _f: {"fillColor": "#808080", "color": "#0000ff"},
+            foliplus={"border": {"mode": "follow_fill"}},
+        ).add_to(m)
+        LayerControl(locale="en").add_to(m)
+        _expand_panel(m)
+
+        html_path = tmp_path / "test_declared_border_follow_fill.html"
+        _write_html(m, html_path)
+
+        with use_raw_page(browser.new_page) as page:
+            page.goto(f"file://{html_path}", wait_until="domcontentloaded")
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+
+            baseline = page.evaluate(
+                _js("LayerControl/declared_border_follow_fill"),
+                ["Declared polygon data"],
+            )
+            assert baseline.get("row"), f"layer row not found: {baseline}"
+            # No stored mode: the declaration is the default.
+            assert baseline["mode"] == "followFill", baseline
+            # The option is offered on a polygon.
+            assert "followFill" in baseline["modes"], baseline
+            # The border paints the leaf's fill colour (derived, not a copy).
+            for stroke in baseline["strokes"]:
+                assert stroke["stroke"] == "rgb(128, 128, 128)", (
+                    f"declared follow_fill did not derive the fill colour: {baseline}"
+                )
+            # No border state was persisted (nothing the user owns).
+            assert all(
+                "borderStyleMode" not in json.loads(v)
+                for v in baseline["storage"].values()
+            ), baseline
+
+            # A user solid choice overrides the declaration.
+            solid = page.evaluate(
+                _js("LayerControl/declared_border_follow_fill"),
+                ["Declared polygon data"],
+            )
+            assert solid["row"], solid
+            page.evaluate(
+                snippet("LayerControl/set_border_mode"),
+                ["Declared polygon data", "solid", "#ff0000"],
+            )
+            page.wait_for_timeout(300)
+            after = page.evaluate(
+                _js("LayerControl/declared_border_follow_fill"),
+                ["Declared polygon data"],
+            )
+            assert after["mode"] == "solid", after
+            for stroke in after["strokes"]:
+                assert stroke["stroke"] == "rgb(255, 0, 0)", after
+
     def test_border_swatch_shows_a_named_color_as_hex(self, browser, tmp_path):
         """The swatch agrees with the map for a named authored color.
 

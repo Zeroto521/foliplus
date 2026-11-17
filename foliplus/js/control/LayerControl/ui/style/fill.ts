@@ -102,6 +102,7 @@ import {
   normalizeHexColor,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredBorder } from "#control/LayerControl/declaredBorder.js";
 
 /** Whether the layer's surface can honestly carry a fill write.
  *  Pure capability check: `capabilities.fill === "native"`.
@@ -746,8 +747,16 @@ const FILL_DIMENSION = registerDimension<{
     // edits the fill (colour, mode, value), the border must re-derive from
     // each leaf's new paint. The fill write is the single commit path, so
     // the border replay rides here — no extra listener, no cross-face
-    // event. Only when the stored border mode is follow-fill.
-    if (getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) === STYLE_MODE.FOLLOW_FILL) {
+    // event. Replay when the follow-fill mode is in force: stored (the
+    // user chose it) or declared (foliplus.border follow_fill, no stored
+    // mode). A stored solid/value border steps aside — it does not follow.
+    const borderMode = getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE);
+    const layerObj = ui.c.layerRegistry.get(layerId)?.layer ?? ui.c.findLayer(layerId);
+    const borderFollowFill =
+      borderMode === STYLE_MODE.FOLLOW_FILL ||
+      (borderMode === undefined &&
+        readDeclaredBorder(layerObj, layerId).declared === STYLE_MODE.FOLLOW_FILL);
+    if (borderFollowFill) {
       replayFace(ui, layerId, FACE.STROKE);
     }
   },

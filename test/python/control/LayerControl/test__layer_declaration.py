@@ -25,6 +25,7 @@ from conftest import feature_collection
 from foliplus import LayerControl
 from foliplus.control.LayerControl._layer_declaration import (
     FOLIPLUS_KEYS,
+    declared_border,
     declared_filter,
     declared_folder,
     declared_zoom_range,
@@ -482,3 +483,32 @@ def test_third_source_reuses_shared_normaliser():
         )
 
     assert demo_declared_filter(layer, "Pop") == declared_filter(layer, "Pop")
+
+
+def test_declared_border_follow_fill_is_read():
+    layer = _geo(foliplus={"border": {"mode": "follow_fill"}})
+    assert declared_border(layer, "Declared") == {"mode": "follow_fill"}
+
+
+def test_undeclared_border_is_none_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert declared_border(_geo(), "Declared") is None
+
+    assert caught == []
+
+
+def test_invalid_border_warns_and_reads_none():
+    with pytest.warns(UserWarning, match="border"):
+        assert (
+            declared_border(_geo(foliplus={"border": {"mode": "solid"}}), "Declared")
+            is None
+        )
+
+
+def test_border_stays_out_of_conf():
+    # The border declaration is read by the JS panel off layer.options.foliplus
+    # (the same channel as fill/label): CONF must not carry a border key.
+    html = _render(_geo(foliplus={"border": {"mode": "follow_fill"}}))
+    entry = _conf(html)["data"][0]
+    assert "border" not in entry
