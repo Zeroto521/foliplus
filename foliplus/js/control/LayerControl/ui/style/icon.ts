@@ -251,8 +251,6 @@ const bindGlyphGrid = (
   };
 
   const open = () => {
-    /* v8 ignore next -- defensive: trigger handler closes before re-opening */
-    if (grid) return;
     const built = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
     grid = built.grid;
     // While the grid is open it owns the arrow / Home / End / Enter / Space
