@@ -227,6 +227,7 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
     inlineControls(input, opacityGroup),
     CONST.CLASSES.STYLE_MARKER_COLOR_ROW,
   );
+  row.dataset.styleDim = "markerColor";
   input.addEventListener("input", () => {
     const next = input.value;
     if (!/^#[0-9a-f]{6}$/i.test(next)) return;

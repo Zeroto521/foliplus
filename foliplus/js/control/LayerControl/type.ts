@@ -118,11 +118,20 @@ type LayerDimension<D = unknown> = {
    *  the author's declared default when the user has never touched the
    *  dimension. `undefined` when the layer is not in the registry. */
   value: (ui: LayerUI, layerId: string) => D | undefined;
-  /** Build the style-panel row. The descriptor owns the DOM shape; the
-   *  panel still owns event binding, because binding needs the row's
-   *  parent (the panel root) to install the drag bubble and shared
-   *  number-field commit handler. */
+  /** Build the style-panel row. The descriptor owns the DOM shape.
+   *
+   *  The panel assembly calls `row()` then immediately hands the result to
+   *  `bind` (when declared) — binding is the descriptor's own responsibility
+   *  and receives the exact row it built. This removes the panel's
+   *  querySelector re-lookup, which was the root cause of the size-row bind
+   *  landing on a reused class (STYLE_SIZE_ROW) that matched the wrong row. */
   row: (ui: LayerUI, layerId: string) => HTMLElement;
+  /** Bind the row's live controls. Called by the panel assembly right after
+   *  `row()` returns, with the exact element the descriptor just built — no
+   *  class-based re-lookup, so a reused row class can never hit a neighbour's
+   *  row. Optional: a dimension whose build already wired its own controls
+   *  (opacity / zoomRange bind inside Slider construction) omits it. */
+  bind?: (ui: LayerUI, layerId: string, row: HTMLElement) => void;
   /** Cohesive user write: persist the patch through LayerIntentStore (`set`
    *  marks provenance) then schedule the styleBag landing. Partial patch —
    *  omitted keys leave that sub-dimension untouched.

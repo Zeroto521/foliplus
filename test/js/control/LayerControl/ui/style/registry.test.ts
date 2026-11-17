@@ -912,6 +912,57 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   });
 });
 
+describe("dimension bind contract (task-167)", () => {
+  // The #154 root cause: the panel re-looked-up rows by a reused class
+  // (STYLE_SIZE_ROW matched a fill-opacity row), so a bind landed on the
+  // wrong element. The fix: each descriptor owns a `bind` that receives the
+  // EXACT row its `row()` built, and every row carries a unique
+  // data-style-dim=key. This locks both invariants so a future dimension
+  // cannot drift back to a class-based re-lookup.
+  it("the three re-lookup dimensions declare bind; the rest wire themselves", () => {
+    // fill / size / border are the rows the panel USED to re-lookup by class
+    // and hand to a shared binder. They must each carry a `bind` now so the
+    // panel can call it with the exact row instead of querySelector'ing.
+    // opacity / zoomRange wire their controls inside `row()` (Slider), and
+    // icon / iconColor / markerColor / label are built already-bound or are
+    // panel-delegated — none of them ever had a panel re-lookup, so they do
+    // NOT require a bind slot (the optional ?. call is a no-op for them).
+    for (const key of ["fill", "size", "border"]) {
+      expect(typeof getDimension(key)!.bind, `dimension ${key} must declare bind`).toBe("function");
+    }
+    for (const key of ["opacity", "zoomRange", "icon", "iconColor", "markerColor", "label"]) {
+      expect(getDimension(key)!.bind, `dimension ${key} must NOT declare bind`).toBeUndefined();
+    }
+  });
+
+  it("every row built by a gated descriptor carries data-style-dim=key, exactly once", () => {
+    const { ui } = initFixture();
+    // All style dims available (fill/stroke native, opacity/zoomRange pane,
+    // label native) so every row builder runs.
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
+      capabilities: {
+        fill: "native",
+        stroke: "native",
+        opacity: "pane",
+        zoomRange: "pane",
+        label: "native",
+        size: "native",
+        icon: "native",
+        iconColor: "native",
+        markerColor: "native",
+      },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as never);
+    for (const key of [...DIM_ORDER, ...LABEL_DIM_ORDER]) {
+      const dim = getDimension(key)!;
+      const row = dim.row(ui, "overlay1") as HTMLElement;
+      expect(row, `row for ${key} must build`).not.toBeNull();
+      expect(row.matches(`[data-style-dim="${key}"]`), `row ${key} carries data-style-dim`).toBe(true);
+      expect(row.querySelectorAll(`[data-style-dim="${key}"]`).length, `row ${key} no nested duplicate`).toBe(0);
+    }
+  });
+});
 describe("content dimension slot omission (label)", () => {
   // label is a *content* dimension, not a style-value dimension: its state
   // lives in the label config manager, not LayerIntentStore keys. The
