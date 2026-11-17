@@ -2939,3 +2939,21 @@ describe("listbox engine: focused row stays visible (scrollIntoView guard)", () 
     expect(spy).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
   });
 });
+
+describe("listbox engine: getRows lifecycle", () => {
+  it("returns the live rows while open and an empty array after destroy", () => {
+    // P2-1: getRows() exposes the cached row list to the dropdown's keyboard
+    // path. After destroy the engine must not hand back stale row elements —
+    // the dropdown's search keydown reads rows every press.
+    const { listbox } = makePicker([
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+    ]);
+    listbox.open();
+    const live = listbox.getRows();
+    expect(live.length).toBe(2);
+    listbox.destroy();
+    expect(listbox.getRows()).toEqual([]);
+    expect(listbox.getList()).toBeNull();
+  });
+});

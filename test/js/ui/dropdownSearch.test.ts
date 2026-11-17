@@ -717,3 +717,77 @@ it("activates the item at the FILTERED index, not the source index", () => {
     }, 250);
   });
 });
+
+describe("dropdown search: defensive defaults (policy §4.2)", () => {
+  it("renders an empty placeholder when none is provided", () => {
+    const { dropdown } = makeSearch(makeItems(12), {
+      searchPlaceholder: undefined as never,
+    });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    // The searchField primitive only sets these attributes when a non-empty
+    // string is given, so an omitted placeholder leaves them absent (not "").
+    expect(input?.hasAttribute("placeholder")).toBe(false);
+    expect(input?.hasAttribute("aria-label")).toBe(false);
+  });
+
+  it("shows an empty status text when no-result copy is omitted", () => {
+    const { dropdown } = makeSearch(makeItems(12), {
+      searchNoResult: undefined as never,
+    });
+    dropdown.trigger.click();
+    type(dropdown, "zzz");
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
+        const status = dropdown
+          .getList()
+          ?.parentElement?.querySelector('[role="status"]');
+        expect(status?.textContent).toBe("");
+        resolve();
+      }, 250);
+    });
+  });
+
+  it("ArrowUp from no active row parks on the trigger (no row to scroll)", () => {
+    const { dropdown } = makeSearch(makeItems(11));
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    if (!input) throw new Error("no input");
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }),
+    );
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+    expect(optionEls(dropdown).some(el => el.classList.contains(CLS.active))).toBe(
+      false,
+    );
+  });
+
+  it("Home/End with no matched rows leave no active row (nothing to scroll)", () => {
+    // With a query that matches nothing the rendered list is empty; Home/End
+    // clamp to index 0 which is undefined, so the scroll guard must no-op.
+    const { dropdown } = makeSearch(makeItems(11));
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    if (!input) throw new Error("no input");
+    type(dropdown, "zzz");
+    return new Promise<void>(resolve => {
+      setTimeout(() => {
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", {
+            key: "Home",
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        input.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+        );
+        expect(input.getAttribute("aria-activedescendant")).toBeNull();
+        expect(optionEls(dropdown).some(el => el.classList.contains(CLS.active))).toBe(
+          false,
+        );
+        resolve();
+      }, 250);
+    });
+  });
+});
