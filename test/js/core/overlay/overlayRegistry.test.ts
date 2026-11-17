@@ -1589,6 +1589,131 @@ describe("OverlayRegistry", () => {
       expect(POPUP_OVERLAY_RANK).toBe(POPUP_HOST_RANK + POPUP_ESCAPE_DELTA);
       expect(POPUP_OVERLAY_RANK).toBeGreaterThan(orderOf(OVERLAY_IDS.LAYER_MENU));
     });
+
+  // ─────────────────── task-155: map:panel exclusivity ───────────────────
+  //
+  // The fold panels (Heatmap / Measure / Search main panels) register as
+  // registry entries. Two contracts are pinned here:
+  //
+  //  1. A press on one surface closes an open fold panel of another — the
+  //     press-dispatch signal (overlayRegistry press dispatch runs on the
+  //     CAPTURE phase, so the more-menu button's own stopPropagation cannot
+  //     hide it — the task-155 root cause).
+  //  2. A press INSIDE a nested surface (a picker portalled to the fold
+  //     panel) does NOT close the host — portal ownership keeps the press
+  //     "inside", and an inside press must keep the panel open.
+  describe("task-155 map:panel exclusivity", () => {
+    it("press on the more-menu button closes the open fold panel", () => {
+      const heatmap = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        exclusiveGroup: "map:panel",
+        panels: () => [panel("heatmap")],
+      });
+      const moreMenu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        exclusiveGroup: "map:panel",
+        panels: () => [panel("menu")],
+      });
+      registry.register(heatmap.entry);
+      registry.register(moreMenu.entry);
+
+      press(panel("more-menu-button"), "mousedown");
+
+      expect(heatmap.closeCalls).toEqual([false]);
+      expect(moreMenu.closeCalls).toHaveLength(0);
+    });
+
+    it("press dispatch survives a target stopPropagation (capture phase)", () => {
+      const heatmap = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        exclusiveGroup: "map:panel",
+        panels: () => [panel("heatmap")],
+      });
+      registry.register(heatmap.entry);
+
+      const btn = panel("more-menu-button");
+      btn.addEventListener("mousedown", (event: Event) => {
+        event.stopPropagation();
+      });
+      press(btn, "mousedown");
+
+      expect(heatmap.closeCalls).toEqual([false]);
+    });
+
+    it("a press inside a portalled picker does not close the host fold panel", () => {
+      const heatmapPanel = panel("heatmap");
+      const pickerPortal = panel("picker-portal");
+      const heatmap = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        exclusiveGroup: "map:panel",
+        panels: () => [heatmapPanel],
+      });
+      registry.register(heatmap.entry);
+      portalReleases.push(registerPortalRoot(pickerPortal, child(heatmapPanel)));
+
+      press(child(pickerPortal), "mousedown");
+
+      expect(heatmap.closeCalls).toHaveLength(0);
+    });
+
+    it("open() closes only same-group siblings (belt path)", () => {
+      const heatmap = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        exclusiveGroup: "map:panel",
+        panels: () => [panel("heatmap")],
+      });
+      const menu = makeEntry({
+        id: OVERLAY_IDS.LAYER_MENU,
+        exclusiveGroup: "map:panel",
+        panels: () => [panel("menu")],
+      });
+      registry.register(heatmap.entry);
+      registry.register(menu.entry);
+
+      registry.open(menu.entry);
+
+      expect(heatmap.closeCalls).toEqual([false]);
+      expect(menu.isOpen()).toBe(true);
+    });
+
+    it("open() of a different group leaves the map:panel group alone", () => {
+      const heatmap = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        exclusiveGroup: "map:panel",
+        panels: () => [panel("heatmap")],
+      });
+      const picker = makeEntry({
+        id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
+        exclusiveGroup: "picker",
+        panels: () => [panel("picker")],
+      });
+      registry.register(heatmap.entry);
+      registry.register(picker.entry);
+
+      registry.open(picker.entry);
+
+      expect(heatmap.closeCalls).toHaveLength(0);
+      expect(picker.isOpen()).toBe(true);
+    });
+
+    it("open() of a group-less entry leaves the map:panel group alone", () => {
+      const heatmap = makeEntry({
+        id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+        exclusiveGroup: "map:panel",
+        panels: () => [panel("heatmap")],
+      });
+      const plain = makeEntry({
+        id: OVERLAY_IDS.LAYER_ATTRS,
+        panels: () => [panel("plain")],
+      });
+      registry.register(heatmap.entry);
+      registry.register(plain.entry);
+
+      registry.open(plain.entry);
+
+      expect(heatmap.closeCalls).toHaveLength(0);
+    });
+  });
   });
 });
 
