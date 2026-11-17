@@ -35,12 +35,19 @@
    out narrow while the attributes panel's filled the row.
 
    Width, height cap, radius and shadow all read the shared tokens, so a row
-   panel cannot drift into a lookalike; a component adds only its own hooks. */
+   panel cannot drift into a lookalike; a component adds only its own hooks.
+
+   The unpinned card is `position: absolute` inside the layer list, which sits
+   inside `.leaflet-top` (Leaflet z-index 1000). A sibling corner control such
+   as the scale bar is a `.leaflet-control` at z-index 800 inside the same
+   `.leaflet-top`, so this card must clear the 800 band to stay above it. The
+   floating token (9990) is the page-level band every foliplus overlay uses;
+   the pinned variant below reads the same token. */
 .foliplus-panel.foliplus-row-panel {
   position: absolute;
   top: 100%;
   right: 0;
-  z-index: 10;
+  z-index: var(--foliplus-z-index-floating);
   display: flex;
   flex-direction: column;
   align-items: stretch;
