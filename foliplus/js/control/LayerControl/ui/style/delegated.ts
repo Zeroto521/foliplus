@@ -176,7 +176,13 @@ const renderDelegatedStylePanel = (
   const rows = gatedRows(ui, layerId, DELEGATED_DIM_ORDER);
   if (borderRow || rows.length > 0) {
     if (borderRow) content.appendChild(borderRow);
-    for (const dim of rows) content.appendChild(dim.row(ui, layerId));
+    // Same bind contract as the label panel: build then bind, no re-lookup.
+    // Delegated rows are opacity/zoomRange (no bind — Slider wires itself).
+    for (const dim of rows) {
+      const row = dim.row(ui, layerId);
+      content.appendChild(row);
+      dim.bind?.(ui, layerId, row);
+    }
   }
   if (root.children.length) {
     content.appendChild(root);

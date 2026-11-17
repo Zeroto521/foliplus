@@ -219,6 +219,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   renderTrigger();
 
   const row = formRow(ui.T("style_icon"), trigger, CONST.CLASSES.STYLE_ICON_ROW);
+  row.dataset.styleDim = "icon";
   bindGlyphGrid(ui, layerId, trigger, row, renderTrigger);
   return row;
 };
@@ -251,8 +252,6 @@ const bindGlyphGrid = (
   };
 
   const open = () => {
-    /* v8 ignore next -- defensive: trigger handler closes before re-opening */
-    if (grid) return;
     const built = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
     grid = built.grid;
     // While the grid is open it owns the arrow / Home / End / Enter / Space

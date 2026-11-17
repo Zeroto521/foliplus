@@ -204,9 +204,6 @@ const groupByFolder = (
       map.set(key, block);
     }
     block.members.push(entry);
-    /* v8 ignore next -- groupByFolder visits in increasing index order, so the
-     * first visit always sets the anchor. */
-    if (globalIndex < block.anchor) block.anchor = globalIndex;
   });
   return map;
 };

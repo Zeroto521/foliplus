@@ -184,6 +184,7 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     {
       class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+      "data-style-dim": "zoomRange",
     },
     dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_zoom_range")),
     dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
