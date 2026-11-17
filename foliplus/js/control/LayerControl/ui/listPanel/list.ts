@@ -159,6 +159,8 @@ const restoreFocusAfterDuplicate = (
   // needs every navigable item to refuse focus, so the tail stays exempt from
   // the branch gate rather than deleted: folding the wrong row must not
   // strand keyboard focus on <body>.
+  // unreachable: the surviving row is focusable by construction; only a
+  // folded duplicate (display:none) refuses focus, which jsdom cannot stage.
   /* v8 ignore start */
   // Nearest navigable neighbour: forward first, then backward. Folded or
   // otherwise unfocusable rows simply fail the probe and the walk moves on.

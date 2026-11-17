@@ -15,9 +15,9 @@
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
-import { bindBorderRow, disposeBorderRow, resetLayerBorder } from "./border.js";
+import { disposeBorderRow, resetLayerBorder } from "./border.js";
 import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
-import { bindFillRow, disposeFillRow, resetLayerFill } from "./fill.js";
+import { disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
 import { resetLayerIcon } from "./icon.js";
 import { resetLayerIconColor } from "./iconColor.js";
@@ -26,7 +26,7 @@ import { resetLayerMarkerColor } from "./markerColor.js";
 import { resetLayerOpacity } from "./opacity.js";
 import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { syncResetButton } from "./resetState.js";
-import { bindSizeRow, resetLayerSize } from "./size.js";
+import { resetLayerSize } from "./size.js";
 import { flushStyleDimApplies } from "./styleBag.js";
 import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 import { EVENTS } from "#core/event/index.js";
@@ -96,12 +96,27 @@ const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // `LABEL_DIM_ORDER` comments in `./registry.js`). Neither group carries a
   // heading any more: the panel reads as one flat row list, and Layer before
   // Label is what document order alone conveys.
-  for (const dim of layerRows) content.append(dim.row(ui, layerId));
+  // Each descriptor builds its row AND binds it: the panel hands the exact
+  // element `row()` returned straight to the descriptor's `bind`, never a
+  // class-based re-lookup — the #154 root cause (a reused STYLE_SIZE_ROW
+  // matched the wrong row). A dimension that omits `bind` (opacity /
+  // zoomRange wire their own controls inside `row()`) is left alone.
+  for (const dim of layerRows) {
+    const row = dim.row(ui, layerId);
+    content.append(row);
+    dim.bind?.(ui, layerId, row);
+  }
   // The Label section's gate is a pure capability bit (layer exists +
   // `capabilities.label !== "none"`) — the labelable-fields probe that
   // keeps the row honest lives at the surface declaration edge, so the panel
   // never re-asks it here.
-  for (const dim of labelRows) content.append(dim.row(ui, layerId));
+  for (const dim of labelRows) {
+    const row = dim.row(ui, layerId);
+    content.append(row);
+    // Label stays panel-level: its color/size/format/field binding is the
+    // panel's change delegation, not a row-local bind.
+    dim.bind?.(ui, layerId, row);
+  }
   appendResetFooter(ui, content);
   return panel;
 };
@@ -120,16 +135,6 @@ const bindStylePanel = (
   const resetButton = panel.querySelector<HTMLButtonElement>(
     `.${CONST.CLASSES.STYLE_RESET_BTN}`,
   );
-
-  // Border row: a self-managed dimension that writes `setStyle` directly, so
-  // its live binders attach to the row instead of going through the panel's
-  // change delegation — that only knows opacity, zoom range and the label
-  // rows. A delegated drawer never renders this row (its gate excludes
-  // styleSetters), so the lookup alone is the discriminator.
-  const borderRow = panel.querySelector(
-    '[data-style-dim="border"]',
-  ) as HTMLElement | null;
-  if (borderRow) bindBorderRow(ui, layerId, borderRow);
 
   const delegated = layerHasStyleDelegation(ui, layerId);
   // Annotation color/size commit live, same bindLive* recipe as the
@@ -154,18 +159,6 @@ const bindStylePanel = (
         onCommit: value => applyPatch(ui, layerId, { size: value }),
       });
     }
-    // Fill is a self-managed dimension (not part of the executor's
-    // visible/opacity/zoomRange family): bindLiveColor commits straight to
-    // ui.intentStore fillColor + setStyle. Same live-recipe as label color.
-    const fillRow = panel.querySelector(
-      '[data-style-dim="fill"]',
-    ) as HTMLElement | null;
-    if (fillRow) bindFillRow(ui, layerId, fillRow);
-    // Size rides the same flavour as fill: the delegated drawer never renders it.
-    const sizeRow = panel.querySelector(
-      `.${CONST.CLASSES.STYLE_SIZE_ROW}`,
-    ) as HTMLElement | null;
-    if (sizeRow) bindSizeRow(ui, layerId, sizeRow);
   }
 
   // The slider rows wire their own live/commit callbacks when the primitive is
@@ -390,6 +383,17 @@ const bindStylePanel = (
     },
   );
 
+  // An external delete retires the owned layer: the row (and its style
+  // drawer) is being removed. Close the panel without committing — the
+  // layer is gone, so there is no value to flush into it.
+  ui.overlayPanel.styleRemovedUnsub = ui.c.events.on(
+    EVENTS.LAYER_REMOVED,
+    (payload: { id: string }) => {
+      if (payload.id !== layerId) return;
+      closeStylePanel(ui, false);
+    },
+  );
+
   // While the panel is open, a zoom change must move the current-zoom marker
   // on the zoom-range row and refresh its out-of-range state. The map-level
   // zoomend handler (ui.onZoomEnd) drives the sweep; it calls this hook after
@@ -397,7 +401,7 @@ const bindStylePanel = (
   // hook also serves basemap switches, which re-price every layer's range
   // without firing zoomend — see listPanel/visibility.js.
   const zoomRangeRow = panel.querySelector(
-    `.${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+    '[data-style-dim="zoomRange"]',
   ) as HTMLElement | null;
   if (zoomRangeRow) {
     ui.overlayPanel.styleZoomEndHandler = () => {
@@ -534,6 +538,8 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.overlayPanel.stylePanelController = null;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
+  ui.overlayPanel.styleRemovedUnsub?.();
+  ui.overlayPanel.styleRemovedUnsub = null;
   ui.overlayPanel.styleRefresh = null;
   ui.overlayPanel.styleResetSync = null;
   ui.overlayPanel.styleZoomEndHandler = null;

@@ -245,6 +245,11 @@ const CLASSES = {
    *  own class so the change delegation and the tests can tell it from the
    *  label-size and border-weight number fields. */
   STYLE_SIZE_ROW: "foliplus-style-size-row",
+  /** The TRUE size row's dedicated hook class. STYLE_SIZE_ROW is reused by
+   *  the fill-opacity / border-width rows purely for CSS right-alignment, so
+   *  it must never be used to *address* a row — the size row's own class is
+   *  the single source the panel bind and the tests address it by. */
+  STYLE_SIZE_HOOK_ROW: "foliplus-style-size-hook-row",
   STYLE_SIZE_INPUT: "foliplus-style-size-input",
   STYLE_ICON_ROW: "foliplus-style-icon-row",
   STYLE_MODE_BLOCK: "foliplus-style-mode-block",

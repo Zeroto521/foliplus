@@ -673,11 +673,7 @@ class LayerController implements LayerAPI {
     for (const surface of this.surfaceIndex.values()) {
       // Retired surfaces never stay in `surfaces`: `unregisterEntry` destroys
       // the face and deletes it from the map in the same synchronous step, and
-      // a same-id replacement swaps it before any event can run. This is a
-      // failsafe for a broken invariant, not a state this flow produces —
-      // exempt from the branch-coverage gate for that reason.
-      /* v8 ignore next */
-      if (surface.retired) continue;
+
       if (!includeSelf && surface.layer === layer) continue;
       if (!this.confirmsOwnership(surface, layer)) continue;
       surface.markContentDirty();
@@ -2192,11 +2188,6 @@ class LayerController implements LayerAPI {
     const next = new Map<string, string>();
     const changed: string[] = [];
     for (const [id, surface] of this.surfaceIndex.entries()) {
-      // Same invariant as the direct-membership scan: a retired surface is
-      // destroyed and removed from `surfaces` in one synchronous step, so the
-      // pass never sees one. Failsafe only — exempt from the branch gate.
-      /* v8 ignore next */
-      if (surface.retired) continue;
       const key = capabilityKey(surface.capabilities);
       next.set(id, key);
       const previous = this.capabilitySnapshot.get(id);

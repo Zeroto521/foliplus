@@ -1168,6 +1168,10 @@ const BORDER_DIMENSION = registerDimension<{
     };
   },
   row: buildBorderRow,
+  /** Bind the border block's live controls. The panel hands the exact block
+   *  `row()` built (already carrying data-style-dim=border), so the block lookup
+   *  in bindBorderRow resolves to itself — no class-based re-lookup. */
+  bind: bindBorderRow,
   /** Intent+persist + schedule the stroke face landing. `patch` is already
    *  normalized. Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {

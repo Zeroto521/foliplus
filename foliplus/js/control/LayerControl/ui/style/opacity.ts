@@ -104,7 +104,7 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   });
   return dom.el(
     "div",
-    { class: PANEL_CLASS.FORM_ROW },
+    { class: PANEL_CLASS.FORM_ROW, "data-style-dim": "opacity" },
     dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_opacity")),
     dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
   );
