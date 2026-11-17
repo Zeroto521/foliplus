@@ -525,6 +525,49 @@ describe("dropdown search: prereview a11y fixes", () => {
     expect(picks.length).toBe(1);
   });
 
+  it("P2-C-1: Space does not activate while the query ends with a space", () => {
+    const picks: string[] = [];
+    const { dropdown } = makeSearch(makeItems(11), {
+      onChange: v => picks.push(String(v)),
+    });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    // ArrowDown to focus the first row, then type a query ending in a space.
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    type(dropdown, "value 5 ");
+    // The guard is on state.query (set immediately on input), so Space must
+    // not activate even before the debounced refresh runs.
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
+    );
+    expect(picks.length).toBe(0);
+    // The space itself was consumed as a character, not as activation.
+    expect(input?.value).toBe("value 5 ");
+  });
+
+  it("P2-C-2: Space/Enter do not activate any row when no row is active", () => {
+    const picks: string[] = [];
+    const { dropdown } = makeSearch(makeItems(11), {
+      onChange: v => picks.push(String(v)),
+    });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    // No ArrowDown: activeIndex stays -1.
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: " ", bubbles: true, cancelable: true }),
+    );
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(picks.length).toBe(0);
+  });
+
   it("P2-D: Tab moves focus out of the popup and closes it", () => {
     const { dropdown } = makeSearch(makeItems(12), { placeholder: "Pick" });
     dropdown.trigger.click();
@@ -570,6 +613,88 @@ describe("dropdown search: prereview a11y fixes", () => {
     expect(input?.getAttribute("aria-expanded")).toBe("true");
     dropdown.close();
     expect(input?.getAttribute("aria-expanded")).toBe("false");
+  });
+});
+
+describe("dropdown search: Home/End keys", () => {
+  it("Home moves to the first row and End to the last", () => {
+    const { dropdown } = makeSearch(makeItems(11));
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "End", bubbles: true, cancelable: true }),
+    );
+    let rows = optionEls(dropdown);
+    expect(rows[rows.length - 1]?.classList.contains(CLS.active)).toBe(true);
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Home", bubbles: true, cancelable: true }),
+    );
+    rows = optionEls(dropdown);
+    expect(rows[0]?.classList.contains(CLS.active)).toBe(true);
+  });
+});
+
+describe("dropdown search: clear-all button", () => {
+  it("clears the selection and reports the empty change", () => {
+    const changes: string[][] = [];
+    const { dropdown } = makeSearch(makeItems(12), {
+      multiple: true,
+      values: ["v1", "v2"],
+      placeholder: "Pick",
+      onChange: (_v, vs) => changes.push([...vs]),
+    });
+    dropdown.trigger.click();
+    const buttons = dropdown
+      .getList()
+      ?.parentElement?.querySelectorAll(".foliplus-dropdown-footer-btn");
+    // Select-all is first; clear-all is second.
+    (buttons?.[1] as HTMLElement | undefined)?.click();
+    expect(changes.length).toBeGreaterThan(0);
+    expect(changes[changes.length - 1]).toHaveLength(0);
+  });
+});
+
+describe("dropdown search: programmatic API", () => {
+  it("setValue/setValues/refresh/open/close work with search on", () => {
+    const { dropdown } = makeSearch(makeItems(12), { multiple: true });
+    dropdown.open();
+    expect(dropdown.isOpen()).toBe(true);
+    dropdown.setValue("v3");
+    expect(dropdown.getValue()).toBe("v3");
+    dropdown.setValues(["v3", "v4"]);
+    expect(dropdown.getValues()).toEqual(["v3", "v4"]);
+    dropdown.refresh();
+    dropdown.close();
+    expect(dropdown.isOpen()).toBe(false);
+  });
+
+  it("setValue('') clears the selection", () => {
+    const { dropdown } = makeSearch(makeItems(12));
+    dropdown.setValue("v3");
+    expect(dropdown.getValue()).toBe("v3");
+    dropdown.setValue("");
+    expect(dropdown.getValue()).toBe("");
+  });
+});
+
+describe("dropdown search: multi-select keeps the popup open on activate", () => {
+  it("re-filters and refocuses the search input after a row toggle", () => {
+    const { dropdown } = makeSearch(makeItems(11), { multiple: true });
+    dropdown.trigger.click();
+    const input = inputOf(dropdown);
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "ArrowDown",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    input?.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+    );
+    expect(dropdown.isOpen()).toBe(true);
+    // The active row toggled into the selection; the list refreshes (pinned).
+    expect(dropdown.getValues().length).toBe(1);
   });
 });
 it("activates the item at the FILTERED index, not the source index", () => {
