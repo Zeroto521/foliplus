@@ -82,7 +82,7 @@ describe("readDeclaredBorder", () => {
     expect(second).toEqual(first);
   });
 
-  it("warns with the unregistered scope when no layer id is known (undefined layerId)", () => {
+  it("warns with the unregistered scope when no layerId is known (undefined layerId)", () => {
     // A declaration read before the layer is linked has no id; the warn scope
     // falls back to an empty label and "<unregistered>" in the message — the
     // nullish arms of reject(). Both arms are part of the public reader contract.
