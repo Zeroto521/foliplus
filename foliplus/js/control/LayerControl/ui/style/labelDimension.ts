@@ -206,7 +206,7 @@ const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
 
   return dom.el(
     "div",
-    { class: CONST.CLASSES.STYLE_LABEL_SECTION },
+    { class: CONST.CLASSES.STYLE_LABEL_SECTION, "data-style-dim": "label" },
     dom.el(
       "div",
       { class: PANEL_CLASS.FORM_ROW },

@@ -728,6 +728,10 @@ const FILL_DIMENSION = registerDimension<{
     };
   },
   row: buildFillRow,
+  /** Bind the fill block's live controls. The panel hands the exact block
+   *  `row()` built (already carrying data-style-dim=fill), so the block lookup
+   *  in bindFillRow resolves to itself — no class-based re-lookup. */
+  bind: bindFillRow,
   /** Intent+persist + schedule the fill face landing. `patch` is already
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {

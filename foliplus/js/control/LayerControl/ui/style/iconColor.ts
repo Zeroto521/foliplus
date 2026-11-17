@@ -236,6 +236,7 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     inlineControls(input, opacityGroup),
     CONST.CLASSES.STYLE_ICON_COLOR_ROW,
   );
+  row.dataset.styleDim = "iconColor";
   input.addEventListener("input", () => {
     const next = input.value;
     if (!/^#[0-9a-f]{6}$/i.test(next)) return;
