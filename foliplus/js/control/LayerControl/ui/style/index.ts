@@ -390,6 +390,17 @@ const bindStylePanel = (
     },
   );
 
+  // An external delete retires the owned layer: the row (and its style
+  // drawer) is being removed. Close the panel without committing — the
+  // layer is gone, so there is no value to flush into it.
+  ui.overlayPanel.styleRemovedUnsub = ui.c.events.on(
+    EVENTS.LAYER_REMOVED,
+    (payload: { id: string }) => {
+      if (payload.id !== layerId) return;
+      closeStylePanel(ui, false);
+    },
+  );
+
   // While the panel is open, a zoom change must move the current-zoom marker
   // on the zoom-range row and refresh its out-of-range state. The map-level
   // zoomend handler (ui.onZoomEnd) drives the sweep; it calls this hook after
@@ -534,6 +545,8 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.overlayPanel.stylePanelController = null;
   ui.overlayPanel.styleUnsubscribe?.();
   ui.overlayPanel.styleUnsubscribe = null;
+  ui.overlayPanel.styleRemovedUnsub?.();
+  ui.overlayPanel.styleRemovedUnsub = null;
   ui.overlayPanel.styleRefresh = null;
   ui.overlayPanel.styleResetSync = null;
   ui.overlayPanel.styleZoomEndHandler = null;

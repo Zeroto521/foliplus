@@ -186,3 +186,52 @@ describe("resolveDisplayAndDetail", () => {
     expect(display).not.toBe(detail);
   });
 });
+
+describe("resolveDisplayMode declaredMode", () => {
+  it("declared follow_fill wins when no stored mode (polygon/point border)", () => {
+    const spec = base({
+      declaredMode: STYLE_MODE.FOLLOW_FILL,
+      supportsInherit: true,
+      carriesValue: false,
+    });
+    expect(resolveDisplayMode(spec)).toBe(STYLE_MODE.FOLLOW_FILL);
+  });
+
+  it("declared follow_fill steps aside when the channel cannot inherit (line)", () => {
+    const spec = base({
+      declaredMode: STYLE_MODE.FOLLOW_FILL,
+      supportsInherit: false,
+      carriesValue: true,
+    });
+    // The declaration is inapplicable: the resolver falls to the derived chain.
+    expect(resolveDisplayMode(spec)).toBe(STYLE_MODE.ORIGINAL);
+  });
+
+  it("a stored mode always beats the declaration", () => {
+    const spec = base({
+      declaredMode: STYLE_MODE.FOLLOW_FILL,
+      stored: STYLE_MODE.SOLID,
+      supportsInherit: true,
+      carriesValue: false,
+    });
+    expect(resolveDisplayMode(spec)).toBe(STYLE_MODE.SOLID);
+  });
+
+  it("declared follow_fill beats a colour intent (same rank as declaredValue)", () => {
+    const spec = base({
+      declaredMode: STYLE_MODE.FOLLOW_FILL,
+      colorIntent: true,
+      supportsInherit: true,
+      carriesValue: false,
+    });
+    // The declaration is a mode default; a colour intent alone is a
+    // sub-dimension (the border mode select owns the mode), so it does not
+    // sink the declaration — mirror of fill's declaredValue rank.
+    expect(resolveDisplayMode(spec)).toBe(STYLE_MODE.FOLLOW_FILL);
+  });
+
+  it("a declared value fill still beats a declared mode on the fill channel", () => {
+    const spec = base({ declaredValue: true, supportsInherit: false });
+    expect(resolveDisplayMode(spec)).toBe(STYLE_MODE.VALUE);
+  });
+});

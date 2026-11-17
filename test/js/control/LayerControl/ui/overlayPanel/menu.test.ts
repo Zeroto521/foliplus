@@ -16,6 +16,7 @@ import {
   handleMenuClick,
   runMenuAction,
 } from "#control/LayerControl/ui/overlayPanel/menu.js";
+import { styleCapability } from "#control/LayerControl/ui/style/index.js";
 
 describe("LayerUI menu", () => {
   let manager: LayerController;
@@ -1112,6 +1113,64 @@ describe("LayerUI menu", () => {
 
       expect(bubbled).toHaveBeenCalled();
     });
+  });
+  it("enables the style entry when exactly one of the nine style dimensions is on", () => {
+    // The menu gate is the parity surface for the style projection: a row
+    // can render a dimension the panel publishes, but if the menu's
+    // `canConfigure` forgets it, the Style entry is disabled on a layer that
+    // only supports that dimension. Each case turns exactly one dimension on
+    // and asserts the entry stays enabled.
+    const dimCase: Record<string, Record<string, string>> = {
+      opacity: { opacity: "native" },
+      zoomRange: { zoomRange: "native" },
+      label: { label: "pane" },
+      border: { stroke: "native" },
+      size: { size: "native" },
+      icon: { icon: "native" },
+      fill: { fill: "native" },
+      iconColor: { iconColor: "native" },
+      markerColor: { markerColor: "native" },
+    };
+    const li = manager.layerRegistry.get("overlay1")!;
+    li.styleSetters = undefined;
+    const surface = ui.c.surfaceFor(li);
+    const base: Record<string, unknown> = {
+      fill: "none",
+      stroke: "none",
+      size: "none",
+      icon: "none",
+      iconColor: "none",
+      markerColor: "none",
+      opacity: "none",
+      zoomRange: "none",
+      visibility: "none",
+      label: "none",
+      relocatable: false,
+      bounds: false,
+    };
+    const published = styleCapability(ui, "overlay1").dims;
+    for (const dim of Object.keys(dimCase)) {
+      (surface as unknown as { capabilities: Record<string, unknown> }).capabilities = {
+        ...base,
+        ...dimCase[dim],
+      };
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const styleLi = item.querySelector(
+        ".foliplus-layer-more-menu button[data-action='style-layer']",
+      ) as HTMLElement;
+      expect(
+        styleLi.getAttribute("aria-disabled"),
+        `dimension ${dim} alone must keep the Style entry enabled`,
+      ).not.toBe("true");
+      ui.closeMoreMenu(false);
+    }
+    // Parity guard: every dimension the projection publishes must have a
+    // menu-gate case above, so a new dimension the gate forgets fails here
+    // instead of silently producing a disabled entry.
+    for (const dim of Object.keys(published)) {
+      expect(dimCase, `dimension ${dim} has no menu-gate case`).toHaveProperty(dim);
+    }
   });
 
   // ─────────────────── action dispatch matrix ───────────────────

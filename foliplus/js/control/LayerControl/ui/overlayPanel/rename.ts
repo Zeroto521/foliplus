@@ -5,6 +5,7 @@ import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
+import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import {
   createInlineEditInput,
@@ -47,6 +48,16 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   // Flag the row so CSS can stretch the input across the label+count area
   // (matching the SearchControl field's full extent) while editing.
   item?.classList.add(CONST.CLASSES.RENAMING);
+  // An external delete retires the owned layer mid-rename: cancel silently
+  // (the Escape branch) — there is no committed value to write into a row
+  // that is about to disappear, and finishRename's registry guard would
+  // skip the teardown anyway.
+  ui.overlayPanel.renameRemovedUnsub = ui.events.on(EVENTS.LAYER_REMOVED, ({ id }) => {
+    if (id !== layerId) return;
+    ui.overlayPanel.renameRemovedUnsub?.();
+    ui.overlayPanel.renameRemovedUnsub = null;
+    finishRename(ui, false);
+  });
   createInlineEditInput({
     label,
     initialValue: currentName,
@@ -111,6 +122,8 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   if (!ui.overlayPanel.activeRenameId) return;
   const layerId = ui.overlayPanel.activeRenameId;
   ui.overlayPanel.activeRenameId = null;
+  ui.overlayPanel.renameRemovedUnsub?.();
+  ui.overlayPanel.renameRemovedUnsub = null;
   if (!ui.uiContainer) return;
 
   const layerInfo = ui.c.layerRegistry.get(layerId);

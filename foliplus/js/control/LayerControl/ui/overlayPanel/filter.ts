@@ -405,6 +405,7 @@ const subscribeFilterSignals = (
     ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_DELETED, onDeleted),
+    ui.events.on(EVENTS.LAYER_REMOVED, onDeleted),
   ];
   return () => unsubs.forEach(off => off());
 };

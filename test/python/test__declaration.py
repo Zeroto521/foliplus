@@ -25,6 +25,7 @@ from foliplus._declaration import (
     MEASURE_TYPE_FIELD,
     enum_atom,
     json_number,
+    normalise_border,
     normalise_folder,
     normalise_layer_filter,
     normalise_zoom_range,
@@ -457,6 +458,97 @@ class TestNormaliseFolder:
                 normalise_folder(raw, owner="Owner")
             except Exception as exc:  # pragma: no cover - must never raise
                 pytest.fail(f"normalise_folder({raw!r}) raised {exc!r}")
+
+
+class TestNormaliseBorder:
+    def test_absent_is_none_without_a_warning(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert normalise_border(None, owner="Owner") is None
+
+        assert caught == []
+
+    def test_a_valid_follow_fill_declaration_is_returned(self) -> None:
+        assert normalise_border({"mode": "follow_fill"}, owner="Owner") == {
+            "mode": "follow_fill"
+        }
+
+    def test_an_unknown_mode_warns_and_degrades(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_border({"mode": "solid"}, owner="Owner") is None
+
+        assert "with a mode 'solid'" in str(record[0].message)
+
+    def test_a_missing_mode_warns_and_degrades(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_border({}, owner="Owner") is None
+
+        assert "with a mode None" in str(record[0].message)
+
+    def test_an_unknown_key_warns_but_keeps_the_valid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalised = normalise_border(
+                {"mode": "follow_fill", "weight": 3}, owner="Owner"
+            )
+
+        assert normalised == {"mode": "follow_fill"}
+        assert "with unknown key 'weight'" in str(record[0].message)
+
+    @pytest.mark.parametrize(
+        ("raw", "reason"),
+        [
+            ("follow_fill", "as str; expected a mapping"),
+            (["follow_fill"], "as list; expected a mapping"),
+            (42, "as int; expected a mapping"),
+        ],
+    )
+    def test_a_non_mapping_warns_and_degrades(self, raw: object, reason: str) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_border(raw, owner="Owner") is None
+
+        assert reason in str(record[0].message)
+
+    def test_the_message_names_the_layer(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_border({"mode": "nope"}, owner="layer 'roads'")
+
+        message = str(record[0].message)
+        assert "layer 'roads' declares foliplus['border']" in message
+
+    def test_the_message_uses_the_source_it_was_written_with(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_border(
+                {"mode": "nope"},
+                owner="LayerControl",
+                source="foliplus['border']",
+            )
+
+        message = str(record[0].message)
+        assert "LayerControl declares foliplus['border']" in message
+
+    def test_the_same_defect_is_reported_once(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            for _ in range(3):
+                assert normalise_border({"mode": "nope"}, owner="Owner") is None
+
+        assert len(caught) == 1
+
+    def test_never_raises_on_any_input(self) -> None:
+        for raw in [
+            None,
+            {"mode": "follow_fill"},
+            {"mode": "nope"},
+            {},
+            42,
+            "x",
+            [],
+            object(),
+        ]:
+            try:
+                normalise_border(raw, owner="Owner")
+            except Exception as exc:  # pragma: no cover - must never raise
+                pytest.fail(f"normalise_border({raw!r}) raised {exc!r}")
 
 
 # ── Module-constants placement guard ─────────────────────────────────────
