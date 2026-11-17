@@ -7081,13 +7081,13 @@ it("ensureGenericHost registers hasFields as a live probe (T4)", () => {
     data: [{ id: "p1", name: "P", role: "overlay", layer: layer as any }],
   });
   let captured: { hasFields?: () => boolean } | undefined;
-  const spy = vi
-    .spyOn((m as any).filterStore, "registerHost")
-    .mockImplementation(
-      (id: string, name: string, host: { hasFields?: () => boolean }) => {
-        captured = host;
-      },
-    );
+  const spy = vi.spyOn((m as any).filterStore, "registerHost").mockImplementation(((
+    id: string,
+    name: string,
+    host: any,
+  ) => {
+    captured = host;
+  }) as any);
   m.setLayerFilter("p1", {
     kind: "atom",
     field: "value",
