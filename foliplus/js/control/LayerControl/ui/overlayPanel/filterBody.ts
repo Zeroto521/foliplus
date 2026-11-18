@@ -142,8 +142,8 @@ const buildFieldRow = (
     : readOnlyField(dim.field);
   const { row, control } = buildDimensionRow(deps.T("filter_field"), fieldControl);
   // The stable identity: the field row answers "which field", and the panel /
-  // tests must reach it by data-* (not by the FILTER_FIELD class, which the
-  // task-107 condition tree could reuse).
+  // tests must reach it by data-* (not by the FILTER_FIELD class, which a
+  // multi-condition tree could reuse).
   control.dataset.filterField = dim.field;
   return { row, dropdown: fieldDropdown };
 };

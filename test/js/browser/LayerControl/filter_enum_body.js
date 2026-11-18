@@ -160,9 +160,9 @@ async () => {
     const fieldRowEl = fieldRow && fieldRow.closest(".foliplus-form-row");
     const valueRowEl =
       panel() &&
-      panel().querySelector('[data-filter-value="enum"]')?.closest(
-        ".foliplus-form-row",
-      );
+      panel()
+        .querySelector('[data-filter-value="enum"]')
+        ?.closest(".foliplus-form-row");
     const rows = panel()
       ? Array.from(panel().querySelectorAll(".foliplus-form-row"))
       : [];

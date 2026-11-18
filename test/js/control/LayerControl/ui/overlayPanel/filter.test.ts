@@ -1396,9 +1396,7 @@ describe("LayerUI filter panel", () => {
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "shape" });
 
       expect(triggerOf(item)).not.toBe(oldTrigger);
-      const fieldCell = item.querySelector(
-        `[data-filter-value="enum"]`,
-      ) as HTMLElement;
+      const fieldCell = item.querySelector(`[data-filter-value="enum"]`) as HTMLElement;
       const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
       // The caption stays panel-owned across the rebuild.
       expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
@@ -1459,13 +1457,18 @@ describe("LayerUI filter panel", () => {
 
   describe("field / value row data-* identity", () => {
     /** The field and value rows must be addressable by their stable data-*
-     *  identity, not by a shared class (the task-107 condition tree can
-     *  reuse the FILTER_FIELD class, so class-name reach-around is the very
+     *  identity, not by a shared class (a multi-condition tree can reuse
+     *  the FILTER_FIELD class, so class-name reach-around is the very
      *  bug class this guards). */
     const multiFieldProvider = (): LayerFilterModel => ({
       dimensions: [
         { kind: "range", field: "mag", range: [0, 10] as [number, number], step: 1 },
-        { kind: "enum", field: "kind", options: [{ value: "a", label: "A" }], multi: true },
+        {
+          kind: "enum",
+          field: "kind",
+          options: [{ value: "a", label: "A" }],
+          multi: true,
+        },
       ],
       filter: undefined,
       kept: 10,
@@ -1492,7 +1495,9 @@ describe("LayerUI filter panel", () => {
       expect(fieldRow).not.toBeNull();
       // The data-* query disambiguates the row that the shared FILTER_FIELD
       // class also matches; the class query is not the unique path.
-      expect(panel.querySelectorAll(`.${CONST.CLASSES.FILTER_FIELD}`).length).toBeGreaterThanOrEqual(1);
+      expect(
+        panel.querySelectorAll(`.${CONST.CLASSES.FILTER_FIELD}`).length,
+      ).toBeGreaterThanOrEqual(1);
     });
 
     it("addresses the range value row by data-filter-value=range", () => {
@@ -1508,14 +1513,10 @@ describe("LayerUI filter panel", () => {
       const select = panel.querySelector("select") as HTMLSelectElement;
       select.value = "kind";
       select.dispatchEvent(new Event("change", { bubbles: true }));
-      const enumRow = panel.querySelector(
-        `[data-filter-value="enum"]`,
-      ) as HTMLElement;
+      const enumRow = panel.querySelector(`[data-filter-value="enum"]`) as HTMLElement;
       expect(enumRow).not.toBeNull();
       // The field row survives the switch and still carries the new field.
-      const fieldRow = panel.querySelector(
-        `[data-filter-field="kind"]`,
-      ) as HTMLElement;
+      const fieldRow = panel.querySelector(`[data-filter-field="kind"]`) as HTMLElement;
       expect(fieldRow).not.toBeNull();
     });
 
@@ -1532,15 +1533,17 @@ describe("LayerUI filter panel", () => {
 
     it("orders the field row before the value row", () => {
       const panel = openMulti();
-      const fieldRow = panel.querySelector(
-        `[data-filter-field="mag"]`,
-      ) as HTMLElement;
+      const fieldRow = panel.querySelector(`[data-filter-field="mag"]`) as HTMLElement;
       const valueRow = panel.querySelector(
         `[data-filter-value="range"]`,
       ) as HTMLElement;
       const rows = Array.from(panel.querySelectorAll(`.${PANEL_CLASS.FORM_ROW}`));
-      const fieldIdx = rows.indexOf(fieldRow.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement);
-      const valueIdx = rows.indexOf(valueRow.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement);
+      const fieldIdx = rows.indexOf(
+        fieldRow.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement,
+      );
+      const valueIdx = rows.indexOf(
+        valueRow.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement,
+      );
       expect(fieldIdx).toBeGreaterThanOrEqual(0);
       expect(valueIdx).toBeGreaterThan(fieldIdx);
     });
@@ -1564,9 +1567,7 @@ describe("LayerUI filter panel", () => {
         `[data-filter-value="range"]`,
       ) as HTMLElement;
       expect(valueRow.getAttribute("data-filter-field")).toBeNull();
-      const fieldRow = panel.querySelector(
-        `[data-filter-field="mag"]`,
-      ) as HTMLElement;
+      const fieldRow = panel.querySelector(`[data-filter-field="mag"]`) as HTMLElement;
       expect(fieldRow.getAttribute("data-filter-value")).toBeNull();
     });
   });

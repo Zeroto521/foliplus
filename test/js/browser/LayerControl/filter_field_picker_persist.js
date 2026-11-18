@@ -2,7 +2,7 @@
 // P1 regression: switching from a range field to an enum field must keep the
 // field row (the panel still answers "which field"), and the field / value
 // rows must be addressable by their stable data-* identity, not by a shared
-// class that the task-107 condition tree could reuse.
+// class that a multi-condition tree could reuse.
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
@@ -12,10 +12,15 @@ async () => {
   const model = () => ({
     dimensions: [
       { kind: "range", field: "mag", range: [0, 10], step: 1 },
-      { kind: "enum", field: "kind", options: [
-        { value: "a", label: "A" },
-        { value: "b", label: "B" },
-      ], multi: true },
+      {
+        kind: "enum",
+        field: "kind",
+        options: [
+          { value: "a", label: "A" },
+          { value: "b", label: "B" },
+        ],
+        multi: true,
+      },
     ],
     filter,
     kept: 10,
@@ -38,8 +43,10 @@ async () => {
     document.querySelector(`.foliplus-layer-item[data-layer-id="${ID}"]`);
   const panel = () => row() && row().querySelector(".foliplus-layer-filter-panel");
   const fieldRow = () => panel() && panel().querySelector("[data-filter-field]");
-  const valueRowRange = () => panel() && panel().querySelector('[data-filter-value="range"]');
-  const valueRowEnum = () => panel() && panel().querySelector('[data-filter-value="enum"]');
+  const valueRowRange = () =>
+    panel() && panel().querySelector('[data-filter-value="range"]');
+  const valueRowEnum = () =>
+    panel() && panel().querySelector('[data-filter-value="enum"]');
   const out = { ok: false };
   try {
     api.registerLayer({
@@ -65,12 +72,19 @@ async () => {
     // Range state: field row data-filter-field=mag, value row range.
     out.initialField = fieldRow() ? fieldRow().getAttribute("data-filter-field") : null;
     out.initialFieldLabel = fieldRow()
-      ? fieldRow().closest(".foliplus-form-row").querySelector(".foliplus-form-label").textContent
+      ? fieldRow().closest(".foliplus-form-row").querySelector(".foliplus-form-label")
+          .textContent
       : null;
     out.initialValueRange = Boolean(valueRowRange());
-    out.initialFieldCount = panel() ? panel().querySelectorAll("[data-filter-field]").length : -1;
-    out.initialValueCount = panel() ? panel().querySelectorAll("[data-filter-value]").length : -1;
-    out.initialSelectValue = fieldRow() ? fieldRow().querySelector("select").value : null;
+    out.initialFieldCount = panel()
+      ? panel().querySelectorAll("[data-filter-field]").length
+      : -1;
+    out.initialValueCount = panel()
+      ? panel().querySelectorAll("[data-filter-value]").length
+      : -1;
+    out.initialSelectValue = fieldRow()
+      ? fieldRow().querySelector("select").value
+      : null;
 
     // Switch to the enum field.
     const select = fieldRow() && fieldRow().querySelector("select");
@@ -83,8 +97,12 @@ async () => {
     out.afterField = fieldRow() ? fieldRow().getAttribute("data-filter-field") : null;
     out.afterValueEnum = Boolean(valueRowEnum());
     out.afterValueRange = Boolean(valueRowRange());
-    out.afterFieldCount = panel() ? panel().querySelectorAll("[data-filter-field]").length : -1;
-    out.afterValueCount = panel() ? panel().querySelectorAll("[data-filter-value]").length : -1;
+    out.afterFieldCount = panel()
+      ? panel().querySelectorAll("[data-filter-field]").length
+      : -1;
+    out.afterValueCount = panel()
+      ? panel().querySelectorAll("[data-filter-value]").length
+      : -1;
     out.afterSelectValue = fieldRow() ? fieldRow().querySelector("select").value : null;
     out.afterSelectOptions = fieldRow()
       ? Array.from(fieldRow().querySelector("select").options).map(o => o.value)
