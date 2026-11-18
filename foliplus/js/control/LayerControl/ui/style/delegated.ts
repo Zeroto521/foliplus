@@ -170,8 +170,4 @@ const renderDelegatedStylePanel = (
   return panel;
 };
 
-export {
-  DELEGATED_DIM_ORDER,
-  buildDelegatedBorderRow,
-  renderDelegatedStylePanel,
-};
+export { DELEGATED_DIM_ORDER, buildDelegatedBorderRow, renderDelegatedStylePanel };

@@ -86,7 +86,9 @@ const layerStyleIsPristine = (ui: LayerUI, layerId: string): boolean => {
   if (hasStyleIntent(ui, layerId)) return false;
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return true;
-  if (styleCapability(ui, layerId).styleDelegation) return !delegatedStyleMoved(layerInfo);
+  if (styleCapability(ui, layerId).styleDelegation) {
+    return !delegatedStyleMoved(layerInfo);
+  }
   return !ui.c.label.hasConfig(layerId);
 };
 
