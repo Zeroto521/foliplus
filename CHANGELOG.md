@@ -38,6 +38,7 @@
 - `LayerControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
+- `LayerControl`: style dimensions derive their provenance and display order from one dimension table, and a dimension that declares its own intent keys automatically gets the default three-state `valueSource` from the registry — the eight hand-copied implementations are gone (a third-party dimension author observes this as: declare `intentKeys` and no `valueSource`, and user/author/none follows from gate + keys)
 
 ### Removed
 
