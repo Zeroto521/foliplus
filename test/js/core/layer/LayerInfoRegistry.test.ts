@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { type LayerInfo, LayerInfoRegistry } from "#core/layer/index.js";
+import {
+  FOLDER_NAME_MAX,
+  type LayerInfo,
+  LayerInfoRegistry,
+} from "#core/layer/index.js";
 import { ROLE } from "#foliplus/core/layer/index.js";
 
 describe("LayerInfoRegistry", () => {
@@ -234,6 +238,20 @@ describe("LayerInfoRegistry", () => {
       const info = registry.createLayerInfo({ id: "blank", folder: "   " });
       expect(info.folder).toBeNull();
       expect(warnSpy).toHaveBeenCalledOnce();
+      warnSpy.mockRestore();
+    });
+
+    it("warns once and ignores a folder over the cap, mirroring Python", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const info = registry.createLayerInfo({
+        id: "long",
+        folder: "f".repeat(FOLDER_NAME_MAX + 1),
+      });
+      expect(info.folder).toBeNull();
+      expect(warnSpy).toHaveBeenCalledOnce();
+      expect(String(warnSpy.mock.calls[0][0])).toContain(
+        `declares folder at ${FOLDER_NAME_MAX + 1} code points; expected at most ${FOLDER_NAME_MAX}`,
+      );
       warnSpy.mockRestore();
     });
 
