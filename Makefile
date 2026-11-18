@@ -64,9 +64,10 @@ lint:
 # first failing sub-command (make default behaviour).
 .PHONY: gate
 gate:
-	make lint
+	npm run lint
 	npm run format:check
 	npm run typecheck
+	make lint
 	make test-js
 	make test-python-fast
 dist: build-js build-python
