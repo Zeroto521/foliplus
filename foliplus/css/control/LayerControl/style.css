@@ -70,6 +70,14 @@
   cursor: default;
 }
 
+/* The read-only box's value text stays copyable: the style panel inherits
+   user-select: none from the shared row-panel recipe, and a read-out that
+   cannot be selected cannot be copied. The box itself stays non-interactive
+   (cursor: default, no focus) — only the value span opts back in. */
+.foliplus-style-fill-readonly .foliplus-style-fill-original-value {
+  user-select: text;
+}
+
 /* The monochrome original-colors opacity readout takes the same width as the
    number input it replaces, so the fill and border rows land their number
    boxes on the same column edge. The direct-child guard keeps the filter

@@ -1229,6 +1229,44 @@ class TestFillAuthorBrowser:
             assert ro["boxScrollW"] <= ro["boxClientW"], result
             assert not errors, f"JS errors: {errors}"
 
+    def test_read_only_rows_are_inert_and_copyable(self, browser, tmp_path):
+        """The read-only style rows are inert but copyable.
+
+        Three interaction contracts are pinned here (the row contract):
+        1. No pointer affordance: computed cursor is default (never pointer),
+           and the box carries no click handler that opens or edits anything.
+        2. Not focusable: tabIndex is -1, no [tabindex]>=0 on the box, and no
+           focusable form control (input/select/button) inside it.
+        3. Value text stays copyable: computed user-select on the value span
+           is text, even though the panel is user-select: none — a read-out
+           that cannot be selected cannot be copied.
+
+        The box itself stays inert (points 1-2) while only the value text
+        opts back into selection (point 3), so the read-only row is never a
+        focus trap and never looks like a control.
+        """
+        with use_page(_make_author_page, browser, tmp_path) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl .foliplus-toggle-btn",
+                state="attached",
+                timeout=10000,
+            )
+            _open_author_style_panel(page)
+            result = page.evaluate(_js("LayerControl/readonly_row_contract"))
+            assert result.get("ok"), result
+            assert result["boxCount"] > 0, result
+            for box in result["boxes"]:
+                assert box["cursor"] == "default", box
+                assert box["onClick"] is False, box
+                assert box["tabindex"] is None, box
+                assert box["tabIndex"] == -1, box
+                assert box["focusableDesc"] == [], box
+                assert box["ariaDisabled"] == "true", box
+            assert result["values"], result
+            for value in result["values"]:
+                assert value["userSelect"] == "text", value
+            assert not errors, f"JS errors: {errors}"
+
 
 def _declared_layer() -> folium.GeoJson:
     data = load_geojson("common", "polygons_fuzhou_6offset")
