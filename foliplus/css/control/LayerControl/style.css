@@ -67,7 +67,9 @@
 .foliplus-style-fill-readonly {
   display: flex;
   align-items: center;
-  cursor: default;
+  /* cursor: default is the shared .foliplus-readonly contract in form.css;
+     every .foliplus-style-fill-readonly element also carries
+     .foliplus-readonly, so the pointer affordance is owned there, not here. */
 }
 
 /* The read-only box's value text stays copyable: the style panel inherits

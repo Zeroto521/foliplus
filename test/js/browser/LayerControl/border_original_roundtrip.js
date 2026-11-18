@@ -101,6 +101,14 @@
           value: colorInput.value,
           readOnly: colorInput.readOnly,
           disabled: colorInput.disabled,
+          // Read-only contract (the border swatch carries PANEL_CLASS.READONLY):
+          // cursor: default (never pointer), and focus() must not land on it.
+          cursor: getComputedStyle(colorInput).cursor,
+          focusLanded: (() => {
+            colorInput.focus();
+            const a = document.activeElement;
+            return a === colorInput || colorInput.contains(a);
+          })(),
         }
       : null,
     weight: setWeight ? setWeight.value : null,

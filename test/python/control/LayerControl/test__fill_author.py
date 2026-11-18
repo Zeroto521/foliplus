@@ -1232,11 +1232,13 @@ class TestFillAuthorBrowser:
     def test_read_only_rows_are_inert_and_copyable(self, browser, tmp_path):
         """The read-only style rows are inert but copyable.
 
-        Three interaction contracts are pinned here (the row contract):
+        Four interaction contracts are pinned here (the row contract):
         1. No pointer affordance: computed cursor is default (never pointer),
            and the box carries no click handler that opens or edits anything.
-        2. Not focusable: tabIndex is -1, no [tabindex]>=0 on the box, and no
-           focusable form control (input/select/button) inside it.
+        2. Not focusable: calling focus() must NOT move focus into the box
+           (focusLanded is false), tabIndex is -1, no [tabindex]>=0 on the
+           box, and the lethal querySelector('button,input,select,[tabindex]:not([tabindex="-1"])')
+           returns null — a focusable element inside the box fails the test.
         3. Value text stays copyable: computed user-select on the value span
            is text, even though the panel is user-select: none — a read-out
            that cannot be selected cannot be copied.
@@ -1257,10 +1259,12 @@ class TestFillAuthorBrowser:
             assert result["boxCount"] > 0, result
             for box in result["boxes"]:
                 assert box["cursor"] == "default", box
+                assert box["cursor"] != "pointer", box
                 assert box["onClick"] is False, box
                 assert box["tabindex"] is None, box
                 assert box["tabIndex"] == -1, box
-                assert box["focusableDesc"] == [], box
+                assert box["focusLanded"] is False, box
+                assert box["focusable"] is None, box
                 assert box["ariaDisabled"] == "true", box
             assert result["values"], result
             for value in result["values"]:
