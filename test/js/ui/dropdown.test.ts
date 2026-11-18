@@ -560,6 +560,70 @@ describe("dropdown: multiple selections", () => {
     expect(labelOf(dropdown)).toBe("Any value");
     expect(changes).toEqual([["a", "b", "c"], []]);
   });
+
+  it("footer actions are inert after the dropdown is destroyed", () => {
+    let actions: {
+      selectAll(): void;
+      clear(): void;
+      getCount(): number;
+    } | undefined;
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      multipleFooter: a => {
+        actions = a;
+        const footer = document.createElement("div");
+        footer.className = "test-footer";
+        return footer;
+      },
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+    expect(actions).toBeDefined();
+
+    // A destroyed dropdown keeps the footer actions inert: the guarded
+    // select-all / clear are no-ops instead of resurrecting the popup.
+    dropdown.destroy();
+    expect(() => actions!.selectAll()).not.toThrow();
+    expect(dropdown.getValues()).toEqual([]);
+    expect(() => actions!.clear()).not.toThrow();
+    expect(dropdown.getValues()).toEqual([]);
+  });
+
+  it("renders a footer with both actions no-op for a zero-item list", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items: [],
+      multiple: true,
+      placeholder: "Any value",
+      multipleFooter: actions => {
+        const footer = document.createElement("div");
+        footer.className = "test-footer";
+        const selectAll = document.createElement("button");
+        selectAll.type = "button";
+        selectAll.disabled = actions.getCount() === 0;
+        const clear = document.createElement("button");
+        clear.type = "button";
+        clear.disabled = actions.getCount() === 0;
+        footer.append(selectAll, clear);
+        return footer;
+      },
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+
+    // Nothing to pick: the footer still renders and both actions read as
+    // no-ops (the select-all / clear guards would not change an empty set).
+    const footer = dropdown.getList()?.querySelector<HTMLDivElement>(".test-footer");
+    expect(footer).not.toBeNull();
+    const btns = footer!.querySelectorAll<HTMLButtonElement>("button");
+    expect(btns).toHaveLength(2);
+    expect(btns[0].disabled).toBe(true);
+    expect(btns[1].disabled).toBe(true);
+  });
 });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────

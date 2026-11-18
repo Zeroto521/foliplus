@@ -307,6 +307,7 @@ const renderEnumBody = (
         deps.T("filter_enum_select_all"),
       ) as HTMLButtonElement;
       if (actions.getCount() === total) selectAllBtn.disabled = true;
+      // listener-exempt: control-DOM，随面板移除
       selectAllBtn.onclick = () => actions.selectAll();
       const clearBtn = dom.el(
         "button",
@@ -314,6 +315,7 @@ const renderEnumBody = (
         deps.T("filter_enum_clear"),
       ) as HTMLButtonElement;
       if (actions.getCount() === 0) clearBtn.disabled = true;
+      // listener-exempt: control-DOM，随面板移除
       clearBtn.onclick = () => actions.clear();
       footer.append(selectAllBtn, clearBtn);
       return footer;

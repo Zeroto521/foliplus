@@ -1189,6 +1189,57 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
+    it("ignores a press on the disabled select-all footer button", () => {
+      const spy = spyTranslator();
+      const { item, owner } = registerEnum();
+      ui.openFilterPanel(item);
+      openList(item);
+
+      const footerButtons = (): HTMLButtonElement[] =>
+        Array.from(
+          listOf()!.querySelectorAll<HTMLButtonElement>(
+            ".foliplus-dropdown-footer button",
+          ),
+        );
+
+      // Select every option through the footer: the re-rendered footer then
+      // disables select-all because the action is already a no-op.
+      footerButtons()[0].click();
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["marker", "distance", "polygon", "circle"],
+      });
+      const [selectAll, clear] = footerButtons();
+      expect(selectAll.disabled).toBe(true);
+      expect(clear.disabled).toBe(false);
+
+      // A press on the disabled select-all is a no-op: the filter keeps every
+      // value instead of toggling into a partial selection.
+      selectAll.click();
+      expect(owner.filter).toEqual({
+        kind: "enum",
+        field: "type",
+        values: ["marker", "distance", "polygon", "circle"],
+      });
+      expect(labelOf(item)).toBe("4 selected");
+      spy.mockRestore();
+    });
+    it("disables the trigger and stays inert for a zero-option enum", () => {
+      const spy = spyTranslator();
+      const { item } = registerEnum(makeEnumOwner([]));
+      ui.openFilterPanel(item);
+
+      // No declared options: the trigger is disabled (nothing to pick) and
+      // the popup element stays closed, so the panel renders without a crash.
+      expect(triggerOf(item).disabled).toBe(true);
+      expect(listOf()?.hidden ?? true).toBe(true);
+      openList(item);
+      expect(listOf()?.hidden ?? true).toBe(true);
+      expect(() => triggerOf(item).click()).not.toThrow();
+      spy.mockRestore();
+    });
+
     it("Escape closes the popup first and the panel on the next press", () => {
       const spy = spyTranslator();
       const { item } = registerEnum();
