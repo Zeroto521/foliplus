@@ -14,7 +14,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CAP_TIER, DIM } from "#core/layer/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { layerHasStyleDelegation } from "#control/LayerControl/ui/style/delegated.js";
 import { layerCanLabel } from "#control/LayerControl/ui/style/labelDimension.js";
 import { getDimension } from "#control/LayerControl/ui/style/registry.js";
 import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.js";
@@ -301,7 +300,7 @@ describe("styleCapability parity with the per-dimension gates", () => {
     expect(cap.geometry).toBeNull();
   });
 
-  it("styleDelegation parity with layerHasStyleDelegation", () => {
+  it("styleDelegation reflects the styleSetters presence", () => {
     const li = manager.layerRegistry.get("overlay1");
     li!.styleSetters = undefined;
     expect(styleCapability(ui, "overlay1").styleDelegation).toBe(false);
@@ -386,7 +385,7 @@ describe("menu canConfigure equivalence", () => {
     return (
       (caps && (caps.opacity !== CAP_TIER.NONE || caps.zoomRange !== CAP_TIER.NONE)) ||
       layerCanLabel(ui, id) ||
-      layerHasStyleDelegation(ui, id)
+      (!!layerInfo?.styleSetters && Object.keys(layerInfo.styleSetters).length > 0)
     );
   };
 

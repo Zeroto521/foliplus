@@ -101,6 +101,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
     },
   });
 
+  // listener-exempt: clear button handler; control-DOM, removed with the control
   ctrl.clearBtn.onclick = () => {
     ctrl.inp.value = "";
     if (ctrl.marker) {
