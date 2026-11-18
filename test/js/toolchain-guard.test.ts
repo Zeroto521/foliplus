@@ -236,6 +236,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the LayerRole single-word guard over foliplus/js + test/js source (no `section` middle-layer for the overlay/base grouping), a tree guard not a script module",
   "check/v8-ignore":
     "the v8-ignore single-source guard over foliplus/js production (every `v8 ignore` must carry a reason label), a tree guard not a script module",
+  "check/listener-guard":
+    "the listener single-source guard over foliplus/js production (raw .on/.addEventListener outside listenDOM/listenMap requires a listener-exempt comment), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

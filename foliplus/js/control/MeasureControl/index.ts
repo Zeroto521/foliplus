@@ -5,8 +5,8 @@ import { MeasureManager } from "./manager.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
 import {
   bindControlZoomRange,
+  bindFoldOverlay,
   bindFoldToggle,
-  bindOutsideCollapse,
   createFoldControl,
 } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
@@ -81,16 +81,26 @@ const MeasureControl = defineControl<MeasureManager>({
     this.mgr.toolBtns = Array.from(toolBar.querySelectorAll(CONST.SEL.TOOL_BTN));
     this.mgr.bindExportClick(exportBtn!);
 
-    bindFoldToggle({ container: ctrl, toggleBtn });
+    // The registry owns outside-press dismissal for every floating surface;
+    // registering the fold panel makes it exclusive against the other map
+    // surfaces (row panels, the LayerControl menu) instead of the old
+    // document click listener that a stopPropagation could kill.
+    const fold = bindFoldOverlay({
+      map: this.mgr.map,
+      container: ctrl,
+      id: "measure.panel",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () =>
+        this.mgr.currentMode === null && this.config.collapse_on_outside !== false,
+    });
+    this.effect(() => fold.detach);
 
-    // Collapse when clicking outside, but NOT when a tool is active
-    this.effect(() =>
-      bindOutsideCollapse({
-        container: ctrl,
-        skipCheck: () =>
-          this.mgr.currentMode !== null || this.config.collapse_on_outside === false,
-      }),
-    );
+    bindFoldToggle({
+      container: ctrl,
+      toggleBtn,
+      onExpand: () => fold.groupOpen(),
+    });
 
     this.mgr.toolBtns.forEach((btn: HTMLElement) => {
       btn.onclick = (event: MouseEvent) => {

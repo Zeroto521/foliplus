@@ -91,7 +91,10 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
-    onExpand: () => ctrl.inp.focus(),
+    onExpand: () => {
+      ctrl.foldGroupOpen?.();
+      ctrl.inp.focus();
+    },
     onCollapse: () => {
       map.foliplus!.hideHint(ctrl.config.name);
       removePanel(ctrl);
