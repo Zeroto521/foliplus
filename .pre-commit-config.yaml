@@ -31,20 +31,25 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
+
   # ── Python type checking ──
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.4.1
+  # Run mypy through `uv run` (the project .venv) instead of pre-commit's
+  # own environment. The pre-commit mirrors-mypy hook installs mypy in an
+  # isolated env and pip-installs folium==0.20.0 as an additional dep; on
+  # this Windows setup that pip install hangs in the pre-commit env init
+  # phase (network + Windows file locks). Using `language: system` with
+  # `entry: uv run mypy` uses the project .venv directly — mypy and folium
+  # are already installed there, so no extra pip install is needed.
+  # --strict + --ignore-missing-imports live in pyproject.toml ([tool.mypy]).
+  - repo: local
     hooks:
       - id: mypy
-        # Pinned: the hook's type analysis depends on folium stubs, and an
-        # unpinned bump can surface new/unused `# type: ignore` errors. jinja2
-        # is a transitive dep of folium (not declared in pyproject) — leave it
-        # unpinned so the resolution follows folium.
-        additional_dependencies: [folium==0.20.0]
-        # --strict + --ignore-missing-imports live in pyproject.toml
-        # ([tool.mypy]); the hook only names the package to check.
+        name: mypy
+        entry: uv run mypy
+        language: system
         args: [foliplus]
         pass_filenames: false
+        types: [python]
 
   # ── Spell check ──
   - repo: https://github.com/codespell-project/codespell
