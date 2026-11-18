@@ -182,6 +182,24 @@ const capabilityKey = (caps: LayerCapabilities): string =>
  *  The panel shows the shared hint so the user knows the list is partial. */
 const ENUM_OPTION_LIMIT = 50;
 
+/** Why a folder create/rename was refused. `blank` is an empty or
+ *  whitespace-only name, `duplicate` is a name already taken (same role or
+ *  colliding with the name-keyed directory), `too-long` is a name over
+ *  {@link FOLDER_NAME_MAX}, and `missing` is a rename whose old folder no
+ *  longer exists — a stale reference, not a user-input mistake. */
+type FolderRefusalReason = "blank" | "duplicate" | "too-long" | "missing";
+
+/** The outcome of {@link LayerController.createFolder}: `ok: true` on success,
+ *  otherwise `ok: false` with the {@link FolderRefusalReason} — never
+ *  `"missing"`, since a create has no old folder to lose. */
+type FolderCreateResult =
+  { ok: true } | { ok: false; reason: Exclude<FolderRefusalReason, "missing"> };
+
+/** The outcome of {@link LayerController.renameFolder}: `ok: true` on success
+ *  (including a normalisation-only no-op), otherwise `ok: false` with the
+ *  {@link FolderRefusalReason} so the panel can say why. */
+type FolderRenameResult = { ok: true } | { ok: false; reason: FolderRefusalReason };
+
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -1722,39 +1740,49 @@ class LayerController implements LayerAPI {
    *  CREATE direction: a folder with no live member is materialised into the
    *  folder layout so the block survives at the role tail.
    *
-   *  Returns false (and writes nothing) when the name is blank after
-   *  normalisation, when it exceeds the readable cap, or when a folder with
-   *  the same normalised name already exists in this role (identity key
-   *  collision). A different role may freely reuse the same name — base
-   *  and overlay folders are distinct.
+   *  Returns `{ ok: false, reason }` (and writes nothing) when the name is
+   *  blank after normalisation (`reason: "blank"`), when it exceeds the
+   *  readable cap (`"too-long"`), or when a folder with the same normalised
+   *  name already exists in this role (`"duplicate"`). A different role may
+   *  freely reuse the same name — base and overlay folders are distinct.
    *
    * @param role - The UI role the folder belongs to.
    * @param name - The folder's display name (normalised for the key).
    * @param opts - Optional control over persistence.
-   * @returns true when the folder was created, false otherwise.
+   * @returns `{ ok: true }` when the folder was created, otherwise
+   *   `{ ok: false, reason }` with the {@link FolderRefusalReason}.
    */
-  createFolder(role: LayerRole, name: string, opts?: { persist?: boolean }): boolean {
+  createFolder(
+    role: LayerRole,
+    name: string,
+    opts?: { persist?: boolean },
+  ): FolderCreateResult {
     const key = normalizeFolderName(name);
-    if (key === "") return false;
+    if (key === "") return { ok: false, reason: "blank" };
     // The same cap the author's declaration is held to: a name the panel
     // could create would be unreadable on its own row.
     if (folderNameTooLong(name)) {
       this.log.warn(
         `createFolder refused a ${folderNameLength(name)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
       );
-      return false;
+      return { ok: false, reason: "too-long" };
     }
     const layout = this.folderLayout.layout;
-    if ((layout.order[role] ?? []).includes(key)) return false;
-    if (
+    const order = layout.order[role] ?? [];
+    // A same-role order collision OR a live member of THIS role already filed
+    // under the same key is a duplicate. The name-keyed directory is NOT a
+    // duplicate for create: a different role may reuse the same key and the
+    // core createFolder reuses the shared directory entry, so only this role's
+    // order and live members make a create collide.
+    const duplicate =
+      order.includes(key) ||
       this.layerRegistry.layers.some(
         l =>
+          l.role === role &&
           folderOf(layout, l) !== null &&
           normalizeFolderName(folderOf(layout, l)!) === key,
-      )
-    ) {
-      return false;
-    }
+      );
+    if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the tail through the single source: the
     // manager's set schedules the debounced write; the registry re-derives the
     // display order from the updated layout.
@@ -1765,7 +1793,7 @@ class LayerController implements LayerAPI {
       this.folderLayout.flush();
     }
     if (this.ui) this.ui.reindexAfterMove();
-    return true;
+    return { ok: true };
   }
 
   /** Rename one folder block in one role.
@@ -1777,53 +1805,62 @@ class LayerController implements LayerAPI {
    *  frozen) leaves `layout.order` untouched — the block stays unlisted and
    *  its members move with it because their `folder` spelling changed.
    *
-   *  Returns false (and writes nothing) when the old folder does not exist in
-   *  this role, when the new name is blank after normalisation, when the new
-   *  name exceeds the readable cap, or when a folder with the same
-   *  normalised new name already exists in this role (other than the old
-   *  folder itself — a normalisation-only rename is a no-op that returns
-   *  true without writing).
+   *  Returns `{ ok: false, reason }` (and writes nothing) when the old folder
+   *  does not exist (`reason: "missing"`), when the new name is blank after
+   *  normalisation (`"blank"`), when the new name exceeds the readable cap
+   *  (`"too-long"`), or when a folder with the same normalised new name
+   *  already exists (`"duplicate"`; other than the old folder itself — a
+   *  normalisation-only rename is a no-op that returns `{ ok: true }` without
+   *  writing).
    *
    * @param role - The UI role the folder belongs to.
    * @param oldName - The folder's current display name.
    * @param newName - The folder's new display name.
    * @param opts - Optional control over persistence.
-   * @returns true when the folder was renamed, false otherwise.
+   * @returns `{ ok: true }` when the folder was renamed (including a
+   *   normalisation-only no-op), otherwise `{ ok: false, reason }` with the
+   *   {@link FolderRefusalReason}.
    */
   renameFolder(
     role: LayerRole,
     oldName: string,
     newName: string,
     opts?: { persist?: boolean },
-  ): boolean {
+  ): FolderRenameResult {
     const oldKey = normalizeFolderName(oldName);
     const newKey = normalizeFolderName(newName);
-    if (newKey === "") return false;
+    if (newKey === "") return { ok: false, reason: "blank" };
     // Held to the same cap before the no-op check, so a name that is too
     // long cannot be retained by renaming it to itself.
     if (folderNameTooLong(newName)) {
       this.log.warn(
         `renameFolder refused a ${folderNameLength(newName)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
       );
-      return false;
+      return { ok: false, reason: "too-long" };
     }
-    if (oldKey === newKey) return true; // normalisation-only rename: no-op
+    if (oldKey === newKey) return { ok: true }; // normalisation-only rename: no-op
     const layout = this.folderLayout.layout;
     const order = layout.order[role] ?? [];
     const inOrder = order.includes(oldKey);
     const inDirectory = layout.folders.some(f => f.key === oldKey);
     const hasLive = this.layerRegistry.layers.some(l => folderOf(layout, l) === oldKey);
-    if (!inOrder && !inDirectory && !hasLive) return false;
-    if (order.includes(newKey)) return false;
-    if (
+    if (!inOrder && !inDirectory && !hasLive) return { ok: false, reason: "missing" };
+    // The duplicate predicate mirrors the core renameFolder's refusal set: the
+    // name-keyed directory is GLOBAL (one entry per name, shared by both roles),
+    // so a rename to a name already in the directory is refused even when the
+    // colliding folder lives in the other role. Narrowing this to order[role]
+    // would let the controller report { ok: true } while the core renameFolder
+    // silently no-ops on its own global directory check — a lying success, not a
+    // corrupt layout.
+    const duplicate =
+      order.includes(newKey) ||
+      layout.folders.some(f => f.key === newKey) ||
       this.layerRegistry.layers.some(
         l =>
           folderOf(layout, l) !== null &&
           normalizeFolderName(folderOf(layout, l)!) === newKey,
-      )
-    ) {
-      return false;
-    }
+      );
+    if (duplicate) return { ok: false, reason: "duplicate" };
     // The rename rewrites only the display name (and the block-order key in
     // place); every member assignment keeps its key, so the block stays put.
     this.folderLayout.set(renameFolder(layout, role, oldName, newName));
@@ -1833,7 +1870,7 @@ class LayerController implements LayerAPI {
       this.folderLayout.flush();
     }
     if (this.ui) this.ui.reindexAfterMove();
-    return true;
+    return { ok: true };
   }
 
   /** Explicitly delete one folder block in one role.
