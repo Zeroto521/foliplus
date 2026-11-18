@@ -878,6 +878,24 @@ describe("buildMarkerIcon", () => {
     expect(derived.options.html).toContain("fa-solid");
     expect(derived.options.html).toContain("fa-map-pin");
   });
+  it("scales the div-icon box and anchor by a declared icon_size", () => {
+    // The author-declared icon pixel size is a WHOLE-ICON scale: the built-in
+    // 25x41 box and its [12,41] anchor grow by one factor so the pin tip stays
+    // pinned. A declared size that is ignored would render the built-in box.
+    const author = makeDefaultIconAuthor();
+    const derived = buildMarkerIcon({ author, glyph: "map-pin", iconSize: 50 }) as any;
+    expect(derived.options.iconSize).toEqual([50, 82]);
+    expect(derived.options.iconAnchor).toEqual([25, 82]);
+  });
+
+  it("leaves the built-in box untouched when no icon_size is declared", () => {
+    // The pure-additive contract: a layer that declares no icon_size renders
+    // at the built-in 25x41 / [12,41], byte-identical to before the channel.
+    const author = makeDefaultIconAuthor();
+    const derived = buildMarkerIcon({ author, glyph: "map-pin" }) as any;
+    expect(derived.options.iconSize).toEqual([25, 41]);
+    expect(derived.options.iconAnchor).toEqual([12, 41]);
+  });
   it("paints the applied glyph under the panel prefix when no author family wins (render path)", () => {
     // The control knob (coerced) reaches the build: the applied glyph renders
     // under the coerced panel family, never the hardcoded fa-solid.

@@ -44,7 +44,16 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredIconSize } from "#control/LayerControl/declaredIconSize.js";
 import { readDeclaredMarkerColor } from "#control/LayerControl/declaredMarkerColor.js";
+
+/** The author-declared icon pixel size for this layer (foliplus icon_size),
+ *  or undefined when the layer declares none -- the whole-icon box edge the
+ *  marker construction scales to. Read off the layer so a declared size rides
+ *  every re-derivation (glyph / icon-colour / chassis write) without each
+ *  caller re-deriving it. */
+const declaredIconSizeOf = (layer: unknown): number | undefined =>
+  readDeclaredIconSize(layer).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the marker-color capability (an awesome-markers chassis carrier —
@@ -133,6 +142,7 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
     glyph,
     typeof iconColor === "string" ? iconColor : undefined,
     typeof opacity === "number" ? opacity : undefined,
+    declaredIconSizeOf(layer),
   );
 };
 /** Write the layer's chassis color and replay the walk.
@@ -202,6 +212,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
       authorHex,
       glyph,
       typeof iconColor === "string" ? iconColor : undefined,
+      declaredIconSizeOf(layer),
     );
   } else {
     // No author chassis: restore the author icon, then re-apply a user glyph
@@ -213,6 +224,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
         MARKER_COLOR_PRESET_HEX.blue,
         glyph,
         typeof iconColor === "string" ? iconColor : undefined,
+        declaredIconSizeOf(layer),
       );
     }
   }
