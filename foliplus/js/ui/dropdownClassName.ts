@@ -13,6 +13,7 @@ const DROPDOWN_CLASS = {
   LABEL: "foliplus-dropdown-label",
   PLACEHOLDER: "foliplus-dropdown-placeholder",
   LIST: "foliplus-dropdown-list",
+  FOOTER: "foliplus-dropdown-footer",
   OPTION: "foliplus-dropdown-option",
   OPTION_LABEL: "foliplus-dropdown-option-label",
   OPEN: "foliplus-dropdown-open",

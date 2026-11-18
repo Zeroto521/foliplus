@@ -499,6 +499,67 @@ describe("dropdown: multiple selections", () => {
     expect(labelOf(dropdown)).toBe("Bee");
     expect(picks).toEqual(["b"]);
   });
+  it("drives select-all / clear from the multiple footer", () => {
+    const changes: string[][] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      placeholder: "Any value",
+      selectedLabel: labels => `${labels.length} picked`,
+      onChange: (_value, values) => changes.push([...values]),
+      // Mirror the filter body footer: buttons disable when the action is
+      // already a no-op, and the footer is re-created on every render so the
+      // fresh getCount() answers the new selection.
+      multipleFooter: actions => {
+        const footer = document.createElement("div");
+        footer.className = "test-footer";
+        const selectAll = document.createElement("button");
+        selectAll.type = "button";
+        selectAll.textContent = "Select all";
+        selectAll.disabled = actions.getCount() === items.length;
+        selectAll.addEventListener("click", actions.selectAll);
+        const clear = document.createElement("button");
+        clear.type = "button";
+        clear.textContent = "Clear";
+        clear.disabled = actions.getCount() === 0;
+        clear.addEventListener("click", actions.clear);
+        footer.append(selectAll, clear);
+        return footer;
+      },
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+
+    dropdown.trigger.click();
+    const footerOf = () =>
+      dropdown.getList()?.querySelector<HTMLDivElement>(".test-footer");
+    const firstBtn = (root: HTMLDivElement) =>
+      root.querySelector<HTMLButtonElement>("button:first-child")!;
+    const lastBtn = (root: HTMLDivElement) =>
+      root.querySelector<HTMLButtonElement>("button:last-child")!;
+
+    const footer = footerOf();
+    expect(footer).not.toBeNull();
+    expect(firstBtn(footer!).textContent).toBe("Select all");
+    expect(lastBtn(footer!).textContent).toBe("Clear");
+    // Nothing picked: clear is already a no-op and reads disabled.
+    expect(lastBtn(footer!).disabled).toBe(true);
+
+    firstBtn(footer!).click();
+    expect(dropdown.getValues()).toEqual(["a", "b", "c"]);
+    expect(labelOf(dropdown)).toBe("3 picked");
+    expect(changes).toEqual([["a", "b", "c"]]);
+    // All picked: the re-rendered footer disables select-all instead.
+    const reFooter = footerOf();
+    expect(firstBtn(reFooter!).disabled).toBe(true);
+    expect(lastBtn(reFooter!).disabled).toBe(false);
+
+    lastBtn(reFooter!).click();
+    expect(dropdown.getValues()).toEqual([]);
+    expect(labelOf(dropdown)).toBe("Any value");
+    expect(changes).toEqual([["a", "b", "c"], []]);
+  });
 });
 
 // ── Lifecycle ─────────────────────────────────────────────────────────
