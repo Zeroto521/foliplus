@@ -1,0 +1,8 @@
+{
+  "ignorePatterns": [
+    "foliplus/dist/**",
+    "node_modules/**",
+    "test/js/browser/**",
+    "doc/**"
+  ]
+}
