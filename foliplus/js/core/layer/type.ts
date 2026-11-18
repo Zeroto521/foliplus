@@ -921,6 +921,12 @@ type SurfaceHandle =
  * event bus, not through this interface.
  */
 interface LayerAPI {
+  /**
+   * Null/undefined convention for the methods below that look a layer up
+   * by id: `null` = the id is not registered (not found); `undefined` = the
+   * id exists but the value is unset. An optional slot reads `undefined`
+   * when the feature is unimplemented — see each method's own note.
+   */
   /** Diagnostic marker (true = LayerController, false = lightweight stub).
    * Not authoritative for dependency checks — use isRealLayerControl, which
    * asserts the registry-delegating `layers` getter that only LayerController
@@ -943,7 +949,10 @@ interface LayerAPI {
    *  arranged. The counterpart to deleteLayer's saved-order prune, but without
    *  the `removedIds` recording — the layer stays registerable. Called by
    *  component clear paths (Heatmap, Measure) after they unregister, so a
-   *  clear-and-redraw cycle resets the position rather than preserving it. */
+   *  clear-and-redraw cycle resets the position rather than preserving it.
+   *
+   *  Optional: an older `foliplus-common` runtime predates it; treat an
+   *  absent slot as a no-op (`false`). */
   forgetSavedOrder?: (id: string) => boolean;
   /** Drop every persisted user value for one id — visibility, opacity, zoom
    *  range with their provenance markers, plus the stored order slot — so the
@@ -959,6 +968,9 @@ interface LayerAPI {
    *
    *  @returns true if persisted state was dropped, false when nothing was
    *   stored for this id.
+   *
+   *  Optional: an older `foliplus-common` runtime predates it; treat an
+   *  absent slot as a no-op (`false`).
    */
   dropPersistedLayerState?: (id: string) => boolean;
   /** Bring a registered overlay layer to the front. */
@@ -987,8 +999,8 @@ interface LayerAPI {
    *  zoom range) is suppressing it. Callers that need "is it drawn right
    *  now" read the map directly; callers that need "did the user hide it"
    *  read this. Only LayerController implements this; the lightweight stub
-   *  has no intent storage, so a consumer sees `undefined` and falls back
-   *  to `true`.
+   *  has no intent storage, so the slot is unimplemented there and a
+   *  consumer sees `undefined`, falling back to `true`.
    */
   intentVisible?: (id: string) => boolean;
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
@@ -1011,17 +1023,36 @@ interface LayerAPI {
     type: string,
   ) => Array<{ id: string; name: string; layer: L.Layer | null }>;
   /** Return the number of geometric features in a registered layer.
-   *  Null when the layer cannot be counted (e.g. Canvas without provider). */
-  getFeatureCount?: (id: string) => number | null;
-  /** Stamp `updatedAt` to now for a runtime mutation that does not re-register. */
+   *
+   *  Boundary:
+   *  - Unregistered id → `null` (the caller treats the id as not found).
+   *  - Registered id with no countable features → `undefined` (a BASE role,
+   *    a Canvas without a provider, an unknown non-container).
+   *
+   *  Only LayerController implements this — the lightweight stub has no
+   *  registry to count from. Optional so an older foliplus-common runtime
+   *  paired with a newer component bundle keeps loading (the shared bundle is
+   *  versioned independently). Callers show no count when the method is
+   *  absent, so an absent slot never reads as "zero features". */
+  getFeatureCount?: (id: string) => number | null | undefined;
+  /** Stamp `updatedAt` to now for a runtime mutation that does not re-register.
+   *
+   *  Optional: an older `foliplus-common` runtime predates it; treat an
+   *  absent slot as a no-op (`false`). */
   touchLayer?: (id: string) => boolean;
   /** Move a layer one position toward index 0, respecting role boundaries.
    *  False if already at the top, at a role boundary, or unknown.
-   *  Only LayerController implements this — the lightweight stub has no registry. */
+   *
+   *  Optional: only LayerController implements this — the lightweight stub
+   *  has no registry to reorder, so the slot is omitted there and a consumer
+   *  reads `undefined`, treating it as `false` (no reorder possible). */
   moveLayerUp?: (id: string) => boolean;
   /** Move a layer one position away from index 0, respecting role boundaries.
    *  False if already at the bottom of its role or unknown.
-   *  Only LayerController implements this — the lightweight stub has no registry. */
+   *
+   *  Optional: only LayerController implements this — the lightweight stub
+   *  has no registry to reorder, so the slot is omitted there and a consumer
+   *  reads `undefined`, treating it as `false` (no reorder possible). */
   moveLayerDown?: (id: string) => boolean;
 }
 

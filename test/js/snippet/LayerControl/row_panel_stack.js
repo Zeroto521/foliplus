@@ -8,8 +8,8 @@
 () => {
   const panel = document.querySelector(".foliplus-layer-style-panel");
   if (!panel) return { ok: false, reason: "panel-missing" };
-  const section = panel.closest(".leaflet-top") || panel.closest(".leaflet-bottom");
-  if (!section) return { ok: false, reason: "section-missing" };
+  const corner = panel.closest(".leaflet-top") || panel.closest(".leaflet-bottom");
+  if (!corner) return { ok: false, reason: "corner-missing" };
 
   const token = getComputedStyle(document.documentElement)
     .getPropertyValue("--foliplus-z-index-floating")
@@ -28,13 +28,13 @@
       "px;left:" +
       (cx - 10) +
       "px;width:100px;height:20px;z-index:800;";
-    section.appendChild(sib);
+    corner.appendChild(sib);
     const hit = document.elementFromPoint(cx, y);
     const cs = getComputedStyle(panel);
     const r = {
       panelPos: cs.position,
       panelZ: cs.zIndex,
-      topZ: getComputedStyle(section).zIndex,
+      topZ: getComputedStyle(corner).zIndex,
       hit: hit ? hit.className || hit.tagName : null,
       hitIsPanel: hit ? !!hit.closest(".foliplus-layer-style-panel") : false,
       hitIsScale: hit ? !!hit.closest(".foliplus-scale-wrap") : false,

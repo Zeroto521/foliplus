@@ -11,16 +11,16 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const raw = readFileSync(resolve(".github/workflows/bundle.yaml"), "utf8");
-const jobSection = raw.slice(raw.search(/^jobs:/m));
+const jobsBlock = raw.slice(raw.search(/^jobs:/m));
 const PR_GATE = "if: ${{ github.event.pull_request }}";
 
 /** Offsets of each step head (`- name:` / `- uses:` / `- run:`) in the job. */
-const stepStarts = [...jobSection.matchAll(/^ {6}- (?:name|uses|run):/gm)].map(
+const stepStarts = [...jobsBlock.matchAll(/^ {6}- (?:name|uses|run):/gm)].map(
   m => m.index,
 );
 
 const stepAt = (i: number) =>
-  jobSection.slice(stepStarts[i], stepStarts[i + 1] ?? jobSection.length);
+  jobsBlock.slice(stepStarts[i], stepStarts[i + 1] ?? jobsBlock.length);
 
 /** First step whose body includes the exact substring. */
 const stepContaining = (needle: string) =>
@@ -35,7 +35,7 @@ describe("bundle.yaml single job / two tracks", () => {
   });
 
   it("defines exactly one job", () => {
-    const jobKeys = [...jobSection.matchAll(/^ {2}([a-zA-Z_]\w*):\s*$/gm)].map(
+    const jobKeys = [...jobsBlock.matchAll(/^ {2}([a-zA-Z_]\w*):\s*$/gm)].map(
       m => m[1],
     );
     expect(jobKeys).toEqual(["bundle"]);

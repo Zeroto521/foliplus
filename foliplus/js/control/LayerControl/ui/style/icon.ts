@@ -388,10 +388,7 @@ const ICON_DIMENSION = registerDimension<IconIntent>({
     });
   },
   reset: (ui, layerId) => resetLayerIcon(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!styleCapability(ui, layerId).dims.icon) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.ICON) ? "user" : "author";
-  },
+  intentKeys: [INTENT.ICON],
   contentChange: {
     kind: "frame",
     face: FACE.ICON,

@@ -111,7 +111,10 @@ interface FilterStore {
    *  Returns whether the write was applied (false = a no-op the caller may
    *  skip its own side effects for). */
   setFilter(layerId: string, name: string, filter: LayerFilter | undefined): boolean;
-  /** The committed filter for one source (`undefined` = none). */
+  /** The committed filter for one source (`undefined` = none). A value
+   *  query, not an existence query: it never returns `null` — an absent
+   *  (layer, name) slot reads `undefined`, whether the layer is unregistered
+   *  or merely has no committed filter. */
   getFilter(layerId: string, name: string): LayerFilter | undefined;
   /** Whether the user owns the slot (the declaration may not re-seed). */
   isOwned(layerId: string, name: string): boolean;

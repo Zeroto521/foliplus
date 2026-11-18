@@ -35,6 +35,7 @@ import {
   EXIT_OK,
   EXIT_THRESHOLD,
   ROOT,
+  devDistMessage,
   fmtBytes,
   parseArgsWithBase,
   readSizes,
@@ -375,7 +376,14 @@ const appendSummary = text => {
 
 /** Write the current dist sizes to a JSON file (CI captures the base branch's
  *  sizes this way, so a PR can diff against them). */
-const emit = (args, root = ROOT) => {
+const emit = (args, root = ROOT, deps = {}) => {
+  // Capturing a baseline off a dev dist would bake inflated sizes into the
+  // baseline every later PR diffs against; refuse it here too.
+  const devMsg = devDistMessage(root, deps);
+  if (devMsg) {
+    console.error(`${FAIL}  ${devMsg}`);
+    return EXIT_FUSE;
+  }
   const sizes = readSizes(root);
   if (!Object.keys(sizes).length) {
     console.error("No bundles found in foliplus/dist/. Run build first.");
@@ -401,7 +409,12 @@ const emit = (args, root = ROOT) => {
   return EXIT_OK;
 };
 
-const check = (args, root = ROOT) => {
+const check = (args, root = ROOT, deps = {}) => {
+  const devMsg = devDistMessage(root, deps);
+  if (devMsg) {
+    console.error(`${FAIL}  ${devMsg}`);
+    return EXIT_FUSE;
+  }
   const current = readSizes(root);
   const baseline = readBaseline(args.baseline);
   // No baseline: nothing to diff against — list sizes instead of a
@@ -528,7 +541,7 @@ export {
 /** CLI entry: parse argv, run emit or check, and exit with its verdict.
  *  Exported so tests can drive the exact CLI flow with an injected argv
  *  instead of spawning a process. */
-const main = (argv = process.argv.slice(2)) => {
+const main = (argv = process.argv.slice(2), deps = {}) => {
   const args = parseArgs(argv);
   if (args.help) {
     console.log(help(SPEC));
@@ -543,7 +556,7 @@ const main = (argv = process.argv.slice(2)) => {
     process.exit(EXIT_FUSE);
   }
   const root = args.root ? resolve(args.root) : ROOT;
-  const code = args.emit ? emit(args, root) : check(args, root);
+  const code = args.emit ? emit(args, root, deps) : check(args, root, deps);
   process.exit(code);
 };
 

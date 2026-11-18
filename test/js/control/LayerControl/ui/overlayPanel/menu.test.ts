@@ -875,7 +875,7 @@ describe("LayerUI menu", () => {
         expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
       });
 
-      it("uses the member assignment section over the layer role when they diverge", () => {
+      it("uses the member assignment role over the layer role when they diverge", () => {
         const folderSpy = vi.fn();
         ui.c.deleteFolder = folderSpy;
         manager.registerLayer({
@@ -892,10 +892,10 @@ describe("LayerUI menu", () => {
         (
           ui.c.folderLayoutView.members as Record<
             string,
-            { section: string; folder: string }
+            { role: string; folder: string }
           >
         )["folder2"] = {
-          section: "base",
+          role: "base",
           folder: "green space",
         };
         const item = attachedPanel(ui).querySelector(
