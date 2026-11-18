@@ -117,6 +117,11 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert res["fieldRowPresent"] is True, res
             assert res["fieldRowLabel"] in ("Field", "字段"), res
             assert res["fieldRowBeforeValue"] is True, res
+            # The no-fields owner gets the identity on a read-only cell (never
+            # a native select — the field cell only hosts the picker when the
+            # owner actually exposes more than one field).
+            assert res["fieldRowHasSelect"] is False, res
+            assert res["fieldRowSelectCount"] == 0, res
             # The shared primitive replaced the native listbox outright.
             assert res["triggerTag"] == "BUTTON", res
             assert res["triggerHaspopup"] == "listbox", res

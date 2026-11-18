@@ -167,6 +167,10 @@ async () => {
       ? Array.from(panel().querySelectorAll(".foliplus-form-row"))
       : [];
     out.fieldRowPresent = Boolean(fieldRow);
+    out.fieldRowHasSelect = Boolean(fieldRow && fieldRow.querySelector("select"));
+    out.fieldRowSelectCount = fieldRow
+      ? fieldRow.querySelectorAll("select").length
+      : -1;
     out.fieldRowLabel = fieldRowEl
       ? fieldRowEl.querySelector(".foliplus-form-label")?.textContent
       : null;
