@@ -34,8 +34,8 @@ import {
 import {
   closeStylePanel,
   layerHasLabelFields,
-  layerHasStyleDelegation,
   refreshStylePanel,
+  styleCapability,
 } from "#control/LayerControl/ui/style/index.js";
 import { coerceAnnotationFields } from "#control/LayerControl/ui/style/label.js";
 import { clampPct, resetLayerOpacity } from "#control/LayerControl/ui/style/opacity.js";
@@ -2923,8 +2923,8 @@ describe("LayerUI style panel", () => {
     expect(labelFormatSetter).toHaveBeenCalledWith("auto");
   });
 
-  it("layerHasStyleDelegation is true only for layers with styleSetters", () => {
-    expect(layerHasStyleDelegation(ui, "overlay1")).toBe(false);
+  it("styleDelegation is true only for layers with styleSetters", () => {
+    expect(styleCapability(ui, "overlay1").styleDelegation).toBe(false);
 
     manager.registerLayer({
       id: "heat1",
@@ -2933,7 +2933,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(true);
+    expect(styleCapability(ui, "heat1").styleDelegation).toBe(true);
   });
 
   it("delegated panel renders only the controls the component declared", () => {
@@ -3178,7 +3178,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: {},
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(false);
+    expect(styleCapability(ui, "heat1").styleDelegation).toBe(false);
   });
 
   it("delegated panel collapses body when label toggle is off", () => {
