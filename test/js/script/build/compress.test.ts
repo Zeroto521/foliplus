@@ -106,7 +106,7 @@ describe("compressHtmlStrings comment/string awareness", () => {
     // and collapseHtml mangled the code. The aware scanner must leave both intact.
     const code = [
       "/** The declaration is FLAT — there is no `mode`/ramp` shell. */",
-      "const KNOWN: ReadonlySet<string> = new Set([\"field\", \"method\"]);",
+      'const KNOWN: ReadonlySet<string> = new Set(["field", "method"]);',
       "const msg = `invalid fill.field ${JSON.stringify(x)} (expected a property name)`;",
       "",
     ].join("\n");
@@ -115,7 +115,7 @@ describe("compressHtmlStrings comment/string awareness", () => {
 
   it("does not treat backticks inside single/double-quoted strings as delimiters", () => {
     const code = [
-      "const s = \"backtick `here` in a string\";",
+      'const s = "backtick `here` in a string";',
       "const x = `real template with ${s}`;",
     ].join("\n");
     const result = compressHtmlStrings(code);
