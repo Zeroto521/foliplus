@@ -660,7 +660,6 @@ describe("LayerControl style-panel dimension registry — default valueSource", 
   });
 });
 
-
 describe("LayerControl style-panel dimension registry — fill descriptor", () => {
   let manager: LayerController;
   let ui: LayerUI;

@@ -6,6 +6,7 @@
 // the registry display orders and the delegated drawer's row list.
 import { describe, expect, it } from "vitest";
 import { DIM } from "#core/layer/index.js";
+import { DELEGATED_DIM_ORDER as REGISTRY_DELEGATED } from "#control/LayerControl/ui/style/delegated.js";
 import {
   DELEGATED_DIM_ORDER,
   EMPTY_DIMS,
@@ -13,11 +14,7 @@ import {
   dimEnabled,
   dimsInRole,
 } from "#control/LayerControl/ui/style/dimTable.js";
-import {
-  DIM_ORDER,
-  LABEL_DIM_ORDER,
-} from "#control/LayerControl/ui/style/registry.js";
-import { DELEGATED_DIM_ORDER as REGISTRY_DELEGATED } from "#control/LayerControl/ui/style/delegated.js";
+import { DIM_ORDER, LABEL_DIM_ORDER } from "#control/LayerControl/ui/style/registry.js";
 
 describe("STYLE_DIM_TABLE structural facts", () => {
   it("lists exactly the nine built-in style dims, once each", () => {
@@ -28,17 +25,19 @@ describe("STYLE_DIM_TABLE structural facts", () => {
 
   it("covers the known dim vocabulary (no key drift)", () => {
     const keys = STYLE_DIM_TABLE.map(d => d.key).sort();
-    expect(keys).toEqual([
-      DIM.BORDER,
-      DIM.FILL,
-      DIM.ICON,
-      DIM.ICON_COLOR,
-      DIM.LABEL,
-      DIM.MARKER_COLOR,
-      DIM.OPACITY,
-      DIM.SIZE,
-      DIM.ZOOM_RANGE,
-    ].sort());
+    expect(keys).toEqual(
+      [
+        DIM.BORDER,
+        DIM.FILL,
+        DIM.ICON,
+        DIM.ICON_COLOR,
+        DIM.LABEL,
+        DIM.MARKER_COLOR,
+        DIM.OPACITY,
+        DIM.SIZE,
+        DIM.ZOOM_RANGE,
+      ].sort(),
+    );
   });
 
   it("every capSlot is a real LayerCapabilities key (compile-time + runtime)", () => {
@@ -46,11 +45,23 @@ describe("STYLE_DIM_TABLE structural facts", () => {
     // is keyof LayerCapabilities, but a runtime guard catches a table row
     // whose slot got renamed in the interface without the table following.
     const knownSlots = new Set([
-      "fill", "stroke", "size", "icon", "iconColor", "markerColor",
-      "opacity", "zoomRange", "visibility", "label", "relocatable", "bounds",
+      "fill",
+      "stroke",
+      "size",
+      "icon",
+      "iconColor",
+      "markerColor",
+      "opacity",
+      "zoomRange",
+      "visibility",
+      "label",
+      "relocatable",
+      "bounds",
     ]);
     for (const spec of STYLE_DIM_TABLE) {
-      expect(knownSlots.has(spec.capSlot), `unknown capSlot "${spec.capSlot}"`).toBe(true);
+      expect(knownSlots.has(spec.capSlot), `unknown capSlot "${spec.capSlot}"`).toBe(
+        true,
+      );
     }
   });
 

@@ -494,8 +494,9 @@ describe("menu canConfigure equivalence", () => {
       // and the registry default (gate + intentKeys) provides the three-state
       // answer. The gate for size IS the projection, so the default reads the
       // same capability bit.
-      expect(sliceBody(src, "const SIZE_DIMENSION", "contentChange:"))
-        .not.toMatch(/valueSource:/);
+      expect(sliceBody(src, "const SIZE_DIMENSION", "contentChange:")).not.toMatch(
+        /valueSource:/,
+      );
       expect(src).toMatch(/intentKeys: \[INTENT\.SIZE\]/);
     });
     it("icon row reads styleCapability; icon opts into the default valueSource", () => {
@@ -503,8 +504,9 @@ describe("menu canConfigure equivalence", () => {
       const row = sliceBody(src, "const buildIconRow", "const ICON_DIMENSION");
       expect(row).toContain("styleCapability(ui, layerId).dims.icon");
       expect(row).not.toMatch(/layerCanIcon\(/);
-      expect(sliceBody(src, "const ICON_DIMENSION", "contentChange:"))
-        .not.toMatch(/valueSource:/);
+      expect(sliceBody(src, "const ICON_DIMENSION", "contentChange:")).not.toMatch(
+        /valueSource:/,
+      );
       expect(src).toMatch(/intentKeys: \[INTENT\.ICON\]/);
     });
   });

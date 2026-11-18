@@ -173,11 +173,6 @@ const projectDims = (caps: Partial<LayerCapabilities>): StyleDims => {
   return out as StyleDims;
 };
 
-/** The intent keys that prove a user set this dim — the single source for
- *  the valueSource factory's per-dim key list. */
-const intentKeysOf = (key: string): readonly IntentKey[] =>
-  STYLE_DIM_TABLE.find(d => d.key === key)?.intentKeys ?? [];
-
 export {
   DELEGATED_DIM_ORDER,
   EMPTY_DIMS,
