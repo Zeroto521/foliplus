@@ -284,13 +284,7 @@ const MARKER_COLOR_DIMENSION = registerDimension<{
     );
   },
   reset: (ui, layerId) => resetLayerMarkerColor(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!layerCanMarkerColor(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.MARKER_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.MARKER_COLOR_OPACITY)
-      ? "user"
-      : "author";
-  },
+  intentKeys: [INTENT.MARKER_COLOR, INTENT.MARKER_COLOR_OPACITY],
   contentChange: {
     kind: "frame",
     face: FACE.MARKER_COLOR,
