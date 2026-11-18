@@ -50,13 +50,29 @@ const STYLE_DIM_TABLE: readonly StyleDimSpec[] = [
 type StyleDims = Record<(typeof STYLE_DIM_TABLE)[number]["key"], boolean>;
 
 /** Read one dim's boolean off a capability record, by its tier. A missing
- *  slot reads as "none" (the empty-layer short circuit), so the empty branch
- *  can pass {} instead of fabricating an all-false record. */
+ *  slot is one the surface never declared, and the two tiers read that
+ *  differently: a "native" dim needs the slot to declare "native" (the write
+ *  carrier), so an undeclared slot cannot enable it, while a "not-none" dim
+ *  only needs something other than "none" — a surface that said nothing is
+ *  not one that said "none". The missing-layer short circuit is a different
+ *  answer (a layer that does not exist has no rows at all) and goes through
+ *  EMPTY_DIMS rather than this projection. */
 const dimEnabled = (spec: StyleDimSpec, caps: Partial<LayerCapabilities>): boolean => {
   const v = caps[spec.capSlot];
-  if (v === undefined) return false;
+  if (v === undefined) return spec.tier === "native" ? false : true;
   return spec.tier === "native" ? v === CAP_TIER.NATIVE : v !== CAP_TIER.NONE;
 };
+
+/** Every dim false, derived from the table — the missing-layer short
+ *  circuit. A missing layer has no rows at all, and that must not be
+ *  answered by projecting an empty record: `dimEnabled` reads an undeclared
+ *  "not-none" dim as enabled, so {} would turn the empty-layer branch into a
+ *  fully open panel. */
+const EMPTY_DIMS: StyleDims = (() => {
+  const out: Record<string, boolean> = {};
+  for (const spec of STYLE_DIM_TABLE) out[spec.key] = false;
+  return out as StyleDims;
+})();
 
 /** The role's authoritative display order (registry.ts consumers). */
 const dimsInRole = (role: "layer" | "label"): readonly string[] =>
@@ -68,9 +84,10 @@ const DELEGATED_DIM_ORDER: readonly string[] =
   STYLE_DIM_TABLE.filter(d => !d.delegatedOwned && d.role === "layer").map(d => d.key);
 
 /** Project a capability record into the StyleCapability.dims boolean map
- *  (styleCapability.ts consumer). Partial on purpose: the empty-layer branch
- *  passes {} and every dim reads false, exactly as the former hand-written
- *  all-false literal did. */
+ *  (styleCapability.ts consumer). Partial on purpose: a surface declares
+ *  only the slots it owns, and `dimEnabled` reads an undeclared slot by its
+ *  tier. The missing-layer short circuit does not project an empty record —
+ *  it returns EMPTY_DIMS. */
 const projectDims = (caps: Partial<LayerCapabilities>): StyleDims => {
   const out: Record<string, boolean> = {};
   for (const spec of STYLE_DIM_TABLE) out[spec.key] = dimEnabled(spec, caps);
@@ -84,6 +101,7 @@ const intentKeysOf = (key: string): readonly IntentKey[] =>
 
 export {
   DELEGATED_DIM_ORDER,
+  EMPTY_DIMS,
   STYLE_DIM_TABLE,
   dimEnabled,
   dimsInRole,

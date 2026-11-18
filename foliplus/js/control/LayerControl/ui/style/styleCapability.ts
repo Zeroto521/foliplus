@@ -20,7 +20,7 @@
 // The remaining consumer migration (S2 gate move) is out of scope here.
 import type { LayerUI } from "../surface.js";
 import { isColorBasemap } from "./fillAuthor.js";
-import { projectDims } from "./dimTable.js";
+import { EMPTY_DIMS, projectDims } from "./dimTable.js";
 import type { StyleDims } from "./dimTable.js";
 
 /** The surface geometry classification published for the S3 mode resolver.
@@ -63,7 +63,7 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) {
     return {
-      dims: projectDims({}),
+      dims: EMPTY_DIMS,
       styleDelegation: false,
       geometry: null,
     };
