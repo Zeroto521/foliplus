@@ -609,6 +609,7 @@ def normalise_folder(
         return None
     return name
 
+
 # ── Marker chassis-colour declaration ────────────────────────────────
 def normalise_marker_color(
     raw: object,

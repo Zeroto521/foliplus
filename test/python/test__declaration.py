@@ -730,9 +730,7 @@ def test_normalise_marker_color_rejects_non_string_or_blank(raw):
     _declaration.foliplus_reports.clear()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        assert (
-            normalise_marker_color(raw, owner="Owner", subject="layer 'L'") is None
-        )
+        assert normalise_marker_color(raw, owner="Owner", subject="layer 'L'") is None
         assert any("marker_color" in str(w.message) for w in caught), (
             raw,
             [str(w.message) for w in caught],
@@ -743,9 +741,7 @@ def test_normalise_marker_color_does_not_gate_the_vocabulary():
     # An out-of-vocabulary name is the JS reader's verdict (it owns the preset
     # table); here it survives as a plain string, like the enum filter's
     # measurement-type names.
-    assert (
-        normalise_marker_color("not-a-preset", owner="Owner") == "not-a-preset"
-    )
+    assert normalise_marker_color("not-a-preset", owner="Owner") == "not-a-preset"
 
 
 # icon_size normalisation: a whole-number pixel size; folium Icon has no

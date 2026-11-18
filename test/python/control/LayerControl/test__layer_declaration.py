@@ -533,7 +533,10 @@ def test_undeclared_marker_color_is_none_without_a_warning():
 
 def test_non_string_marker_color_warns_and_reads_none():
     with pytest.warns(UserWarning, match="marker_color"):
-        assert declared_marker_color(_geo(foliplus={"marker_color": 7}), "Declared") is None
+        assert (
+            declared_marker_color(_geo(foliplus={"marker_color": 7}), "Declared")
+            is None
+        )
 
 
 def test_blank_marker_color_warns_and_reads_none():
