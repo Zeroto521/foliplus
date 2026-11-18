@@ -46,6 +46,8 @@ export {
   FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,
+  folderNameLength,
+  folderNameTooLong,
   emptyFolderLayout,
   ensureFolderLayout,
   createFolderLayoutManager,

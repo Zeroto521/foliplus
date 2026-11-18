@@ -255,6 +255,26 @@ describe("LayerInfoRegistry", () => {
       warnSpy.mockRestore();
     });
 
+    it("accepts a folder name exactly at the cap", () => {
+      const name = "f".repeat(FOLDER_NAME_MAX);
+      const info = registry.createLayerInfo({ id: "atCap", folder: name });
+      expect(info.folder).toBe(name);
+    });
+
+    it("counts code points, not bytes, for a name heavy in non-BMP characters", () => {
+      // Each astral character is four UTF-8 bytes, so this name is far longer
+      // on the wire than the cap; the cap is on what the author reads.
+      const name = "\u{1F30D}".repeat(FOLDER_NAME_MAX);
+      const info = registry.createLayerInfo({ id: "emoji", folder: name });
+      expect(info.folder).toBe(name);
+    });
+
+    it("measures the cap after normalising, so padding is not counted", () => {
+      const name = " ".repeat(20) + "x".repeat(FOLDER_NAME_MAX) + " ".repeat(20);
+      const info = registry.createLayerInfo({ id: "padded", folder: name });
+      expect(info.folder).toBe(name);
+    });
+
     it("uses <unknown> as the layer id in the warning when none was given", () => {
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       const info = registry.createLayerInfo({

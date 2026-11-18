@@ -26,6 +26,7 @@ import {
   type CreateLayersAPI,
   type CreateLayersOpts,
   FILTER_SOURCE,
+  FOLDER_NAME_MAX,
   type FilterEnumDimension,
   type FilterRangeDimension,
   type FilterStore,
@@ -57,6 +58,8 @@ import {
   filterLeafSet,
   filterStep,
   findLayer,
+  folderNameLength,
+  folderNameTooLong,
   folderOf,
   freezeRoleOrder,
   normalizeFolderName,
@@ -1718,9 +1721,10 @@ class LayerController implements LayerAPI {
    *  folder layout so the block survives at the role tail.
    *
    *  Returns false (and writes nothing) when the name is blank after
-   *  normalisation, or when a folder with the same normalised name already
-   *  exists in this role (identity key collision). A different role may
-   *  freely reuse the same name — base and overlay folders are distinct.
+   *  normalisation, when it exceeds the readable cap, or when a folder with
+   *  the same normalised name already exists in this role (identity key
+   *  collision). A different role may freely reuse the same name — base
+   *  and overlay folders are distinct.
    *
    * @param role - The UI role the folder belongs to.
    * @param name - The folder's display name (normalised for the key).
@@ -1730,6 +1734,14 @@ class LayerController implements LayerAPI {
   createFolder(role: LayerRole, name: string, opts?: { persist?: boolean }): boolean {
     const key = normalizeFolderName(name);
     if (key === "") return false;
+    // The same cap the author's declaration is held to: a name the panel
+    // could create would be unreadable on its own row.
+    if (folderNameTooLong(name)) {
+      this.log.warn(
+        `createFolder refused a ${folderNameLength(name)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
+      );
+      return false;
+    }
     const layout = this.folderLayout.layout;
     if ((layout.order[role] ?? []).includes(key)) return false;
     if (
@@ -1764,10 +1776,11 @@ class LayerController implements LayerAPI {
    *  its members move with it because their `folder` spelling changed.
    *
    *  Returns false (and writes nothing) when the old folder does not exist in
-   *  this role, when the new name is blank after normalisation, or when a
-   *  folder with the same normalised new name already exists in this role
-   *  (other than the old folder itself — a normalisation-only rename is a
-   *  no-op that returns true without writing).
+   *  this role, when the new name is blank after normalisation, when the new
+   *  name exceeds the readable cap, or when a folder with the same
+   *  normalised new name already exists in this role (other than the old
+   *  folder itself — a normalisation-only rename is a no-op that returns
+   *  true without writing).
    *
    * @param role - The UI role the folder belongs to.
    * @param oldName - The folder's current display name.
@@ -1784,6 +1797,14 @@ class LayerController implements LayerAPI {
     const oldKey = normalizeFolderName(oldName);
     const newKey = normalizeFolderName(newName);
     if (newKey === "") return false;
+    // Held to the same cap before the no-op check, so a name that is too
+    // long cannot be retained by renaming it to itself.
+    if (folderNameTooLong(newName)) {
+      this.log.warn(
+        `renameFolder refused a ${folderNameLength(newName)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
+      );
+      return false;
+    }
     if (oldKey === newKey) return true; // normalisation-only rename: no-op
     const layout = this.folderLayout.layout;
     const order = layout.order[role] ?? [];

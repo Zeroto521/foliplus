@@ -5,6 +5,8 @@ import {
   FOLDER_NAME_MAX,
   type FolderLayout,
   emptyFolderLayout,
+  folderNameLength,
+  folderNameTooLong,
   fullDisplayOrder,
 } from "./folderLayout.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
@@ -61,19 +63,22 @@ const declaredFolderOf = (
     );
     return null;
   }
-  // Measured on the normalised name, exactly as Python measures it: the same
-  // strip/fold is what the panel shows, so a name padded with whitespace is
-  // judged by what the author sees, not by padding they never will. The
-  // author's spelling is still returned untouched - folding case for matching
-  // is the folder layout's job.
-  const codePoints = [...opts.folder.normalize("NFC").replace(/\s+/g, " ").trim()]
-    .length;
-  if (codePoints > FOLDER_NAME_MAX) {
+  // Judged on the normalised name by the one shared predicate the panel's
+  // create and rename paths ask as well, so the cap is guarded at every
+  // entry rather than only this one.
+  if (folderNameTooLong(opts.folder)) {
     log.warn(
-      `layer ${JSON.stringify(opts.id ?? "<unknown>")} declares folder at ${codePoints} code points; expected at most ${FOLDER_NAME_MAX} - ignored`,
+      `layer ${JSON.stringify(opts.id ?? "<unknown>")} declares folder at ${folderNameLength(opts.folder)} code points; expected at most ${FOLDER_NAME_MAX} - ignored`,
     );
     return null;
   }
+  // The author's spelling is returned untouched: the cap above is judged on
+  // the normalised length, but this reader never rewrites the string. That
+  // is a pre-existing asymmetry with Python - normalise_folder returns the
+  // normalised name, so a CONF arriving from Python is already trimmed and
+  // the raw spelling survives only when an author calls the JS API directly.
+  // Display converges either way: folderDisplayName trims, and
+  // normalizeFolderName owns the identity key.
   return opts.folder;
 };
 

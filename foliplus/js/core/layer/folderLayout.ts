@@ -119,6 +119,26 @@ const normalizeFolderName = (name: string): string =>
  *  first-seen raw spelling wins and is never normalised for display. */
 const folderDisplayName = (name: string): string => name.trim();
 
+/** The length a folder name is judged by, in Unicode code points.
+ *
+ *  Measured on the normalised name - the same NFC / whitespace-fold / trim
+ *  the panel shows, so padding cannot disguise a long name, and counted in
+ *  code points rather than UTF-8 bytes, so a name heavy in non-BMP
+ *  characters is judged by what the author reads. Mirrors the Python
+ *  reader, which measures the identical normalisation.
+ */
+const folderNameLength = (name: string): number =>
+  [...name.normalize("NFC").replace(/\s+/g, " ").trim()].length;
+
+/** Whether a folder name exceeds {@link FOLDER_NAME_MAX}.
+ *
+ *  The single decision point for the cap, so one invariant cannot be
+ *  guarded at one entry and not another: the author's declaration (Python
+ *  and the JS reader) and the panel's own create / rename paths all ask
+ *  this. */
+const folderNameTooLong = (name: string): boolean =>
+  folderNameLength(name) > FOLDER_NAME_MAX;
+
 /** Shape guard for a persisted layout record. A corrupt or unknown-version
  *  payload reads back as empty (see readFolderLayout) — the record is never
  *  trusted as a persistence channel it does not actually match. */
@@ -533,6 +553,8 @@ export {
   FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,
+  folderNameLength,
+  folderNameTooLong,
   emptyFolderLayout,
   ensureFolderLayout,
   createFolderLayoutManager,
