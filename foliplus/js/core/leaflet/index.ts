@@ -33,6 +33,7 @@ export {
   ROW_PANEL_MIN_HEIGHT,
   ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
+  bindFoldOverlay,
   bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,
