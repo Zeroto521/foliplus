@@ -150,6 +150,27 @@ describe("bindPanelToggle", () => {
     ).not.toThrow();
     expect(domEvent.on).not.toHaveBeenCalled();
   });
+
+  it("calls onExpand/onCollapse hooks", () => {
+    const { container, btn, hdr } = makePanel();
+    const onExpand = vi.fn();
+    const onCollapse = vi.fn();
+    bindPanelToggle({
+      container,
+      toggleBtn: ".foliplus-toggle-btn",
+      header: ".foliplus-panel-header",
+      onExpand,
+      onCollapse,
+    });
+
+    btn.click();
+    expect(onExpand).toHaveBeenCalledTimes(1);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    hdr.click();
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(onExpand).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("bindFoldToggle", () => {
