@@ -24,6 +24,22 @@
   font-size: var(--foliplus-font-size-xs);
 }
 
+/* Re-state Leaflet's own `.leaflet-container img { display: block }` rule.
+   RTD (sphinx_rtd_theme) injects its own `img { vertical-align: middle }`
+   reset AFTER our common.css but potentially BEFORE Leaflet's own
+   stylesheet (folium CDN injects Leaflet CSS last, but the RTD theme
+   layout template loads its own CSS after the folium-injected block).
+   When Leaflet's display:block wins the cascade the tile <img> has no
+   baseline gap; when the RTD reset fires after Leaflet the <img> reverts
+   to inline and produces a ~4px bottom gap per tile row — visible as
+   white gridlines (#151 diagnosis). Restating the rule here with equal
+   specificity (.leaflet-container = class, img = type — 0-1-1) and
+   loading after the RTD theme reset in the cascade ensures the block
+   display always wins regardless of RTD theme CSS order. */
+.leaflet-container img {
+  display: block;
+}
+
 /* ── Animations ── */
 @keyframes foliplus-spin {
   0% {
