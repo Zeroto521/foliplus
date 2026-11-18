@@ -55,6 +55,7 @@ clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 lint:
 	pre-commit run -a -v
+	uv run mypy foliplus
 
 dist: build-js build-python
 
