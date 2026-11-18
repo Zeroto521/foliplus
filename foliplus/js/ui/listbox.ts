@@ -164,6 +164,11 @@ interface ListboxSpec {
   /** Focus a row on open. The picker lands on the selected row (fallback row
    *  0); the dropdown focuses nothing (its rows are reached by keyboard). */
   focusOnOpen?: "first" | "last" | "selected";
+  /** Optional footer element rendered after the rows (a multiple-mode
+   *  select-all / clear bar). Called on every renderRows — the list is cleared
+   *  first, so the footer is re-appended and re-reads its state each time.
+   *  Return null to render nothing. */
+  footer?: () => HTMLElement | null;
   /** Called after every position pass (portal) or after the inline mount —
    *  the consumer publishes a measured lane (scrollbar width) here. */
   onPosition?: () => void;
@@ -359,6 +364,12 @@ const renderRows = (state: InternalState): void => {
     return row;
   });
   state.list.append(...state.rowEls);
+  // A multiple-mode footer (select all / clear) renders after the rows so it
+  // sits at the bottom of the popup. renderRows cleared the list first, so the
+  // footer is re-appended on every render and the consumer re-reads the
+  // current selection to refresh the button states.
+  const footer = state.spec.footer?.();
+  if (footer) state.list.append(footer);
 };
 
 /** Pin the popup to the trigger in viewport coordinates. The flip verdict,
