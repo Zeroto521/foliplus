@@ -12,7 +12,7 @@
 import type { ProjectionDelta } from "./ui/apply.js";
 import type { SchedulerFace } from "./ui/style/styleBag.js";
 import type { LayerUI } from "./ui/surface.js";
-import type { LayerDimKey, PersistedLayerState } from "#core/layer/index.js";
+import type { IntentKey, LayerDimKey, PersistedLayerState } from "#core/layer/index.js";
 
 export type {
   LabelConfig,
@@ -102,6 +102,13 @@ type ContentChangePolicy =
 
 type LayerDimension<D = unknown> = {
   key: LayerDimKey;
+  /** The intent keys this dimension owns — the provenance markers a user
+   *  write stamps. When present (and `valueSource` is not), the registry
+   *  installs the default three-state valueSource from `gate` + these keys:
+   *  gate rejects → "none"; any key user-set → "user"; else "author". A
+   *  content dimension (label) has no keys and omits this field by design
+   *  (see registry.ts header). */
+  intentKeys?: readonly IntentKey[];
   /** Row-honest gate, two layers in order:
    *  1. **Layer existence** — return `false` when the layer is not in the
    *     registry (a precondition guard against a programming error).
@@ -161,4 +168,4 @@ type LayerDimension<D = unknown> = {
   contentChange: ContentChangePolicy;
 };
 
-export type { LayerDimension, LayerPersistedRecord };
+export type { DimensionValueSource, LayerDimension, LayerPersistedRecord };

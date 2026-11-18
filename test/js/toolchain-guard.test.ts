@@ -232,6 +232,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the marker-icon setIcon single-site guard over foliplus/js production (leaf.setIcon( only in the setLeafIcon helper), a tree guard not a script module",
   "check/form-class-literal":
     "the FORM_CLASS single-source guard over foliplus/js production (foliplus-input-skin / foliplus-form-select literals only in ui/formClassName.ts), a tree guard not a script module",
+  "check/vocabulary":
+    "the LayerRole single-word guard over foliplus/js + test/js source (no `section` middle-layer for the overlay/base grouping), a tree guard not a script module",
   "check/v8-ignore":
     "the v8-ignore single-source guard over foliplus/js production (every `v8 ignore` must carry a reason label), a tree guard not a script module",
 };

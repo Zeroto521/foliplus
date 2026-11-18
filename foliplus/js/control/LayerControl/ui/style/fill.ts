@@ -799,13 +799,7 @@ const FILL_DIMENSION = registerDimension<{
     }
     walkFillLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanFill(ui, layerId)) return "none";
-    for (const key of FILL_INTENT_KEYS) {
-      if (ui.intentStore.isUserSet(layerId, key)) return "user";
-    }
-    return "author";
-  },
+  intentKeys: FILL_INTENT_KEYS,
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
    *  author's color and a running value fill classifies on stale breaks. The

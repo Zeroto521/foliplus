@@ -31,7 +31,6 @@ import {
   type FilterStore,
   type FolderLayout,
   type FolderLayoutManager,
-  type FolderSection,
   GEOM_TYPE,
   type LabelAwareLayer,
   type LayerAPI,
@@ -59,7 +58,7 @@ import {
   filterStep,
   findLayer,
   folderOf,
-  freezeSectionOrder,
+  freezeRoleOrder,
   normalizeFolderName,
   renameFolder,
   visibleDomOf,
@@ -740,7 +739,7 @@ class LayerController implements LayerAPI {
     return this.folderLayout.layout;
   }
   /** The display name of the folder a layer currently belongs to (from the
-   *  layout's member assignment), or null when the layer is at section root. */
+   *  layout's member assignment), or null when the layer is at role root. */
   folderNameOf(layerId: string): string | null {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return null;
@@ -1057,9 +1056,9 @@ class LayerController implements LayerAPI {
 
     // A layer's role is fixed for the id's whole lifetime — it picks the
     // z ladder, the attribution and basemap semantics, and which panel
-    // section owns the row. Re-registering with a different role would be a
+    // role owns the row. Re-registering with a different role would be a
     // role change, which no code path models: the in-place upsert would
-    // strand the row in the old section with a stale section boundary
+    // strand the row in the old role with a stale role boundary
     // (firstBaseIdx) and a partition invariant broken. Refuse before any
     // mutation — unregister first if the role really must change.
     const existingRole = this.layerRegistry.get(opts.id);
@@ -1422,11 +1421,11 @@ class LayerController implements LayerAPI {
       role === ROLE.BASE
         ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
         : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
-    // Keep the header while the section still owns a folder key: the
+    // Keep the header while the role still owns a folder key: the
     // empty-folder cleanup button must stay reachable after the last layer
     // goes (hard constraint 1 / builder-4 ④).
-    const sectionKeys = this.folderLayout.layout.order[role] ?? [];
-    if (!container.querySelector(anchorSel) && sectionKeys.length === 0) {
+    const roleKeys = this.folderLayout.layout.order[role] ?? [];
+    if (!container.querySelector(anchorSel) && roleKeys.length === 0) {
       container
         .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-role="${role}"]`)
         ?.remove();
@@ -1584,7 +1583,7 @@ class LayerController implements LayerAPI {
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer existed, false otherwise.
    */
-  /** Freeze a section's block order when a folder is about to lose its
+  /** Freeze a role's block order when a folder is about to lose its
    *  LAST member. Called from the delete path with the
    *  PRE-removal registry snapshot, so the emptied folder's own block is part
    *  of the materialised order. Returns true when a freeze was written to
@@ -1592,7 +1591,7 @@ class LayerController implements LayerAPI {
   private freezeEmptyFolder(layerInfo: LayerInfo): boolean {
     const folder = folderOf(this.folderLayout.layout, layerInfo);
     if (!folder) return false;
-    const section = layerInfo.role === ROLE.BASE ? "base" : "overlay";
+    const role = layerInfo.role === ROLE.BASE ? "base" : "overlay";
     const key = normalizeFolderName(folder);
     const members = this.layerRegistry.layers.filter(
       l =>
@@ -1601,12 +1600,7 @@ class LayerController implements LayerAPI {
     );
     if (members.length !== 1) return false; // not the last member
     this.folderLayout.set(
-      freezeSectionOrder(
-        this.folderLayout.layout,
-        section,
-        this.layerRegistry.layers,
-        key,
-      ),
+      freezeRoleOrder(this.folderLayout.layout, role, this.layerRegistry.layers, key),
     );
     return true;
   }
@@ -1656,11 +1650,11 @@ class LayerController implements LayerAPI {
     }
 
     // Folder empty-freeze: if this layer is the LAST member of its folder,
-    // materialise the section's whole block order into the folder layout
+    // materialise the role's whole block order into the folder layout
     // BEFORE the removal — at this point the folder still has its last member,
     // so its block is part of the snapshot and the frozen order is not
     // self-contradictory. The persisted layout then keeps the emptied folder's
-    // position (the block order stays frozen while the section has no live
+    // position (the block order stays frozen while the role has no live
     // members) and a later new folder lands at the block tail.
     const frozen = this.freezeEmptyFolder(layerInfo);
     const retired = this.retireEntry(id);
@@ -1717,31 +1711,27 @@ class LayerController implements LayerAPI {
     operation.throwIfFailed();
     return true;
   }
-  /** Explicitly create one (possibly empty) folder block in one section.
+  /** Explicitly create one (possibly empty) folder block in one role.
    *
    *  This is the user-facing counterpart of the empty-folder freeze for the
    *  CREATE direction: a folder with no live member is materialised into the
-   *  folder layout so the block survives at the section tail.
+   *  folder layout so the block survives at the role tail.
    *
    *  Returns false (and writes nothing) when the name is blank after
    *  normalisation, or when a folder with the same normalised name already
-   *  exists in this section (identity key collision). A different section may
+   *  exists in this role (identity key collision). A different role may
    *  freely reuse the same name — base and overlay folders are distinct.
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param name - The folder's display name (normalised for the key).
    * @param opts - Optional control over persistence.
    * @returns true when the folder was created, false otherwise.
    */
-  createFolder(
-    section: FolderSection,
-    name: string,
-    opts?: { persist?: boolean },
-  ): boolean {
+  createFolder(role: LayerRole, name: string, opts?: { persist?: boolean }): boolean {
     const key = normalizeFolderName(name);
     if (key === "") return false;
     const layout = this.folderLayout.layout;
-    if ((layout.order[section] ?? []).includes(key)) return false;
+    if ((layout.order[role] ?? []).includes(key)) return false;
     if (
       this.layerRegistry.layers.some(
         l =>
@@ -1754,7 +1744,7 @@ class LayerController implements LayerAPI {
     // Materialise the empty folder at the tail through the single source: the
     // manager's set schedules the debounced write; the registry re-derives the
     // display order from the updated layout.
-    this.folderLayout.set(createFolder(layout, section, name));
+    this.folderLayout.set(createFolder(layout, role, name));
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {
@@ -1764,7 +1754,7 @@ class LayerController implements LayerAPI {
     return true;
   }
 
-  /** Rename one folder block in one section.
+  /** Rename one folder block in one role.
    *
    *  The rename changes the folder's identity key AND every live member's
    *  `folder` display spelling, but NEVER moves the block: the old key is
@@ -1774,19 +1764,19 @@ class LayerController implements LayerAPI {
    *  its members move with it because their `folder` spelling changed.
    *
    *  Returns false (and writes nothing) when the old folder does not exist in
-   *  this section, when the new name is blank after normalisation, or when a
-   *  folder with the same normalised new name already exists in this section
+   *  this role, when the new name is blank after normalisation, or when a
+   *  folder with the same normalised new name already exists in this role
    *  (other than the old folder itself — a normalisation-only rename is a
    *  no-op that returns true without writing).
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param oldName - The folder's current display name.
    * @param newName - The folder's new display name.
    * @param opts - Optional control over persistence.
    * @returns true when the folder was renamed, false otherwise.
    */
   renameFolder(
-    section: FolderSection,
+    role: LayerRole,
     oldName: string,
     newName: string,
     opts?: { persist?: boolean },
@@ -1796,7 +1786,7 @@ class LayerController implements LayerAPI {
     if (newKey === "") return false;
     if (oldKey === newKey) return true; // normalisation-only rename: no-op
     const layout = this.folderLayout.layout;
-    const order = layout.order[section] ?? [];
+    const order = layout.order[role] ?? [];
     const inOrder = order.includes(oldKey);
     const inDirectory = layout.folders.some(f => f.key === oldKey);
     const hasLive = this.layerRegistry.layers.some(l => folderOf(layout, l) === oldKey);
@@ -1813,7 +1803,7 @@ class LayerController implements LayerAPI {
     }
     // The rename rewrites only the display name (and the block-order key in
     // place); every member assignment keeps its key, so the block stays put.
-    this.folderLayout.set(renameFolder(layout, section, oldName, newName));
+    this.folderLayout.set(renameFolder(layout, role, oldName, newName));
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {
@@ -1823,7 +1813,7 @@ class LayerController implements LayerAPI {
     return true;
   }
 
-  /** Explicitly delete one folder block in one section.
+  /** Explicitly delete one folder block in one role.
    *
    *  This is the user-facing counterpart of {@link freezeEmptyFolder} (#911):
    *  freeze is the AUTOMATIC keep (a folder that would lose its last member
@@ -1832,34 +1822,34 @@ class LayerController implements LayerAPI {
    *  exclusive — an explicit delete never routes through the freeze, and the
    *  freeze never hands control here.
    *
-   *  Every member of the folder (same section + same normalize(name)) is
+   *  Every member of the folder (same role + same normalize(name)) is
    *  PROMOTED to root, never retired: the layer stays registered and visible,
    *  only its folder association drops. The folder's key is then removed from
    *  `layout.order`, and the materialised block order is re-derived. The
    *  display name is not separately persisted, so no name cleanup is owed.
    *
    *  Returns false (and writes nothing) when the folder does not exist —
-   *  no members in this section and no key in `layout.order`. An existing but
+   *  no members in this role and no key in `layout.order`. An existing but
    *  empty folder (a key with no live member) deletes the key and returns
    *  true without touching any layer.
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param folderName - The folder's display name (normalised for the key).
    * @param opts - Optional control over persistence.
    * @returns true when the folder existed and was removed, false otherwise.
    */
   deleteFolder(
-    section: FolderSection,
+    role: LayerRole,
     folderName: string,
     opts?: { persist?: boolean },
   ): boolean {
     const key = normalizeFolderName(folderName);
     const layout = this.folderLayout.layout;
-    const inOrder = (layout.order[section] ?? []).includes(key);
+    const inOrder = (layout.order[role] ?? []).includes(key);
     const inDirectory = layout.folders.some(f => f.key === key);
     const members = this.layerRegistry.layers.filter(
       l =>
-        l.role === section &&
+        l.role === role &&
         folderOf(layout, l) !== null &&
         normalizeFolderName(folderOf(layout, l)!) === key,
     );
@@ -1867,7 +1857,7 @@ class LayerController implements LayerAPI {
     // The delete promotes every member to root and removes the directory /
     // order entries; the registry re-derives the display order from the
     // updated layout.
-    this.folderLayout.set(deleteFolder(layout, section, folderName));
+    this.folderLayout.set(deleteFolder(layout, role, folderName));
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {
@@ -1877,21 +1867,21 @@ class LayerController implements LayerAPI {
     return true;
   }
 
-  /** Remove every EMPTY folder key from one section in
+  /** Remove every EMPTY folder key from one role in
    *  one operation.
    *
    *  A folder whose last member was deleted leaves a stale key behind (the
    *  automatic freeze is the reason it survives at all). The clean button on
-   *  the section header clears all of them in a single pass: one schedule,
+   *  the role header clears all of them in a single pass: one schedule,
    *  one flush, one repaint. Returns how many keys were removed (0 = nothing
    *  to clean, no write).
    *
-   * @param section - The UI section (role) whose empty folders are cleaned.
+   * @param role - The UI role whose empty folders are cleaned.
    * @returns The number of empty folder keys removed.
    */
-  cleanEmptyFolders(section: FolderSection): number {
+  cleanEmptyFolders(role: LayerRole): number {
     const layout = this.folderLayout.layout;
-    const listed = layout.order[section] ?? [];
+    const listed = layout.order[role] ?? [];
     const emptyKeys = listed.filter(
       k => !this.layerRegistry.layers.some(l => folderOf(layout, l) === k),
     );
@@ -1899,7 +1889,7 @@ class LayerController implements LayerAPI {
     const remaining = listed.filter(k => !emptyKeys.includes(k));
     this.folderLayout.set({
       ...layout,
-      order: { ...layout.order, [section]: remaining },
+      order: { ...layout.order, [role]: remaining },
     });
     this.folderLayout.flush();
     if (this.ui) this.ui.reindexAfterMove();

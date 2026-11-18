@@ -34,46 +34,46 @@ describe("adjustPanelZIndex", () => {
   it("resets z-index when collapsed", () => {
     const bar = document.createElement("div");
     bar.className = "leaflet-bar";
-    const section = document.createElement("div");
-    section.className = "leaflet-top";
+    const corner = document.createElement("div");
+    corner.className = "leaflet-top";
     const container = document.createElement("div");
     bar.appendChild(container);
-    section.appendChild(bar);
+    corner.appendChild(bar);
     // container.closest(".leaflet-bar") requires container to be inside the bar
     bar.style.zIndex = "501";
-    section.style.zIndex = "509";
+    corner.style.zIndex = "509";
 
     adjustPanelZIndex({ container, expanded: false });
     expect(bar.style.zIndex).toBe("");
-    expect(section.style.zIndex).toBe("");
+    expect(corner.style.zIndex).toBe("");
   });
 
   it("sets z-index from cssVar when expanded", () => {
     const bar = document.createElement("div");
     bar.className = "leaflet-bar";
-    const section = document.createElement("div");
-    section.className = "leaflet-top";
+    const corner = document.createElement("div");
+    corner.className = "leaflet-top";
     const container = document.createElement("div");
     bar.appendChild(container);
-    section.appendChild(bar);
+    corner.appendChild(bar);
 
     // setup.js doesn't stub getComputedStyle globally here; cssVar
     // reads document.documentElement computed style. jsdom returns
     // empty string, so cssVar falls back to the token default "9990"
-    // (--foliplus-z-index-floating). Offsets: bar +1, section +9.
+    // (--foliplus-z-index-floating). Offsets: bar +1, corner +9.
     adjustPanelZIndex({ container, expanded: true });
     expect(bar.style.zIndex).toBe("9991");
-    expect(section.style.zIndex).toBe("9999");
+    expect(corner.style.zIndex).toBe("9999");
   });
 
   it("reads --foliplus-z-index-floating from the token when present", () => {
     const bar = document.createElement("div");
     bar.className = "leaflet-bar";
-    const section = document.createElement("div");
-    section.className = "leaflet-top";
+    const corner = document.createElement("div");
+    corner.className = "leaflet-top";
     const container = document.createElement("div");
     bar.appendChild(container);
-    section.appendChild(bar);
+    corner.appendChild(bar);
 
     const spy = vi.spyOn(window, "getComputedStyle").mockReturnValue({
       getPropertyValue: (prop: string) =>
@@ -85,10 +85,10 @@ describe("adjustPanelZIndex", () => {
       spy.mockRestore();
     }
     expect(bar.style.zIndex).toBe("9991");
-    expect(section.style.zIndex).toBe("9999");
+    expect(corner.style.zIndex).toBe("9999");
   });
 
-  it("handles container without bar/section", () => {
+  it("handles container without bar/corner", () => {
     const container = document.createElement("div");
     expect(() => adjustPanelZIndex({ container, expanded: true })).not.toThrow();
   });

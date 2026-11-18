@@ -469,36 +469,45 @@ describe("menu canConfigure equivalence", () => {
     expect(newMenuCanConfigure("overlay1")).toBe(true);
   });
 
-  /** Structural lock: the row/valueSource call sites must read the projection,
-   *  not the local gate alias. The descriptor's own `gate:` field stays on the
-   *  alias (it is the parity source of truth), so this test must NOT assert the
-   *  whole file is alias-free — only that the two UI call sites in each row
-   *  migrated. If a future edit adds a new `layerCanSize(` call in the row or
-   *  valueSource body, this goes red. */
-  describe("size/icon call sites read the projection", () => {
+  /** Structural lock: the row call sites must read the projection, not the
+   *  local gate alias — and the valueSource is the registry default, so the
+   *  size/icon descriptors declare `intentKeys` instead of a hand-written
+   *  valueSource. The descriptor's own `gate:` field stays on the alias (it
+   *  is the parity source of truth — the registry default valueSource derives
+   *  from `gate` + `intentKeys`), so this test must NOT assert the whole
+   *  file is alias-free — only that the row call site migrated and that the
+   *  dimension opts into the default valueSource. If a future edit adds a new
+   *  `layerCanSize(` call in the row body, this goes red. */
+  describe("size/icon call sites read the projection; valueSource is the registry default", () => {
     const readSource = (rel: string): string => readFileSync(repoPath(rel), "utf8");
     const sliceBody = (src: string, start: string, end: string): string => {
       const i = src.indexOf(start);
       const j = src.indexOf(end, i);
       return i < 0 || j < 0 ? "" : src.slice(i, j);
     };
-    it("size row and valueSource read styleCapability, not layerCanSize", () => {
+    it("size row reads styleCapability; size opts into the default valueSource", () => {
       const src = readSource("foliplus/js/control/LayerControl/ui/style/size.ts");
       const row = sliceBody(src, "const buildSizeRow", "const SIZE_DIMENSION");
-      const vs = sliceBody(src, "valueSource:", "contentChange:");
       expect(row).toContain("styleCapability(ui, layerId).dims.size");
       expect(row).not.toMatch(/layerCanSize\(/);
-      expect(vs).toContain("styleCapability(ui, layerId).dims.size");
-      expect(vs).not.toMatch(/layerCanSize\(/);
+      // No hand-written valueSource in the descriptor: it declares intentKeys
+      // and the registry default (gate + intentKeys) provides the three-state
+      // answer. The gate for size IS the projection, so the default reads the
+      // same capability bit.
+      expect(sliceBody(src, "const SIZE_DIMENSION", "contentChange:")).not.toMatch(
+        /valueSource:/,
+      );
+      expect(src).toMatch(/intentKeys: \[INTENT\.SIZE\]/);
     });
-    it("icon row and valueSource read styleCapability, not layerCanIcon", () => {
+    it("icon row reads styleCapability; icon opts into the default valueSource", () => {
       const src = readSource("foliplus/js/control/LayerControl/ui/style/icon.ts");
       const row = sliceBody(src, "const buildIconRow", "const ICON_DIMENSION");
-      const vs = sliceBody(src, "valueSource:", "contentChange:");
       expect(row).toContain("styleCapability(ui, layerId).dims.icon");
       expect(row).not.toMatch(/layerCanIcon\(/);
-      expect(vs).toContain("styleCapability(ui, layerId).dims.icon");
-      expect(vs).not.toMatch(/layerCanIcon\(/);
+      expect(sliceBody(src, "const ICON_DIMENSION", "contentChange:")).not.toMatch(
+        /valueSource:/,
+      );
+      expect(src).toMatch(/intentKeys: \[INTENT\.ICON\]/);
     });
   });
 });
