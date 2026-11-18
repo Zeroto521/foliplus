@@ -172,7 +172,7 @@ describe("parseIstanbul", () => {
 describe("parseLcov", () => {
   it("reads line hit counts and branch partials", () => {
     const lcov = [
-      "SF:" + join(REPO, "foliplus/js/x.ts"),
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
       "DA:1,1",
       "DA:2,0",
       "BRDA:2,0,0,0",
@@ -188,7 +188,7 @@ describe("parseLcov", () => {
 
   it("treats a '-' branch count as untaken-agnostic (no partial)", () => {
     const lcov = [
-      "SF:" + join(REPO, "foliplus/js/x.ts"),
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
       "DA:1,1",
       "BRDA:1,0,0,-",
       "BRDA:1,0,1,1",
