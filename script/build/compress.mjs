@@ -80,24 +80,69 @@ const collapseHtml = html =>
     .trim();
 
 /** Compress HTML-looking template literals in source code. */
+/** Compress HTML-looking template literals in source code.
+ *
+ *  The scanner is comment/string aware: backticks inside // line comments,
+ *  block comments, and '…' / "…" string literals are literal text, not
+ *  template delimiters. A comment backtick pairing with a real template-
+ *  literal backtick across a *\/ boundary would otherwise be collapsed as an
+ *  HTML-looking span and mangle real code. */
 const compressHtmlStrings = code => {
   const result = [];
   let i = 0;
-  while (i < code.length) {
-    if (code[i] === "`") {
+  const n = code.length;
+  while (i < n) {
+    const ch = code[i];
+    // Line comment: skip to end of line (backticks inside are text).
+    if (ch === "/" && code[i + 1] === "/") {
+      const nl = code.indexOf("\n", i + 2);
+      const end = nl === -1 ? n : nl;
+      result.push(code.slice(i, end));
+      i = end;
+      continue;
+    }
+    // Block comment: skip to closing */ (backticks inside are text).
+    if (ch === "/" && code[i + 1] === "*") {
+      const close = code.indexOf("*/", i + 2);
+      if (close === -1) {
+        result.push(code.slice(i));
+        break;
+      }
+      result.push(code.slice(i, close + 2));
+      i = close + 2;
+      continue;
+    }
+    // String literal: skip to matching quote (backticks inside are text).
+    if (ch === "'" || ch === '"') {
+      let j = i + 1;
+      while (j < n) {
+        if (code[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (code[j] === ch) break;
+        j++;
+      }
+      const end = j < n ? j + 1 : n;
+      result.push(code.slice(i, end));
+      i = end;
+      continue;
+    }
+    // Template literal: compress when it looks like HTML.
+    if (ch === "`") {
       const end = findTemplateEnd(code, i);
       if (end === -1) {
         result.push(code.slice(i));
         break;
       }
       const raw = code.slice(i + 1, end);
-      if (HTML_RE.test(raw)) result.push(`\`${collapseHtml(raw)}\``);
+      if (HTML_RE.test(raw)) result.push("`" + collapseHtml(raw) + "`");
       else result.push(code.slice(i, end + 1));
       i = end + 1;
-    } else {
-      result.push(code[i]);
-      i++;
+      continue;
     }
+    result.push(ch);
+    i++;
   }
   return result.join("");
 };
