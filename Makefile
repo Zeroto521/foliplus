@@ -56,6 +56,13 @@ clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 lint:
 	pre-commit run -a -v
 
+# Local convenience: run mypy directly via uv without going through
+# pre-commit. The pre-commit mypy hook (mirrors-mypy, language: python)
+# builds an isolated env on first run, which is slow on Windows —着急时
+# 用这个目标跳过 pre-commit 的环境构建，直接用 .venv 里的 mypy。
+.PHONY: mypy
+mypy:
+	uv run mypy foliplus
 dist: build-js build-python
 
 build-js:
