@@ -1472,16 +1472,16 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(document.activeElement).toBe(document.body);
   });
 
-  it("renders a base header for an empty base section via the fallback loop", () => {
+  it("renders a base header for an empty base role via the fallback loop", () => {
     // L445 BASE side: after the user deletes every base layer, the base
-    // section has no live row but keeps a stale folder key (freezeEmptyFolder).
+    // role has no live row but keeps a stale folder key (freezeEmptyFolder).
     // rolesWithHeader(BASE) is then true with no base layer, so the fallback
     // loop must render the base header with base_map_label — not the overlay
     // label, which would be a user-visible mislabel.
     const { manager, ui } = initFixture({
       data: [{ id: "O1", name: "O1", role: "overlay" }],
     });
-    // Remove the always-registered solid basemap so the base section is empty.
+    // Remove the always-registered solid basemap so the base role is empty.
     manager.unregisterLayer(CONST.SOLID_BASEMAP_ID);
     manager.createFolder("base", "Ghost");
     manager.ui?.reindexAfterMove?.();
@@ -1500,7 +1500,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   });
 });
 
-describe("clean-empty-folders button and section header order", () => {
+describe("clean-empty-folders button and role header order", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
@@ -1536,7 +1536,7 @@ describe("clean-empty-folders button and section header order", () => {
     } as any);
   };
 
-  it("runs cleanEmptyFolders when the section header clean button is clicked", () => {
+  it("runs cleanEmptyFolders when the role header clean button is clicked", () => {
     manager.createFolder("overlay", "empty-1");
     manager.ui?.reindexAfterMove?.();
     const cleanBtn = attachedPanel(ui).querySelector(
@@ -1564,7 +1564,7 @@ describe("clean-empty-folders button and section header order", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("hides the clean button once the section has no empty folder key", () => {
+  it("hides the clean button once the role has no empty folder key", () => {
     // no empty keys: the default layout already has none
     manager.ui?.reindexAfterMove?.();
     const cleanBtn = attachedPanel(ui).querySelector(
@@ -1608,7 +1608,7 @@ describe("clean-empty-folders button and section header order", () => {
     expect(firstBaseRow).toBeGreaterThan(headerBase);
   });
 
-  it("places the empty-section header after live rows and keeps its clean button", () => {
+  it("places the empty-role header after live rows and keeps its clean button", () => {
     // Overlay keeps only an empty folder key (no live overlay rows); base has a row.
     manager.unregisterLayer("overlay1");
     manager.unregisterLayer("overlay2");

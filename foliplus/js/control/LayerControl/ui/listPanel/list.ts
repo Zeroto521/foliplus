@@ -773,18 +773,18 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  *     the layer focus overlay, or the row keyboard cursor
  */
 
-/** Incremental three-state sync of a section header's "clean empty folders"
+/** Incremental three-state sync of a role header's "clean empty folders"
  *  button. Runs on LAYER_ROLE_COUNT_CHANGED so a folder's last
  *  member leaving (deleteLayer freeze) shows the button, and a layer
  *  rejoining the folder hides it — without a full rebuild (which would drop
  *  focus/drag state). Idempotent: a no-op when the button state already
- *  matches the section's empty-folder keys, so a double event never stacks a
+ *  matches the role's empty-folder keys, so a double event never stacks a
  *  second button. */
 const syncCleanButton = (ui: LayerUI, role: string): void => {
   const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
   );
-  if (!row) return; // no header for this section (yet) — nothing to sync
+  if (!row) return; // no header for this role (yet) — nothing to sync
   const existing = row.querySelector(CONST.SEL.CLEAN_FOLDERS);
   const empty = emptyFolderKeys(ui, role);
   if (empty.length === 0) {

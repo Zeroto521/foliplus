@@ -136,14 +136,14 @@ const isFolderLayout = (raw: unknown): raw is FolderLayout => {
   for (const a of Object.values(o.members)) {
     if (!a || typeof a !== "object") return false;
     const m = a as Record<string, unknown>;
-    if (typeof m.section !== "string" || typeof m.folder !== "string") return false;
-    if (m.section !== "overlay" && m.section !== "base") return false;
+    if (typeof m.role !== "string" || typeof m.folder !== "string") return false;
+    if (m.role !== "overlay" && m.role !== "base") return false;
   }
   return true;
 };
 
 /** Tolerant read of the persisted layout. A corrupt or unknown-version
- *  payload (an array, a string, a record missing any section, a future
+ *  payload (an array, a string, a record missing any role, a future
  *  version) reads back as an empty layout — it is not a persistence channel
  *  and must never be trusted as one. Read has NO side effect: a bad record is
  *  left as-is, never repaired on read (mirrors the filter-store read path). */
@@ -340,7 +340,7 @@ const renameFolder = (
   if (layout.folders.some(f => f.key === newKey)) return layout;
   const hasOld =
     layout.folders.some(f => f.key === oldKey) ||
-    (layout.order[section] ?? []).includes(oldKey);
+    (layout.order[role] ?? []).includes(oldKey);
   if (!hasOld) return layout;
   const folders = layout.folders.some(f => f.key === oldKey)
     ? layout.folders.map(f =>
@@ -497,7 +497,7 @@ const createFolderLayoutManager = (): FolderLayoutManager => {
           byKey.set(key, { key, name: folderDisplayName(folder) });
           folders = [...folders, { key, name: folderDisplayName(folder) }];
         }
-        members[entry.id] = { section: entry.role, folder: key };
+        members[entry.id] = { role: entry.role, folder: key };
         changed = true;
       }
       if (changed) current = { ...current, folders, members };
