@@ -4,6 +4,7 @@
 .PHONY: test test-browser test-python test-python-fast test-js
 .PHONY: bundle-size-check
 .PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
+.PHONY: check-worktrees
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
@@ -86,23 +87,30 @@ build-python:
 
 # Parallel test workers. Use CPU count by default, override with JOBS=N.
 JOBS ?= auto
+# Every worktree's node_modules must be a junction to the main checkout's
+# node_modules; a dropped junction makes every test in that worktree fail with
+# an opaque module-resolution error. Check before running any test gate so the
+# failure is actionable (prints the exact rebuild command).
+check-worktrees:
+	node script/check/worktree-junction.mjs
 
-test: build-js-dev test-js
+
+test: check-worktrees build-js-dev test-js
 	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 # Full Python suite (unit + browser). This is the honest name for the Python
 # half of `test`; the browser marker is not filtered here.
-test-python: build-js-dev
+test-python: check-worktrees build-js-dev
 	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
 # Local quick pass: everything except browser tests (no Playwright needed).
-test-python-fast: build-js-dev
+test-python-fast: check-worktrees build-js-dev
 	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) -m "not browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=junit.xml -o junit_family=legacy test/python
 
-test-browser: build-js-dev
+test-browser: check-worktrees build-js-dev
 	npm run build:verify
 	pytest -v -r a --color=yes -n $(JOBS) -m "browser" --cov=foliplus --cov=script --cov-append --cov-report=term-missing --cov-report=xml --junitxml=test-browser.junit.xml -o junit_family=legacy test/python
 
@@ -112,7 +120,7 @@ test-browser-probe:
 	node script/check/browser-probe.mjs --strict
 	pytest -v -r a --color=yes --tb=short -m "browser" test/python/infra/test_browser_probe_smoke.py
 
-test-js: build-js-dev
+test-js: check-worktrees build-js-dev
 	npm test
 
 html:
