@@ -295,6 +295,34 @@ describe("bindFoldOverlay", () => {
     gateOpen();
     expect(gated.classList.contains("foliplus-is-expanded")).toBe(true);
   });
+
+  it("attached panels merge into panels() and keep the fold open on press", () => {
+    // The SearchControl passes `panels` (its floating results panel is attached
+    // to the map container, not the fold container). The registry's press
+    // containment consults the merged panels(): a press on the attached panel
+    // is inside the surface, so the fold stays open.
+    const on = vi.fn();
+    const map = { _leaflet_id: 3, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const attached = document.createElement("div");
+    attached.className = "test-attached";
+    document.body.appendChild(attached);
+    bindFoldOverlay({
+      map,
+      container,
+      id: "test.attached",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      panels: () => [attached],
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+
+    attached.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+  });
 });
 
 describe("bindOutsideCollapse", () => {
@@ -783,6 +811,33 @@ describe("createPanelControl", () => {
     document.body.appendChild(outside);
     outside.click();
     expect(result.ctrl.classList.contains("foliplus-is-collapsed")).toBe(true);
+  });
+
+  it("skipOutsideCollapse replaces the outside listener with a no-op", () => {
+    // HeatmapControl registers its panel on the overlay registry itself, so
+    // createPanelControl must not also install a document outside listener
+    // (the returned destroy becomes the no-op arm).
+    const result = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+      skipOutsideCollapse: true,
+    });
+    document.body.appendChild(result.container);
+    result.toggleBtn!.click();
+    expect(result.ctrl.classList.contains("foliplus-is-expanded")).toBe(true);
+
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.click();
+    expect(result.ctrl.classList.contains("foliplus-is-expanded")).toBe(true);
+
+    // Invoking the returned destroy is the no-op arm: it must not throw and
+    // must not install/unbind any outside listener (the caller owns the
+    // registry entry instead).
+    expect(() => result.destroy()).not.toThrow();
   });
 
   it("stays open on an outside press when collapseOnOutside is false", () => {
