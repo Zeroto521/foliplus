@@ -18,6 +18,7 @@ import {
   ROLE,
   Z_INDEX,
   getLayerAlpha,
+  type LayerFilterModel,
 } from "#core/layer/index.js";
 import * as coreLayer from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
@@ -7411,22 +7412,22 @@ describe("cross-panel contract: external actions × open overlays", () => {
 
     ui.openFilterPanel(item);
     expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
-    ui.events.publish(EVENTS.OVERLAY_CLEAR, {});
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
 
     ui.openStylePanel("overlay1");
     expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
-    ui.events.publish(EVENTS.OVERLAY_CLEAR, {});
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
     expect(ui.overlayPanel.stylePanelEl).toBeNull();
 
     ui.openAttrsPanel(item);
     expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
-    ui.events.publish(EVENTS.OVERLAY_CLEAR, {});
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
     expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
 
     ui.renameLayer("overlay1");
     expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
-    ui.events.publish(EVENTS.OVERLAY_CLEAR, {});
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
     expect(ui.overlayPanel.activeRenameId).toBeNull();
   });
 
@@ -7442,11 +7443,19 @@ describe("cross-panel contract: external actions × open overlays", () => {
     });
     ui.openStylePanel("heat1");
     expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
-    const refresh = vi.spyOn(ui.overlayPanel, "styleRefresh");
-    ui.events.publish(EVENTS.LAYER_STYLE_CHANGE, { id: "heat1" });
-    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
-    expect(refresh).toHaveBeenCalled();
-    refresh.mockRestore();
+    // styleRefresh is a (() => void) | null field, not a method, so
+    // vi.spyOn rejects it (TS2769). Substitute the field with a mock, assert
+    // the delegated path calls it, then restore the original hook.
+    const refresh = vi.fn();
+    const previousRefresh = ui.overlayPanel.styleRefresh;
+    ui.overlayPanel.styleRefresh = refresh;
+    try {
+      ui.events.publish(EVENTS.LAYER_STYLE_CHANGE, { id: "heat1" });
+      expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+      expect(refresh).toHaveBeenCalled();
+    } finally {
+      ui.overlayPanel.styleRefresh = previousRefresh;
+    }
   });
 
   it("filter panel stays open and refreshes on LAYER_FILTER_CHANGE", () => {
@@ -7457,12 +7466,16 @@ describe("cross-panel contract: external actions × open overlays", () => {
     // row re-render also reads filterProvider, so a call-count spy would be
     // polluted.
     let modelField = "magnitude";
-    const filterProvider = vi.fn(() => ({
-      dimensions: [{ kind: "range", field: modelField, range: [0, 10], step: 1 }],
-      filter: undefined,
-      kept: 5,
-      total: 10,
-    }));
+    const filterProvider = vi.fn(
+      (): LayerFilterModel => ({
+        dimensions: [
+          { kind: "range", field: modelField, range: [0, 10], step: 1 },
+        ],
+        filter: undefined,
+        kept: 5,
+        total: 10,
+      }),
+    );
     manager.registerLayer({
       id: "f1",
       name: "Filterable",
