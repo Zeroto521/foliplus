@@ -38,50 +38,173 @@ const FILE_WHITELIST: readonly { file: string; reason: string }[] = [
   // listenDOM/listenMap themselves are built on. Exempting them is
   // self-referential: they ARE the sanctioned listener path.
   { file: "foliplus/js/core/event/index.ts", reason: "event bus bootstrap" },
-  { file: "foliplus/js/core/interaction/interactionManager.ts", reason: "interaction manager IS the listener lifecycle" },
-  { file: "foliplus/js/core/interaction/listCursor.ts", reason: "list cursor owns its own listener cleanup" },
-  { file: "foliplus/js/core/leaflet/mapEvent.ts", reason: "mapEvent helper wraps map.on/off" },
-  { file: "foliplus/js/core/leaflet/panel.ts", reason: "panel shell owns outside-collapse listeners" },
-  { file: "foliplus/js/core/leaflet/panelController.ts", reason: "panel controller owns press dismissal" },
-  { file: "foliplus/js/core/leaflet/zoomRange.ts", reason: "zoom range applies on map events" },
-  { file: "foliplus/js/core/lifecycle/mode.ts", reason: "mode manager owns map unload cleanup" },
-  { file: "foliplus/js/core/overlay/hint.ts", reason: "hint manager owns map unload cleanup" },
-  { file: "foliplus/js/core/overlay/overlayRegistry.ts", reason: "overlay registry IS the dispatch system" },
-  { file: "foliplus/js/core/layer/LayerFactory.ts", reason: "layer factory owns map move/resize" },
-  { file: "foliplus/js/core/label/labelControl.ts", reason: "label control owns its own refresh listeners" },
+  {
+    file: "foliplus/js/core/interaction/interactionManager.ts",
+    reason: "interaction manager IS the listener lifecycle",
+  },
+  {
+    file: "foliplus/js/core/interaction/listCursor.ts",
+    reason: "list cursor owns its own listener cleanup",
+  },
+  {
+    file: "foliplus/js/core/leaflet/mapEvent.ts",
+    reason: "mapEvent helper wraps map.on/off",
+  },
+  {
+    file: "foliplus/js/core/leaflet/panel.ts",
+    reason: "panel shell owns outside-collapse listeners",
+  },
+  {
+    file: "foliplus/js/core/leaflet/panelController.ts",
+    reason: "panel controller owns press dismissal",
+  },
+  {
+    file: "foliplus/js/core/leaflet/zoomRange.ts",
+    reason: "zoom range applies on map events",
+  },
+  {
+    file: "foliplus/js/core/lifecycle/mode.ts",
+    reason: "mode manager owns map unload cleanup",
+  },
+  {
+    file: "foliplus/js/core/overlay/hint.ts",
+    reason: "hint manager owns map unload cleanup",
+  },
+  {
+    file: "foliplus/js/core/overlay/overlayRegistry.ts",
+    reason: "overlay registry IS the dispatch system",
+  },
+  {
+    file: "foliplus/js/core/layer/LayerFactory.ts",
+    reason: "layer factory owns map move/resize",
+  },
+  {
+    file: "foliplus/js/core/label/labelControl.ts",
+    reason: "label control owns its own refresh listeners",
+  },
   // ── Control: Leaflet interaction ──
-  { file: "foliplus/js/control/ExportControl/session.ts", reason: "export session owns preview click" },
-  { file: "foliplus/js/control/FullscreenControl/logic.ts", reason: "fullscreen logic owns map event setup" },
-  { file: "foliplus/js/control/HeatmapControl/manager.ts", reason: "heatmap manager owns map events" },
-  { file: "foliplus/js/control/HeatmapControl/ui.ts", reason: "heatmap UI owns control attach listener" },
-  { file: "foliplus/js/control/LayerControl/controller.ts", reason: "controller owns map layeradd/layerremove" },
-  { file: "foliplus/js/control/LayerControl/ui/focus/focusMarquee.ts", reason: "focus marquee owns focusin/focusout + map moveend" },
-  { file: "foliplus/js/control/LayerControl/ui/focus/index.ts", reason: "focus controller owns map moveend/zoomend" },
-  { file: "foliplus/js/control/LayerControl/ui/lifecycle.ts", reason: "lifecycle owns container + map listeners" },
-  { file: "foliplus/js/control/LayerControl/ui/overlayPanel/attr.ts", reason: "attr panel owns events.on subscriptions" },
-  { file: "foliplus/js/control/LayerControl/ui/overlayPanel/filter.ts", reason: "filter panel owns events.on subscriptions" },
-  { file: "foliplus/js/control/LayerControl/ui/overlayPanel/menu.ts", reason: "menu owns window scroll/resize + events.on" },
-  { file: "foliplus/js/control/LayerControl/ui/overlayPanel/rename.ts", reason: "rename owns events.on LAYER_REMOVED" },
-  { file: "foliplus/js/control/LayerControl/ui/style/iconColor.ts", reason: "iconColor input owns its own listener" },
-  { file: "foliplus/js/control/LayerControl/ui/style/index.ts", reason: "style panel owns events.on subscriptions" },
-  { file: "foliplus/js/control/LayerControl/ui/style/markerColor.ts", reason: "markerColor input owns its own listener" },
-  { file: "foliplus/js/control/LayerControl/ui/style/pin.ts", reason: "pin owns leaf mouseout listener" },
-  { file: "foliplus/js/control/MeasureControl/edit.ts", reason: "measure edit owns map click/mousemove/mouseup" },
-  { file: "foliplus/js/control/MeasureControl/manager.ts", reason: "measure manager owns map events + events.on" },
-  { file: "foliplus/js/control/MeasureControl/mode/circle.ts", reason: "circle mode owns ripple animationend" },
-  { file: "foliplus/js/control/MeasureControl/mode/distance.ts", reason: "distance mode owns marker click" },
-  { file: "foliplus/js/control/MeasureControl/mode/marker.ts", reason: "marker mode owns marker click/popupopen" },
-  { file: "foliplus/js/control/MeasureControl/mode/polygon.ts", reason: "polygon mode owns marker click" },
-  { file: "foliplus/js/control/MeasureControl/ui/distance.ts", reason: "distance UI owns polyline/marker click" },
-  { file: "foliplus/js/control/MeasureControl/ui/helper.ts", reason: "measure helper owns layer click" },
-  { file: "foliplus/js/control/MeasureControl/ui/polygon.ts", reason: "polygon UI owns label/centroid click" },
-  { file: "foliplus/js/control/MeasureControl/util.ts", reason: "measure util owns animationend" },
-  { file: "foliplus/js/control/SearchControl/interaction.ts", reason: "search interaction owns input/scroll/resize" },
+  {
+    file: "foliplus/js/control/ExportControl/session.ts",
+    reason: "export session owns preview click",
+  },
+  {
+    file: "foliplus/js/control/FullscreenControl/logic.ts",
+    reason: "fullscreen logic owns map event setup",
+  },
+  {
+    file: "foliplus/js/control/HeatmapControl/manager.ts",
+    reason: "heatmap manager owns map events",
+  },
+  {
+    file: "foliplus/js/control/HeatmapControl/ui.ts",
+    reason: "heatmap UI owns control attach listener",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/controller.ts",
+    reason: "controller owns map layeradd/layerremove",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/focus/focusMarquee.ts",
+    reason: "focus marquee owns focusin/focusout + map moveend",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/focus/index.ts",
+    reason: "focus controller owns map moveend/zoomend",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
+    reason: "lifecycle owns container + map listeners",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/overlayPanel/attr.ts",
+    reason: "attr panel owns events.on subscriptions",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/overlayPanel/filter.ts",
+    reason: "filter panel owns events.on subscriptions",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/overlayPanel/menu.ts",
+    reason: "menu owns window scroll/resize + events.on",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/overlayPanel/rename.ts",
+    reason: "rename owns events.on LAYER_REMOVED",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/style/iconColor.ts",
+    reason: "iconColor input owns its own listener",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/style/index.ts",
+    reason: "style panel owns events.on subscriptions",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/style/markerColor.ts",
+    reason: "markerColor input owns its own listener",
+  },
+  {
+    file: "foliplus/js/control/LayerControl/ui/style/pin.ts",
+    reason: "pin owns leaf mouseout listener",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/edit.ts",
+    reason: "measure edit owns map click/mousemove/mouseup",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/manager.ts",
+    reason: "measure manager owns map events + events.on",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/mode/circle.ts",
+    reason: "circle mode owns ripple animationend",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/mode/distance.ts",
+    reason: "distance mode owns marker click",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/mode/marker.ts",
+    reason: "marker mode owns marker click/popupopen",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/mode/polygon.ts",
+    reason: "polygon mode owns marker click",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/ui/distance.ts",
+    reason: "distance UI owns polyline/marker click",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/ui/helper.ts",
+    reason: "measure helper owns layer click",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/ui/polygon.ts",
+    reason: "polygon UI owns label/centroid click",
+  },
+  {
+    file: "foliplus/js/control/MeasureControl/util.ts",
+    reason: "measure util owns animationend",
+  },
+  {
+    file: "foliplus/js/control/SearchControl/interaction.ts",
+    reason: "search interaction owns input/scroll/resize",
+  },
   // ── UI primitives ──
-  { file: "foliplus/js/ui/dropdown.ts", reason: "dropdown owns native change listener" },
+  {
+    file: "foliplus/js/ui/dropdown.ts",
+    reason: "dropdown owns native change listener",
+  },
   { file: "foliplus/js/ui/form.ts", reason: "form owns input focus/blur listeners" },
-  { file: "foliplus/js/ui/listbox.ts", reason: "listbox owns row focus/click + trigger listeners" },
-  { file: "foliplus/js/ui/slider.ts", reason: "slider owns pointer/key/focus listeners on track+thumb" },
+  {
+    file: "foliplus/js/ui/listbox.ts",
+    reason: "listbox owns row focus/click + trigger listeners",
+  },
+  {
+    file: "foliplus/js/ui/slider.ts",
+    reason: "slider owns pointer/key/focus listeners on track+thumb",
+  },
 ];
 
 function walk(dir: string, out: string[]): string[] {
@@ -114,7 +237,9 @@ function isWhitelisted(relFile: string): boolean {
 }
 
 describe("listener-guard: raw listeners must carry listener-exempt", () => {
-  const files = SCOPED_DIRS.flatMap(d => walk(d, [])).map(p => relative(REPO_ROOT, p).replace(/\\/g, "/"));
+  const files = SCOPED_DIRS.flatMap(d => walk(d, [])).map(p =>
+    relative(REPO_ROOT, p).replace(/\\/g, "/"),
+  );
 
   it("every raw listener has an adjacent listener-exempt comment", () => {
     const violations: string[] = [];
@@ -141,7 +266,10 @@ describe("listener-guard: raw listeners must carry listener-exempt", () => {
   it("deliberate violation triggers the guard (self-test)", () => {
     // Self-test: a snippet with a raw addEventListener and no exemption
     // must produce a violation.
-    const snippet = ['const el = document.createElement("div");', 'el.addEventListener("click", () => {});'].join("\n");
+    const snippet = [
+      'const el = document.createElement("div");',
+      'el.addEventListener("click", () => {});',
+    ].join("\n");
     const lines = snippet.split("\n");
     const violations: number[] = [];
     for (let i = 0; i < lines.length; i++) {
@@ -154,7 +282,7 @@ describe("listener-guard: raw listeners must carry listener-exempt", () => {
 
   it("exempt comment suppresses the violation (self-test)", () => {
     const snippet = [
-      '// listener-exempt: teardown cleanup',
+      "// listener-exempt: teardown cleanup",
       'el.addEventListener("click", () => {});',
     ].join("\n");
     const slines = snippet.split("\n");
