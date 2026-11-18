@@ -135,7 +135,7 @@ const compressHtmlStrings = code => {
         break;
       }
       const raw = code.slice(i + 1, end);
-      if (HTML_RE.test(raw)) result.push("`" + collapseHtml(raw) + "`");
+      if (HTML_RE.test(raw)) result.push(`\`${collapseHtml(raw)}\``);
       else result.push(code.slice(i, end + 1));
       i = end + 1;
       continue;
