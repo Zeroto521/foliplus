@@ -16,7 +16,7 @@ import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { disposeBorderRow, resetLayerBorder } from "./border.js";
-import { layerHasStyleDelegation, renderDelegatedStylePanel } from "./delegated.js";
+import { renderDelegatedStylePanel } from "./delegated.js";
 import { disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
 import { resetLayerIcon } from "./icon.js";
@@ -28,6 +28,7 @@ import { DIM_ORDER, LABEL_DIM_ORDER, gatedRows } from "./registry.js";
 import { syncResetButton } from "./resetState.js";
 import { resetLayerSize } from "./size.js";
 import { flushStyleDimApplies } from "./styleBag.js";
+import { styleCapability } from "./styleCapability.js";
 import { resetLayerZoomRange, syncZoomRangeRow } from "./zoomRange.js";
 import { EVENTS } from "#core/event/index.js";
 import { resolveSelectedField } from "#core/label/index.js";
@@ -60,7 +61,7 @@ import * as SVGs from "#control/LayerControl/icon.js";
 const renderStylePanel = (ui: LayerUI, layerId: string): HTMLElement | null => {
   // Third-party canvas layers (heatmap, measure) declare their own controls
   // via styleSetters — render those instead of the label panel.
-  if (layerHasStyleDelegation(ui, layerId)) {
+  if (styleCapability(ui, layerId).styleDelegation) {
     return renderDelegatedStylePanel(ui, layerId);
   }
   // Both sections are discovered through the dimension registry: the Layer
@@ -136,7 +137,7 @@ const bindStylePanel = (
     `.${CONST.CLASSES.STYLE_RESET_BTN}`,
   );
 
-  const delegated = layerHasStyleDelegation(ui, layerId);
+  const delegated = styleCapability(ui, layerId).styleDelegation;
   // Annotation color/size commit live, same bindLive* recipe as the
   // heatmap panel and the delegated drawer.
   if (!delegated) {
@@ -448,7 +449,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
     owner: "layer",
     localId: "style",
     rank: 500,
-    exclusiveGroup: "layer:rows",
+    exclusiveGroup: "map:panel",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     root: () => ui.overlayPanel.stylePanelEl ?? null,
@@ -586,6 +587,5 @@ export {
   layerHasLabelFields,
 } from "./label.js";
 export { LABEL_DIMENSION, layerCanLabel } from "./labelDimension.js";
-export { layerHasStyleDelegation } from "./delegated.js";
 export { styleCapability } from "./styleCapability.js";
 export { replayDeclaredFill, replayFillState } from "./fill.js";

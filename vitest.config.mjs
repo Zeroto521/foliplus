@@ -13,6 +13,14 @@ export default defineConfig({
     },
   },
   test: {
+    // A ceiling against load-induced timeouts — not a fix, and not a
+    // performance budget. The 5 000 ms default is a coin flip on a loaded
+    // machine: idle, browser-probe.test.ts runs 21 tests in 319 ms, yet in the
+    // full suite that default tripped disk-free tests (runCli, the vocabulary
+    // tree scan). The actual fix is building the renderer report in memory,
+    // not the number below. 10 000 ms is a ceiling, not a starting point: if a
+    // test still times out here it has a defect — find it, do not raise this.
+    testTimeout: 10_000,
     environment: "jsdom",
     globals: true,
     include: ["test/js/**/*.test.ts"],

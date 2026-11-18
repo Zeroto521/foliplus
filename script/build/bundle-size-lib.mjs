@@ -19,7 +19,8 @@
  */
 import { parseArgs as parseArgsCore } from "../args.mjs";
 import { repoRoot } from "../build-path.mjs";
-import { readFileSync, readdirSync } from "fs";
+import { DIST_MARKER } from "./distMarker.mjs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 import { brotliCompressSync } from "zlib";
 
@@ -84,6 +85,27 @@ const readSizes = (root = ROOT) => {
   return sizes;
 };
 
+// Both gates measure the MINIFIED dist. A "build:dev" run leaves the same
+// foliplus/dist holding unminified output -- roughly double the brotli size --
+// so a gate pointed at it reports breaches that do not exist in what ships.
+// build.mjs marks that state with the .dev-build marker (distMarker.mjs); both
+// gates consult this one helper so neither re-derives the marker path, and both
+// refuse to measure a dev dist instead of publishing a misleading verdict.
+/**
+ * A human-readable refusal when <root>/foliplus/dist is a dev build, else null.
+ * Single-sourced here so the fuse and the check cannot drift apart. The devDist
+ * dep seam lets tests drive the marker without touching the real dist.
+ */
+const DEV_DIST_ERROR =
+  "foliplus/dist is a dev (unminified) build -- its bundles are far larger than " +
+  "the minified output these gates judge, so any size verdict would be misleading. " +
+  "Run 'npm run build' (minified) first, then re-run this gate.";
+
+const devDistMessage = (root = ROOT, deps = {}) => {
+  if (deps.devDist !== undefined) return deps.devDist ? DEV_DIST_ERROR : null;
+  return existsSync(resolve(distDir(root), DIST_MARKER)) ? DEV_DIST_ERROR : null;
+};
+
 // ── Formatting ──────────────────────────────────────────────────────────────
 /** Format a byte count as a two-decimal KB string. */
 const fmtBytes = n => `${(n / 1024).toFixed(2)} KB`;
@@ -110,6 +132,7 @@ export {
   EXIT_UNKNOWN,
   ROOT,
   baseSpec,
+  devDistMessage,
   distDir,
   fmtBytes,
   parseArgsWithBase,

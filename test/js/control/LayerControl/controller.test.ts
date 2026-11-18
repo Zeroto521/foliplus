@@ -11,6 +11,7 @@ import { EVENTS } from "#core/event/index.js";
 import {
   FALLBACK_PANE_PREFIX,
   FILTER_SOURCE,
+  FOLDER_NAME_MAX,
   GEOM_TYPE,
   LAYOUT_DOC_KEY,
   LayerRuntimeStore,
@@ -3665,23 +3666,23 @@ describe("LayerController", () => {
       manager.map.hasLayer.mockReturnValue(false);
     });
 
-    it("returns null for base layers", () => {
+    it("returns undefined for a base layer (id exists, no countable features)", () => {
       manager.registerLayer({
         id: "b1",
         name: "B",
         layer: { options: {} },
         role: "base",
       });
-      expect(manager.getFeatureCount("b1")).toBe(null);
+      expect(manager.getFeatureCount("b1")).toBe(undefined);
     });
 
-    it("returns null for an unknown layer id", () => {
+    it("returns null for an unknown layer id (not found)", () => {
       expect(manager.getFeatureCount("ghost")).toBe(null);
     });
 
-    it("returns null for a canvas/unknown layer without a provider", () => {
+    it("returns undefined for a canvas/unknown layer without a provider", () => {
       manager.registerLayer({ id: "c1", name: "Canvas", layer: { options: {} } });
-      expect(manager.getFeatureCount("c1")).toBe(null);
+      expect(manager.getFeatureCount("c1")).toBe(undefined);
     });
 
     it("prefers the third-party featureCountProvider over forEachLeaf", () => {
@@ -3720,7 +3721,7 @@ describe("LayerController", () => {
         layer: { options: {} },
         featureCountProvider: provider,
       });
-      expect(manager.getFeatureCount("boom")).toBe(null);
+      expect(manager.getFeatureCount("boom")).toBe(undefined);
       expect(logSpy).toHaveBeenCalled();
       expect(logSpy.mock.calls[0][0]).toContain("featureCountProvider threw");
       logSpy.mockRestore();
@@ -3741,9 +3742,9 @@ describe("LayerController", () => {
       expect(manager.getFeatureCount("mk")).toBe(2);
     });
 
-    it("returns null for a container layer that is not present (findLayer null)", () => {
+    it("returns undefined for a registered layer whose findLayer resolves to nothing", () => {
       manager.registerLayer({ id: "absent", name: "Absent" });
-      expect(manager.getFeatureCount("absent")).toBe(null);
+      expect(manager.getFeatureCount("absent")).toBe(undefined);
     });
 
     it("counts only data features when a label sub-group is nested under mainLayer", () => {
@@ -6803,6 +6804,24 @@ describe("createFolder", () => {
     expect(ok).toBe(false);
   });
 
+  it("createFolder rejects a name over the cap and writes nothing", () => {
+    const { manager } = initFixture({ data: [] });
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    const ok = manager.createFolder("overlay", "f".repeat(FOLDER_NAME_MAX + 1));
+
+    expect(ok).toBe(false);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
+    expect(manager.folderLayoutView.folders).toEqual([]);
+    expect(readLayoutStorage()).toBeNull();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0][0])).toContain(
+      `expected at most ${FOLDER_NAME_MAX}`,
+    );
+    warn.mockRestore();
+  });
+
   it("createFolder rejects a duplicate name in the same role", () => {
     const { manager } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
@@ -6950,6 +6969,30 @@ describe("renameFolder", () => {
     const ok = manager.renameFolder("overlay", "Roads", "   ");
 
     expect(ok).toBe(false);
+  });
+
+  it("renameFolder rejects an over-long new name and keeps the old one", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [],
+    });
+    const before = manager.folderLayoutView.folders;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    const ok = manager.renameFolder(
+      "overlay",
+      "Roads",
+      "f".repeat(FOLDER_NAME_MAX + 1),
+    );
+
+    expect(ok).toBe(false);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.folders).toEqual(before);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0][0])).toContain(
+      `expected at most ${FOLDER_NAME_MAX}`,
+    );
+    warn.mockRestore();
   });
 
   it("renameFolder is a no-op for a missing old folder", () => {

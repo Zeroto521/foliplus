@@ -2,8 +2,11 @@
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { ROLE } from "./const.js";
 import {
+  FOLDER_NAME_MAX,
   type FolderLayout,
   emptyFolderLayout,
+  folderNameLength,
+  folderNameTooLong,
   fullDisplayOrder,
 } from "./folderLayout.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
@@ -37,11 +40,12 @@ const MUTATING_METHODS = new Set([
   "copyWithin",
 ]);
 /** Resolve one author's declared folder with the registry's validation rules.
- *  Mirrors Python's normalise_folder: a non-empty string passes through, an
- *  omitted value (null/undefined) keeps the previous folder on re-registration,
- *  and an illegal value (non-string or blank) warns once and is treated as
- *  undeclared — the layer stays at the role root rather than hiding in a
- *  folder the author never saw validated. Registration is never blocked. */
+ *  Mirrors Python's normalise_folder: a non-empty string within
+ *  FOLDER_NAME_MAX code points passes through, an omitted value (null/undefined)
+ *  keeps the previous folder on re-registration, and an illegal value
+ *  (non-string, blank or over-long) warns and is treated as undeclared — the
+ *  layer stays at the role root rather than hiding in a folder the author
+ *  never saw validated. Registration is never blocked. */
 const declaredFolderOf = (
   opts: RegisterLayerOpts,
   existingLi?: LayerInfo | null,
@@ -49,15 +53,33 @@ const declaredFolderOf = (
   if (opts.folder == null) {
     return existingLi?.folder ?? null;
   }
-  if (typeof opts.folder === "string" && opts.folder.trim() !== "") {
-    return opts.folder;
+  if (typeof opts.folder !== "string" || opts.folder.trim() === "") {
+    const shown =
+      typeof opts.folder === "string"
+        ? JSON.stringify(opts.folder)
+        : typeof opts.folder;
+    log.warn(
+      `layer ${JSON.stringify(opts.id ?? "<unknown>")} declares folder as ${shown}; expected a non-empty string - ignored`,
+    );
+    return null;
   }
-  const shown =
-    typeof opts.folder === "string" ? JSON.stringify(opts.folder) : typeof opts.folder;
-  log.warn(
-    `layer ${JSON.stringify(opts.id ?? "<unknown>")} declares folder as ${shown}; expected a non-empty string - ignored`,
-  );
-  return null;
+  // Judged on the normalised name by the one shared predicate the panel's
+  // create and rename paths ask as well, so the cap is guarded at every
+  // entry rather than only this one.
+  if (folderNameTooLong(opts.folder)) {
+    log.warn(
+      `layer ${JSON.stringify(opts.id ?? "<unknown>")} declares folder at ${folderNameLength(opts.folder)} code points; expected at most ${FOLDER_NAME_MAX} - ignored`,
+    );
+    return null;
+  }
+  // The author's spelling is returned untouched: the cap above is judged on
+  // the normalised length, but this reader never rewrites the string. That
+  // is a pre-existing asymmetry with Python - normalise_folder returns the
+  // normalised name, so a CONF arriving from Python is already trimmed and
+  // the raw spelling survives only when an author calls the JS API directly.
+  // Display converges either way: folderDisplayName trims, and
+  // normalizeFolderName owns the identity key.
+  return opts.folder;
 };
 
 /** Derive `kind` at the registration edge — the single place in the codebase

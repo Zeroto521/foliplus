@@ -11,7 +11,6 @@
 // env. Locally, package.json's "prettier" block would work fine; the CJS
 // file exists so both environments read the same config.
 // @ts-check
-/* eslint-env node */
 
 /** @type {import("prettier").Config} */
 module.exports = {

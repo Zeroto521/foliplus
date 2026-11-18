@@ -515,7 +515,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     owner: "layer",
     localId: "filter",
     rank: 700,
-    exclusiveGroup: "layer:rows",
+    exclusiveGroup: "map:panel",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     root: () => ui.overlayPanel.activeFilterPanel?.panel ?? null,

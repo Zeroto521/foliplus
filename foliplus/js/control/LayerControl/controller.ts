@@ -26,6 +26,7 @@ import {
   type CreateLayersAPI,
   type CreateLayersOpts,
   FILTER_SOURCE,
+  FOLDER_NAME_MAX,
   type FilterEnumDimension,
   type FilterRangeDimension,
   type FilterStore,
@@ -57,6 +58,8 @@ import {
   filterLeafSet,
   filterStep,
   findLayer,
+  folderNameLength,
+  folderNameTooLong,
   folderOf,
   freezeRoleOrder,
   normalizeFolderName,
@@ -849,14 +852,16 @@ class LayerController implements LayerAPI {
 
   /** Return the number of geometric features in a registered layer.
    *  Third-party provider wins (Canvas layers need this). Fallback uses walkLeaf.
-   *  Returns null when the layer cannot be meaningfully counted (Canvas without
-   *  provider, base tile layers, or unknown non-container layers).
+   *  `null` when the id is not registered; `undefined` when the layer exists
+   *  but cannot be meaningfully counted (Canvas without provider, base tile
+   *  layers, or unknown non-container layers).
    *  @param {string} id - Layer id.
-   *  @returns {number|null} Feature count, or null when count is unavailable. */
-  getFeatureCount(id: string): number | null {
+   *  @returns {number|null|undefined} Feature count, `null` = id not found,
+   *   `undefined` = id exists but has no countable features. */
+  getFeatureCount(id: string): number | null | undefined {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.role === ROLE.BASE) return null;
+    if (layerInfo.role === ROLE.BASE) return undefined;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -867,16 +872,16 @@ class LayerController implements LayerAPI {
         // Provider threw (e.g. canvas in a failing state). Log so the failure
         // is visible rather than silently returning a stale 0-count. For
         // Canvas/unknown layers the walkLeaf fallback is a no-op anyway
-        // (returns null), so this is a defensive fallback, not a real path.
+        // (returns undefined), so this is a defensive fallback, not a real path.
         this.log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
     // 2. Fallback via walkLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
-    if (!layer) return null;
+    if (!layer) return undefined;
     if (isGroupLike(layer)) return countFeatureGeometry(layer);
     // 3. Canvas or unknown non-container → no meaningful count.
-    return null;
+    return undefined;
   }
 
   /** Notify subscribers that a layer's feature count may have changed.
@@ -1718,9 +1723,10 @@ class LayerController implements LayerAPI {
    *  folder layout so the block survives at the role tail.
    *
    *  Returns false (and writes nothing) when the name is blank after
-   *  normalisation, or when a folder with the same normalised name already
-   *  exists in this role (identity key collision). A different role may
-   *  freely reuse the same name — base and overlay folders are distinct.
+   *  normalisation, when it exceeds the readable cap, or when a folder with
+   *  the same normalised name already exists in this role (identity key
+   *  collision). A different role may freely reuse the same name — base
+   *  and overlay folders are distinct.
    *
    * @param role - The UI role the folder belongs to.
    * @param name - The folder's display name (normalised for the key).
@@ -1730,6 +1736,14 @@ class LayerController implements LayerAPI {
   createFolder(role: LayerRole, name: string, opts?: { persist?: boolean }): boolean {
     const key = normalizeFolderName(name);
     if (key === "") return false;
+    // The same cap the author's declaration is held to: a name the panel
+    // could create would be unreadable on its own row.
+    if (folderNameTooLong(name)) {
+      this.log.warn(
+        `createFolder refused a ${folderNameLength(name)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
+      );
+      return false;
+    }
     const layout = this.folderLayout.layout;
     if ((layout.order[role] ?? []).includes(key)) return false;
     if (
@@ -1764,10 +1778,11 @@ class LayerController implements LayerAPI {
    *  its members move with it because their `folder` spelling changed.
    *
    *  Returns false (and writes nothing) when the old folder does not exist in
-   *  this role, when the new name is blank after normalisation, or when a
-   *  folder with the same normalised new name already exists in this role
-   *  (other than the old folder itself — a normalisation-only rename is a
-   *  no-op that returns true without writing).
+   *  this role, when the new name is blank after normalisation, when the new
+   *  name exceeds the readable cap, or when a folder with the same
+   *  normalised new name already exists in this role (other than the old
+   *  folder itself — a normalisation-only rename is a no-op that returns
+   *  true without writing).
    *
    * @param role - The UI role the folder belongs to.
    * @param oldName - The folder's current display name.
@@ -1784,6 +1799,14 @@ class LayerController implements LayerAPI {
     const oldKey = normalizeFolderName(oldName);
     const newKey = normalizeFolderName(newName);
     if (newKey === "") return false;
+    // Held to the same cap before the no-op check, so a name that is too
+    // long cannot be retained by renaming it to itself.
+    if (folderNameTooLong(newName)) {
+      this.log.warn(
+        `renameFolder refused a ${folderNameLength(newName)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
+      );
+      return false;
+    }
     if (oldKey === newKey) return true; // normalisation-only rename: no-op
     const layout = this.folderLayout.layout;
     const order = layout.order[role] ?? [];

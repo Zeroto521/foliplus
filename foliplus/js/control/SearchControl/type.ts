@@ -94,6 +94,10 @@ interface SearchControl extends BaseControl {
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestSeq: number;
   currentItems: ResultItem[];
+  /** Belt: opening this panel closes the open siblings of its exclusive group.
+   *  Optional so logic-level tests that call bindEvents without buildDOM (which
+   *  installs the registry entry) still compile and run. */
+  foldGroupOpen?: () => void;
   setMode(newMode: string): void;
 }
 

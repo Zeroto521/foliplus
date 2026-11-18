@@ -21,10 +21,12 @@
 // behaviour difference from before this reader existed; only a layer that
 // names one gets the read-time default. A malformed declaration is warned
 // once and read as "not declared" — never as a reason to hide the border.
+//
+// The read/cache/warn-once skeleton lives in {@link readDeclaredKey}: this
+// module supplies only the border parse — the business logic that validates
+// what the author wrote — instead of re-implementing it a second time.
+import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
 import { STYLE_MODE, type StyleMode } from "#core/layer/index.js";
-import { createLogger } from "#platform/log.js";
-
-const log = createLogger("LayerControl");
 
 /** The one recognised declaration mode literal (public API, snake_case).
  *  The JS internal literal is "followFill"; this reader maps. */
@@ -39,43 +41,6 @@ type DeclaredBorderRead = {
 
 const EMPTY: DeclaredBorderRead = { invalid: [] };
 
-/** Per-layer-object cache. A layer object's options are final once it exists
- *  (folium builds them at construction), so both "declared" and "not declared"
- *  are cacheable. A null layer is never cached: the declaration may still
- *  arrive with the late-linked carrier. */
-const cache = new WeakMap<object, DeclaredBorderRead>();
-
-/** Warn once per (layer, key): a re-read of the same declaration must not
- *  flood the console on every border apply. */
-const warned = new Set<string>();
-
-/** The raw `foliplus.border` value on a layer.
- *
- *  Own options only, never a tree walk: folium stamps the namespace on the
- *  very layer it renders (the same object LayerControl registers), and the
- *  attach sweep reads every layer — a tree scan per layer is the exact cost
- *  the controller's "unattributed add scans no tree" invariant forbids. */
-const rawBorderOf = (layer: object): unknown =>
-  (layer as { options?: { foliplus?: Record<string, unknown> } }).options?.foliplus
-    ?.border;
-
-/** Reject one key: record it for the caller (tests), and warn once per
- *  (layer, key). */
-const reject = (
-  invalid: string[],
-  layerId: string | undefined,
-  key: string,
-  message: string,
-): void => {
-  invalid.push(message);
-  const scope = `${layerId ?? ""}:${key}`;
-  if (warned.has(scope)) return;
-  warned.add(scope);
-  log.warn(
-    `declared border: ignoring ${message} on layer "${layerId ?? "<unregistered>"}"`,
-  );
-};
-
 /** Parse the flat `border` declaration into a validated border mode.
  *
  *  A declaration names the ONE mode the author wants as the read-time default.
@@ -83,43 +48,46 @@ const reject = (
  *  declaration (read as "not declared" — the border stays on its derived
  *  default rather than painting a mode the author never saw validated).
  *  Unknown keys degrade one by one (warned once, the rest survives — the
- *  shape is single-key today, so any extra key is a typo to surface). */
-const parse = (raw: unknown, layerId: string | undefined): DeclaredBorderRead => {
+ *  shape is single-key today, so any extra key is a typo to surface).
+ *
+ *  @param reject one rejected key: record it for the caller (tests) and warn
+ *    once per (declared-key, layer, key) — the skeleton owns the dedup, the
+ *    parse owns the message and the `invalid` accumulation. */
+const parse = (
+  raw: unknown,
+  layerId: string | undefined,
+  reject: RejectFn,
+): DeclaredBorderRead => {
+  const invalid: string[] = [];
+  /** Reject one key: record it for the caller, and warn once per scope. */
+  const rejectKey = (key: string, message: string): void => {
+    invalid.push(message);
+    reject(
+      `${layerId ?? ""}:${key}`,
+      `declared border: ignoring ${message} on layer "${layerId ?? "<unregistered>"}"`,
+    );
+  };
   if (raw === null || raw === undefined) return EMPTY;
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    const invalid: string[] = [];
-    reject(
-      invalid,
-      layerId,
-      "border",
-      `a non-object border declaration ${JSON.stringify(raw)}`,
-    );
+    rejectKey("border", `a non-object border declaration ${JSON.stringify(raw)}`);
     return { invalid };
   }
   const data = raw as Record<string, unknown>;
-  const invalid: string[] = [];
 
   // Unknown keys are ignored one by one; the rest of the declaration survives.
   for (const key of Object.keys(data)) {
     if (key !== "mode") {
-      reject(
-        invalid,
-        layerId,
-        key,
-        `an unknown border key ${JSON.stringify(key)} (expected mode)`,
-      );
+      rejectKey(key, `an unknown border key ${JSON.stringify(key)} (expected mode)`);
     }
   }
 
   // mode is the one required key: without it there is no declaration.
   if (data.mode === undefined) {
-    reject(invalid, layerId, "mode", "a border declaration without a border.mode");
+    rejectKey("mode", "a border declaration without a border.mode");
     return { invalid };
   }
   if (data.mode !== DECLARED_BORDER_MODE) {
-    reject(
-      invalid,
-      layerId,
+    rejectKey(
       "mode",
       `invalid border.mode ${JSON.stringify(data.mode)} (expected "follow_fill")`,
     );
@@ -137,12 +105,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredBorderRead =>
  */
 const readDeclaredBorder = (layer: unknown, layerId?: string): DeclaredBorderRead => {
   if (layer === null || typeof layer !== "object") return EMPTY;
-  const key = layer as object;
-  const cached = cache.get(key);
-  if (cached) return cached;
-  const result = parse(rawBorderOf(key), layerId);
-  cache.set(key, result);
-  return result;
+  return readDeclaredKey(layer, layerId, "border", parse);
 };
 
 export { readDeclaredBorder };
