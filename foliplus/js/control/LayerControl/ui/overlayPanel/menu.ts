@@ -5,7 +5,6 @@ import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { EVENTS } from "#core/event/index.js";
-import { sectionOf } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -614,10 +613,7 @@ const MENU_ACTIONS: Record<
     const folderName = ui.c.folderNameOf(layerId);
     if (layerInfo && folderName) {
       ui.closeMoreMenu(true);
-      ui.c.deleteFolder(
-        member ? member.section : sectionOf(layerInfo.role),
-        folderName,
-      );
+      ui.c.deleteFolder(member ? member.role : layerInfo.role, folderName);
     }
     return { closeMenu: false, restoreRowFocus: false };
   },

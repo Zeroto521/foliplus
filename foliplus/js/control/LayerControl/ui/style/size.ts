@@ -235,10 +235,7 @@ const SIZE_DIMENSION = registerDimension<number>({
   },
   /** Cohesive reset: clear the override, save, restore the authored radii. */
   reset: (ui, layerId) => resetLayerSize(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!styleCapability(ui, layerId).dims.size) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.SIZE) ? "user" : "author";
-  },
+  intentKeys: [INTENT.SIZE],
   /** Content-change replay: a pixel radius chosen before a leaf landed
    *  reaches it — the when-gate bails when the user never chose a size,
    *  before any scheduler box is allocated, so an untouched layer keeps its

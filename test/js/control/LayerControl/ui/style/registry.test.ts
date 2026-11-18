@@ -574,6 +574,92 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   });
 });
 
+describe("LayerControl style-panel dimension registry — default valueSource", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const overlayLayer = {
+    options: {},
+    setZIndex: vi.fn(),
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 0, lng: 0 }),
+      getNorthEast: () => ({ lat: 1, lng: 1 }),
+    })),
+  };
+
+  const initWithOverlay = () => {
+    installLeafletGlobals();
+    return initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          role: "overlay",
+          layer: overlayLayer,
+        },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+  };
+
+  beforeEach(() => {
+    ({ manager, ui } = initWithOverlay());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("installs the three-state valueSource from gate + intentKeys", () => {
+    // The built-in opacity dim declares intentKeys and no valueSource, so the
+    // registry installed the default: gate rejects → "none"; owned key
+    // user-set → "user"; else "author". This locks the contract that
+    // a style-value dim gets its provenance answer from the descriptor's own
+    // gate + intentKeys, never a second hand-copied implementation.
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane" },
+      paneNames: [],
+      panes: [],
+      geometryType: () => "polygon",
+    } as never);
+    expect(OPACITY_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.3);
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+
+  it("a descriptor with its own valueSource overrides the default", () => {
+    // An explicit valueSource slot wins over the gate+intentKeys default.
+    // This dim has intentKeys (so the default would install) but declares its
+    // own valueSource — the registry must not overwrite it.
+    const overrideDim = {
+      key: "test.dim.override",
+      gate: () => true,
+      value: () => 1,
+      row: () => document.createElement("div"),
+      intentKeys: ["opacity"] as never,
+      valueSource: () => "author" as const,
+      contentChange: { kind: "none" },
+    } as unknown as LayerDimension<number>;
+    const registered = registerDimension(overrideDim);
+    expect(registered.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("a content dim (label) without intentKeys gets no valueSource", () => {
+    expect(LABEL_DIMENSION.valueSource).toBeUndefined();
+  });
+});
+
 describe("LayerControl style-panel dimension registry — fill descriptor", () => {
   let manager: LayerController;
   let ui: LayerUI;

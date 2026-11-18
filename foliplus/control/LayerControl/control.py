@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from branca.element import Element
 from folium.map import Layer
@@ -18,16 +18,17 @@ from ._layer_declaration import (
     declared_folder,
     declared_zoom_range,
 )
+from ._role import LayerRole, layer_role
 
 
 class LayerControl(BaseControl):
     """Layer panel to organize, inspect, style, and filter map layers.
 
     - 📐 Geometry-type icons for quick layer identification.
-    - 🔀 Drag-and-drop reordering within a section, synced to Leaflet render
+    - 🔀 Drag-and-drop reordering within a role, synced to Leaflet render
       order.
     - ✅ Multi-select checkboxes with z-index stacking, plus a toggle for all
-      layers in a section.
+      layers in a role.
     - 🎨 Solid-color replacement for base maps.
     - 🎨 Fill by value: color a layer by a numeric field with a classification
       method, class count, and scheme, use a single fill color, or keep the
@@ -156,10 +157,10 @@ class LayerControl(BaseControl):
     +----------------+------+------------------------------------------------------------------+
     | ``zoom_range`` | dict | The layer's visible zoom range (see the zoom range table below). |
     +----------------+------+------------------------------------------------------------------+
-    | ``folder``     | str  | The layer's folder (section group) name; see the note below.     |
+    | ``folder``     | str  | The layer's folder (role group) name; see the note below.        |
     +----------------+------+------------------------------------------------------------------+
 
-    Two layers declaring the same ``folder`` name in the same section and
+    Two layers declaring the same ``folder`` name in the same role and
     role (for example ``foliplus={"folder": "底图"}``) are grouped into one
     folder — a grouping intent, not a conflict, and it never warns.
 
@@ -180,8 +181,8 @@ class LayerControl(BaseControl):
     >>> gdf.explore(foliplus={"folder": "底图"})
 
     The same rules apply: a non-string or blank ``folder`` warns once and is
-    ignored (the layer stays at the section root), and two layers declaring
-    the same folder name in the same section and role are grouped into one
+    ignored (the layer stays at the role root), and two layers declaring
+    the same folder name in the same role are grouped into one
     folder. On the JavaScript side, a third-party component can declare its
     folder through ``LayerAPI.registerLayer``.
 
@@ -291,7 +292,7 @@ class LayerControl(BaseControl):
                     {
                         "name": "string",
                         "id": "string",
-                        "role": ("base", "overlay"),
+                        "role": get_args(LayerRole),
                         "show": "bool",
                         # Optional: what Python computed for the author's
                         # per-feature paint (explore's baked colors). The panel
@@ -389,7 +390,9 @@ class LayerControl(BaseControl):
             entry: dict[str, object] = {
                 "name": item.layer_name,
                 "id": name,
-                "role": "overlay" if item.overlay else "base",
+                # folium.overlay <-> foliplus role: the single mapping point
+                # (see _role.py). overlay=True is a data layer, False a basemap.
+                "role": layer_role(item),
                 "show": bool(item.show),
             }
             author = fill_author(item, colormaps, claimed)
@@ -414,7 +417,7 @@ class LayerControl(BaseControl):
 
         # A folder name shared by several layers is a grouping intent, not a
         # conflict: the JS side merges same-name declarations of the same role
-        # into one authorFolderId (folder = section group name, one group may
+        # into one authorFolderId (folder = role group name, one group may
         # hold many member rows). Each declaring layer simply emits the name.
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).

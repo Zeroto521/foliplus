@@ -62,7 +62,7 @@ const layerCanLabel = (ui: LayerUI, layerId: string): boolean =>
  *  Body order is shared with the delegated drawer: data → appearance →
  *  format → behavior. Field first (label-only), then color/size, then
  *  number format, then avoid-overlap. */
-const buildLabelSection = (ui: LayerUI, layerId: string): HTMLElement => {
+const buildLabelBlock = (ui: LayerUI, layerId: string): HTMLElement => {
   const fields = layerFields(ui, layerId);
   const cfg = ui.c.label.getConfig(layerId);
   const fmtLabel = (f: string) => ui._(`foliplus.label_format_${f}`) || f;
@@ -235,7 +235,7 @@ const LABEL_DIMENSION = registerDimension<LabelConfig>({
   key: DIM.LABEL,
   gate: layerCanLabel,
   value: (ui, layerId) => ui.c.label.getConfig(layerId),
-  row: buildLabelSection,
+  row: buildLabelBlock,
   /** Content-change replay: labels rebuild from the tree the change just
    *  landed — the most expensive of the replays (full walk + canvas
    *  repaint), so it rides the frame coalescer: a streamed addData pays
