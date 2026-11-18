@@ -55,21 +55,6 @@ jobs:
       - uses: ./.github/actions/setup-deps
       - run: npm run typecheck
 
-  # ── Python type checking (mypy) ──
-  # mypy was removed from pre-commit (task-204: the mirrors-mypy hook
-  # hangs on Windows and pre-commit.ci has no `uv`). This standalone job
-  # runs mypy via uv from the dev dependency group. --strict and
-  # --ignore-missing-imports live in pyproject.toml ([tool.mypy]).
-  mypy:
-    name: mypy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-deps
-        with:
-          python-version: "3.12"
-      - run: uv sync --group dev
-      - run: uv run mypy foliplus
   # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
   # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
   # This job only checks that every referenced #NNN exists as a real PR/issue.

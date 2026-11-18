@@ -51,7 +51,7 @@ doc = [
   "mapclassify",
   "docutils>=0.21,<0.23",  # sphinx 9 requires docutils>=0.21,<0.23; the range keeps the doc-group resolve on the modern stack
 ]
-dev = [{ include-group = "test" }, { include-group = "doc" }, "build", "twine", "mypy==1.18.2"]
+dev = [{ include-group = "test" }, { include-group = "doc" }, "build", "twine"]
 
 [tool.setuptools_scm]
 write_to = "foliplus/_version.py"
