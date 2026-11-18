@@ -33,12 +33,15 @@
       tabindex: el.getAttribute("tabindex"),
       tabIndex: el.tabIndex,
       focusLanded,
-      focusable: focusable ? { tag: focusable.tagName, cls: focusable.className } : null,
+      focusable: focusable
+        ? { tag: focusable.tagName, cls: focusable.className }
+        : null,
       onClick: typeof el.onclick === "function",
       ariaDisabled: el.getAttribute("aria-disabled"),
     };
   });
-  const values = [...panel.querySelectorAll(".foliplus-style-fill-original-value")]
-    .map(el => ({ userSelect: getComputedStyle(el).userSelect, text: el.textContent }));
+  const values = [...panel.querySelectorAll(".foliplus-style-fill-original-value")].map(
+    el => ({ userSelect: getComputedStyle(el).userSelect, text: el.textContent }),
+  );
   return { ok: true, boxCount: readouts.length, boxes, values };
 };

@@ -293,7 +293,6 @@
    rules of its own. The `.foliplus-style-opacity-*` classes are hooks for
    behavior and tests, not a second set of geometry. */
 
-
 /* ── Read-only (display-only) control contract ──
    `.foliplus-readonly` marks a form control that is display-only: it must not
    offer a pointer affordance, must not show hover/active feedback (the unified
