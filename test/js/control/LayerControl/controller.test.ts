@@ -7559,6 +7559,6 @@ it("catches a throwing styleProvider and returns registry values", () => {
     expect(snap!.label!.show).toBe(false);
   });
 
- 
+
 
 });
