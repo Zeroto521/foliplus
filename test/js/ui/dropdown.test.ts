@@ -47,6 +47,13 @@ const CLS = {
   placeholder: "foliplus-dropdown-placeholder",
 } as const;
 
+/** The footer actions a consumer receives (the module keeps the type private). */
+type FooterActions = {
+  selectAll(): void;
+  clear(): void;
+  getCount(): number;
+};
+
 // ── Fixtures ───────────────────────────────────────────────────────────
 
 const cleanup: (() => void)[] = [];
@@ -349,6 +356,31 @@ describe("dropdown: bridged single select", () => {
     expect(dropdown.trigger.title).toBe("Alpha");
   });
 
+  it("upgrades a select that is not in the document yet", () => {
+    // A panel may build the select before mounting it: with no parent to
+    // insert before, the wrapper still takes ownership of the select so the
+    // caller can mount the pair afterwards.
+    const select = document.createElement("select");
+    for (const [value, label] of [
+      ["a", "Alpha"],
+      ["b", "Bee"],
+    ]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      select.appendChild(option);
+    }
+    select.value = "b";
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      nativeSelect: select,
+    });
+    cleanup.push(() => dropdown.destroy());
+    expect(dropdown.element.contains(select)).toBe(true);
+    expect(select.hidden).toBe(true);
+    expect(labelOf(dropdown)).toBe("Bee");
+  });
+
   it("refuses a second dropdown on the same select", () => {
     const { select } = bridged("a", [{ value: "a", label: "Alpha" }]);
     expect(() =>
@@ -592,6 +624,86 @@ describe("dropdown: multiple selections", () => {
     expect(dropdown.getValues()).toEqual([]);
     expect(() => actions!.clear()).not.toThrow();
     expect(dropdown.getValues()).toEqual([]);
+  });
+
+  it("footer actions are inert on a single-value dropdown", () => {
+    let actions: FooterActions | undefined;
+    const changes: string[] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      value: "a",
+      onChange: value => changes.push(value),
+      multipleFooter: a => {
+        actions = a;
+        const footer = document.createElement("div");
+        footer.className = "test-footer";
+        return footer;
+      },
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+    expect(actions).toBeDefined();
+
+    // A single-value dropdown has no select-all/clear semantics: the actions
+    // are inert instead of replacing the one value with the whole option list
+    // (or clearing a value the control cannot represent as empty).
+    actions!.selectAll();
+    expect(dropdown.getValue()).toBe("a");
+    expect(dropdown.getValues()).toEqual(["a"]);
+    actions!.clear();
+    expect(dropdown.getValue()).toBe("a");
+    expect(dropdown.getValues()).toEqual(["a"]);
+    expect(changes).toEqual([]);
+  });
+
+  it("renders no footer when the consumer returns null", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      multipleFooter: () => null,
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+
+    // A consumer with nothing to add (a read-only field, say) returns null:
+    // the popup lists the rows and appends no footer bar at all.
+    const list = dropdown.getList()!;
+    expect(
+      Array.from(list.children).every(el => el.classList.contains(CLS.option)),
+    ).toBe(true);
+    expect(optionEls(dropdown)).toHaveLength(items.length);
+  });
+
+  it("footer actions keep working after the popup closes", () => {
+    let actions: FooterActions | undefined;
+    const changes: string[][] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      onChange: (_value, values) => changes.push([...values]),
+      multipleFooter: a => {
+        actions = a;
+        return document.createElement("div");
+      },
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+    dropdown.close();
+    expect(actions).toBeDefined();
+
+    // The actions own the value model, not the popup: a consumer holding them
+    // across a close still selects/clears without a stale list refresh.
+    actions!.selectAll();
+    expect(dropdown.getValues()).toEqual(["a", "b", "c"]);
+    actions!.clear();
+    expect(dropdown.getValues()).toEqual([]);
+    expect(changes).toEqual([["a", "b", "c"], []]);
   });
 
   it("renders a footer with both actions no-op for a zero-item list", () => {
@@ -1040,6 +1152,16 @@ describe("dropdown: keyboard and edge cases", () => {
     expect(optionEls(dropdown)[0].title).toBe("Proj CRS");
   });
 
+  it("mirrors a native option title onto its row", () => {
+    // A bridged select's options are re-read on open; their title must survive
+    // the trip so the row keeps the same tooltip the native option had.
+    const { select, dropdown } = bridged("a", [{ value: "a", label: "Alpha" }]);
+    select.options[0].title = "Proj CRS";
+    dropdown.refresh();
+    dropdown.open();
+    expect(optionEls(dropdown)[0].title).toBe("Proj CRS");
+  });
+
   it("falls back to the disabled hint for a disabled row without a title", () => {
     const dropdown = standalone([
       { value: "a", label: "Alpha", disabled: true, disabledHint: "Unavailable" },
@@ -1094,6 +1216,14 @@ describe("dropdown: keyboard and edge cases", () => {
     dropdown.setValue("c");
     expect(select.value).toBe("c");
     expect(dropdown.getValue()).toBe("c");
+    expect(labelOf(dropdown)).toBe("Cee");
+  });
+
+  it("setValue writes the standalone value model", () => {
+    const dropdown = standalone(three, { value: "a" });
+    dropdown.setValue("c");
+    expect(dropdown.getValue()).toBe("c");
+    expect(dropdown.getValues()).toEqual(["c"]);
     expect(labelOf(dropdown)).toBe("Cee");
   });
 
@@ -1384,6 +1514,21 @@ describe("dropdown: remaining branches", () => {
     expect(select.value).toBe("");
     expect(labelOf(dropdown)).toBe("Choose a layer");
     expect(dropdown.trigger.classList.contains(CLS.placeholder)).toBe(true);
+  });
+
+  it("picking an enabled empty-value option reports the empty value", () => {
+    // Empty is a state, not "uninitialized": an enabled empty option is a real
+    // choice, so the pick must report "" and show that option's own label.
+    const { select, dropdown } = bridged("a", [
+      { value: "", label: "None" },
+      { value: "a", label: "Alpha" },
+    ]);
+    dropdown.open();
+    optionEls(dropdown)[0].click();
+    expect(select.value).toBe("");
+    expect(dropdown.getValue()).toBe("");
+    expect(dropdown.getValues()).toEqual([]);
+    expect(labelOf(dropdown)).toBe("None");
   });
 
   describe("dropdownOverlay", () => {
