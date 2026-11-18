@@ -76,7 +76,7 @@ function resolveSpecifier(specifier: string, fromFile: string): string | null {
 
 /** Walk test/js/ recursively, return all .ts files. */
 function walk(dir: string, out: string[]): string[] {
-  for (const name of require("node:fs").readdirSync(dir)) {
+  for (const name of readdirSync(dir)) {
     if (name === "node_modules" || name === "dist") continue;
     const p = resolve(dir, name);
     if (statSync(p).isDirectory()) walk(p, out);
@@ -98,7 +98,12 @@ describe("mock-specifier guard: vi.mock specifiers must resolve", () => {
         const abs = resolveSpecifier(spec, file);
         if (!abs) continue; // bare package — skip
         // Try with and without .ts/.mjs extension (vitest resolves both).
-        const candidates = [abs, abs + ".ts", abs + ".mjs", abs + ".js"];
+        const candidates = [
+          abs,
+          `${abs}.ts`,
+          `${abs}.mjs`,
+          abs.replace(/\.js$/, ".ts"),
+        ];
         const found = candidates.some(c => existsSync(c));
         if (!found) {
           const rel = relative(REPO_ROOT, file);

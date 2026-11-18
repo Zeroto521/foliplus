@@ -165,11 +165,7 @@ const main = ({
     // Status 1 with no stdout is a config-level TS5xxx error (tsconfig path,
     // missing @types) — without the output the failure is opaque.
     const diag = [out.stdout, out.stderr].filter(Boolean).join("\n");
-    error(
-      out.error
-        ? String(out.error)
-        : diag || `tsc exited ${out.status} (no output)`
-    );
+    error(out.error ? String(out.error) : diag || `tsc exited ${out.status}`);
     return 1;
   }
 
