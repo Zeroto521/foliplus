@@ -48,6 +48,7 @@ const createSearchField = (opts: SearchFieldOptions): SearchField => {
   if (opts.ariaLabel) input.setAttribute("aria-label", opts.ariaLabel);
 
   const onInputEvent = (): void => opts.onInput(input.value);
+  // listener-exempt: search-field input handlers on an ephemeral element owned by the caller
   input.addEventListener("input", onInputEvent);
   if (opts.onKeyDown) input.addEventListener("keydown", opts.onKeyDown);
 
