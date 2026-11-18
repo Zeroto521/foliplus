@@ -37,6 +37,7 @@ export {
 } from "./dropdown.js";
 export type { DropdownOverlay } from "./dropdown.js";
 export { createListbox } from "./listbox.js";
+export { DROPDOWN_CLASS } from "./dropdownClassName.js";
 export {
   bindLiveColor,
   bindLiveNumber,

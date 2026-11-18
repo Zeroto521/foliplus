@@ -184,3 +184,41 @@
 /* The multi-select row used to reserve a tick column here. It is gone on
    purpose: the trigger already reports "N selected", and the inset bar above
    carries the selected state for single and multiple alike. */
+/* ── Footer (multiple mode) ──
+   The multi-select footer carries the select-all / clear actions. It sits at
+   the bottom of the popup and sticks so a long option list cannot scroll it
+   out of view; a top hairline sets it apart from the option rows. The footer
+   is a child of the list (the engine appends it after the rows), so it
+   scrolls with the shell unless stuck — the sticky bottom keeps it pinned. */
+.foliplus-dropdown-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: var(--foliplus-space-sm);
+  padding: var(--foliplus-space-xs) var(--foliplus-space-md);
+  border-top: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  background: var(--foliplus-input-bg);
+}
+.foliplus-dropdown-footer > button {
+  border: 0;
+  border-radius: var(--foliplus-radius-sm);
+  background: transparent;
+  color: var(--foliplus-accent-primary);
+  font-family: inherit;
+  font-size: var(--foliplus-font-size-sm);
+  line-height: 1.5;
+  padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
+  cursor: pointer;
+  transition: background-color var(--foliplus-transition-fast);
+}
+.foliplus-dropdown-footer > button:hover:not([disabled]) {
+  background: var(--foliplus-menu-row-hover-bg);
+}
+.foliplus-dropdown-footer > button[disabled] {
+  color: var(--foliplus-text-muted);
+  cursor: not-allowed;
+}
+.foliplus-dropdown-footer > button:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
+}

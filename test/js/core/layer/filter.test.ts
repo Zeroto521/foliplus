@@ -815,6 +815,11 @@ describe("parsePersistedFilter enum", () => {
       { kind: "enum", field: "type", values: [1] },
       { kind: "enum", field: "type", values: [""] },
       { kind: "enum", field: "type", values: "a" },
+      // The singular `value` shape never landed (the enum atom has been
+      // multi-value only). Reverse judgment: it must parse as no filter,
+      // never be silently migrated to `values: ["a"]`.
+      { kind: "enum", field: "type", value: "a" },
+      { kind: "enum", field: "type", value: "" },
     ]) {
       expect(parsePersistedFilter(bad)).toBeUndefined();
     }

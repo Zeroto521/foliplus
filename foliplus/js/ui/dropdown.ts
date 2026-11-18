@@ -42,6 +42,16 @@ interface DropdownItem {
   disabledHint?: string;
 }
 
+/** The select-all / clear actions the multiple-mode footer can drive. The
+ *  consumer builds the footer element (with its locale labels) and wires the
+ *  two buttons to these; `getCount` lets the footer disable an action that is
+ *  already a no-op (all picked / none picked). */
+interface DropdownFooterActions {
+  selectAll: () => void;
+  clear: () => void;
+  getCount: () => number;
+}
+
 /** Highest host-panel rank a popup can sit in. The registry owns the
  *  ESC_PRIORITY table (core); ui cannot import core, so the guard test
  *  (overlayRegistry.test.ts) asserts this equals max(ESC_PRIORITY) over the
@@ -99,6 +109,11 @@ interface DropdownOptions extends DropdownSurface {
   className?: string;
   triggerAttributes?: Record<string, string>;
   selectedLabel?: (labels: readonly string[]) => string;
+  /** Multiple-mode footer element (a select-all / clear bar). The consumer
+   *  supplies the element and its locale labels; the dropdown wires the two
+   *  actions and re-reads the selection after every change. Ignored when
+   *  `multiple` is false. */
+  multipleFooter?: (actions: DropdownFooterActions) => HTMLElement | null;
   onChange?: (value: string, values: readonly string[]) => void;
   onToggle?: (open: boolean, list: HTMLElement | null) => void;
 }
@@ -282,6 +297,24 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     wrapper.append(native);
   }
 
+  // The multiple-mode footer actions: set every option / clear the selection,
+  // then commit through the same write path a row press uses (onChange +
+  // native change). A re-render follows so the rows and the footer buttons
+  // answer the new selection.
+  const selectAllValues = (): void => {
+    if (state.destroyed || !state.multiple) return;
+    state.values = new Set(state.items.map(item => item.value));
+    renderLabel(state);
+    commit(state);
+    if (listboxOf(state).isOpen()) listboxOf(state).refresh();
+  };
+  const clearValues = (): void => {
+    if (state.destroyed || !state.multiple) return;
+    state.values = new Set();
+    renderLabel(state);
+    commit(state);
+    if (listboxOf(state).isOpen()) listboxOf(state).refresh();
+  };
   const listbox = createListbox({
     trigger,
     items: () => state.items,
@@ -320,6 +353,14 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     },
     renderTrigger: () => renderLabel(state),
     onRowActivate: index => activateRow(state, index),
+    footer: opts.multipleFooter
+      ? () =>
+          opts.multipleFooter?.({
+            selectAll: selectAllValues,
+            clear: clearValues,
+            getCount: () => valuesOf(state).length,
+          }) ?? null
+      : undefined,
     onToggle: open => {
       opts.onToggle?.(open, listbox.getList());
     },
