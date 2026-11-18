@@ -27,7 +27,7 @@ def _layer_shape() -> list[dict[str, object]]:
             for item in get_args(LayerControl._dynamic_fields["data"])
             if isinstance(item, FieldSpec)
         ),
-        None
+        None,
     )
     assert spec is not None, "LayerControl._dynamic_fields['data'] needs a FieldSpec"
     return list(spec.shape)
@@ -44,7 +44,9 @@ class TestLayerRole:
             (None, "base"),  # missing attribute -> base (folium default)
         ],
     )
-    def test_layer_role_maps_the_folium_flag(self, overlay: object, expected: str) -> None:
+    def test_layer_role_maps_the_folium_flag(
+        self, overlay: object, expected: str
+    ) -> None:
         assert layer_role(type("L", (), {"overlay": overlay})()) == expected
 
     def test_layer_role_is_total_over_the_vocabulary(self) -> None:
