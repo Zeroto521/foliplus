@@ -464,21 +464,35 @@ class TestRowPanelLayoutBrowser:
             assert not errors, f"JS errors: {errors}"
 
 
-def _make_scale_page(browser, tmp_path):
-    """A layer list with a ScaleControl in the bottom-left corner."""
+def _make_scale_page(browser, tmp_path, *, order="panel_first"):
+    """A layer list with a ScaleControl in the bottom-left corner.
+
+    ``order`` selects which control is added to the map first, since Leaflet
+    paints equal-z-index corner siblings by DOM insertion order. The default
+    (``panel_first``) matches the historic fixture; ``scale_first`` puts the
+    bottom-left corner later in the DOM, which is the case that used to paint
+    the scale over the panel's corner.
+    """
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     for i in range(5):
         fg = folium.FeatureGroup(name=f"Layer {i}", overlay=True, show=True)
         fg.add_to(m)
-    LayerControl(locale="en").add_to(m)
-    ScaleControl().add_to(m)
+    lc = LayerControl(locale="en")
+    sc = ScaleControl()
+    if order == "scale_first":
+        sc.add_to(m)
+        lc.add_to(m)
+    else:
+        lc.add_to(m)
+        sc.add_to(m)
     return make_browser_page(
-        browser, tmp_path, m.get_root().render(), "row_stack_scale"
+        browser, tmp_path, m.get_root().render(), f"row_stack_scale_{order}"
     )
 
 
 STACK = snippet("LayerControl/row_panel_stack")
 SCALE_OVERLAP = snippet("LayerControl/row_panel_scale_overlap")
+CORNER_OVERLAP = snippet("LayerControl/corner_panel_scale_overlap")
 
 
 class TestRowPanelStackBrowser:
@@ -545,4 +559,66 @@ class TestRowPanelStackBrowser:
                 assert covered["hitIsPanel"] is True, (
                     f"the real ScaleControl covered the panel; hit={covered['hit']}"
                 )
+            assert not errors, f"JS errors: {errors}"
+
+    def _assert_corner_clears_scale(self, r, order):
+        """Shared assertions for the cross-corner corner/scale probe."""
+        assert r["ok"] is True, f"corner probe failed ({order}): {r}"
+        # The corner must compute to the token (1001), NOT the JS floating+9
+        # (9999) that masks the CSS rule when expanded, and not a bare literal.
+        assert r["cornerZ"] == r["token"], (
+            f"{order}: corner z-index {r['cornerZ']} != token {r['token']}"
+        )
+        # A real cross-corner overlap must be present, so this is not an empty
+        # pass (the historic empty-if guard let overlap=False slide).
+        assert r["overlap"] is True, (
+            f"{order}: expected a real cross-corner overlap at 420x220; "
+            f"panel={r['panelRect']} scale={r['scaleRect']}"
+        )
+        assert r["hitIsPanel"] is True, (
+            f"{order}: the scale covered the panel; hit={r['hit']}"
+        )
+        assert r["hitIsScale"] is False, f"{order}: the scale is on top; hit={r['hit']}"
+
+    def test_corner_panel_scale_overlap_panel_first(self, browser, tmp_path):
+        """The CSS corner token, not the JS raise, clears the bottom-left scale.
+
+        The main LayerControl panel sits in the top-left corner. Leaflet paints
+        the four corner divs as equal-z-index (1000) siblings in DOM order, so
+        a later-created bottom corner paints over the top-left corner's tall
+        panel. The fix raises the corner hosting a foliplus fold control to
+        --foliplus-z-index-control-corner (1001). This probe clears the JS
+        inline raise (the expanded-state mask) so the CSS token alone is what
+        paints, and asserts the corner still clears the scale in the overlap.
+        """
+        with use_page(_make_scale_page, browser, tmp_path, order="panel_first") as (
+            page,
+            errors,
+        ):
+            # A short viewport forces the top-left panel to overlap the
+            # bottom-left scale, so the cross-corner case is really exercised
+            # (a tall viewport would leave them disjoint and pass vacuously).
+            page.set_viewport_size({"width": 420, "height": 220})
+            self._open(page)
+            self._assert_corner_clears_scale(
+                page.evaluate(CORNER_OVERLAP), "panel_first"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_corner_panel_scale_overlap_scale_first(self, browser, tmp_path):
+        """Same as panel_first but the scale is added to the map first.
+
+        This is the DOM order that used to paint the bottom-left corner (with
+        the scale) over the top-left corner's panel, and the case the fix
+        must hold regardless of which control the host adds first.
+        """
+        with use_page(_make_scale_page, browser, tmp_path, order="scale_first") as (
+            page,
+            errors,
+        ):
+            page.set_viewport_size({"width": 420, "height": 220})
+            self._open(page)
+            self._assert_corner_clears_scale(
+                page.evaluate(CORNER_OVERLAP), "scale_first"
+            )
             assert not errors, f"JS errors: {errors}"
