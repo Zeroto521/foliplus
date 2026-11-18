@@ -38,7 +38,7 @@
 - `LayerControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
-- `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` returns `null` for an unregistered id and `undefined` when the id exists but has no countable features (a BASE role, a provider-less Canvas, an unknown non-container), each optional slot names the cause of its `undefined` (an unimplemented stub vs. an older `foliplus-common` runtime), and `getFilter` reads an absent slot as `undefined` ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
+- `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
 
 ### Removed
 
