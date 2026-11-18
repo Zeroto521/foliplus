@@ -92,7 +92,7 @@ JOBS ?= auto
 # an opaque module-resolution error. Check before running any test gate so the
 # failure is actionable (prints the exact rebuild command).
 check-worktrees:
-	node script/check/worktree-junction.mjs
+	node script/check/worktree-junction.mjs --all
 
 
 test: check-worktrees build-js-dev test-js
