@@ -27,7 +27,9 @@ from foliplus._declaration import (
     json_number,
     normalise_border,
     normalise_folder,
+    normalise_icon_size,
     normalise_layer_filter,
+    normalise_marker_color,
     normalise_zoom_range,
     normalize_declared_filter,
     range_atom,
@@ -712,3 +714,70 @@ def test_normalise_layer_filter_extra_shape_branches():
                 raw,
                 [str(w.message) for w in caught],
             )
+
+
+# marker_color normalisation: shape here; the preset vocabulary is the JS
+# reader's, so an out-of-vocabulary name deliberately survives this layer.
+def test_normalise_marker_color_strips_a_valid_name():
+    assert (
+        normalise_marker_color("  darkred  ", owner="Owner", subject="layer 'L'")
+        == "darkred"
+    )
+
+
+@pytest.mark.parametrize("raw", [7, ["red"], "   "])
+def test_normalise_marker_color_rejects_non_string_or_blank(raw):
+    _declaration.foliplus_reports.clear()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert (
+            normalise_marker_color(raw, owner="Owner", subject="layer 'L'") is None
+        )
+        assert any("marker_color" in str(w.message) for w in caught), (
+            raw,
+            [str(w.message) for w in caught],
+        )
+
+
+def test_normalise_marker_color_does_not_gate_the_vocabulary():
+    # An out-of-vocabulary name is the JS reader's verdict (it owns the preset
+    # table); here it survives as a plain string, like the enum filter's
+    # measurement-type names.
+    assert (
+        normalise_marker_color("not-a-preset", owner="Owner") == "not-a-preset"
+    )
+
+
+# icon_size normalisation: a whole-number pixel size; folium Icon has no
+# px-size channel, so this is foliplus-only.
+@pytest.mark.parametrize("raw", [1, 36, 120])
+def test_normalise_icon_size_accepts_positive_ints(raw):
+    assert normalise_icon_size(raw, owner="Owner") == raw
+
+
+@pytest.mark.parametrize("raw", [0, -8, 12.5, "36", True])
+def test_normalise_icon_size_rejects_non_positive_or_non_int(raw):
+    _declaration.foliplus_reports.clear()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert normalise_icon_size(raw, owner="Owner") is None
+        assert any("icon_size" in str(w.message) for w in caught), (
+            raw,
+            [str(w.message) for w in caught],
+        )
+
+
+def test_normalise_marker_color_none_is_not_declared_without_a_warning():
+    # None is "not declared", not a defect: it reads as None and never warns,
+    # the same verdict the border/folder readers give a missing declaration.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert normalise_marker_color(None, owner="Owner") is None
+    assert caught == []
+
+
+def test_normalise_icon_size_none_is_not_declared_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert normalise_icon_size(None, owner="Owner") is None
+    assert caught == []

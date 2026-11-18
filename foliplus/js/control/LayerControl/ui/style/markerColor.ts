@@ -44,6 +44,7 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredMarkerColor } from "#control/LayerControl/declaredMarkerColor.js";
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the marker-color capability (an awesome-markers chassis carrier —
@@ -88,6 +89,21 @@ const authorMarkerColorHex = (layer: unknown): string => {
   return mapped ?? MARKER_COLOR_PRESET_HEX.blue;
 };
 
+/** The chassis hex the AUTHOR DECLARED via foliplus={"marker_color": "<preset>"},
+ *  or null when the layer declares nothing (or an out-of-vocabulary name, which
+ *  declaredMarkerColor warns about and reads as not-declared). This is the
+ *  lowest-priority chassis source: a panel pick (intent) or the author's own
+ *  painted/preset colour both win over it, and it only replaces the derived
+ *  default blue. A preset name maps forward through the same table a panel pick
+ *  uses, so a declared chassis lands on the library sprite. */
+const declaredMarkerColorHex = (layer: unknown): string | null => {
+  const { declared } = readDeclaredMarkerColor(layer);
+  if (!declared) return null;
+  return (
+    (MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[declared] ?? null
+  );
+};
+
 /** Apply the layer's stored chassis color + opacity to every marker leaf,
  *  re-deriving the icon in ONE construction with the current glyph and icon
  *  color. A missing intent is a no-op — a layer the user never touched keeps
@@ -103,7 +119,11 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
   // orthogonal: a user glyph wins, else the author's own glyph name. The
   // icon color rides the same one-shot construction.
   const paint =
-    typeof markerColor === "string" ? markerColor : authorMarkerColorHex(layer);
+    typeof markerColor === "string"
+      ? markerColor
+      : (authorMarkerColorHex(layer) ??
+        declaredMarkerColorHex(layer) ??
+        MARKER_COLOR_PRESET_HEX.blue);
   const glyph =
     currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
   const iconColor = getIntent(ui, layerId, INTENT.ICON_COLOR);
