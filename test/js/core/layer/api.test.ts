@@ -260,6 +260,15 @@ describe("ensureLayerAPI", () => {
     expect(api.moveLayerDown).toBeUndefined();
   });
 
+  it("does not expose intentVisible / getFeatureCount — no intent store or registry", () => {
+    // The lightweight stub carries no intent storage and no registry to count
+    // from, so these slots are omitted rather than stubbed with a lie. A
+    // consumer reads `undefined` and falls back (true / no count shown).
+    const api = ensureLayerAPI(map);
+    expect(api.intentVisible).toBeUndefined();
+    expect(api.getFeatureCount).toBeUndefined();
+  });
+
   it("layers is a frozen empty array", () => {
     const api = ensureLayerAPI(map);
     expect(Object.isFrozen(api.layers)).toBe(true);
@@ -277,6 +286,19 @@ describe("LayerAPI contract", () => {
     const layerApiBody = typeSource.slice(typeSource.indexOf("interface LayerAPI"));
     expect(layerApiBody).toMatch(/moveLayerUp\?:\s*\(/);
     expect(layerApiBody).toMatch(/moveLayerDown\?:\s*\(/);
+  });
+
+  it("getFeatureCount is optional and returns the null/undefined contract", () => {
+    // The return type must admit both no-value states so the contract
+    // survives the type checker: null = id not registered, undefined = id
+    // exists but has no countable features (a BASE role, a provider-less
+    // Canvas, an unknown non-container). The stub omits the slot, so a
+    // consumer additionally falls back to "no count" on `undefined`.
+    const layerApiBody = typeSource.slice(typeSource.indexOf("interface LayerAPI"));
+    expect(layerApiBody).toMatch(/getFeatureCount\?:\s*\(/);
+    expect(layerApiBody).toMatch(
+      /getFeatureCount\?:\s*\(id: string\) => number \| null \| undefined/,
+    );
   });
 });
 

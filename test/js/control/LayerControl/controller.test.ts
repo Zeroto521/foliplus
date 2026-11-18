@@ -3665,23 +3665,23 @@ describe("LayerController", () => {
       manager.map.hasLayer.mockReturnValue(false);
     });
 
-    it("returns null for base layers", () => {
+    it("returns undefined for a base layer (id exists, no countable features)", () => {
       manager.registerLayer({
         id: "b1",
         name: "B",
         layer: { options: {} },
         role: "base",
       });
-      expect(manager.getFeatureCount("b1")).toBe(null);
+      expect(manager.getFeatureCount("b1")).toBe(undefined);
     });
 
-    it("returns null for an unknown layer id", () => {
+    it("returns null for an unknown layer id (not found)", () => {
       expect(manager.getFeatureCount("ghost")).toBe(null);
     });
 
-    it("returns null for a canvas/unknown layer without a provider", () => {
+    it("returns undefined for a canvas/unknown layer without a provider", () => {
       manager.registerLayer({ id: "c1", name: "Canvas", layer: { options: {} } });
-      expect(manager.getFeatureCount("c1")).toBe(null);
+      expect(manager.getFeatureCount("c1")).toBe(undefined);
     });
 
     it("prefers the third-party featureCountProvider over forEachLeaf", () => {
@@ -3720,7 +3720,7 @@ describe("LayerController", () => {
         layer: { options: {} },
         featureCountProvider: provider,
       });
-      expect(manager.getFeatureCount("boom")).toBe(null);
+      expect(manager.getFeatureCount("boom")).toBe(undefined);
       expect(logSpy).toHaveBeenCalled();
       expect(logSpy.mock.calls[0][0]).toContain("featureCountProvider threw");
       logSpy.mockRestore();
@@ -3741,9 +3741,9 @@ describe("LayerController", () => {
       expect(manager.getFeatureCount("mk")).toBe(2);
     });
 
-    it("returns null for a container layer that is not present (findLayer null)", () => {
+    it("returns undefined for a registered layer whose findLayer resolves to nothing", () => {
       manager.registerLayer({ id: "absent", name: "Absent" });
-      expect(manager.getFeatureCount("absent")).toBe(null);
+      expect(manager.getFeatureCount("absent")).toBe(undefined);
     });
 
     it("counts only data features when a label sub-group is nested under mainLayer", () => {

@@ -849,14 +849,16 @@ class LayerController implements LayerAPI {
 
   /** Return the number of geometric features in a registered layer.
    *  Third-party provider wins (Canvas layers need this). Fallback uses walkLeaf.
-   *  Returns null when the layer cannot be meaningfully counted (Canvas without
-   *  provider, base tile layers, or unknown non-container layers).
+   *  `null` when the id is not registered; `undefined` when the layer exists
+   *  but cannot be meaningfully counted (Canvas without provider, base tile
+   *  layers, or unknown non-container layers).
    *  @param {string} id - Layer id.
-   *  @returns {number|null} Feature count, or null when count is unavailable. */
-  getFeatureCount(id: string): number | null {
+   *  @returns {number|null|undefined} Feature count, `null` = id not found,
+   *   `undefined` = id exists but has no countable features. */
+  getFeatureCount(id: string): number | null | undefined {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.role === ROLE.BASE) return null;
+    if (layerInfo.role === ROLE.BASE) return undefined;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -867,16 +869,16 @@ class LayerController implements LayerAPI {
         // Provider threw (e.g. canvas in a failing state). Log so the failure
         // is visible rather than silently returning a stale 0-count. For
         // Canvas/unknown layers the walkLeaf fallback is a no-op anyway
-        // (returns null), so this is a defensive fallback, not a real path.
+        // (returns undefined), so this is a defensive fallback, not a real path.
         this.log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
     // 2. Fallback via walkLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
-    if (!layer) return null;
+    if (!layer) return undefined;
     if (isGroupLike(layer)) return countFeatureGeometry(layer);
     // 3. Canvas or unknown non-container → no meaningful count.
-    return null;
+    return undefined;
   }
 
   /** Notify subscribers that a layer's feature count may have changed.
