@@ -7,7 +7,7 @@
 //
 // The role vocabulary lives here so the panel never hand-rolls a role string
 // (a hardcoded "overlay" in a control would drift from the table below).
-import { ROLE } from "./const.js";
+import type { ROLE } from "./const.js";
 
 /** A layer's role — derived from `ROLE` (const.ts) so the runtime vocabulary
  *  stays a single source (a literal union here would drift from the table). */

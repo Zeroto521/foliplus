@@ -1,6 +1,6 @@
 // core/layer/role — the role vocabulary.
 import { describe, expect, it } from "vitest";
-import { LayerInfoRegistry, type LayerRole, ROLE } from "#foliplus/core/layer/index.js";
+import { LayerInfoRegistry, ROLE } from "#foliplus/core/layer/index.js";
 
 describe("ROLE", () => {
   it("names the two layer roles", () => {

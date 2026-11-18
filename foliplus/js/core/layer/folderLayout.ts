@@ -545,4 +545,4 @@ export {
   dropLayer,
   restoreAuthorLayout,
 };
-export type { FolderLayout, FolderEntry, LayerRole, FolderMember, FolderLayoutManager };
+export type { FolderLayout, FolderEntry, FolderMember, FolderLayoutManager };

@@ -5,7 +5,7 @@
 // foliplus/js or test/js is a regression toward the old vocabulary. Comments and
 // CSS-class string literals are exempt (they are panel chrome or historical prose),
 // as are RFC references and the persisted-record prose in persistence.ts.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -65,7 +65,7 @@ describe("vocabulary guard: no section middle-layer", () => {
         const src = readFileSync(file, "utf8");
         const words = collectWords(src);
         if (words.length > 0) {
-          hits.push(rel + ": " + [...new Set(words)].join(", "));
+          hits.push(`${rel}: ${[...new Set(words)].join(", ")}`);
         }
       }
     }
@@ -74,7 +74,7 @@ describe("vocabulary guard: no section middle-layer", () => {
 
   it("whitelist drift fails loudly", () => {
     for (const rel of EXEMPT_DIRS) {
-      expect(typeof rel, rel + " exempt dir").toBe("string");
+      expect(typeof rel, `${rel} exempt dir`).toBe("string");
     }
   });
 });
