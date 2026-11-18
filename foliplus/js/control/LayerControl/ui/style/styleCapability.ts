@@ -19,9 +19,8 @@
 // test), so the row presence never changes when a dim joins the projection.
 // The remaining consumer migration (S2 gate move) is out of scope here.
 import type { LayerUI } from "../surface.js";
+import { EMPTY_DIMS, type StyleDims, projectDims } from "./dimTable.js";
 import { isColorBasemap } from "./fillAuthor.js";
-import { EMPTY_DIMS, projectDims } from "./dimTable.js";
-import type { StyleDims } from "./dimTable.js";
 
 /** The surface geometry classification published for the S3 mode resolver.
  *  Five values are the surface's own `geometryType()` answer (point / line /

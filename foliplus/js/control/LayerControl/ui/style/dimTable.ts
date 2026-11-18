@@ -9,8 +9,13 @@
 // which capability slot, and which intent keys prove a user set it".
 // Adding a dim means editing this table first; the parity test locks the
 // table against the registry and the capability interface.
-import { CAP_TIER, DIM, INTENT } from "#core/layer/index.js";
-import type { IntentKey, LayerCapabilities } from "#core/layer/index.js";
+import {
+  CAP_TIER,
+  DIM,
+  INTENT,
+  type IntentKey,
+  type LayerCapabilities,
+} from "#core/layer/index.js";
 
 /** One style dimension's structural facts, in one table entry.
  *
@@ -34,15 +39,88 @@ interface StyleDimSpec {
 }
 
 const STYLE_DIM_TABLE: readonly StyleDimSpec[] = [
-  { key: DIM.ICON, role: "layer", tier: "native", capSlot: "icon", intentKeys: [INTENT.ICON], delegatedOwned: true },
-  { key: DIM.ICON_COLOR, role: "layer", tier: "native", capSlot: "iconColor", intentKeys: [INTENT.ICON_COLOR, INTENT.ICON_COLOR_OPACITY], delegatedOwned: true },
-  { key: DIM.MARKER_COLOR, role: "layer", tier: "native", capSlot: "markerColor", intentKeys: [INTENT.MARKER_COLOR, INTENT.MARKER_COLOR_OPACITY], delegatedOwned: true },
-  { key: DIM.FILL, role: "layer", tier: "native", capSlot: "fill", intentKeys: [INTENT.FILL_COLOR, INTENT.FILL_OPACITY, INTENT.FILL_VALUE, INTENT.FILL_MODE], delegatedOwned: true },
-  { key: DIM.SIZE, role: "layer", tier: "native", capSlot: "size", intentKeys: [INTENT.SIZE], delegatedOwned: true },
-  { key: DIM.BORDER, role: "layer", tier: "native", capSlot: "stroke", intentKeys: [INTENT.BORDER_COLOR, INTENT.BORDER_WEIGHT, INTENT.BORDER_VALUE, INTENT.BORDER_STYLE_MODE], delegatedOwned: true },
-  { key: DIM.OPACITY, role: "layer", tier: "not-none", capSlot: "opacity", intentKeys: [INTENT.OPACITY], delegatedOwned: false },
-  { key: DIM.ZOOM_RANGE, role: "layer", tier: "not-none", capSlot: "zoomRange", intentKeys: [INTENT.ZOOM_RANGE], delegatedOwned: false },
-  { key: DIM.LABEL, role: "label", tier: "not-none", capSlot: "label", intentKeys: [], delegatedOwned: false },
+  {
+    key: DIM.ICON,
+    role: "layer",
+    tier: "native",
+    capSlot: "icon",
+    intentKeys: [INTENT.ICON],
+    delegatedOwned: true,
+  },
+  {
+    key: DIM.ICON_COLOR,
+    role: "layer",
+    tier: "native",
+    capSlot: "iconColor",
+    intentKeys: [INTENT.ICON_COLOR, INTENT.ICON_COLOR_OPACITY],
+    delegatedOwned: true,
+  },
+  {
+    key: DIM.MARKER_COLOR,
+    role: "layer",
+    tier: "native",
+    capSlot: "markerColor",
+    intentKeys: [INTENT.MARKER_COLOR, INTENT.MARKER_COLOR_OPACITY],
+    delegatedOwned: true,
+  },
+  {
+    key: DIM.FILL,
+    role: "layer",
+    tier: "native",
+    capSlot: "fill",
+    intentKeys: [
+      INTENT.FILL_COLOR,
+      INTENT.FILL_OPACITY,
+      INTENT.FILL_VALUE,
+      INTENT.FILL_MODE,
+    ],
+    delegatedOwned: true,
+  },
+  {
+    key: DIM.SIZE,
+    role: "layer",
+    tier: "native",
+    capSlot: "size",
+    intentKeys: [INTENT.SIZE],
+    delegatedOwned: true,
+  },
+  {
+    key: DIM.BORDER,
+    role: "layer",
+    tier: "native",
+    capSlot: "stroke",
+    intentKeys: [
+      INTENT.BORDER_COLOR,
+      INTENT.BORDER_WEIGHT,
+      INTENT.BORDER_VALUE,
+      INTENT.BORDER_STYLE_MODE,
+    ],
+    delegatedOwned: true,
+  },
+  {
+    key: DIM.OPACITY,
+    role: "layer",
+    tier: "not-none",
+    capSlot: "opacity",
+    intentKeys: [INTENT.OPACITY],
+    delegatedOwned: false,
+  },
+  {
+    key: DIM.ZOOM_RANGE,
+    role: "layer",
+    tier: "not-none",
+    capSlot: "zoomRange",
+    intentKeys: [INTENT.ZOOM_RANGE],
+    delegatedOwned: false,
+  },
+  {
+    key: DIM.LABEL,
+    role: "label",
+    tier: "not-none",
+    capSlot: "label",
+    intentKeys: [],
+    delegatedOwned: false,
+  },
 ];
 
 /** The dims boolean map, keyed by the table's dim keys — derived from the
@@ -59,7 +137,7 @@ type StyleDims = Record<(typeof STYLE_DIM_TABLE)[number]["key"], boolean>;
  *  EMPTY_DIMS rather than this projection. */
 const dimEnabled = (spec: StyleDimSpec, caps: Partial<LayerCapabilities>): boolean => {
   const v = caps[spec.capSlot];
-  if (v === undefined) return spec.tier === "native" ? false : true;
+  if (v === undefined) return spec.tier !== "native";
   return spec.tier === "native" ? v === CAP_TIER.NATIVE : v !== CAP_TIER.NONE;
 };
 
@@ -80,8 +158,9 @@ const dimsInRole = (role: "layer" | "label"): readonly string[] =>
 
 /** The delegated drawer's rows: LayerControl-owned layer-role dims only
  *  (delegated.ts consumer). */
-const DELEGATED_DIM_ORDER: readonly string[] =
-  STYLE_DIM_TABLE.filter(d => !d.delegatedOwned && d.role === "layer").map(d => d.key);
+const DELEGATED_DIM_ORDER: readonly string[] = STYLE_DIM_TABLE.filter(
+  d => !d.delegatedOwned && d.role === "layer",
+).map(d => d.key);
 
 /** Project a capability record into the StyleCapability.dims boolean map
  *  (styleCapability.ts consumer). Partial on purpose: a surface declares
@@ -105,7 +184,6 @@ export {
   STYLE_DIM_TABLE,
   dimEnabled,
   dimsInRole,
-  intentKeysOf,
   projectDims,
 };
-export type { StyleDimSpec, StyleDims };
+export type { StyleDims };

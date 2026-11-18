@@ -5,6 +5,9 @@
 // opacity / zoom-range rows.
 import type { LayerUI } from "../surface.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
+// The delegated drawer's Layer-row order comes from the shared table
+// (dimTable.ts) — the single source of which dims are LayerControl-owned.
+import { DELEGATED_DIM_ORDER } from "./dimTable.js";
 import { appendResetFooter } from "./frame.js";
 import { gatedRows } from "./registry.js";
 import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
@@ -14,10 +17,6 @@ import { dropdownSurface } from "#platform/fullscreen.js";
 import { BORDER_WEIGHT, PANEL_CLASS, dropdownOverlay } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-
-// The delegated drawer's Layer-row order comes from the shared table
-// (dimTable.ts) — the single source of which dims are LayerControl-owned.
-import { DELEGATED_DIM_ORDER } from "./dimTable.js";
 
 /** Whether the layer delegates its style to the drawer via styleSetters
  *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item

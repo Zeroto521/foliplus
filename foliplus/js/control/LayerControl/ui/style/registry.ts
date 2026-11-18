@@ -64,10 +64,13 @@
 // `LayerControl/index.ts`) is deferred.
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { DIM, type IntentKey, type LayerOverride } from "#core/layer/index.js";
 import { dimsInRole } from "./dimTable.js";
+import { type IntentKey, type LayerOverride } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
-import type { DimensionValueSource, LayerDimension } from "#control/LayerControl/type.js";
+import type {
+  DimensionValueSource,
+  LayerDimension,
+} from "#control/LayerControl/type.js";
 
 const log = createLogger("LayerControl");
 /** The per-layer capability slots a dimension gate can key on. The tier
@@ -94,23 +97,24 @@ const registerDimension = <D>(d: LayerDimension<D>): LayerDimension<D> => {
   if (registry.has(d.key)) {
     throw new Error(log.msg(`dimension "${d.key}" already registered`));
   }
-  const descriptor = d.intentKeys && !d.valueSource
-    ? {
-        ...d,
-        valueSource: (ui: LayerUI, layerId: string): DimensionValueSource => {
-          if (!d.gate(ui, layerId)) return "none";
-          // Every owned key is a provenance-marked override (the style dims
-          // that install this default all stamp LayerOverride keys); the
-          // type is IntentKey[] because PaintDimension.intentKeys is that
-          // wide, but name/label (non-overrides) never reach here.
-          return d.intentKeys!.some(key =>
-            ui.intentStore.isUserSet(layerId, key as LayerOverride),
-          )
-            ? "user"
-            : "author";
-        },
-      }
-    : d;
+  const descriptor =
+    d.intentKeys && !d.valueSource
+      ? {
+          ...d,
+          valueSource: (ui: LayerUI, layerId: string): DimensionValueSource => {
+            if (!d.gate(ui, layerId)) return "none";
+            // Every owned key is a provenance-marked override (the style dims
+            // that install this default all stamp LayerOverride keys); the
+            // type is IntentKey[] because PaintDimension.intentKeys is that
+            // wide, but name/label (non-overrides) never reach here.
+            return d.intentKeys!.some(key =>
+              ui.intentStore.isUserSet(layerId, key as LayerOverride),
+            )
+              ? "user"
+              : "author";
+          },
+        }
+      : d;
   registry.set(d.key, descriptor);
   return descriptor;
 };
