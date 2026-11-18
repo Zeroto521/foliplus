@@ -47,6 +47,7 @@ import {
   type LayerRole,
   type LayerSurface,
   PaneManager,
+  RECURSION,
   ROLE,
   type RegisterLayerOpts,
   SurfaceIndex,
@@ -2171,7 +2172,7 @@ class LayerController implements LayerAPI {
     let seen = 0;
     let has = false;
     const walk = (node: L.Layer, depth: number): boolean => {
-      if (depth > 10) return false; // mirrors walkLeaf's RECURSION.LAYER_DEPTH
+      if (depth > RECURSION.LAYER_DEPTH) return false; // same cap as walkLeaf
       if (isGroupLike(node as Parameters<typeof isGroupLike>[0])) {
         // Enumerate children: eachLayer when present (Leaflet containers),
         // else the _layers registry (window globals / wrappers). Reaching
@@ -2182,6 +2183,7 @@ class LayerController implements LayerAPI {
           if (typeof tn.eachLayer === "function") {
             tn.eachLayer(k => kids.push(k));
           } else {
+            // isGroupLike(tn) guarantees internalLayers returns a non-null _layers record.
             const reg = internalLayers(tn)!;
             kids = Object.values(reg);
           }
