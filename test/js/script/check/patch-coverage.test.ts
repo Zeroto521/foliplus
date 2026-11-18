@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   computePatch,
@@ -16,6 +16,13 @@ import {
 // push, so a branch never lands on CI with uncovered added lines (root cause
 // of #1181 / #1193). The pure parsers/computers are unit-tested with synthetic
 // inputs; the CLI entry is exercised against a real throwaway git repo.
+
+// A fake repo root that round-trips through toRel on every platform. A
+// hard-coded Windows path ("C:/repo") would make path.resolve treat it as a
+// relative path on POSIX, so toRel would stop stripping the prefix and the
+// coverage keys would stop matching the diff's repo-relative paths — a
+// CI-only failure (Windows local, POSIX CI).
+const REPO = resolve("/repo");
 
 type StatementRange = {
   start: { line: number; column: number };
@@ -117,12 +124,12 @@ describe("parseIstanbul", () => {
   it("marks statement lines covered or not by execution count", () => {
     const covByRel = parseIstanbul(
       {
-        "C:/repo/foliplus/js/x.ts": entry(
+        [join(REPO, "foliplus/js/x.ts")]: entry(
           { "0": stmt(1), "1": stmt(2, 3) },
           { "0": 1, "1": 0 },
         ),
       },
-      "C:/repo",
+      REPO,
     );
     const lc = covByRel.get("foliplus/js/x.ts").lines;
     expect(lc.get(1)).toBe("covered");
@@ -134,12 +141,12 @@ describe("parseIstanbul", () => {
   it("lets a covered statement win over an uncovered one on the same line", () => {
     const covByRel = parseIstanbul(
       {
-        "C:/repo/foliplus/js/x.ts": entry(
+        [join(REPO, "foliplus/js/x.ts")]: entry(
           { "0": stmt(1), "1": stmt(1) },
           { "0": 1, "1": 0 },
         ),
       },
-      "C:/repo",
+      REPO,
     );
     expect(covByRel.get("foliplus/js/x.ts").lines.get(1)).toBe("covered");
   });
@@ -147,14 +154,14 @@ describe("parseIstanbul", () => {
   it("reports an untaken branch at its line", () => {
     const covByRel = parseIstanbul(
       {
-        "C:/repo/foliplus/js/x.ts": entry(
+        [join(REPO, "foliplus/js/x.ts")]: entry(
           { "0": stmt(5) },
           { "0": 1 },
           { "0": { line: 5, locations: [{}, {}] } },
           { "0": [1, 0] },
         ),
       },
-      "C:/repo",
+      REPO,
     );
     expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([
       { line: 5, untaken: 1, total: 2 },
@@ -165,14 +172,14 @@ describe("parseIstanbul", () => {
 describe("parseLcov", () => {
   it("reads line hit counts and branch partials", () => {
     const lcov = [
-      "SF:C:/repo/foliplus/js/x.ts",
+      "SF:" + join(REPO, "foliplus/js/x.ts"),
       "DA:1,1",
       "DA:2,0",
       "BRDA:2,0,0,0",
       "BRDA:2,0,1,1",
       "end_of_record",
     ].join("\n");
-    const covByRel = parseLcov(lcov, "C:/repo");
+    const covByRel = parseLcov(lcov, REPO);
     const fc = covByRel.get("foliplus/js/x.ts");
     expect(fc.lines.get(1)).toBe("covered");
     expect(fc.lines.get(2)).toBe("uncovered");
@@ -181,13 +188,13 @@ describe("parseLcov", () => {
 
   it("treats a '-' branch count as untaken-agnostic (no partial)", () => {
     const lcov = [
-      "SF:C:/repo/foliplus/js/x.ts",
+      "SF:" + join(REPO, "foliplus/js/x.ts"),
       "DA:1,1",
       "BRDA:1,0,0,-",
       "BRDA:1,0,1,1",
       "end_of_record",
     ].join("\n");
-    const covByRel = parseLcov(lcov, "C:/repo");
+    const covByRel = parseLcov(lcov, REPO);
     // '-' (no info) is not an untaken target, so there is no partial.
     expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([]);
   });
@@ -195,7 +202,7 @@ describe("parseLcov", () => {
 
 describe("computePatch", () => {
   const coverage = {
-    "C:/repo/foliplus/js/x.ts": entry(
+    [join(REPO, "foliplus/js/x.ts")]: entry(
       {
         "0": stmt(1),
         "1": stmt(2),
@@ -205,7 +212,7 @@ describe("computePatch", () => {
       { "0": 1, "1": 0, "2": 1, "3": 0 },
     ),
   };
-  const covByRel = parseIstanbul(coverage, "C:/repo");
+  const covByRel = parseIstanbul(coverage, REPO);
   it("counts covered/uncovered added executable lines", () => {
     const diffAdded = new Map([["foliplus/js/x.ts", new Set([1, 2, 3])]]);
     const res = computePatch(diffAdded, covByRel) as unknown as PatchResult;
@@ -238,7 +245,7 @@ describe("computePatch", () => {
   it("filters branch partials to the added lines", () => {
     const withBranch = parseIstanbul(
       {
-        "C:/repo/foliplus/js/x.ts": entry(
+        [join(REPO, "foliplus/js/x.ts")]: entry(
           { "0": stmt(5) },
           { "0": 1 },
           {
@@ -248,7 +255,7 @@ describe("computePatch", () => {
           { "0": [1, 0], "1": [1, 0] },
         ),
       },
-      "C:/repo",
+      REPO,
     );
     const res = computePatch(
       new Map([["foliplus/js/x.ts", new Set([5])]]),
