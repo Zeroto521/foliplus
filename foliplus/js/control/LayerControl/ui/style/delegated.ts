@@ -18,14 +18,6 @@ import { BORDER_WEIGHT, PANEL_CLASS, dropdownOverlay } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
-/** Whether the layer delegates its style to the drawer via styleSetters
- *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
- *  also enables for these. */
-const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  return !!layerInfo?.styleSetters && Object.keys(layerInfo.styleSetters).length > 0;
-};
-
 /** Build the border-style row for a delegated layer (only HeatmapControl
  *  publishes borderWeight / borderColor today). Delegates to the shared
  *  builder in `./border.js` — same shell as the vector border row, so
@@ -178,9 +170,4 @@ const renderDelegatedStylePanel = (
   return panel;
 };
 
-export {
-  DELEGATED_DIM_ORDER,
-  buildDelegatedBorderRow,
-  layerHasStyleDelegation,
-  renderDelegatedStylePanel,
-};
+export { DELEGATED_DIM_ORDER, buildDelegatedBorderRow, renderDelegatedStylePanel };
