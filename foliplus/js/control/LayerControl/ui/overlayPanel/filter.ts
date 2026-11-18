@@ -136,15 +136,11 @@ interface FilterPanelState {
   entry: LayerInfo;
   content: HTMLElement;
   view: FilterView;
-  /** True while a panel-originated write is in flight — the owner publishes
-   *  LAYER_FILTER_CHANGE synchronously from the setter, and that self-signal
-   *  must not rebuild the view under the user's pointer. */
-  writing: boolean;
-  /** A synthetic owner may report several dimensions. The panel renders the
-   *  first one; warn once per open panel instead of throwing. */
   /** The dimension the range body edits. Derived per D8: the committed
    *  atom's field, else the first dimension — never persisted. */
   activeField: string | null;
+  /** A synthetic owner may report several dimensions. The panel renders the
+   *  first one; warn once per open panel instead of throwing. */
   multiDimWarned: boolean;
 }
 
@@ -374,9 +370,6 @@ const subscribeFilterSignals = (
   hooks: FilterViewHooks,
 ): (() => void) => {
   const refresh = (): void => {
-    // Our own write already reconciled; rebuilding here would drop the
-    // slider session mid-drag.
-    if (state.writing) return;
     const cap = resolveCapability(ui, state);
     if (!cap) {
       closeFilterPanel(ui, false);
@@ -396,8 +389,16 @@ const subscribeFilterSignals = (
     if (id === state.layerId) closeFilterPanel(ui, false);
   };
   const unsubs = [
-    ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id }) => {
-      if (id === state.layerId) refresh();
+    ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id, origin }) => {
+      if (id !== state.layerId) return;
+      // A panel write publishes this synchronously from the owner's setter;
+      // the write hook reconciles explicitly after, so the echo must not
+      // rebuild the view under the pointer. Only this panel's own user/panel
+      // write is suppressed — an external programmatic/system change still
+      // re-reads the model. A signal without an origin (legacy publisher) is
+      // never this panel's own, so it is always honoured.
+      if (origin?.kind === "user" && origin?.via === "panel") return;
+      refresh();
     }),
     // The option set of an enum dimension can follow the row's item count
     // (only the measurement types that exist are offered), so an item count
@@ -444,7 +445,6 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     content,
     view: buildEmptyState(ui),
     activeField: null,
-    writing: false,
     multiDimWarned: false,
   };
   content.appendChild(state.view.root);
@@ -456,15 +456,10 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
         closeFilterPanel(ui, false);
         return;
       }
-      state.writing = true;
-      try {
-        live.filterSetter(filter);
-      } finally {
-        state.writing = false;
-      }
+      live.filterSetter(filter);
       // The owner may have retired itself synchronously (a reset inside the
-      // setter closes this panel through LAYER_FILTER_CHANGE → no, the
-      // signal is suppressed while writing, so re-check here).
+      // setter closes this panel through LAYER_FILTER_CHANGE; the echo is
+      // origin-filtered, so re-check here).
       if (ui.overlayPanel.activeFilterPanel !== state) return;
       const after = resolveCapability(ui, state);
       if (!after) {
@@ -481,14 +476,9 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
       }
 
       state.activeField = field;
-      state.writing = true;
-      try {
-        live.filterProvider()?.onField?.(field);
-      } finally {
-        state.writing = false;
-      }
-      // The owner publishes LAYER_FILTER_CHANGE after clearing, but it is
-      // suppressed while writing; reconcile here to rebuild for the new field.
+      live.filterProvider()?.onField?.(field);
+      // The owner publishes LAYER_FILTER_CHANGE after clearing; the echo is
+      // origin-filtered, so reconcile here to rebuild for the new field.
       if (ui.overlayPanel.activeFilterPanel !== state) return;
       const freshCap = resolveCapability(ui, state);
       if (freshCap) reconcile(ui, state, hooks, freshCap);

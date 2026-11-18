@@ -2107,7 +2107,7 @@ class LayerController implements LayerAPI {
     this.filterStore.registerHost(id, FILTER_SOURCE.GENERIC, {
       normalize: (filter: LayerFilter) => filter,
       apply: (filter: LayerFilter) => this.applyFilterClass(id, filter),
-      publish: () => emitLayerEvent(this.events, "LAYER_FILTER_CHANGE",  { origin: { kind: "programmatic", via: "self" }, id }),
+      publish: () => emitLayerEvent(this.events, "LAYER_FILTER_CHANGE",  { origin: { kind: "user", via: "panel" }, id }),
     });
   }
 

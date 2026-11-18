@@ -2413,7 +2413,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
       setter(f);
       // The owner repaints synchronously inside its setter: the panel's own
       // write must not rebuild under the drag that triggered it.
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "pnt",
+        origin: { kind: "user", via: "panel" },
+      });
     });
     info.filterSetter = echo;
     ui.openFilterPanel(item);
