@@ -125,6 +125,15 @@ type ValueFaceDecl = {
   logLabel: string;
 };
 
+// Module-level WeakMap keyed by the map instance: the classify-degradation
+// hint is shown at most once per layer per page. Every apply re-runs the
+// value walk, so without dedup a page missing simple-statistics would re-pop
+// the hint on every re-render of a jenks/quantile layer. Keying by the map
+// (not a module-level Set keyed by layerId) keeps controls and tests isolated:
+// a fresh map starts with no degraded layers, and a second control on the
+// same map still shares the per-layer dedup.
+const degradedHintedLayers = new WeakMap<object, Set<string>>();
+
 /** Apply a value-based style to one layer through the shared mode.
  *
  *  Two-pass walk: collect `feature.properties[field]` values, then write
@@ -219,11 +228,18 @@ const paintByValue = (
         m => buildRamp(values, { ...value, method: m }),
         err => {
           log.warn(decl.logLabel, err);
-          ui.c.map.foliplus!.showHint(
-            ui.config.name,
-            ui.T("style_value_classify_degraded"),
-            HINT_DURATION.LONG,
-          );
+          // Dedup by layer: the degradation is reported once per layer per
+          // page, so a re-render of the same layer must not re-pop the hint.
+          const hinted = degradedHintedLayers.get(ui.c.map) ?? new Set<string>();
+          if (!hinted.has(layerId)) {
+            hinted.add(layerId);
+            degradedHintedLayers.set(ui.c.map, hinted);
+            ui.c.map.foliplus!.showHint(
+              ui.config.name,
+              ui.T("style_value_classify_degraded"),
+              HINT_DURATION.LONG,
+            );
+          }
         },
       );
     }
