@@ -313,7 +313,7 @@ const syncRowOrder = (ui: LayerUI): void => {
   const targets: HTMLElement[] = [];
   // Anchor push follows the layer order (renderInitialList's ordering): a
   // role's anchor is pushed the first time the loop sees one of its rows. A
-  // section that owns only an empty folder key (no live rows) has its anchor
+  // role that owns only an empty folder key (no live rows) has its anchor
   // pushed after the loop instead, so it stays reachable for the cleanup
   // button and the drift check cannot false-warn (builder-4 ②).
   const anchorSeen = new Set<string>();
