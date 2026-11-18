@@ -1205,18 +1205,7 @@ const BORDER_DIMENSION = registerDimension<{
     // Same restore walk as fill — one styleBag contract, not two copies.
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.STROKE));
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanBorder(ui, layerId)) return "none";
-    if (
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_VALUE) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_STYLE_MODE)
-    ) {
-      return "user";
-    }
-    return "author";
-  },
+  intentKeys: BORDER_INTENT_KEYS,
   /** Content-change replay: a stroke chosen before a leaf landed reaches it
    *  through the same coalesced walk an edit takes. The when-gate mirrors
    *  applyBorderToLayer's own bail, before any scheduler box is allocated. */
