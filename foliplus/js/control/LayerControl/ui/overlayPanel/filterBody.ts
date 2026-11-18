@@ -103,20 +103,22 @@ const readOnlyField = (field: string): HTMLElement =>
     dom.el("span", { class: CONST.CLASSES.FILTER_FIELD_VALUE }, field),
   );
 
-/** Shared dual-thumb range body: the field row (caption + read-only field
- *  name) plus the condition row (caption + slider). Two different questions
- *  are being answered — which field is being filtered, and over what range.
- *  Both captions are shared panel vocabulary, so no two owners can drift
- *  apart. `core` refuses to print the raw field name as a caption. */
-const renderRangeBody = (
-  dim: FilterRangeDimension,
+/** The shared field row: the caption plus either a field picker (a model
+ *  offering fields) or the read-only field cell (an owner that does not —
+ *  Heatmap, Measure). One row shape for both the range and enum bodies, so
+ *  switching between a range and an enum field keeps the same field row and
+ *  the bug where an enum body dropped it cannot recur. The control cell
+ *  carries a stable data-* identity (`data-filter-field`) so the panel and
+ *  tests address the row without class-name reach-around. */
+const buildFieldRow = (
+  dim: { field: string },
   model: LayerFilterModel,
   deps: FilterBodyDeps,
-): FilterBody => {
-  // The field row always renders. A model that offers fields gets a picker
-  // (select + shared dropdown, the style panel's field-row recipe); the
-  // read-only cell is the fallback for owners that do not (Heatmap, Measure),
-  // so their row is byte-identical to today.
+): { row: HTMLElement; dropdown?: Dropdown } => {
+  // A model that offers fields gets a picker (select + shared dropdown, the
+  // style panel's field-row recipe); the read-only cell is the fallback for
+  // owners that do not (Heatmap, Measure), so their row is byte-identical to
+  // today.
   const fields = model.fields ?? null;
   let fieldDropdown: Dropdown | undefined;
   const fieldControl = fields
@@ -138,10 +140,33 @@ const renderRangeBody = (
         return fieldDropdown.element;
       })()
     : readOnlyField(dim.field);
-  const fieldRow = buildDimensionRow(deps.T("filter_field"), fieldControl).row;
+  const { row, control } = buildDimensionRow(deps.T("filter_field"), fieldControl);
+  // The stable identity: the field row answers "which field", and the panel /
+  // tests must reach it by data-* (not by the FILTER_FIELD class, which the
+  // task-107 condition tree could reuse).
+  control.dataset.filterField = dim.field;
+  return { row, dropdown: fieldDropdown };
+};
+
+/** Shared dual-thumb range body: the field row (caption + read-only field
+ *  name) plus the condition row (caption + slider). Two different questions
+ *  are being answered — which field is being filtered, and over what range.
+ *  Both captions are shared panel vocabulary, so no two owners can drift
+ *  apart. `core` refuses to print the raw field name as a caption. */
+const renderRangeBody = (
+  dim: FilterRangeDimension,
+  model: LayerFilterModel,
+  deps: FilterBodyDeps,
+): FilterBody => {
+  // The shared field row: picker when the model offers fields, read-only
+  // cell otherwise. One row shape for both body kinds, so an enum body keeps
+  // the field row the range body renders.
+  const { row: fieldRow, dropdown: fieldDropdown } = buildFieldRow(dim, model, deps);
   // The condition row uses the same shared "Range" wording on both branches.
   const conditionLabel = deps.T("filter_range");
   const host = dom.el("div", { class: CONST.CLASSES.FILTER_SLIDER });
+  // The stable value identity: the slider host answers "over what range".
+  host.dataset.filterValue = "range";
   const slider = new Slider(host, {
     min: dim.range[0],
     max: dim.range[1],
@@ -258,9 +283,14 @@ const renderEnumBody = (
   // range mode uses for its control, and exposes that name on both the group
   // and the trigger so a screen reader hears the condition, not a bare
   // button.
+  // The field row must render in the enum body too: the user just picked this
+  // field, and dropping it (the P1: field disappears after selecting an enum
+  // field) made the panel look like it lost the "which field" question.
+  const { row: fieldRow } = buildFieldRow(dim, model, deps);
   const conditionLabel = deps.T("filter_enum");
   const { row, control } = buildDimensionRow(conditionLabel);
   control.classList.add(CONST.CLASSES.FILTER_ENUM);
+  control.dataset.filterValue = "enum";
   control.setAttribute("role", "group");
   control.setAttribute("aria-label", conditionLabel);
 
@@ -313,8 +343,12 @@ const renderEnumBody = (
     if (!sameValues(dropdown.getValues(), values)) dropdown.setValues(values);
   };
 
+  // The field row precedes the condition row: the panel answers "which field"
+  // first, then "what values". The root wraps both so the body owns them.
+  const root = dom.el("div", {}, fieldRow, row);
+
   return {
-    root: row,
+    root,
     dimension: dim,
     sync,
     destroy: () => dropdown.destroy(),

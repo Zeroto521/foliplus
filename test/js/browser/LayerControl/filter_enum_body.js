@@ -76,7 +76,7 @@ async () => {
   };
   const popupOpen = () => Boolean(list() && list().hidden === false);
   const fieldLabel = () => {
-    const cell = panel() && panel().querySelector(".foliplus-filter-field");
+    const cell = panel() && panel().querySelector('[data-filter-value="enum"]');
     const rowEl = cell && cell.closest(".foliplus-form-row");
     const label = rowEl && rowEl.querySelector(".foliplus-form-label");
     return label ? label.textContent : null;
@@ -153,6 +153,26 @@ async () => {
         }
       : null;
     Object.assign(out, { rowAfterClear: rowFacts() });
+    // The P1 regression facts: the field row must be present and addressable
+    // by its data-* identity even in the enum body, and it must precede the
+    // condition row.
+    const fieldRow = panel() && panel().querySelector('[data-filter-field="type"]');
+    const fieldRowEl = fieldRow && fieldRow.closest(".foliplus-form-row");
+    const valueRowEl =
+      panel() &&
+      panel().querySelector('[data-filter-value="enum"]')?.closest(
+        ".foliplus-form-row",
+      );
+    const rows = panel()
+      ? Array.from(panel().querySelectorAll(".foliplus-form-row"))
+      : [];
+    out.fieldRowPresent = Boolean(fieldRow);
+    out.fieldRowLabel = fieldRowEl
+      ? fieldRowEl.querySelector(".foliplus-form-label")?.textContent
+      : null;
+    out.fieldRowBeforeValue = Boolean(
+      fieldRowEl && valueRowEl && rows.indexOf(fieldRowEl) < rows.indexOf(valueRowEl),
+    );
     out.ok = true;
   } finally {
     try {
