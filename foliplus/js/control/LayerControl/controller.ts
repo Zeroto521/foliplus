@@ -58,7 +58,7 @@ import {
   filterStep,
   findLayer,
   folderOf,
-  freezeSectionOrder,
+  freezeRoleOrder,
   normalizeFolderName,
   renameFolder,
   visibleDomOf,
@@ -1600,12 +1600,7 @@ class LayerController implements LayerAPI {
     );
     if (members.length !== 1) return false; // not the last member
     this.folderLayout.set(
-      freezeSectionOrder(
-        this.folderLayout.layout,
-        section,
-        this.layerRegistry.layers,
-        key,
-      ),
+      freezeRoleOrder(this.folderLayout.layout, role, this.layerRegistry.layers, key),
     );
     return true;
   }

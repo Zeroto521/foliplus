@@ -67,7 +67,8 @@ import {
 } from "./style/styleBag.js";
 import type { LayerUI } from "./surface.js";
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
-import { ROLE, sectionOf } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
+import type { LayerRole } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /**
@@ -237,7 +238,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
       event.preventDefault();
       const role = cleanBtn.dataset.role ?? "";
       if (role) {
-        ui.c.cleanEmptyFolders(sectionOf(role as Parameters<typeof sectionOf>[0]));
+        ui.c.cleanEmptyFolders(role as LayerRole);
       }
       return;
     }

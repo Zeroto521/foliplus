@@ -17,7 +17,7 @@ import {
   emptyFolderLayout,
   ensureFolderLayout,
   folderOf,
-  freezeSectionOrder,
+  freezeRoleOrder,
   fullDisplayOrder,
   groupByFolder,
   isFolderLayout,
@@ -27,7 +27,7 @@ import {
   readFolderLayout,
   renameFolder,
   restoreAuthorLayout,
-  sectionOrder,
+  roleOrder,
   seedFolderLayout,
   writeFolderLayout,
 } from "#core/layer/index.js";
@@ -188,13 +188,13 @@ describe("dropLayer", () => {
   });
 });
 
-describe("freezeSectionOrder", () => {
+describe("freezeRoleOrder", () => {
   it("materialises the block order from live members before a removal", () => {
     let layout = seedFolderLayout([
       entry("a", "overlay", "Roads", 0),
       entry("b", "overlay", null, 2),
     ]);
-    layout = freezeSectionOrder(
+    layout = freezeRoleOrder(
       layout,
       "overlay",
       [
@@ -401,14 +401,14 @@ describe("pure helper coverage", () => {
     expect(map.get("roads")!.members.map(m => m.id)).toEqual(["a", "b"]);
   });
 
-  it("sectionOrder lists listed keys first then unlisted by anchor, and roots last", () => {
+  it("roleOrder lists listed keys first then unlisted by anchor, and roots last", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],
       order: { overlay: ["roads"] },
       members: {
-        a: { section: "overlay", folder: "roads" },
-        b: { section: "overlay", folder: "" },
+        a: { role: "overlay", folder: "roads" },
+        b: { role: "overlay", folder: "" },
       },
     };
     const entries = [
@@ -416,21 +416,21 @@ describe("pure helper coverage", () => {
       entry("b", "overlay", null, 1),
       entry("c", "overlay", "Water", 2),
     ] as LayerInfo[];
-    const order = sectionOrder("overlay", entries, layout);
+    const order = roleOrder("overlay", entries, layout);
     expect(order.map(e => e.id)).toEqual(["a", "c", "b"]);
   });
 
-  it("sectionOrder skips a stale listed key that has no live members", () => {
+  it("roleOrder skips a stale listed key that has no live members", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],
       // "water" is listed but no member declares it: a stale order key left
       // after the last member moved out. The block must be skipped.
       order: { overlay: ["water", "roads"] },
-      members: { a: { section: "overlay", folder: "roads" } },
+      members: { a: { role: "overlay", folder: "roads" } },
     };
     const entries = [entry("a", "overlay", null, 0)] as LayerInfo[];
-    const order = sectionOrder("overlay", entries, layout);
+    const order = roleOrder("overlay", entries, layout);
     expect(order.map(e => e.id)).toEqual(["a"]);
   });
 
@@ -443,13 +443,13 @@ describe("pure helper coverage", () => {
     expect(fullDisplayOrder(entries, layout).map(e => e.id)).toEqual(["a", "b"]);
   });
 
-  it("freezeSectionOrder appends an unlisted key when the frozen key is absent", () => {
+  it("freezeRoleOrder appends an unlisted key when the frozen key is absent", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       order: { overlay: [] },
     };
     const entries = [entry("a", "overlay", "Roads", 0)] as LayerInfo[];
-    const next = freezeSectionOrder(layout, "overlay", entries, "roads");
+    const next = freezeRoleOrder(layout, "overlay", entries, "roads");
     expect(next.order.overlay).toEqual(["roads"]);
   });
 
@@ -602,17 +602,17 @@ describe("coverage edges", () => {
     ).toBe(false);
   });
 
-  it("freezeSectionOrder appends a folder key that no entry declares", () => {
+  it("freezeRoleOrder appends a folder key that no entry declares", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       order: { overlay: ["water"] },
     };
     const entries = [entry("a", "overlay", null, 0)] as LayerInfo[];
-    const next = freezeSectionOrder(layout, "overlay", entries, "roads");
+    const next = freezeRoleOrder(layout, "overlay", entries, "roads");
     expect(next.order.overlay).toEqual(["water", "roads"]);
   });
 
-  it("sectionOrder sorts multiple unlisted folders by their anchor", () => {
+  it("roleOrder sorts multiple unlisted folders by their anchor", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       order: { overlay: [] },
@@ -621,7 +621,7 @@ describe("coverage edges", () => {
       entry("a", "overlay", "Water", 0),
       entry("b", "overlay", "Roads", 1),
     ] as LayerInfo[];
-    const order = sectionOrder("overlay", entries, layout);
+    const order = roleOrder("overlay", entries, layout);
     // "water" anchor 0, "roads" anchor 1.
     expect(order.map(e => e.id)).toEqual(["a", "b"]);
   });
@@ -653,20 +653,20 @@ describe("coverage edges", () => {
     expect(manager.layout.folders).toEqual([]);
   });
 
-  it("freezeSectionOrder sorts multiple unlisted folders by anchor", () => {
+  it("freezeRoleOrder sorts multiple unlisted folders by anchor", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       order: { overlay: [] },
       members: {
-        a: { section: "overlay", folder: "water" },
-        b: { section: "overlay", folder: "roads" },
+        a: { role: "overlay", folder: "water" },
+        b: { role: "overlay", folder: "roads" },
       },
     };
     const entries = [
       entry("a", "overlay", null, 0),
       entry("b", "overlay", null, 1),
     ] as LayerInfo[];
-    const next = freezeSectionOrder(layout, "overlay", entries, "extra");
+    const next = freezeRoleOrder(layout, "overlay", entries, "extra");
     // Both water and roads are unlisted; the sort orders by anchor.
     expect(next.order.overlay).toEqual(["water", "roads", "extra"]);
   });
