@@ -169,6 +169,7 @@ class SearchControl extends defineControl({
     this.currentItems = [];
 
     this.setMode(this.mode);
+    // listener-exempt: mode button handler; explicitly detached in the destroy detach-mode-btn step
     this.modeBtn.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       this.setMode(this.mode === MODE.COORD ? MODE.ADDR : MODE.COORD);

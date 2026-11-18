@@ -270,6 +270,7 @@ const bindPaintRow = (
   const detail = block.querySelector(
     `.${dim.chrome(ui).detailClass}`,
   ) as HTMLElement | null;
+  // listener-exempt: style-panel dimension select handler on a panel-owned element
   select.onchange = () => {
     const previous = displayMode(dim, ui, layerId);
     const next = select.value as StyleMode;
