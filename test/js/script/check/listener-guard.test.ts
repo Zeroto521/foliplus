@@ -1,5 +1,6 @@
 // test/js/script/check/listener-guard — static scanner that requires every
-// raw addEventListener / removeEventListener / map.on / map.once call in
+// raw addEventListener / removeEventListener / map.on / map.once call AND
+// every property-assignment listener (`.on<event> = <handler>`) in
 // foliplus/js/{control,core,ui} to carry an adjacent `// listener-exempt:`
 // comment or live in an explicitly whitelisted file.
 //
@@ -7,6 +8,16 @@
 // lifecycle (auto-unbind on onRemove). A raw addEventListener outside
 // BaseControl bypasses that contract and leaks on control teardown. This
 // guard makes the leak visible at CI time rather than at runtime.
+//
+// Property-assignment listeners: the assignment `.on<event> = <handler>`
+// (onclick/onchange/oninput/onload/onerror/onblur/...) is the same raw
+// wiring as addEventListener and is scanned the same way. The rule:
+//   - <event> is a LOWERCASE DOM event handler name. A non-event property
+//     that happens to be written `.on<lowercase> =` (a data field, not a
+//     handler) must carry a listener-exempt comment naming it as a data
+//     field, not a listener.
+//   - A detach (`.on<event> = null` / `= undefined`) is NOT a listener add
+//     (it removes a handler) and is never flagged.
 //
 // Whitelist policy:
 //   - BaseControl.ts — the implementation itself (listenDOM / listenMap).
@@ -25,7 +36,16 @@ const REPO_ROOT = resolve(".");
 const JS_ROOT = resolve(REPO_ROOT, "foliplus/js");
 const SCOPED_DIRS = ["control", "core", "ui"].map(d => resolve(JS_ROOT, d));
 
-const LISTENER_RE = /\.(addEventListener|removeEventListener)\(|\bmap\.(?:on|once)\(/;
+// A raw DOM listener is any of:
+//   - .addEventListener( / .removeEventListener(  — the Node methods
+//   - map.on( / map.once(                          — Leaflet map events
+//   - .on<event> = <handler>                       — property-assignment
+//     listener (onclick/onchange/oninput/onload/...). The trailing [^=]
+//     excludes a comparison (===); the space-aware negative lookahead
+//     excludes a detach (= null / = undefined), which removes a handler
+//     rather than adding one.
+const LISTENER_RE =
+  /\.(?:addEventListener|removeEventListener)\(|\bmap\.(?:on|once)\(|\.on[a-z]+\s*=\s*(?!(?:\s*(?:null|undefined)\b))[^=]/;
 const EXEMPT_RE = /\/\/\s*listener-exempt:\s*\S+/;
 
 /** Files wholly exempt from the listener guard. Each entry carries a
@@ -94,10 +114,6 @@ const FILE_WHITELIST: readonly { file: string; reason: string }[] = [
   {
     file: "foliplus/js/control/HeatmapControl/manager.ts",
     reason: "heatmap manager owns map events",
-  },
-  {
-    file: "foliplus/js/control/HeatmapControl/ui.ts",
-    reason: "heatmap UI owns control attach listener",
   },
   {
     file: "foliplus/js/control/LayerControl/controller.ts",
@@ -186,10 +202,6 @@ const FILE_WHITELIST: readonly { file: string; reason: string }[] = [
   {
     file: "foliplus/js/control/MeasureControl/util.ts",
     reason: "measure util owns animationend",
-  },
-  {
-    file: "foliplus/js/control/SearchControl/interaction.ts",
-    reason: "search interaction owns input/scroll/resize",
   },
   // ── UI primitives ──
   {
@@ -284,6 +296,49 @@ describe("listener-guard: raw listeners must carry listener-exempt", () => {
     const snippet = [
       "// listener-exempt: teardown cleanup",
       'el.addEventListener("click", () => {});',
+    ].join("\n");
+    const slines = snippet.split("\n");
+    const violations: number[] = [];
+    for (let i = 0; i < slines.length; i++) {
+      if (!LISTENER_RE.test(slines[i])) continue;
+      const window = slines.slice(Math.max(0, i - 2), i);
+      if (!window.some(l => EXEMPT_RE.test(l))) violations.push(i + 1);
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("property-assignment listener triggers the guard (self-test)", () => {
+    // 判死: a .onclick = handler with no exemption must be a violation.
+    const snippet = [
+      'const el = document.createElement("button");',
+      "el.onclick = () => {};",
+    ].join("\n");
+    const lines = snippet.split("\n");
+    const violations: number[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (!LISTENER_RE.test(lines[i])) continue;
+      const window = lines.slice(Math.max(0, i - 2), i);
+      if (!window.some(l => EXEMPT_RE.test(l))) violations.push(i + 1);
+    }
+    expect(violations).toEqual([2]);
+  });
+
+  it("detach (onX = null / undefined) is not a listener add (self-test)", () => {
+    const snippet = ["el.onclick = null;", "el.onchange = undefined;"].join("\n");
+    const lines = snippet.split("\n");
+    const violations: number[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (!LISTENER_RE.test(lines[i])) continue;
+      const window = lines.slice(Math.max(0, i - 2), i);
+      if (!window.some(l => EXEMPT_RE.test(l))) violations.push(i + 1);
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("exempt comment suppresses a property-assignment listener (self-test)", () => {
+    const snippet = [
+      "// listener-exempt: control-DOM button, removed with the control",
+      "el.onclick = () => {};",
     ].join("\n");
     const slines = snippet.split("\n");
     const violations: number[] = [];

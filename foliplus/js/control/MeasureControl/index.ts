@@ -103,6 +103,7 @@ const MeasureControl = defineControl<MeasureManager>({
     });
 
     this.mgr.toolBtns.forEach((btn: HTMLElement) => {
+      // listener-exempt: toolbar button handler; control-DOM, removed with the control
       btn.onclick = (event: MouseEvent) => {
         event.stopPropagation();
         this.mgr.setMode(btn.dataset.mode ?? null);
