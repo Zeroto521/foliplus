@@ -161,7 +161,15 @@ const main = ({
   }
 
   if (out.error || (out.status !== 0 && out.status !== 2)) {
-    error(out.error ? String(out.error) : `tsc exited ${out.status}`);
+    // Non-expected exit code: dump stdout+stderr so the caller can diagnose.
+    // Status 1 with no stdout is a config-level TS5xxx error (tsconfig path,
+    // missing @types) — without the output the failure is opaque.
+    const diag = [out.stdout, out.stderr].filter(Boolean).join("\n");
+    error(
+      out.error
+        ? String(out.error)
+        : diag || `tsc exited ${out.status} (no output)`
+    );
     return 1;
   }
 
