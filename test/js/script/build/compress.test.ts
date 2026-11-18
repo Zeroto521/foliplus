@@ -150,4 +150,24 @@ describe("compressHtmlStrings comment/string awareness", () => {
     const code = "const html = `<div>hi</div>`; // note `backtick`";
     expect(compressHtmlStrings(code)).toBe(code);
   });
+
+  it("keeps an escaped quote and a backtick inside a string literal", () => {
+    // Regression shape: a double-quoted string containing an escaped quote
+    // followed by a backtick. If the scanner treated the escaped quote as the
+    // terminator, the backtick would be seen as an opening template literal and
+    // pair with the real template below, mangling the code. Removing the escape
+    // branch makes this test fail.
+    const code = ['const s = "a \\" `b";', "const x = `<div>hi</div>`;"].join("\n");
+    const result = compressHtmlStrings(code);
+    expect(result).toContain('const s = "a \\" `b";');
+    expect(result).toContain("<div>hi</div>");
+  });
+
+  it("terminates on an unterminated block comment instead of looping", () => {
+    // Defensive branch: a `/*` with no closing `*/` must be passed through and
+    // must not reset the scan offset (which would re-scan and loop forever).
+    // Removing the guard makes this test hang — a red death test for the branch.
+    const code = "const a = 1;\n/* never closed";
+    expect(compressHtmlStrings(code)).toBe(code);
+  });
 });
