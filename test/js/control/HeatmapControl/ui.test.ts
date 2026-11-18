@@ -347,6 +347,7 @@ describe("bindControls — change handlers", () => {
     fire(ctrl.fieldSelect, "change");
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: m.layerId,
+      origin: { kind: "programmatic", via: "self" },
     });
   });
 });

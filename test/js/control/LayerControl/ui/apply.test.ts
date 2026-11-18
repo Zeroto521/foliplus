@@ -746,7 +746,7 @@ describe("executor: carrier dispatch", () => {
 
       ui.applyVisibility("cv-e", false);
 
-      expect(seen).toEqual([{ id: "cv-e", kind: "canvas" }]);
+      expect(seen).toEqual([{ id: "cv-e", kind: "canvas", origin: { kind: "programmatic", via: "self" } }]);
       expect(observedHidden).toEqual([true]);
       expect(canvas.classList.contains(HIDDEN)).toBe(true);
     });
@@ -768,7 +768,7 @@ describe("executor: carrier dispatch", () => {
 
       ui.applyVisibility("cv-f", true);
 
-      expect(seen).toEqual([{ id: "cv-f", kind: "canvas" }]);
+      expect(seen).toEqual([{ id: "cv-f", kind: "canvas", origin: { kind: "programmatic", via: "self" } }]);
       expect(observedHidden).toEqual([false]);
       expect(canvas.classList.contains(HIDDEN)).toBe(false);
     });
@@ -823,7 +823,7 @@ describe("executor: carrier dispatch", () => {
 
       expect(onMap.current).toBe(false);
       expect(seen.length).toBe(1);
-      expect(seen[0]).toEqual({ id: "zv", kind: "vector" });
+      expect(seen[0]).toEqual({ id: "zv", kind: "vector", origin: { kind: "programmatic", via: "self" } });
     });
 
     it("a zoom sweep that brings a layer back into range emits LAYER_CHANGE", () => {
@@ -856,7 +856,7 @@ describe("executor: carrier dispatch", () => {
 
       expect(onMap.current).toBe(true);
       expect(seen.length).toBe(1);
-      expect(seen[0]).toEqual({ id: "zv2", kind: "vector" });
+      expect(seen[0]).toEqual({ id: "zv2", kind: "vector", origin: { kind: "programmatic", via: "self" } });
     });
 
     it("does not emit LAYER_CHANGE when the layer reference is still null", () => {
@@ -936,9 +936,9 @@ describe("executor: carrier dispatch", () => {
       ui.applyVisibility("ie-both", false);
 
       expect(intentSeen).toEqual([
-        { id: "ie-both", kind: "canvas", intent: { visible: false } },
+        { id: "ie-both", kind: "canvas", intent: { visible: false }, origin: { kind: "programmatic", via: "self" } },
       ]);
-      expect(changeSeen).toEqual([{ id: "ie-both", kind: "canvas" }]);
+      expect(changeSeen).toEqual([{ id: "ie-both", kind: "canvas", origin: { kind: "programmatic", via: "self" } }]);
       expect(canvas.classList.contains(HIDDEN)).toBe(true);
     });
 
@@ -976,7 +976,7 @@ describe("executor: carrier dispatch", () => {
       ui.applyVisibility("ie-oor", true);
 
       expect(intentSeen).toEqual([
-        { id: "ie-oor", kind: "canvas", intent: { visible: true } },
+        { id: "ie-oor", kind: "canvas", intent: { visible: true }, origin: { kind: "programmatic", via: "self" } },
       ]);
       expect(changeSeen).toEqual([]);
       expect(canvas.classList.contains(HIDDEN)).toBe(true);
@@ -1016,7 +1016,7 @@ describe("executor: carrier dispatch", () => {
       ui.onZoomEnd?.();
 
       expect(onMap.current).toBe(false);
-      expect(changeSeen).toEqual([{ id: "ie-oom", kind: "vector" }]);
+      expect(changeSeen).toEqual([{ id: "ie-oom", kind: "vector", origin: { kind: "programmatic", via: "self" } }]);
       expect(intentSeen).toEqual([]);
     });
 

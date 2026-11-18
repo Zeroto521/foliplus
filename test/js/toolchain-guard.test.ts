@@ -234,6 +234,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the FORM_CLASS single-source guard over foliplus/js production (foliplus-input-skin / foliplus-form-select literals only in ui/formClassName.ts), a tree guard not a script module",
   "check/v8-ignore":
     "the v8-ignore single-source guard over foliplus/js production (every `v8 ignore` must carry a reason label), a tree guard not a script module",
+  "check/event-origin":
+    "the EventOrigin drift guard over foliplus/js production (a bare publish(EVENTS.LAYER_*) outside core/event is a bypass; every emitLayerEvent and layer .emit carries origin), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

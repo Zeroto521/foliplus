@@ -58,6 +58,7 @@ describe("ModeManager", () => {
     expect(bus.publish).toHaveBeenCalledWith("foliplus:mode:change", {
       component: "SearchControl",
       mode: "addr",
+      origin: { kind: "user", via: "panel" },
     });
   });
 

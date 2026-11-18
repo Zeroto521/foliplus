@@ -32,6 +32,11 @@ vi.mock("#core/event/index.js", () => ({
   // the same event/payload on the hoisted spy.
   publish: (_bus: unknown, event: string, payload: unknown) =>
     events.emit(event, payload),
+  emitLayerEvent: (_bus: unknown, name: string, payload: unknown) =>
+    events.emit(
+      { LAYER_ITEM_COUNT_CHANGE: "foliplus:layer:item-count:change" }[name] ?? name,
+      payload,
+    ),
 }));
 
 vi.mock("#core/overlay/hint.js", () => ({
@@ -136,6 +141,7 @@ describe("MeasureStore — add", () => {
     expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
     expect(events.emit).toHaveBeenCalledWith("foliplus:layer:item-count:change", {
       id: "layer-1",
+      origin: { kind: "programmatic", via: "refresh" },
     });
   });
 
@@ -334,6 +340,7 @@ describe("MeasureStore — emitCount", () => {
     store.emitCount();
     expect(events.emit).toHaveBeenCalledWith("foliplus:layer:item-count:change", {
       id: "layer-1",
+      origin: { kind: "programmatic", via: "refresh" },
     });
     expect(storage.saveVersioned).not.toHaveBeenCalled();
   });

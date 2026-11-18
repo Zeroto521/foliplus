@@ -101,6 +101,7 @@ describe("sessionMethods — export events", () => {
     manager.doExport();
     expect(events.publish).toHaveBeenCalledWith("foliplus:export:before", {
       component: "ExportControl",
+      origin: { kind: "user", via: "panel" },
     });
   });
 
@@ -206,6 +207,7 @@ describe("sessionMethods — export events", () => {
     HTMLCanvasElement.prototype.toBlob = origToBlob;
     expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
+      origin: { kind: "user", via: "panel" },
     });
   });
 
@@ -216,6 +218,7 @@ describe("sessionMethods — export events", () => {
     manager.onRenderError(new Error("render fail"), hideEls);
     expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
+      origin: { kind: "user", via: "panel" },
     });
   });
 });

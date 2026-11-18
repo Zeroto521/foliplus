@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative, resolve, sep } from "path";
 import { describe, expect, it } from "vitest";
 
-// EventOrigin drift guard (task-193 PR-B).
+// EventOrigin drift guard.
 //
 // Every semantic layer event must travel through the single source
 // `emitLayerEvent` (core/event) so its payload carries an `origin` —

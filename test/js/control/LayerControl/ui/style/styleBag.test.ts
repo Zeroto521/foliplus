@@ -968,7 +968,7 @@ describe("LAYER_STYLE_CHANGE — one user commit, one announcement", () => {
       commit(fixture.ui, dim);
 
       expect(seen).toHaveLength(1);
-      expect(seen[0]).toEqual({ id: "overlay1" });
+      expect(seen[0]).toEqual({ id: "overlay1", origin: { kind: "user", via: "panel" } });
     });
   }
 
@@ -983,7 +983,7 @@ describe("LAYER_STYLE_CHANGE — one user commit, one announcement", () => {
 
     getDimension<number>(DIM.OPACITY)!.write!(ui, "overlay1", 0.5);
 
-    expect(seen).toEqual([{ id: "overlay1" }]);
+    expect(seen).toEqual([{ id: "overlay1", origin: { kind: "user", via: "panel" } }]);
   });
 
   it("zoom range: no announcement (a map-membership concern, not style)", () => {

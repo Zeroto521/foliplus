@@ -663,7 +663,7 @@ describe("LayerController", () => {
     manager.unregisterLayer("test_layer");
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler).toHaveBeenCalledWith({ id: "test_layer" });
+    expect(handler).toHaveBeenCalledWith({ id: "test_layer", origin: { kind: "system", via: "teardown" } });
   });
 
   it("unregisterLayer does NOT emit EVENTS.LAYER_REMOVED for unknown id", () => {
@@ -863,9 +863,11 @@ describe("LayerController", () => {
     } as any);
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
       id: "new1",
+      origin: { kind: "programmatic", via: "init" },
     });
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
       id: "new1",
+      origin: { kind: "programmatic", via: "refresh" },
     });
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
       role: "overlay",
@@ -1051,7 +1053,7 @@ describe("LayerController", () => {
 
       // kind comes from the registry entry ("vector" for a pending Leaflet
       // registration), not from re-probing `arrived`.
-      expect(onChange).toHaveBeenCalledWith({ id: "late", kind: "vector" });
+      expect(onChange).toHaveBeenCalledWith({ id: "late", kind: "vector", origin: { kind: "system", via: "teardown" } });
     } finally {
       window.L.stamp = realStamp;
     }
@@ -2107,6 +2109,7 @@ describe("LayerController", () => {
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_UPDATED, {
       id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
     });
     expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
       id: "overlay1",
@@ -2115,6 +2118,7 @@ describe("LayerController", () => {
     // cached field list — and the field resolved from it — must be dropped.
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
       id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
     });
     expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
       role: "overlay",
@@ -3768,7 +3772,7 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("rc1");
-      expect(handler).toHaveBeenCalledWith({ id: "rc1" });
+      expect(handler).toHaveBeenCalledWith({ id: "rc1", origin: { kind: "programmatic", via: "refresh" } });
     });
 
     it("does not emit for a base layer", () => {
@@ -3807,7 +3811,7 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("rt");
-      expect(handler).toHaveBeenCalledWith({ id: "rt" });
+      expect(handler).toHaveBeenCalledWith({ id: "rt", origin: { kind: "programmatic", via: "refresh" } });
       manager.invalidateType("rt");
       expect(manager.layerRegistry.get("rt")?.type).toBeNull();
     });
@@ -3817,7 +3821,7 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("ghost");
-      expect(handler).toHaveBeenCalledWith({ id: "ghost" });
+      expect(handler).toHaveBeenCalledWith({ id: "ghost", origin: { kind: "programmatic", via: "refresh" } });
     });
   });
 
@@ -3868,7 +3872,7 @@ describe("LayerController", () => {
 
       expect(manager.deleteLayer("measure1")).toBe(true);
 
-      expect(handler).toHaveBeenCalledWith({ id: "measure1" });
+      expect(handler).toHaveBeenCalledWith({ id: "measure1", origin: { kind: "system", via: "teardown" } });
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
       expect((manager as any).order.removedIds.has("measure1")).toBe(false);
@@ -4180,7 +4184,7 @@ describe("LayerController", () => {
 
       // The owner handler and LayerControl cleanup both ran even though a
       // consumer ahead of them threw.
-      expect(owner).toHaveBeenCalledWith({ id: "measure1" });
+      expect(owner).toHaveBeenCalledWith({ id: "measure1", origin: { kind: "system", via: "teardown" } });
       expect(deleteEntrySpy).toHaveBeenCalledWith("measure1");
       // Component clear keeps the id registerable for the next draw.
       expect(manager.layerRegistry.has("measure1")).toBe(true);
@@ -6249,7 +6253,7 @@ describe("carrier recovery (controller wiring)", () => {
     group.addLayer(foreign);
     manager.onLayerAdd({ layer: foreign } as never);
     manager.enforceOrder();
-    expect(seen).toEqual([{ id: "caps" }]);
+    expect(seen).toEqual([{ id: "caps", origin: { kind: "programmatic", via: "self" } }]);
 
     // Unchanged projection: the next pass must not re-announce it.
     manager.enforceOrder();
@@ -6259,7 +6263,7 @@ describe("carrier recovery (controller wiring)", () => {
     manager.onLayerRemove({ layer: foreign } as never);
     group.removeLayer(foreign);
     manager.enforceOrder();
-    expect(seen).toEqual([{ id: "caps" }, { id: "caps" }]);
+    expect(seen).toEqual([{ id: "caps", origin: { kind: "programmatic", via: "self" } }, { id: "caps", origin: { kind: "programmatic", via: "self" } }]);
   });
 
   it("drops a reverse-index entry whose surface retired", () => {
