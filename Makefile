@@ -55,6 +55,7 @@ clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
 lint:
 	pre-commit run -a -v
+	uv run mypy foliplus
 
 # Local convenience: run mypy directly via uv without going through
 # pre-commit. The pre-commit mypy hook (mirrors-mypy, language: python)
