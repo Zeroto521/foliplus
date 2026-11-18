@@ -90,4 +90,3 @@ const readDeclaredMarkerColor = (
     : { invalid: [] };
 
 export { readDeclaredMarkerColor };
-export type { DeclaredMarkerColor };

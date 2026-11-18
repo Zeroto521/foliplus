@@ -74,4 +74,3 @@ const readDeclaredIconSize = (
     : { invalid: [] };
 
 export { readDeclaredIconSize };
-export type { DeclaredIconSize };
