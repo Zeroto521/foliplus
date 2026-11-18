@@ -6,7 +6,9 @@
     ".foliplus-heatmap-ctrl select[data-heatmap-layer]",
   );
   if (!row) return null;
-  const trg = row.closest(".foliplus-form-row")?.querySelector(".foliplus-dropdown-trigger");
+  const trg = row
+    .closest(".foliplus-form-row")
+    ?.querySelector(".foliplus-dropdown-trigger");
   if (!trg) return null;
   const r = trg.getBoundingClientRect();
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };

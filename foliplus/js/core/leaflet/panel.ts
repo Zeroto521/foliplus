@@ -809,7 +809,7 @@ const createPanelControl = (opts: {
     onCollapse: opts.onCollapse,
   });
   const unbindOutside = opts.skipOutsideCollapse
-    ? () => {}
+    ? () => undefined
     : bindOutsideCollapse({
         container: ctrl,
         // skipCheck short-circuits the capture pass too, so the panel is inert

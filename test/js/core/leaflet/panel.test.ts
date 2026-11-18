@@ -244,7 +244,7 @@ describe("bindFoldOverlay", () => {
     const map = { _leaflet_id: 2, on } as unknown as L.Map;
     const { container } = makeFold();
     const canClose = vi.fn(() => true);
-    const fold = bindFoldOverlay({
+    bindFoldOverlay({
       map,
       container,
       id: "test.panel2",
