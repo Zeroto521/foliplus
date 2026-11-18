@@ -162,6 +162,26 @@ const computeBreaks = (
   }
 };
 
+/** Run `build` with `method`; when it fails only because a classification
+ *  dependency is missing (a jenks/quantile method on a page that never loaded
+ *  simple-statistics), retry with the equal method — which needs no dependency
+ *  — and report the degradation through `onDegrade`. Any other error re-throws
+ *  untouched, so a recoverable failure (a palette name that degrades) and a
+ *  missing dependency stay distinct at the call site. */
+const withDependencyFallback = <T>(
+  method: ClassifyMethod,
+  build: (method: ClassifyMethod) => T,
+  onDegrade?: (err: ClassifierDependencyError) => void,
+): T => {
+  try {
+    return build(method);
+  } catch (err) {
+    if (!(err instanceof ClassifierDependencyError)) throw err;
+    onDegrade?.(err);
+    return build(METHOD.EQUAL);
+  }
+};
+
 export {
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
@@ -171,5 +191,6 @@ export {
   METHOD_ORDER,
   computeBreaks,
   isClassifyMethod,
+  withDependencyFallback,
 };
 export type { ClassifyMethod };

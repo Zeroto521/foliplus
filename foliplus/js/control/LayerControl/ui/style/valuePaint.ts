@@ -48,6 +48,7 @@ import {
   styleDimPayload,
 } from "./styleBag.js";
 import type { ValueConfig } from "#core/layer/index.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import {
   VALUE_KIND,
   buildCategoryRamp,
@@ -57,6 +58,7 @@ import {
   isCategoryKind,
   isFiniteNumber,
   leafPropertyValue,
+  withDependencyFallback,
 } from "#core/value/index.js";
 import { createLogger } from "#platform/log.js";
 
@@ -207,7 +209,23 @@ const paintByValue = (
     if (category) {
       categoryScale = buildCategoryRamp(categories, value.scheme);
     } else {
-      built = buildRamp(values, value);
+      // A jenks/quantile method reads the simple-statistics CDN global. When
+      // that dependency is missing the classifier throws ClassifierDependencyError;
+      // degrade to the equal method (which needs none) and say so to the user,
+      // instead of silently leaving the layer uncolored. The same strategy the
+      // HeatmapControl value path uses, via the shared withDependencyFallback.
+      built = withDependencyFallback(
+        value.method,
+        m => buildRamp(values, { ...value, method: m }),
+        err => {
+          log.warn(decl.logLabel, err);
+          ui.c.map.foliplus!.showHint(
+            ui.config.name,
+            ui.T("style_value_classify_degraded"),
+            HINT_DURATION.LONG,
+          );
+        },
+      );
     }
   } catch (err) {
     log.warn(decl.logLabel, err);
