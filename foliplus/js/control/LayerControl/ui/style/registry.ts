@@ -65,6 +65,7 @@
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { DIM, type IntentKey } from "#core/layer/index.js";
+import { dimsInRole } from "./dimTable.js";
 import { createLogger } from "#platform/log.js";
 import type { LayerDimension } from "#control/LayerControl/type.js";
 
@@ -101,46 +102,30 @@ const getDimension = <D = unknown>(key: string): LayerDimension<D> | undefined =
 /** Every registered descriptor, in registration order. */
 const listDimensions = (): readonly LayerDimension<any>[] => [...registry.values()];
 
-/** The Layer section's authoritative display order.
- *
- *  Registration order is NOT display order: `listDimensions()` returns the
- *  Map's insertion order, which tracks the ES module import graph, not the
- *  source order of the importing file. `opacity` was registered at #505
- *  top-level, so in most load graphs it lands ahead of `fill` and `border`
- *  — the display order would silently regress. The panel wants a stable
- *  contract (fill → border → opacity → zoomRange, per #458), so the
- *  order is declared here rather than inferred from the import graph.
+/** The Layer role's authoritative display order, derived from
+ *  STYLE_DIM_TABLE (dimTable.ts) — the single source of which dimensions
+ *  exist and in which panel role. Registration order is NOT display order:
+ *  `listDimensions()` returns the Map's insertion order, which tracks the
+ *  ES module import graph, not the source order of the importing file.
+ *  `opacity` was registered at #505 top-level, so in most load graphs it
+ *  lands ahead of `fill` and `border` — the display order would silently
+ *  regress. The panel wants a stable contract (fill → border → opacity →
+ *  zoomRange, per #458), so the order lives in the table rather than being
+ *  inferred from the import graph.
  *
  *  The panel iterates this array through `gatedRows`, which casts each
  *  lookup straight to a descriptor — so a key listed here MUST be
- *  registered. That is a different contract from degrading: the cast
- *  states the invariant this array already implies, and
- *  `registry.test.ts` locks it (both order arrays together cover every
- *  registered built-in key and nothing more). A dimension that is
- *  registered but missing from both arrays is unreachable from the panel —
- *  adding a dimension without adding it to its section's order is the bug
- *  that same test catches.
- */
-const DIM_ORDER = [
-  DIM.ICON,
-  DIM.ICON_COLOR,
-  DIM.MARKER_COLOR,
-  DIM.FILL,
-  DIM.SIZE,
-  DIM.BORDER,
-  DIM.OPACITY,
-  DIM.ZOOM_RANGE,
-] as const;
+ *  registered. The table is the source of the order, and `registry.test.ts`
+ *  locks the table against the registry (every registered built-in key is
+ *  in the table, and the table's keys are all registered). */
+const DIM_ORDER = dimsInRole("layer") as readonly string[];
 
-/** The Label section's authoritative display order — the second section of
- *  the same panel, iterated exactly like `DIM_ORDER` (heading + gated rows).
- *  Sections own their own order arrays: the panel renders a heading per
- *  section, so one flat order cannot express "which section does this row
- *  live in". `registry.test.ts` asserts the UNION of both arrays covers
- *  every registered built-in key and nothing more, which is the drift this
- *  split would otherwise open: a dimension registered but put in neither
- *  order is unreachable from the panel. */
-const LABEL_DIM_ORDER = [DIM.LABEL] as const;
+/** The Label role's authoritative display order — the second role of the
+ *  same panel, iterated exactly like `DIM_ORDER` (heading + gated rows).
+ *  Roles own their own order arrays: the panel renders a heading per role,
+ *  so one flat order cannot express "which role does this row live in".
+ *  Both derive from the same table. */
+const LABEL_DIM_ORDER = dimsInRole("label") as readonly string[];
 
 /** Collect the descriptors whose `gate` passes, in the caller's declared
  *  order — the one gate pass every panel flavor shares. The label

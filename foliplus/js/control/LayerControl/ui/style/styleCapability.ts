@@ -20,7 +20,8 @@
 // The remaining consumer migration (S2 gate move) is out of scope here.
 import type { LayerUI } from "../surface.js";
 import { isColorBasemap } from "./fillAuthor.js";
-import { CAP_TIER } from "#core/layer/index.js";
+import { projectDims } from "./dimTable.js";
+import type { StyleDims } from "./dimTable.js";
 
 /** The surface geometry classification published for the S3 mode resolver.
  *  Five values are the surface's own `geometryType()` answer (point / line /
@@ -39,17 +40,9 @@ type StyleGeometry =
  *  sites in `styleCapability` below, plus one parity assertion in
  *  `styleCapability.test.ts`. */
 interface StyleCapability {
-  dims: {
-    opacity: boolean;
-    zoomRange: boolean;
-    label: boolean;
-    border: boolean;
-    size: boolean;
-    icon: boolean;
-    fill: boolean;
-    iconColor: boolean;
-    markerColor: boolean;
-  };
+  /** The dims boolean map — the field set is derived from STYLE_DIM_TABLE,
+   *  so adding a dimension only touches the table (and this type follows). */
+  dims: StyleDims;
   /** The layer's geometry class for mode resolution; null when the layer is
    *  missing (all-false short circuit). `"basemap"` is a UI synthesis, not a
    *  surface-native `geometryType()` value. */
@@ -70,17 +63,7 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) {
     return {
-      dims: {
-        opacity: false,
-        zoomRange: false,
-        label: false,
-        border: false,
-        size: false,
-        icon: false,
-        fill: false,
-        iconColor: false,
-        markerColor: false,
-      },
+      dims: projectDims({}),
       styleDelegation: false,
       geometry: null,
     };
@@ -91,17 +74,7 @@ const styleCapability = (ui: LayerUI, layerId: string): StyleCapability => {
     ? "basemap"
     : (surface.geometryType() as StyleGeometry);
   return {
-    dims: {
-      opacity: caps.opacity !== CAP_TIER.NONE,
-      zoomRange: caps.zoomRange !== CAP_TIER.NONE,
-      label: caps.label !== CAP_TIER.NONE,
-      border: caps.stroke === CAP_TIER.NATIVE,
-      size: caps.size === CAP_TIER.NATIVE,
-      icon: caps.icon === CAP_TIER.NATIVE,
-      fill: caps.fill === CAP_TIER.NATIVE,
-      iconColor: caps.iconColor === CAP_TIER.NATIVE,
-      markerColor: caps.markerColor === CAP_TIER.NATIVE,
-    },
+    dims: projectDims(caps),
     styleDelegation:
       !!layerInfo.styleSetters && Object.keys(layerInfo.styleSetters).length > 0,
     geometry,
