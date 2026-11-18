@@ -562,11 +562,13 @@ describe("dropdown: multiple selections", () => {
   });
 
   it("footer actions are inert after the dropdown is destroyed", () => {
-    let actions: {
-      selectAll(): void;
-      clear(): void;
-      getCount(): number;
-    } | undefined;
+    let actions:
+      | {
+          selectAll(): void;
+          clear(): void;
+          getCount(): number;
+        }
+      | undefined;
     const dropdown = createDropdown({
       overlay: mockOverlay().overlay,
       items,
