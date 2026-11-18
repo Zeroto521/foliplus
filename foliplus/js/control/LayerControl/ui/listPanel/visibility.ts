@@ -131,7 +131,7 @@ const syncToggleAll = (ui: LayerUI, role: string) => {
   );
   if (!row) return;
   const allCb = row.querySelector(
-    '[data-role="toggle-all"]',
+    `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
   ) as HTMLInputElement | null;
   if (!allCb) return;
   const items = getLayerItems(ui, role);
@@ -163,7 +163,7 @@ const syncToggleAllFromCount = (ui: LayerUI, role: string): void => {
   );
   if (!row) return;
   const allCb = row.querySelector(
-    '[data-role="toggle-all"]',
+    `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
   ) as HTMLInputElement | null;
   if (!allCb) return;
   writeToggleAllCheckbox(ui, allCb, role);

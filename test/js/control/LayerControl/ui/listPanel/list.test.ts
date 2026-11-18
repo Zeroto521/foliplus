@@ -1683,3 +1683,86 @@ describe("clean-empty-folders button and section header order", () => {
     expect((after[0] as HTMLElement).dataset.emptyCount).toBe("1");
   });
 });
+
+describe("role header identity key", () => {
+  // The container's fold handler resolves the role a click landed in by
+  // climbing from the clicked control up to the header row. That climb reads the
+  // row's stable identity key (data-role, written when the row is built) rather
+  // than the row class: climbing on the class would land on any nested control
+  // that also carries it, and the role read off that element would be wrong or
+  // missing. These guards lock the key the climb reads — and the climb itself.
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const headers = () => [
+    ...attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.TOGGLE_ALL),
+  ];
+  const headerKeys = () => headers().map(el => el.dataset.role);
+  const renderedRoles = () =>
+    new Set(
+      [...attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM)]
+        .map(el => el.dataset.layerType)
+        .filter((role): role is string => !!role && !role.startsWith("foliplus_")),
+    );
+
+  it("writes one unique role key per header, never the sentinel", () => {
+    const keys = headerKeys();
+    expect(keys.length).toBeGreaterThan(0);
+    expect(new Set(keys).size, "one header per role").toBe(keys.length);
+    for (const key of keys) {
+      expect(key, "every header carries a key").not.toBeUndefined();
+      expect(key, "the toggle-all checkbox sentinel is not a role key").not.toBe(
+        CONST.TOGGLE_ALL_ROLE,
+      );
+      expect(Object.values(ROLE), `header key ${key} is a LayerRole`).toContain(
+        key as never,
+      );
+    }
+  });
+
+  it("covers exactly the roles the panel renders rows for", () => {
+    expect([...new Set(headerKeys())].sort()).toEqual([...renderedRoles()].sort());
+  });
+
+  it("does not move when the folder layout changes", () => {
+    // The key is the role; a folder's name is display only. Renaming a folder
+    // rebuilds the rows, but the role a header owns cannot change with it.
+    const before = headerKeys();
+    manager.createFolder("overlay", "Extra");
+    expect(manager.renameFolder("overlay", "Extra", "More")).toBe(true);
+    expect(headerKeys(), "the folder layout carries no role identity").toEqual(before);
+  });
+
+  it("is the key both fold bind sites climb on", () => {
+    // The onChange site climbs from the row's own checkbox, which writes the
+    // sentinel on itself; the climb must skip it and land on the row. The
+    // onClick site climbs from a nested control with no key of its own, such as
+    // the fold button.
+    for (const row of headers()) {
+      const checkbox = row.querySelector<HTMLInputElement>(
+        `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
+      );
+      expect(
+        checkbox?.closest(CONST.SEL.TOGGLE_ALL_ROW),
+        "the climb skips the checkbox's own sentinel",
+      ).toBe(row);
+      const foldBtn = row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`);
+      expect(foldBtn, "the header carries its fold button").not.toBeNull();
+      expect(foldBtn?.closest(CONST.SEL.TOGGLE_ALL_ROW)).toBe(row);
+    }
+  });
+});
