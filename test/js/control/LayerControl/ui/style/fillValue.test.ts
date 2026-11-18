@@ -96,6 +96,7 @@ const makeUI = (layer: unknown) =>
   ({
     T: (key: string) => key,
     _: (key: string) => key,
+    config: { name: "LayerControl" },
     runtimeStore: { getFields: () => [{ name: "value", numeric: true }] } as any,
     c: {
       layerRegistry: new Map([["overlay1", { id: "overlay1", layer }] as any]),
@@ -103,6 +104,7 @@ const makeUI = (layer: unknown) =>
       map: {
         getContainer: () => document.createElement("div"),
         on: () => undefined,
+        foliplus: { showHint: vi.fn() },
       } as any,
     },
   }) as any;
@@ -194,35 +196,41 @@ describe("applyValueFill", () => {
     }
   });
 
-  it("warns instead of degrading silently when simple-statistics is absent", () => {
+  it("degrades to equal and reports when simple-statistics is absent", () => {
     // The classifier reads one global the whole page shares, so a missing
-    // `ss` cannot be fixed by editing the config. A quiet fallback would
-    // leave the map at the author's color while the panel still says
-    // "quantile".
+    // `ss` cannot be fixed by editing the config. The fill chain must degrade
+    // to the equal method and tell the user, instead of leaving the map at
+    // the author's color while the panel still says "quantile". Removing the
+    // degradation makes this test red (the leaf keeps the author's color and
+    // no hint is shown).
     installChroma(["#ff0000", "#00ff00"]);
     delete globalThis.ss;
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     // Two values: a single one short-circuits the classifier before the
-    // dependency check runs, so no warning would be raised at all.
+    // dependency check runs, so the degradation would not be reached at all.
     const layer = makeFeatureLayer([
       { properties: { value: 5 } },
       { properties: { value: 10 } },
     ]);
+    const ui = makeUI(layer);
 
     expect(() =>
-      applyValueFill(makeUI(layer), "overlay1", makeRamp({ method: METHOD.QUANTILE })),
+      applyValueFill(ui, "overlay1", makeRamp({ method: METHOD.QUANTILE })),
     ).not.toThrow();
 
     // The project logger namespaces the message and takes the error as its
-    // detail - the same shape every other foliplus warning uses.
+    // detail — the same shape every other foliplus warning uses.
     expect(warn.mock.calls[0][0]).toBe("[foliplus] value-based fill:");
     expect((warn.mock.calls[0][1] as Error).message).toContain("simple-statistics");
-    // Nothing was classified, so the author's face comes back.
-    expect((layer.leaves[0].setStyle as any).mock.calls.at(-1)![0]).toEqual({
-      fillColor: "#3388ff",
-      fillOpacity: 0.2,
-      fill: true,
-    });
+    // Degraded to equal: a real ramp color, not the author's.
+    const call = (layer.leaves[0].setStyle as any).mock.calls.at(-1)![0];
+    expect(call.fillColor).toBeDefined();
+    expect(call.fillColor).not.toBe("#3388ff");
+    // A user-visible hint was shown through the existing hint channel.
+    const showHint = (ui.c.map as any).foliplus.showHint;
+    expect(showHint).toHaveBeenCalledTimes(1);
+    expect(showHint.mock.calls[0][0]).toBe("LayerControl");
+    expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
     warn.mockRestore();
   });
 

@@ -15,6 +15,7 @@ export {
   METHOD_ORDER,
   computeBreaks,
   isClassifyMethod,
+  withDependencyFallback,
 } from "./classify.js";
 export type { ClassifyMethod } from "./classify.js";
 export {

@@ -2,6 +2,7 @@ import {
   TEST_ENV,
   attachWithGroup,
   attachedPanel,
+  findItem,
   initFixture,
   polygonLayer,
   trackMembership,
@@ -14,6 +15,7 @@ import {
   FOLDER_NAME_MAX,
   GEOM_TYPE,
   LAYOUT_DOC_KEY,
+  type LayerFilterModel,
   LayerRuntimeStore,
   ROLE,
   Z_INDEX,
@@ -7460,5 +7462,130 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.kind).toBe("enum");
     expect(dim.options).toEqual([]);
     expect(dim.truncated).toBe(false);
+  });
+});
+
+describe("cross-panel contract: external actions × open overlays", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture({}));
+  });
+
+  it("LAYER_REMOVED closes an open filter panel anchored to the deleted layer", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
+
+  it("LAYER_REMOVED closes an open style panel anchored to the deleted layer", () => {
+    ui.openStylePanel("overlay1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+  });
+
+  it("LAYER_REMOVED closes an open attrs panel anchored to the deleted layer", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openAttrsPanel(item);
+    expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+  });
+
+  it("LAYER_REMOVED cancels an open rename anchored to the deleted layer", () => {
+    ui.renameLayer("overlay1");
+    expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeRenameId).toBeNull();
+  });
+
+  it("OVERLAY_CLEAR closes every open overlay", () => {
+    // Overlay types are mutually exclusive (each open tears the others down),
+    // so one event must close whichever type is open. Each type is opened and
+    // cleared in turn: commenting any lifecycle.ts:427-432 subscription fails
+    // its own step.
+    const item = findItem(ui, "overlay1");
+
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+
+    ui.openStylePanel("overlay1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+
+    ui.openAttrsPanel(item);
+    expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+
+    ui.renameLayer("overlay1");
+    expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeRenameId).toBeNull();
+  });
+
+  it("style panel stays open and refreshes on LAYER_STYLE_CHANGE", () => {
+    // A delegated-style layer (styleSetters) renders through the delegated
+    // path, which sets styleRefresh; the plain label path has no such hook.
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    ui.openStylePanel("heat1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    // styleRefresh is a (() => void) | null field, not a method, so
+    // vi.spyOn rejects it (TS2769). Substitute the field with a mock, assert
+    // the delegated path calls it, then restore the original hook.
+    const refresh = vi.fn();
+    const previousRefresh = ui.overlayPanel.styleRefresh;
+    ui.overlayPanel.styleRefresh = refresh;
+    try {
+      ui.events.publish(EVENTS.LAYER_STYLE_CHANGE, { id: "heat1" });
+      expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+      expect(refresh).toHaveBeenCalled();
+    } finally {
+      ui.overlayPanel.styleRefresh = previousRefresh;
+    }
+  });
+
+  it("filter panel stays open and refreshes on LAYER_FILTER_CHANGE", () => {
+    // A filter-capable layer (filterProvider/filterSetter) sets up the
+    // LAYER_FILTER_CHANGE subscription; the plain default overlay1 has no
+    // such capability, so this must use a capable row. The panel refresh is
+    // observed through its activeField (reconcile re-reads the model); the
+    // row re-render also reads filterProvider, so a call-count spy would be
+    // polluted.
+    let modelField = "magnitude";
+    const filterProvider = vi.fn((): LayerFilterModel => ({
+      dimensions: [{ kind: "range", field: modelField, range: [0, 10], step: 1 }],
+      filter: undefined,
+      kept: 5,
+      total: 10,
+    }));
+    manager.registerLayer({
+      id: "f1",
+      name: "Filterable",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+      filterProvider,
+      filterSetter: vi.fn(),
+    });
+    const item = findItem(ui, "f1");
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel?.activeField).toBe("magnitude");
+    modelField = "depth";
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "f1" });
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel?.activeField).toBe("depth");
   });
 });

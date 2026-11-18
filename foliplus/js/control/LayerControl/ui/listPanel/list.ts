@@ -622,7 +622,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       { class: CONST.CLASSES.CHECKBOX },
       dom.el("input", {
         type: "checkbox",
-        "data-role": "toggle-all",
+        "data-role": CONST.TOGGLE_ALL_ROLE,
         checked: "",
         title: ui.T("toggle_all_deselect_tooltip"),
       }),
