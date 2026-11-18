@@ -226,6 +226,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the fill => border DAG guard over foliplus/js style dimensions (fill.ts must never import border.ts; border -> fill stays legal)",
   "check/event-name":
     "the semantic event-name convention guard over foliplus/js/core/event/const.ts, a tree guard not a script module",
+  "check/folder-name-limit":
+    "the cross-stack FOLDER_NAME_MAX guard (JS core/layer/folderLayout.ts vs the Python bound in foliplus/_declaration.py), a tree guard not a script module",
   "check/deep-relative-path":
     "the deep parent-dir chain guard over test/js source (no 3+ ../ reaches the repo root), a tree guard not a script module",
   "check/marker-icon-set-icon-guard":

@@ -5,14 +5,15 @@
 // "declared but the panel never shows it". This guard pins the two together
 // at CI time instead of relying on a human noticing the drift.
 //
-// The JS value is read from its owning module (the single source on that
-// side); the Python value is read from the source literal the way the other
-// cross-stack checks read Python source (readFileSync + one anchored regex),
-// so a missing or malformed constant fails loudly rather than silently.
+// The JS value is read through the #core/layer barrel (which re-exports the
+// owning module's single-source constant); the Python value is read from the
+// source literal the way the other cross-stack checks read Python source
+// (readFileSync + one anchored regex), so a missing or malformed constant
+// fails loudly rather than silently.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FOLDER_NAME_MAX } from "#core/layer/folderLayout";
+import { FOLDER_NAME_MAX } from "#core/layer/index.js";
 
 const PY_DECLARATION = resolve(process.cwd(), "foliplus", "_declaration.py");
 const PY_CONST_RE = /^FOLDER_NAME_MAX\s*=\s*(\d+)\s*$/m;
