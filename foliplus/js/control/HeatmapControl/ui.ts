@@ -3,7 +3,7 @@
 import * as CONST from "./const.js";
 import { type HeatmapManager } from "./manager.js";
 import { panelContentHTML } from "./template.js";
-import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
+import { emitLayerEvent, EVENTS, ensureEvents,  } from "#core/event/index.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import {
   HINT_DURATION,
@@ -290,7 +290,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
-    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
+    emitLayerEvent(ctrl.mgr.events, "LAYER_FILTER_CHANGE",  { origin: { kind: "user", via: "panel" },
       id: ctrl.mgr.layerId,
     });
   };
@@ -310,10 +310,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     ctrl.mgr.syncFilterField();
     ctrl.mgr.renderHexagons();
     persist(ctrl);
-    publish(ctrl.mgr.events, EVENTS.LAYER_STYLE_CHANGE, {
+    emitLayerEvent(ctrl.mgr.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "programmatic", via: "self" },
       id: ctrl.mgr.layerId,
     });
-    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
+    emitLayerEvent(ctrl.mgr.events, "LAYER_FILTER_CHANGE",  { origin: { kind: "programmatic", via: "self" },
       id: ctrl.mgr.layerId,
     });
   };
@@ -498,7 +498,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     else ctrl.mgr.clearHeatmapCanvas();
     // Source identity changes the whole filter model (field, extent, kept);
     // an open filter panel re-reads it through this notification.
-    publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
+    emitLayerEvent(ctrl.mgr.events, "LAYER_FILTER_CHANGE",  { origin: { kind: "user", via: "panel" },
       id: ctrl.mgr.layerId,
     });
     persist(ctrl);

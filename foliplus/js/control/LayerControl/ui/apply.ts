@@ -676,7 +676,7 @@ const emitDelta = (
   // raises it once the whole operation has been announced.
   let failure: DispatchFailure | undefined;
   if (delta.wroteVisible) {
-    failure = ui.events.emitSupersedingSettled(EVENTS.LAYER_CHANGE, layerInfo.id, {
+    failure = ui.events.emitSupersedingSettled(EVENTS.LAYER_CHANGE, layerInfo.id, { origin: { kind: "programmatic", via: "self" },
       id: layerInfo.id,
       kind: layerInfo.kind,
     });
@@ -693,7 +693,7 @@ const emitDelta = (
     const intentFailure = ui.events.emitSupersedingSettled(
       EVENTS.LAYER_INTENT_CHANGE,
       layerInfo.id,
-      {
+      { origin: { kind: "programmatic", via: "self" },
         id: layerInfo.id,
         kind: layerInfo.kind,
         intent: { visible: intentVisibleOf(ui, layerInfo.id) },

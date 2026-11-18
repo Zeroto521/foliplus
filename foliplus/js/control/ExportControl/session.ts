@@ -6,7 +6,7 @@ import type { ExportManager } from "./manager.js";
 import { ExportRenderer, isCorsBlocked } from "./renderer/index.js";
 import type { CropRect } from "./type.js";
 import { resolveExportBackground } from "./util.js";
-import { EVENTS, SettledOperation, publish } from "#core/event/index.js";
+import { emitLayerEvent, EVENTS, SettledOperation,  } from "#core/event/index.js";
 import { type GeoBounds, boundsToRect } from "#core/geo/index.js";
 import { COMPONENTS, guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
@@ -62,7 +62,7 @@ const doExport = function (this: ExportManager) {
   // the diagnostic log, and an observer cannot derail the start — the export
   // is committed from here on.
   this.modes.setMode(CONFIG.name, "exporting");
-  publish(this.events, EVENTS.BEFORE_EXPORT, { component: CONFIG.name });
+  emitLayerEvent(this.events, "BEFORE_EXPORT",  { origin: { kind: "user", via: "panel" }, component: CONFIG.name });
   const r = Object.assign({}, this.cropState.rect);
   const geoBounds = this.cropState.geoBounds;
   if (geoBounds) {
@@ -342,7 +342,7 @@ const endExport = function (this: ExportManager) {
   this.isExporting = false;
   this.modes.setMode(CONFIG.name, null);
   this.removeExportOverlay();
-  operation.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name });
+  operation.emit(EVENTS.AFTER_EXPORT, { origin: { kind: "user", via: "panel" }, component: CONFIG.name });
   operation.throwIfFailed();
 };
 

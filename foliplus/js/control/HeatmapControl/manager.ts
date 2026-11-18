@@ -28,11 +28,11 @@ import type {
 } from "./type.js";
 import { type HeatmapControlUI, rebuildLayerDropdown, resetPanel } from "./ui.js";
 import {
+  emitLayerEvent,
   EVENTS,
   type EventBus,
   SettledOperation,
   ensureEvents,
-  publish,
 } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
@@ -344,7 +344,7 @@ class HeatmapManager {
         this.renderHexagons();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
       },
       // Size/color only rewrite label paint — drop the cached style and
       // redraw from the feature cache.
@@ -355,7 +355,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
       },
       labelSize: v => {
         const nextSize = typeof v === "number" && !Number.isNaN(v) ? v : this.labelSize;
@@ -364,7 +364,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
       },
       // Format only rewrites the label text — redraw from cache, skip the
       // H3 re-aggregation that labelShow triggers.
@@ -375,7 +375,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
       },
       // Border weight only redraws the hexagon strokes — the H3 aggregation
       // result is unaffected.
@@ -386,7 +386,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
       },
       borderColor: v => {
         this.borderColor =
@@ -394,7 +394,7 @@ class HeatmapManager {
         this.redrawHeatmap();
         this.saveConfig();
         this.map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
-        publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+        emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
       },
     };
     this.overlay = map.foliplus!.LayerAPI!.createCanvas({
@@ -486,7 +486,7 @@ class HeatmapManager {
         this.cachedAgg = null;
         const operation = new SettledOperation(this.events);
         this.renderHexagons(operation);
-        operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+        operation.emit(EVENTS.LAYER_FILTER_CHANGE, { origin: { kind: "user", via: "panel" }, id: this.layerId });
         operation.throwIfFailed();
       },
       dimensions: () => {
@@ -582,7 +582,7 @@ class HeatmapManager {
         const operation = new SettledOperation(this.events);
         this.clearHeatmapCanvas(operation);
         if (hadFilter) {
-          operation.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+          operation.emit(EVENTS.LAYER_FILTER_CHANGE, { origin: { kind: "user", via: "panel" }, id: this.layerId });
         }
         operation.throwIfFailed();
       }
@@ -1272,7 +1272,7 @@ class HeatmapManager {
     }
     if (!aggregated) {
       if (filterRevalidated || contentChanged) {
-        op.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+        op.emit(EVENTS.LAYER_FILTER_CHANGE, { origin: { kind: "user", via: "panel" }, id: this.layerId });
       }
       if (!operation) op.throwIfFailed();
       return;
@@ -1280,7 +1280,7 @@ class HeatmapManager {
     const features = this.buildFeatures(aggregated);
     this.renderFeatures(features, op);
     if (filterRevalidated || contentChanged) {
-      op.emit(EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+      op.emit(EVENTS.LAYER_FILTER_CHANGE, { origin: { kind: "user", via: "panel" }, id: this.layerId });
     }
     if (!operation) op.throwIfFailed();
   }
@@ -1353,8 +1353,8 @@ class HeatmapManager {
    *  when one exists so a later notification on the same operation still
    *  fans out before the terminal count failure is raised. */
   private publishCount(operation?: SettledOperation): void {
-    if (operation) operation.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
-    else publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: this.layerId });
+    if (operation) operation.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { origin: { kind: "programmatic", via: "refresh" }, id: this.layerId });
+    else emitLayerEvent(this.events, "LAYER_ITEM_COUNT_CHANGE", { origin: { kind: "programmatic", via: "refresh" }, id: this.layerId });
   }
 
   /** Reset selection + style state to the defaults declared in `config`. Both
@@ -1396,7 +1396,7 @@ class HeatmapManager {
     // the declared state Reset returns to.
     this.hasScanned = false;
     if (clearedFilter) {
-      publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId });
+      emitLayerEvent(this.events, "LAYER_FILTER_CHANGE", { origin: { kind: "user", via: "panel" }, id: this.layerId });
     }
   }
 

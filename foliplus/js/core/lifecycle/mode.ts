@@ -2,7 +2,8 @@
 // Tracks the active mode of each participating component and emits
 // EVENTS.MODE_CHANGE on the per-map EventBus whenever a mode changes.
 // No DOM / CONFIG dependency.
-import { EVENTS, type EventBus, ensureEvents, publish } from "../event/index.js";
+import { emitLayerEvent, EVENTS, type EventBus, ensureEvents } from "../event/index.js";
+import type { EventOrigin } from "../event/type.js";
 import { suspendMapInteractions } from "../layer/index.js";
 import { HINT_DURATION } from "../overlay/hint.js";
 import { COMPONENTS, assertComponentName } from "./component.js";
@@ -11,8 +12,8 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 interface ModeChangePayload {
   component: string;
   mode: string | null;
+  readonly origin: EventOrigin;
 }
-
 // Conflict matrix: when a component is in a non-null mode, which components
 // are blocked from performing their primary actions?
 //
@@ -81,7 +82,7 @@ class ModeManager {
     // the registry saying "Measure owns the map" while the layers still take
     // pointer events. The settled broadcast then finishes every listener.
     this.syncInteractionLock();
-    publish(this.bus, EVENTS.MODE_CHANGE, {
+    emitLayerEvent(this.bus, "MODE_CHANGE",  { origin: { kind: "user", via: "panel" },
       component,
       mode,
     } satisfies ModeChangePayload);

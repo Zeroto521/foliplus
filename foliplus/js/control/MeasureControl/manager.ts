@@ -13,11 +13,11 @@ import { MeasureStore } from "./store.js";
 import type { CollidableLabel } from "./type.js";
 import * as Util from "./util.js";
 import {
+  emitLayerEvent,
   EVENTS,
   type EventBus,
   type EventHandler,
   ensureEvents,
-  publish,
 } from "#core/event/index.js";
 import {
   FILTER_SOURCE,
@@ -228,7 +228,7 @@ class MeasureManager {
       normalize: filter => this.normalizeMeasureFilter(filter),
       apply: () => this.applyFilterVisibility(),
       publish: () =>
-        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId }),
+        emitLayerEvent(this.events, "LAYER_FILTER_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId }),
       dimensions: () => [this.filterDimension()],
       counts: () => this.filterCounts(),
     });
@@ -868,14 +868,14 @@ class MeasureManager {
       if (chip) chip.style.visibility = visible ? "" : "hidden";
     }
     if (visible) this.scheduleLabelPlan();
-    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
   };
 
   /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
   setLabelCollide = (on: boolean): void => {
     this.labelCollide = on;
     this.scheduleLabelPlan();
-    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    emitLayerEvent(this.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: this.layerId });
   };
 
   /**
