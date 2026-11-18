@@ -40,7 +40,7 @@ const MUTATING_METHODS = new Set([
  *  Mirrors Python's normalise_folder: a non-empty string passes through, an
  *  omitted value (null/undefined) keeps the previous folder on re-registration,
  *  and an illegal value (non-string or blank) warns once and is treated as
- *  undeclared — the layer stays at the section root rather than hiding in a
+ *  undeclared — the layer stays at the role root rather than hiding in a
  *  folder the author never saw validated. Registration is never blocked. */
 const declaredFolderOf = (
   opts: RegisterLayerOpts,
@@ -247,7 +247,7 @@ class LayerInfoRegistry {
       // registerLayer call). Python's normalise_folder already validated the
       // CONF value, so this guards the direct-JS path: a non-string or blank
       // folder is an author error — warn and treat it as undeclared (the
-      // layer stays at the section root) rather than hiding the layer in a
+      // layer stays at the role root) rather than hiding the layer in a
       // folder the author never saw validated. A re-registration that omits
       // the folder (null/undefined) keeps the previous declared folder.
       folder: declaredFolder,
@@ -526,8 +526,8 @@ class LayerInfoRegistry {
   }
 
   /** Reorder so the panel's display order is the two-segment folder order:
-   *  per section, Folder blocks first (layout.order priority, then anchor) and
-   *  root layers after. The overlay section precedes the base section (the
+   *  per role, Folder blocks first (layout.order priority, then anchor) and
+   *  root layers after. The overlay role precedes the base role (the
    *  historical overlay-before-base partition). The anchor axis is the CURRENT
    *  items order (the user's saved arrangement, or the CONF registration order
    *  when no order was ever saved) — `fullDisplayOrder` reads each block's

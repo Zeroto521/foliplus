@@ -571,7 +571,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => rebuilds.push(1));
     const before = childKeys(ui);
 
-    // Bottom overlay cannot sink into the base section; top overlay cannot
+    // Bottom overlay cannot sink into the base role; top overlay cannot
     // rise past the panel head; unknown ids are refused outright.
     expect(manager.moveLayerDown("overlay_2")).toBe(false);
     expect(manager.moveLayerUp("overlay_0")).toBe(false);
@@ -839,7 +839,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     // L332 fallback loop branch: a role whose toggle-all anchor exists in the
     // DOM but no layer row of that role is in the registry. The first loop
     // never marks the role seen (no row), so the fallback pushes the anchor
-    // (anchor truthy) rather than dropping the empty section header.
+    // (anchor truthy) rather than dropping the empty role header.
     const container = document.createElement("div");
     const overlayAnchor = document.createElement("div");
     overlayAnchor.classList.add(CONST.CLASSES.TOGGLE_ALL);
@@ -849,7 +849,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     baseAnchor.setAttribute("data-role", ROLE.BASE);
     container.append(overlayAnchor, baseAnchor);
     // Registry has ONLY a base row — the overlay anchor has no rows, so it is
-    // an empty-section header the reconcile must preserve (the clean button
+    // an empty-role header the reconcile must preserve (the clean button
     // still hangs off it).
     const row = document.createElement("div");
     row.setAttribute(CONST.DATA.LAYER_ID, "base1");
@@ -1415,7 +1415,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     row.focus();
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
 
-    // A base registration lands in the trailing base section, below every
+    // A base registration lands in the trailing base role, below every
     // overlay row — the active row keeps its index and its ledgers.
     manager.registerLayer({ id: "tile", name: "tile", role: "base" });
 
@@ -1624,7 +1624,7 @@ describe("clean-empty-folders button and role header order", () => {
         const id = el.getAttribute(CONST.DATA.LAYER_ID);
         return `row:${id}`;
       });
-    // The empty overlay section's header trails the live base section.
+    // The empty overlay role's header trails the live base role.
     expect(kinds).toEqual(["header:base", "row:base1", "header:overlay"]);
     const cleanBtn = container.querySelector(
       `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,

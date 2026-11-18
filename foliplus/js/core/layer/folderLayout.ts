@@ -1,19 +1,19 @@
 // core/layer/folderLayout — the folder layout + ordering domain.
 //
-// The ONE module that owns how a section's registry entries become the
+// The ONE module that owns how a role's registry entries become the
 // two-segment display order the panel renders, and the persisted layout
 // document that records folder identity, block order and member assignment
 // in a single snapshot (same source, same write — one storage key, one
 // record, so order and members can never be observed half-written).
 //
 // The design is frozen at .foliplus/design/folder-layout-document.md (rev 2):
-//   - identity key = (section, normalize(name)); normalize = NFC → whitespace
+//   - identity key = (role, normalize(name)); normalize = NFC → whitespace
 //     fold → trim → casefold (locale-independent).
 //   - displayName = first-seen original (trim only) — never used for
 //     merge / sort / store.
-//   - block anchor = min(member global registry index); within a section
+//   - block anchor = min(member global registry index); within a role
 //     Folder blocks come first, then root Layer blocks.
-//   - layout.order[section] (ordered normalize(name)[]) is highest priority;
+//   - layout.order[role] (ordered normalize(name)[]) is highest priority;
 //     listed folders in list order, unlisted by anchor, list-only names
 //     ignored.
 //   - layout.members[layerId] is the single source of a layer's folder
@@ -22,7 +22,7 @@
 //     for that layer; it never overrides a persisted members entry. A
 //     materialised root (folder: "") pins the layer at root even when the
 //     author declared a folder.
-//   - empty-folder freeze materialises the section's whole block order before
+//   - empty-folder freeze materialises the role's whole block order before
 //     the last member is removed; deleteFolder promotes every member to root
 //     and removes the directory / order entries.
 //
@@ -167,9 +167,9 @@ const folderOf = (layout: FolderLayout, layer: LayerInfo): string | null => {
   return layer.folder ?? null;
 };
 
-/** Group one section's folder members into blocks, keyed by normalize(name).
+/** Group one role's folder members into blocks, keyed by normalize(name).
  *  `registryEntries` is the WHOLE registry in anchor order; the block anchor
- *  is the member's GLOBAL index in it (not a per-section index), matching
+ *  is the member's GLOBAL index in it (not a per-role index), matching
  *  invariant 3's `rail@1 / Roads@3 / Roads@7` shape.
  *
  *  The member assignment is read from `members[layerId]` when present — the
@@ -207,7 +207,7 @@ const groupByFolder = (
   return map;
 };
 
-/** True when a layer is a ROOT layer of its section: no persisted assignment,
+/** True when a layer is a ROOT layer of its role: no persisted assignment,
  *  or a materialised root pin (folder: ""). The author declaration only
  *  counts when no members entry exists at all. */
 const isRootLayer = (layout: FolderLayout, entry: LayerInfo): boolean => {

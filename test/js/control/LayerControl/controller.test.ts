@@ -329,7 +329,7 @@ describe("LayerController", () => {
     // An unregister is a teardown, not a delete: the `layers` live source
     // re-reads `configEntries` on every flush, so dropping the config here
     // would wipe `layers[id].label` from storage the next time any
-    // dimension saves — a label-only layer would lose its section for good.
+    // dimension saves — a label-only layer would lose its role for good.
     const m = new LayerController(map, [
       {
         id: "keepcfg",
@@ -2125,8 +2125,8 @@ describe("LayerController", () => {
 
   it("re-registering with a different group is refused before any mutation", () => {
     // A layer's group is its role for the id's lifetime — z ladder,
-    // attribution, basemap semantics, panel section. Changing it in place
-    // would strand the row in the old section with a stale section boundary
+    // attribution, basemap semantics, panel role. Changing it in place
+    // would strand the row in the old role with a stale role boundary
     // and a broken overlay-before-base partition, so the gate refuses
     // before a single mutation lands.
     const { manager, ui } = initFixture({
@@ -2157,7 +2157,7 @@ describe("LayerController", () => {
       manager.registerLayer({ id: "T", name: "T", role: "overlay" }),
     ).toThrow(/role change/);
 
-    // Nothing moved: partition, cached boundary, the row's section. The only
+    // Nothing moved: partition, cached boundary, the row's role. The only
     // announcements are the two ordinary refreshes above — nothing for T,
     // no added rows.
     expect(manager.layers.map(l => `${l.id}:${l.role}`)).toEqual([
@@ -3010,7 +3010,7 @@ describe("LayerController", () => {
   });
 
   it("deleteLayer freezes the folder order before the last member leaves", () => {
-    // Removing the last member of a folder must materialise the section's
+    // Removing the last member of a folder must materialise the role's
     // block order into layout.order BEFORE the
     // removal (PRE-removal snapshot), so the emptied folder keeps its block
     // position instead of the order becoming self-contradictory.
