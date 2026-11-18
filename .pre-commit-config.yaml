@@ -31,7 +31,6 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
-
   # ── Python type checking ──
   # Run mypy through `uv run` (the project .venv) instead of pre-commit's
   # own environment. The pre-commit mirrors-mypy hook installs mypy in an
@@ -39,7 +38,8 @@ repos:
   # this Windows setup that pip install hangs in the pre-commit env init
   # phase (network + Windows file locks). Using `language: system` with
   # `entry: uv run mypy` uses the project .venv directly — mypy and folium
-  # are already installed there, so no extra pip install is needed.
+  # are already installed there (folium version pinned by uv.lock), so no
+  # extra pip install is needed.
   # --strict + --ignore-missing-imports live in pyproject.toml ([tool.mypy]).
   - repo: local
     hooks:
