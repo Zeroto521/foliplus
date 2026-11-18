@@ -79,7 +79,6 @@ const collapseHtml = html =>
     .replace(/\s{2,}/g, " ")
     .trim();
 
-/** Compress HTML-looking template literals in source code. */
 /** Compress HTML-looking template literals in source code.
  *
  *  The scanner is comment/string aware: backticks inside // line comments,
