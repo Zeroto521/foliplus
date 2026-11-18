@@ -14,11 +14,11 @@ import {
   FILTER_SOURCE,
   GEOM_TYPE,
   LAYOUT_DOC_KEY,
+  type LayerFilterModel,
   LayerRuntimeStore,
   ROLE,
   Z_INDEX,
   getLayerAlpha,
-  type LayerFilterModel,
 } from "#core/layer/index.js";
 import * as coreLayer from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
@@ -7466,16 +7466,12 @@ describe("cross-panel contract: external actions × open overlays", () => {
     // row re-render also reads filterProvider, so a call-count spy would be
     // polluted.
     let modelField = "magnitude";
-    const filterProvider = vi.fn(
-      (): LayerFilterModel => ({
-        dimensions: [
-          { kind: "range", field: modelField, range: [0, 10], step: 1 },
-        ],
-        filter: undefined,
-        kept: 5,
-        total: 10,
-      }),
-    );
+    const filterProvider = vi.fn((): LayerFilterModel => ({
+      dimensions: [{ kind: "range", field: modelField, range: [0, 10], step: 1 }],
+      filter: undefined,
+      kept: 5,
+      total: 10,
+    }));
     manager.registerLayer({
       id: "f1",
       name: "Filterable",
