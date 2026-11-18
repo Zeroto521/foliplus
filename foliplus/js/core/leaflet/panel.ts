@@ -36,15 +36,15 @@ const adjustPanelZIndex = (opts: {
   expanded: boolean;
 }): void => {
   const bar = opts.container.closest(".leaflet-bar") as HTMLElement | null;
-  const section = opts.container.closest(
+  const corner = opts.container.closest(
     ".leaflet-top, .leaflet-bottom",
   ) as HTMLElement | null;
   if (!opts.expanded) {
     if (bar) bar.style.zIndex = "";
-    if (section) section.style.zIndex = "";
+    if (corner) corner.style.zIndex = "";
     return;
   }
-  // Read --foliplus-z-index-floating from :root (defined in CSS), then offset bar and section.
+  // Read --foliplus-z-index-floating from :root (defined in CSS), then offset bar and corner.
   // Fallback matches the token default (9990) so a page that omits shared
   // token.css still stacks the expanded panel in the control band.
   const base = parseInt(
@@ -52,7 +52,7 @@ const adjustPanelZIndex = (opts: {
     10,
   );
   if (bar) bar.style.zIndex = String(base + 1);
-  if (section) section.style.zIndex = String(base + 9);
+  if (corner) corner.style.zIndex = String(base + 9);
 };
 
 /**

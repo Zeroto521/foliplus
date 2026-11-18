@@ -833,7 +833,7 @@ describe("renderHistory", () => {
     expect(ctrl.panelWrap).toBeNull();
   });
 
-  it("limits display to 5 entries per section", () => {
+  it("limits display to 5 entries per type group", () => {
     const entries = Array.from({ length: 10 }, (_, i) => ({
       query: `q${i}`,
       type: "addr" as const,

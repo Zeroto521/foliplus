@@ -167,11 +167,11 @@ const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
 
   // Sort by search count (desc), then recency (desc) as tiebreaker
   const sorted = [...entries].sort((a, b) => b.count - a.count || b.ts - a.ts);
-  const sectionEntries = sorted
+  const historyEntries = sorted
     .filter(e => e.type === targetType)
     .slice(0, HISTORY.MAX_DISPLAY);
 
-  const items: ResultItem[] = sectionEntries.map((entry: SearchHistoryEntry) => {
+  const items: ResultItem[] = historyEntries.map((entry: SearchHistoryEntry) => {
     const isAddr = entry.type === MODE.ADDR;
     // Unified panel/popup display: address first, coordinates as fallback.
     const display = entry.addrDisplay || entry.coordDisplay || "";
