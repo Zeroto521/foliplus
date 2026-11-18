@@ -1335,10 +1335,10 @@ describe("LayerUI style panel", () => {
     expect(order.indexOf(layer!)).toBeLessThan(order.indexOf(label as Element));
     // The label dimension's row is one wrapper (toggle + body) — the
     // structural hook the Label content is selected by.
-    const labelSection = panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SECTION}`);
-    expect(labelSection).not.toBeNull();
+    const labelBlock = panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SECTION}`);
+    expect(labelBlock).not.toBeNull();
     expect(
-      labelSection!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
+      labelBlock!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
     ).not.toBeNull();
   });
 
