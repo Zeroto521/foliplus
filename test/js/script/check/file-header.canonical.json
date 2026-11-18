@@ -78,5 +78,7 @@
   "ui/sliderClassName",
   "ui/styleModeKey",
   "ui/type",
-  "ui/buttonClassName"
+  "ui/buttonClassName",
+  "ui/listFilter",
+  "ui/searchField"
 ]

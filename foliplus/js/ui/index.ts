@@ -27,6 +27,7 @@ export { SCALE_CLASS } from "./scaleClassName.js";
 export { FORM_CLASS } from "./formClassName.js";
 export { GLYPH_CLASS } from "./glyphClassName.js";
 export {
+  DROPDOWN_SEARCH_AUTO_THRESHOLD,
   POPUP_ESCAPE_DELTA,
   POPUP_HOST_RANK,
   POPUP_OVERLAY_RANK,
@@ -35,7 +36,7 @@ export {
   dropdownOf,
   dropdownOverlay,
 } from "./dropdown.js";
-export type { DropdownOverlay } from "./dropdown.js";
+export type { DropdownOverlay, DropdownOptions } from "./dropdown.js";
 export { createListbox } from "./listbox.js";
 export {
   bindLiveColor,

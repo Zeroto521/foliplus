@@ -138,6 +138,12 @@ const renderRangeBody = (
         fieldDropdown = createDropdown({
           nativeSelect: select,
           ariaLabel: deps.T("filter_field"),
+          // A large field list gets a search box (threshold 10 is explicit,
+          // not the engine's "auto" default: field count is a different
+          // semantic from the enum value-count threshold).
+          search: { threshold: 10 },
+          searchPlaceholder: deps.T("filter_field_search_placeholder"),
+          searchNoResult: deps.T("filter_field_search_no_result"),
           ...deps.surface,
           overlay: deps.overlay,
         });
@@ -292,6 +298,23 @@ const renderEnumBody = (
     selectedLabel: labels =>
       deps.T("filter_enum_count").replace("{n}", String(labels.length)),
     onChange: (_value, values) => deps.write(enumFilterOf(dim, new Set(values))),
+    // A truncated domain gets a search box over the full value set (the
+    // engine applies the display cap); a full domain stays a plain list.
+    ...(dim.truncated
+      ? {
+          search: {
+            threshold: CONST.ENUM_OPTION_LIMIT,
+            renderLimit: CONST.ENUM_OPTION_LIMIT,
+          },
+          searchPlaceholder: deps.T("filter_enum_search_placeholder"),
+          searchNoResult: deps.T("filter_enum_search_no_result"),
+          searchFooterText: info =>
+            deps
+              .T("filter_enum_showing")
+              .replace("{shown}", String(info.shown))
+              .replace("{total}", String(info.total)),
+        }
+      : {}),
     ...deps.surface,
     overlay: deps.overlay,
   });
@@ -299,19 +322,6 @@ const renderEnumBody = (
   // read as a broken control.
   dropdown.trigger.disabled = dim.options.length === 0;
   control.appendChild(dropdown.element);
-
-  // A truncated domain is a display-layer policy only: the matching
-  // semantics never change, so the hint tells the user the list is partial
-  // without implying the hidden values cannot be selected.
-  if (dim.truncated) {
-    control.appendChild(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.FILTER_ENUM_HINT },
-        deps.T("filter_enum_truncated"),
-      ),
-    );
-  }
 
   const sync = (next: LayerFilterModel): void => {
     const values = enumValuesOf(dim, next.filter);

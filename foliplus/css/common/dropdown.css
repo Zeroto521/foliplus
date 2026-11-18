@@ -184,3 +184,58 @@
 /* The multi-select row used to reserve a tick column here. It is gone on
    purpose: the trigger already reports "N selected", and the inset bar above
    carries the selected state for single and multiple alike. */
+
+/* ── Searchable popup ──
+   The searchable dropdown wraps the options list in a shell (still
+   .foliplus-dropdown-list, so the shared floating-menu recipe and the anchor
+   apply). Inside: a search input pinned to the top (the shell scrolls, the
+   input must not), the options container, and one status/footer region
+   (role=status). The input reuses the shared form input skin so it matches
+   the panel's own inputs by construction, and the popup adds only a hairline
+   to separate it from the scrolling options. */
+.foliplus-dropdown-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--foliplus-space-xs) var(--foliplus-space-md);
+  border-bottom: 1px solid var(--foliplus-hairline);
+  background: var(--foliplus-input-bg);
+}
+.foliplus-dropdown-search input {
+  width: 100%;
+  box-sizing: border-box;
+}
+/* The options container scrolls with the shell's overflow (the engine caps
+   it at menu-max-height). It must not add its own padding (the shell's
+   list padding already does). */
+.foliplus-dropdown-options {
+  padding: 0;
+}
+/* Active row (aria-activedescendant / keyboard moved): same wash as hover
+   but without the pointer cue, so the keyboard path and the mouse path can
+   never look like two different selections. */
+.foliplus-dropdown-option-active {
+  background: var(--foliplus-menu-row-hover-bg);
+}
+/* Status/footer: one region below the options (the design keeps no-result
+   and the count in the same role=status so the live region announces once). */
+.foliplus-dropdown-status {
+  position: sticky;
+  bottom: 0;
+  padding: var(--foliplus-space-xs) var(--foliplus-space-md);
+  border-top: 1px solid var(--foliplus-hairline);
+  background: var(--foliplus-panel-bg);
+  color: var(--foliplus-text-muted);
+  font-size: var(--foliplus-font-size-sm);
+}
+.foliplus-dropdown-footer-btn {
+  border: 0;
+  background: transparent;
+  color: var(--foliplus-accent-primary);
+  font: inherit;
+  cursor: pointer;
+  padding: 0 var(--foliplus-space-xs);
+}
+.foliplus-dropdown-footer-btn:hover {
+  text-decoration: underline;
+}

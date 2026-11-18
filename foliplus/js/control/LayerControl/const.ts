@@ -16,6 +16,12 @@ const SAVE_DEBOUNCE_MS = 100;
 /** Drag hint cooldown. */
 const DRAG = { HINT_COOLDOWN_MS: 800 };
 
+/** The enum dropdown's display cap: beyond this many values the panel marks the
+ *  domain truncated and the dropdown shows a search box (the engine renders a
+ *  capped list). The matching semantics never change — a value beyond the
+ *  shown list still matches. */
+const ENUM_OPTION_LIMIT = 30;
+
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
  *  record rather than by introducing a new key. */
@@ -324,8 +330,6 @@ const CLASSES = {
   FILTER_CLEAR: "foliplus-filter-clear",
   /** Enum filter body: the cell that hosts the shared multiple dropdown. */
   FILTER_ENUM: "foliplus-filter-enum",
-  /** Truncation hint under the enum dropdown (large discrete domain). */
-  FILTER_ENUM_HINT: "foliplus-filter-enum-hint",
 };
 
 /** Data attribute names. */
@@ -406,6 +410,7 @@ export {
   DEFAULT_LABEL,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
+  ENUM_OPTION_LIMIT,
   FOCUS,
   FOCUS_PANE,
   FILL_VALUE,

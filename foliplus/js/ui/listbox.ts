@@ -64,6 +64,9 @@ type ListboxRowShape = {
    *  focused row on the trigger; the dropdown does not (its trigger is a
    *  button that keeps its own focus, and the list rows are tabindex=-1). */
   activedescendant: "trigger" | "none";
+  /** Give every row a stable id even when the trigger does not track it (e.g.
+   *  a searchable dropdown whose input tracks aria-activedescendant instead). */
+  rowIds?: boolean;
   /** Row content: default is the label text; the picker draws a colour block. */
   renderRow?: (
     item: ListboxItem,
@@ -94,6 +97,10 @@ interface RegistryOverlayEntry {
   dismissOn: "mousedown" | "click";
   pressPriority: number;
   escapeRank?: number;
+  /** True when the open surface hosts an editable control whose own keydown
+   *  must win Escape (a dropdown search input). The registry dispatcher does
+   *  not close it and lets the event continue to the editor. */
+  escPassthroughOnEditable?: boolean;
 }
 
 type ListboxDismiss =
@@ -186,10 +193,22 @@ interface ListboxSpec {
    *  is what keeps the closed list out of the owning panel — a detached
    *  node is not inside any overlay. Default false (park in wrapper). */
   detachOnClose?: boolean;
+  /** The floating root the engine positions/portals/classes. The dropdown's
+   *  searchable mode wraps the list in a shell (search field + options + status)
+   *  and returns that shell here; the engine then applies every positioning/
+   *  portal/up/open class to the shell instead of the list. The list itself
+   *  stays the role=listbox options container. Default: the list itself —
+   *  the non-search path is byte-identical. */
+  mountRoot?: () => HTMLElement | null;
+  /** Forwarded to the registry entry when the open surface hosts an editable
+   *  (a search input): the dispatcher leaves Escape to the editor. */
+  escPassthroughOnEditable?: boolean;
 }
 
 interface Listbox {
   getList(): HTMLElement | null;
+  /** The currently rendered rows, in DOM order (matches the active-index space). */
+  getRows(): HTMLElement[];
   isOpen(): boolean;
   open(): void;
   close(opts?: { restoreFocus?: boolean }): void;
@@ -221,6 +240,9 @@ interface InternalState {
   mountCleanup: (() => void)[];
   /** The mounted floating layer (portal mount/re-pin/re-seat/wheel). */
   floating: Floating | null;
+  /** The element that carries the floating/positioning/portal classes. Defaults
+   *  to the list (non-search); the dropdown's searchable shell overrides it. */
+  getMountRoot: () => HTMLElement;
 }
 
 /** Open popups, newest last. One at a time: two portalled lists on <body>
@@ -315,7 +337,9 @@ const buildRow = (
   }
   // The picker shape tracks the focused row on the trigger via
   // aria-activedescendant, so its rows need stable ids to reference.
-  if (shape.activedescendant === "trigger") attrs.id = nextOptionId("listbox-row");
+  if (shape.activedescendant === "trigger" || shape.rowIds) {
+    attrs.id = nextOptionId("listbox-row");
+  }
   const row = dom.el(shape.rowTag, attrs) as HTMLElement;
   applyOptionRowA11y({ el: row, selected, id: attrs.id });
   row.classList.toggle(shape.selectedClass, selected);
@@ -385,25 +409,28 @@ const classRemove = (el: HTMLElement, cls: string): void => {
   if (cls) el.classList.remove(cls);
 };
 const positionList = (state: InternalState): void => {
+  const root = state.getMountRoot();
   const list = state.list;
-  list.style.maxHeight = "";
-  classRemove(list, state.spec.classes.up);
+  root.style.maxHeight = "";
+  classRemove(root, state.spec.classes.up);
 
   const rect = state.trigger.getBoundingClientRect();
+  // Row height / natural size still come from the list (the row elements live
+  // there; the shell's own chrome must not inflate the measured rows).
   const natural = list.getBoundingClientRect().height;
   const rowHeight = Math.max(24, ...state.rowEls.map(row => row.offsetHeight));
   const desired = Math.min(natural, rowHeight * MAX_VISIBLE_ROWS);
   const fixed = state.spec.place === "fixed";
 
-  list.style.position = "fixed";
+  root.style.position = "fixed";
   // CSS gives in-flow mounts the gap via margin-top; a fixed (portalled) mount
   // expresses the same gap via its offset, so the margin must be zeroed or the
   // two stack and every real scheme dropdown sits 4px low (P2-1).
-  list.style.marginTop = "0px";
+  root.style.marginTop = "0px";
   // placement-adapter: clears the in-flow right anchor for a fixed portal.
-  list.style.right = "auto";
-  list.style.width = "max-content";
-  const contentWidth = list.getBoundingClientRect().width;
+  root.style.right = "auto";
+  root.style.width = "max-content";
+  const contentWidth = root.getBoundingClientRect().width;
   const cell = state.trigger.parentElement?.parentElement ?? null;
   const room = cell ? cell.getBoundingClientRect().right - rect.left : rect.width;
 
@@ -419,7 +446,7 @@ const positionList = (state: InternalState): void => {
   // call. The two shapes differ only in the flip threshold (minRoom), the width
   // they hand in, and the bottom anchor the portal has always used when it
   // flips above.
-  const placement = placeSurface(list, {
+  const placement = placeSurface(root, {
     anchor: rect,
     size: { width: contentWidth, height: desired },
     gap: POPUP_GAP,
@@ -434,14 +461,14 @@ const positionList = (state: InternalState): void => {
     minRoom: fixed ? desired : Math.min(desired, rowHeight * MIN_ROWS_BELOW),
     bottomWhenAbove: !fixed,
     onSide: side => {
-      if (side === "above") classAdd(list, state.spec.classes.up);
+      if (side === "above") classAdd(root, state.spec.classes.up);
     },
   });
 
-  list.style.width = `${String(placement.maxWidth)}px`;
-  list.classList.add(state.spec.classes.portal);
+  root.style.width = `${String(placement.maxWidth)}px`;
+  root.classList.add(state.spec.classes.portal);
   if (placement.maxHeight < natural) {
-    list.style.maxHeight = `${String(Math.round(placement.maxHeight))}px`;
+    root.style.maxHeight = `${String(Math.round(placement.maxHeight))}px`;
   }
   state.spec.onPosition?.();
 };
@@ -450,10 +477,11 @@ const close = (state: InternalState, opts?: { restoreFocus?: boolean }): void =>
   state.isOpen = false;
   const openIndex = openStates.indexOf(state);
   if (openIndex >= 0) openStates.splice(openIndex, 1);
-  state.list.hidden = true;
-  classRemove(state.list, state.spec.classes.up);
-  classRemove(state.list, state.spec.classes.portal);
-  state.list.style.maxHeight = "";
+  const root = state.getMountRoot();
+  root.hidden = true;
+  classRemove(root, state.spec.classes.up);
+  classRemove(root, state.spec.classes.portal);
+  root.style.maxHeight = "";
   state.trigger.classList.remove(state.spec.classes.open);
   state.trigger.setAttribute("aria-expanded", "false");
   state.trigger.removeAttribute("aria-activedescendant");
@@ -464,12 +492,12 @@ const close = (state: InternalState, opts?: { restoreFocus?: boolean }): void =>
   // The popup goes back into the wrapper when it is closed: the open state is
   // the only one that has to escape the panel's clip box.
   if (state.spec.detachOnClose) {
-    state.list.remove();
+    root.remove();
   } else {
     const wrapper = state.spec.inline
       ? (state.spec.inlineHost?.() ?? state.trigger.parentElement ?? state.trigger)
       : state.trigger.parentElement;
-    if (wrapper && state.list.parentElement !== wrapper) wrapper.append(state.list);
+    if (wrapper && root.parentElement !== wrapper) wrapper.append(root);
   }
   if (wasOpen && opts?.restoreFocus !== false) state.trigger.focus();
   if (wasOpen) state.spec.onToggle?.(false, null);
@@ -492,21 +520,23 @@ const open = (state: InternalState): void => {
   if (state.spec.inline) {
     const host =
       state.spec.inlineHost?.() ?? state.trigger.parentElement ?? state.trigger;
-    if (state.list.parentElement !== host) host.appendChild(state.list);
-    state.list.hidden = false;
+    const root = state.getMountRoot();
+    if (root.parentElement !== host) host.appendChild(root);
+    root.hidden = false;
     state.isOpen = true;
     state.trigger.classList.add(state.spec.classes.open);
     state.trigger.setAttribute("aria-expanded", "true");
     state.spec.onPosition?.();
   } else {
+    const root = state.getMountRoot();
     state.floating = mountFloating({
-      root: state.list,
+      root,
       anchor: state.trigger,
       position: () => positionList(state),
       surface: state.spec.surface,
       registerPortalRoot,
     });
-    state.list.hidden = false;
+    root.hidden = false;
     state.isOpen = true;
     state.trigger.classList.add(state.spec.classes.open);
     state.trigger.setAttribute("aria-expanded", "true");
@@ -528,11 +558,17 @@ const open = (state: InternalState): void => {
           isOpen: () => state.isOpen,
           // The portalled list is not inside the trigger's wrapper, so the
           // containment is wrapper + list.
-          panels: () => (wrapper?.isConnected ? [wrapper, state.list] : [state.list]),
+          panels: () => {
+            const root = state.getMountRoot();
+            return wrapper?.isConnected ? [wrapper, root] : [root];
+          },
           close: opts => close(state, opts),
           dismissOn: "mousedown",
           pressPriority: state.spec.dismiss.rank,
           escapeRank: state.spec.dismiss.rank,
+          ...(state.spec.escPassthroughOnEditable
+            ? { escPassthroughOnEditable: true }
+            : {}),
         }),
       );
     }
@@ -705,6 +741,7 @@ const createListbox = (spec: ListboxSpec): Listbox => {
     destroyed: false,
     mountCleanup: [],
     floating: null,
+    getMountRoot: () => spec.mountRoot?.() ?? list,
   };
 
   const onTriggerClick = (event: MouseEvent): void => {
@@ -724,6 +761,7 @@ const createListbox = (spec: ListboxSpec): Listbox => {
 
   const listbox: Listbox = {
     getList: () => (state.destroyed ? null : state.list),
+    getRows: () => (state.destroyed ? [] : state.rowEls),
     isOpen: () => state.isOpen,
     open() {
       if (state.destroyed) return;
@@ -756,9 +794,12 @@ const createListbox = (spec: ListboxSpec): Listbox => {
     },
   };
 
-  // Attach the list to the trigger's wrapper so the closed DOM shape is intact.
+  // Attach the floating root to the trigger's wrapper so the closed DOM shape
+  // is intact. Non-search: root === list (unchanged). Searchable: the shell is
+  // parked in the wrapper; the dropdown puts the list inside the shell.
   const wrapper = spec.trigger.parentElement;
-  if (wrapper) wrapper.append(list);
+  const root = state.getMountRoot();
+  if (wrapper && root.parentElement !== wrapper) wrapper.append(root);
   return listbox;
 };
 

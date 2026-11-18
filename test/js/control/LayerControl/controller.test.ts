@@ -7262,6 +7262,7 @@ describe("genericFilterModel — enum dimensions", () => {
         ],
         multi: true,
         truncated: false,
+        total: 3,
       },
     ]);
     expect(model!.fields).toEqual([{ value: "kind", label: "kind", numeric: false }]);
@@ -7348,7 +7349,7 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(info.hasFilterFields?.()).toBe(true);
   });
 
-  it("truncates a large enum domain to the panel limit and marks it", () => {
+  it("publishes the full enum domain and marks a large one truncated", () => {
     const manager = makeManager();
     const many = Array.from({ length: 60 }, (_, i) => `v${i}`);
     manager.ui = {
@@ -7374,9 +7375,11 @@ describe("genericFilterModel — enum dimensions", () => {
     const dim = model!.dimensions[0] as any;
     expect(dim.kind).toBe("enum");
     expect(dim.truncated).toBe(true);
-    expect(dim.options).toHaveLength(50);
+    // The model publishes the FULL domain; the search engine caps the list.
+    expect(dim.options).toHaveLength(60);
     expect(dim.options[0]).toEqual({ value: "v0", label: "v0" });
-    expect(dim.options[49]).toEqual({ value: "v49", label: "v49" });
+    expect(dim.options[59]).toEqual({ value: "v59", label: "v59" });
+    expect(dim.total).toBe(60);
   });
 
   it("tolerates an enum field whose value table is missing (corrupt store) without throwing", () => {

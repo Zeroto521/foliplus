@@ -1401,7 +1401,7 @@ describe("LayerUI filter panel", () => {
       expect(triggerOf(item)).toBe(trigger);
       spy.mockRestore();
     });
-    it("shows the truncation hint when the owner truncated the domain", () => {
+    it("shows a search box when the owner truncated the domain", () => {
       const owner = makeEnumOwner(Array.from({ length: 60 }, (_, i) => `v${i}`));
       // Patch the provider to set truncated=true on the dimension.
       const baseProvider = owner.filterProvider;
@@ -1425,18 +1425,65 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      const hint = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_ENUM_HINT}`,
-      ) as HTMLElement;
-      expect(hint).not.toBeNull();
-      expect(hint.textContent).toBe("LayerControl.filter_enum_truncated");
+      // The truncated domain gets a search box inside the enum dropdown.
+      const search = panel.querySelector("input");
+      expect(search).not.toBeNull();
+      expect(search?.getAttribute("placeholder")).toBe(
+        "LayerControl.filter_enum_search_placeholder",
+      );
     });
 
-    it("renders no truncation hint for a full domain", () => {
+    it("the truncated enum search box reports showing N of M in the footer", () => {
+      const spy = vi.spyOn(ui, "T").mockImplementation(
+        key =>
+          ({
+            filter_enum_any: "All",
+            filter_enum_count: "{n} selected",
+            filter_enum_showing: "showing {shown} of {total}",
+          })[key] ?? `LayerControl.${key}`,
+      );
+      const owner = makeEnumOwner(Array.from({ length: 60 }, (_, i) => `v${i}`));
+      const baseProvider = owner.filterProvider;
+      owner.filterProvider = () => {
+        const model = baseProvider();
+        return {
+          ...model,
+          dimensions: model.dimensions.map(d => ({ ...d, truncated: true })),
+        };
+      };
+      manager.registerLayer({
+        id: "enum-trunc-search",
+        name: "Enum owner",
+        role: "overlay",
+        layer: undefined as unknown as L.Layer,
+        filterProvider: owner.filterProvider,
+        filterSetter: owner.filterSetter,
+      });
+      const item = findItem(ui, "enum-trunc-search");
+      ui.openFilterPanel(item);
+      openList(item);
+      const searchInput = document.querySelector("input");
+      expect(searchInput).not.toBeNull();
+      (searchInput as HTMLInputElement).value = "v5";
+      (searchInput as HTMLInputElement).dispatchEvent(
+        new Event("input", { bubbles: true }),
+      );
+      return new Promise<void>(resolve => {
+        setTimeout(() => {
+          const status = document.querySelector('[role="status"]');
+          expect(status?.textContent).toContain("showing");
+          expect(status?.textContent).toContain("of");
+          spy.mockRestore();
+          resolve();
+        }, 250);
+      });
+    });
+
+    it("renders no search box for a full domain", () => {
       const { item } = registerEnum();
       ui.openFilterPanel(item);
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
-      expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM_HINT}`)).toBeNull();
+      expect(panel.querySelector("input")).toBeNull();
     });
   });
 
