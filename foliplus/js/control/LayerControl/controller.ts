@@ -338,7 +338,7 @@ class LayerController implements LayerAPI {
         if (!removedIds.has(layerInfo.id)) return true;
         // Late-binding fallback (folium script-stream order) — same single
         // point as `findLayer` / ExportControl's `resolveLayer`.
-        const layer = layerInfo.layer ?? findLayer(this.map, layerInfo.id);
+        const layer = this.resolveLayer(layerInfo);
         if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
         return false;
       }),
@@ -2220,12 +2220,25 @@ class LayerController implements LayerAPI {
     return has;
   }
 
+  /** The layer object for a registry entry, falling back to the map's own
+   *  membership: a constructor-seeded layer's `layer` field stays unset until
+   *  its late binding (folium script-stream order), so the map is the only
+   *  reach until then. One resolution point — the attach-time removal pass
+   *  and the filter snapshot builder share it, so a CONFIG layer can build
+   *  its snapshot before its registry row resolves. */
+  private resolveLayer(
+    info: { id: string; layer?: L.Layer | null } | undefined,
+  ): L.Layer | null {
+    if (!info) return null;
+    return info.layer ?? findLayer(this.map, info.id);
+  }
+
   /** Tier2: build (or return the cached) filterFeatures for a layer,
    *  rebuilt when dataRevision moved. The cache is shared with
    *  genericFilterModel and the field picker, so a menu probe never walks
    *  the full tree and a model build reuses the same snapshot. */
   private ensureFilterFeatures(id: string): LayerFilterFeatures | null {
-    const layer = this.layerRegistry.get(id)?.layer;
+    const layer = this.resolveLayer(this.layerRegistry.get(id));
     const revision = this.ui!.runtimeStore.getDataRevision(id);
     const cached = this.ui!.runtimeStore.getFilterFeatures(id);
     // A cached row at this revision is authoritative (Tier2 already built it).
@@ -2235,6 +2248,13 @@ class LayerController implements LayerAPI {
     // layer whose geometry is not reachable at probe time loses its model.
     if (!layer) return cached ?? null;
     const features = buildFilterFeatures(layer);
+    // An empty build means the layer exposed no walkable geometry leaf. A
+    // pre-seeded row (external owner / test fixture seeded the snapshot
+    // directly) is the source of truth and must not be replaced by an empty
+    // snapshot — the same preservation as the no-layer guard above. A
+    // genuinely field-less layer still stores its empty snapshot (no cached
+    // row), so an active filter hides nothing on it.
+    if (features.features.length === 0 && cached) return cached;
     this.ui!.runtimeStore.setFilterFeatures(id, features);
     this.filterFeaturesRev.set(id, revision);
     return features;
@@ -2346,7 +2366,16 @@ class LayerController implements LayerAPI {
   }
 
   private applyFilterClass(id: string, filter: LayerFilter | undefined): void {
-    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    // The snapshot builder reads the runtime store, so it is attach-time
+    // only. Before attach there is no snapshot and no builder: the
+    // constructor's declared-filter replay is intentionally a no-op (the
+    // feature-build slice has not run) — the class pass happens later, on
+    // layeradd, once the layer's geometry is on the map.
+    if (!this.ui) {
+      this.hiddenSets.set(id, new WeakSet());
+      return;
+    }
+    const features = this.ensureFilterFeatures(id);
     if (!features) {
       this.hiddenSets.set(id, new WeakSet());
       return;
