@@ -177,3 +177,39 @@ def _make_autofield_page(
     heatmap_ready(page)
 
     return page, errors
+
+
+def _make_exclusion_page(
+    browser,
+    tmp_path,
+    *,
+    with_search=False,
+    with_measure=False,
+    heatmap_kwargs=None,
+    layer_kwargs=None,
+):
+    """Build a map with LayerControl + Heatmap (+ optional Measure/Search).
+
+    LayerControl sits top-right and Heatmap bottom-left so the two expanded
+    panels do not overlap; Measure (bottomright) and Search (topleft) keep
+    their defaults. Used by the overlay-exclusion death tests.
+    """
+    from foliplus import LayerControl, MeasureControl, SearchControl
+
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    coords = [(26.08, 119.30), (26.09, 119.31), (26.07, 119.29)]
+    for i, (lat, lng) in enumerate(coords):
+        fg = folium.FeatureGroup(name=f"Points {i}", show=True)
+        gj = json.dumps(feature_collection(point_feature(lng, lat, {"val": lat})))
+        folium.GeoJson(gj).add_to(fg)
+        fg.add_to(m)
+    LayerControl(position="topright", **(layer_kwargs or {})).add_to(m)
+    HeatmapControl(position="bottomleft", **(heatmap_kwargs or {})).add_to(m)
+    if with_measure:
+        MeasureControl(position="bottomright").add_to(m)
+    if with_search:
+        SearchControl(position="topleft").add_to(m)
+    html = _stub_html(m.get_root().render())
+    page, errors = make_browser_page(browser, tmp_path, html, "exclusion")
+    page.wait_for_selector(".foliplus-heatmap-ctrl", state="attached", timeout=10000)
+    return page, errors

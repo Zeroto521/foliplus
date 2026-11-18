@@ -11,11 +11,10 @@ import type {
 } from "./type.js";
 import { vertexMean } from "#core/geo/index.js";
 import {
-  ClassifierDependencyError,
   type ClassifyMethod,
-  METHOD,
   computeBreaks,
   safeColorScale,
+  withDependencyFallback,
 } from "#core/value/index.js";
 import type { Logger } from "#platform/type.js";
 
@@ -149,17 +148,15 @@ const aggregateData = (
   // out of the method selector's handler and the user's choice would not be
   // persisted. Degrade to the one method that needs no dependency and say so,
   // instead of a flat single color.
-  let breaks: number[];
-  try {
-    breaks = computeBreaks(allVals, numClassesCapped, method);
-  } catch (err) {
-    if (!(err instanceof ClassifierDependencyError)) throw err;
-    log.warn(
-      "simple-statistics unavailable, classified with the equal method",
-      err.message,
-    );
-    breaks = computeBreaks(allVals, numClassesCapped, METHOD.EQUAL);
-  }
+  const breaks = withDependencyFallback(
+    method,
+    m => computeBreaks(allVals, numClassesCapped, m),
+    err =>
+      log.warn(
+        "simple-statistics unavailable, classified with the equal method",
+        err.message,
+      ),
+  );
   // Ask chroma for the classes breaks actually produced, not the classes
   // requested: a method that cannot split the sample returns fewer breaks, and
   // the surplus colors would sit unused next to a class index that can never

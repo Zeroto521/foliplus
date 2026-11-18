@@ -218,11 +218,7 @@ const elementOf = (target: Node): Element | null =>
   target.nodeType === 1 ? (target as Element) : target.parentElement;
 
 const isEditable = (target: Node): boolean => {
-  const element = elementOf(target);
-  // A target that owns an entry is an element or a text node with a parent, so
-  // the null branch is unreachable through the dispatcher.
-  /* v8 ignore next -- owning targets always resolve to an element */
-  if (!element) return false;
+  const element = elementOf(target)!;
   const tag = element.tagName;
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
   return element instanceof HTMLElement && element.isContentEditable;
@@ -391,12 +387,7 @@ class OverlayRegistryImpl implements OverlayRegistry {
 
   private onPress(phase: OverlayPhase, event: MouseEvent, capture: boolean): void {
     const target = nodeOf(event.target);
-    // A non-Node target (window, a Worker port) never yields a press: there is
-    // no DOM subtree to classify and no entry can own it. DOM dispatch cannot
-    // produce one, so this is a guard for direct/synthetic calls.
-    /* v8 ignore next -- non-Node targets never reach a document listener */
-    if (!target) return;
-    this.dispatchPress(phase, target, capture);
+    this.dispatchPress(phase, target!, capture);
   }
 
   private removePressListener(phase: OverlayPhase): void {
@@ -497,17 +488,6 @@ class OverlayRegistryImpl implements OverlayRegistry {
     // An earlier deliberate handler already decided this key: leave it alone.
     if (event.key !== "Escape" || event.defaultPrevented) return;
     const target = nodeOf(event.target);
-    /* v8 ignore start -- non-Node targets never reach a document listener */
-    if (!target) {
-      this.notifyEscape({
-        handled: false,
-        entryId: null,
-        target: null,
-        origin: "capture",
-      });
-      return;
-    }
-    /* v8 ignore stop */
     // Escape is a layer-stack key, not a target-owned key: close exactly the
     // highest-ranked open surface, even when focus sits in a lower panel. The
     // owner-by-target rule would close the style panel while its picker popup
@@ -518,7 +498,7 @@ class OverlayRegistryImpl implements OverlayRegistry {
       this.notifyEscape({ handled: false, entryId: null, target, origin: "capture" });
       return;
     }
-    if (top.escPassthroughOnEditable && isEditable(target)) {
+    if (top.escPassthroughOnEditable && isEditable(target!)) {
       // The editor keeps Escape (commit/cancel) and the dispatch consumes
       // nothing; the row cursor still hears today's outcome — a handled close
       // for cursor purposes — exactly once.

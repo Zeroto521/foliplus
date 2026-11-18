@@ -236,6 +236,7 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     inlineControls(input, opacityGroup),
     CONST.CLASSES.STYLE_ICON_COLOR_ROW,
   );
+  row.dataset.styleDim = "iconColor";
   input.addEventListener("input", () => {
     const next = input.value;
     if (!/^#[0-9a-f]{6}$/i.test(next)) return;
@@ -292,13 +293,7 @@ const ICON_COLOR_DIMENSION = registerDimension<{
     );
   },
   reset: (ui, layerId) => resetLayerIconColor(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!layerCanIconColor(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.ICON_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.ICON_COLOR_OPACITY)
-      ? "user"
-      : "author";
-  },
+  intentKeys: [INTENT.ICON_COLOR, INTENT.ICON_COLOR_OPACITY],
   contentChange: {
     kind: "frame",
     face: FACE.ICON_COLOR,

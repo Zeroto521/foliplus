@@ -410,6 +410,7 @@ const subscribeFilterSignals = (
     ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_DELETED, onDeleted),
+    ui.events.on(EVENTS.LAYER_REMOVED, onDeleted),
   ];
   return () => unsubs.forEach(off => off());
 };
@@ -514,7 +515,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
     owner: "layer",
     localId: "filter",
     rank: 700,
-    exclusiveGroup: "layer:rows",
+    exclusiveGroup: "map:panel",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     root: () => ui.overlayPanel.activeFilterPanel?.panel ?? null,

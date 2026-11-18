@@ -3,7 +3,11 @@ import * as SVGs from "./icon.js";
 import { HeatmapManager } from "./manager.js";
 import { bindControls, initScan, setupObserver } from "./ui.js";
 import { ensureLayerAPI } from "#core/layer/index.js";
-import { bindControlZoomRange, createPanelControl } from "#core/leaflet/index.js";
+import {
+  bindControlZoomRange,
+  bindFoldOverlay,
+  createPanelControl,
+} from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { finalize } from "#platform/finalize.js";
 
@@ -64,10 +68,30 @@ class HeatmapControl extends defineControl({
       panelTitle: this.T("title"),
       closeTitle: this.T("close_title"),
       collapseOnOutside: this.config.collapse_on_outside,
+      // The registry owns outside-press dismissal; skip the factory's
+      // document click listener so the exclusivity contract is the single mechanism.
+      skipOutsideCollapse: true,
+      onExpand: () => fold.groupOpen(),
+    });
+    // The registry entry makes this panel exclusive against the other map
+    // surfaces (row panels, the LayerControl menu) instead of the old document
+    // click listener that a stopPropagation could kill.
+    const fold = bindFoldOverlay({
+      map: this.mgr.map,
+      container: ctrl,
+      id: "heatmap.panel",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () => this.config.collapse_on_outside !== false,
     });
     // See LayerControl.buildDOM: keeps the factory's document-level listeners
     // from outliving a control that is removed but not garbage-collected.
-    this.effect(() => destroy);
+    // Returns the cleanup (must not call it now): executing the body would
+    // detach the registry entry at build time.
+    this.effect(() => () => {
+      destroy();
+      fold.detach();
+    });
     this.ctrl = ctrl;
     this.mgr.ui = this;
     bindControls(this, panelContent);

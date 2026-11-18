@@ -2,6 +2,7 @@ import {
   TEST_ENV,
   attachWithGroup,
   attachedPanel,
+  findItem,
   initFixture,
   polygonLayer,
   trackMembership,
@@ -11,8 +12,10 @@ import { EVENTS } from "#core/event/index.js";
 import {
   FALLBACK_PANE_PREFIX,
   FILTER_SOURCE,
+  FOLDER_NAME_MAX,
   GEOM_TYPE,
   LAYOUT_DOC_KEY,
+  type LayerFilterModel,
   LayerRuntimeStore,
   ROLE,
   Z_INDEX,
@@ -40,7 +43,7 @@ import {
 /** Build a v2 folder-layout document from a v1 sections shape, for tests
  *  that seed a persisted block order. Each key also gets a folder entry with a
  *  display name equal to its key (the seeded order is all that matters here). */
-const layoutFromSections = (
+const layoutFromRoles = (
   sections: Record<string, string[]>,
 ): Record<string, unknown> => {
   const keys = new Set<string>();
@@ -329,7 +332,7 @@ describe("LayerController", () => {
     // An unregister is a teardown, not a delete: the `layers` live source
     // re-reads `configEntries` on every flush, so dropping the config here
     // would wipe `layers[id].label` from storage the next time any
-    // dimension saves — a label-only layer would lose its section for good.
+    // dimension saves — a label-only layer would lose its role for good.
     const m = new LayerController(map, [
       {
         id: "keepcfg",
@@ -2125,8 +2128,8 @@ describe("LayerController", () => {
 
   it("re-registering with a different group is refused before any mutation", () => {
     // A layer's group is its role for the id's lifetime — z ladder,
-    // attribution, basemap semantics, panel section. Changing it in place
-    // would strand the row in the old section with a stale section boundary
+    // attribution, basemap semantics, panel role. Changing it in place
+    // would strand the row in the old role with a stale role boundary
     // and a broken overlay-before-base partition, so the gate refuses
     // before a single mutation lands.
     const { manager, ui } = initFixture({
@@ -2157,7 +2160,7 @@ describe("LayerController", () => {
       manager.registerLayer({ id: "T", name: "T", role: "overlay" }),
     ).toThrow(/role change/);
 
-    // Nothing moved: partition, cached boundary, the row's section. The only
+    // Nothing moved: partition, cached boundary, the row's role. The only
     // announcements are the two ordinary refreshes above — nothing for T,
     // no added rows.
     expect(manager.layers.map(l => `${l.id}:${l.role}`)).toEqual([
@@ -2777,7 +2780,7 @@ describe("LayerController", () => {
     expect(() => ui.attachUI(document.createElement("div"))).not.toThrow();
   });
 
-  it("unregisterLayer leaves every persisted section alone", () => {
+  it("unregisterLayer leaves every persisted role alone", () => {
     // Generic teardown cannot tell a temporarily-empty layer from a deleted
     // one — HeatmapControl unregisters its canvas whenever the data goes
     // empty — so it must not erase the user's stored values, including the
@@ -2821,7 +2824,7 @@ describe("LayerController", () => {
     expect(saveState).not.toHaveBeenCalled();
   });
 
-  it("deleteLayer drops the layer id from every persisted section", () => {
+  it("deleteLayer drops the layer id from every persisted role", () => {
     // The one call that knows a layer is gone for good, so the one call that
     // may erase its stored values — the per-layer intent and the rename.
     manager.map.hasLayer.mockReturnValue(false);
@@ -2925,7 +2928,7 @@ describe("LayerController", () => {
     expect(getIntent(manager.ui!, "overlay1", "visible")).toBeUndefined();
   });
 
-  it("deleteLayer prunes every persisted section that keys by layer id", () => {
+  it("deleteLayer prunes every persisted role that keys by layer id", () => {
     // `order` and `renamedNames` both survive a plain
     // unregister, and both must die on a delete. `order` is the one that
     // needs care — saveOrder re-inserts any stored id that is not registered
@@ -3010,7 +3013,7 @@ describe("LayerController", () => {
   });
 
   it("deleteLayer freezes the folder order before the last member leaves", () => {
-    // Removing the last member of a folder must materialise the section's
+    // Removing the last member of a folder must materialise the role's
     // block order into layout.order BEFORE the
     // removal (PRE-removal snapshot), so the emptied folder keeps its block
     // position instead of the order becoming self-contradictory.
@@ -3665,23 +3668,23 @@ describe("LayerController", () => {
       manager.map.hasLayer.mockReturnValue(false);
     });
 
-    it("returns null for base layers", () => {
+    it("returns undefined for a base layer (id exists, no countable features)", () => {
       manager.registerLayer({
         id: "b1",
         name: "B",
         layer: { options: {} },
         role: "base",
       });
-      expect(manager.getFeatureCount("b1")).toBe(null);
+      expect(manager.getFeatureCount("b1")).toBe(undefined);
     });
 
-    it("returns null for an unknown layer id", () => {
+    it("returns null for an unknown layer id (not found)", () => {
       expect(manager.getFeatureCount("ghost")).toBe(null);
     });
 
-    it("returns null for a canvas/unknown layer without a provider", () => {
+    it("returns undefined for a canvas/unknown layer without a provider", () => {
       manager.registerLayer({ id: "c1", name: "Canvas", layer: { options: {} } });
-      expect(manager.getFeatureCount("c1")).toBe(null);
+      expect(manager.getFeatureCount("c1")).toBe(undefined);
     });
 
     it("prefers the third-party featureCountProvider over forEachLeaf", () => {
@@ -3720,7 +3723,7 @@ describe("LayerController", () => {
         layer: { options: {} },
         featureCountProvider: provider,
       });
-      expect(manager.getFeatureCount("boom")).toBe(null);
+      expect(manager.getFeatureCount("boom")).toBe(undefined);
       expect(logSpy).toHaveBeenCalled();
       expect(logSpy.mock.calls[0][0]).toContain("featureCountProvider threw");
       logSpy.mockRestore();
@@ -3741,9 +3744,9 @@ describe("LayerController", () => {
       expect(manager.getFeatureCount("mk")).toBe(2);
     });
 
-    it("returns null for a container layer that is not present (findLayer null)", () => {
+    it("returns undefined for a registered layer whose findLayer resolves to nothing", () => {
       manager.registerLayer({ id: "absent", name: "Absent" });
-      expect(manager.getFeatureCount("absent")).toBe(null);
+      expect(manager.getFeatureCount("absent")).toBe(undefined);
     });
 
     it("counts only data features when a label sub-group is nested under mainLayer", () => {
@@ -6340,7 +6343,7 @@ describe("deleteFolder", () => {
 
   it("deleting a non-empty folder keeps its layers, pins them to root, and removes the order key: one layout write", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -6361,7 +6364,7 @@ describe("deleteFolder", () => {
     expect(manager.folderNameOf("missing")).toBeNull();
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
     expect(manager.folderLayoutView.members.rd1).toEqual({
-      section: "overlay",
+      role: "overlay",
       folder: "",
     });
     expect(readLayoutStorage()).not.toBeNull();
@@ -6369,7 +6372,7 @@ describe("deleteFolder", () => {
 
   it("deleting an empty folder removes only the key", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -6382,7 +6385,7 @@ describe("deleteFolder", () => {
 
   it("deleting a missing folder returns false and does not write the layout", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     window.localStorage.removeItem(LAYOUT_DOC_KEY);
@@ -6395,7 +6398,7 @@ describe("deleteFolder", () => {
 
   it("deleting a base folder keeps an overlay folder of the same name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["foo"], base: ["foo"] }),
+      seedLayout: layoutFromRoles({ overlay: ["foo"], base: ["foo"] }),
       data: [
         {
           id: "b1",
@@ -6420,7 +6423,7 @@ describe("deleteFolder", () => {
     // This deliberately uses a different folder to trigger freeze, distinguishing
     // from #911's same-name keep-alive semantics (which DOES preserve the key).
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads", "water"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
       data: [
         {
           id: "rd1",
@@ -6452,7 +6455,7 @@ describe("deleteFolder", () => {
 
   it("deleteFolder does not go through freezeEmptyFolder", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -6474,7 +6477,7 @@ describe("deleteFolder", () => {
 
   it("[BR-1] deleteFolder: opts.persist=false skips the layout write", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     window.localStorage.removeItem(LAYOUT_DOC_KEY);
@@ -6486,9 +6489,9 @@ describe("deleteFolder", () => {
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 
-  it("[BR-2] deleteFolder: absent section key -> ?? [] empty-branch (no crash)", () => {
+  it("[BR-2] deleteFolder: absent role key -> ?? [] empty-branch (no crash)", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({}),
+      seedLayout: layoutFromRoles({}),
       data: [],
     });
     // No "overlay" key in sections: listed ?? [] = []. members empty. Neither
@@ -6499,7 +6502,7 @@ describe("deleteFolder", () => {
 
   it("[BR-3] deleteFolder: no ui -> reindexAfterMove not called (if(this.ui) false)", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     const reindex = vi.fn();
@@ -6519,7 +6522,7 @@ describe("cleanEmptyFolders", () => {
 
   it("cleanEmptyFolders removes each empty key and writes the layout once", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["empty1", "empty2", "full"] }),
+      seedLayout: layoutFromRoles({ overlay: ["empty1", "empty2", "full"] }),
       data: [
         {
           id: "rd1",
@@ -6539,9 +6542,9 @@ describe("cleanEmptyFolders", () => {
     expect(readLayoutStorage()).not.toBeNull();
   });
 
-  it("[BR-4] cleanEmptyFolders: absent section key -> ?? [] empty-branch", () => {
+  it("[BR-4] cleanEmptyFolders: absent role key -> ?? [] empty-branch", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({}),
+      seedLayout: layoutFromRoles({}),
       data: [],
     });
     const count = manager.cleanEmptyFolders("overlay");
@@ -6550,7 +6553,7 @@ describe("cleanEmptyFolders", () => {
 
   it("[BR-5] cleanEmptyFolders: no empty keys -> return 0 (emptyKeys.length===0)", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["full"] }),
+      seedLayout: layoutFromRoles({ overlay: ["full"] }),
       data: [
         {
           id: "rd1",
@@ -6569,7 +6572,7 @@ describe("cleanEmptyFolders", () => {
 
   it("[BR-6] cleanEmptyFolders: no ui -> reindexAfterMove not called", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["empty1"] }),
+      seedLayout: layoutFromRoles({ overlay: ["empty1"] }),
       data: [],
     });
     (manager as any).ui = null;
@@ -6771,7 +6774,7 @@ describe("createFolder", () => {
     window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
   });
 
-  it("creates an empty folder and materialises it at the section tail", () => {
+  it("creates an empty folder and materialises it at the role tail", () => {
     const { manager } = initFixture({ data: [] });
     window.localStorage.removeItem(LAYOUT_DOC_KEY);
 
@@ -6785,7 +6788,7 @@ describe("createFolder", () => {
 
   it("creates an empty folder at the tail after an existing folder", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["water"] }),
+      seedLayout: layoutFromRoles({ overlay: ["water"] }),
       data: [],
     });
 
@@ -6803,9 +6806,27 @@ describe("createFolder", () => {
     expect(ok).toBe(false);
   });
 
-  it("createFolder rejects a duplicate name in the same section", () => {
+  it("createFolder rejects a name over the cap and writes nothing", () => {
+    const { manager } = initFixture({ data: [] });
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    const ok = manager.createFolder("overlay", "f".repeat(FOLDER_NAME_MAX + 1));
+
+    expect(ok).toBe(false);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
+    expect(manager.folderLayoutView.folders).toEqual([]);
+    expect(readLayoutStorage()).toBeNull();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0][0])).toContain(
+      `expected at most ${FOLDER_NAME_MAX}`,
+    );
+    warn.mockRestore();
+  });
+
+  it("createFolder rejects a duplicate name in the same role", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -6815,9 +6836,9 @@ describe("createFolder", () => {
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
-  it("createFolder allows the same name in a different section", () => {
+  it("createFolder allows the same name in a different role", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ base: ["roads"] }),
+      seedLayout: layoutFromRoles({ base: ["roads"] }),
       data: [],
     });
 
@@ -6843,7 +6864,7 @@ describe("createFolder", () => {
 
   it("createFolder rejects a name already held by a live member not yet listed", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({}),
+      seedLayout: layoutFromRoles({}),
       data: [
         {
           id: "rd1",
@@ -6881,7 +6902,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rewrites only the display name, keeping the order key and member assignments", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads", "water"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
       data: [
         {
           id: "rd1",
@@ -6916,7 +6937,7 @@ describe("renameFolder", () => {
 
   it("renameFolder normalises the new name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -6931,7 +6952,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rejects a duplicate new name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads", "water"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
       data: [],
     });
 
@@ -6943,7 +6964,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rejects a blank new name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -6952,9 +6973,33 @@ describe("renameFolder", () => {
     expect(ok).toBe(false);
   });
 
+  it("renameFolder rejects an over-long new name and keeps the old one", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [],
+    });
+    const before = manager.folderLayoutView.folders;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    const ok = manager.renameFolder(
+      "overlay",
+      "Roads",
+      "f".repeat(FOLDER_NAME_MAX + 1),
+    );
+
+    expect(ok).toBe(false);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.folders).toEqual(before);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0][0])).toContain(
+      `expected at most ${FOLDER_NAME_MAX}`,
+    );
+    warn.mockRestore();
+  });
+
   it("renameFolder is a no-op for a missing old folder", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -6965,7 +7010,7 @@ describe("renameFolder", () => {
 
   it("renameFolder keeps the member assignment when the new spelling differs", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -6986,7 +7031,7 @@ describe("renameFolder", () => {
 
   it("renameFolder is a no-op for a normalisation-only rename", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -6998,7 +7043,7 @@ describe("renameFolder", () => {
 
   it("renameFolder renames an unlisted folder that has live members", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({}),
+      seedLayout: layoutFromRoles({}),
       data: [
         {
           id: "rd1",
@@ -7017,9 +7062,9 @@ describe("renameFolder", () => {
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
   });
 
-  it("renameFolder rejects a new name already held by a live member in the same section", () => {
+  it("renameFolder rejects a new name already held by a live member in the same role", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -7046,7 +7091,7 @@ describe("renameFolder", () => {
 
   it("renameFolder honours persist:false and tolerates a detached UI", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromSections({ overlay: ["roads"] }),
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     manager.ui = null;
@@ -7363,5 +7408,130 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.kind).toBe("enum");
     expect(dim.options).toEqual([]);
     expect(dim.truncated).toBe(false);
+  });
+});
+
+describe("cross-panel contract: external actions × open overlays", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture({}));
+  });
+
+  it("LAYER_REMOVED closes an open filter panel anchored to the deleted layer", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
+
+  it("LAYER_REMOVED closes an open style panel anchored to the deleted layer", () => {
+    ui.openStylePanel("overlay1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+  });
+
+  it("LAYER_REMOVED closes an open attrs panel anchored to the deleted layer", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openAttrsPanel(item);
+    expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+  });
+
+  it("LAYER_REMOVED cancels an open rename anchored to the deleted layer", () => {
+    ui.renameLayer("overlay1");
+    expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeRenameId).toBeNull();
+  });
+
+  it("OVERLAY_CLEAR closes every open overlay", () => {
+    // Overlay types are mutually exclusive (each open tears the others down),
+    // so one event must close whichever type is open. Each type is opened and
+    // cleared in turn: commenting any lifecycle.ts:427-432 subscription fails
+    // its own step.
+    const item = findItem(ui, "overlay1");
+
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+
+    ui.openStylePanel("overlay1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+
+    ui.openAttrsPanel(item);
+    expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+
+    ui.renameLayer("overlay1");
+    expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeRenameId).toBeNull();
+  });
+
+  it("style panel stays open and refreshes on LAYER_STYLE_CHANGE", () => {
+    // A delegated-style layer (styleSetters) renders through the delegated
+    // path, which sets styleRefresh; the plain label path has no such hook.
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    ui.openStylePanel("heat1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    // styleRefresh is a (() => void) | null field, not a method, so
+    // vi.spyOn rejects it (TS2769). Substitute the field with a mock, assert
+    // the delegated path calls it, then restore the original hook.
+    const refresh = vi.fn();
+    const previousRefresh = ui.overlayPanel.styleRefresh;
+    ui.overlayPanel.styleRefresh = refresh;
+    try {
+      ui.events.publish(EVENTS.LAYER_STYLE_CHANGE, { id: "heat1" });
+      expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+      expect(refresh).toHaveBeenCalled();
+    } finally {
+      ui.overlayPanel.styleRefresh = previousRefresh;
+    }
+  });
+
+  it("filter panel stays open and refreshes on LAYER_FILTER_CHANGE", () => {
+    // A filter-capable layer (filterProvider/filterSetter) sets up the
+    // LAYER_FILTER_CHANGE subscription; the plain default overlay1 has no
+    // such capability, so this must use a capable row. The panel refresh is
+    // observed through its activeField (reconcile re-reads the model); the
+    // row re-render also reads filterProvider, so a call-count spy would be
+    // polluted.
+    let modelField = "magnitude";
+    const filterProvider = vi.fn((): LayerFilterModel => ({
+      dimensions: [{ kind: "range", field: modelField, range: [0, 10], step: 1 }],
+      filter: undefined,
+      kept: 5,
+      total: 10,
+    }));
+    manager.registerLayer({
+      id: "f1",
+      name: "Filterable",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+      filterProvider,
+      filterSetter: vi.fn(),
+    });
+    const item = findItem(ui, "f1");
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel?.activeField).toBe("magnitude");
+    modelField = "depth";
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "f1" });
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel?.activeField).toBe("depth");
   });
 });

@@ -33,6 +33,7 @@ const ExportControl = defineControl<ExportManager>({
     // the attribute is for traversal skip (SKIP_EXPORT), same as delicon.
     ctrl.setAttribute("data-foliplus-export", "exclude");
     this.mgr.attachUI(ctrl, toolBar);
+    // listener-exempt: export toggle button handler; control-DOM, removed with the control
     toggleBtn.onclick = () => {
       if (this.mgr.cropState) this.mgr.removeCropBox();
       else if (this.mgr.savedBounds) this.mgr.restoreFromSavedBounds();

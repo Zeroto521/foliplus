@@ -415,7 +415,6 @@ const applyValueStrokeToLayer = (ui: LayerUI, layerId: string): void => {
   // write and the highlight pin. This hook only derives the live config so
   // the pin's getter and a later fill-only repaint agree with this paint.
   const value = effectiveBorderValue(ui, layerId);
-  if (value === undefined) return;
   applyValueStroke(
     ui,
     layerId,
@@ -692,10 +691,12 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
     if (target.onFlush) {
       const flush = target.onFlush;
       const prevColorChange = colorEl.onchange;
+      // listener-exempt: style-panel color input change handler (flush chain) on a panel-owned element
       colorEl.onchange = ev => {
         prevColorChange?.call(colorEl, ev);
         flush();
       };
+      // listener-exempt: style-panel color input blur handler (flush at drag end) on a panel-owned element
       colorEl.onblur = () => flush();
     }
   }
@@ -712,10 +713,12 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
     if (target.onFlush) {
       const flush = target.onFlush;
       const prevWeightChange = weightEl.onchange;
+      // listener-exempt: style-panel weight input change handler (flush chain) on a panel-owned element
       weightEl.onchange = ev => {
         prevWeightChange?.call(weightEl, ev);
         flush();
       };
+      // listener-exempt: style-panel weight input blur handler (flush at drag end) on a panel-owned element
       weightEl.onblur = () => flush();
     }
   }
@@ -998,6 +1001,7 @@ const bindBorderValueDetail = (
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
   ) as HTMLSelectElement;
+  // listener-exempt: style-panel field select handler on a panel-owned element
   fieldSelect.onchange = () =>
     writeBorderValue(ui, layerId, { field: fieldSelect.value });
 
@@ -1005,6 +1009,7 @@ const bindBorderValueDetail = (
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
   ) as HTMLSelectElement | null;
   if (methodSelect !== null) {
+    // listener-exempt: style-panel method select handler on a panel-owned element
     methodSelect.onchange = () =>
       writeBorderValue(ui, layerId, {
         method: methodSelect.value as ValueConfig["method"],
@@ -1015,6 +1020,7 @@ const bindBorderValueDetail = (
     `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
   ) as HTMLSelectElement | null;
   if (classesSelect !== null) {
+    // listener-exempt: style-panel classes select handler on a panel-owned element
     classesSelect.onchange = () => {
       const next = writeBorderValue(ui, layerId, {
         classes: parseInt(classesSelect.value, 10),
@@ -1169,6 +1175,10 @@ const BORDER_DIMENSION = registerDimension<{
     };
   },
   row: buildBorderRow,
+  /** Bind the border block's live controls. The panel hands the exact block
+   *  `row()` built (already carrying data-style-dim=border), so the block lookup
+   *  in bindBorderRow resolves to itself — no class-based re-lookup. */
+  bind: bindBorderRow,
   /** Intent+persist + schedule the stroke face landing. `patch` is already
    *  normalized. Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
@@ -1202,18 +1212,7 @@ const BORDER_DIMENSION = registerDimension<{
     // Same restore walk as fill — one styleBag contract, not two copies.
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.STROKE));
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanBorder(ui, layerId)) return "none";
-    if (
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_VALUE) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_STYLE_MODE)
-    ) {
-      return "user";
-    }
-    return "author";
-  },
+  intentKeys: BORDER_INTENT_KEYS,
   /** Content-change replay: a stroke chosen before a leaf landed reaches it
    *  through the same coalesced walk an edit takes. The when-gate mirrors
    *  applyBorderToLayer's own bail, before any scheduler box is allocated. */

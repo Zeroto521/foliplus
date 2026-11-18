@@ -571,7 +571,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     ui.events.on(EVENTS.LAYER_LIST_REBUILD, () => rebuilds.push(1));
     const before = childKeys(ui);
 
-    // Bottom overlay cannot sink into the base section; top overlay cannot
+    // Bottom overlay cannot sink into the base role; top overlay cannot
     // rise past the panel head; unknown ids are refused outright.
     expect(manager.moveLayerDown("overlay_2")).toBe(false);
     expect(manager.moveLayerUp("overlay_0")).toBe(false);
@@ -839,7 +839,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     // L332 fallback loop branch: a role whose toggle-all anchor exists in the
     // DOM but no layer row of that role is in the registry. The first loop
     // never marks the role seen (no row), so the fallback pushes the anchor
-    // (anchor truthy) rather than dropping the empty section header.
+    // (anchor truthy) rather than dropping the empty role header.
     const container = document.createElement("div");
     const overlayAnchor = document.createElement("div");
     overlayAnchor.classList.add(CONST.CLASSES.TOGGLE_ALL);
@@ -849,7 +849,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     baseAnchor.setAttribute("data-role", ROLE.BASE);
     container.append(overlayAnchor, baseAnchor);
     // Registry has ONLY a base row — the overlay anchor has no rows, so it is
-    // an empty-section header the reconcile must preserve (the clean button
+    // an empty-role header the reconcile must preserve (the clean button
     // still hangs off it).
     const row = document.createElement("div");
     row.setAttribute(CONST.DATA.LAYER_ID, "base1");
@@ -1415,7 +1415,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     row.focus();
     ui.listPanel.activeIdx = getNavigableItems(ui).indexOf(row);
 
-    // A base registration lands in the trailing base section, below every
+    // A base registration lands in the trailing base role, below every
     // overlay row — the active row keeps its index and its ledgers.
     manager.registerLayer({ id: "tile", name: "tile", role: "base" });
 
@@ -1472,16 +1472,16 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     expect(document.activeElement).toBe(document.body);
   });
 
-  it("renders a base header for an empty base section via the fallback loop", () => {
+  it("renders a base header for an empty base role via the fallback loop", () => {
     // L445 BASE side: after the user deletes every base layer, the base
-    // section has no live row but keeps a stale folder key (freezeEmptyFolder).
+    // role has no live row but keeps a stale folder key (freezeEmptyFolder).
     // rolesWithHeader(BASE) is then true with no base layer, so the fallback
     // loop must render the base header with base_map_label — not the overlay
     // label, which would be a user-visible mislabel.
     const { manager, ui } = initFixture({
       data: [{ id: "O1", name: "O1", role: "overlay" }],
     });
-    // Remove the always-registered solid basemap so the base section is empty.
+    // Remove the always-registered solid basemap so the base role is empty.
     manager.unregisterLayer(CONST.SOLID_BASEMAP_ID);
     manager.createFolder("base", "Ghost");
     manager.ui?.reindexAfterMove?.();
@@ -1500,7 +1500,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   });
 });
 
-describe("clean-empty-folders button and section header order", () => {
+describe("clean-empty-folders button and role header order", () => {
   let manager: LayerController;
   let ui: LayerUI;
 
@@ -1536,7 +1536,7 @@ describe("clean-empty-folders button and section header order", () => {
     } as any);
   };
 
-  it("runs cleanEmptyFolders when the section header clean button is clicked", () => {
+  it("runs cleanEmptyFolders when the role header clean button is clicked", () => {
     manager.createFolder("overlay", "empty-1");
     manager.ui?.reindexAfterMove?.();
     const cleanBtn = attachedPanel(ui).querySelector(
@@ -1564,7 +1564,7 @@ describe("clean-empty-folders button and section header order", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("hides the clean button once the section has no empty folder key", () => {
+  it("hides the clean button once the role has no empty folder key", () => {
     // no empty keys: the default layout already has none
     manager.ui?.reindexAfterMove?.();
     const cleanBtn = attachedPanel(ui).querySelector(
@@ -1608,7 +1608,7 @@ describe("clean-empty-folders button and section header order", () => {
     expect(firstBaseRow).toBeGreaterThan(headerBase);
   });
 
-  it("places the empty-section header after live rows and keeps its clean button", () => {
+  it("places the empty-role header after live rows and keeps its clean button", () => {
     // Overlay keeps only an empty folder key (no live overlay rows); base has a row.
     manager.unregisterLayer("overlay1");
     manager.unregisterLayer("overlay2");
@@ -1624,7 +1624,7 @@ describe("clean-empty-folders button and section header order", () => {
         const id = el.getAttribute(CONST.DATA.LAYER_ID);
         return `row:${id}`;
       });
-    // The empty overlay section's header trails the live base section.
+    // The empty overlay role's header trails the live base role.
     expect(kinds).toEqual(["header:base", "row:base1", "header:overlay"]);
     const cleanBtn = container.querySelector(
       `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
@@ -1681,5 +1681,88 @@ describe("clean-empty-folders button and section header order", () => {
     );
     expect(after.length).toBe(1);
     expect((after[0] as HTMLElement).dataset.emptyCount).toBe("1");
+  });
+});
+
+describe("role header identity key", () => {
+  // The container's fold handler resolves the role a click landed in by
+  // climbing from the clicked control up to the header row. That climb reads the
+  // row's stable identity key (data-role, written when the row is built) rather
+  // than the row class: climbing on the class would land on any nested control
+  // that also carries it, and the role read off that element would be wrong or
+  // missing. These guards lock the key the climb reads — and the climb itself.
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    ({ manager, ui } = initFixture());
+    ui.listPanel.foldedRoles = new Set();
+    seedIntentMap(ui, "visible", {});
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const headers = () => [
+    ...attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.TOGGLE_ALL),
+  ];
+  const headerKeys = () => headers().map(el => el.dataset.role);
+  const renderedRoles = () =>
+    new Set(
+      [...attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM)]
+        .map(el => el.dataset.layerType)
+        .filter((role): role is string => !!role && !role.startsWith("foliplus_")),
+    );
+
+  it("writes one unique role key per header, never the sentinel", () => {
+    const keys = headerKeys();
+    expect(keys.length).toBeGreaterThan(0);
+    expect(new Set(keys).size, "one header per role").toBe(keys.length);
+    for (const key of keys) {
+      expect(key, "every header carries a key").not.toBeUndefined();
+      expect(key, "the toggle-all checkbox sentinel is not a role key").not.toBe(
+        CONST.TOGGLE_ALL_ROLE,
+      );
+      expect(Object.values(ROLE), `header key ${key} is a LayerRole`).toContain(
+        key as never,
+      );
+    }
+  });
+
+  it("covers exactly the roles the panel renders rows for", () => {
+    expect([...new Set(headerKeys())].sort()).toEqual([...renderedRoles()].sort());
+  });
+
+  it("does not move when the folder layout changes", () => {
+    // The key is the role; a folder's name is display only. Renaming a folder
+    // rebuilds the rows, but the role a header owns cannot change with it.
+    const before = headerKeys();
+    manager.createFolder("overlay", "Extra");
+    expect(manager.renameFolder("overlay", "Extra", "More")).toBe(true);
+    expect(headerKeys(), "the folder layout carries no role identity").toEqual(before);
+  });
+
+  it("is the key both fold bind sites climb on", () => {
+    // The onChange site climbs from the row's own checkbox, which writes the
+    // sentinel on itself; the climb must skip it and land on the row. The
+    // onClick site climbs from a nested control with no key of its own, such as
+    // the fold button.
+    for (const row of headers()) {
+      const checkbox = row.querySelector<HTMLInputElement>(
+        `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
+      );
+      expect(
+        checkbox?.closest(CONST.SEL.TOGGLE_ALL_ROW),
+        "the climb skips the checkbox's own sentinel",
+      ).toBe(row);
+      const foldBtn = row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`);
+      expect(foldBtn, "the header carries its fold button").not.toBeNull();
+      expect(foldBtn?.closest(CONST.SEL.TOGGLE_ALL_ROW)).toBe(row);
+    }
   });
 });

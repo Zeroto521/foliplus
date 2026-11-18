@@ -67,7 +67,7 @@ async ([layerName, size, reset] = []) => {
   }
   if (!panel) return { row: true, styleItem: true, panel: false };
 
-  const sizeRow = panel.querySelector(".foliplus-style-size-row");
+  const sizeRow = panel.querySelector('[data-style-dim="size"]');
   const setSize = panel.querySelector(".foliplus-style-size-input");
   // The field sits flush right inside the form-control cell (the numeric
   // column the border row's weight field also occupies) and, being a
@@ -167,7 +167,7 @@ async ([layerName, size, reset] = []) => {
     panel: true,
     id: rowId,
     sizeRow: !!sizeRow,
-    sizeRows: panel.querySelectorAll(".foliplus-style-size-row").length,
+    sizeRows: panel.querySelectorAll('[data-style-dim="size"]').length,
     sizeInput: input,
     sizeLayout:
       sizeStyle && inputRect && cellRect

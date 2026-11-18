@@ -30,8 +30,7 @@ export {
   visibleDomOf,
 } from "./carrier.js";
 export type { CarrierDecl } from "./carrier.js";
-export { sectionOf } from "./role.js";
-export type { LayerRole, LayerSection } from "./role.js";
+export type { LayerRole } from "./role.js";
 export {
   LABEL_Z_OFFSET,
   FOCUS_Z,
@@ -44,8 +43,11 @@ export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
   LAYOUT_DOC_KEY,
+  FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,
+  folderNameLength,
+  folderNameTooLong,
   emptyFolderLayout,
   ensureFolderLayout,
   createFolderLayoutManager,
@@ -55,9 +57,9 @@ export {
   seedFolderLayout,
   folderOf,
   groupByFolder,
-  sectionOrder,
+  roleOrder,
   fullDisplayOrder,
-  freezeSectionOrder,
+  freezeRoleOrder,
   createFolder,
   renameFolder,
   deleteFolder,
@@ -69,7 +71,6 @@ export {
 export type {
   FolderLayout,
   FolderEntry,
-  FolderSection,
   FolderMember,
   FolderLayoutManager,
 } from "./folderLayout.js";

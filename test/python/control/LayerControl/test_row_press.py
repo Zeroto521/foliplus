@@ -33,7 +33,7 @@ from conftest import (
     use_page,
 )
 
-from foliplus import LayerControl
+from foliplus import LayerControl, ScaleControl
 
 _ROW = '.foliplus-layer-item[data-layer-type="overlay"]'
 _PANEL = ".foliplus-layer-style-panel"
@@ -461,4 +461,164 @@ class TestRowPanelLayoutBrowser:
                 f"its row top ({r['row']['top']:.1f})"
             )
             page.screenshot(path=str(SHOTS / "accept_3_style_flip.png"))
+            assert not errors, f"JS errors: {errors}"
+
+
+def _make_scale_page(browser, tmp_path, *, order="panel_first"):
+    """A layer list with a ScaleControl in the bottom-left corner.
+
+    ``order`` selects which control is added to the map first, since Leaflet
+    paints equal-z-index corner siblings by DOM insertion order. The default
+    (``panel_first``) matches the historic fixture; ``scale_first`` puts the
+    bottom-left corner later in the DOM, which is the case that used to paint
+    the scale over the panel's corner.
+    """
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    for i in range(5):
+        fg = folium.FeatureGroup(name=f"Layer {i}", overlay=True, show=True)
+        fg.add_to(m)
+    lc = LayerControl(locale="en")
+    sc = ScaleControl()
+    if order == "scale_first":
+        sc.add_to(m)
+        lc.add_to(m)
+    else:
+        lc.add_to(m)
+        sc.add_to(m)
+    return make_browser_page(
+        browser, tmp_path, m.get_root().render(), f"row_stack_scale_{order}"
+    )
+
+
+STACK = snippet("LayerControl/row_panel_stack")
+SCALE_OVERLAP = snippet("LayerControl/row_panel_scale_overlap")
+CORNER_OVERLAP = snippet("LayerControl/corner_panel_scale_overlap")
+
+
+class TestRowPanelStackBrowser:
+    """The row panel must clear the Leaflet control band.
+
+    The unpinned card is ``position: absolute`` inside the layer list, which
+    sits inside ``.leaflet-top`` (Leaflet z-index 1000). A sibling corner
+    control such as the scale bar is a ``.leaflet-control`` at z-index 800 in
+    the same section, so the card's own z-index must be the page-level
+    floating token — never a bare literal like 10 — to stay above it.
+    """
+
+    def _open(self, page):
+        page.evaluate(_js("LayerControl/open_panel"))
+        page.wait_for_selector(
+            ".foliplus-layer-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
+        )
+        panel_ready(page)
+        opened = page.evaluate(_js("LayerControl/open_style_panel"))
+        assert opened["ok"], f"style panel did not open: {opened}"
+        page.wait_for_selector(_PANEL, state="visible", timeout=5000)
+        page.wait_for_timeout(200)
+
+    def test_row_panel_clears_control_band(self, browser, tmp_path):
+        """Unpinned row panel is above a sibling .leaflet-control (z 800)."""
+        with use_page(_make_scale_page, browser, tmp_path) as (page, errors):
+            self._open(page)
+            r = page.evaluate(STACK)
+            assert r["ok"] is True, f"stack probe failed: {r}"
+
+            # The panel computed z-index must equal the floating token, not a
+            # bare literal. This is the regression guard for the z-index:10 bug.
+            assert r["pinned"]["panelZ"] == r["token"], (
+                f"pinned panel z-index {r['pinned']['panelZ']} != token {r['token']}"
+            )
+            assert r["unpinned"]["panelZ"] == r["token"], (
+                f"unpinned panel z-index {r['unpinned']['panelZ']} != token "
+                f"{r['token']}"
+            )
+
+            # The synthetic sibling control at z:800 must not cover the panel
+            # in either state: elementFromPoint must hit the panel.
+            for state in ("pinned", "unpinned"):
+                rp = r[state]
+                assert rp["hitIsPanel"] is True, (
+                    f"{state}: sibling control covered the panel; "
+                    f"hit={rp['hit']}, panelZ={rp['panelZ']}, topZ={rp['topZ']}"
+                )
+                assert rp["hitIsScale"] is False, (
+                    f"{state}: the synthetic scale control is on top; hit={rp['hit']}"
+                )
+
+            assert not errors, f"JS errors: {errors}"
+
+    def test_real_scale_never_covers_panel(self, browser, tmp_path):
+        """The real bottom-left ScaleControl never covers the open panel."""
+        with use_page(_make_scale_page, browser, tmp_path) as (page, errors):
+            self._open(page)
+            covered = page.evaluate(SCALE_OVERLAP)
+            assert covered["ok"] is True, f"scale probe failed: {covered}"
+            if covered["overlap"]:
+                assert covered["hitIsPanel"] is True, (
+                    f"the real ScaleControl covered the panel; hit={covered['hit']}"
+                )
+            assert not errors, f"JS errors: {errors}"
+
+    def _assert_corner_clears_scale(self, r, order):
+        """Shared assertions for the cross-corner corner/scale probe."""
+        assert r["ok"] is True, f"corner probe failed ({order}): {r}"
+        # The corner must compute to the token (1001), NOT the JS floating+9
+        # (9999) that masks the CSS rule when expanded, and not a bare literal.
+        assert r["cornerZ"] == r["token"], (
+            f"{order}: corner z-index {r['cornerZ']} != token {r['token']}"
+        )
+        # A real cross-corner overlap must be present, so this is not an empty
+        # pass (the historic empty-if guard let overlap=False slide).
+        assert r["overlap"] is True, (
+            f"{order}: expected a real cross-corner overlap at 420x220; "
+            f"panel={r['panelRect']} scale={r['scaleRect']}"
+        )
+        assert r["hitIsPanel"] is True, (
+            f"{order}: the scale covered the panel; hit={r['hit']}"
+        )
+        assert r["hitIsScale"] is False, f"{order}: the scale is on top; hit={r['hit']}"
+
+    def test_corner_panel_scale_overlap_panel_first(self, browser, tmp_path):
+        """The CSS corner token, not the JS raise, clears the bottom-left scale.
+
+        The main LayerControl panel sits in the top-left corner. Leaflet paints
+        the four corner divs as equal-z-index (1000) siblings in DOM order, so
+        a later-created bottom corner paints over the top-left corner's tall
+        panel. The fix raises the corner hosting a foliplus fold control to
+        --foliplus-z-index-control-corner (1001). This probe clears the JS
+        inline raise (the expanded-state mask) so the CSS token alone is what
+        paints, and asserts the corner still clears the scale in the overlap.
+        """
+        with use_page(_make_scale_page, browser, tmp_path, order="panel_first") as (
+            page,
+            errors,
+        ):
+            # A short viewport forces the top-left panel to overlap the
+            # bottom-left scale, so the cross-corner case is really exercised
+            # (a tall viewport would leave them disjoint and pass vacuously).
+            page.set_viewport_size({"width": 420, "height": 220})
+            self._open(page)
+            self._assert_corner_clears_scale(
+                page.evaluate(CORNER_OVERLAP), "panel_first"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_corner_panel_scale_overlap_scale_first(self, browser, tmp_path):
+        """Same as panel_first but the scale is added to the map first.
+
+        This is the DOM order that used to paint the bottom-left corner (with
+        the scale) over the top-left corner's panel, and the case the fix
+        must hold regardless of which control the host adds first.
+        """
+        with use_page(_make_scale_page, browser, tmp_path, order="scale_first") as (
+            page,
+            errors,
+        ):
+            page.set_viewport_size({"width": 420, "height": 220})
+            self._open(page)
+            self._assert_corner_clears_scale(
+                page.evaluate(CORNER_OVERLAP), "scale_first"
+            )
             assert not errors, f"JS errors: {errors}"

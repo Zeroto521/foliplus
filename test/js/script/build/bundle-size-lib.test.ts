@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,6 +10,7 @@ import {
   EXIT_UNKNOWN,
   ROOT,
   baseSpec,
+  devDistMessage,
   distDir,
   fmtBytes,
   parseArgsWithBase,
@@ -26,6 +27,46 @@ const BundleArgs = (
 ): Record<string, unknown> & { errors: string[] } =>
   parseArgsWithBase(argv, extra) as Record<string, unknown> & { errors: string[] };
 
+// The shared dev-dist guard helper. Both gates call devDistMessage to refuse a
+// build:dev dist; a marker present under <root>/foliplus/dist must yield a
+// human-readable refusal and its absence must yield null. Uses a tmp root so
+// the real foliplus/dist is never touched.
+describe("devDistMessage", () => {
+  const withRoot = (fn: (root: string, dist: string) => void) => {
+    const root = mkdtempSync(join(tmpdir(), "bsl-"));
+    // mkdirSync(recursive) returns the FIRST dir it created (root), not dist,
+    // so resolve dist explicitly — the marker must land inside foliplus/dist.
+    const dist = join(root, "foliplus", "dist");
+    mkdirSync(dist, { recursive: true });
+    try {
+      fn(root, dist);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  it("returns a human-readable refusal when the dev marker is present", () => {
+    withRoot((root, dist) => {
+      writeFileSync(join(dist, ".dev-build"), "dev", "utf-8");
+      const msg = devDistMessage(root);
+      expect(msg, "a dev dist must be refused").not.toBeNull();
+      expect(msg).toMatch(/dev \(unminified\) build/i);
+      expect(msg).toContain("npm run build");
+    });
+  });
+
+  it("returns null when there is no dev marker (minified dist)", () => {
+    withRoot(root => {
+      expect(devDistMessage(root)).toBeNull();
+    });
+  });
+
+  it("the devDist dep seam overrides the filesystem probe", () => {
+    // Lets the gate tests drive the marker without touching a real dist.
+    expect(devDistMessage(ROOT, { devDist: true })).not.toBeNull();
+    expect(devDistMessage(ROOT, { devDist: false })).toBeNull();
+  });
+});
 // ── Exit codes ──────────────────────────────────────────────────────────────
 // One table, shared by both gates. Every code is a distinct meaning; a
 // duplicate number (the pre-refactor collision where EXIT_THRESHOLD and

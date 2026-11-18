@@ -323,6 +323,11 @@
        600+n·10   layer z        core/layer z.ts zFor (Z_INDEX.BASE)
                                   overlay panes; label canvas sits +1
                                   in-slot (LABEL_Z_OFFSET)
+       1001       control z      --foliplus-z-index-control-corner (this file)
+                                   corner group hosting a foliplus fold/panel
+                                   control - one step above Leaflet's own 1000
+                                   so a tall panel's corner beats a plain
+                                   control's corner regardless of DOM order
        9490       export z       --foliplus-export-scale-z (ExportControl.css)
                                   scale/attribution dimmed under the crop
                                   mask; above all data layers, under crop UI
@@ -360,6 +365,16 @@
                         map content and layer panes.
        export z       — ExportControl.css only, scoped to .foliplus-export-mode.
                         Local crop-stack ladder; reuses only --foliplus-z-index-top. */
+  /* A corner group (.leaflet-top / .leaflet-bottom) hosting a foliplus
+     fold/panel control gets one step above Leaflet's own 1000. Leaflet
+     creates the four corner divs as equal z-index siblings, so painting
+     falls to DOM order: a later-created bottom corner covers a top
+     corner's tall panel. Raising the foliplus corner breaks that tie in
+     our favour; a plain control's corner (e.g. the scale bar) stays at
+     1000. Intra-corner ordering (two foliplus controls in one corner) is
+     DOM order plus the expanded-bar rule in reset.css - use +1 steps here
+     only if a real intra-corner conflict appears. */
+  --foliplus-z-index-control-corner: 1001;
   --foliplus-z-index-floating: 9990;
   --foliplus-z-index-hint: 10000;
   --foliplus-z-index-fullscreen: 99999;
@@ -370,6 +385,13 @@
      band as the hint toast — a transient toast over a menu is the intended
      tie, not a layering bug. */
   --foliplus-z-index-overlay: calc(var(--foliplus-z-index-floating) + 10);
+
+  /* Contract: page-level floating overlays (row panels, menus, dropdowns,
+     hints, fullscreen, export) MUST read these tokens — never a bare literal.
+     A small integer (1/2/3/-1) is allowed ONLY as a sibling order inside a
+     LOCAL stacking context (slider thumbs, a focused row's glow, a marker
+     chassis, a crop dim mask) and must carry a comment stating so. Do not
+     promote a local order into the page-wide ladder. */
 
   /* ══════════════════════════════════════════════════════════════════════
     Component-Specific Tokens

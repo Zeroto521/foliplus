@@ -184,6 +184,7 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     "div",
     {
       class: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_ZOOM_RANGE_ROW}`,
+      "data-style-dim": "zoomRange",
     },
     dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_zoom_range")),
     dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
@@ -323,10 +324,7 @@ const ZOOM_RANGE_DIMENSION = registerDimension<{ min: number; max: number }>({
     if (!layerInfo) return;
     return applyProjection(ui, layerId);
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanZoomRange(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.ZOOM_RANGE) ? "user" : "author";
-  },
+  intentKeys: [INTENT.ZOOM_RANGE],
   /** No content-change replay: zoom range is a visibility gate over zoom
    *  level, not a per-leaf write — the zoom-end projection sweep owns it. */
   contentChange: { kind: "none" },

@@ -21,6 +21,9 @@ import type { PanelController } from "#core/leaflet/index.js";
 class OverlayPanel {
   /** Layer id whose label is currently an inline rename input, or null. */
   activeRenameId: string | null = null;
+  /** Unsubscribe for LAYER_REMOVED while a rename input is open (external
+   *  delete cancels the in-flight rename without committing). */
+  renameRemovedUnsub: (() => void) | null = null;
   /** Currently visible overflow menu, or null. */
   activeMenu: {
     item: HTMLElement;
@@ -56,9 +59,15 @@ class OverlayPanel {
   stylePanelEl: HTMLElement | null = null;
   /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
   attrsUnsubscribe: (() => void) | null = null;
+  /** Unsubscribe for LAYER_REMOVED while attrs panel is open (external
+   *  delete of the owned layer closes the panel). */
+  attrsRemovedUnsub: (() => void) | null = null;
   /** Unsubscribe for LAYER_STYLE_CHANGE while a delegated style panel is
    *  open. */
   styleUnsubscribe: (() => void) | null = null;
+  /** Unsubscribe for LAYER_REMOVED while the style panel is open (external
+   *  delete of the owned layer closes the panel). */
+  styleRemovedUnsub: (() => void) | null = null;
   /** Refresh function for the shared label controls (set by
    *  `renderDelegatedStylePanel`). */
   styleRefresh: (() => void) | null = null;

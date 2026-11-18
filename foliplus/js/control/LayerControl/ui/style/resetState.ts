@@ -10,7 +10,7 @@
 // The filter panel's Clear follows the same contract (disabled exactly when
 // there is nothing to clear); this module is its style-panel twin.
 import type { LayerUI } from "../surface.js";
-import { layerHasStyleDelegation } from "./delegated.js";
+import { styleCapability } from "./styleCapability.js";
 import type { LayerInfo, LayerOverride } from "#core/layer/index.js";
 import { syncPanelAction } from "#ui/index.js";
 
@@ -86,7 +86,9 @@ const layerStyleIsPristine = (ui: LayerUI, layerId: string): boolean => {
   if (hasStyleIntent(ui, layerId)) return false;
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return true;
-  if (layerHasStyleDelegation(ui, layerId)) return !delegatedStyleMoved(layerInfo);
+  if (styleCapability(ui, layerId).styleDelegation) {
+    return !delegatedStyleMoved(layerInfo);
+  }
   return !ui.c.label.hasConfig(layerId);
 };
 

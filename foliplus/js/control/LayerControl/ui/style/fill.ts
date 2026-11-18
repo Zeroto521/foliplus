@@ -520,10 +520,12 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     // overwrite: bindLiveColor only owns oninput today.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevColorChange = colorEl.onchange;
+    // listener-exempt: style-panel color input change handler (flush chain) on a panel-owned element
     colorEl.onchange = ev => {
       prevColorChange?.call(colorEl, ev);
       flush();
     };
+    // listener-exempt: style-panel color input blur handler (flush at drag end) on a panel-owned element
     colorEl.onblur = flush;
   }
 
@@ -544,10 +546,12 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     // instead of overwriting it. blur is free.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevChange = opacityEl.onchange;
+    // listener-exempt: style-panel opacity input change handler (flush chain) on a panel-owned element
     opacityEl.onchange = ev => {
       prevChange?.call(opacityEl, ev);
       flush();
     };
+    // listener-exempt: style-panel opacity input blur handler (flush at drag end) on a panel-owned element
     opacityEl.onblur = flush;
   }
 };
@@ -728,6 +732,10 @@ const FILL_DIMENSION = registerDimension<{
     };
   },
   row: buildFillRow,
+  /** Bind the fill block's live controls. The panel hands the exact block
+   *  `row()` built (already carrying data-style-dim=fill), so the block lookup
+   *  in bindFillRow resolves to itself — no class-based re-lookup. */
+  bind: bindFillRow,
   /** Intent+persist + schedule the fill face landing. `patch` is already
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
@@ -795,13 +803,7 @@ const FILL_DIMENSION = registerDimension<{
     }
     walkFillLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanFill(ui, layerId)) return "none";
-    for (const key of FILL_INTENT_KEYS) {
-      if (ui.intentStore.isUserSet(layerId, key)) return "user";
-    }
-    return "author";
-  },
+  intentKeys: FILL_INTENT_KEYS,
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
    *  author's color and a running value fill classifies on stale breaks. The

@@ -104,7 +104,7 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
   });
   return dom.el(
     "div",
-    { class: PANEL_CLASS.FORM_ROW },
+    { class: PANEL_CLASS.FORM_ROW, "data-style-dim": "opacity" },
     dom.el("label", { class: PANEL_CLASS.FORM_LABEL }, ui.T("style_opacity")),
     dom.el("div", { class: PANEL_CLASS.FORM_CONTROL }, host),
   );
@@ -177,10 +177,7 @@ const OPACITY_DIMENSION = registerDimension<number>({
     if (layerInfo?.role === ROLE.BASE) syncNoBasemap(ui);
     return moved;
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanOpacity(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.OPACITY) ? "user" : "author";
-  },
+  intentKeys: [INTENT.OPACITY],
   /** No registry replay: the hub's projection block above already re-applies
    *  a stored opacity to newly-finalized geometry, and its delta is the
    *  notify's payload — it cannot ride the frame loop. */

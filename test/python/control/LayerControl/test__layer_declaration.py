@@ -257,6 +257,16 @@ def test_non_string_folder_is_dropped_with_a_warning():
     assert "folder" not in entry
 
 
+def test_overlong_folder_is_dropped_with_a_warning():
+    with pytest.warns(UserWarning, match="expected at most 64"):
+        html = _render(_geo(foliplus={"folder": "N" * 65}))
+    entry = _conf(html)["data"][0]
+    assert "folder" not in entry
+    # The malformed folder is a warning, never a reason to drop the layer:
+    # the row still reaches the panel, just at the section root.
+    assert entry["name"] == "Declared"
+
+
 def test_shared_folder_adopted_by_all_declaring_layers():
     # Two layers sharing a folder name are one group, not a conflict: each
     # declaring layer adopts the folder (no discard, no ambiguity warning) -

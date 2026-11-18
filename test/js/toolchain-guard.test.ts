@@ -226,12 +226,22 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the fill => border DAG guard over foliplus/js style dimensions (fill.ts must never import border.ts; border -> fill stays legal)",
   "check/event-name":
     "the semantic event-name convention guard over foliplus/js/core/event/const.ts, a tree guard not a script module",
+  "check/folder-name-limit":
+    "the cross-stack FOLDER_NAME_MAX guard (JS core/layer/folderLayout.ts vs the Python bound in foliplus/_declaration.py), a tree guard not a script module",
   "check/deep-relative-path":
     "the deep parent-dir chain guard over test/js source (no 3+ ../ reaches the repo root), a tree guard not a script module",
   "check/marker-icon-set-icon-guard":
     "the marker-icon setIcon single-site guard over foliplus/js production (leaf.setIcon( only in the setLeafIcon helper), a tree guard not a script module",
   "check/form-class-literal":
     "the FORM_CLASS single-source guard over foliplus/js production (foliplus-input-skin / foliplus-form-select literals only in ui/formClassName.ts), a tree guard not a script module",
+  "check/vocabulary":
+    "the LayerRole single-word guard over foliplus/js + test/js source (no `section` middle-layer for the overlay/base grouping), a tree guard not a script module",
+  "check/v8-ignore":
+    "the v8-ignore single-source guard over foliplus/js production (every `v8 ignore` must carry a reason label), a tree guard not a script module",
+  "check/listener-guard":
+    "the listener single-source guard over foliplus/js production (raw .on/.addEventListener outside listenDOM/listenMap requires a listener-exempt comment), a tree guard not a script module",
+  "check/mock-specifier":
+    "the vi.mock/vi.doMock specifier resolution guard over test/js/**/*.ts",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

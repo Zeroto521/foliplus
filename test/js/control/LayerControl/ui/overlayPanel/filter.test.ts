@@ -1935,6 +1935,62 @@ describe("LayerUI filter panel", () => {
       expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
     });
+    it("deleting a user-added layer closes its open filter panel (LAYER_REMOVED)", () => {
+      // A user-added (non-component-owned) layer retires through retireEntry →
+      // LAYER_REMOVED (not LAYER_DELETED). The filter panel must close on that
+      // path — this is the v1 gap the dual subscription fixes.
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+
+      expect(manager.deleteLayer("pnt")).toBe(true);
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
+    });
+
+    it("deleting a component-owned layer closes its open filter panel (LAYER_DELETED regression lock)", () => {
+      // Heatmap/Measure rows are component-owned (styleSetters): deleteLayer
+      // emits LAYER_DELETED, not LAYER_REMOVED. The filter panel's existing
+      // LAYER_DELETED subscription must stay — this is the regression lock.
+      const owner = makeOwner([10, 20, 30]);
+      manager.registerLayer({
+        id: "heat1",
+        name: "Heat",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        styleSetters: { color: vi.fn() },
+        filterProvider: owner.filterProvider,
+        filterSetter: owner.filterSetter,
+      } as any);
+      const item = findItem(ui, "heat1");
+      ui.openFilterPanel(item);
+      expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+
+      expect(manager.deleteLayer("heat1")).toBe(true);
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+    });
+
+    it("deleting another layer keeps this filter panel open", () => {
+      registerPoints();
+      manager.registerLayer({
+        id: "L2",
+        name: "Other",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+
+      expect(manager.deleteLayer("L2")).toBe(true);
+
+      expect(ui.overlayPanel.activeFilterPanel?.layerId).toBe("pnt");
+    });
   });
 
   describe("teardown", () => {

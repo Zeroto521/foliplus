@@ -72,6 +72,7 @@ const buildFieldRow = (opts: FieldRowOptions): FieldRow => {
     options: opts.fields.map(field => ({ value: field, label: field })),
   });
   applyAttributes(select, opts.selectAttributes);
+  // listener-exempt: ramp-form field select handler on ephemeral form elements
   if (opts.onChange) select.onchange = () => opts.onChange!(select.value);
   // The visible control is the shared dropdown; the select stays as the value
   // and change bridge so a consumer's own onchange/delegation keeps working.
@@ -154,9 +155,11 @@ const buildClassesRow = (opts: ClassesRowOptions): ClassesRow => {
   applyAttributes(classesSelect, opts.classesAttributes);
   if (opts.onChange) {
     const onChange = opts.onChange;
+    // listener-exempt: ramp-form method select handler on ephemeral form elements
     methodSelect.onchange = () => {
       onChange({ method: methodSelect.value as ClassifyMethod });
     };
+    // listener-exempt: ramp-form classes select handler on ephemeral form elements
     classesSelect.onchange = () => {
       const classes = parseInt(classesSelect.value, 10);
       if (Number.isFinite(classes)) onChange({ classes });
