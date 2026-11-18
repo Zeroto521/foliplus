@@ -56,6 +56,19 @@ clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 lint:
 	pre-commit run -a -v
 
+
+# ── Local gate: the ONE command to run before pushing a PR. ──
+# CI runs js-lint, format, typecheck, test-js and test-python-fast as
+# separate jobs; this target runs all of them locally so a push that
+# passes `make gate` will not surprise-red on CI. Failure stops at the
+# first failing sub-command (make default behaviour).
+.PHONY: gate
+gate:
+	make lint
+	npm run format:check
+	npm run typecheck
+	make test-js
+	make test-python-fast
 dist: build-js build-python
 
 build-js:
