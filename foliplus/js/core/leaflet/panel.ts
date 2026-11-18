@@ -240,7 +240,12 @@ const bindFoldOverlay = (opts: {
   /** Optional gate: false = this press leaves the panel open (Measure's
    *  active mode, collapse_on_outside=false). Defaults to always closable. */
   canClose?: () => boolean;
-}): { groupOpen: () => void; detach: () => void } => {
+}): {
+  groupOpen: () => void;
+  detach: () => void;
+  /** The registry entry's close (exposed for tests and programmatic close). */
+  close: (opts: { restoreFocus: boolean }) => boolean | void;
+} => {
   const registry = ensureOverlayRegistry(opts.map);
   const entry: OverlayEntry = {
     id: opts.id,
@@ -265,7 +270,7 @@ const bindFoldOverlay = (opts: {
     pressPriority: opts.pressPriority,
   };
   const detach = registry.register(entry);
-  return { groupOpen: () => registry.open(entry), detach };
+  return { groupOpen: () => registry.open(entry), detach, close: o => entry.close(o) };
 };
 const createFoldControl = (opts: {
   cssClass: string;

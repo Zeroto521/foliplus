@@ -344,6 +344,69 @@ describe("bindFoldOverlay", () => {
     );
     expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
   });
+
+  it("Escape never closes a fold panel (fold panels stay out of Escape closing)", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 4, on } as unknown as L.Map;
+    const { container } = makeFold();
+    bindFoldOverlay({
+      map,
+      container,
+      id: "test.escape",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+
+    // The registry's Escape dispatch calls top.close({ restoreFocus: true });
+    // a fold panel refuses that, so the panel stays open (and Escape keeps
+    // being available to the panel's own handlers).
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(false);
+  });
+
+  it("close on a collapsed fold panel is a no-op", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 5, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const { close } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.collapsed",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    // Starts collapsed: close must refuse without throwing or expanding.
+    expect(close({ restoreFocus: false })).toBe(false);
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(false);
+  });
+
+  it("close collapses an expanded fold panel and reports success", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 6, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const { close } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.close",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+    expect(close({ restoreFocus: false })).toBe(true);
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(false);
+  });
 });
 
 describe("bindOutsideCollapse", () => {
