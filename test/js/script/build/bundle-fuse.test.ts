@@ -18,10 +18,9 @@ import {
 // dist/, so the case skips cleanly instead of crashing on the missing dir.
 const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
 
-// A dev build (build:dev) emits unminified output larger than the minified
-// ceilings these dist-dependent cases assert, so they also skip when build.mjs
-// wrote the .dev-build marker; the absolute gate stays in CI's minified path.
-const distDev = existsSync(resolve(process.cwd(), "foliplus/dist/.dev-build"));
+// The gate now REFUSES a dev dist outright (devDistMessage -> EXIT_FUSE) rather
+// than measuring it, so there is no "skip on dev" case: the checkout-default
+// case below mocks the marker absent to exercise the normal minified path.
 
 // The fuse judges brotli bytes. A repeated-literal fixture would collapse to
 // a few bytes and quietly land under every cap, so the "breach" case would
@@ -143,9 +142,51 @@ describe("bundle-fuse exit codes", () => {
     const sizes = readSizes(root) as Record<string, number>;
     // 20 KB incompressible -> brotli size well over LocateControl's 4.88 KB
     // cap; that is exactly the condition the breach test above relies on.
+
     expect(sizes["foliplus-LocateControl.min.js"]).toBeGreaterThan(
       FUSE_CAPS["foliplus-LocateControl.min.js"],
     );
+  });
+});
+
+// The dev-dist guard. A build:dev run leaves foliplus/dist holding unminified
+// output (~2x the brotli size), so a fuse pointed at it would report breaches
+// that do not exist in what ships. The gate must REFUSE such a dist with a
+// human-readable message and EXIT_FUSE — not measure it, not silently pass.
+// These cases drive the devDist dep seam so they never touch the real dist.
+describe("bundle-fuse dev-dist guard", () => {
+  it("refuses a dev dist with EXIT_FUSE and a human-readable message", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": "x" });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      expect(fuse({}, root, { devDist: true })).toBe(EXIT_FUSE);
+      const text = error.mock.calls.join("\n");
+      expect(text).toMatch(/dev \(unminified\) build/i);
+      expect(text).toContain("npm run build");
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("measures normally when the dist is not a dev build", () => {
+    // The reverse proof: devDist:false must reach the size read, so the guard
+    // cannot degenerate into "always EXIT_FUSE". A trivial under-cap dist passes.
+    const root = mkTmp();
+    const files: Record<string, string> = {};
+    for (const key of Object.keys(FUSE_CAPS)) files[key] = "x";
+    mkDist(root, files);
+    expect(fuse({}, root, { devDist: false })).toBe(EXIT_OK);
+  });
+
+  it("main() propagates the guard refusal to its exit code", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": "x" });
+    const exit = trapExit();
+    expect(() => main([`--root=${root}`], { devDist: true })).toThrow(
+      `exit:${EXIT_FUSE}`,
+    );
+    expect(exit).toHaveBeenCalledWith(EXIT_FUSE);
   });
 });
 
@@ -226,9 +267,6 @@ describe("CLI entry", () => {
     if (!distReady) {
       skip("no foliplus/dist build present");
     }
-    if (distDev) {
-      skip("dev (unminified) build: absolute caps hold only for minified output");
-    }
     // `node script/bundle-fuse.mjs` without --root reads the checkout's own
     // dist — the Makefile and CI call it exactly this way. The dist dir is
     // shared build output that build.test.ts asserts on, so the size read is
@@ -246,7 +284,9 @@ describe("CLI entry", () => {
     try {
       const mod = await import("#script/build/bundle-fuse.mjs");
       const exit = trapExit();
-      expect(() => mod.main([])).toThrow(`exit:${EXIT_OK}`);
+      // devDist:false — the real dist may carry a dev marker; this case is about
+      // the under-cap verdict, not the guard (which has its own cases below).
+      expect(() => mod.main([], { devDist: false })).toThrow(`exit:${EXIT_OK}`);
       expect(exit).toHaveBeenCalledWith(EXIT_OK);
     } finally {
       vi.doUnmock("#script/bundle-size-lib.mjs");

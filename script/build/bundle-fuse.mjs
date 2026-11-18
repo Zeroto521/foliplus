@@ -14,10 +14,12 @@
  * were derived from the current measured size, the fuse would never fire
  * on exactly the "accidental inline" cases it exists to catch.
  *
- * The caps below are each `2 * <last measured brotli size>`, rounded up to
- * the nearest 5 KB. They were set at commit 50d0723d (main) and are the
- * numbers you should be raising — one at a time, with a review note —
- * when they trip.
+ * The caps below are each `2 * <measured brotli size>`, rounded up to the
+ * nearest 5 KB. The CAP VALUES are the reviewed ceilings and only move when a
+ * human raises them; the trailing `// measured N` comment on each line is
+ * refreshed to the current minified build so a reader can see how much
+ * headroom is left. They are the numbers you should be raising — one at a
+ * time, with a review note — when they trip.
  *
  * Usage:
  *   node script/build/bundle-fuse.mjs                       # print table, exit 0
@@ -31,19 +33,21 @@
  *
  * This reads the MINIFIED artifacts, so run `npm run build` before invoking
  * it. `npm run build:dev` (what `make test` uses, for the vitest-side
- * assertions that expect unminified source tokens) overwrites the same
- * files and will leave this gate measuring a larger bundle than the one
- * that ships — which will not trip the fuse but will mislead anyone
- * reading the numbers.
+ * assertions that expect unminified source tokens) overwrites the same files
+ * and would leave this gate measuring a far larger bundle than the one that
+ * ships. The gate now detects that state via the `.dev-build` marker
+ * (devDistMessage in bundle-size-lib.mjs) and refuses to measure rather than
+ * reporting breaches that do not exist in what ships.
  */
 import { help } from "../args.mjs";
-import { OK, STATUS, WARN } from "../glyph.mjs";
+import { FAIL, OK, STATUS, WARN } from "../glyph.mjs";
 import {
   EXIT_FUSE,
   EXIT_OK,
   EXIT_UNKNOWN,
   ROOT,
   baseSpec,
+  devDistMessage,
   fmtBytes,
   parseArgsWithBase,
   readSizes,
@@ -56,24 +60,24 @@ import { pathToFileURL } from "url";
 // Raising one here is a review event — the PR should name the change that
 // made the current value too tight.
 const FUSE_CAPS = {
-  "foliplus-LayerControl.min.js": 85_000, // measured 40,793
-  "foliplus-common.min.js": 85_000, // measured 39,197
-  "foliplus-MeasureControl.min.js": 50_000, // measured 22,952
-  "foliplus-ExportControl.min.js": 40_000, // measured 18,105
-  "foliplus-HeatmapControl.min.js": 30_000, // measured 13,062
-  "foliplus-SearchControl.min.js": 15_000, // measured 7,228
-  "foliplus-common.min.css": 10_000, // measured 4,436
-  "foliplus-LayerControl.min.css": 10_000, // measured 2,864
-  "foliplus-FullscreenControl.min.js": 5_000, // measured 1,708
-  "foliplus-LocateControl.min.js": 5_000, // measured 1,629
-  "foliplus-ExportControl.min.css": 5_000, // measured 1,034
-  "foliplus-MeasureControl.min.css": 5_000, // measured 897
-  "foliplus-HeatmapControl.min.css": 5_000, // measured 770
-  "foliplus-ScaleControl.min.js": 5_000, // measured 737
-  "foliplus-SearchControl.min.css": 5_000, // measured 551
-  "foliplus-FullscreenControl.min.css": 5_000, // measured 327
-  "foliplus-ScaleControl.min.css": 5_000, // measured 260
-  "foliplus-LocateControl.min.css": 5_000, // measured 162
+  "foliplus-LayerControl.min.js": 85_000, // measured 46,996
+  "foliplus-common.min.js": 85_000, // measured 54,700
+  "foliplus-MeasureControl.min.js": 50_000, // measured 13,992
+  "foliplus-ExportControl.min.js": 40_000, // measured 12,272
+  "foliplus-HeatmapControl.min.js": 30_000, // measured 10,286
+  "foliplus-SearchControl.min.js": 15_000, // measured 5,114
+  "foliplus-common.min.css": 10_000, // measured 6,273
+  "foliplus-LayerControl.min.css": 10_000, // measured 3,570
+  "foliplus-FullscreenControl.min.js": 5_000, // measured 1,312
+  "foliplus-LocateControl.min.js": 5_000, // measured 1,039
+  "foliplus-ExportControl.min.css": 5_000, // measured 933
+  "foliplus-MeasureControl.min.css": 5_000, // measured 709
+  "foliplus-HeatmapControl.min.css": 5_000, // measured 303
+  "foliplus-ScaleControl.min.js": 5_000, // measured 402
+  "foliplus-SearchControl.min.css": 5_000, // measured 460
+  "foliplus-FullscreenControl.min.css": 5_000, // measured 230
+  "foliplus-ScaleControl.min.css": 5_000, // measured 196
+  "foliplus-LocateControl.min.css": 5_000, // measured 105
 };
 
 const render = rows => {
@@ -109,7 +113,14 @@ const render = rows => {
   return lines.join("\n");
 };
 
-const fuse = (args, root = ROOT) => {
+const fuse = (args, root = ROOT, deps = {}) => {
+  // A dev (unminified) dist would make every cap verdict misleading; refuse it
+  // up front rather than publishing a table nobody can act on.
+  const devMsg = devDistMessage(root, deps);
+  if (devMsg) {
+    console.error(`${FAIL}  ${devMsg}`);
+    return EXIT_FUSE;
+  }
   const sizes = readSizes(root);
   if (!Object.keys(sizes).length) {
     console.error("No bundles found in foliplus/dist/. Run `npm run build` first.");
@@ -162,7 +173,7 @@ export { EXIT_FUSE, EXIT_OK, EXIT_UNKNOWN, FUSE_CAPS, fuse, main, readSizes };
 /** CLI entry: parse argv, run the fuse, and exit with its verdict. Exported so
  *  tests can drive the exact CLI flow with an injected argv instead of
  *  spawning a process. */
-const main = (argv = process.argv.slice(2)) => {
+const main = (argv = process.argv.slice(2), deps = {}) => {
   const args = parseArgsWithBase(argv);
   if (args.help) {
     console.log(help(baseSpec));
@@ -174,7 +185,7 @@ const main = (argv = process.argv.slice(2)) => {
     process.exit(EXIT_FUSE);
   }
   const root = args.root ? resolve(args.root) : ROOT;
-  const code = fuse(args, root);
+  const code = fuse(args, root, deps);
   process.exit(code);
 };
 
