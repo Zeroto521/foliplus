@@ -18,13 +18,6 @@ const JS_DIR = resolve(REPO_ROOT, "foliplus/js");
 const SKIP_DIR = new Set(["node_modules", "dist", "coverage", ".git"]);
 
 // Raw `publish(EVENTS.LAYER_*)` outside core/event: forbidden outright.
-// The two raw broadcasts below are the only non-LAYER publishes a source
-// may make outside core/event and are exempt only because they carry no
-// layer identity — they are NOT layer events.
-const RAW_PUBLISH_WHITELIST: Record<string, string> = {
-  "BaseControl.ts": "CONTROL_ATTACHED",
-  "control/LayerControl/ui/teardown.ts": "OVERLAY_CLEAR",
-};
 
 // `.emit(EVENTS.LAYER_*)` / `.emitSuperseding*(EVENTS.LAYER_*)` outside
 // core/event: must carry `origin` UNLESS the signal is one of the three
@@ -50,7 +43,9 @@ function walk(dir: string, out: string[]): string[] {
  *  a violation. A line is "code" when it has non-comment, non-blank text. */
 function isCode(line: string): boolean {
   const t = line.trim();
-  if (t === "" || t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return false;
+  if (t === "" || t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) {
+    return false;
+  }
   return true;
 }
 
@@ -59,12 +54,12 @@ describe("event origin static guard", () => {
     const violations: string[] = [];
     for (const file of walk(JS_DIR, [])) {
       const rel = relative(JS_DIR, file);
-      if (rel.startsWith("core" + sep + "event")) continue;
+      if (rel.startsWith(`core${sep}event`)) continue;
       const lines = readFileSync(file, "utf8").split(/\r?\n/);
       for (let i = 0; i < lines.length; i++) {
         if (!isCode(lines[i])) continue;
         const m = lines[i].match(/publish\s*\([^)]*EVENTS\.(LAYER_[A-Z_]+)/);
-        if (m) violations.push(rel + ":" + (i + 1) + " " + m[0].trim());
+        if (m) violations.push(`${rel}:${i + 1} ${m[0].trim()}`);
       }
     }
     expect(violations).toEqual([]);
@@ -80,7 +75,9 @@ describe("event origin static guard", () => {
         if (!lines[i].includes("emitLayerEvent(")) continue;
         // Search forward (same line + next 8) for the payload's origin key.
         const window = lines.slice(i, i + 9).join("\n");
-        if (!/origin\s*:/.test(window)) violations.push(rel + ":" + (i + 1) + " missing origin");
+        if (!/origin\s*:/.test(window)) {
+          violations.push(`${rel}:${i + 1} missing origin`);
+        }
       }
     }
     expect(violations).toEqual([]);
@@ -90,7 +87,7 @@ describe("event origin static guard", () => {
     const violations: string[] = [];
     for (const file of walk(JS_DIR, [])) {
       const rel = relative(JS_DIR, file);
-      if (rel.startsWith("core" + sep + "event")) continue;
+      if (rel.startsWith(`core${sep}event`)) continue;
       const lines = readFileSync(file, "utf8").split(/\r?\n/);
       for (let i = 0; i < lines.length; i++) {
         if (!isCode(lines[i])) continue;
@@ -99,7 +96,9 @@ describe("event origin static guard", () => {
         const ev = m[1];
         if (RAW_EMIT_ORIGINLESS.has(ev)) continue;
         const window = lines.slice(i, i + 9).join("\n");
-        if (!/origin\s*:/.test(window)) violations.push(rel + ":" + (i + 1) + " " + ev + " missing origin");
+        if (!/origin\s*:/.test(window)) {
+          violations.push(`${rel}:${i + 1} ${ev} missing origin`);
+        }
       }
     }
     expect(violations).toEqual([]);

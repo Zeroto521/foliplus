@@ -86,7 +86,10 @@ describe("MeasureManager — persistence", () => {
     bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
     // Direct call (after constructor already emitted once).
     manager.restoreMeasurements();
-    expect(handler).toHaveBeenCalledWith({ id: manager.layerId, origin: { kind: "programmatic", via: "refresh" } });
+    expect(handler).toHaveBeenCalledWith({
+      id: manager.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
   });
 
   it("nextMeasurementId increments counter and includes type", () => {
@@ -853,6 +856,7 @@ describe("MeasureManager — export auto-clear", () => {
     events.publish("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
+      origin: { kind: "user", via: "panel" },
     });
     expect(manager.currentMode).toBeNull();
     expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
@@ -870,6 +874,7 @@ describe("MeasureManager — export auto-clear", () => {
       events.publish("foliplus:mode:change", {
         component: "ExportControl",
         mode: "selecting",
+        origin: { kind: "user", via: "panel" },
       }),
     ).not.toThrow();
     expect(manager.currentMode).toBeNull();
@@ -882,6 +887,7 @@ describe("MeasureManager — export auto-clear", () => {
     events.publish("foliplus:mode:change", {
       component: "FullscreenControl",
       mode: "fullscreen",
+      origin: { kind: "user", via: "panel" },
     });
     expect(manager.currentMode).toBe("distance");
   });

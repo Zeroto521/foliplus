@@ -17,7 +17,7 @@
 // so walks below descend `eachLayer` first and treat a setter as a leaf.
 import type { LayerUI } from "../surface.js";
 import { isColorBasemap, paintsPerFeatureFill } from "./fillAuthor.js";
-import { emitLayerEvent, EVENTS,  } from "#core/event/index.js";
+import { EVENTS, emitLayerEvent } from "#core/event/index.js";
 import { findLeaf, isArealStyleLeaf, walkLeaf } from "#core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 import { throttleRaf } from "#platform/throttle.js";
@@ -543,7 +543,10 @@ const announceStyleChange = (owner: StyleApplyOwner, box: ApplyBox): void => {
   if (box.source === EVENTS.LAYER_ITEM_COUNT_CHANGE) return;
   const bus = (owner as Partial<LayerUI>).events;
   if (!bus) return;
-  emitLayerEvent(bus, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: box.layerId });
+  emitLayerEvent(bus, "LAYER_STYLE_CHANGE", {
+    origin: { kind: "user", via: "panel" },
+    id: box.layerId,
+  });
 };
 /** Execute one box: reclaim the entry first, run inside the boundary
  *  second. The ordering is the whole contract — see the region header. The

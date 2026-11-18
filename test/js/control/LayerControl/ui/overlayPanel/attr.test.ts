@@ -302,7 +302,10 @@ describe("LayerUI attrs", () => {
 
       // Change the count and emit the event; the panel row should refresh.
       count = 7;
-      ui.events.emit("foliplus:layer:item-count-change", { id: "attr-live1" });
+      ui.events.emit("foliplus:layer:item-count-change", {
+        id: "attr-live1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       const rendered = rows(
         item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
@@ -323,7 +326,10 @@ describe("LayerUI attrs", () => {
 
       count = 5;
       // Emit for a different layer id — the panel should not refresh.
-      ui.events.emit("foliplus:layer:item-count-change", { id: "other-layer" });
+      ui.events.emit("foliplus:layer:item-count-change", {
+        id: "other-layer",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       const rendered = rows(
         item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement,
@@ -859,7 +865,10 @@ describe("LayerUI attrs", () => {
       expect(rows(panel)).toContainEqual(["marker", "0"]);
 
       count = 2;
-      ui.events.emit("foliplus:layer:item-count-change", { id: "attr-prov2" });
+      ui.events.emit("foliplus:layer:item-count-change", {
+        id: "attr-prov2",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(rows(panel)).toContainEqual(["marker", "2"]);
     });
@@ -876,7 +885,10 @@ describe("LayerUI attrs", () => {
       const panel = item.querySelector(".foliplus-layer-attrs-panel") as HTMLElement;
       expect(rows(panel)).toContainEqual(["marker", "1"]);
 
-      ui.events.emit("foliplus:layer:item-count-change", { id: "other" });
+      ui.events.emit("foliplus:layer:item-count-change", {
+        id: "other",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(rows(panel)).toContainEqual(["marker", "1"]);
     });

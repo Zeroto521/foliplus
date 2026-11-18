@@ -58,7 +58,10 @@ describe("LayerUI shell — event subscriptions", () => {
     const item = findItem(ui, "overlay1");
     const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;
 
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(getFeatureCount).toHaveBeenCalledWith("overlay1");
     expect(ui.runtimeStore.getFields("overlay1")).toBeUndefined();
@@ -70,7 +73,10 @@ describe("LayerUI shell — event subscriptions", () => {
     const item = findItem(ui, "overlay1");
     const countCol = item.querySelector("[data-role='count']") as HTMLElement | null;
 
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     if (countCol) expect(countCol.textContent).toBe("");
   });
@@ -78,7 +84,10 @@ describe("LayerUI shell — event subscriptions", () => {
   it("LAYER_ITEM_COUNT_CHANGE is a no-op for unknown ids", () => {
     const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "ghost" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "ghost",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(getFeatureCount).not.toHaveBeenCalled();
   });

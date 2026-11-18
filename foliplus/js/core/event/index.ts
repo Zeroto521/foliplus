@@ -1,8 +1,8 @@
 // core/event — cross-component event bus (per-map, singular dir).
 import { EventBus, publish } from "./EventBus.js";
-import { ensureMapFoliplus } from "#core/mapApi.js";
 import { EVENTS } from "./const.js";
-import type { EventOrigin, EventPayloadMap } from "./type.js";
+import type { EventPayloadMap } from "./type.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 
 // Per-map instance storage (WeakMap so destroyed maps are GC'd) — mirrors the
 // per-map hint-management pattern.

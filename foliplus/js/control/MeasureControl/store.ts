@@ -5,7 +5,7 @@
 // through this store, mirroring LayerControl's persistence.ts convention: one store
 // class, keys in const.ts STORAGE, no direct Storage access outside.
 import * as CONST from "./const.js";
-import { emitLayerEvent, ensureEvents,  } from "#core/event/index.js";
+import { emitLayerEvent, ensureEvents } from "#core/event/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import {
@@ -109,7 +109,8 @@ class MeasureStore {
    *  without a write (e.g. after restore). */
   emitCount(): void {
     const events = ensureEvents(this.map);
-    emitLayerEvent(events, "LAYER_ITEM_COUNT_CHANGE",  { origin: { kind: "programmatic", via: "refresh" },
+    emitLayerEvent(events, "LAYER_ITEM_COUNT_CHANGE", {
+      origin: { kind: "programmatic", via: "refresh" },
       id: this.layerId,
     });
   }

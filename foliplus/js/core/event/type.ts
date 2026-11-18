@@ -68,9 +68,9 @@ interface LayerFilterChangePayload {
   id: string;
   readonly origin: EventOrigin;
   /** The token of the panel write that caused this change, when there is
- *   *  one. The panel matches it against its own last token and skips the
- *   *  reconcile for its own echo; an event without a token is never its
- *   *  own, so it is always honoured. */
+   *   *  one. The panel matches it against its own last token and skips the
+   *   *  reconcile for its own echo; an event without a token is never its
+   *   *  own, so it is always honoured. */
   writeToken?: WriteToken;
 }
 
@@ -86,7 +86,11 @@ interface EventPayloadMap {
   [EVENTS.LAYER_INTENT_CHANGE]: LayerIntentChangePayload;
   [EVENTS.LAYER_REMOVED]: IdLayerPayload;
   [EVENTS.LAYER_DELETED]: IdLayerPayload;
-  [EVENTS.MODE_CHANGE]: { component: string; mode: string | null; readonly origin: EventOrigin };
+  [EVENTS.MODE_CHANGE]: {
+    component: string;
+    mode: string | null;
+    readonly origin: EventOrigin;
+  };
   [EVENTS.BEFORE_EXPORT]: { component: string; readonly origin: EventOrigin };
   [EVENTS.AFTER_EXPORT]: { component: string; readonly origin: EventOrigin };
   [EVENTS.LAYER_ITEM_COUNT_CHANGE]: IdLayerPayload;
@@ -104,7 +108,4 @@ interface EventPayloadMap {
   [EVENTS.LAYER_FILTER_CHANGE]: LayerFilterChangePayload;
 }
 
-export type {
-  EventOrigin,
-  EventPayloadMap,
-};
+export type { EventOrigin, EventPayloadMap };

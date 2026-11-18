@@ -1841,7 +1841,10 @@ describe("content-change replay", () => {
 
     // A leaf lands while the user already has a border chosen.
     children.push(late);
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     flushStyleDimApply(FACE.STROKE, "grp1");
 
     expect(late.setStyle).toHaveBeenCalledWith(
@@ -1873,7 +1876,10 @@ describe("content-change replay", () => {
 
     for (let i = 0; i < 5; i++) {
       children.push(makeLeaf("#101010", 2));
-      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "grp1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
     }
     // Five content changes, one pending frame: no new leaf walked yet.
     expect(children.slice(1).some(l => l.setStyle.mock.calls.length > 0)).toBe(false);
@@ -1888,7 +1894,10 @@ describe("content-change replay", () => {
     ({ manager, ui } = initFixture({
       data: [{ id: "o1", name: "O", role: "overlay", layer: leaf }, BASE_LAYER],
     }));
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "o1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "o1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     flushStyleDimApply(FACE.STROKE, "o1");
     expect(leaf.setStyle).not.toHaveBeenCalled();
     // No base was captured for an untouched leaf, so a reset cannot invent a

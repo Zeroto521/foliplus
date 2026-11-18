@@ -1248,7 +1248,10 @@ describe("LayerUI filter panel", () => {
       // item count, and the panel re-reads the owner model.
       values.length = 0;
       values.push("marker");
-      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "measure" });
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "measure",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(triggerOf(item)).not.toBe(oldTrigger);
       openList(item);
@@ -1269,7 +1272,10 @@ describe("LayerUI filter panel", () => {
 
       values.length = 0;
       values.push("marker");
-      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "measure" });
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "measure",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       // The value stays committed (the filter keeps filtering), the option is
       // gone, and the readout shows the honest 0 kept.
@@ -1329,8 +1335,14 @@ describe("LayerUI filter panel", () => {
 
       openList(item);
       expect(optionValuesOf()).toEqual(["a", "b"]);
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "multi" });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "multi",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "multi",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0][0])).toContain("2 dimensions");
       warn.mockRestore();
@@ -1343,7 +1355,10 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
       const trigger = triggerOf(item);
 
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "measure" });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "measure",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(triggerOf(item)).toBe(trigger);
       spy.mockRestore();
@@ -1376,7 +1391,10 @@ describe("LayerUI filter panel", () => {
       const oldTrigger = triggerOf(item);
 
       field = "other";
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "shape" });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "shape",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(triggerOf(item)).not.toBe(oldTrigger);
       const fieldCell = item.querySelector(
@@ -1396,7 +1414,10 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
       const trigger = triggerOf(item);
 
-      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "other" });
+      ui.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "other",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(triggerOf(item)).toBe(trigger);
       spy.mockRestore();
@@ -1794,7 +1815,10 @@ describe("LayerUI filter panel", () => {
         op: "between",
         range: [15, 25],
       });
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "pnt",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
       const thumbs = panel.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
@@ -1825,7 +1849,10 @@ describe("LayerUI filter panel", () => {
       // The owner retired the filter on its own (source reset, content
       // revalidation, the more-menu clear).
       owner.filterSetter(undefined);
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "pnt",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       const thumbs = item.querySelectorAll(`.${SLIDER_CLASS.THUMB}`);
       expect(thumbs[0].getAttribute("aria-valuenow")).toBe("10");
@@ -2090,7 +2117,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     // The owner commits outside the panel (e.g. a source switch): the live
     // view follows, and Clear becomes the actionable reset.
     commit(owner);
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(clear.disabled).toBe(false);
     expect(clear.getAttribute("aria-disabled")).toBe("false");
     clear.click();
@@ -2103,7 +2133,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     ui.openFilterPanel(item);
     const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
     commit(owner);
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     const reg = manager.layerRegistry.get("pnt")!;
     (reg as unknown as { filterSetter: () => void }).filterSetter = () => {
@@ -2198,7 +2231,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
       return `LayerControl.${key}` as any;
     });
 
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     const item = findItem(ui, "pnt");
     const count = item.querySelector(`.${CONST.CLASSES.COUNT_COL}`) as HTMLElement;
@@ -2222,7 +2258,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     // Clearing the filter takes the funnel and the accent away; the count
     // returns to the plain (compact-capable) projection.
     owner.filterSetter(undefined);
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     const cleared = findItem(ui, "pnt");
     const plain = cleared.querySelector(`.${CONST.CLASSES.COUNT_COL}`) as HTMLElement;
     expect(plain.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(false);
@@ -2241,7 +2280,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
 
     // Heatmap-shaped rows clear through LAYER_DELETED (before the registry
     // prunes the entry); the id match, not identity, must close the panel.
-    ui.events.publish(EVENTS.LAYER_DELETED, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_DELETED, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
@@ -2254,7 +2296,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const panel = () => item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`);
 
     // Same entry + same id: a non-identity signal keeps the panel open.
-    ui.events.publish(EVENTS.LAYER_ITEM_UPDATED, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_ITEM_UPDATED, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(panel()).not.toBeNull();
 
     // Re-registration replaces the entry object: the panel must close.
@@ -2264,7 +2309,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
       role: "overlay",
       layer: { options: {}, eachLayer: vi.fn() } as unknown as L.Layer,
     });
-    ui.events.publish(EVENTS.LAYER_ITEM_REFRESHED, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_ITEM_REFRESHED, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(panel()).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
   });
@@ -2277,7 +2325,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     // Same registry entry, capability revoked in place (no identity event):
     // the LAYER_FILTER_CHANGE refresh must re-resolve and close.
     (ui.c.layerRegistry.get("pnt") as any).filterProvider = null;
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
     expect(ui.overlayPanel.activeFilterPanel).toBeNull();
@@ -2300,7 +2351,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
       return `LayerControl.${key}` as any;
     });
 
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     const count = findItem(ui, "pnt").querySelector(
       `.${CONST.CLASSES.COUNT_COL}`,
@@ -2395,7 +2449,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
 
     (ui.c.layerRegistry.get("pnt") as { filterProvider: unknown }).filterProvider =
       () => null;
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_EMPTY}`)).not.toBeNull();
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
@@ -2463,9 +2520,18 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     const item = findItem(ui, "pnt");
     ui.openFilterPanel(item);
 
-    ui.events.publish(EVENTS.LAYER_ITEM_UPDATED, { id: "other" });
-    ui.events.publish(EVENTS.LAYER_DELETED, { id: "other" });
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "other" });
+    ui.events.publish(EVENTS.LAYER_ITEM_UPDATED, {
+      id: "other",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
+    ui.events.publish(EVENTS.LAYER_DELETED, {
+      id: "other",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "other",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
   });
@@ -2477,7 +2543,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
     item.remove();
 
     expect(() =>
-      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" }),
+      ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+        id: "pnt",
+        origin: { kind: "programmatic", via: "refresh" },
+      }),
     ).not.toThrow();
   });
 
@@ -2498,7 +2567,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
 
     // Filtering repaints the row but keeps the label's full name.
     commit(owner);
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     const repainted = findItem(ui, "pnt");
     const repaintedLabel = repainted.querySelector(
       `.${CONST.CLASSES.LAYER_LABEL}`,
@@ -2516,7 +2588,10 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
       return `LayerControl.${key}` as any;
     });
 
-    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "pnt" });
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, {
+      id: "pnt",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     const item = findItem(ui, "pnt");
     const count = item.querySelector(`.${CONST.CLASSES.COUNT_COL}`) as HTMLElement;

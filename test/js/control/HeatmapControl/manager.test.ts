@@ -172,7 +172,10 @@ describe("HeatmapManager — caching & lifecycle", () => {
     const handler = vi.fn();
     bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
     m.clearHeatmapCanvas();
-    expect(handler).toHaveBeenCalledWith({ id: m.layerId, origin: { kind: "programmatic", via: "refresh" } });
+    expect(handler).toHaveBeenCalledWith({
+      id: m.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
   });
 
   it("clearHeatmapCanvas drops the layer id from the stored order so a redraw lands on top", () => {
@@ -525,7 +528,10 @@ describe("renderFeatures", () => {
     const handler = vi.fn();
     bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
     m.renderFeatures([{ type: "Feature" }] as any);
-    expect(handler).toHaveBeenCalledWith({ id: m.layerId, origin: { kind: "programmatic", via: "refresh" } });
+    expect(handler).toHaveBeenCalledWith({
+      id: m.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
   });
 
   it("count broadcast is settled — a thrower does not starve later consumers", () => {
@@ -586,7 +592,10 @@ describe("HeatmapManager — export event subscriptions", () => {
   it("BEFORE_EXPORT flips to export mode via onBeforeExport", () => {
     const m = makeManager();
     const beforeSpy = vi.spyOn(m, "onBeforeExport");
-    ensureEvents(m.map).publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    ensureEvents(m.map).publish(EVENTS.BEFORE_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(m.renderAll).toBe(true);
   });
@@ -594,7 +603,10 @@ describe("HeatmapManager — export event subscriptions", () => {
   it("AFTER_EXPORT returns to clip mode via onAfterExport", () => {
     const m = makeManager();
     const afterSpy = vi.spyOn(m, "onAfterExport");
-    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    ensureEvents(m.map).emit(EVENTS.AFTER_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(afterSpy).toHaveBeenCalledTimes(1);
     expect(m.renderAll).toBe(false);
   });
@@ -612,8 +624,14 @@ describe("HeatmapManager — export event subscriptions", () => {
     bus.on(EVENTS.BEFORE_EXPORT, probeBefore);
     bus.on(EVENTS.AFTER_EXPORT, probeAfter);
 
-    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
-    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
+    bus.emit(EVENTS.AFTER_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(beforeSpy).not.toHaveBeenCalled();
     expect(afterSpy).not.toHaveBeenCalled();
@@ -636,12 +654,21 @@ describe("HeatmapManager — export event subscriptions", () => {
     const afterSpy = vi.spyOn(m, "onAfterExport");
     const bus = ensureEvents(m.map);
 
-    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(beforeSpy).toHaveBeenCalledTimes(1);
     expect(afterSpy).not.toHaveBeenCalled();
 
-    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
-    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
+    bus.emit(EVENTS.AFTER_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(beforeSpy).toHaveBeenCalledTimes(2);
     expect(afterSpy).toHaveBeenCalledTimes(1);
   });
@@ -669,7 +696,11 @@ describe("HeatmapManager — export event subscriptions", () => {
     const probe = vi.fn();
     bus.on(EVENTS.LAYER_CHANGE, probe);
 
-    bus.emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
+    bus.emit(EVENTS.LAYER_CHANGE, {
+      id: "pts",
+      kind: "vector",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(scanSpy).not.toHaveBeenCalled();
     expect(probe).toHaveBeenCalledTimes(1);
@@ -711,9 +742,19 @@ describe("HeatmapManager — export event subscriptions", () => {
     expect(m.cachedFeatures).toBeNull();
     expect(m.overlay.unregister).toHaveBeenCalled();
 
-    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
-    bus.emit(EVENTS.AFTER_EXPORT, { component: "ExportControl" });
-    bus.emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
+    bus.publish(EVENTS.BEFORE_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
+    bus.emit(EVENTS.AFTER_EXPORT, {
+      component: "ExportControl",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
+    bus.emit(EVENTS.LAYER_CHANGE, {
+      id: "pts",
+      kind: "vector",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(m.renderAll).toBe(false);
     // The manager's own handlers are gone; only the probe listeners remain.
     expect(beforeProbe).toHaveBeenCalledTimes(1);
@@ -1065,7 +1106,11 @@ describe("event-bus bindings", () => {
     m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, {
+      id: "pts",
+      kind: "vector",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1107,7 +1152,11 @@ describe("event-bus bindings", () => {
       m.cachedPoints = { key: "p", pts: [] } as HeatmapManager["cachedPoints"];
 
       vi.useFakeTimers();
-      ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "basemap", kind });
+      ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, {
+        id: "basemap",
+        kind,
+        origin: { kind: "programmatic", via: "refresh" },
+      });
       await vi.runOnlyPendingTimersAsync();
       vi.useRealTimers();
 
@@ -1138,7 +1187,11 @@ describe("event-bus bindings", () => {
     // The source leaves the registry; LayerControl then emits LAYER_CHANGE.
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, {
+      id: "pts",
+      kind: "vector",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1162,7 +1215,11 @@ describe("event-bus bindings", () => {
 
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, {
+      id: "pts",
+      kind: "vector",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1188,7 +1245,11 @@ describe("event-bus bindings", () => {
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, {
+      id: "pts",
+      kind: "vector",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1205,7 +1266,11 @@ describe("event-bus bindings", () => {
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
 
     vi.useFakeTimers();
-    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, { id: "pts", kind: "vector" });
+    ensureEvents(m.map).emit(EVENTS.LAYER_CHANGE, {
+      id: "pts",
+      kind: "vector",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
 
@@ -1665,7 +1730,10 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     const m = makeManager();
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
 
-    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, {
+      id: m.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(clearSpy).toHaveBeenCalledTimes(1);
   });
@@ -1674,7 +1742,10 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     const m = makeManager();
     const clearSpy = vi.spyOn(m, "clearHeatmapCanvas");
 
-    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: "some_other_layer" });
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, {
+      id: "some_other_layer",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(clearSpy).not.toHaveBeenCalled();
   });
@@ -1715,7 +1786,10 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     const saveSpy = vi.spyOn(m, "saveConfig");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
 
-    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, {
+      id: m.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     // State back to the declared defaults, no stale selection left behind.
     expect(m.selectedLayerId).toBeNull();
@@ -1758,7 +1832,10 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     const saveSpy = vi.spyOn(m, "saveConfig");
     const clearSaved = vi.spyOn(m, "clearSavedConfig");
 
-    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, { id: m.layerId });
+    ensureEvents(m.map).emit(EVENTS.LAYER_DELETED, {
+      id: m.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(clearSpy).toHaveBeenCalledTimes(1);
     expect(saveSpy).toHaveBeenCalledTimes(1);
@@ -2431,7 +2508,10 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
       range: [5, 5],
     });
     expect(filterSpy).toHaveBeenCalledTimes(1);
-    expect(filterSpy).toHaveBeenCalledWith({ id: mgr.layerId, origin: { kind: "user", via: "panel" } });
+    expect(filterSpy).toHaveBeenCalledWith({
+      id: mgr.layerId,
+      origin: { kind: "user", via: "panel" },
+    });
   });
 
   it("notifies a content change even when the stored filter survives", () => {
@@ -2540,7 +2620,10 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
 
     // The manager publishes this event for its own row after every render;
     // consuming it would make each paint schedule another paint.
-    mgr.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: mgr.layerId });
+    mgr.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: mgr.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     flushScans();
 
     expect(renderSpy).not.toHaveBeenCalled();
@@ -2554,7 +2637,10 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
     // A content signal schedules the debounced repaint; the selection is
     // cleared before the timer fires, so the callback must bail out instead of
     // rendering an owner that no longer exists.
-    mgr.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "src" });
+    mgr.events.publish(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "src",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     mgr.selectedLayerId = null;
     expect(() => flushScans()).not.toThrow();
     // The count signal already dropped the caches; the cleared selection then
@@ -3453,7 +3539,10 @@ describe("HeatmapControl filter owner", () => {
     // The write path is the capability call; the owner has nothing to
     // listen for. A listener here would accumulate one consumer per
     // remove/re-add. Publishing at the owner must not move its state.
-    publish(events, EVENTS.LAYER_FILTER_CHANGE, { id: m.layerId });
+    publish(events, EVENTS.LAYER_FILTER_CHANGE, {
+      id: m.layerId,
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(fsSize(m)).toBe(0);
   });
 
@@ -3475,7 +3564,10 @@ describe("HeatmapControl filter owner", () => {
     // The notification is id-only — observers pull the model, never read
     // the filter from the payload.
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ id: m.layerId, origin: { kind: "user", via: "panel" } });
+    expect(spy).toHaveBeenCalledWith({
+      id: m.layerId,
+      origin: { kind: "user", via: "panel" },
+    });
   });
 
   it("setFilter is a no-op when the validated filter equals the stored one", () => {
@@ -3823,7 +3915,10 @@ describe("HeatmapControl filter owner", () => {
     expect(fsSize(m)).toBe(0);
     expect((m as any).cachedSnapshot).toBeNull();
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ id: m.layerId, origin: { kind: "user", via: "panel" } });
+    expect(spy).toHaveBeenCalledWith({
+      id: m.layerId,
+      origin: { kind: "user", via: "panel" },
+    });
   });
 
   it("resetState without a filter does not publish", () => {
@@ -3856,7 +3951,10 @@ describe("HeatmapControl filter owner", () => {
     expect(fsSize(m)).toBe(0);
     expect((m as any).cachedFeatures).toBeNull();
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ id: m.layerId, origin: { kind: "user", via: "panel" } });
+    expect(spy).toHaveBeenCalledWith({
+      id: m.layerId,
+      origin: { kind: "user", via: "panel" },
+    });
   });
 
   it("a departing source without a filter does not publish", () => {

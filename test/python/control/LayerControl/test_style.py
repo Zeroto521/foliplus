@@ -1626,6 +1626,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                     "id": "__test_intent_gated__",
                     "kind": "vector",
                     "intent": {"visible": True},
+                    "origin": {"kind": "programmatic", "via": "self"},
                 }
             ], result
 

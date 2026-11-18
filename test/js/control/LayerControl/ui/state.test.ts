@@ -1090,7 +1090,10 @@ describe("event-driven row refresh", () => {
     info.featureCountProvider = () => 42;
 
     const item = findItem(ui, "overlay1");
-    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(item.title).toContain("42");
     expect(item.querySelector(CONST.SEL.COUNT_COL)?.textContent).toContain("42");
@@ -1109,7 +1112,10 @@ describe("event-driven row refresh", () => {
       .spyOn(manager.surfaces.get("overlay1")!, "geometryType")
       .mockReturnValue(GEOM_TYPE.POLYGON as any);
 
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(geomSpy).toHaveBeenCalledTimes(1);
     expect(info.type).toBeNull();
@@ -1124,7 +1130,10 @@ describe("event-driven row refresh", () => {
     const info = manager.layerRegistry.get("overlay1")!;
     vi.spyOn(manager, "findLayer").mockReturnValue(null);
 
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(info.type).toBeNull();
     expect(
@@ -1151,7 +1160,10 @@ describe("event-driven row refresh", () => {
       "rect",
     );
 
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "custom1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "custom1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(item.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`)?.innerHTML).toContain(
       "rect",
@@ -1175,7 +1187,10 @@ describe("event-driven row refresh", () => {
     const paneEl = document.createElement("div");
     vi.spyOn(manager.map, "getPane").mockReturnValue(paneEl);
 
-    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+    events.emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "overlay1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     expect(paneEl.style.opacity).toBe("0.4");
     expect(li.opacity).toBe(0.4);

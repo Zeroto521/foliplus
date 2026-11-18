@@ -79,7 +79,10 @@ describe("content-change label replay", () => {
 
     for (let i = 0; i < 5; i++) {
       children.push(labelLeaf(`f${i}`));
-      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "grp1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
     }
     // Five content changes, one pending frame: no rebuild yet.
     expect(renderLabels).not.toHaveBeenCalled();
@@ -94,7 +97,10 @@ describe("content-change label replay", () => {
     // No config: getConfig answers the default, show=false.
     const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
 
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     flushStyleDimApply(FACE.LABEL, "grp1");
     expect(renderLabels).not.toHaveBeenCalled();
   });
@@ -104,7 +110,10 @@ describe("content-change label replay", () => {
     turnLabelsOn();
     const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
 
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
 
     manager.unregisterLayer("grp1");
@@ -120,7 +129,10 @@ describe("content-change label replay", () => {
     // Minimal panel chrome so closeStylePanel finds stylePanelLayerId.
     ui.overlayPanel.stylePanelLayerId = "grp1";
 
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(renderLabels).not.toHaveBeenCalled();
 
     closeStylePanel(ui, false);

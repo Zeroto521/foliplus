@@ -425,6 +425,7 @@ describe("EventBus", () => {
       bus.publish(EVENTS.MODE_CHANGE, {
         component: "MeasureControl",
         mode: "distance",
+        origin: { kind: "user", via: "panel" },
       }),
     ).not.toThrow();
 
@@ -448,6 +449,7 @@ describe("EventBus", () => {
       bus.publish(EVENTS.MODE_CHANGE, {
         component: "MeasureControl",
         mode: "distance",
+        origin: { kind: "user", via: "panel" },
       }),
     ).not.toThrow();
   });
@@ -467,6 +469,7 @@ describe("EventBus", () => {
       bus.publish(EVENTS.MODE_CHANGE, {
         component: "MeasureControl",
         mode: "distance",
+        origin: { kind: "user", via: "panel" },
       }),
     ).not.toThrow();
   });
@@ -482,6 +485,7 @@ describe("EventBus", () => {
     operation.emit(EVENTS.MODE_CHANGE, {
       component: "MeasureControl",
       mode: "distance",
+      origin: { kind: "user", via: "panel" },
     });
     expect(() => operation.throwIfFailed()).not.toThrow();
   });
@@ -490,7 +494,11 @@ describe("EventBus", () => {
     const bus = new EventBus();
     bus.on(EVENTS.MODE_CHANGE, vi.fn());
     expect(() =>
-      bus.emit(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" }),
+      bus.emit(EVENTS.MODE_CHANGE, {
+        component: "MeasureControl",
+        mode: "distance",
+        origin: { kind: "user", via: "panel" },
+      }),
     ).toThrow(/notification/);
   });
 
@@ -501,6 +509,7 @@ describe("EventBus", () => {
       bus.emitSuperseding(EVENTS.MODE_CHANGE, "layer-a", {
         component: "MeasureControl",
         mode: "distance",
+        origin: { kind: "user", via: "panel" },
       }),
     ).toThrow(/notification/);
   });

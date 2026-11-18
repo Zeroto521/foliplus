@@ -968,7 +968,10 @@ describe("LAYER_STYLE_CHANGE — one user commit, one announcement", () => {
       commit(fixture.ui, dim);
 
       expect(seen).toHaveLength(1);
-      expect(seen[0]).toEqual({ id: "overlay1", origin: { kind: "user", via: "panel" } });
+      expect(seen[0]).toEqual({
+        id: "overlay1",
+        origin: { kind: "user", via: "panel" },
+      });
     });
   }
 

@@ -25,7 +25,7 @@ import {
   writeIntentKeys,
 } from "./registry.js";
 import { styleCapability } from "./styleCapability.js";
-import { emitLayerEvent, } from "#core/event/index.js";
+import { emitLayerEvent } from "#core/event/index.js";
 import { DIM, ROLE } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import { PANEL_CLASS, Slider, sliderOf } from "#ui/index.js";
@@ -165,7 +165,10 @@ const OPACITY_DIMENSION = registerDimension<number>({
     // swatches, mirroring the vector-dimension landing point. Reset does
     // not publish — it restores the author value directly, like the
     // fill/border/size resets.
-    emitLayerEvent(ui.events, "LAYER_STYLE_CHANGE",  { origin: { kind: "user", via: "panel" }, id: layerId });
+    emitLayerEvent(ui.events, "LAYER_STYLE_CHANGE", {
+      origin: { kind: "user", via: "panel" },
+      id: layerId,
+    });
   },
   /** Cohesive reset: clear the override, save, re-project, hatch sync. Returns
    *  the delta without announcing — the complete reset entry

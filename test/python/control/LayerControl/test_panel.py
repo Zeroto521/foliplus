@@ -1277,6 +1277,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["lastAfterFalse"] == {
                 "id": "__test_canvas_vis__",
                 "kind": "canvas",
+                "origin": {"kind": "programmatic", "via": "self"},
             }, result
 
             # setVisible(true): class removed and another LAYER_CHANGE.
@@ -1285,6 +1286,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["lastAfterTrue"] == {
                 "id": "__test_canvas_vis__",
                 "kind": "canvas",
+                "origin": {"kind": "programmatic", "via": "self"},
             }, result
 
             # Re-hide flips the class again: still one event per flip.

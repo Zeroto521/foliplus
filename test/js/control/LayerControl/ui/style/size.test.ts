@@ -854,7 +854,10 @@ describe("content-change replay", () => {
 
     // A leaf lands while the user already has a size chosen.
     children.push(late);
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     flushSize("grp1");
 
     expect(late.getRadius()).toBe(30);
@@ -880,7 +883,10 @@ describe("content-change replay", () => {
 
     for (let i = 0; i < 5; i++) {
       children.push(makeRadiusLeaf(4 + i));
-      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+      ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "grp1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
     }
     // Five content changes, one pending frame: nothing walked yet.
     expect(early.setRadius).toHaveBeenCalledTimes(1);
@@ -901,7 +907,10 @@ describe("content-change replay", () => {
     ({ manager, ui } = initFixture({
       data: [{ id: "o1", name: "O", role: "overlay", layer: leaf }, BASE_LAYER],
     }));
-    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "o1" });
+    ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "o1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     flushSize("o1");
     expect(leaf.setRadius).not.toHaveBeenCalled();
     expect(leaf.getRadius()).toBe(9);

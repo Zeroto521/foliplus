@@ -189,7 +189,10 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.c.uiContainer = null as any;
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
 
-      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "overlay1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(getFeatureCount).not.toHaveBeenCalled();
     });
@@ -198,7 +201,10 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const getFeatureCount = vi.spyOn(manager, "getFeatureCount");
       const item = findItem(ui, "base1");
 
-      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "base1" });
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "base1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(getFeatureCount).not.toHaveBeenCalled();
       // The row is unchanged — no count text written, no icon redrawn.
@@ -213,7 +219,10 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const item = findItem(ui, "overlay1");
       item.removeAttribute(CONST.DATA.TITLE);
 
-      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "overlay1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(item.title).toContain("7");
     });
@@ -226,7 +235,10 @@ describe("LayerUI lifecycle — defensive rails", () => {
       const countCol = item.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
       countCol.textContent = "stale";
 
-      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "overlay1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(countCol.textContent).toBe("");
     });
@@ -333,7 +345,10 @@ describe("LayerUI lifecycle — defensive rails", () => {
       item.querySelector(CONST.SEL.COUNT_COL)?.remove();
       vi.spyOn(manager, "getFeatureCount").mockReturnValue(null);
 
-      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "overlay1" });
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+        id: "overlay1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       // No exception thrown; the item's title still gets the empty type label.
       expect(item.title).toBeDefined();
@@ -365,7 +380,10 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(before).not.toBe("Renamed By Update");
 
       manager.layerRegistry.get("overlay1")!.name = "Renamed By Update";
-      ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, { id: "overlay1" });
+      ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, {
+        id: "overlay1",
+        origin: { kind: "programmatic", via: "refresh" },
+      });
 
       expect(label().textContent).toBe("Renamed By Update");
       expect(label().title).toBe("Renamed By Update");
@@ -383,6 +401,7 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(() =>
         ensureEvents(map).emit(EVENTS.LAYER_ITEM_UPDATED, {
           id: "never-registered",
+          origin: { kind: "programmatic", via: "refresh" },
         }),
       ).not.toThrow();
       expect(attachedPanel(ui).querySelectorAll(CONST.SEL.LAYER_ITEM).length).toBe(
@@ -686,7 +705,10 @@ describe("onLayerItemCountChange — the registry replays", () => {
     // A leaf lands while the user already has every dimension chosen.
     const late = radiusLeaf(4);
     children.push(late);
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     for (const face of [FACE.FILL, FACE.STROKE, FACE.SIZE, FACE.LABEL]) {
       expect(hasStyleDimApply(face, "grp1"), `${face} must be queued`).toBe(true);
     }
@@ -710,7 +732,10 @@ describe("onLayerItemCountChange — the registry replays", () => {
     ({ manager, ui, map } = withGroup([areal, dot]));
     const renderLabels = vi.spyOn(ui.c.label, "renderLabels");
 
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     flushStyleDimApplies("grp1");
 
     expect(areal.setStyle).not.toHaveBeenCalled();
@@ -731,7 +756,10 @@ describe("onLayerItemCountChange — the registry replays", () => {
       show: true,
       field: "name",
     });
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(hasStyleDimApply(FACE.FILL, "grp1")).toBe(true);
     expect(hasStyleDimApply(FACE.LABEL, "grp1")).toBe(true);
 
@@ -763,7 +791,10 @@ describe("onLayerItemCountChange — the registry replays", () => {
       feature: { properties: { name: "late" } },
       getLatLng: () => ({ lat: 40, lng: -74 }),
     });
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(surfaceOf().capabilities.label).not.toBe("none");
 
     flushStyleDimApplies("grp1");
@@ -773,7 +804,10 @@ describe("onLayerItemCountChange — the registry replays", () => {
     // and a later content change still schedules the label face (the gate
     // is the config, not the capability) — the run itself is the no-op.
     children.length = 0;
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(surfaceOf().capabilities.label).toBe("none");
     flushStyleDimApplies("grp1");
     expect(renderLabels).toHaveBeenCalledTimes(2);
@@ -785,13 +819,17 @@ describe("onLayerItemCountChange — the registry replays", () => {
     // other map's trailing write — the exact cross-map leak this pins.
     const first = withGroup([arealLeaf()]);
     commitFillColor(first.ui, "grp1", "#ff0000");
-    ensureEvents(first.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(first.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
     expect(hasStyleDimApply(FACE.FILL, "grp1", first.ui)).toBe(true);
 
     const second = withGroup([arealLeaf()]);
     commitFillColor(second.ui, "grp1", "#00ff00");
     ensureEvents(second.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
       id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
     });
     expect(hasStyleDimApply(FACE.FILL, "grp1", second.ui)).toBe(true);
 
@@ -850,7 +888,10 @@ describe("onLayerItemCountChange — the registry replays", () => {
       contentChange: { kind: "sync", run: syncRun },
     } as unknown as LayerDimension<unknown>);
 
-    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
+    ensureEvents(map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, {
+      id: "grp1",
+      origin: { kind: "programmatic", via: "refresh" },
+    });
 
     // The sync half already ran — no frame flush needed.
     expect(syncRun).toHaveBeenCalledTimes(1);
