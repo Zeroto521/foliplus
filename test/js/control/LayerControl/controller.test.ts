@@ -7533,7 +7533,7 @@ it("catches a throwing styleProvider and returns registry values", () => {
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({ id: "pf1", name: "PF", role: "overlay", layer });
     // Seed the fill intent so the fill dimension gate opens.
-    setIntent(ui, "pf1", "fill", {
+    setIntent(ui, "pf1", "fillValue", {
       field: "v", classes: 5, method: "quantile", scheme: "YlOrRd",
     } as any);
     const info = manager.layerRegistry.get("pf1")!;
@@ -7547,7 +7547,7 @@ it("catches a throwing styleProvider and returns registry values", () => {
 
   it("no label config means no label block in snapshot", () => {
     const layer = wrap(makeLeaf({ value: 1 }));
-    const { manager, ui } = initFixture({
+    const { manager } = initFixture({
       data: [{ id: "nolbl1", name: "NoLbl", role: "overlay", layer }],
     });
     manager.map.hasLayer.mockReturnValue(true);
