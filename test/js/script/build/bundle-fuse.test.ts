@@ -273,7 +273,7 @@ describe("CLI entry", () => {
     // mocked at the lib seam instead: the reimported module's readSizes
     // reports one under-cap artifact, and main() fuses that (exit:0) without
     // touching the real dist tree.
-    vi.doMock("#script/bundle-size-lib.mjs", async importOriginal => {
+    vi.doMock("#script/build/bundle-size-lib.mjs", async importOriginal => {
       const actual = (await importOriginal()) as Record<string, unknown>;
       return {
         ...actual,
