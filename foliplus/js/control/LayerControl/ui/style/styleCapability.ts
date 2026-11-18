@@ -47,8 +47,7 @@ interface StyleCapability {
    *  surface-native `geometryType()` value. */
   geometry: StyleGeometry;
   /** The layer publishes styleSetters (third-party canvas layers: Heatmap,
-   *  Measure) — the menu's delegation gate, exactly as
-   *  `layerHasStyleDelegation` reads it. */
+   *  Measure) — the menu's delegation gate. */
   styleDelegation: boolean;
 }
 

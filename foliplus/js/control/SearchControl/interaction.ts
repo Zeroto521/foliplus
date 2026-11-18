@@ -91,13 +91,17 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   bindFoldToggle({
     container: ctrl.ctrl,
     toggleBtn: ctrl.toggleBtn,
-    onExpand: () => ctrl.inp.focus(),
+    onExpand: () => {
+      ctrl.foldGroupOpen?.();
+      ctrl.inp.focus();
+    },
     onCollapse: () => {
       map.foliplus!.hideHint(ctrl.config.name);
       removePanel(ctrl);
     },
   });
 
+  // listener-exempt: clear button handler; control-DOM, removed with the control
   ctrl.clearBtn.onclick = () => {
     ctrl.inp.value = "";
     if (ctrl.marker) {

@@ -30,7 +30,7 @@ type FixtureOptions = {
   allReferenced?: boolean;
   broken?: boolean;
   dangling?: boolean;
-  many?: boolean;
+
   nested?: boolean;
   python?: boolean;
 };
@@ -45,11 +45,6 @@ const makeFixture = (options: FixtureOptions = {}): string => {
   }
   if (options.broken) {
     write(join(root, "test/js/browser/Alpha/broken.js"), "const = ;\n");
-  }
-  if (options.many) {
-    for (let index = 0; index < 21; index += 1) {
-      write(join(root, `test/js/browser/Many/more-${index}.js`), "() => 4;\n");
-    }
   }
   if (options.python !== false) {
     write(join(root, "test/python/conftest.py"), "def _js(path):\n    return path\n");
@@ -252,12 +247,76 @@ describe("buildReport — inventory", () => {
   });
 });
 
+/** Assemble a report in memory the way `buildReport` does, without scanning a
+ * corpus.
+ *
+ * These renderer tests are about `renderText` and `renderSummary`, not about
+ * walking a directory tree. Feeding them a real fixture made them disk-bound:
+ * measured ~82 ms of fixture writes plus `buildReport`'s acorn parses per
+ * call against 0.03 ms of actual rendering, and under the full suite's load
+ * that cost blew past the 5 000 ms default while the file alone ran in 319 ms.
+ * Totals are derived from the arrays (as `buildReport` does) so the rendered
+ * numbers stay internally consistent.
+ */
+const makeReport = (
+  parts: {
+    probes?: number;
+    parseErrors?: { probe: string; error: string }[];
+    orphans?: { name: string; file: string }[];
+    dangling?: { reference: string; files: string[] }[];
+    indirect?: string[];
+    inlineJs?: string[];
+    byDir?: Record<string, number>;
+  } = {},
+): ReturnType<typeof buildReport> => {
+  const {
+    probes = 0,
+    parseErrors = [],
+    orphans = [],
+    dangling = [],
+    indirect = [],
+    inlineJs = [],
+    byDir = {},
+  } = parts;
+  return {
+    totals: {
+      probes,
+      parsed: probes - parseErrors.length,
+      parseErrors: parseErrors.length,
+      references: probes - orphans.length,
+      orphanProbes: orphans.length,
+      danglingReferences: dangling.length,
+      indirectCalls: indirect.length,
+      inlineJs: inlineJs.length,
+      supportFiles: 0,
+    },
+    probes: [],
+    parseErrors,
+    orphans,
+    dangling,
+    indirect,
+    inlineJs,
+    byDir,
+  };
+};
+
 describe("renderers", () => {
+  // One probe past `LIST_LIMIT` (20) is all it takes for the truncation line.
+  const issues = () =>
+    makeReport({
+      probes: 25,
+      parseErrors: [{ probe: "Alpha/broken", error: "Unexpected token" }],
+      orphans: Array.from({ length: 21 }, (_, index) => ({
+        name: `Many/more-${index}`,
+        file: `test/js/browser/Many/more-${index}.js`,
+      })),
+      dangling: [{ reference: "Alpha/missing", files: ["test/python/test_more.py"] }],
+      indirect: ["test/python/notes.py"],
+      byDir: { Alpha: 4, Many: 21 },
+    });
+
   it("renders the issue sections and truncates long lists", () => {
-    const report = buildReport(
-      makeFixture({ broken: true, dangling: true, many: true }),
-    );
-    const text = renderText(report).join("\n");
+    const text = renderText(issues()).join("\n");
     expect(text).toContain("files under test/js/browser");
     expect(text).toContain("parse errors:");
     expect(text).toContain("orphan probes (no _js() reference):");
@@ -267,10 +326,7 @@ describe("renderers", () => {
   });
 
   it("renders the GitHub job summary with details blocks", () => {
-    const report = buildReport(
-      makeFixture({ broken: true, dangling: true, many: true }),
-    );
-    const markdown = renderSummary(report).join("\n");
+    const markdown = renderSummary(issues()).join("\n");
     expect(markdown).toContain("## Browser probes (informational)");
     expect(markdown).toContain("<details>");
     expect(markdown).toContain("parse errors");
@@ -278,9 +334,7 @@ describe("renderers", () => {
   });
 
   it("renders a clean summary without details sections", () => {
-    const markdown = renderSummary(
-      buildReport(makeFixture({ allReferenced: true })),
-    ).join("\n");
+    const markdown = renderSummary(makeReport({ probes: 2 })).join("\n");
     expect(markdown).not.toContain("<details>");
   });
 });

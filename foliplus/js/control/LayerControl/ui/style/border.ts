@@ -691,10 +691,12 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
     if (target.onFlush) {
       const flush = target.onFlush;
       const prevColorChange = colorEl.onchange;
+      // listener-exempt: style-panel color input change handler (flush chain) on a panel-owned element
       colorEl.onchange = ev => {
         prevColorChange?.call(colorEl, ev);
         flush();
       };
+      // listener-exempt: style-panel color input blur handler (flush at drag end) on a panel-owned element
       colorEl.onblur = () => flush();
     }
   }
@@ -711,10 +713,12 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
     if (target.onFlush) {
       const flush = target.onFlush;
       const prevWeightChange = weightEl.onchange;
+      // listener-exempt: style-panel weight input change handler (flush chain) on a panel-owned element
       weightEl.onchange = ev => {
         prevWeightChange?.call(weightEl, ev);
         flush();
       };
+      // listener-exempt: style-panel weight input blur handler (flush at drag end) on a panel-owned element
       weightEl.onblur = () => flush();
     }
   }
@@ -997,6 +1001,7 @@ const bindBorderValueDetail = (
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
   ) as HTMLSelectElement;
+  // listener-exempt: style-panel field select handler on a panel-owned element
   fieldSelect.onchange = () =>
     writeBorderValue(ui, layerId, { field: fieldSelect.value });
 
@@ -1004,6 +1009,7 @@ const bindBorderValueDetail = (
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
   ) as HTMLSelectElement | null;
   if (methodSelect !== null) {
+    // listener-exempt: style-panel method select handler on a panel-owned element
     methodSelect.onchange = () =>
       writeBorderValue(ui, layerId, {
         method: methodSelect.value as ValueConfig["method"],
@@ -1014,6 +1020,7 @@ const bindBorderValueDetail = (
     `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
   ) as HTMLSelectElement | null;
   if (classesSelect !== null) {
+    // listener-exempt: style-panel classes select handler on a panel-owned element
     classesSelect.onchange = () => {
       const next = writeBorderValue(ui, layerId, {
         classes: parseInt(classesSelect.value, 10),

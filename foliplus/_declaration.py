@@ -73,6 +73,14 @@ ZOOM_RANGE_KEY = "zoom_range"
 MEASURE_TYPE_FIELD = "type"
 #: The declaration key that asks for a layer folder.
 FOLDER_KEY = "folder"
+#: The longest folder name a declaration may carry, in Unicode code points.
+#: A folder name is a short label read on a list row, not a data field: past
+#: this the row's ellipsis hides everything and the value is far likelier a
+#: pasted value than a name. Mirrors FOLDER_NAME_MAX in the JS reader
+#: (LayerInfoRegistry), so Python and JS cannot disagree about which names
+#: reach the panel. Measured after normalising, so whitespace padding cannot
+#: disguise a long name and a padded name is judged by what the author sees.
+FOLDER_NAME_MAX = 64
 #: The per-layer fill declaration key.
 FILL_KEY = "fill"
 #: The per-layer label declaration key.
@@ -582,8 +590,9 @@ def normalise_folder(
     ``owner`` names the layer and ``subject`` the specific subject, so every
     message and de-duplication note is attributable. ``source`` is how the
     caller wrote it (the layer's ``foliplus['folder']``), so the warning
-    points at the entry point they used. A non-string or blank value warns
-    once and is ignored. This reader only reads and strips the name; role
+    points at the entry point they used. A non-string, blank or over-long
+    value warns once and is ignored. This reader only reads, normalises and
+    caps the name; role
     matching, the stable caller-folder id and the folder registry live with
     the grouping work, not here.
     """
@@ -606,6 +615,14 @@ def normalise_folder(
     name = re.sub(r"\s+", " ", unicodedata.normalize("NFC", raw.strip()))
     if not name:
         reject("as an empty or whitespace-only string; expected a non-empty string")
+        return None
+    # The cap is measured on the normalised name: the same strip/fold that
+    # keeps a padded name from looking long is what the panel will show, so a
+    # name the author intends is not rejected by whitespace they never see.
+    if len(name) > FOLDER_NAME_MAX:
+        reject(
+            f"at {len(name)} code points; expected at most {FOLDER_NAME_MAX}",
+        )
         return None
     return name
 

@@ -99,7 +99,12 @@ const rangeValueOf = (
 const readOnlyField = (field: string): HTMLElement =>
   dom.el(
     "div",
-    { class: CONST.CLASSES.STYLE_FILL_READONLY, "aria-disabled": "true" },
+    {
+      class: [CONST.CLASSES.STYLE_FILL_READONLY, PANEL_CLASS.READONLY]
+        .filter(Boolean)
+        .join(" "),
+      "aria-disabled": "true",
+    },
     dom.el("span", { class: CONST.CLASSES.FILTER_FIELD_VALUE }, field),
   );
 
@@ -128,6 +133,7 @@ const renderRangeBody = (
             : (fields[0]?.value ?? ""),
           options: fields.map(f => ({ value: f.value, label: f.label })),
         });
+        // listener-exempt: filter panel field-picker select handler on a panel-owned element
         select.onchange = () => deps.selectField(select.value);
         fieldDropdown = createDropdown({
           nativeSelect: select,

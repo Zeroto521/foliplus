@@ -43,8 +43,11 @@ export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
   LAYOUT_DOC_KEY,
+  FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,
+  folderNameLength,
+  folderNameTooLong,
   emptyFolderLayout,
   ensureFolderLayout,
   createFolderLayoutManager,

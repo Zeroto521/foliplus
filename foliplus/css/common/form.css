@@ -292,3 +292,14 @@
    number field, so it is level with the heatmap's border row and needs no slider
    rules of its own. The `.foliplus-style-opacity-*` classes are hooks for
    behavior and tests, not a second set of geometry. */
+
+/* ── Read-only (display-only) control contract ──
+   `.foliplus-readonly` marks a form control that is display-only: it must not
+   offer a pointer affordance, must not show hover/active feedback (the unified
+   hover rule in input.css excludes it via :not(:disabled):not(.foliplus-readonly)),
+   and must not be focusable. One rule pins the cursor so the contract is not
+   UA-dependent — a disabled <input type=color> would otherwise fall back to the
+   browser's UA default and drift to pointer if the browser changed. */
+.foliplus-readonly {
+  cursor: default;
+}

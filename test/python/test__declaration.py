@@ -13,6 +13,7 @@ that raises instead of warning.
 from __future__ import annotations
 
 import ast
+import re
 import warnings
 from fractions import Fraction
 from pathlib import Path
@@ -37,6 +38,8 @@ from foliplus._declaration import (
     warn_foliplus,
     zoom_level,
 )
+
+_JS_FOLDER_NAME_MAX_RE = re.compile(r"const FOLDER_NAME_MAX = (\d+);")
 
 
 @pytest.fixture(autouse=True)
@@ -395,6 +398,38 @@ class TestNormaliseFolder:
     def test_surrounding_whitespace_is_stripped(self) -> None:
         assert normalise_folder("  roads  ", owner="Owner") == "roads"
 
+    def test_a_name_over_the_cap_warns_and_degrades(self) -> None:
+        cap = _declaration.FOLDER_NAME_MAX
+        with pytest.warns(UserWarning) as record:
+            assert normalise_folder("f" * (cap + 1), owner="layer 'roads'") is None
+
+        message = str(record[0].message)
+        assert f"at {cap + 1} code points; expected at most {cap}" in message
+
+    def test_a_name_at_the_cap_is_accepted(self) -> None:
+        cap = _declaration.FOLDER_NAME_MAX
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert normalise_folder("g" * cap, owner="Owner") == "g" * cap
+
+        assert caught == []
+
+    def test_the_cap_counts_code_points_not_bytes(self) -> None:
+        # Astral code points are four UTF-8 bytes each, so the same name is
+        # far longer on the wire. The cap is on the name the author reads,
+        # so a name heavy in non-BMP characters is not refused for being
+        # long in bytes.
+        name = "\U0001f30d" * _declaration.FOLDER_NAME_MAX
+        assert normalise_folder(name, owner="Owner") == name
+
+    def test_the_cap_is_measured_after_normalising(self) -> None:
+        cap = _declaration.FOLDER_NAME_MAX
+        # Padding is stripped before measuring, so a name the author means is
+        # not refused for whitespace the panel never shows.
+        assert normalise_folder("   " + "x" * cap + "   ", owner="Owner") == "x" * cap
+        with pytest.warns(UserWarning):
+            assert normalise_folder(" " + "y" * (cap + 2) + " ", owner="Owner") is None
+
     @pytest.mark.parametrize(
         ("raw", "reason"),
         [
@@ -460,6 +495,21 @@ class TestNormaliseFolder:
                 normalise_folder(raw, owner="Owner")
             except Exception as exc:  # pragma: no cover - must never raise
                 pytest.fail(f"normalise_folder({raw!r}) raised {exc!r}")
+
+
+def test_the_js_reader_uses_the_same_cap() -> None:
+    """The JS reader caps a folder name with its own copy of the constant.
+
+    Both stacks decide which names reach the panel, so the value is read from
+    the committed ``folderLayout.ts`` instead of being asserted against a
+    literal that would survive a change to either side.
+    """
+    source = (
+        Path(__file__).resolve().parents[2] / "foliplus/js/core/layer/folderLayout.ts"
+    ).read_text(encoding="utf-8")
+    match = _JS_FOLDER_NAME_MAX_RE.search(source)
+    assert match is not None, "FOLDER_NAME_MAX missing from folderLayout.ts"
+    assert int(match[1]) == _declaration.FOLDER_NAME_MAX
 
 
 class TestNormaliseBorder:

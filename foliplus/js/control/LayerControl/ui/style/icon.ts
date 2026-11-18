@@ -295,6 +295,7 @@ const bindGlyphGrid = (
     grid.dataset.closeOnKey = "1";
   };
 
+  // listener-exempt: style-panel icon trigger button handler on a panel-owned element
   trigger.onclick = () => {
     if (grid) close();
     else open();
@@ -339,6 +340,7 @@ const buildGlyphGrid = (
     if (glyph === current) {
       cell.classList.add(CONST.CLASSES.STYLE_ICON_CELL_SELECTED);
     }
+    // listener-exempt: style-panel icon cell button handler on a panel-owned element
     cell.onclick = () => {
       commitGlyph(ui, layerId, glyph);
       renderTrigger();

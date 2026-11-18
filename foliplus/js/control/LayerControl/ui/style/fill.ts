@@ -520,10 +520,12 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     // overwrite: bindLiveColor only owns oninput today.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevColorChange = colorEl.onchange;
+    // listener-exempt: style-panel color input change handler (flush chain) on a panel-owned element
     colorEl.onchange = ev => {
       prevColorChange?.call(colorEl, ev);
       flush();
     };
+    // listener-exempt: style-panel color input blur handler (flush at drag end) on a panel-owned element
     colorEl.onblur = flush;
   }
 
@@ -544,10 +546,12 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     // instead of overwriting it. blur is free.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevChange = opacityEl.onchange;
+    // listener-exempt: style-panel opacity input change handler (flush chain) on a panel-owned element
     opacityEl.onchange = ev => {
       prevChange?.call(opacityEl, ev);
       flush();
     };
+    // listener-exempt: style-panel opacity input blur handler (flush at drag end) on a panel-owned element
     opacityEl.onblur = flush;
   }
 };
