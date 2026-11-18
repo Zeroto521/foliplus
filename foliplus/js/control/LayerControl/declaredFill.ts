@@ -33,7 +33,13 @@
 // rest of the declaration survives), and a declaration that names a ramp but
 // no usable field is dropped whole rather than painted as a misleading solid
 // face.
+//
+// The read/cache/warn-once skeleton lives in {@link readDeclaredKey}: this
+// module supplies only the fill parse — the business logic that validates what
+// the author wrote. The next declared* reader reuses the same skeleton instead
+// of re-implementing it.
 import * as CONST from "./const.js";
+import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
 import type { ValueConfig } from "#core/layer/index.js";
 import {
   CLASS_COUNT,
@@ -42,14 +48,6 @@ import {
   isClassifyMethod,
   isValueKind,
 } from "#core/value/index.js";
-import { createLogger } from "#platform/log.js";
-
-const log = createLogger("LayerControl");
-
-/** The foliplus-owned slice of a layer's options. */
-type FoliplusOptions = {
-  foliplus?: { fill?: unknown } & Record<string, unknown>;
-};
 
 /** A validated fill declaration for one layer.
  *
@@ -81,46 +79,8 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "kind",
 ]);
 
-/** Per-layer-object cache. A layer object's options are final once it exists
- *  (folium builds them at construction), so both "declared" and "not declared"
- *  are cacheable — unlike the label reader, whose empty read can be
- *  provisional because it may run before the layer's script attaches the
- *  namespace. A null layer is never cached: the declaration may still arrive
- *  with the late-linked carrier. */
-const cache = new WeakMap<object, DeclaredFillRead>();
-
-/** Warn once per (layer, key): a re-read of the same declaration must not
- *  flood the console on every fill apply. */
-const warned = new Set<string>();
-
 const isName = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
-
-/** Reject one key: record it for the caller (tests), and warn once per
- *  (layer, key). */
-const reject = (
-  invalid: string[],
-  layerId: string | undefined,
-  key: string,
-  message: string,
-): void => {
-  invalid.push(message);
-  const scope = `${layerId ?? ""}:${key}`;
-  if (warned.has(scope)) return;
-  warned.add(scope);
-  log.warn(
-    `declared fill: ignoring ${message} on layer "${layerId ?? "<unregistered>"}"`,
-  );
-};
-
-/** The raw `foliplus.fill` value on a layer.
- *
- *  Own options only, never a tree walk: folium stamps the namespace on the
- *  very layer it renders (the same object LayerControl registers), and the
- *  attach sweep reads every layer — a tree scan per layer is the exact cost
- *  the controller's "unattributed add scans no tree" invariant forbids. */
-const rawFillOf = (layer: object): unknown =>
-  (layer as { options?: FoliplusOptions }).options?.foliplus?.fill;
 
 /** Parse the flat `fill` declaration into a validated {@link DeclaredFill}.
  *
@@ -132,29 +92,37 @@ const rawFillOf = (layer: object): unknown =>
  *  the whole declaration is dropped rather than painted as a misleading solid
  *  face. `classes` is kept exactly as declared, never clamped: "declared 12,
  *  painted 6" is the silent deviation this reader exists to prevent, so the
- *  editable 2..9 vocabulary is a panel constraint, not an author one. */
-const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
+ *  editable 2..9 vocabulary is a panel constraint, not an author one.
+ *
+ *  @param reject one rejected key: record it for the caller (tests) and warn
+ *    once per (declared-key, layer, key) — the skeleton owns the dedup, the
+ *    parse owns the message and the `invalid` accumulation. */
+const parse = (
+  raw: unknown,
+  layerId: string | undefined,
+  reject: RejectFn,
+): DeclaredFillRead => {
+  const invalid: string[] = [];
+  /** Reject one key: record it for the caller, and warn once per scope. */
+  const rejectKey = (key: string, message: string): void => {
+    invalid.push(message);
+    reject(
+      `${layerId ?? ""}:${key}`,
+      `declared fill: ignoring ${message} on layer "${layerId ?? "<unregistered>"}"`,
+    );
+  };
   if (raw === null || raw === undefined) return EMPTY;
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    const invalid: string[] = [];
-    reject(
-      invalid,
-      layerId,
-      "fill",
-      `a non-object fill declaration ${JSON.stringify(raw)}`,
-    );
+    rejectKey("fill", `a non-object fill declaration ${JSON.stringify(raw)}`);
     return { invalid };
   }
   const data = raw as Record<string, unknown>;
-  const invalid: string[] = [];
 
   // Unknown keys (the cancelled `ramp` shell, the `mode` switch, a typo) are
   // ignored one by one; the rest of the declaration survives.
   for (const key of Object.keys(data)) {
     if (!KNOWN_KEYS.has(key)) {
-      reject(
-        invalid,
-        layerId,
+      rejectKey(
         key,
         `an unknown fill key ${JSON.stringify(key)} (expected field/method/classes/scheme/kind)`,
       );
@@ -169,16 +137,14 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   if (data.field !== undefined) {
     if (isName(data.field)) field = data.field;
     else {
-      reject(
-        invalid,
-        layerId,
+      rejectKey(
         "field",
         `invalid fill.field ${JSON.stringify(data.field)} (expected a property name)`,
       );
     }
   }
   if (field === undefined) {
-    reject(invalid, layerId, "field", "a fill declaration without a fill.field");
+    rejectKey("field", "a fill declaration without a fill.field");
     return { invalid };
   }
 
@@ -188,9 +154,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   // applies the same rule, so a kind this client cannot build is never
   // misapplied as a numeric ramp.
   if (data.kind !== undefined && !isValueKind(data.kind)) {
-    reject(
-      invalid,
-      layerId,
+    rejectKey(
       "kind",
       `invalid fill.kind ${JSON.stringify(data.kind)} (expected "numeric" or "category")`,
     );
@@ -209,18 +173,11 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
     // category record; they are kept at the type level so the union stays
     // assignable to the numeric RampConfig.
     if (data.scheme === undefined) {
-      reject(
-        invalid,
-        layerId,
-        "scheme",
-        "a category fill declaration without a fill.scheme",
-      );
+      rejectKey("scheme", "a category fill declaration without a fill.scheme");
       return { invalid };
     }
     if (!isName(data.scheme)) {
-      reject(
-        invalid,
-        layerId,
+      rejectKey(
         "scheme",
         `invalid fill.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
       );
@@ -244,9 +201,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   if (data.method !== undefined) {
     if (isClassifyMethod(data.method)) method = data.method;
     else {
-      reject(
-        invalid,
-        layerId,
+      rejectKey(
         "method",
         `invalid fill.method ${JSON.stringify(data.method)} (expected ${METHOD_ORDER.join("/")})`,
       );
@@ -268,9 +223,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
     ) {
       classes = data.classes;
     } else {
-      reject(
-        invalid,
-        layerId,
+      rejectKey(
         "classes",
         `invalid fill.classes ${JSON.stringify(data.classes)} (expected an integer >= ${CLASS_COUNT.MIN})`,
       );
@@ -281,9 +234,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
   if (data.scheme !== undefined) {
     if (isName(data.scheme)) scheme = data.scheme;
     else {
-      reject(
-        invalid,
-        layerId,
+      rejectKey(
         "scheme",
         `invalid fill.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
       );
@@ -314,12 +265,7 @@ const parse = (raw: unknown, layerId: string | undefined): DeclaredFillRead => {
  */
 const readDeclaredFill = (layer: unknown, layerId?: string): DeclaredFillRead => {
   if (layer === null || typeof layer !== "object") return EMPTY;
-  const key = layer as object;
-  const cached = cache.get(key);
-  if (cached) return cached;
-  const result = parse(rawFillOf(key), layerId);
-  cache.set(key, result);
-  return result;
+  return readDeclaredKey(layer, layerId, "fill", parse);
 };
 
 export { readDeclaredFill };
