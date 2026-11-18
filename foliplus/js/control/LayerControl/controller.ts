@@ -31,7 +31,6 @@ import {
   type FilterStore,
   type FolderLayout,
   type FolderLayoutManager,
-  type FolderSection,
   GEOM_TYPE,
   type LabelAwareLayer,
   type LayerAPI,
@@ -1717,31 +1716,27 @@ class LayerController implements LayerAPI {
     operation.throwIfFailed();
     return true;
   }
-  /** Explicitly create one (possibly empty) folder block in one section.
+  /** Explicitly create one (possibly empty) folder block in one role.
    *
    *  This is the user-facing counterpart of the empty-folder freeze for the
    *  CREATE direction: a folder with no live member is materialised into the
-   *  folder layout so the block survives at the section tail.
+   *  folder layout so the block survives at the role tail.
    *
    *  Returns false (and writes nothing) when the name is blank after
    *  normalisation, or when a folder with the same normalised name already
-   *  exists in this section (identity key collision). A different section may
+   *  exists in this role (identity key collision). A different role may
    *  freely reuse the same name — base and overlay folders are distinct.
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param name - The folder's display name (normalised for the key).
    * @param opts - Optional control over persistence.
    * @returns true when the folder was created, false otherwise.
    */
-  createFolder(
-    section: FolderSection,
-    name: string,
-    opts?: { persist?: boolean },
-  ): boolean {
+  createFolder(role: LayerRole, name: string, opts?: { persist?: boolean }): boolean {
     const key = normalizeFolderName(name);
     if (key === "") return false;
     const layout = this.folderLayout.layout;
-    if ((layout.order[section] ?? []).includes(key)) return false;
+    if ((layout.order[role] ?? []).includes(key)) return false;
     if (
       this.layerRegistry.layers.some(
         l =>
@@ -1774,19 +1769,19 @@ class LayerController implements LayerAPI {
    *  its members move with it because their `folder` spelling changed.
    *
    *  Returns false (and writes nothing) when the old folder does not exist in
-   *  this section, when the new name is blank after normalisation, or when a
-   *  folder with the same normalised new name already exists in this section
+   *  this role, when the new name is blank after normalisation, or when a
+   *  folder with the same normalised new name already exists in this role
    *  (other than the old folder itself — a normalisation-only rename is a
    *  no-op that returns true without writing).
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param oldName - The folder's current display name.
    * @param newName - The folder's new display name.
    * @param opts - Optional control over persistence.
    * @returns true when the folder was renamed, false otherwise.
    */
   renameFolder(
-    section: FolderSection,
+    role: LayerRole,
     oldName: string,
     newName: string,
     opts?: { persist?: boolean },
@@ -1832,34 +1827,34 @@ class LayerController implements LayerAPI {
    *  exclusive — an explicit delete never routes through the freeze, and the
    *  freeze never hands control here.
    *
-   *  Every member of the folder (same section + same normalize(name)) is
+   *  Every member of the folder (same role + same normalize(name)) is
    *  PROMOTED to root, never retired: the layer stays registered and visible,
    *  only its folder association drops. The folder's key is then removed from
    *  `layout.order`, and the materialised block order is re-derived. The
    *  display name is not separately persisted, so no name cleanup is owed.
    *
    *  Returns false (and writes nothing) when the folder does not exist —
-   *  no members in this section and no key in `layout.order`. An existing but
+   *  no members in this role and no key in `layout.order`. An existing but
    *  empty folder (a key with no live member) deletes the key and returns
    *  true without touching any layer.
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param folderName - The folder's display name (normalised for the key).
    * @param opts - Optional control over persistence.
    * @returns true when the folder existed and was removed, false otherwise.
    */
   deleteFolder(
-    section: FolderSection,
+    role: LayerRole,
     folderName: string,
     opts?: { persist?: boolean },
   ): boolean {
     const key = normalizeFolderName(folderName);
     const layout = this.folderLayout.layout;
-    const inOrder = (layout.order[section] ?? []).includes(key);
+    const inOrder = (layout.order[role] ?? []).includes(key);
     const inDirectory = layout.folders.some(f => f.key === key);
     const members = this.layerRegistry.layers.filter(
       l =>
-        l.role === section &&
+        l.role === role &&
         folderOf(layout, l) !== null &&
         normalizeFolderName(folderOf(layout, l)!) === key,
     );
@@ -1877,21 +1872,21 @@ class LayerController implements LayerAPI {
     return true;
   }
 
-  /** Remove every EMPTY folder key from one section in
+  /** Remove every EMPTY folder key from one role in
    *  one operation.
    *
    *  A folder whose last member was deleted leaves a stale key behind (the
    *  automatic freeze is the reason it survives at all). The clean button on
-   *  the section header clears all of them in a single pass: one schedule,
+   *  the role header clears all of them in a single pass: one schedule,
    *  one flush, one repaint. Returns how many keys were removed (0 = nothing
    *  to clean, no write).
    *
-   * @param section - The UI section (role) whose empty folders are cleaned.
+   * @param role - The UI role whose empty folders are cleaned.
    * @returns The number of empty folder keys removed.
    */
-  cleanEmptyFolders(section: FolderSection): number {
+  cleanEmptyFolders(role: LayerRole): number {
     const layout = this.folderLayout.layout;
-    const listed = layout.order[section] ?? [];
+    const listed = layout.order[role] ?? [];
     const emptyKeys = listed.filter(
       k => !this.layerRegistry.layers.some(l => folderOf(layout, l) === k),
     );

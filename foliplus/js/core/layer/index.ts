@@ -30,8 +30,7 @@ export {
   visibleDomOf,
 } from "./carrier.js";
 export type { CarrierDecl } from "./carrier.js";
-export { sectionOf } from "./role.js";
-export type { LayerRole, LayerSection } from "./role.js";
+export type { LayerRole } from "./role.js";
 export {
   LABEL_Z_OFFSET,
   FOCUS_Z,
@@ -69,7 +68,6 @@ export {
 export type {
   FolderLayout,
   FolderEntry,
-  FolderSection,
   FolderMember,
   FolderLayoutManager,
 } from "./folderLayout.js";

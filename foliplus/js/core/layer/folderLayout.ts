@@ -34,9 +34,8 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { loadRecord, saveRecord } from "#platform/storage.js";
 
-/** The folder dimension: a folder is scoped to one section (role). Base and
+/** The folder dimension: a folder is scoped to one role (role). Base and
  *  overlay folders with the same name are two different folders. */
-type FolderSection = LayerRole;
 
 /** One folder identity entry: stable key + the display name a rename rewrites
  *  (rename never touches the key — see renameFolder). */
@@ -51,7 +50,7 @@ interface FolderEntry {
  *  spelling); an empty string is the materialised ROOT pin — a user action
  *  that returns a layer to root even when the author declared a folder. */
 interface FolderMember {
-  section: FolderSection;
+  role: LayerRole;
   folder: string;
 }
 
@@ -62,16 +61,16 @@ interface FolderLayout {
   version: 2;
   /** Folder identity directory: stable keys + display names. */
   folders: FolderEntry[];
-  /** Per-section ordered folder key array = block order (the order is the
+  /** Per-role ordered folder key array = block order (the order is the
    *  truth: a drag re-writes this array). */
-  order: Partial<Record<FolderSection, string[]>>;
+  order: Partial<Record<LayerRole, string[]>>;
   /** layerId → assignment. The stable LayerInfo.id is the key; a layer's
    *  assignment is seeded from the author declaration only when this record
    *  has no entry for it, and a persisted entry always wins. */
   members: Record<string, FolderMember>;
 }
 
-/** One folder block: every member sharing (section, normalize(name)). */
+/** One folder block: every member sharing (role, normalize(name)). */
 interface FolderBlock {
   /** The identity key = normalize(displayName). Never used for display. */
   key: string;
@@ -180,12 +179,12 @@ const folderOf = (layout: FolderLayout, layer: LayerInfo): string | null => {
  *  author declaration. */
 const groupByFolder = (
   registryEntries: readonly LayerInfo[],
-  section: FolderSection,
+  role: LayerRole,
   layout: FolderLayout,
 ): Map<string, FolderBlock> => {
   const map = new Map<string, FolderBlock>();
   registryEntries.forEach((entry, globalIndex) => {
-    if (entry.role !== section) return;
+    if (entry.role !== role) return;
     const folder = folderOf(layout, entry);
     if (!folder) return;
     const key = normalizeFolderName(folder);
@@ -217,19 +216,19 @@ const isRootLayer = (layout: FolderLayout, entry: LayerInfo): boolean => {
   return !entry.folder;
 };
 
-/** The two-segment display order for one section:
- *  (1) listed folders in layout.order[section] list order, (2) unlisted
+/** The two-segment display order for one role:
+ *  (1) listed folders in layout.order[role] list order, (2) unlisted
  *  folders by anchor ascending appended after them, (3) root layers (no
  *  folder) in anchor order at the end. `registryEntries` is the WHOLE
  *  registry in anchor (registration) order so the global array index is the
  *  anchor axis. Pure: never mutates its inputs. */
-const sectionOrder = (
-  section: FolderSection,
+const roleOrder = (
+  role: LayerRole,
   registryEntries: readonly LayerInfo[],
   layout: FolderLayout,
 ): LayerInfo[] => {
-  const folders = groupByFolder(registryEntries, section, layout);
-  const listed = layout.order[section] ?? [];
+  const folders = groupByFolder(registryEntries, role, layout);
+  const listed = layout.order[role] ?? [];
   const listedKeys = new Set(listed);
   const blocks: FolderBlock[] = [];
   for (const key of listed) {
@@ -241,41 +240,41 @@ const sectionOrder = (
     .sort((a, b) => a.anchor - b.anchor);
   blocks.push(...rest);
   const rootLayers = registryEntries.filter(
-    entry => entry.role === section && isRootLayer(layout, entry),
+    entry => entry.role === role && isRootLayer(layout, entry),
   );
   return [...blocks.flatMap(block => block.members), ...rootLayers];
 };
 
-/** The full panel display order: overlay section then base section, each in
+/** The full panel display order: overlay role then base role, each in
  *  its own two-segment order. `registryEntries` is the WHOLE registry in
  *  anchor order. */
 const fullDisplayOrder = (
   registryEntries: readonly LayerInfo[],
   layout: FolderLayout,
 ): LayerInfo[] => [
-  ...sectionOrder("overlay", registryEntries, layout),
-  ...sectionOrder("base", registryEntries, layout),
+  ...roleOrder("overlay", registryEntries, layout),
+  ...roleOrder("base", registryEntries, layout),
 ];
 
-/** Materialise one section's WHOLE folder-key order before a folder is about
+/** Materialise one role's WHOLE folder-key order before a folder is about
  *  to lose its last member. Listed keys stay in list order; unlisted keys are
  *  appended by anchor (min member global index); the frozen key is guaranteed
  *  present. The emptied folder's block then survives at its frozen position
  *  (the clean button can still reach it). Pure: returns a new layout. */
-const freezeSectionOrder = (
+const freezeRoleOrder = (
   layout: FolderLayout,
-  section: FolderSection,
+  role: LayerRole,
   registryEntries: readonly LayerInfo[],
   key: string,
 ): FolderLayout => {
-  const listed = layout.order[section] ?? [];
-  const folders = groupByFolder(registryEntries, section, layout);
+  const listed = layout.order[role] ?? [];
+  const folders = groupByFolder(registryEntries, role, layout);
   const unlisted = [...folders.keys()]
     .filter(k => !listed.includes(k))
     .sort((a, b) => folders.get(a)!.anchor - folders.get(b)!.anchor);
   const frozen = [...listed, ...unlisted];
   if (!frozen.includes(key)) frozen.push(key);
-  return { ...layout, order: { ...layout.order, [section]: frozen } };
+  return { ...layout, order: { ...layout.order, [role]: frozen } };
 };
 
 /** Seed a layout from the current registry: folder directory from the author
@@ -295,31 +294,31 @@ const seedFolderLayout = (registryEntries: readonly LayerInfo[]): FolderLayout =
       byKey.set(key, { key, name });
       layout.folders.push({ key, name });
     }
-    layout.members[entry.id] = { section: entry.role, folder: key };
+    layout.members[entry.id] = { role: entry.role, folder: key };
   }
   return layout;
 };
 
-/** Create a folder: append the new key to the section's block order and add
- *  it to the identity directory. Same-section duplicates (directory, order or
+/** Create a folder: append the new key to the role's block order and add
+ *  it to the identity directory. Same-role duplicates (directory, order or
  *  live member) are refused. Pure: returns the same layout on a no-op. */
 const createFolder = (
   layout: FolderLayout,
-  section: FolderSection,
+  role: LayerRole,
   name: string,
 ): FolderLayout => {
   const key = normalizeFolderName(name);
   if (key === "") return layout;
-  const order = layout.order[section] ?? [];
-  if (order.includes(key)) return layout; // same-section duplicate refused
-  // A different section may already hold this key: base and overlay folders
-  // with the same name are two different folders (section-scoped identity).
+  const order = layout.order[role] ?? [];
+  if (order.includes(key)) return layout; // same-role duplicate refused
+  // A different role may already hold this key: base and overlay folders
+  // with the same name are two different folders (role-scoped identity).
   const existing = layout.folders.find(f => f.key === key);
   const folderEntry = existing ?? { key, name: folderDisplayName(name) };
   return {
     ...layout,
     folders: existing ? layout.folders : [...layout.folders, folderEntry],
-    order: { ...layout.order, [section]: [...order, key] },
+    order: { ...layout.order, [role]: [...order, key] },
   };
 };
 
@@ -330,7 +329,7 @@ const createFolder = (
  *  display. Pure: returns the same layout on a no-op / blank new name. */
 const renameFolder = (
   layout: FolderLayout,
-  section: FolderSection,
+  role: LayerRole,
   oldName: string,
   newName: string,
 ): FolderLayout => {
@@ -357,42 +356,42 @@ const renameFolder = (
  *  declaration, so a deleted folder is not re-created by the seed fallback). */
 const deleteFolder = (
   layout: FolderLayout,
-  section: FolderSection,
+  role: LayerRole,
   name: string,
 ): FolderLayout => {
   const key = normalizeFolderName(name);
-  const order = layout.order[section] ?? [];
+  const order = layout.order[role] ?? [];
   const members = { ...layout.members };
   for (const [id, a] of Object.entries(members)) {
-    if (a.section === section && a.folder === key) {
-      members[id] = { section, folder: "" };
+    if (a.role === role && a.folder === key) {
+      members[id] = { role, folder: "" };
     }
   }
   return {
     ...layout,
     folders: layout.folders.filter(f => f.key !== key),
-    order: { ...layout.order, [section]: order.filter(k => k !== key) },
+    order: { ...layout.order, [role]: order.filter(k => k !== key) },
     members,
   };
 };
 
 /** Assign a layer to a folder. When the target folder has no block order key
- *  yet, it is materialised (appended to the section's block tail) so the
+ *  yet, it is materialised (appended to the role's block tail) so the
  *  moved layer lands in a visible block. */
 const moveLayerToFolder = (
   layout: FolderLayout,
   layerId: string,
-  section: FolderSection,
+  role: LayerRole,
   folderKey: string,
 ): FolderLayout => {
   const key = normalizeFolderName(folderKey);
   if (key === "") return layout;
-  const order = layout.order[section] ?? [];
+  const order = layout.order[role] ?? [];
   const nextOrder = order.includes(key) ? order : [...order, key];
   return {
     ...layout,
-    order: { ...layout.order, [section]: nextOrder },
-    members: { ...layout.members, [layerId]: { section, folder: key } },
+    order: { ...layout.order, [role]: nextOrder },
+    members: { ...layout.members, [layerId]: { role, folder: key } },
   };
 };
 
@@ -402,13 +401,13 @@ const moveLayerToFolder = (
 const moveLayerToRoot = (
   layout: FolderLayout,
   layerId: string,
-  section: FolderSection,
+  role: LayerRole,
 ): FolderLayout => {
   const existing = layout.members[layerId];
   if (existing?.folder === "") return layout;
   return {
     ...layout,
-    members: { ...layout.members, [layerId]: { section, folder: "" } },
+    members: { ...layout.members, [layerId]: { role, folder: "" } },
   };
 };
 
@@ -546,10 +545,4 @@ export {
   dropLayer,
   restoreAuthorLayout,
 };
-export type {
-  FolderLayout,
-  FolderEntry,
-  FolderSection,
-  FolderMember,
-  FolderLayoutManager,
-};
+export type { FolderLayout, FolderEntry, LayerRole, FolderMember, FolderLayoutManager };
