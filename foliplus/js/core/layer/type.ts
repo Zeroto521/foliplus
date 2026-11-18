@@ -1033,12 +1033,17 @@ interface LayerAPI {
     type: string,
   ) => Array<{ id: string; name: string; layer: L.Layer | null }>;
   /** Return the number of geometric features in a registered layer.
-   *  `null` = the id is not registered (not found); `undefined` = the id
-   *  exists but has no countable features (a BASE role, a Canvas without a
-   *  provider, an unknown non-container).
    *
-   *  Optional: the lightweight stub has no registry to count from, so an
-   *  absent slot reads `undefined` and the caller shows no count. */
+   *  Boundary:
+   *  - Unregistered id → `null` (the caller treats the id as not found).
+   *  - Registered id with no countable features → `undefined` (a BASE role,
+   *    a Canvas without a provider, an unknown non-container).
+   *
+   *  Only LayerController implements this — the lightweight stub has no
+   *  registry to count from. Optional so an older foliplus-common runtime
+   *  paired with a newer component bundle keeps loading (the shared bundle is
+   *  versioned independently). Callers show no count when the method is
+   *  absent, so an absent slot never reads as "zero features". */
   getFeatureCount?: (id: string) => number | null | undefined;
   /** Stamp `updatedAt` to now for a runtime mutation that does not re-register.
    *

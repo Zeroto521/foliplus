@@ -260,12 +260,20 @@ describe("ensureLayerAPI", () => {
     expect(api.moveLayerDown).toBeUndefined();
   });
 
-  it("does not expose intentVisible / getFeatureCount — no intent store or registry", () => {
-    // The lightweight stub carries no intent storage and no registry to count
-    // from, so these slots are omitted rather than stubbed with a lie. A
-    // consumer reads `undefined` and falls back (true / no count shown).
+  it("does not expose intentVisible — no intent store", () => {
+    // The lightweight stub carries no intent storage, so the slot is omitted
+    // rather than stubbed with a lie. A consumer reads `undefined` and falls
+    // back to `true` (visible).
     const api = ensureLayerAPI(map);
     expect(api.intentVisible).toBeUndefined();
+  });
+
+  it("does not expose getFeatureCount — no registry, so a caller sees no count, never a false 0", () => {
+    // The lightweight stub has no registry to count from, so the slot is
+    // omitted rather than filled with a stand-in. A `() => 0` would report a
+    // registered layer with zero features, which a host renders as a count.
+    // `undefined` is the only honest answer — the caller shows no count at all.
+    const api = ensureLayerAPI(map);
     expect(api.getFeatureCount).toBeUndefined();
   });
 
