@@ -34,13 +34,13 @@ import { fileURLToPath } from "node:url";
 const isWin = process.platform === "win32";
 
 /** Run a command, return { status, stdout, stderr }. */
-function run(cmd, args) {
+const run = (cmd, args) => {
   const r = spawnSync(cmd, args, { encoding: "utf8", windowsHide: true });
   return { status: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
-}
+};
 
 /** List every registered worktree path; the first entry is the main checkout. */
-function listWorktrees(root) {
+const listWorktrees = root => {
   const r = run("git", ["-C", root, "worktree", "list", "--porcelain"]);
   if (r.status !== 0) {
     throw new Error(`git worktree list failed: ${(r.stderr || r.stdout).trim()}`);
@@ -49,7 +49,7 @@ function listWorktrees(root) {
     .split(/\r?\n/)
     .filter(line => line.startsWith("worktree "))
     .map(line => line.slice("worktree ".length).trim());
-}
+};
 
 /**
  * Diagnose one checkout's `node_modules`.
@@ -57,8 +57,10 @@ function listWorktrees(root) {
  * "broken" = real directory where a junction should be (the recurring loss);
  * "dangling" = junction whose target no longer resolves; "missing" = no dir.
  */
-function diagnose(nm) {
-  if (!fs.existsSync(nm)) return { state: "missing" };
+const diagnose = nm => {
+  // lstatSync first: it stats the link itself, so a junction whose target
+  // no longer resolves still lstat-succeeds (existsSync would report the
+  // unresolvable path as missing and lose the dangling classification).
   let st;
   try {
     st = fs.lstatSync(nm);
@@ -77,40 +79,40 @@ function diagnose(nm) {
     return { state: "ok", mainTarget: resolved };
   }
   return { state: "broken" };
-}
+};
 
 /** The rebuild command that restores a worktree's junction to the main checkout. */
-function rebuildCommand(wtNodeModules, mainNodeModules) {
+const rebuildCommand = (wtNodeModules, mainNodeModules) => {
   const link = isWin ? wtNodeModules.replace(/\//g, "\\") : wtNodeModules;
-  const main = isWin ? mainNodeModules.replace(/\//g, "\\") : mainNodeModules;
+  const mainPath = isWin ? mainNodeModules.replace(/\//g, "\\") : mainNodeModules;
   if (isWin) {
-    return `cmd /c rmdir /s /q "${link}" && cmd /c mklink /J "${link}" "${main}"`;
+    return `cmd /c rmdir /s /q "${link}" && cmd /c mklink /J "${link}" "${mainPath}"`;
   }
-  return `rm -rf "${link}" && ln -s "${main}" "${link}"`;
-}
+  return `rm -rf "${link}" && ln -s "${mainPath}" "${link}"`;
+};
 
 /** Perform the rebuild: remove the broken/dangling dir (link-only on Windows) and re-link. */
-function rebuild(wtNodeModules, mainNodeModules) {
+const rebuild = (wtNodeModules, mainNodeModules) => {
   const link = wtNodeModules.replace(/\//g, "\\");
-  const main = mainNodeModules.replace(/\//g, "\\");
+  const mainPath = mainNodeModules.replace(/\//g, "\\");
   if (isWin) {
     // `rmdir /s /q` is link-only on a junction and removes a real dir normally;
     // never use Node fs.rmSync here (it pierces a junction and wipes the target).
     const rm = run("cmd", ["/c", "rmdir", "/s", "/q", link]);
     if (rm.status !== 0) return rm;
-    return run("cmd", ["/c", "mklink", "/J", link, main]);
+    return run("cmd", ["/c", "mklink", "/J", link, mainPath]);
   }
   run("rm", ["-rf", wtNodeModules]);
   return run("ln", ["-s", mainNodeModules, wtNodeModules]);
-}
+};
 
-function main(argv = process.argv.slice(2)) {
+const main = (argv = process.argv.slice(2), deps = {}) => {
   const args = argv;
   const all = args.includes("--all");
   const fix = args.includes("--fix");
-  const currentRoot = repoRoot(import.meta.url);
+  const currentRoot = deps.root ?? repoRoot(import.meta.url);
 
-  const worktrees = listWorktrees(currentRoot);
+  const worktrees = deps.worktrees ?? listWorktrees(currentRoot);
   if (worktrees.length === 0) {
     console.log("worktree-junction: no registered worktrees; nothing to check.");
     return 0;
@@ -124,7 +126,6 @@ function main(argv = process.argv.slice(2)) {
     targets = [currentRoot];
   }
 
-  let brokenCount = 0;
   const problems = [];
 
   for (const target of targets) {
@@ -159,7 +160,6 @@ function main(argv = process.argv.slice(2)) {
         });
       }
     } else if (d.state === "broken") {
-      brokenCount++;
       problems.push({
         name,
         nm,
@@ -167,7 +167,6 @@ function main(argv = process.argv.slice(2)) {
         mainNm,
       });
     } else if (d.state === "dangling") {
-      brokenCount++;
       problems.push({ name, nm, reason: "junction target does not resolve", mainNm });
     } else if (d.state === "missing") {
       console.warn(`warn      ${name}  node_modules missing (no deps set up?)`);
@@ -209,7 +208,7 @@ function main(argv = process.argv.slice(2)) {
 
   if (fix) console.log("worktree-junction: nothing to fix.");
   return 0;
-}
+};
 
 // CLI entry: only when executed directly (`node script/check/worktree-junction.mjs`),
 // never when a test imports the helpers. Kept as a function so the entry path is
