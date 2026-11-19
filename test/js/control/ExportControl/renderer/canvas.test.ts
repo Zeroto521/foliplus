@@ -85,11 +85,7 @@ describe("renderCanvasElement", () => {
     const container = makeRenderer().container;
     document.body.append(container);
     container.append(canvas);
-    await renderCanvasElement(
-      container,
-      positionedRC(1000, 1000, ctx),
-      canvas,
-    );
+    await renderCanvasElement(container, positionedRC(1000, 1000, ctx), canvas);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(alphaDuringDraw).toBe(0.5);
     expect(ctx.globalAlpha).toBe(1);
