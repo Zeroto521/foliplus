@@ -462,6 +462,88 @@ class TestReverseValidation:
         assert dead[0][0] == str(b)
         assert dead[0][2] == "deadSym"
 
+    def test_regular_module_dead_export_is_reported(self, tmp_path):
+        """(4a) A REGULAR (non-barrel, non-type) module export with no
+        consumer anywhere must be reported — this is the new full-scan scope.
+        Previously only barrel/type exports were checked, so a dead export in
+        e.g. classify.ts would slip through."""
+        a = _make(
+            tmp_path,
+            "foliplus/js/core/classify.ts",
+            "export const deadSym = 1;\n",
+        )
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        prod = {
+            fp: fa
+            for fp, fa in analyses.items()
+            if mod._relpath(fp, str(tmp_path)).startswith("foliplus/js/")
+        }
+        dead = mod.find_dead_exports(prod, graph, sinks)
+        assert len(dead) == 1
+        assert dead[0][0] == str(a)
+        assert dead[0][2] == "deadSym"
+
+    def test_regular_module_live_export_is_not_reported(self, tmp_path):
+        """(4a companion) A regular-module export imported by a real code
+        file must NOT be reported."""
+        a = _make(
+            tmp_path,
+            "foliplus/js/core/classify.ts",
+            "export const liveSym = 1;\n",
+        )
+        c = _make(
+            tmp_path,
+            "foliplus/js/core/valuePaint.ts",
+            "import { liveSym } from './classify.js';\nconst z = liveSym;\n",
+        )
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+            str(c): mod.parse_file(str(c), c.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        prod = {
+            fp: fa
+            for fp, fa in analyses.items()
+            if mod._relpath(fp, str(tmp_path)).startswith("foliplus/js/")
+        }
+        dead = mod.find_dead_exports(prod, graph, sinks)
+        assert len(dead) == 0
+
+    def test_iife_entry_import_is_a_consumer(self, tmp_path):
+        """(fix) An IIFE entry imports a regular-module export and uses it in
+        its body — the export must NOT be reported. This guards the rule-4
+        change that makes IIFE-entry imports sinks (an entry is a real
+        consumer of what it imports, just like any real code file)."""
+        a = _make(
+            tmp_path,
+            "foliplus/js/control/LocateControl/logic.ts",
+            "export const removeMarker = 1;\n",
+        )
+        entry = _make(
+            tmp_path,
+            "foliplus/js/control/LocateControl/index.ts",
+            "import { removeMarker } from './logic.js';\n"
+            "new L.Control.extend({ removeMarker });\n",
+        )
+        analyses = {
+            str(a): mod.parse_file(str(a), a.read_text(), str(tmp_path)),
+            str(entry): mod.parse_file(str(entry), entry.read_text(), str(tmp_path)),
+        }
+        graph = mod.build_graph(analyses, str(tmp_path))
+        sinks = mod.compute_sinks(analyses, graph, set())
+        prod = {
+            fp: fa
+            for fp, fa in analyses.items()
+            if mod._relpath(fp, str(tmp_path)).startswith("foliplus/js/")
+        }
+        dead = mod.find_dead_exports(prod, graph, sinks)
+        assert len(dead) == 0
+
     def test_live_symbol_is_not_reported(self, tmp_path):
         """Symbol defined, re-exported from barrel, AND imported by a
         real code file — must NOT be reported."""
@@ -512,8 +594,8 @@ class TestMain:
         exit_code = _run(capsys, monkeypatch)
         captured = capsys.readouterr()
         if exit_code == 1:
-            assert "dead barrel export" in captured.out
-            assert "dead barrel export(s)" in captured.err
+            assert "dead export" in captured.out
+            assert "dead export(s)" in captured.err
 
     def test_main_reports_dead_on_tmp_repo(self, tmp_path, capsys, monkeypatch):
         """main() over a tiny repo with a dead export exits 1 and reports it."""
@@ -531,9 +613,27 @@ class TestMain:
         rc = mod.main()
         captured = capsys.readouterr()
         assert rc == 1
-        assert "dead barrel export 'deadSym'" in captured.out
-        assert "dead barrel export(s)" in captured.err
+        assert "dead export 'deadSym'" in captured.out
+        assert "dead export(s)" in captured.err
         assert "index.ts:" in captured.out
+
+    def test_main_reports_regular_module_dead(self, tmp_path, capsys, monkeypatch):
+        """main() over a tiny repo with a dead export in a REGULAR module
+        (not a barrel/type file) exits 1 and reports it — the new full-scan
+        scope through the whole pipeline."""
+        _make(
+            tmp_path,
+            "foliplus/js/core/classify.ts",
+            "export const deadRegular = 1;\n",
+        )
+        monkeypatch.setitem(mod["main"].__globals__, "REPO_ROOT", tmp_path)
+        monkeypatch.setattr(sys, "argv", ["dead_barrel_export.py"])
+        rc = mod.main()
+        captured = capsys.readouterr()
+        assert rc == 1
+        assert "dead export 'deadRegular'" in captured.out
+        assert "classify.ts:" in captured.out
+        assert "dead export(s)" in captured.err
 
     def test_main_returns_zero_on_tmp_repo(self, tmp_path, monkeypatch):
         """main() over a small repo with a live export chain exits 0."""

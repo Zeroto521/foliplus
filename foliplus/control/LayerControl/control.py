@@ -16,6 +16,8 @@ from ._layer_declaration import (
     declared_border,
     declared_filter,
     declared_folder,
+    declared_icon_size,
+    declared_marker_color,
     declared_zoom_range,
 )
 from ._role import LayerRole, layer_role
@@ -413,6 +415,15 @@ class LayerControl(BaseControl):
             # malformed border warns at collection time instead of silently
             # painting a mode the author never saw validated.
             declared_border(item, item.layer_name)
+            # Marker chassis colour and icon pixel size ride the same channel
+            # as border: the JS panel reads them straight off
+            # layer.options.foliplus (via the shared declared-key reader), so
+            # Python's only job is shape validation + one-time warning at
+            # collection time - a malformed declaration warns here instead of
+            # silently scaling/painting a value the author never saw
+            # validated. Neither emits a CONF fact; each is read per layer.
+            declared_marker_color(item, item.layer_name)
+            declared_icon_size(item, item.layer_name)
             data.append(entry)
 
         # A folder name shared by several layers is a grouping intent, not a

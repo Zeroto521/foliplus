@@ -260,6 +260,23 @@ describe("ensureLayerAPI", () => {
     expect(api.moveLayerDown).toBeUndefined();
   });
 
+  it("does not expose intentVisible — no intent store", () => {
+    // The lightweight stub carries no intent storage, so the slot is omitted
+    // rather than stubbed with a lie. A consumer reads `undefined` and falls
+    // back to `true` (visible).
+    const api = ensureLayerAPI(map);
+    expect(api.intentVisible).toBeUndefined();
+  });
+
+  it("does not expose getFeatureCount — no registry, so a caller sees no count, never a false 0", () => {
+    // The lightweight stub has no registry to count from, so the slot is
+    // omitted rather than filled with a stand-in. A `() => 0` would report a
+    // registered layer with zero features, which a host renders as a count.
+    // `undefined` is the only honest answer — the caller shows no count at all.
+    const api = ensureLayerAPI(map);
+    expect(api.getFeatureCount).toBeUndefined();
+  });
+
   it("layers is a frozen empty array", () => {
     const api = ensureLayerAPI(map);
     expect(Object.isFrozen(api.layers)).toBe(true);
@@ -277,6 +294,19 @@ describe("LayerAPI contract", () => {
     const layerApiBody = typeSource.slice(typeSource.indexOf("interface LayerAPI"));
     expect(layerApiBody).toMatch(/moveLayerUp\?:\s*\(/);
     expect(layerApiBody).toMatch(/moveLayerDown\?:\s*\(/);
+  });
+
+  it("getFeatureCount is optional and returns the null/undefined contract", () => {
+    // The return type must admit both no-value states so the contract
+    // survives the type checker: null = id not registered, undefined = id
+    // exists but has no countable features (a BASE role, a provider-less
+    // Canvas, an unknown non-container). The stub omits the slot, so a
+    // consumer additionally falls back to "no count" on `undefined`.
+    const layerApiBody = typeSource.slice(typeSource.indexOf("interface LayerAPI"));
+    expect(layerApiBody).toMatch(/getFeatureCount\?:\s*\(/);
+    expect(layerApiBody).toMatch(
+      /getFeatureCount\?:\s*\(id: string\) => number \| null \| undefined/,
+    );
   });
 });
 

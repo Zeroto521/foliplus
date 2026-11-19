@@ -5,11 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
+  ClassifierDependencyError,
   ClassifyMethodError,
   METHOD,
   METHOD_ORDER,
   computeBreaks,
   isClassifyMethod,
+  withDependencyFallback,
 } from "#core/value/index.js";
 
 afterEach(() => {
@@ -200,5 +202,50 @@ describe("shared picker vocabulary", () => {
     expect(CLASS_COUNT_VALUES[0]).toBe(CLASS_COUNT.MIN);
     expect(CLASS_COUNT_VALUES[CLASS_COUNT_VALUES.length - 1]).toBe(CLASS_COUNT.MAX);
     expect(CLASS_COUNT_VALUES).toContain(CLASS_COUNT.DEFAULT);
+  });
+});
+
+describe("withDependencyFallback", () => {
+  it("retries with equal when the classifier dependency is missing", () => {
+    // A jenks/quantile method reads the simple-statistics CDN global. When it
+    // is absent the classifier throws ClassifierDependencyError and the helper
+    // must retry with the one method that needs no dependency, reporting the
+    // degradation through onDegrade.
+    delete globalThis.ss;
+    const onDegrade = vi.fn();
+    const breaks = withDependencyFallback(
+      METHOD.JENKS,
+      m => computeBreaks([1, 2, 3, 4, 5, 6], 3, m),
+      onDegrade,
+    );
+    expect(onDegrade).toHaveBeenCalledTimes(1);
+    expect(onDegrade.mock.calls[0][0]).toBeInstanceOf(ClassifierDependencyError);
+    // Equal over 6 values, 3 classes: 4 breaks.
+    expect(breaks.length).toBe(4);
+  });
+
+  it("re-throws an error that is not a missing dependency", () => {
+    delete globalThis.ss;
+    expect(() =>
+      withDependencyFallback(
+        METHOD.JENKS,
+        () => {
+          throw new Error("boom");
+        },
+        vi.fn(),
+      ),
+    ).toThrow("boom");
+  });
+
+  it("returns the build result and skips the fallback on success", () => {
+    const onDegrade = vi.fn();
+    const breaks = withDependencyFallback(
+      METHOD.EQUAL,
+      m => computeBreaks([1, 2, 3, 4], 2, m),
+      onDegrade,
+    );
+    expect(onDegrade).not.toHaveBeenCalled();
+    // Equal over 4 values, 2 classes: 3 breaks.
+    expect(breaks.length).toBe(3);
   });
 });

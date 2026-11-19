@@ -351,10 +351,26 @@ const ACTION = {
   DELETE_FOLDER: "delete-folder",
 };
 
+/** The `data-role` value the toggle-all checkbox writes on itself. A
+ *  pseudo-role: it marks "this input toggles every row of its role" and is
+ *  never a LayerRole. One home for it, so the writer (listPanel/list.ts) and
+ *  the readers (ui/lifecycle.ts) cannot drift apart. */
+const TOGGLE_ALL_ROLE = "toggle-all";
+
 /** DOM selectors. */
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
+  /** The toggle-all header row, resolved by its stable identity key.
+   *  `data-role` is written on the row when it is built and never changes for
+   *  the row's lifetime, so a control nested in the row climbs on the key to
+   *  find its role. Climbing on the row class instead would land on any
+   *  nested control that also carries that class, and the role read off that
+   *  element would be wrong or missing — the same selector-reuse trap the
+   *  style panel's data-style-dim block lookup avoids. The sentinel is
+   *  excluded because the row's own toggle-all checkbox writes
+   *  `data-role="toggle-all"` on itself. */
+  TOGGLE_ALL_ROW: `[data-role]:not([data-role="${TOGGLE_ALL_ROLE}"])`,
   COUNT_COL: ".foliplus-layer-count",
   /** Any cursor-recipe row (data item or the fold/toggle-all row). Child
    *  control focus (checkbox / more / fold) attributes to this via closest(). */
@@ -398,4 +414,5 @@ export {
   SIZE,
   SOLID_BASEMAP_ID,
   STORAGE,
+  TOGGLE_ALL_ROLE,
 };

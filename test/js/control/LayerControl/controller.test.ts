@@ -2,6 +2,7 @@ import {
   TEST_ENV,
   attachWithGroup,
   attachedPanel,
+  findItem,
   initFixture,
   polygonLayer,
   trackMembership,
@@ -11,8 +12,10 @@ import { EVENTS } from "#core/event/index.js";
 import {
   FALLBACK_PANE_PREFIX,
   FILTER_SOURCE,
+  FOLDER_NAME_MAX,
   GEOM_TYPE,
   LAYOUT_DOC_KEY,
+  type LayerFilterModel,
   LayerRuntimeStore,
   ROLE,
   Z_INDEX,
@@ -3665,23 +3668,23 @@ describe("LayerController", () => {
       manager.map.hasLayer.mockReturnValue(false);
     });
 
-    it("returns null for base layers", () => {
+    it("returns undefined for a base layer (id exists, no countable features)", () => {
       manager.registerLayer({
         id: "b1",
         name: "B",
         layer: { options: {} },
         role: "base",
       });
-      expect(manager.getFeatureCount("b1")).toBe(null);
+      expect(manager.getFeatureCount("b1")).toBe(undefined);
     });
 
-    it("returns null for an unknown layer id", () => {
+    it("returns null for an unknown layer id (not found)", () => {
       expect(manager.getFeatureCount("ghost")).toBe(null);
     });
 
-    it("returns null for a canvas/unknown layer without a provider", () => {
+    it("returns undefined for a canvas/unknown layer without a provider", () => {
       manager.registerLayer({ id: "c1", name: "Canvas", layer: { options: {} } });
-      expect(manager.getFeatureCount("c1")).toBe(null);
+      expect(manager.getFeatureCount("c1")).toBe(undefined);
     });
 
     it("prefers the third-party featureCountProvider over forEachLeaf", () => {
@@ -3720,7 +3723,7 @@ describe("LayerController", () => {
         layer: { options: {} },
         featureCountProvider: provider,
       });
-      expect(manager.getFeatureCount("boom")).toBe(null);
+      expect(manager.getFeatureCount("boom")).toBe(undefined);
       expect(logSpy).toHaveBeenCalled();
       expect(logSpy.mock.calls[0][0]).toContain("featureCountProvider threw");
       logSpy.mockRestore();
@@ -3741,9 +3744,9 @@ describe("LayerController", () => {
       expect(manager.getFeatureCount("mk")).toBe(2);
     });
 
-    it("returns null for a container layer that is not present (findLayer null)", () => {
+    it("returns undefined for a registered layer whose findLayer resolves to nothing", () => {
       manager.registerLayer({ id: "absent", name: "Absent" });
-      expect(manager.getFeatureCount("absent")).toBe(null);
+      expect(manager.getFeatureCount("absent")).toBe(undefined);
     });
 
     it("counts only data features when a label sub-group is nested under mainLayer", () => {
@@ -6777,7 +6780,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
     expect(readLayoutStorage()).not.toBeNull();
@@ -6791,7 +6794,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["water", "roads"]);
   });
 
@@ -6800,7 +6803,25 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "   ");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "blank" });
+  });
+
+  it("createFolder rejects a name over the cap and writes nothing", () => {
+    const { manager } = initFixture({ data: [] });
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    const ok = manager.createFolder("overlay", "f".repeat(FOLDER_NAME_MAX + 1));
+
+    expect(ok).toEqual({ ok: false, reason: "too-long" });
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
+    expect(manager.folderLayoutView.folders).toEqual([]);
+    expect(readLayoutStorage()).toBeNull();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0][0])).toContain(
+      `expected at most ${FOLDER_NAME_MAX}`,
+    );
+    warn.mockRestore();
   });
 
   it("createFolder rejects a duplicate name in the same role", () => {
@@ -6811,7 +6832,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "roads");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
@@ -6824,10 +6845,30 @@ describe("createFolder", () => {
     const okOverlay = manager.createFolder("overlay", "Roads");
     const okBase = manager.createFolder("base", "roads");
 
-    expect(okOverlay).toBe(true);
-    expect(okBase).toBe(false); // base already has "roads"
+    expect(okOverlay).toEqual({ ok: true });
+    expect(okBase).toEqual({ ok: false, reason: "duplicate" }); // base already has "roads"
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.order.base ?? []).toEqual(["roads"]);
+  });
+
+  it("createFolder lets a different role reuse a name held only by the other role's live member", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({}),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "base",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const ok = manager.createFolder("overlay", "Roads");
+
+    expect(ok).toEqual({ ok: true });
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("createFolder writes the layout and reindexes", () => {
@@ -6857,7 +6898,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
   });
 
@@ -6868,7 +6909,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads", { persist: false });
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
@@ -6902,7 +6943,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     // v2: the author declaration is untouched; the directory name is the display.
     expect(manager.layerRegistry.get("rd1")!.folder).toBe("Roads");
     expect(manager.layerRegistry.get("wt1")!.folder).toBe("Water");
@@ -6922,7 +6963,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "  Streets  ");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
       key: "roads",
       name: "Streets",
@@ -6937,7 +6978,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Water");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
   });
 
@@ -6949,7 +6990,31 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "   ");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "blank" });
+  });
+
+  it("renameFolder rejects an over-long new name and keeps the old one", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [],
+    });
+    const before = manager.folderLayoutView.folders;
+    const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
+
+    const ok = manager.renameFolder(
+      "overlay",
+      "Roads",
+      "f".repeat(FOLDER_NAME_MAX + 1),
+    );
+
+    expect(ok).toEqual({ ok: false, reason: "too-long" });
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.folders).toEqual(before);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(String(warn.mock.calls[0][0])).toContain(
+      `expected at most ${FOLDER_NAME_MAX}`,
+    );
+    warn.mockRestore();
   });
 
   it("renameFolder is a no-op for a missing old folder", () => {
@@ -6960,7 +7025,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "NeverExisted", "Streets");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "missing" });
   });
 
   it("renameFolder keeps the member assignment when the new spelling differs", () => {
@@ -6979,7 +7044,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "streets");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("streets");
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
@@ -6992,7 +7057,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "roads");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
@@ -7012,7 +7077,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("Streets");
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
   });
@@ -7040,7 +7105,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Water");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderNameOf("rd1")).toBe("roads");
   });
 
@@ -7054,12 +7119,49 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets", { persist: false });
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
       key: "roads",
       name: "Streets",
     });
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+  });
+
+  it("renameFolder keeps the global duplicate predicate (P3-1): a cross-role name collision is refused", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ base: ["water"], overlay: ["roads"] }),
+      data: [],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "Water");
+
+    // P3-1 conclusion: the duplicate predicate stays GLOBAL across roles (a
+    // name-keyed directory cannot hold two entries with the same name under
+    // different keys), so a cross-role collision is a refused duplicate, not a
+    // silently-allowed rename that would corrupt the directory.
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
+  });
+
+  it("renameFolder rejects a new name held only by a live member in the other role — P3-1 live-member branch", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "wt1",
+          name: "Water",
+          role: "base",
+          folder: "Water",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "Water");
+
+    // The duplicate predicate is global, so a live member of the OTHER role
+    // makes the new name a duplicate even when the name-keyed directory has
+    // no such entry — the directory branch alone would miss this.
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
   });
 });
 describe("generic filter declaration seeding", () => {
@@ -7360,5 +7462,130 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.kind).toBe("enum");
     expect(dim.options).toEqual([]);
     expect(dim.truncated).toBe(false);
+  });
+});
+
+describe("cross-panel contract: external actions × open overlays", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture({}));
+  });
+
+  it("LAYER_REMOVED closes an open filter panel anchored to the deleted layer", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+  });
+
+  it("LAYER_REMOVED closes an open style panel anchored to the deleted layer", () => {
+    ui.openStylePanel("overlay1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+  });
+
+  it("LAYER_REMOVED closes an open attrs panel anchored to the deleted layer", () => {
+    const item = findItem(ui, "overlay1");
+    ui.openAttrsPanel(item);
+    expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+  });
+
+  it("LAYER_REMOVED cancels an open rename anchored to the deleted layer", () => {
+    ui.renameLayer("overlay1");
+    expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
+    expect(manager.deleteLayer("overlay1")).toBe(true);
+    expect(ui.overlayPanel.activeRenameId).toBeNull();
+  });
+
+  it("OVERLAY_CLEAR closes every open overlay", () => {
+    // Overlay types are mutually exclusive (each open tears the others down),
+    // so one event must close whichever type is open. Each type is opened and
+    // cleared in turn: commenting any lifecycle.ts:427-432 subscription fails
+    // its own step.
+    const item = findItem(ui, "overlay1");
+
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+
+    ui.openStylePanel("overlay1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+
+    ui.openAttrsPanel(item);
+    expect(ui.overlayPanel.activeAttrsPanel).not.toBeNull();
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+
+    ui.renameLayer("overlay1");
+    expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
+    ui.events.publish(EVENTS.OVERLAY_CLEAR);
+    expect(ui.overlayPanel.activeRenameId).toBeNull();
+  });
+
+  it("style panel stays open and refreshes on LAYER_STYLE_CHANGE", () => {
+    // A delegated-style layer (styleSetters) renders through the delegated
+    // path, which sets styleRefresh; the plain label path has no such hook.
+    manager.registerLayer({
+      id: "heat1",
+      name: "Heat",
+      canvas: document.createElement("canvas"),
+      styleProvider: () => ({ labelShow: true }),
+      styleSetters: { labelShow: vi.fn() },
+    });
+    ui.openStylePanel("heat1");
+    expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+    // styleRefresh is a (() => void) | null field, not a method, so
+    // vi.spyOn rejects it (TS2769). Substitute the field with a mock, assert
+    // the delegated path calls it, then restore the original hook.
+    const refresh = vi.fn();
+    const previousRefresh = ui.overlayPanel.styleRefresh;
+    ui.overlayPanel.styleRefresh = refresh;
+    try {
+      ui.events.publish(EVENTS.LAYER_STYLE_CHANGE, { id: "heat1" });
+      expect(ui.overlayPanel.stylePanelEl).not.toBeNull();
+      expect(refresh).toHaveBeenCalled();
+    } finally {
+      ui.overlayPanel.styleRefresh = previousRefresh;
+    }
+  });
+
+  it("filter panel stays open and refreshes on LAYER_FILTER_CHANGE", () => {
+    // A filter-capable layer (filterProvider/filterSetter) sets up the
+    // LAYER_FILTER_CHANGE subscription; the plain default overlay1 has no
+    // such capability, so this must use a capable row. The panel refresh is
+    // observed through its activeField (reconcile re-reads the model); the
+    // row re-render also reads filterProvider, so a call-count spy would be
+    // polluted.
+    let modelField = "magnitude";
+    const filterProvider = vi.fn((): LayerFilterModel => ({
+      dimensions: [{ kind: "range", field: modelField, range: [0, 10], step: 1 }],
+      filter: undefined,
+      kept: 5,
+      total: 10,
+    }));
+    manager.registerLayer({
+      id: "f1",
+      name: "Filterable",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+      filterProvider,
+      filterSetter: vi.fn(),
+    });
+    const item = findItem(ui, "f1");
+    ui.openFilterPanel(item);
+    expect(ui.overlayPanel.activeFilterPanel?.activeField).toBe("magnitude");
+    modelField = "depth";
+    ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "f1" });
+    expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+    expect(ui.overlayPanel.activeFilterPanel?.activeField).toBe("depth");
   });
 });

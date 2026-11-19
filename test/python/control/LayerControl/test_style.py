@@ -751,6 +751,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert baseline["mode"] == "original", baseline
             assert baseline["colorInput"]["readOnly"] is True, baseline
             assert baseline["colorInput"]["disabled"] is True, baseline
+            # The border swatch is a read-only control (PANEL_CLASS.READONLY),
+            # so it carries the shared contract: cursor default, focus() inert.
+            assert baseline["colorInput"]["cursor"] == "default", baseline
+            assert baseline["colorInput"]["focusLanded"] is False, baseline
             for stroke in baseline["strokes"]:
                 assert stroke["stroke"] == "rgb(0, 0, 255)", (
                     f"author stroke not painted at baseline: {baseline}"

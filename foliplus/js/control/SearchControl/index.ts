@@ -9,7 +9,7 @@ import {
 } from "./logic/index.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
 import type { SuggestItem } from "#core/geocode/index.js";
-import { bindOutsideCollapse, createFoldControl } from "#core/leaflet/index.js";
+import { bindFoldOverlay, createFoldControl } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { ensureHint } from "#core/overlay/index.js";
@@ -50,6 +50,8 @@ class SearchControl extends defineControl({
   declare throttleTimer: ReturnType<typeof setTimeout> | null;
   declare suggestSeq: number;
   declare currentItems: ResultItem[];
+  /** Belt: open this panel closes the open siblings of its exclusive group. */
+  declare foldGroupOpen: () => void;
 
   buildDOM() {
     this.createDOM();
@@ -57,12 +59,21 @@ class SearchControl extends defineControl({
     initDebouncedFetch(this);
     this.effect(() => bindEvents(this));
     initFromUrl(this);
-    this.effect(() =>
-      bindOutsideCollapse({
-        container: this.ctrl,
-        skipCheck: this.config.collapse_on_outside === false ? () => true : undefined,
-      }),
-    );
+    // The registry owns outside-press dismissal; registering the fold panel
+    // makes it exclusive against the other map surfaces. The floating results
+    // panel belongs to the surface too, so a press on a result row is
+    // "inside" and does not collapse the fold out from under the user.
+    const fold = bindFoldOverlay({
+      map: this._map,
+      container: this.ctrl,
+      id: "search.panel",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      panels: () => (this.panelWrap ? [this.panelWrap] : []),
+      canClose: () => this.config.collapse_on_outside !== false,
+    });
+    this.effect(() => fold.detach);
+    this.foldGroupOpen = fold.groupOpen;
     return this.container;
   }
 
@@ -158,6 +169,7 @@ class SearchControl extends defineControl({
     this.currentItems = [];
 
     this.setMode(this.mode);
+    // listener-exempt: mode button handler; explicitly detached in the destroy detach-mode-btn step
     this.modeBtn.onclick = (event: MouseEvent) => {
       event.stopPropagation();
       this.setMode(this.mode === MODE.COORD ? MODE.ADDR : MODE.COORD);
