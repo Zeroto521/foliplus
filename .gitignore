@@ -89,6 +89,9 @@ package-lock.json
 .claude/
 .claude/plans/myagents/
 .agents/
+# A botched worktree path (slashes stripped) can materialise a directory whose
+# name starts with .agents but is not the .agents/ tree; keep those out too.
+.agents*/
 .foliplus/
 memory/
 .myagents/
