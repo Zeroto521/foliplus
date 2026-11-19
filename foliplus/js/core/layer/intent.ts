@@ -480,8 +480,8 @@ const STYLE_KEYS = {
 } as const satisfies Record<LayerOverride, IntentKey>;
 
 export { STYLE_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };
-export type { IconKind };
 export type {
+  IconKind,
   LabelConfig,
   StyleMode,
   ValueConfig,
