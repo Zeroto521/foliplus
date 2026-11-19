@@ -1,0 +1,28 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+  Shared Scrollbar Recipe
+
+  One scrollbar language for every foliplus scrollable surface: a thin lane
+  with a stable gutter (the tokens in token.css). A stable gutter keeps the
+  lane constant between the scrolling and fitting states, so a list that
+  crosses its max-height does not re-inset its rows; a thin lane reads as a
+  control detail, not a full-width OS scrollbar.
+
+  This file is the single source for WHICH surfaces scroll with the foliplus
+  lane. A surface that scrolls (overflow-y: auto) declares itself here rather
+  than restating the two properties in its own file — the decision lives in
+  one place, and a new scrollable surface joins the list instead of drifting.
+  The property VALUES are tokens, so the whole recipe reads from one group.
+  ══════════════════════════════════════════════════════════════════════ */
+:is(
+  .foliplus-search-result-panel,
+  .foliplus-layer-more-menu,
+  .foliplus-row-panel,
+  .foliplus-dropdown-list,
+  .foliplus-scheme-picker-dropdown,
+  .foliplus-panel-content
+) {
+  scrollbar-width: var(--foliplus-scrollbar-width);
+  scrollbar-gutter: var(--foliplus-scrollbar-gutter);
+}
