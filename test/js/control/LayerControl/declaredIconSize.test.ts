@@ -5,7 +5,7 @@
 // non-numeric value is warned once and read as "not declared", and a layer with
 // no declaration is a pure no-op.
 import { describe, expect, it, vi } from "vitest";
-import { readDeclaredIconSize } from "#control/LayerControl/declaredIconSize.js";
+import { readDeclaredIconSize } from "#control/LayerControl/declaredParse.js";
 
 /** A synthetic carrier whose foliplus namespace carries the given declaration. */
 const layerWith = (foliplus: Record<string, unknown> | undefined) =>
