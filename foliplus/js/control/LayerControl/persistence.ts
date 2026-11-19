@@ -6,12 +6,17 @@ import type {
   PersistedLayerState,
 } from "./type.js";
 import {
+  ICON_KIND,
   STYLE_MODE,
   type ValueConfig,
   isIconIntent,
   isValueConfig,
 } from "#core/layer/index.js";
-import { isGlyphSyntax } from "#core/leaflet/index.js";
+import {
+  divIconClassNameOf,
+  isAllowedIconUrl,
+  isGlyphSyntax,
+} from "#core/leaflet/index.js";
 import { VALUE_KIND, isCategoryKind } from "#core/value/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
@@ -211,8 +216,26 @@ const PARSE_OVERRIDE: Record<
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
   icon: data => {
+    // The three icon sources share the {kind, value} slot and are validated
+    // PER KIND: a glyph is an FA6 name, a url is a whitelisted image URL
+    // (never HTML — the panel renders it as a native <img>), a divicon-class
+    // is a whitelisted className key. A value that fails its kind's gate
+    // drops the whole intent (the author icon stays), never misapplied as
+    // another source.
     const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
-    return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
+    if (!isIconIntent(icon) || !icon) return null;
+    const kind = icon.kind;
+    const value = icon.value;
+    if (kind === ICON_KIND.GLYPH) return isGlyphSyntax(value) ? icon : null;
+    if (kind === ICON_KIND.URL) return isAllowedIconUrl(value) ? icon : null;
+    // The persisted value is the SHAPE KEY; the inner glyph always resolves
+    // through the shared glyph pipeline at render (resolveGlyph degrades an
+    // invalid name to the author glyph), so only the className whitelist
+    // gates persistence here.
+    if (kind === ICON_KIND.DIVICON_CLASS) {
+      return divIconClassNameOf(value) !== null ? icon : null;
+    }
+    return null;
   },
   iconColor: data =>
     isHexColor(data.iconColor) ? normalizeHexColor(data.iconColor) : null,

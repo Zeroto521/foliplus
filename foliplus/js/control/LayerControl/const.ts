@@ -280,6 +280,12 @@ const CLASSES = {
   ICON_GRID_CURSOR: "foliplus-icon-grid-cursor",
   /** The selected cell's highlight. */
   STYLE_ICON_CELL_SELECTED: "foliplus-style-icon-cell-selected",
+  /** The non-glyph source bar above the glyph grid (URL input + shape row). */
+  STYLE_ICON_SOURCE: "foliplus-style-icon-source",
+  /** One row of the source bar (the URL label or the shape group). */
+  STYLE_ICON_SOURCE_ROW: "foliplus-style-icon-source-row",
+  /** One whitelisted divIcon shape button in the source bar. */
+  STYLE_ICON_SHAPE_CELL: "foliplus-style-icon-shape-cell",
   /** Opacity row: the slider host, its class and the row hook. */
   STYLE_OPACITY_TRACK: "foliplus-style-opacity-track",
   STYLE_OPACITY_SLIDER: "foliplus-style-opacity-slider",

@@ -87,6 +87,18 @@ def test_other_foliplus_keys_stay_a_js_side_namespace():
     assert "zoomRange" not in entry
 
 
+def test_icon_url_declaration_stays_unknown_and_warns_once():
+    # Decision: an icon URL is authored verbatim through folium's own
+    # folium.Icon(icon_url=...), NOT through the foliplus={...} namespace. The
+    # panel writes a user URL onto the intent at runtime; the declaration
+    # channel deliberately does NOT accept it (no FOLIPLUS_KEYS addition this
+    # card), so icon_url here is an unknown key: warned once, never applied.
+    with pytest.warns(UserWarning, match="unknown foliplus key 'icon_url'"):
+        html = _render(_geo(foliplus={"icon_url": "https://example.com/a.png"}))
+
+    assert "icon_url" not in _conf(html)["data"][0]
+
+
 @pytest.mark.parametrize(
     "declaration",
     [

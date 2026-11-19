@@ -8,6 +8,11 @@ const MARKER_CLASS = {
   DEFAULT: "foliplus-marker-default",
   /** The chassis span inside a sprite/author icon. */
   CHASSIS: "foliplus-marker-chassis",
+  /** The authorized divIcon shape shells (the panel's className whitelist).
+   *  A divIcon source renders one of these plus a plain-text glyph, never
+   *  innerHTML — see iconSource.ts DIVICON_SHAPE. */
+  SHAPE_PIN: "foliplus-shape-pin",
+  SHAPE_SQUARE: "foliplus-shape-square",
 } as const;
 
 export { MARKER_CLASS };
