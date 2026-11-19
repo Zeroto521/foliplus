@@ -211,8 +211,27 @@ const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
  *  derivation (the former C8 cross-face rule is gone). A line layer's
  *  border paints by its own value config; a polygon/point layer's border is
  *  only the outline and never classifies by value (two states only). */
+/** The author's declared border value config (foliplus.border value mode),
+ *  read as a read-time default under the user's stored choice. The declaration
+ *  is validated by the reader; this helper only maps the layer to it. A layer
+ *  that declares a value-mode border returns its config; one that declares
+ *  follow_fill or nothing returns undefined — byte-identical to before. A
+ *  stored border value or mode intent means the user owns the face and the
+ *  declaration steps aside. */
+const declaredBorderValue = (ui: LayerUI, layerId: string): ValueConfig | undefined => {
+  if (getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined) return undefined;
+  if (getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined) return undefined;
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const read = readDeclaredBorder(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId);
+  return read.declared === STYLE_MODE.VALUE ? read.declaredValue : undefined;
+};
+
+/** The value config in force on the border face: the user's stored intent
+ *  first, then the author's declared value mode (foliplus.border value
+ *  declaration). A stored value always wins; the declaration is a read-time
+ *  default that a later panel edit supersedes. */
 const effectiveBorderValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
-  getIntent(ui, layerId, INTENT.BORDER_VALUE);
+  getIntent(ui, layerId, INTENT.BORDER_VALUE) ?? declaredBorderValue(ui, layerId);
 
 /** The author's declared border mode default (foliplus.border), read as
  *  a read-time default under the user's stored choice. The declaration is
@@ -229,9 +248,18 @@ const declaredBorderMode = (ui: LayerUI, layerId: string): StyleMode | undefined
   // declaration is not invalid — it simply steps aside on a channel that
   // cannot paint it, the same honest degradation a stored follow_fill gets
   // (supportsInherit false → the resolver reads solid).
-  return declared === STYLE_MODE.FOLLOW_FILL && !borderCarriesValue(ui, layerId)
-    ? declared
-    : undefined;
+  if (declared === STYLE_MODE.FOLLOW_FILL && !borderCarriesValue(ui, layerId)) {
+    return declared;
+  }
+  // A value declaration is only in force on a line too — the border is the
+  // line's own primary colour; a polygon/point border is the outline and
+  // never classifies by value (the same two-state rule borderCarriesValue
+  // enforces). The declaration is not invalid — it steps aside on a channel
+  // that cannot paint it, the same honest degradation a stored value gets.
+  if (declared === STYLE_MODE.VALUE) {
+    return borderCarriesValue(ui, layerId) ? declared : undefined;
+  }
+  return undefined;
 };
 
 /** The mode the border row shows and the stroke paints.
@@ -283,6 +311,11 @@ const borderValueForUi = (
     getIntent(ui, layerId, INTENT.BORDER_VALUE),
   );
   if (stored) return stored;
+  // The author's declared value config is the next read-time default: a value
+  // declaration seeds the config the panel shows and the stroke classifies by
+  // until the user edits it (the same chain fill's valueForUi follows).
+  const declared = resolvedValue(ui, layerId, declaredBorderValue(ui, layerId));
+  if (declared) return declared;
   const field = borderSeedField(ui, layerId, fields);
   const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
     ui.c.findLayer(layerId)) as L.Layer | null;
@@ -867,7 +900,10 @@ const borderSpec = (ui: LayerUI, layerId: string): DisplayModeSpec => ({
   // read-time default the panel shows when no mode intent exists, and Reset
   // returns to. Steps aside once the user stores any border mode.
   declaredMode: declaredBorderMode(ui, layerId),
-  declaredValue: false, // border never declares value
+  // A declared value-mode border seeds the panel's value detail: the
+  // author declared a value classification, so the row shows it as a
+  // read-time default (the same declaredValue the fill row reports).
+  declaredValue: declaredBorderValue(ui, layerId) !== undefined,
   colorIntent: getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined,
   valueIntent: effectiveBorderValue(ui, layerId) !== undefined,
   carriesValue: borderCarriesValue(ui, layerId),
