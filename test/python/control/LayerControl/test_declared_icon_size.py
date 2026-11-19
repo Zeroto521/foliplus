@@ -37,13 +37,18 @@ COORDS = [119.30, 26.08]
 
 def _points():
     """One point feature - the same data under both fixtures."""
-    return json.dumps({
-        "type": "FeatureCollection",
-        "features": [{
-            "type": "Feature", "properties": {},
-            "geometry": {"type": "Point", "coordinates": COORDS},
-        }],
-    })
+    return json.dumps(
+        {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {},
+                    "geometry": {"type": "Point", "coordinates": COORDS},
+                }
+            ],
+        }
+    )
 
 
 class TestDeclaredIconSizeBrowser(LayerControlBrowserBase):
@@ -78,10 +83,15 @@ class TestDeclaredIconSizeBrowser(LayerControlBrowserBase):
         accept the iconSize spelling - without that the declared page
         renders exactly like the undeclared page and this fails.
         """
-        with use_page(self._make_page, browser, tmp_path, _fixture(True), slug="d") as (page, _):
+        with use_page(self._make_page, browser, tmp_path, _fixture(True), slug="d") as (
+            page,
+            _,
+        ):
             self._open_style_ramp(page)
             declared = self._pick_glyph(page)
-        with use_page(self._make_page, browser, tmp_path, _fixture(False), slug="u") as (page, _):
+        with use_page(
+            self._make_page, browser, tmp_path, _fixture(False), slug="u"
+        ) as (page, _):
             self._open_style_ramp(page)
             undeclared = self._pick_glyph(page)
         self._assert_scaled(declared, undeclared)
@@ -90,5 +100,7 @@ class TestDeclaredIconSizeBrowser(LayerControlBrowserBase):
 def _fixture(declared=True):
     """A point layer with no author icon - the default div-icon path."""
     return folium.GeoJson(
-        _points(), name="Points", foliplus={"icon_size": 50} if declared else {},
+        _points(),
+        name="Points",
+        foliplus={"icon_size": 50} if declared else {},
     )
