@@ -44,8 +44,10 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredIconSize } from "#control/LayerControl/declaredIconSize.js";
-import { readDeclaredMarkerColor } from "#control/LayerControl/declaredMarkerColor.js";
+import {
+  readDeclaredIconSize,
+  readDeclaredMarkerColor,
+} from "#control/LayerControl/declaredParse.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
  *  or undefined when the layer declares none -- the whole-icon box edge the

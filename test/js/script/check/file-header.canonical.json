@@ -1,4 +1,5 @@
 [
+  "control/LayerControl/declaredParse",
   "core/event/type",
   "core/geo/type",
   "core/label/labelCollision",
@@ -38,8 +39,8 @@
   "platform/debounce",
   "platform/dom",
   "platform/domClassName",
-  "platform/dragSession",
   "platform/download",
+  "platform/dragSession",
   "platform/fetch",
   "platform/finalize",
   "platform/floating",
@@ -55,6 +56,7 @@
   "platform/storage",
   "platform/throttle",
   "platform/type",
+  "ui/buttonClassName",
   "ui/canvasLabel",
   "ui/dropdown",
   "ui/dropdownClassName",
@@ -77,6 +79,5 @@
   "ui/slider",
   "ui/sliderClassName",
   "ui/styleModeKey",
-  "ui/type",
-  "ui/buttonClassName"
+  "ui/type"
 ]

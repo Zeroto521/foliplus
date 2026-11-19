@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STYLE_MODE } from "#core/layer/index.js";
-import { readDeclaredBorder } from "#control/LayerControl/declaredBorder.js";
+import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";
 
 /** A linked carrier carrying a foliplus border declaration. Fresh object per
  *  test: the reader caches per layer object, the way a folium layer's

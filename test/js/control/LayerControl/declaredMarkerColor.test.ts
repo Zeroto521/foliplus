@@ -6,7 +6,7 @@
 // declaration is a pure no-op.
 import { describe, expect, it, vi } from "vitest";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
-import { readDeclaredMarkerColor } from "#control/LayerControl/declaredMarkerColor.js";
+import { readDeclaredMarkerColor } from "#control/LayerControl/declaredParse.js";
 
 /** A synthetic carrier whose foliplus namespace carries the given declaration. */
 const layerWith = (foliplus: Record<string, unknown> | undefined) =>
