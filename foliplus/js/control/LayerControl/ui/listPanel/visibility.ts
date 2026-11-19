@@ -181,8 +181,12 @@ const writeToggleAllCheckbox = (
   const { state, allChecked } = selectAllStateOf(c.total, c.on);
   allCb.checked = allChecked;
   allCb.indeterminate = state === "indeterminate";
+  // The `"none"` literal must not appear inside a ui.T() argument: the
+  // locale-key scanner extracts every string literal in the call and would
+  // invent a LayerControl.none key. Compare outside the call instead.
+  const isNone = state === "none";
   allCb.title = ui.T(
-    state === "none" ? "toggle_all_select_tooltip" : "toggle_all_deselect_tooltip",
+    isNone ? "toggle_all_select_tooltip" : "toggle_all_deselect_tooltip",
   );
 };
 

@@ -124,7 +124,7 @@
           var(--foliplus-scheme-picker-scrollbar-width)
       )
     )
-    0 var(--foliplus-scheme-picker-bar-inset-x);
+    0 calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick));
   /* Reserved here, transparent: the selected state recolours this border
      instead of painting an inset box-shadow, so the scheme picker reads its
      bar off the same 2px --foliplus-border-thick the shared dropdown row and
