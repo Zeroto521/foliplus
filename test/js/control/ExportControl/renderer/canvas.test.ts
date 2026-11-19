@@ -22,6 +22,7 @@ vi.mock("#control/ExportControl/util.js", async () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  document.body.replaceChildren();
 });
 
 describe("renderCanvasElement", () => {
@@ -78,8 +79,14 @@ describe("renderCanvasElement", () => {
     canvas.getBoundingClientRect = () => rectOf(100, 100, 200, 200);
     canvas.style.opacity = "0.5";
     vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
+    // jsdom 31 resolves computed styles on connected elements only, so the
+    // canvas must be attached (and be a descendant of the container for
+    // effectiveOpacity's ancestor walk to stop at the container).
+    const container = makeRenderer().container;
+    document.body.append(container);
+    container.append(canvas);
     await renderCanvasElement(
-      makeRenderer().container,
+      container,
       positionedRC(1000, 1000, ctx),
       canvas,
     );
@@ -191,7 +198,13 @@ describe("renderPaneCanvas", () => {
     ce.style.opacity = "0.5";
     p.appendChild(ce);
     stubLoad();
-    await renderPaneCanvas(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    // jsdom 31 resolves computed styles on connected elements only, so the
+    // pane (and its container) must be attached for the opacity walk to see
+    // the canvas's 0.5.
+    const container = makeRenderer().container;
+    document.body.append(container);
+    container.append(p);
+    await renderPaneCanvas(container, positionedRC(1000, 1000, ctx), p);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(alphaDuringDraw).toBe(0.5);
     expect(ctx.globalAlpha).toBe(1);
@@ -264,7 +277,13 @@ describe("snapshotPaneCanvases", () => {
     p.appendChild(ce);
     const rc = positionedRC(1000, 1000, makeMockCtx());
 
-    const snap = snapshotPaneCanvases(makeRenderer().container, rc, p);
+    // jsdom 31 resolves computed styles on connected elements only, so the
+    // label pane (and its container) must be attached for the opacity walk.
+    const container = makeRenderer().container;
+    document.body.append(container);
+    container.append(p);
+
+    const snap = snapshotPaneCanvases(container, rc, p);
 
     expect(snap.held).toBe(1);
     expect(snap.snaps).toHaveLength(1);

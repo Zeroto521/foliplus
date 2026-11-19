@@ -619,16 +619,26 @@ const displayColor = (value: string): string => {
   const probe = document.createElement("span");
   probe.style.color = value;
   if (!probe.style.color) return value;
-  const match = /^rgba?\(([^)]+)\)$/.exec(getComputedStyle(probe).color);
-  const channels = (match?.[1] ?? "")
-    .split(/[\s,/]+/)
-    .filter(Boolean)
-    .map(part => parseInt(part, 10));
-  if (channels.length < 3 || channels.some(Number.isNaN)) return value;
-  return `#${channels
-    .slice(0, 3)
-    .map(part => part.toString(16).padStart(2, "0"))
-    .join("")}`;
+  // jsdom 31's CSS engine resolves computed styles on connected elements only,
+  // so the probe must be attached for named / functional colors ("gray",
+  // "hsl(...)") to resolve — a detached probe reads back the default #000000.
+  // The probe is transient: attached for the read, removed immediately, so the
+  // live document is untouched (same contract as the detached probe before).
+  document.body.append(probe);
+  try {
+    const match = /^rgba?\(([^)]+)\)$/.exec(getComputedStyle(probe).color);
+    const channels = (match?.[1] ?? "")
+      .split(/[\s,/]+/)
+      .filter(Boolean)
+      .map(part => parseInt(part, 10));
+    if (channels.length < 3 || channels.some(Number.isNaN)) return value;
+    return `#${channels
+      .slice(0, 3)
+      .map(part => part.toString(16).padStart(2, "0"))
+      .join("")}`;
+  } finally {
+    probe.remove();
+  }
 };
 
 const colorSelector = (className?: string) =>
