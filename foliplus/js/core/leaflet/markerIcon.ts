@@ -264,8 +264,6 @@ const buildDivIconClassIcon = (opts: {
   });
 };
 
-
-
 /** Scale the built-in 25x41 marker box (and its [12,41] anchor) to a declared
  *  whole-icon pixel edge. The height/width ratio and the anchor's relative
  *  position are preserved, so the pin tip stays pinned and the glyph grows or

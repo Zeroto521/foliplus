@@ -9,7 +9,7 @@ import {
   divIconClassNameOf,
   isAllowedIconUrl,
   isDivIconGlyph,
-} from "#foliplus/core/leaflet/iconSource.js";
+} from "#core/leaflet/index.js";
 
 describe("isAllowedIconUrl", () => {
   it.each([
