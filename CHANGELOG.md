@@ -67,6 +67,7 @@
 - `LayerControl` / `HeatmapControl`: a style Reset, filter Clear or heatmap Clear runs its restore as isolated steps, so one failing dimension no longer leaves the rest unrestored and the open panel unrefreshed ([#1171](https://github.com/Zeroto521/foliplus/pull/1171))
 - `ScaleControl` / `LayerControl`: the bottom-left scale bar no longer covers an unpinned row panel — the row panel reads the page-level floating z-index token instead of a bare literal ([#1187](https://github.com/Zeroto521/foliplus/pull/1187), [#1199](https://github.com/Zeroto521/foliplus/pull/1199))
 - fold panels join the overlay registry's `map:panel` exclusive group, so opening any other overlay collapses an open fold panel (`collapse_on_outside=False` keeps it open) ([#1193](https://github.com/Zeroto521/foliplus/pull/1193))
+- `LayerControl` / `HeatmapControl`: a jenks or quantile classification degrades to equal breaks with a user-visible hint when simple-statistics is not loaded, instead of silently leaving the layer uncolored ([#1223](https://github.com/Zeroto521/foliplus/pull/1223), [#1227](https://github.com/Zeroto521/foliplus/pull/1227))
 
 ## [v0.4.1] (2026-10-18)
 
