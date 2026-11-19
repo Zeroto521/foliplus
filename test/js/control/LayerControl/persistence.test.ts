@@ -1856,4 +1856,26 @@ describe("styleMode key migration (step 3 acceptance)", () => {
       overrides: ["fillStyleMode"],
     });
   });
+
+  it("drops an unknown-kind icon intent (not glyph/url/divicon-class)", () => {
+    // Per-kind validation: the parser only recognises the three icon kinds.
+    // An unknown kind (e.g. "ramp") passes isIconIntent (a known kind string)
+    // but fails every per-kind gate and must drop the whole intent — it can
+    // never reach a renderer that would misinterpret it as another source.
+    seedStorage({
+      layers: {
+        a: { icon: { kind: "ramp", value: "x" }, overrides: ["icon"] },
+      },
+    });
+    expect(makePersistence().load().layers).toEqual({});
+  });
+  it("drops a divicon-class icon whose value is null (non-string)", () => {
+    // divIconClassNameOf(non-string) returns null → the intent is dropped.
+    seedStorage({
+      layers: {
+        a: { icon: { kind: "divicon-class", value: null }, overrides: ["icon"] },
+      },
+    });
+    expect(makePersistence().load().layers).toEqual({});
+  });
 });
