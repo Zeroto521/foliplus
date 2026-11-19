@@ -24,6 +24,7 @@ import {
   commitMarkerColor,
   commitMarkerColorOpacity,
   layerCanMarkerColor,
+  replayDeclaredMarkerColor,
   resetLayerMarkerColor,
 } from "#control/LayerControl/ui/style/markerColor.js";
 import { writeIntentKeys } from "#control/LayerControl/ui/style/registry.js";
@@ -741,5 +742,177 @@ describe("markerColor branch coverage", () => {
     input.value = "#12345";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(getIntent(ui, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
+  });
+});
+// ── Declaration channel: a foliplus={"marker_color": "<preset>"} on the
+// layer is a read-time default the paint, the row and Reset all read. The
+// author's own chassis wins over the declaration; the declaration wins over
+// the derived blue; a panel pick (intent) wins over both. ──
+describe("markerColor declaration channel", () => {
+  let manager: LayerController;
+
+  beforeEach(() => {
+    ({ manager } = fixtureWithMarkers([
+      makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "blue" })),
+    ]));
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("a declared preset shows in the row when the author chassis is absent", () => {
+    // Bare awesome-markers with NO author chassis: the declaration is the only
+    // source, so the row default is the declared purple.
+    const layer = makeMarkerGroup(
+      makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" })),
+    );
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    const row = buildMarkerColorRow(uDecl, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#d252b9");
+  });
+
+  it("an author chassis wins over the declaration in the row", () => {
+    const layer = makeMarkerGroup(
+      makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "green" })),
+    );
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    const row = buildMarkerColorRow(uDecl, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#72b026");
+  });
+
+  it("the paint chain reads author ?? declared ?? blue (declared wins when author absent)", () => {
+    // An opacity-only write re-derives at the resolved chassis: with no author
+    // chassis the declared purple is the paint.
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
+    const layer = makeMarkerGroup(marker);
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    writeIntentKeys(uDecl, "overlay1", [[INTENT.MARKER_COLOR_OPACITY, 50]]);
+    applyMarkerColorToLayer(uDecl, "overlay1");
+    flushMarkerColor("overlay1");
+    const div = marker.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-purple");
+  });
+
+  it("the paint chain falls to the derived blue when author and declaration are both absent", () => {
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
+    const layer = makeMarkerGroup(marker);
+    const { ui: uNoDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    writeIntentKeys(uNoDecl, "overlay1", [[INTENT.MARKER_COLOR_OPACITY, 50]]);
+    applyMarkerColorToLayer(uNoDecl, "overlay1");
+    flushMarkerColor("overlay1");
+    const div = marker.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-blue");
+  });
+
+  it("reset returns to the declared chassis when no author chassis exists", () => {
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
+    const layer = makeMarkerGroup(marker);
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    writeIntentKeys(uDecl, "overlay1", [
+      [INTENT.ICON, { kind: "glyph", value: "star" }],
+      [INTENT.MARKER_COLOR, "#d63e2a"],
+    ]);
+    commitMarkerColor(uDecl, "overlay1", "#d63e2a");
+    flushMarkerColor("overlay1");
+    resetLayerMarkerColor(uDecl, "overlay1");
+    flushMarkerColor("overlay1");
+    const div = marker.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-purple");
+    expect(getIntent(uDecl, "overlay1", INTENT.MARKER_COLOR)).toBeUndefined();
+  });
+
+  it("reset keeps the author chassis when one exists (declaration is lower priority)", () => {
+    const marker = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "green" }),
+    );
+    const layer = makeMarkerGroup(marker);
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    writeIntentKeys(uDecl, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
+    commitMarkerColor(uDecl, "overlay1", "#d63e2a");
+    flushMarkerColor("overlay1");
+    resetLayerMarkerColor(uDecl, "overlay1");
+    flushMarkerColor("overlay1");
+    const div = marker.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-green");
+  });
+
+  it("replayDeclaredMarkerColor paints a declared chassis on attach (no author chassis)", () => {
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
+    const layer = makeMarkerGroup(marker);
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    replayDeclaredMarkerColor(uDecl, "overlay1");
+    const div = marker.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-purple");
+  });
+
+  it("replayDeclaredMarkerColor is a no-op when the layer has an intent", () => {
+    const author = makeAuthorIcon({ markerColor: "" });
+    const marker = makeMarker({ type: "school" }, author);
+    const layer = makeMarkerGroup(marker);
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    // The attach sweep already painted the declared purple (no intent yet);
+    // a stored intent now means replay must NOT repaint.
+    const callsBefore = marker.setIcon.mock.calls.length;
+    writeIntentKeys(uDecl, "overlay1", [[INTENT.MARKER_COLOR, "#d63e2a"]]);
+    replayDeclaredMarkerColor(uDecl, "overlay1");
+    expect(marker.setIcon.mock.calls.length).toBe(callsBefore);
+  });
+
+  it("replayDeclaredMarkerColor is a no-op with no declaration", () => {
+    const author = makeAuthorIcon({ markerColor: "" });
+    const marker = makeMarker({ type: "school" }, author);
+    const layer = makeMarkerGroup(marker);
+    const { ui: uNoDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    replayDeclaredMarkerColor(uNoDecl, "overlay1");
+    expect(marker.setIcon).not.toHaveBeenCalled();
+    expect(marker.options.icon).toBe(author);
+  });
+
+  it("replayDeclaredMarkerColor does not paint over an author chassis", () => {
+    const marker = makeMarker(
+      { type: "school" },
+      makeAuthorIcon({ markerColor: "green" }),
+    );
+    const layer = makeMarkerGroup(marker);
+    layer.options = { foliplus: { marker_color: "purple" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    replayDeclaredMarkerColor(uDecl, "overlay1");
+    const div = marker.options.icon.createIcon();
+    expect(div.className).toContain("awesome-marker-icon-green");
   });
 });
