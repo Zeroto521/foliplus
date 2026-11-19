@@ -6780,7 +6780,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
     expect(readLayoutStorage()).not.toBeNull();
@@ -6794,7 +6794,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["water", "roads"]);
   });
 
@@ -6803,7 +6803,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "   ");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "blank" });
   });
 
   it("createFolder rejects a name over the cap and writes nothing", () => {
@@ -6813,7 +6813,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "f".repeat(FOLDER_NAME_MAX + 1));
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "too-long" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
     expect(manager.folderLayoutView.folders).toEqual([]);
     expect(readLayoutStorage()).toBeNull();
@@ -6832,7 +6832,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "roads");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
@@ -6845,10 +6845,30 @@ describe("createFolder", () => {
     const okOverlay = manager.createFolder("overlay", "Roads");
     const okBase = manager.createFolder("base", "roads");
 
-    expect(okOverlay).toBe(true);
-    expect(okBase).toBe(false); // base already has "roads"
+    expect(okOverlay).toEqual({ ok: true });
+    expect(okBase).toEqual({ ok: false, reason: "duplicate" }); // base already has "roads"
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.order.base ?? []).toEqual(["roads"]);
+  });
+
+  it("createFolder lets a different role reuse a name held only by the other role's live member", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({}),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "base",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const ok = manager.createFolder("overlay", "Roads");
+
+    expect(ok).toEqual({ ok: true });
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("createFolder writes the layout and reindexes", () => {
@@ -6878,7 +6898,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
   });
 
@@ -6889,7 +6909,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads", { persist: false });
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
@@ -6923,7 +6943,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     // v2: the author declaration is untouched; the directory name is the display.
     expect(manager.layerRegistry.get("rd1")!.folder).toBe("Roads");
     expect(manager.layerRegistry.get("wt1")!.folder).toBe("Water");
@@ -6943,7 +6963,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "  Streets  ");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
       key: "roads",
       name: "Streets",
@@ -6958,7 +6978,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Water");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
   });
 
@@ -6970,7 +6990,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "   ");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "blank" });
   });
 
   it("renameFolder rejects an over-long new name and keeps the old one", () => {
@@ -6987,7 +7007,7 @@ describe("renameFolder", () => {
       "f".repeat(FOLDER_NAME_MAX + 1),
     );
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "too-long" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.folders).toEqual(before);
     expect(warn).toHaveBeenCalledOnce();
@@ -7005,7 +7025,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "NeverExisted", "Streets");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "missing" });
   });
 
   it("renameFolder keeps the member assignment when the new spelling differs", () => {
@@ -7024,7 +7044,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "streets");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("streets");
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
@@ -7037,7 +7057,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "roads");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
@@ -7057,7 +7077,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets");
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("Streets");
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
   });
@@ -7085,7 +7105,7 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Water");
 
-    expect(ok).toBe(false);
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderNameOf("rd1")).toBe("roads");
   });
 
@@ -7099,12 +7119,49 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets", { persist: false });
 
-    expect(ok).toBe(true);
+    expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
       key: "roads",
       name: "Streets",
     });
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+  });
+
+  it("renameFolder keeps the global duplicate predicate (P3-1): a cross-role name collision is refused", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ base: ["water"], overlay: ["roads"] }),
+      data: [],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "Water");
+
+    // P3-1 conclusion: the duplicate predicate stays GLOBAL across roles (a
+    // name-keyed directory cannot hold two entries with the same name under
+    // different keys), so a cross-role collision is a refused duplicate, not a
+    // silently-allowed rename that would corrupt the directory.
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
+  });
+
+  it("renameFolder rejects a new name held only by a live member in the other role — P3-1 live-member branch", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "wt1",
+          name: "Water",
+          role: "base",
+          folder: "Water",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const ok = manager.renameFolder("overlay", "Roads", "Water");
+
+    // The duplicate predicate is global, so a live member of the OTHER role
+    // makes the new name a duplicate even when the name-keyed directory has
+    // no such entry — the directory branch alone would miss this.
+    expect(ok).toEqual({ ok: false, reason: "duplicate" });
   });
 });
 describe("generic filter declaration seeding", () => {
