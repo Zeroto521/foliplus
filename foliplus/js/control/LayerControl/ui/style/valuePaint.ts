@@ -134,6 +134,18 @@ type ValueFaceDecl = {
 // same map still shares the per-layer dedup.
 const degradedHintedLayers = new WeakMap<object, Set<string>>();
 
+/** Forget one layer's degradation decision when the layer leaves the page.
+ *
+ *  The Set is bounded by the map key, but the ids inside it are not: a layer
+ *  removed mid-session would otherwise keep its id here for the life of the
+ *  page. That is worse than the retained bytes — the id a page reuses for a
+ *  fresh layer reads as "already hinted", so the new layer degrades silently
+ *  on a page that has since loaded the dependency. The id-keyed drops in the
+ *  teardown subscription run it; the map key releases the Set with the map. */
+const forgetDegradedHint = (map: object, layerId: string): void => {
+  degradedHintedLayers.get(map)?.delete(layerId);
+};
+
 /** Apply a value-based style to one layer through the shared mode.
  *
  *  Two-pass walk: collect `feature.properties[field]` values, then write
@@ -345,5 +357,5 @@ const paintByValue = (
   }
 };
 
-export { paintByValue };
+export { forgetDegradedHint, paintByValue };
 export type { ValueFaceDecl };

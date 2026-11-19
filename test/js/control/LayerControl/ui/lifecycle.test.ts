@@ -14,13 +14,14 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { ROLE } from "#core/layer/index.js";
+import { ROLE, type ValueConfig } from "#core/layer/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
+import { DEFAULT_SCHEMES, METHOD } from "#core/value/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 import type { LayerDimension } from "#control/LayerControl/type.js";
 import { type LayerUI } from "#control/LayerControl/ui/index.js";
-import { setIntent } from "#control/LayerControl/ui/intent.js";
+import { INTENT, setIntent } from "#control/LayerControl/ui/intent.js";
 import {
   rebuildList,
   toggleAll,
@@ -28,6 +29,7 @@ import {
 } from "#control/LayerControl/ui/listPanel/index.js";
 import { commitBorderColor } from "#control/LayerControl/ui/style/border.js";
 import { commitFillColor } from "#control/LayerControl/ui/style/fill.js";
+import { applyValueFill } from "#control/LayerControl/ui/style/fillValue.js";
 import { registerDimension } from "#control/LayerControl/ui/style/registry.js";
 import { commitSize } from "#control/LayerControl/ui/style/size.js";
 import {
@@ -594,6 +596,110 @@ it("isLive tracks the attached panel", () => {
   expect(ui.isLive).toBe(true);
   manager.destroy();
   expect(ui.isLive).toBe(false);
+});
+
+describe("LAYER_ITEM_REMOVED — the classify-degradation dedup drops its id", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    delete globalThis.chroma;
+    delete globalThis.ss;
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** A two-leaf polygon group: enough for a ramp to split, and each leaf
+   *  carries the areal geometry the fill walk filters on. */
+  const polygonGroup = (values: number[]) => {
+    const leaves = values.map(v => ({
+      feature: { properties: { value: v }, geometry: { type: "Polygon" } },
+      options: { fillColor: "#3388ff", fill: true },
+      setStyle: vi.fn(),
+    }));
+    return {
+      options: {},
+      leaves,
+      eachLayer: (fn: (child: unknown) => void) => leaves.forEach(l => fn(l)),
+    };
+  };
+
+  const ramp = (): ValueConfig => ({
+    field: "value",
+    method: METHOD.JENKS,
+    classes: 2,
+    scheme: DEFAULT_SCHEMES[0],
+  });
+
+  /** Take the hint channel back before painting. attachUI has already
+   *  swapped the fixture's `showHint` for the hint manager's own bound
+   *  method, so counting hints needs the channel restored to a spy.
+   */
+  const takeHintChannel = () => {
+    const shown = vi.fn();
+    map.foliplus.showHint = shown;
+    return shown;
+  };
+
+  /** Paint the degraded fill for one layer group registered as overlay1.
+   *  simple-statistics is absent, so a jenks ramp falls back to equal and
+   *  reports the degradation through the one hint per layer per page. */
+  const degrade = (group: ReturnType<typeof polygonGroup>) => {
+    const colors = ["#ff0000", "#00ff00"];
+    globalThis.chroma = {
+      scale: () => ({
+        mode: () => ({ colors: (n: number) => colors.slice(0, n) }),
+        colors: (n: number) => colors.slice(0, n),
+      }),
+    } as never;
+    delete globalThis.ss;
+    manager.layerRegistry.get("overlay1")!.layer = group;
+    setIntent(ui, "overlay1", INTENT.FILL_VALUE, ramp());
+    applyValueFill(ui, "overlay1", ramp());
+  };
+
+  it("reports the degradation once per layer id", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const shown = takeHintChannel();
+    const group = polygonGroup([5, 10]);
+
+    degrade(group);
+    degrade(group);
+
+    expect(shown).toHaveBeenCalledTimes(1);
+    expect(shown.mock.calls[0][1]).toBe(ui.T("style_value_classify_degraded"));
+    // And it degraded rather than silently keeping the author's color.
+    expect((group.leaves[0].setStyle as any).mock.calls.at(-1)![0].fillColor).toBe(
+      "#ff0000",
+    );
+    warn.mockRestore();
+  });
+
+  it("re-arms the hint for an id a removed layer wore", () => {
+    // The dedup keys one decision per layer id per page. Nothing else drops it
+    // with the layer, so the teardown subscription must: a page that reuses
+    // the id for a fresh layer would otherwise read "already warned" from the
+    // layer that wore it first and degrade silently.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const shown = takeHintChannel();
+    degrade(polygonGroup([5, 10]));
+    expect(shown).toHaveBeenCalledTimes(1);
+
+    manager.unregisterLayer("overlay1");
+    manager.registerLayer({ id: "overlay1", name: "Polygons", role: "overlay" });
+    degrade(polygonGroup([5, 10]));
+
+    expect(shown).toHaveBeenCalledTimes(2);
+    expect(shown.mock.calls[1][1]).toBe(ui.T("style_value_classify_degraded"));
+    warn.mockRestore();
+  });
 });
 
 describe("onLayerItemCountChange — the registry replays", () => {

@@ -9,7 +9,6 @@
 export {
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
-  ClassifierDependencyError,
   ClassifyMethodError,
   METHOD,
   METHOD_ORDER,
