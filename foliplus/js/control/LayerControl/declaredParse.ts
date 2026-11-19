@@ -4,7 +4,7 @@
 // Three per-layer foliplus declarations (border, icon_size, marker_color) share
 // one mechanical shape: a scalar (one-key object, one number, one preset name)
 // validated by a small parse and read through the shared readDeclaredKey
-// skeleton. This module owns those three parses and the key→parse registry, so
+// skeleton. This module owns those three parses and the key → parse registry, so
 // a new scalar channel registers here instead of opening another file; the
 // dimension-specific parse stays its own function (its own message, its own
 // invalid accumulation) — only the file is shared.
@@ -144,7 +144,7 @@ const parseMarkerColor = (
   return { declared: name, invalid };
 };
 
-/** The key→parse registry: a new scalar declared* channel registers here. */
+/** The key → parse registry: a new scalar declared* channel registers here. */
 const SCALAR_PARSES = {
   border: parseBorder,
   icon_size: parseIconSize,
