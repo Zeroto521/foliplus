@@ -46,7 +46,7 @@ const initTypesAndVisibility = (ui: LayerUI): ProjectionBatch => {
   // registry is skipped by the sweep, not dropped from the record —
   // stored
   // state is erased only by an explicit delete.
-  const moved = ui.applyUserState();
+  const moved = ui.c.replayStoredStateAll();
 
   // First-load visibility is the author's `show=`: no code fallback for
   // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
