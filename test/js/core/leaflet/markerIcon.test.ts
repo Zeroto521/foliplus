@@ -1191,3 +1191,132 @@ describe("icon replay handlers (setLeafIcon post-build dispatch)", () => {
     expect(rebuilt[0]).toBe(iconEl);
   });
 });
+
+// ── Non-glyph icon sources (task #1181 / P1 slice): a user URL and an
+// authorized divIcon className. These render WHOLE icons (not a glyph swap
+// inside the author's chassis), so applyIconToLeaves routes them through
+// buildUrlIcon / buildDivIconClassIcon and the leaf's setIcon receives a
+// different shape than the derive path produces.
+
+describe("applyIconToLeaves — url source", () => {
+  // buildUrlIcon does `new L.Icon(...)`, so the shared beforeEach's plain
+  // object stub is not enough here — give the url tests a constructable class.
+  beforeEach(() => {
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) {
+        this.options = { ...opts };
+      }
+    };
+  });
+
+  it("sets a native L.Icon whose iconUrl is the user URL with lazy/async", () => {
+    const author = makeAuthorIcon();
+    const leaf = makeMarker(author);
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/a.png",
+    });
+    const icon: any = leaf.options.icon;
+    expect(icon).not.toBe(author);
+    expect(icon.options.iconUrl).toBe("https://example.com/a.png");
+    expect(icon.options.loading).toBe("lazy");
+    expect(icon.options.decoding).toBe("async");
+  });
+
+  it("createIcon delegates to the author chassis when the L stub has no _createImg", () => {
+    const author = makeAuthorIcon();
+    const leaf = makeMarker(author);
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/b.png",
+    });
+    const icon: any = leaf.options.icon;
+    // The jsdom L stub carries no _createImg, so createIcon falls through to
+    // the author's own chassis build (a div here) — the URL icon is still a
+    // real L.Icon carrying the URL; only the element factory differs.
+    const el: HTMLElement = icon.createIcon();
+    expect(el).not.toBeNull();
+    expect(icon.options.iconUrl).toBe("https://example.com/b.png");
+  });
+
+  it("an onerror degrades honestly to the author icon (never a fabricated divIcon)", () => {
+    // Give the L stub a _createImg so the error-handler branch is built.
+    const author = makeAuthorIcon();
+    const leaf = makeMarker(author);
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) {
+        this.options = opts;
+      }
+      _createImg() {
+        return document.createElement("img");
+      }
+      _setIconStyles() {}
+    };
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/broken.png",
+    });
+    // The author's own createIcon is the honest fallback; spy it BEFORE the
+    // write so buildUrlIcon captures the spy (authorCreate = author.createIcon
+    // at construction time), then assert onerror invoked it (and did NOT
+    // build a fabricated divIcon).
+    const authorCreateSpy = vi.fn(() => document.createElement("div"));
+    author.createIcon = authorCreateSpy;
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/broken.png",
+    });
+    const icon: any = leaf.options.icon;
+    const img: HTMLImageElement = icon.createIcon();
+    expect(img.tagName).toBe("IMG");
+    expect(img.src).toBe("https://example.com/broken.png");
+    // Mount the img so the onerror fallback has a parentNode to swap into.
+    const host = document.createElement("div");
+    host.appendChild(img);
+    img.onerror?.(new Event("error"));
+    expect(authorCreateSpy).toHaveBeenCalled();
+    expect(host.contains(img)).toBe(false);
+  });
+});
+
+describe("applyIconToLeaves — divicon-class source", () => {
+  it("a whitelisted shape renders a divIcon carrying that className", () => {
+    const leaf = makeMarker(makeAuthorIcon());
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "divicon-class",
+      value: "pin",
+    });
+    const icon: any = leaf.options.icon;
+    expect(window.L.divIcon).toHaveBeenCalled();
+    const opts = (window.L.divIcon as any).mock.calls[0][0];
+    expect(opts.className).toBe("foliplus-shape-pin");
+    expect(typeof opts.html).toBe("string");
+    expect(opts.html).toContain("foliplus-marker-glyph");
+  });
+
+  it("a non-whitelisted shape keeps the author icon (never an arbitrary class)", () => {
+    const author = makeAuthorIcon();
+    const leaf = makeMarker(author);
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "divicon-class",
+      value: "not-a-shape",
+    });
+    expect(window.L.divIcon).not.toHaveBeenCalled();
+    expect(leaf.options.icon).toBe(author);
+  });
+
+  it("the color and opacity land in the glyph's inline paint", () => {
+    const leaf = makeMarker(makeAuthorIcon());
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", "#ff0000", 50, undefined, {
+      kind: "divicon-class",
+      value: "square",
+    });
+    const opts = (window.L.divIcon as any).mock.calls[0][0];
+    expect(opts.className).toBe("foliplus-shape-square");
+    expect(opts.html).toContain("color:");
+    // composeColorAlpha(#ff0000, 50) -> rgba with 0.5 alpha.
+    expect(opts.html).toMatch(/rgba\(255,\s*0,\s*0,\s*0\.5\)/);
+  });
+});
