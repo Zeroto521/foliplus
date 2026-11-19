@@ -41,7 +41,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
-const importPlugin = (await import("eslint-plugin-import")).default;
+const importPlugin = (await import("eslint-plugin-import-x")).default;
 
 // `tsconfigRootDir` must be the repository root, not this file's directory:
 // `project: ["./tsconfig.json"]` is resolved against it, and this config now
@@ -54,7 +54,7 @@ export default [
   ...base,
   {
     files: ["foliplus/js/**/*.ts"],
-    plugins: { "@typescript-eslint": tseslint.plugin, import: importPlugin },
+    plugins: { "@typescript-eslint": tseslint.plugin, "import-x": importPlugin },
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
@@ -75,7 +75,7 @@ export default [
       // Runs here rather than next to consistent-type-imports in base.mjs:
       // the rule resolves TS symbols (`requiresTypeChecking: true`) to tell a
       // type from a value, so it needs the tsconfig program — same reason as
-      // import/no-unused-modules below.
+      // import-x/no-unused-modules below.
       //
       // v8 renamed the old `fixStyle: "separate-type-exports"` option to
       // `fixMixedExportsWithInlineTypeSpecifier`: the default (false) is the
