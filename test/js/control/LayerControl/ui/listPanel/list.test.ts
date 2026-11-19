@@ -1743,7 +1743,7 @@ describe("role header identity key", () => {
     // rebuilds the rows, but the role a header owns cannot change with it.
     const before = headerKeys();
     manager.createFolder("overlay", "Extra");
-    expect(manager.renameFolder("overlay", "Extra", "More")).toBe(true);
+    expect(manager.renameFolder("overlay", "Extra", "More")).toEqual({ ok: true });
     expect(headerKeys(), "the folder layout carries no role identity").toEqual(before);
   });
 

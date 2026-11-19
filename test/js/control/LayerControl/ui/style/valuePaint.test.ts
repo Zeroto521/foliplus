@@ -226,6 +226,30 @@ it("degrades to equal and reports when the classifier dependency is missing", ()
   warnSpy.mockRestore();
 });
 
+it("reports the classify degradation at most once per layer per page", () => {
+  // Two consecutive degrades of the SAME layer must pop the hint once, not
+  // once per re-render. Removing the per-layer dedup makes this red: the
+  // second paintByValue re-pops the hint (showHint called twice).
+  installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+  delete globalThis.ss;
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const layer = makeFeatureLayer([
+    { properties: { value: 1 } },
+    { properties: { value: 9 } },
+  ]);
+  const ui = makeUI(layer);
+
+  paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
+  paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
+
+  // The hint was deduped: the second apply reused the cached decision and
+  // did not re-pop the degradation message.
+  const showHint = (ui.c.map.foliplus as any).showHint;
+  expect(showHint).toHaveBeenCalledTimes(1);
+  expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
+  warnSpy.mockRestore();
+});
+
 it("restores the author's face when the ramp classifies no leaf", () => {
   // installChroma returning empty → both scale and catScale are null →
   // the mode takes the restore (commitStyleDimMerged) branch, not paint.
