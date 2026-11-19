@@ -499,7 +499,7 @@ describe("dropdown: multiple selections", () => {
     expect(labelOf(dropdown)).toBe("Bee");
     expect(picks).toEqual(["b"]);
   });
-  it("drives select-all / clear from the multiple footer", () => {
+  it("toggles the whole set from the built-in select-all row", () => {
     const changes: string[][] = [];
     const dropdown = createDropdown({
       overlay: mockOverlay().overlay,
@@ -508,57 +508,228 @@ describe("dropdown: multiple selections", () => {
       placeholder: "Any value",
       selectedLabel: labels => `${labels.length} picked`,
       onChange: (_value, values) => changes.push([...values]),
-      // Mirror the filter body footer: buttons disable when the action is
-      // already a no-op, and the footer is re-created on every render so the
-      // fresh getCount() answers the new selection.
-      multipleFooter: actions => {
-        const footer = document.createElement("div");
-        footer.className = "test-footer";
-        const selectAll = document.createElement("button");
-        selectAll.type = "button";
-        selectAll.textContent = "Select all";
-        selectAll.disabled = actions.getCount() === items.length;
-        selectAll.addEventListener("click", actions.selectAll);
-        const clear = document.createElement("button");
-        clear.type = "button";
-        clear.textContent = "Clear";
-        clear.disabled = actions.getCount() === 0;
-        clear.addEventListener("click", actions.clear);
-        footer.append(selectAll, clear);
-        return footer;
-      },
+      selectAllLabel: "Select all",
+      selectAllDeselectLabel: "Deselect all",
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+
+    // The row paints itself (multiple mode only): one real checkbox above
+    // the options, no separate footer bar to build.
+    dropdown.trigger.click();
+    const rowOf = () =>
+      dropdown
+        .getList()
+        ?.querySelector<HTMLDivElement>(".foliplus-dropdown-select-all");
+    const boxOf = (root: HTMLDivElement) =>
+      root.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+
+    const row = rowOf()!;
+    expect(row).not.toBeNull();
+    // Nothing picked: the box reads unchecked and the label says "Select all".
+    const box = boxOf(row);
+    expect(box.checked).toBe(false);
+    expect(box.indeterminate).toBe(false);
+    expect(row.textContent).toContain("Select all");
+    // It is the first child of the list, above the options, and it is not an
+    // option (no aria-selected) so it stays out of the keyboard walk.
+    expect(dropdown.getList()!.firstElementChild).toBe(row);
+    expect(row.getAttribute("aria-selected")).toBeNull();
+    expect(optionEls(dropdown)).toHaveLength(items.length);
+
+    // A press anywhere on the row lands on the box and selects every option.
+    row.click();
+    expect(dropdown.getValues()).toEqual(["a", "b", "c"]);
+    expect(labelOf(dropdown)).toBe("3 picked");
+    expect(changes).toEqual([["a", "b", "c"]]);
+    // Everything picked: the re-rendered row reads checked and switches its
+    // label to the deselect word.
+    const reRow = rowOf()!;
+    expect(boxOf(reRow).checked).toBe(true);
+    expect(reRow.textContent).toContain("Deselect all");
+
+    // Pressing it again clears the whole set (a tri-state toggle over the
+    // set, so no separate Clear action is needed).
+    reRow.click();
+    expect(dropdown.getValues()).toEqual([]);
+    expect(labelOf(dropdown)).toBe("Any value");
+    expect(changes).toEqual([["a", "b", "c"], []]);
+  });
+
+  it("answers the current selection at press time, not the built one", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
     });
     cleanup.push(() => dropdown.destroy());
     document.body.appendChild(dropdown.element);
 
     dropdown.trigger.click();
-    const footerOf = () =>
-      dropdown.getList()?.querySelector<HTMLDivElement>(".test-footer");
-    const firstBtn = (root: HTMLDivElement) =>
-      root.querySelector<HTMLButtonElement>("button:first-child")!;
-    const lastBtn = (root: HTMLDivElement) =>
-      root.querySelector<HTMLButtonElement>("button:last-child")!;
+    // One option picked: the box reads indeterminate (half-full), which is
+    // the state a user sees when they have picked some but not all.
+    optionEls(dropdown)[0].click();
+    const halfRow = dropdown
+      .getList()!
+      .querySelector<HTMLDivElement>(".foliplus-dropdown-select-all")!;
+    const halfBox = halfRow.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    expect(halfBox.checked).toBe(false);
+    expect(halfBox.indeterminate).toBe(true);
 
-    const footer = footerOf();
-    expect(footer).not.toBeNull();
-    expect(firstBtn(footer!).textContent).toBe("Select all");
-    expect(lastBtn(footer!).textContent).toBe("Clear");
-    // Nothing picked: clear is already a no-op and reads disabled.
-    expect(lastBtn(footer!).disabled).toBe(true);
-
-    firstBtn(footer!).click();
+    // The action is read at press time, so this half-full press selects the
+    // rest rather than clearing the one pick already made.
+    halfRow.click();
     expect(dropdown.getValues()).toEqual(["a", "b", "c"]);
-    expect(labelOf(dropdown)).toBe("3 picked");
-    expect(changes).toEqual([["a", "b", "c"]]);
-    // All picked: the re-rendered footer disables select-all instead.
-    const reFooter = footerOf();
-    expect(firstBtn(reFooter!).disabled).toBe(true);
-    expect(lastBtn(reFooter!).disabled).toBe(false);
+  });
 
-    lastBtn(reFooter!).click();
+  it("the select-all row is inert after the dropdown is destroyed", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+    const box = dropdown
+      .getList()!
+      .querySelector<HTMLInputElement>("input[type=checkbox]")!;
+
+    // A destroyed dropdown keeps the row inert: its change handler is a
+    // no-op instead of resurrecting the popup.
+    dropdown.destroy();
+    expect(() => box.click()).not.toThrow();
     expect(dropdown.getValues()).toEqual([]);
-    expect(labelOf(dropdown)).toBe("Any value");
+    expect(() => box.click()).not.toThrow();
+    expect(dropdown.getValues()).toEqual([]);
+  });
+
+  it("paints no select-all row on a single-value dropdown", () => {
+    const changes: string[] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      value: "a",
+      onChange: value => changes.push(value),
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+
+    // A single-value control has no select-all semantics: the popup lists the
+    // rows and paints no select-all row (or any checkbox) above them.
+    expect(
+      dropdown.getList()?.querySelector(".foliplus-dropdown-select-all"),
+    ).toBeNull();
+    expect(dropdown.getList()?.querySelector("input[type=checkbox]")).toBeNull();
+    expect(optionEls(dropdown)).toHaveLength(items.length);
+
+    optionEls(dropdown)[1].click();
+    expect(dropdown.getValue()).toBe("b");
+    expect(changes).toEqual(["b"]);
+  });
+
+  it("the select-all row keeps working after the popup closes", () => {
+    const changes: string[][] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      onChange: (_value, values) => changes.push([...values]),
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+    dropdown.close();
+
+    // The row owns the value model, not the popup: opening, selecting
+    // everything and closing still commits through onChange.
+    dropdown.open();
+    dropdown
+      .getList()!
+      .querySelector<HTMLDivElement>(".foliplus-dropdown-select-all")!
+      .click();
+    expect(dropdown.getValues()).toEqual(["a", "b", "c"]);
+    expect(changes).toEqual([["a", "b", "c"]]);
+  });
+
+  it("a set action after the popup closed still commits without reopening", () => {
+    const changes: string[][] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      onChange: (_value, values) => changes.push([...values]),
+      selectAllLabel: "Select all",
+      selectAllDeselectLabel: "Deselect all",
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+    const box = dropdown
+      .getList()!
+      .querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    dropdown.close();
+    // A press after the popup closed: the row is gone from the DOM but the
+    // box still fires change; the action commits the whole set without
+    // resurrecting the popup (the isOpen guard skips the head refresh).
+    box.click();
+    expect(dropdown.getValues()).toEqual(["a", "b", "c"]);
+    expect(changes).toEqual([["a", "b", "c"]]);
+    // A second press (still closed) now clears: the box reads checked, so the
+    // action is a clear, and the closed-popup guard skips the head refresh.
+    box.click();
+    expect(dropdown.getValues()).toEqual([]);
     expect(changes).toEqual([["a", "b", "c"], []]);
+  });
+  it("a set action after the popup closed still commits without reopening", () => {
+    const changes: string[][] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      onChange: (_value, values) => changes.push([...values]),
+      selectAllLabel: "Select all",
+      selectAllDeselectLabel: "Deselect all",
+    });
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+    dropdown.close();
+
+    // The row owns the value model, not the popup: opening, selecting
+    // everything and closing still commits through onChange.
+    dropdown.open();
+    dropdown
+      .getList()!
+      .querySelector<HTMLDivElement>(".foliplus-dropdown-select-all")!
+      .click();
+    expect(dropdown.getValues()).toEqual(["a", "b", "c"]);
+    expect(changes).toEqual([["a", "b", "c"]]);
+  });
+
+  it("paints an unchecked select-all row for a zero-item list", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items: [],
+      multiple: true,
+      placeholder: "Any value",
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+
+    // Nothing to pick: the row still renders (an empty popup would otherwise
+    // read as a broken control), with an unchecked box. 0 selected of 0 total
+    // must read as "none", never indeterminate.
+    const row = dropdown
+      .getList()!
+      .querySelector<HTMLDivElement>(".foliplus-dropdown-select-all")!;
+    expect(row).not.toBeNull();
+    const box = row.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    expect(box.checked).toBe(false);
+    expect(box.indeterminate).toBe(false);
+    row.click();
+    expect(dropdown.getValues()).toEqual([]);
   });
 });
 

@@ -119,11 +119,17 @@
     max(
       0px,
       calc(
-        var(--foliplus-scheme-picker-bar-inset-x) -
+        var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick) -
           var(--foliplus-scheme-picker-scrollbar-width)
       )
     )
     0 var(--foliplus-scheme-picker-bar-inset-x);
+  /* Reserved here, transparent: the selected state recolours this border
+     instead of painting an inset box-shadow, so the scheme picker reads its
+     bar off the same 2px --foliplus-border-thick the shared dropdown row and
+     the LayerControl row do. The padding above subtracts it so the colour
+     strip still lands on the trigger strip's x. */
+  border-left: var(--foliplus-border-thick) solid transparent;
   height: var(--foliplus-menu-row-h);
   box-sizing: border-box;
   cursor: pointer;
@@ -151,20 +157,16 @@
 }
 
 .foliplus-scheme-picker-item.foliplus-is-active {
-  /* Persistent "selected scheme" state: the same soft wash + 3px inset bar
-     as the shared dropdown row, so a selected item reads the same on every
-     surface. box-shadow keeps the bar inside the row (no layout shift). */
+  /* Persistent "selected scheme" state: the soft wash plus the accent left
+     bar, recoloured on the border the base row already reserves. */
   background: var(--foliplus-menu-row-selected-bg);
-  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
-    var(--foliplus-menu-row-selected-bar);
+  border-left-color: var(--foliplus-accent-primary);
 }
 
 .foliplus-scheme-picker-item:focus-visible {
   outline: none;
-  border-color: var(--foliplus-accent-primary);
-  box-shadow:
-    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
-    var(--foliplus-focus-ring);
+  border-left-color: var(--foliplus-accent-primary);
+  box-shadow: var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
   transition: box-shadow var(--foliplus-transition-fast);
 }

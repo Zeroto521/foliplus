@@ -134,6 +134,11 @@
   min-height: var(--foliplus-menu-row-h);
   padding: var(--foliplus-space-xs) var(--foliplus-space-md);
   border: 0;
+  /* The selected-row bar lives here, not in a token: a real border every row
+     carries (transparent in the base) so the option, the scheme-picker item
+     and the LayerControl row all reserve the same 2px and the label never
+     shifts when the state changes. */
+  border-left: var(--foliplus-border-thick) solid transparent;
   border-radius: 0;
   background: transparent;
   color: var(--foliplus-text-primary);
@@ -158,19 +163,18 @@
      default arrow would read the row as selectable. */
   cursor: not-allowed;
 }
-/* Persistent selection: the soft accent wash plus the 3px inset bar, drawn
-   with box-shadow so the row keeps its full width and the bar cannot shift
-   the label. The hover rule above still answers on top of it. */
+/* Persistent selection: the soft accent wash plus the accent border on the
+   bar the base row already carries. The border is already reserved on every
+   row, so switching states cannot shift the label. The hover rule above still
+   answers on top of it. */
 .foliplus-dropdown-option[aria-selected="true"] {
   background: var(--foliplus-menu-row-selected-bg);
-  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
-    var(--foliplus-menu-row-selected-bar);
+  border-left-color: var(--foliplus-accent-primary);
 }
 .foliplus-dropdown-option:focus-visible {
   outline: none;
-  box-shadow:
-    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
-    var(--foliplus-focus-ring);
+  border-left-color: var(--foliplus-accent-primary);
+  box-shadow: var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
 }
 .foliplus-dropdown-option-label {
@@ -181,44 +185,46 @@
   white-space: nowrap;
 }
 
-/* The multi-select row used to reserve a tick column here. It is gone on
-   purpose: the trigger already reports "N selected", and the inset bar above
-   carries the selected state for single and multiple alike. */
-/* ── Footer (multiple mode) ──
-   The multi-select footer carries the select-all / clear actions. It sits at
-   the bottom of the popup and sticks so a long option list cannot scroll it
-   out of view; a top hairline sets it apart from the option rows. The footer
-   is a child of the list (the engine appends it after the rows), so it
-   scrolls with the shell unless stuck — the sticky bottom keeps it pinned. */
-.foliplus-dropdown-footer {
-  position: sticky;
-  bottom: 0;
+/* ── Select-all row (multiple mode) ──
+   Rendered above the options by ui/dropdown.ts. It keeps the option row's
+   height / padding / left bar / hover / focus so it reads as one of the rows
+   and not as a button bar; a bottom hairline sets it apart from the first
+   option. The set actions re-read the current selection (ui/dropdown.ts), so
+   the box and its label never go stale after a pick. */
+.foliplus-dropdown-select-all {
   display: flex;
+  align-items: center;
   gap: var(--foliplus-space-sm);
+  width: 100%;
+  min-height: var(--foliplus-menu-row-h);
   padding: var(--foliplus-space-xs) var(--foliplus-space-md);
-  border-top: var(--foliplus-border-thin) solid var(--foliplus-input-border);
-  background: var(--foliplus-input-bg);
-}
-.foliplus-dropdown-footer > button {
-  border: 0;
-  border-radius: var(--foliplus-radius-sm);
-  background: transparent;
-  color: var(--foliplus-accent-primary);
-  font-family: inherit;
-  font-size: var(--foliplus-font-size-sm);
+  color: var(--foliplus-text-primary);
+  font-size: var(--foliplus-font-size-md);
   line-height: 1.5;
-  padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
   cursor: pointer;
+  box-sizing: border-box;
+  /* The same transparent left bar the option rows carry, so the checkbox sits
+     where the option labels start instead of 2px left of them. */
+  border-left: var(--foliplus-border-thick) solid transparent;
+  border-bottom: var(--foliplus-border-thin) solid var(--foliplus-input-border);
   transition: background-color var(--foliplus-transition-fast);
 }
-.foliplus-dropdown-footer > button:hover:not([disabled]) {
+.foliplus-dropdown-select-all:hover {
   background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
 }
-.foliplus-dropdown-footer > button[disabled] {
-  color: var(--foliplus-text-muted);
-  cursor: not-allowed;
+.foliplus-dropdown-select-all:active {
+  background: var(--foliplus-accent-soft-bg);
 }
-.foliplus-dropdown-footer > button:focus-visible {
-  outline: none;
+/* Focus lands on the real checkbox inside; :focus-within paints it on the row
+   so the ring reads as the row's, not a stray frame on the box. */
+.foliplus-dropdown-select-all:focus-within {
   box-shadow: var(--foliplus-focus-ring);
+}
+.foliplus-dropdown-select-all-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

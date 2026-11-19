@@ -1,0 +1,66 @@
+@import "token.css";
+
+/* ui/checkSlot — the shared leading indicator a row shows for a pickable
+   item: the multiple-mode dropdown select-all row, the layer toggle-all, and
+   the scheme picker row. One checkbox skin here; every surface reads it
+   through .foliplus-check-slot / .foliplus-check-slot-box, so the
+   indicator reads one way everywhere instead of each surface drawing its
+   own glyph.
+
+   The box is a real <input type="checkbox">: checked, indeterminate and
+   focus all come from the platform. The two marks share one SVG pattern
+   (the same white-stroke glyph the LayerControl checkbox has always used),
+   so a checked box and a half box cannot drift apart.
+*/
+.foliplus-check-slot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.foliplus-check-slot-box {
+  position: relative;
+  appearance: none;
+  margin: 0;
+  width: var(--foliplus-space-xl);
+  height: var(--foliplus-space-xl);
+  border: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  border-radius: var(--foliplus-radius-sm);
+  background: var(--foliplus-input-bg);
+  cursor: pointer;
+  transition: box-shadow var(--foliplus-transition-fast);
+}
+/* Inside a select-all row the press is owned by the row, which forwards it
+   to the box (ui/dropdown.ts): the box must not swallow the pointer, or a
+   press on its own pixels would never reach the label. Keyboard stays on the
+   box, where Space toggles it natively. */
+.foliplus-dropdown-select-all .foliplus-check-slot-box {
+  pointer-events: none;
+}
+.foliplus-check-slot-box:is(:checked, :indeterminate) {
+  border-color: var(--foliplus-accent-primary);
+  background: var(--foliplus-accent-primary);
+  &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-size: var(--foliplus-size-12);
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+}
+/* Checkmark (every item picked) */
+.foliplus-check-slot-box:checked::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+}
+/* Dash (only some picked) */
+.foliplus-check-slot-box:indeterminate::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='6' y1='12' x2='18' y2='12'/%3E%3C/svg%3E");
+}
+.foliplus-check-slot-box:focus-visible {
+  outline: none;
+  box-shadow: var(--foliplus-focus-ring);
+}
