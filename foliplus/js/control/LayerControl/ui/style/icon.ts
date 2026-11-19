@@ -27,7 +27,6 @@ import { ListCursor, claimKeys } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
 import {
   type AuthorGlyph,
-  DIVICON_SHAPES,
   type GlyphPrefix,
   PICKER_GLYPHS,
   applyIconColorToLeaves,
@@ -35,10 +34,8 @@ import {
   authorGlyphName as authorGlyphNameOnLayer,
   authorGlyphPrefix as authorGlyphPrefixOnLayer,
   coerceGlyphPrefix,
-  divIconClassNameOf,
   glyphAvailable,
   glyphHtml,
-  isAllowedIconUrl,
   resetIconLeaves,
   resolveGlyph,
 } from "#core/leaflet/index.js";
@@ -163,12 +160,17 @@ const COLOR_ROWS_HIDDEN_IN_URL_MODE = ["iconColor", "markerColor"] as const;
  *  reaches them all. */
 let iconRowEl: HTMLElement | null = null;
 
-const syncColorRowVisibility = (ui: LayerUI, layerId: string): void => {
+const syncColorRowVisibility = (
+  ui: LayerUI,
+  layerId: string,
+  panelRoot?: HTMLElement | null,
+): void => {
   const urlMode = getIntent(ui, layerId, INTENT.ICON)?.kind === ICON_KIND.URL;
-  const panelRoot = iconRowEl?.closest(`${CONST.CLASSES.STYLE_PANEL}`) ?? null;
-  if (!panelRoot) return;
+  const root =
+    panelRoot ?? iconRowEl?.closest(`${CONST.CLASSES.STYLE_PANEL}`) ?? null;
+  if (!root) return;
   for (const dim of COLOR_ROWS_HIDDEN_IN_URL_MODE) {
-    panelRoot
+    root
       .querySelectorAll<HTMLElement>(`[data-style-dim="${dim}"]`)
       .forEach(row => {
         row.hidden = urlMode;
@@ -184,20 +186,6 @@ const currentIcon = (
 ): { kind: IconKind; value: string } | null => {
   const intent = getIntent(ui, layerId, INTENT.ICON);
   return intent ? { kind: intent.kind, value: intent.value } : null;
-};
-/** Write the layer's icon source (any of the three kinds) and replay the
- *  walk. One commit entry point for the glyph grid, the URL input and the
- *  shape picker. */
-const commitIcon = (
-  ui: LayerUI,
-  layerId: string,
-  kind: IconKind,
-  value: string,
-): void => {
-  writeIntentKeys(ui, layerId, [[INTENT.ICON, { kind, value }]]);
-  scheduleStyleDimApply(FACE.ICON, layerId, () => applyIconToLayer(ui, layerId), {
-    owner: ui,
-  });
 };
 /** The author's own glyph name when the layer's marker icon declares one
  *  (awesome-markers/Leaflet put the name in
@@ -413,80 +401,12 @@ const buildGlyphGrid = (
   }) as HTMLElement;
   const cells: HTMLButtonElement[] = [];
 
-  // The two NON-glyph sources share the popup above the glyph grid. The URL
-  // input commits on Enter / blur (a whitelisted URL only — a non-matching
-  // value is refused, never rendered); the shape picker commits a whitelisted
-  // divIcon className. Both are honest-degradation surfaces: an invalid URL
-  // or an unknown shape leaves the current icon untouched.
-  const source = currentIcon(ui, layerId);
-
-  const sourceBar = dom.el("div", {
-    class: CONST.CLASSES.STYLE_ICON_SOURCE,
-  }) as HTMLElement;
-
-  // URL row: a labeled text input. The commit validates through the SAME
-  // isAllowedIconUrl the persistence reader uses, so the panel and the stored
-  // record can never disagree on what a renderable URL is.
-  const urlLabel = dom.el("label", {
-    class: CONST.CLASSES.STYLE_ICON_SOURCE_ROW,
-  }) as HTMLLabelElement;
-  urlLabel.append(dom.el("span", {}, ui.T("style_icon_url")));
-  const urlInput = dom.el("input", {
-    type: "text",
-    class: FORM_CLASS.INPUT_SKIN,
-    placeholder: "https://…",
-    "aria-label": ui.T("style_icon_url"),
-    spellcheck: "false",
-  }) as HTMLInputElement;
-  if (source?.kind === ICON_KIND.URL) urlInput.value = source.value;
-  const commitUrl = (): void => {
-    const url = urlInput.value.trim();
-    if (url === "") return; // emptied -> no-op, the glyph grid is the reset path
-    if (!isAllowedIconUrl(url)) return; // refused, not rendered
-    commitIcon(ui, layerId, ICON_KIND.URL, url);
-    renderTrigger();
-  };
-  // listener-exempt: style-panel icon URL input handlers on a panel-owned element
-  urlInput.onchange = commitUrl;
-  urlInput.onkeydown = ev => {
-    if (ev.key === "Enter") {
-      ev.preventDefault();
-      commitUrl();
-    }
-  };
-  urlLabel.append(urlInput);
-  sourceBar.append(urlLabel);
-
-  // Shape row: one button per whitelisted divIcon className.
-  const shapeRow = dom.el("div", {
-    class: CONST.CLASSES.STYLE_ICON_SOURCE_ROW,
-    role: "group",
-    "aria-label": ui.T("style_icon_shape"),
-  }) as HTMLElement;
-  shapeRow.append(dom.el("span", {}, ui.T("style_icon_shape")));
-  for (const shape of DIVICON_SHAPES) {
-    const shapeBtn = dom.el("button", {
-      type: "button",
-      class: CONST.CLASSES.STYLE_ICON_SHAPE_CELL,
-      "data-shape": shape,
-      title: divIconClassNameOf(shape) ?? shape,
-      "aria-pressed":
-        source?.kind === ICON_KIND.DIVICON_CLASS && source.value === shape
-          ? "true"
-          : "false",
-    }) as HTMLButtonElement;
-    shapeBtn.textContent = shape;
-    // listener-exempt: style-panel icon shape button handler on a panel-owned element
-    shapeBtn.onclick = () => {
-      commitIcon(ui, layerId, ICON_KIND.DIVICON_CLASS, shape);
-      renderTrigger();
-      close();
-      trigger.focus();
-    };
-    shapeRow.append(shapeBtn);
-  }
-  sourceBar.append(shapeRow);
-  grid.appendChild(sourceBar);
+  // Declaration-only (user decision 2026-11-19): a URL / divIcon shape is set
+  // by the AUTHOR (folium.Icon(icon_url=) / a declared shape), never edited in
+  // the panel. The popup offers only the glyph grid; a declared URL / shape
+  // surfaces as a read-only trigger label via renderTrigger below. No edit
+  // entry point here — the URL input + shape buttons that used to live in
+  // this popup are gone (the glyph grid stays).
 
   for (const glyph of PICKER_GLYPHS) {
     const cell = dom.el(
@@ -577,6 +497,7 @@ const ICON_DIMENSION = registerDimension<IconIntent>({
   },
 });
 export {
+  syncColorRowVisibility,
   ICON_DIMENSION,
   applyIconToLayer,
   buildIconRow,

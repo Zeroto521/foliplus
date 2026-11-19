@@ -1281,6 +1281,37 @@ describe("applyIconToLeaves — url source", () => {
   });
 });
 
+describe("applyIconToLeaves — url source fallback", () => {
+  // line 235: when _createImg AND authorCreate are BOTH absent the create
+  // falls to () => document.createElement("img"). Stub L.Icon without
+  // _createImg and a bare author (no createIcon) to reach it.
+  beforeEach(() => {
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) { this.options = { ...opts }; }
+      _setIconStyles() {}
+    };
+    (window.L as any).Icon.Default = class {};
+    (window.L as any).DivIcon = class { constructor(public options: any) {} };
+    (window.L as any).divIcon = vi.fn((o: any) => new (window.L as any).DivIcon(o));
+  });
+
+  it("uses document.createElement as the img factory when no _createImg/authorCreate exist", () => {
+    const leaf: any = {
+      feature: { properties: {} },
+      options: {},
+      setIcon: vi.fn(),
+      getElement: () => document.createElement("div"),
+    };
+    const layer = { options: {}, eachLayer: vi.fn((fn: (l: any) => void) => fn(leaf)) };
+    applyIconToLeaves(layer, "star", undefined, undefined, undefined,
+      { kind: "url", value: "https://example.com/fallback.png" });
+    expect(leaf.setIcon).toHaveBeenCalled();
+    const icon = leaf.setIcon.mock.calls[0][0];
+    expect(icon.options.iconUrl).toBe("https://example.com/fallback.png");
+  });
+});
+
 describe("applyIconToLeaves — divicon-class source", () => {
   it("a whitelisted shape renders a divIcon carrying that className", () => {
     const leaf = makeMarker(makeAuthorIcon());

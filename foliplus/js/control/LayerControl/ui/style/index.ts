@@ -19,7 +19,7 @@ import { disposeBorderRow, resetLayerBorder } from "./border.js";
 import { renderDelegatedStylePanel } from "./delegated.js";
 import { disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
-import { resetLayerIcon } from "./icon.js";
+import { syncColorRowVisibility, resetLayerIcon } from "./icon.js";
 import { resetLayerIconColor } from "./iconColor.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerMarkerColor } from "./markerColor.js";
@@ -473,6 +473,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // generates the entry (id "layer.style") and returns the detach.
   ui.overlayPanel.styleOverlayUnregister = attachPanel(ui.c.map, controller);
   controller.open();
+  // URL-mode color-row hide (PR #1228 declaration-only scope): the icon row's
+  // own sync runs at build time, when the panel is still detached and the
+  // color rows are not yet appended - closest(STYLE_PANEL) is null and the
+  // lookup is empty, so the hide never lands. Re-run once the panel is in the
+  // DOM (controller.open() appended it) so a DECLARED url source hides the
+  // color rows on open, not only on a panel write.
+  syncColorRowVisibility(ui, layerId, panel);
 };
 
 /** Refresh the open style panel in place after a Reset.

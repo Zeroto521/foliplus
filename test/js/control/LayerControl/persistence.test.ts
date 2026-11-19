@@ -1294,6 +1294,35 @@ describe("LayerPersistence", () => {
         f: { icon: { kind: "glyph", value: "star" }, overrides: ["icon"] },
       });
     });
+    it("keeps a url icon source that passes the whitelist and drops one that fails it", () => {
+      // Per-kind validation (PR #1228): a url icon is validated by the SAME
+      // isAllowedIconUrl the renderer uses, so a non-whitelisted value never
+      // persists and can never reach an <img src> from storage.
+      seedStorage({
+        layers: {
+          a: { icon: { kind: "url", value: "https://example.com/pin.png" }, overrides: ["icon"] },
+          b: { icon: { kind: "url", value: "data:text/html,<script>" }, overrides: ["icon"] },
+          c: { icon: { kind: "url", value: "javascript:alert(1)" }, overrides: ["icon"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { icon: { kind: "url", value: "https://example.com/pin.png" }, overrides: ["icon"] },
+      });
+    });
+    it("keeps a divicon-class icon whose shape is whitelisted and drops an unknown shape", () => {
+      // Per-kind validation: the persisted value is the SHAPE KEY, gated by
+      // the className whitelist. An unknown shape drops the whole intent (the
+      // author icon stays), never misapplied as another source.
+      seedStorage({
+        layers: {
+          a: { icon: { kind: "divicon-class", value: "square" }, overrides: ["icon"] },
+          b: { icon: { kind: "divicon-class", value: "not-a-shape" }, overrides: ["icon"] },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { icon: { kind: "divicon-class", value: "square" }, overrides: ["icon"] },
+      });
+    });
     it("drops a fill override whose value fails validation", () => {
       seedStorage({
         layers: {
