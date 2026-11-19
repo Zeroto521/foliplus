@@ -7969,6 +7969,7 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.options).toEqual([]);
     expect(dim.truncated).toBe(false);
   });
+
 });
 
 describe("LayerAPI.getStyle", () => {
@@ -8168,8 +8169,62 @@ it("catches a throwing styleProvider and returns registry values", () => {
   });
 
 
+  it("polygon leaf: a fill carrier reports per-feature paint with no aggregate colour", () => {
+    // Areal geometry opens the fill gate, so the author's per-feature
+    // declaration wins and the aggregate colour is withheld.
+    const poly = new window.L.Polygon() as any;
+    // A real Path answers setStyle: without it the carrier probe calls
+    // the leaf non-areal and the fill gate stays closed.
+    poly.setStyle = () => {};
+    poly.feature = { properties: { value: 1 } };
+    const layer = {
+      options: {},
+      eachLayer: vi.fn((fn: (l: unknown) => void) => fn(poly)),
+      getBounds: () => ({ isValid: () => true }),
+    };
+    Object.setPrototypeOf(layer, new window.L.Path());
+    const { manager } = initFixture({ data: [] });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "areal1", name: "Areal", role: "overlay", layer: layer as any });
+    const info = manager.layerRegistry.get("areal1")!;
+    (info as any).fillAuthor = { perFeature: true, distinct: 3, stops: [] };
+    const snap = manager.getStyle("areal1");
+    expect(snap).not.toBeNull();
+    expect(snap!.fill).toBeDefined();
+    expect(snap!.fill!.perFeature).toBe(true);
+    expect(snap!.fill!.color).toBeUndefined();
+  });
 
+  it("reports no icon block when no icon intent is stored", () => {
+    const layer = wrap(makeLeaf({ value: 1 }));
+    const { manager } = initFixture({
+      data: [{ id: "nic1", name: "NIC", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "nic1", name: "NIC", role: "overlay", layer });
+    const snap = manager.getStyle("nic1");
+    // The three icon readers all come back undefined, so the snapshot
+    // carries no icon slot - a host must not invent a glyph.
+    expect(snap!.icon).toBeUndefined();
+  });
+
+  it("an unconfigured label layer leaves the label slot absent", () => {
+    const layer = wrap(makeLeaf({ value: 1 }));
+    const { manager } = initFixture({
+      data: [{ id: "nolbl2", name: "N2", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "nolbl2", name: "N2", role: "overlay", layer });
+    // The label slot is only written when the label manager answers with a
+    // config at all; a config-less layer reports no label rather than a
+    // block of defaults a host would mistake for a real declaration.
+    vi.spyOn(manager.label as any, "getConfig").mockReturnValue(null as any);
+    const snap = manager.getStyle("nolbl2");
+    expect(snap!.label).toBeUndefined();
+  });
 });
+
+
 describe("cross-panel contract: external actions × open overlays", () => {
   let manager: LayerController;
   let ui: LayerUI;
