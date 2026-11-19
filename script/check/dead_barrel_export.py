@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Detect dead barrel/type exports with zero consumers repo-wide.
+"""Detect dead exports in foliplus/js with zero consumers repo-wide.
 
-Scans ``foliplus/js/**/index.ts`` and ``foliplus/js/**/type.ts`` for every
-export (named re-export, star re-export, ``export type { ... }``, and inline
-definitions), builds a ``(file, symbol)`` dependency graph across all ``.ts``
-files, and reports exports that have no reachable consumer.
+Scans every production ``.ts`` under ``foliplus/js/`` — barrels
+(``**/index.ts``), type collections (``**/type.ts``), and regular modules —
+for every export (named re-export, star re-export, ``export type { ... }``,
+and inline definitions), builds a ``(file, symbol)`` dependency graph across
+all ``.ts`` files (production + tests), and reports exports that have no
+reachable consumer.
 
 A consumer is a file that **imports** the symbol (not just re-exports it) and
 is a real code file, test file, or referenced by Python. Barrel chains
@@ -47,7 +49,7 @@ CONFIG_SCHEMA = "foliplus/js/config-schema.ts"
 # is its ``index.ts``. Enumerating the directory (rather than trusting a regex
 # against file content) means renaming a control or adding a ninth one is picked
 # up automatically -- a content regex would silently stop matching and the
-# renamed entry would be reported as a dead barrel export.
+# renamed entry would be reported as a dead export.
 CONTROL_DIR = "foliplus/js/control"
 
 
@@ -647,16 +649,20 @@ def compute_sinks(
             for source in fa.star_imports:
                 pass  # Star imports in tests: handled below
 
-        # Rule 4: real code file — imports are sinks
-        if not fa.is_pure_barrel and not fa.is_iife_entry and not fa.is_exempt:
+        # Rule 4: real code file — imports are sinks. An IIFE entry is a real
+        # consumer too: its body runs its imports, so the entry cannot be
+        # excluded here. Rule 1 already marks the entry's *exports* as sinks
+        # (Python Jinja loads them); this marks the entry's *imports* as sinks.
+        if not fa.is_pure_barrel and not fa.is_exempt:
             for local_sym in fa.named_imports:
                 sinks.add((fp, local_sym))
             for source in fa.star_imports:
                 pass  # Star imports: handled below
 
-    # Handle star imports in real code / test files
+    # Handle star imports in real code / test files (IIFE entries included:
+    # their body consumes the star-imported namespace like any real code file).
     for fp, fa in analyses.items():
-        if fa.is_iife_entry or fa.is_exempt:
+        if fa.is_exempt:
             continue
         if fa.is_test_file or not fa.is_pure_barrel:
             for source in fa.star_imports:
@@ -683,9 +689,11 @@ def find_dead_exports(
     graph: dict[tuple[str, str], list[tuple[str, str]]],
     sinks: set[tuple[str, str]],
 ) -> list[tuple[str, int, str, str]]:
-    """Find dead exports in barrel files via BFS reachability.
+    """Find dead exports via BFS reachability from each checked export.
 
-    Returns list of (filepath, lineno, symbol, kind) for dead exports.
+    ``checked_files`` holds the files whose exports are judged (production
+    modules). Exempt files (config-schema.ts, IIFE entries) are skipped
+    inside. Returns list of (filepath, lineno, symbol, kind) for dead exports.
     """
     dead: list[tuple[str, int, str, str]] = []
 
@@ -753,11 +761,19 @@ def main() -> int:
     # Compute sinks
     sinks = compute_sinks(analyses, graph, python_refs)
 
-    # Filter barrel files (index.ts and type.ts)
-    barrel_files = {fp: fa for fp, fa in analyses.items() if fa.is_barrel_scope}
+    # Check scope: every production .ts under foliplus/js/ — barrels
+    # (index.ts), type collections (type.ts), and regular modules. The graph
+    # still spans foliplus/js + test/js so test files and IIFE entries act as
+    # consumers; only the *check* narrows to production. find_dead_exports
+    # skips the explicit exemptions (config-schema.ts, IIFE entries).
+    prod_files = {
+        fp: fa
+        for fp, fa in analyses.items()
+        if _relpath(fp, repo_root).startswith("foliplus/js/")
+    }
 
     # Find dead exports
-    dead = find_dead_exports(barrel_files, graph, sinks)
+    dead = find_dead_exports(prod_files, graph, sinks)
 
     # Sort by file path, then line number
     dead.sort(key=lambda d: (d[0], d[1]))
@@ -770,13 +786,13 @@ def main() -> int:
         rel = _relpath(filepath, repo_root)
         loc = f"{rel}:{lineno}" if lineno else rel
         print(
-            f"{loc}: dead barrel export '{sym}' — "
+            f"{loc}: dead export '{sym}' — "
             f"no consumer found. Remove export or the symbol."
         )
 
     print(
-        f"\n{len(dead)} dead barrel export(s). "
-        "A barrel/type.ts export is alive only if reachable via "
+        f"\n{len(dead)} dead export(s). "
+        "An export is alive only if reachable via "
         "import/re-export chain to a real code file, test file, "
         "IIFE entry, config-schema.ts, or Python string reference.",
         file=sys.stderr,

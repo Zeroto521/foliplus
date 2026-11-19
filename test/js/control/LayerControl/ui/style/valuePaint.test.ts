@@ -42,6 +42,7 @@ const pinGetterOf = (n = 0): (() => Record<string, unknown> | null) =>
 
 afterEach(() => {
   delete globalThis.chroma;
+  delete globalThis.ss;
   vi.clearAllMocks();
 });
 
@@ -77,7 +78,10 @@ const makeUI = (layer: unknown) =>
     c: {
       layerRegistry: new Map([["demo1", { id: "demo1", layer }] as any]),
       findLayer: () => layer,
+      map: { foliplus: { showHint: vi.fn() } },
     },
+    T: (key: string) => key,
+    config: { name: "LayerControl" },
   }) as any;
 
 const makeRamp = (overrides: Partial<ValueConfig> = {}): ValueConfig => ({
@@ -187,6 +191,62 @@ it("warns and skips the write when chroma throws on the scheme", () => {
     const call = (leaf.setStyle as any).mock.calls[0]?.[0];
     expect(call?.color).toBe("#000000"); // the author's original, not a ramp color
   }
+  warnSpy.mockRestore();
+});
+
+it("degrades to equal and reports when the classifier dependency is missing", () => {
+  // A jenks/quantile method reads the simple-statistics CDN global. A page
+  // that never loaded it has no classifier source, so the mode must degrade
+  // to the equal method and tell the user instead of silently leaving the
+  // layer uncolored. Removing the fallback makes this test red: the leaf
+  // would keep the author's color and no hint would be shown.
+  installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+  delete globalThis.ss;
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const layer = makeFeatureLayer([
+    { properties: { value: 1 } },
+    { properties: { value: 9 } },
+  ]);
+  const ui = makeUI(layer);
+
+  paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
+
+  // The ramp was rebuilt with equal — a real ramp color, not the author's.
+  for (const leaf of layer.leaves) {
+    const call = (leaf.setStyle as any).mock.calls[0]?.[0];
+    expect(call?.color).toBeDefined();
+    expect(call?.color).not.toBe("#000000");
+  }
+  // The degradation was reported: a warn and a user-visible hint.
+  expect(warnSpy).toHaveBeenCalled();
+  const showHint = (ui.c.map.foliplus as any).showHint;
+  expect(showHint).toHaveBeenCalledTimes(1);
+  expect(showHint.mock.calls[0][0]).toBe("LayerControl");
+  expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
+  warnSpy.mockRestore();
+});
+
+it("reports the classify degradation at most once per layer per page", () => {
+  // Two consecutive degrades of the SAME layer must pop the hint once, not
+  // once per re-render. Removing the per-layer dedup makes this red: the
+  // second paintByValue re-pops the hint (showHint called twice).
+  installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+  delete globalThis.ss;
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const layer = makeFeatureLayer([
+    { properties: { value: 1 } },
+    { properties: { value: 9 } },
+  ]);
+  const ui = makeUI(layer);
+
+  paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
+  paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
+
+  // The hint was deduped: the second apply reused the cached decision and
+  // did not re-pop the degradation message.
+  const showHint = (ui.c.map.foliplus as any).showHint;
+  expect(showHint).toHaveBeenCalledTimes(1);
+  expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
   warnSpy.mockRestore();
 });
 

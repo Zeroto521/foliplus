@@ -97,3 +97,77 @@ describe("transformSource", () => {
     expect(result).toContain("<div><span>hi</span></div>");
   });
 });
+describe("compressHtmlStrings comment/string awareness", () => {
+  it("does not pair a comment backtick across */ into real code", () => {
+    // Regression shape from declaredFill.ts: a JSDoc comment whose backticked
+    // identifiers leave an ODD backtick count. The old scanner paired that
+    // hanging comment backtick with the opening backtick of the real template
+    // literal, so the span (comment */ + code + template open) matched HTML_RE
+    // and collapseHtml mangled the code. The aware scanner must leave both intact.
+    const code = [
+      "/** The declaration is FLAT — there is no `mode`/ramp` shell. */",
+      'const KNOWN: ReadonlySet<string> = new Set(["field", "method"]);',
+      "const msg = `invalid fill.field ${JSON.stringify(x)} (expected a property name)`;",
+      "",
+    ].join("\n");
+    expect(compressHtmlStrings(code)).toBe(code);
+  });
+
+  it("does not treat backticks inside single/double-quoted strings as delimiters", () => {
+    const code = [
+      'const s = "backtick `here` in a string";',
+      "const x = `real template with ${s}`;",
+    ].join("\n");
+    const result = compressHtmlStrings(code);
+    expect(result).toContain("backtick `here` in a string");
+    expect(result).toContain("const x = `real template with ${s}`;");
+  });
+
+  it("still collapses a real HTML template literal after comments and strings", () => {
+    const code = [
+      "// a comment with `ticks`",
+      "const html = `<div>\n  <span>hi</span>\n</div>`;",
+    ].join("\n");
+    const result = compressHtmlStrings(code);
+    expect(result).toContain("// a comment with `ticks`");
+    expect(result).toContain("<div><span>hi</span></div>");
+  });
+
+  it("leaves a block comment spanning a bracketed tag alone", () => {
+    // Regression shape from platform/type.ts: `[<name>]` inside a comment must
+    // keep its trailing space instead of being collapsed as an HTML-looking span.
+    const code = [
+      "/** Logger with `warn` / `error` writing `[<name>]` prefix. */",
+      "export const x = 1;",
+    ].join("\n");
+    const result = compressHtmlStrings(code);
+    expect(result).toContain("`[<name>]` prefix.");
+    expect(result).toContain("export const x = 1;");
+  });
+
+  it("keeps a comment whose backticks would otherwise mispair across a code block", () => {
+    // A line comment at EOF with a trailing backtick must not swallow nothing.
+    const code = "const html = `<div>hi</div>`; // note `backtick`";
+    expect(compressHtmlStrings(code)).toBe(code);
+  });
+
+  it("keeps an escaped quote and a backtick inside a string literal", () => {
+    // Regression shape: a double-quoted string containing an escaped quote
+    // followed by a backtick. If the scanner treated the escaped quote as the
+    // terminator, the backtick would be seen as an opening template literal and
+    // pair with the real template below, mangling the code. Removing the escape
+    // branch makes this test fail.
+    const code = ['const s = "a \\" `b";', "const x = `<div>hi</div>`;"].join("\n");
+    const result = compressHtmlStrings(code);
+    expect(result).toContain('const s = "a \\" `b";');
+    expect(result).toContain("<div>hi</div>");
+  });
+
+  it("terminates on an unterminated block comment instead of looping", () => {
+    // Defensive branch: a `/*` with no closing `*/` must be passed through and
+    // must not reset the scan offset (which would re-scan and loop forever).
+    // Removing the guard makes this test hang — a red death test for the branch.
+    const code = "const a = 1;\n/* never closed";
+    expect(compressHtmlStrings(code)).toBe(code);
+  });
+});
