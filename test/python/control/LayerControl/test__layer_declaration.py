@@ -28,6 +28,8 @@ from foliplus.control.LayerControl._layer_declaration import (
     declared_border,
     declared_filter,
     declared_folder,
+    declared_icon_size,
+    declared_marker_color,
     declared_zoom_range,
     foliplus_namespace,
 )
@@ -534,3 +536,81 @@ def test_border_stays_out_of_conf():
     html = _render(_geo(foliplus={"border": {"mode": "follow_fill"}}))
     entry = _conf(html)["data"][0]
     assert "border" not in entry
+
+
+# ── marker_color declaration (audit #12: the chassis preset palette is not
+#    folium's named colours, so Python cannot express it via folium kwargs) ──
+def test_declared_marker_color_is_read():
+    layer = _geo(foliplus={"marker_color": "darkred"})
+    assert declared_marker_color(layer, "Declared") == "darkred"
+
+
+def test_undeclared_marker_color_is_none_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert declared_marker_color(_geo(), "Declared") is None
+
+    assert caught == []
+
+
+def test_non_string_marker_color_warns_and_reads_none():
+    with pytest.warns(UserWarning, match="marker_color"):
+        assert (
+            declared_marker_color(_geo(foliplus={"marker_color": 7}), "Declared")
+            is None
+        )
+
+
+def test_blank_marker_color_warns_and_reads_none():
+    with pytest.warns(UserWarning, match="marker_color"):
+        assert (
+            declared_marker_color(_geo(foliplus={"marker_color": "   "}), "Declared")
+            is None
+        )
+
+
+def test_marker_color_stays_out_of_conf():
+    # Read by the JS panel off layer.options.foliplus (the border channel):
+    # CONF must not carry a marker_color key.
+    entry = _conf(_render(_geo(foliplus={"marker_color": "darkred"})))["data"][0]
+    assert "marker_color" not in entry
+
+
+def test_marker_color_key_is_a_known_foliplus_key():
+    assert "marker_color" in FOLIPLUS_KEYS
+
+
+# ── icon_size declaration (audit #13: folium Icon has no pixel-size channel) ──
+def test_declared_icon_size_is_read():
+    layer = _geo(foliplus={"icon_size": 36})
+    assert declared_icon_size(layer, "Declared") == 36
+
+
+def test_undeclared_icon_size_is_none_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert declared_icon_size(_geo(), "Declared") is None
+
+    assert caught == []
+
+
+@pytest.mark.parametrize("raw", [0, -8, 12.5, "36", True])
+def test_invalid_icon_size_warns_and_reads_none(raw):
+    with pytest.warns(UserWarning, match="icon_size"):
+        assert declared_icon_size(_geo(foliplus={"icon_size": raw}), "Declared") is None
+
+
+def test_icon_size_stays_out_of_conf():
+    entry = _conf(_render(_geo(foliplus={"icon_size": 36})))["data"][0]
+    assert "icon_size" not in entry
+
+
+def test_icon_size_key_is_a_known_foliplus_key():
+    assert "icon_size" in FOLIPLUS_KEYS
+
+
+def test_unknown_foliplus_key_still_warns():
+    # The two new keys joined the whitelist: an actually-unknown key must
+    # still trip the namespace warning (the whitelist did not swallow it).
+    with pytest.warns(UserWarning, match="unknown foliplus key"):
+        declared_marker_color(_geo(foliplus={"marker_colour": "darkred"}), "Declared")

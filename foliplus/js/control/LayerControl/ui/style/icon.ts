@@ -46,6 +46,15 @@ import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { FORM_CLASS, POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredIconSize } from "#control/LayerControl/declaredIconSize.js";
+
+/** The author-declared icon pixel size for this layer (foliplus icon_size),
+ *  or undefined when the layer declares none -- the whole-icon box edge the
+ *  marker construction scales to. Read off the layer so a declared size rides
+ *  every re-derivation (glyph / icon-colour / chassis write) without each
+ *  caller re-deriving it. */
+const declaredIconSizeOf = (layer: unknown): number | undefined =>
+  readDeclaredIconSize(layer).declared;
 
 /** Grid columns for the glyph picker popup. */
 const GLYPH_GRID_COLS = 8;
@@ -81,6 +90,7 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
     // The intent kind routes the walk: glyph -> derive, url / divicon-class
     // -> their whole-icon builders (see applyIconToLeaves).
     { kind: intent.kind, value: intent.value },
+    declaredIconSizeOf(layer),
   );
   // URL mode hides the color rows (decision 5) — re-synced on every icon
   // write so a URL -> glyph switch brings them back.
@@ -124,6 +134,7 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
       typeof opacity === "number" ? opacity : undefined,
       authorGlyphPrefix(ui, layerId) ??
         coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      declaredIconSizeOf(layer),
     );
   }
 };
