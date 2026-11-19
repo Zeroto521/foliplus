@@ -327,11 +327,7 @@ describe("test/js/script naming", () => {
 // be an accident: it is either tested, or named here with the reason it
 // cannot be. The list is empty today; keeping it is what makes the gap below
 // deliberate instead of silent.
-const INTENTIONAL_NO_TEST: Record<string, string> = {
-  // Path stem (same convention as the naming rule): script/check/scan-locale-key.mjs.
-  "check/scan-locale-key":
-    "CLI scanner — validated by locale test suite, not unit-tested",
-};
+const INTENTIONAL_NO_TEST: Record<string, string> = {};
 
 // Same path-stem convention as the naming rule: script/build/build.mjs -> "build/build".
 const scriptStem = (rel: string) =>

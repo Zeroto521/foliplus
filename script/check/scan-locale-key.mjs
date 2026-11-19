@@ -25,6 +25,7 @@
 import { repoRoot } from "../build-path.mjs";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ROOT =
   process.argv[2] ?? path.resolve(repoRoot(import.meta.url), "foliplus", "js");
@@ -120,10 +121,41 @@ const walk = (dir, out = []) => {
   return out;
 };
 
-const used = new Set();
-for (const file of walk(ROOT)) {
-  const src = fs.readFileSync(file, "utf8");
-  for (const k of collect(path.relative(ROOT, file), src)) used.add(k);
-}
+/** Scan a JS source root for locale keys and return the sorted full-key set. */
+const collectAll = root => {
+  const used = new Set();
+  for (const file of walk(root)) {
+    const src = fs.readFileSync(file, "utf8");
+    for (const k of collect(path.relative(root, file), src)) used.add(k);
+  }
+  return [...used].sort();
+};
 
-process.stdout.write(`${JSON.stringify([...used].sort(), null, 2)}\n`);
+const main = root => {
+  const keys = collectAll(root);
+  process.stdout.write(`${JSON.stringify(keys, null, 2)}\n`);
+};
+
+const runCli = (argv, entry) => {
+  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
+    main(process.argv[2] ?? path.resolve(repoRoot(import.meta.url), "foliplus", "js"));
+  }
+};
+runCli(process.argv.slice(2), process.argv[1]);
+
+const __entryUrl = fileURLToPath(import.meta.url);
+
+export {
+  ROOT,
+  CONTROLS,
+  prefixFor,
+  stripComments,
+  extractLiterals,
+  isFullKey,
+  collect,
+  walk,
+  collectAll,
+  main,
+  runCli,
+  __entryUrl,
+};
