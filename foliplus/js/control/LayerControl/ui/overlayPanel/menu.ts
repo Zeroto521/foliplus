@@ -437,12 +437,12 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
 const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
   const layer = ui.c.layerRegistry.get(layerId);
   if (!isFilterCapable(layer)) return false;
-  // A capability row is still filterable only when it actually has a field to
-  // filter on: a generic layer with an empty model (no numeric/enum fields)
-  // must not open the empty panel. The cheap gate reads only the cached
-  // filter-features row; a full filterProvider() build is the fallback.
-  if (layer.hasFilterFields) return layer.hasFilterFields();
-  return layer.filterProvider() !== null;
+  // Generic data layers (LayerControl's own): an O(K) presence probe — never
+  // a full model build, so the menu row render stays O(K) per row.
+  // Heatmap/Measure/third-party owners declare their own model; their
+  // presence is dimension-driven and read through the existing fallback
+  // (a capable owner with a null model is an empty layer — disabled).
+  return ui.c.hasFilterableFields(layerId) || layer.filterProvider() !== null;
 };
 
 const buildDeleteItem = (

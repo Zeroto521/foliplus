@@ -112,6 +112,16 @@ class TestFilterBrowser(LayerControlBrowserBase):
             # to the page language (the browser locale), never the component's
             # own word for the dimension.
             assert res["fieldLabel"] in ("Values", "值"), res
+            # The P1 regression: the field row is present in the enum body,
+            # addressable by data-* identity, and precedes the condition row.
+            assert res["fieldRowPresent"] is True, res
+            assert res["fieldRowLabel"] in ("Field", "字段"), res
+            assert res["fieldRowBeforeValue"] is True, res
+            # The no-fields owner gets the identity on a read-only cell (never
+            # a native select — the field cell only hosts the picker when the
+            # owner actually exposes more than one field).
+            assert res["fieldRowHasSelect"] is False, res
+            assert res["fieldRowSelectCount"] == 0, res
             # The shared primitive replaced the native listbox outright.
             assert res["triggerTag"] == "BUTTON", res
             assert res["triggerHaspopup"] == "listbox", res
@@ -158,6 +168,49 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert res["activeAfterClear"] and res["activeAfterClear"]["insidePanel"], (
                 f"Clear must leave focus inside the panel: {res}"
             )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_field_row_survives_enum_switch(self, browser, tmp_path):
+        """The field picker's row survives switching to an enum field (P1).
+
+        A multi-field owner opens the panel on a range field; switching to the
+        enum field rebuilds the body as the shared dropdown but MUST keep the
+        field row — the panel still answers "which field" next to "what
+        values". Both rows are addressable by their stable data-* identity,
+        not by a shared class (the FILTER_FIELD class also names the field
+        row, so a class-only query is ambiguous).
+        """
+        layer = folium.FeatureGroup(name="Field picker")
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/filter_field_picker_persist"))
+            assert res is not None, "field-picker probe could not run"
+            assert res.get("ok"), res
+            # Range state: the field row carries the range field, the value row
+            # is the slider, and there is exactly one of each row.
+            assert res["initialField"] == "mag", res
+            assert res["initialFieldLabel"] in ("Field", "字段"), res
+            assert res["initialValueRange"] is True, res
+            assert res["initialFieldCount"] == 1, res
+            assert res["initialValueCount"] == 1, res
+            assert res["initialSelectValue"] == "mag", res
+            # After switching to the enum field: the field row survives and
+            # now carries the enum field; the value row is the enum dropdown.
+            assert res["afterField"] == "kind", res
+            assert res["afterValueEnum"] is True, res
+            assert res["afterValueRange"] is False, res
+            assert res["afterFieldCount"] == 1, res
+            assert res["afterValueCount"] == 1, res
+            assert res["afterSelectValue"] == "kind", res
+            assert res["afterSelectOptions"] == ["mag", "kind"], res
+            # The field row precedes the value row.
+            assert res["fieldBeforeValue"] is True, res
             assert not errors, f"JS errors: {errors}"
 
     def test_enum_filter_keyboard_and_map_press_close(self, browser, tmp_path):
@@ -261,6 +314,15 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert chrome["listInsidePanel"] is False, chrome
             assert chrome["optionRoles"] == ["option"] * 4, chrome
             assert chrome["optionSelected"] == ["false"] * 4, chrome
+            # The data-* identity contract: exactly one field row and one value
+            # row in the enum body, both addressable without the shared class.
+            assert chrome["fieldRowCount"] == 1, chrome
+            assert chrome["fieldRowIdentity"] == ["type"], chrome
+            assert chrome["valueRowCount"] == 1, chrome
+            assert chrome["valueRowIdentities"] == ["enum"], chrome
+            # A class-only query matches BOTH rows (the field row also carries
+            # FILTER_FIELD), so the data-* query is the disambiguating path.
+            assert chrome["classMatchCount"] >= 2, chrome
 
             # Twelve options, eight-row cap: the popup scrolls internally.
             scroll = page.evaluate(_js("LayerControl/filter_enum_scroll_probe"))
