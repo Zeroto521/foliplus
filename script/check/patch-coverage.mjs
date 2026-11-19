@@ -396,6 +396,7 @@ runCli(process.argv.slice(2), process.argv[1]);
 const __entryUrl = fileURLToPath(import.meta.url);
 
 export {
+  toRel,
   parseAddedLines,
   parseIstanbul,
   parseLcov,

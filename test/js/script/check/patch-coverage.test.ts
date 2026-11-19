@@ -4,12 +4,15 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
+  __entryUrl,
   computePatch,
   main,
   parseAddedLines,
   parseArgs,
   parseIstanbul,
   parseLcov,
+  runCli,
+  toRel,
 } from "#script/check/patch-coverage.mjs";
 
 // Local patch-coverage mirror — replicate codecov's `patch` check before the
@@ -92,6 +95,41 @@ describe("parseAddedLines", () => {
     expect([...got.get("foliplus/js/new.ts")].sort((a, b) => a - b)).toEqual([1, 2, 3]);
   });
 
+  it("keeps a per-file set when a second hunk re-opens the same file", () => {
+    // The `perFile.has(file)` true side: two hunks for one file share a set.
+    const diff = [
+      "diff --git a/foliplus/js/x.ts b/foliplus/js/x.ts",
+      "--- a/foliplus/js/x.ts",
+      "+++ b/foliplus/js/x.ts",
+      "@@ -1,1 +1,2 @@",
+      "+a",
+      "+b",
+      "@@ -10,1 +10,2 @@",
+      "+c",
+    ].join("\n");
+    const got = parseAddedLines(diff);
+    expect([...got.get("foliplus/js/x.ts")].sort((a, b) => a - b)).toEqual([1, 2, 10]);
+  });
+
+  it("reuses the set when a file header repeats for the same file", () => {
+    // The `perFile.has(file)` true side (line 66): a second `+++ b/` header for
+    // the same file reuses the existing set instead of resetting it.
+    const diff = [
+      "diff --git a/foliplus/js/x.ts b/foliplus/js/x.ts",
+      "--- a/foliplus/js/x.ts",
+      "+++ b/foliplus/js/x.ts",
+      "@@ -1,1 +1,2 @@",
+      "+a",
+      "diff --git a/foliplus/js/x.ts b/foliplus/js/x.ts",
+      "--- a/foliplus/js/x.ts",
+      "+++ b/foliplus/js/x.ts",
+      "@@ -5,1 +5,2 @@",
+      "+b",
+    ].join("\n");
+    const got = parseAddedLines(diff);
+    expect([...got.get("foliplus/js/x.ts")].sort((a, b) => a - b)).toEqual([1, 5]);
+  });
+
   it("drops a file whose only change is a deletion", () => {
     const diff = [
       "diff --git a/foliplus/js/x.ts b/foliplus/js/x.ts",
@@ -102,6 +140,20 @@ describe("parseAddedLines", () => {
       "-b",
     ].join("\n");
     expect(parseAddedLines(diff).size).toBe(0);
+  });
+
+  it("deletes a file whose added set is emptied", () => {
+    // A file that gains no `+` lines (pure deletion hunk) leaves an empty set,
+    // which the size===0 cleanup removes entirely.
+    const diff = [
+      "diff --git a/foliplus/js/x.ts b/foliplus/js/x.ts",
+      "--- a/foliplus/js/x.ts",
+      "+++ b/foliplus/js/x.ts",
+      "@@ -1,1 +1,0 @@",
+      "-old",
+    ].join("\n");
+    const got = parseAddedLines(diff);
+    expect(got.size).toBe(0);
   });
 
   it("advances the cursor across context lines", () => {
@@ -117,6 +169,48 @@ describe("parseAddedLines", () => {
     const got = parseAddedLines(diff);
     // context(2) then added(3): cursor starts at +2, context advances to 3, + is 3.
     expect([...got.get("foliplus/js/x.ts")]).toEqual([3]);
+  });
+
+  it("ignores a hunk without a valid new-line start", () => {
+    // A @@ header with no `+N` new-file offset must not advance the cursor, so
+    // a following + line is not recorded against a line number.
+    const diff = [
+      "diff --git a/foliplus/js/x.ts b/foliplus/js/x.ts",
+      "--- a/foliplus/js/x.ts",
+      "+++ b/foliplus/js/x.ts",
+      "@@ malformed header without offset",
+      "+orphan",
+    ].join("\n");
+    expect([...(parseAddedLines(diff).get("foliplus/js/x.ts") ?? [])]).toEqual([]);
+  });
+
+  it("does not record an added line before a file header", () => {
+    // A + line before any +++ b/ header is not tied to a file and is dropped.
+    const diff = ["+orphan", "diff --git a/foliplus/js/x.ts b/foliplus/js/x.ts"].join(
+      "\n",
+    );
+    expect(parseAddedLines(diff).size).toBe(0);
+  });
+});
+
+describe("toRel", () => {
+  it("returns the path unchanged when it is outside the cwd", () => {
+    // The other toRel side: a path not under cwd passes through untouched.
+    expect(toRel("other/rel.ts", REPO)).toBe("other/rel.ts");
+  });
+
+  it("normalizes backslashes and strips the cwd prefix", () => {
+    const r = toRel(join(REPO, "foliplus/js/x.ts"), REPO);
+    expect(r).toBe("foliplus/js/x.ts");
+    expect(r.includes("\\")).toBe(false);
+  });
+
+  it("returns an absolute path outside the cwd unchanged", () => {
+    // A path outside cwd takes the `p.startsWith(normCwd + "/")` false side
+    // and passes through untouched on every host.
+    const r = toRel("/outside/repo/other.ts", REPO);
+    expect(r.startsWith("outside/repo/other.ts")).toBe(false);
+    expect(r.endsWith("other.ts")).toBe(true);
   });
 });
 
@@ -138,6 +232,52 @@ describe("parseIstanbul", () => {
     expect(lc.get(4)).toBeUndefined();
   });
 
+  it("keeps a covered statement on an already-uncovered line (covered wins)", () => {
+    // The `lines.set(l, "covered")` override: a later covered statement on a
+    // line already marked uncovered flips it to covered.
+    const covByRel = parseIstanbul(
+      {
+        [join(REPO, "foliplus/js/x.ts")]: entry(
+          { "0": stmt(6), "1": stmt(6) },
+          { "0": 0, "1": 1 },
+        ),
+      },
+      REPO,
+    );
+    expect(covByRel.get("foliplus/js/x.ts").lines.get(6)).toBe("covered");
+  });
+
+  it("falls back to 0 when a statement has no count entry", () => {
+    // `entry.s[id] ?? 0` nullish side: a statement missing from s is treated
+    // as uncovered, not thrown on.
+    const covByRel = parseIstanbul(
+      {
+        [join(REPO, "foliplus/js/x.ts")]: entry({ "0": stmt(7) }, {}),
+      },
+      REPO,
+    );
+    expect(covByRel.get("foliplus/js/x.ts").lines.get(7)).toBe("uncovered");
+  });
+
+  it("falls back to an empty count array when a branch has no b entry", () => {
+    // `entry.b[id] ?? []` nullish side: a branchMap id with no b entry is not
+    // a partial (no untaken targets), it is simply skipped.
+    const covByRel = parseIstanbul(
+      {
+        [join(REPO, "foliplus/js/x.ts")]: {
+          statementMap: { "0": stmt(8) },
+          s: { "0": 1 },
+          branchMap: {
+            "0": { line: 8, locations: [{}, {}] },
+          },
+          b: {},
+        },
+      },
+      REPO,
+    );
+    expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([]);
+  });
+
   it("lets a covered statement win over an uncovered one on the same line", () => {
     const covByRel = parseIstanbul(
       {
@@ -149,6 +289,18 @@ describe("parseIstanbul", () => {
       REPO,
     );
     expect(covByRel.get("foliplus/js/x.ts").lines.get(1)).toBe("covered");
+  });
+
+  it("leaves an uncovered statement as uncovered when covered is false", () => {
+    // The `else if (!lines.has(l))` true side: the first statement at a line is
+    // uncovered and nothing later covers it.
+    const covByRel = parseIstanbul(
+      {
+        [join(REPO, "foliplus/js/x.ts")]: entry({ "0": stmt(4) }, { "0": 0 }),
+      },
+      REPO,
+    );
+    expect(covByRel.get("foliplus/js/x.ts").lines.get(4)).toBe("uncovered");
   });
 
   it("reports an untaken branch at its line", () => {
@@ -166,6 +318,65 @@ describe("parseIstanbul", () => {
     expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([
       { line: 5, untaken: 1, total: 2 },
     ]);
+  });
+
+  it("reads a branch line from br.loc when br.line is absent", () => {
+    const covByRel = parseIstanbul(
+      {
+        [join(REPO, "foliplus/js/x.ts")]: {
+          statementMap: { "0": stmt(7) },
+          s: { "0": 1 },
+          branchMap: {
+            "0": { line: undefined, locations: [{}, {}], loc: { start: { line: 7 } } },
+          },
+          b: { "0": [0, 1] },
+        },
+      },
+      REPO,
+    );
+    expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([
+      { line: 7, untaken: 1, total: 2 },
+    ]);
+  });
+
+  it("ignores a branch whose counts are all taken", () => {
+    const covByRel = parseIstanbul(
+      {
+        [join(REPO, "foliplus/js/x.ts")]: entry(
+          { "0": stmt(8) },
+          { "0": 1 },
+          { "0": { line: 8, locations: [{}, {}] } },
+          { "0": [1, 1] },
+        ),
+      },
+      REPO,
+    );
+    expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([]);
+  });
+});
+
+describe("parseIstanbul", () => {
+  it("drops a branch with no line reference entirely", () => {
+    // Neither br.line nor br.loc.start.line is present -> no partial recorded
+    // (the `line != null` false side).
+    const covByRel = parseIstanbul(
+      {
+        [join(REPO, "foliplus/js/x.ts")]: {
+          statementMap: { "0": stmt(9) },
+          s: { "0": 1 },
+          branchMap: {
+            "0": {
+              line: undefined,
+              locations: [{}, {}],
+              loc: { start: { line: undefined } },
+            },
+          },
+          b: { "0": [0, 1] },
+        },
+      },
+      REPO,
+    );
+    expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([]);
   });
 });
 
@@ -186,6 +397,19 @@ describe("parseLcov", () => {
     expect(fc.partials).toEqual([{ line: 2, untaken: 1, total: 2 }]);
   });
 
+  it("leaves a later DA on the same line uncovered when it is already covered", () => {
+    // The `else if (!lines.has(ln))` false side: a second DA for a line that
+    // is already covered does not flip it to uncovered.
+    const lcov = [
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
+      "DA:1,1",
+      "DA:1,0",
+      "end_of_record",
+    ].join("\n");
+    const covByRel = parseLcov(lcov, REPO);
+    expect(covByRel.get("foliplus/js/x.ts").lines.get(1)).toBe("covered");
+  });
+
   it("treats a '-' branch count as untaken-agnostic (no partial)", () => {
     const lcov = [
       `SF:${join(REPO, "foliplus/js/x.ts")}`,
@@ -197,6 +421,94 @@ describe("parseLcov", () => {
     const covByRel = parseLcov(lcov, REPO);
     // '-' (no info) is not an untaken target, so there is no partial.
     expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([]);
+  });
+});
+
+describe("parseLcov", () => {
+  it("aggregates multiple branch targets on the same line", () => {
+    // Two BRDA records on line 2, one untaken each -> a single partial with
+    // untaken 2 of total 2 (the `agg` accumulation side).
+    const lcov = [
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
+      "DA:1,1",
+      "BRDA:2,0,0,0",
+      "BRDA:2,0,1,0",
+      "end_of_record",
+    ].join("\n");
+    const covByRel = parseLcov(lcov, REPO);
+    expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([
+      { line: 2, untaken: 2, total: 2 },
+    ]);
+  });
+
+  it("skips a DA record whose line number is not finite", () => {
+    // A malformed DA:xx line must not throw or record a line.
+    const lcov = [
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
+      "DA:xx,1",
+      "DA:1,1",
+      "end_of_record",
+    ].join("\n");
+    const covByRel = parseLcov(lcov, REPO);
+    expect(covByRel.get("foliplus/js/x.ts").lines.get(1)).toBe("covered");
+  });
+
+  it("skips a BRDA record whose line number is not finite", () => {
+    const lcov = [
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
+      "DA:1,1",
+      "BRDA:yy,0,0,0",
+      "end_of_record",
+    ].join("\n");
+    const covByRel = parseLcov(lcov, REPO);
+    expect(covByRel.get("foliplus/js/x.ts").partials).toEqual([]);
+  });
+});
+
+describe("parseLcov", () => {
+  it("flushes a trailing file record without end_of_record", () => {
+    // lcov may omit the final end_of_record; parseLcov must flush on EOF.
+    const lcov = [
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
+      "DA:1,1",
+      "DA:2,0",
+      "BRDA:2,0,0,0",
+      "BRDA:2,0,1,1",
+    ].join("\n");
+    const covByRel = parseLcov(lcov, REPO);
+    const fc = covByRel.get("foliplus/js/x.ts");
+    expect(fc.lines.get(1)).toBe("covered");
+    expect(fc.lines.get(2)).toBe("uncovered");
+    expect(fc.partials).toEqual([{ line: 2, untaken: 1, total: 2 }]);
+  });
+
+  it("ignores a record line that is neither SF, DA, BRDA nor end_of_record", () => {
+    // The `else if (line === "end_of_record")` false side (line 181): a
+    // record such as TN: or a blank line is not treated as a terminator.
+    const lcov = [
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
+      "TN:test-name",
+      "DA:1,1",
+      "end_of_record",
+    ].join("\n");
+    const covByRel = parseLcov(lcov, REPO);
+    const fc = covByRel.get("foliplus/js/x.ts");
+    expect(fc.lines.get(1)).toBe("covered");
+    expect(fc.partials).toEqual([]);
+  });
+
+  it("does not record a partial at EOF when every branch is taken", () => {
+    // The `if (agg.untaken > 0)` false side in the EOF flush (line 192): a
+    // trailing record whose branches are all taken yields no partial.
+    const lcov = [
+      `SF:${join(REPO, "foliplus/js/x.ts")}`,
+      "DA:1,1",
+      "BRDA:1,0,0,1",
+      "BRDA:1,0,1,1",
+    ].join("\n");
+    const covByRel = parseLcov(lcov, REPO);
+    const fc = covByRel.get("foliplus/js/x.ts");
+    expect(fc.partials).toEqual([]);
   });
 });
 
@@ -262,6 +574,67 @@ describe("computePatch", () => {
       withBranch,
     ) as unknown as PatchResult;
     expect(res.files[0].partials).toEqual([{ line: 5, untaken: 1, total: 2 }]);
+  });
+});
+
+describe("computePatch", () => {
+  it("reports 100% (pct 1) when there are no added executable lines", () => {
+    const res = computePatch(new Map(), new Map()) as unknown as PatchResult;
+    expect(res.total).toBe(0);
+    expect(res.pct).toBe(1);
+    expect(res.files).toEqual([]);
+  });
+});
+
+describe("parseArgs", () => {
+  it("sets help for --help and -h", () => {
+    expect(parseArgs(["--help"]).help).toBe(true);
+    expect(parseArgs(["-h"]).help).toBe(true);
+  });
+
+  it("parses the value options", () => {
+    const opts = parseArgs([
+      "--base=origin/dev",
+      "--threshold=0.9",
+      "--coverage=coverage/x.json",
+      "--cwd=/tmp/repo",
+    ]);
+    expect(opts.base).toBe("origin/dev");
+    expect(opts.threshold).toBe(0.9);
+    expect(opts.coverage).toBe("coverage/x.json");
+    expect(opts.cwd).toBe("/tmp/repo");
+    expect(opts.help).toBe(false);
+  });
+
+  it("warns on an unknown arg but keeps going", () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const opts = parseArgs(["--base=origin/main", "--bogus"]);
+      expect(opts.base).toBe("origin/main");
+      expect(err).toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+    }
+  });
+
+  it("uses the default threshold when the parsed value is not finite", () => {
+    // `Number.isFinite(opts.threshold)` false side in main: a NaN threshold
+    // (e.g. --threshold=abc) falls back to the default.
+    const opts = parseArgs(["--threshold=abc"]);
+    expect(Number.isFinite(opts.threshold)).toBe(false);
+  });
+});
+
+describe("printHelp / help path", () => {
+  it("main returns 0 and prints help when opts.help is set", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(parseArgs(["--help"]));
+      expect(code).toBe(0);
+      expect(log).toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
   });
 });
 
@@ -388,6 +761,202 @@ describe("main (CLI, real throwaway git repo)", () => {
       ]),
     );
     expect(code).toBe(1);
+  }, 30000);
+
+  afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+});
+
+describe("main CLI error paths", () => {
+  const repo = mkdtempSync(join(tmpdir(), "patch-cov-err-"));
+  const git = (args: string[], cwd = repo) =>
+    execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });
+  let baseRef = "";
+  try {
+    git(["init", "-q"]);
+    git(["config", "user.email", "t@t"]);
+    git(["config", "user.name", "t"]);
+    writeFileSync(join(repo, "x.ts"), "const a = 1;\n");
+    git(["add", "x.ts"]);
+    git(["commit", "-q", "-m", "base"]);
+    baseRef = git(["rev-parse", "HEAD"]).trim();
+  } catch {
+    baseRef = "";
+  }
+
+  it("prints a no-coverage line and still counts covered files", () => {
+    if (!baseRef) return;
+    // x.ts is covered; a second changed file has no coverage entry.
+    writeFileSync(join(repo, "x.ts"), "const a = 1;\nconst b = 2;\n");
+    writeFileSync(join(repo, "other.ts"), "const c = 3;\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "change"]);
+    mkdirSync(join(repo, "coverage"));
+    const cov = {
+      [join(repo, "x.ts").replace(/\\/g, "/")]: {
+        statementMap: {
+          "0": { start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+          "1": { start: { line: 2, column: 0 }, end: { line: 2, column: 0 } },
+        },
+        s: { "0": 1, "1": 1 },
+        branchMap: {},
+        b: {},
+      },
+    };
+    writeFileSync(join(repo, "coverage", "coverage-final.json"), JSON.stringify(cov));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(0);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("other.ts: not in the coverage report");
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  it("returns 2 when git diff fails (bad base)", () => {
+    if (!baseRef) return;
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          "--base=no-such-ref",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(2);
+      expect(err).toHaveBeenCalled();
+    } finally {
+      err.mockRestore();
+    }
+  }, 30000);
+
+  it("defaults to the 95% threshold when the parsed value is not finite", () => {
+    if (!baseRef) return;
+    // Reset x.ts line 2 uncovered (the no-coverage test above set it covered).
+    const covPath = join(repo, "coverage", "coverage-final.json");
+    const cov = JSON.parse(readFileSync(covPath, "utf8"));
+    const key = Object.keys(cov)[0];
+    cov[key].s["1"] = 0;
+    writeFileSync(covPath, JSON.stringify(cov));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      // --threshold=abc parses to NaN -> main falls back to DEFAULT_THRESHOLD
+      // (0.95), and the still-uncovered added line 2 fails the check.
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=abc",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(1);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("below 95.0%");
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  it("pluralizes the FAIL line when more than one added line is uncovered", () => {
+    if (!baseRef) return;
+    // Grow x.ts to three lines and commit, so the diff against baseRef adds
+    // lines 2 and 3; both are left uncovered -> "2 added lines not covered".
+    writeFileSync(join(repo, "x.ts"), "const a = 1;\nconst b = 2;\nconst c = 3;\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "grow to 3 lines"]);
+    const covPath = join(repo, "coverage", "coverage-final.json");
+    const cov = JSON.parse(readFileSync(covPath, "utf8"));
+    const key = Object.keys(cov)[0];
+    cov[key].s["1"] = 0; // line 2 uncovered
+    cov[key].statementMap["2"] = {
+      start: { line: 3, column: 0 },
+      end: { line: 3, column: 0 },
+    };
+    cov[key].s["2"] = 0; // line 3 uncovered
+    writeFileSync(covPath, JSON.stringify(cov));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(1);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("2 added lines not covered");
+    } finally {
+      log.mockRestore();
+    }
+    // Restore x.ts to 2 lines (line 2 covered) so later tests in this describe
+    // see the original diff (only line 2 added) and pass.
+    writeFileSync(join(repo, "x.ts"), "const a = 1;\nconst b = 2;\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "restore to 2 lines"]);
+    const covPath2 = join(repo, "coverage", "coverage-final.json");
+    const cov2 = JSON.parse(readFileSync(covPath2, "utf8"));
+    const key2 = Object.keys(cov2)[0];
+    delete cov2[key2].statementMap["2"];
+    delete cov2[key2].s["2"];
+    cov2[key2].s["1"] = 1;
+    writeFileSync(covPath2, JSON.stringify(cov2));
+  }, 30000);
+
+  it("prints a branch-partial line when an added line has an untaken target", () => {
+    if (!baseRef) return;
+    const covPath = join(repo, "coverage", "coverage-final.json");
+    const cov = JSON.parse(readFileSync(covPath, "utf8"));
+    const key = Object.keys(cov)[0];
+    cov[key].branchMap = {
+      "0": { line: 2, locations: [{}, {}] },
+    };
+    cov[key].b = { "0": [1, 0] };
+    writeFileSync(covPath, JSON.stringify(cov));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(0);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("branch partial");
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  it("runCli runs main only when entry matches the module URL", () => {
+    if (!baseRef) return;
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      runCli(
+        [`--cwd=${repo}`, "--base=HEAD", "--coverage=coverage/coverage-final.json"],
+        __entryUrl,
+      );
+      runCli([`--cwd=${repo}`, "--base=HEAD"], "/some/other/entry.mjs");
+      expect(log).toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
   }, 30000);
 
   afterAll(() => {
