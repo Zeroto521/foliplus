@@ -190,9 +190,11 @@ const ENUM_OPTION_LIMIT = 50;
  *  Column-shaped GeoJSON means the first K leaves represent the field shape
  *  with near-certainty (see design §3), so an O(K) bounded scan answers
  *  "does this layer expose any filterable field" without a full walk. The
- *  probe is conservative by design: a layer whose first K leaves carry no
- *  property value reads false even when a later leaf has one (the menu then
- *  hides the Filter entry until the author declares a filter). */
+ *  probe is conservative by design: a layer whose first PROBE_K (64)
+ *  leaves carry no property value reads false even when a later leaf has
+ *  one — the menu hides the Filter entry until the author declares a
+ *  filter explicitly (a column-shaped GeoJSON whose first 64 rows are
+ *  property-empty must declare its filterable field). */
 const PROBE_K = 64;
 
 /** Why a folder create/rename was refused. `blank` is an empty or
@@ -2135,11 +2137,12 @@ class LayerController implements LayerAPI {
     // The host's dimensions/counts pass already built (and cached) the
     // filterFeatures row, so the field picker reads the same cached
     // snapshot — never a second walk.
-    // Invariant: `dimensions.length > 0` (checked above) implies the
-    // host's dimensions() pass already built and cached the filterFeatures
-    // row, so the snapshot is present here — the read is a cache hit, never
-    // a null. `?.`/`??` would only hide a broken invariant.
-    const features = this.ui!.runtimeStore.getFilterFeatures(id)!;
+    // Defensive read: the snapshot is normally a cache hit (dimensions >
+    // 0 implies the host's dimensions() pass built it), but a missing host
+    // or an unbuilt row falls back to the empty state rather than throwing
+    // on a non-null assertion.
+    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    if (!features) return null;
     const fields = [
       ...features.numericFields.map(field => ({
         value: field,
