@@ -2,10 +2,10 @@
 // The `ss` global is injected by the build; tests stub it here the same way
 // the old HeatmapControl/data.test.ts did.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ClassifierDependencyError } from "#core/value/classify.js";
 import {
   CLASS_COUNT,
   CLASS_COUNT_VALUES,
+  ClassifierDependencyError,
   ClassifyMethodError,
   METHOD,
   METHOD_ORDER,
