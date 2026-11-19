@@ -8169,6 +8169,7 @@ it("catches a throwing styleProvider and returns registry values", () => {
 
 
 
+});
 describe("cross-panel contract: external actions × open overlays", () => {
   let manager: LayerController;
   let ui: LayerUI;
