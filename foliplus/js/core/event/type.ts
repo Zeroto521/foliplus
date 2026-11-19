@@ -57,4 +57,35 @@ interface EventPayloadMap {
   [EVENTS.LAYER_FILTER_CHANGE]: LayerFilterChangePayload;
 }
 
-export type { EventPayloadMap };
+/** Who initiated this event — the metadata a subscriber uses to decide
+ *  whether the change came from the user (panel interaction), another
+ *  component (programmatic), or the framework's own lifecycle (teardown,
+ *  reset). Discriminated on `kind`: `via` is a *controlled* vocabulary per
+ *  kind, so an illegal combination (a user gesture with a system via) cannot
+ *  be constructed at the type level. `via` is optional — a kind with no
+ *  narrower route (a raw system teardown) omits it. */
+type UserVia = "panel";
+type ProgrammaticVia = "refresh" | "self" | "init";
+type SystemVia = "teardown" | "reset";
+
+type EventOrigin =
+  | { readonly kind: "user"; readonly via?: UserVia }
+  | { readonly kind: "programmatic"; readonly via?: ProgrammaticVia }
+  | { readonly kind: "system"; readonly via?: SystemVia };
+
+/** Metadata delivered alongside a payload. `origin` answers "who initiated
+ *  this change"; `undefined` when the producer declared no source (see the
+ *  origin-exempt convention). The meta object is stable per delivery and
+ *  never leaks into the payload. */
+interface EventMeta {
+  readonly origin?: EventOrigin;
+}
+
+export type {
+  EventPayloadMap,
+  EventOrigin,
+  EventMeta,
+  UserVia,
+  ProgrammaticVia,
+  SystemVia,
+};

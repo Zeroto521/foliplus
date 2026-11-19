@@ -26,8 +26,8 @@ describe("EventBus", () => {
     const bus = new EventBus();
     const handler = vi.fn();
     bus.on("evt", handler);
-    bus.emit("evt", 1, 2);
-    expect(handler).toHaveBeenCalledWith(1, 2);
+    bus.emit("evt", 1);
+    expect(handler).toHaveBeenCalledWith(1, undefined);
   });
 
   it("rejects an omitted payload on a data-bearing event (typed emit contract)", () => {
