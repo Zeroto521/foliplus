@@ -1878,4 +1878,15 @@ describe("styleMode key migration (step 3 acceptance)", () => {
     });
     expect(makePersistence().load().layers).toEqual({});
   });
+
+  it("drops a glyph icon whose value passes isIconIntent but fails glyph syntax", () => {
+    // Line 229 false path: kind=glyph reaches the per-kind gate, but the
+    // value is a string that fails isGlyphSyntax (bad characters) -> null.
+    seedStorage({
+      layers: {
+        a: { icon: { kind: "glyph", value: "!!bad!!" }, overrides: ["icon"] },
+      },
+    });
+    expect(makePersistence().load().layers).toEqual({});
+  });
 });

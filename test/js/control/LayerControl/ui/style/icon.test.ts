@@ -1492,4 +1492,21 @@ describe("declared url / divicon trigger + URL-mode color-row sync", () => {
     ) as HTMLElement;
     expect(colorRow2.hidden).toBe(false);
   });
+
+  it("applyIconToLayer routes a url-kind intent through the circle glyph arg", () => {
+    // markerIcon.ts:83 false path: a url / divicon-class intent carries no
+    // glyph value for the derive walk; the walk gets "circle" and the kind
+    // routes it to the whole-icon builder (applyIconToLeaves url branch).
+    // buildUrlIcon news L.Icon, so give it a constructable stub here.
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) { this.options = { ...opts }; }
+    };
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { manager: mgr2, ui: ui2 } = fixtureWithMarkers([marker]);
+    writeIntentKeys(ui2, "overlay1", [[INTENT.ICON, { kind: "url", value: "https://example.com/y.png" }]]);
+    applyIconToLayer(ui2, "overlay1");
+    flushIcon("overlay1");
+    expect(marker.setIcon).toHaveBeenCalled();
+  });
 });

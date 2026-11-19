@@ -1377,3 +1377,93 @@ describe("applyIconToLeaves — divicon-class source", () => {
     expect(opts.html).toMatch(/rgba\(255,\s*0,\s*0,\s*0\.5\)/);
   });
 });
+
+describe("applyIconToLeaves — url onerror degradation edge arms", () => {
+  // The onerror handler inside buildUrlIcon has three decision points that
+  // codecov counts as branch partials unless each side is exercised:
+  //   authorCreate ? ... : null          (L218)
+  //   fresh && img.parentNode ? ...      (L221)
+  //   typeof icon._setIconStyles === fn  (L228)
+  // The main url describe covers authorCreate-present + fresh&&parentNode-true
+  // + _setIconStyles-present. These tests cover the remaining sides.
+
+  it("onerror with no authorCreate leaves the broken img in place", () => {
+    // authorCreate null arm (L218 false) + fresh=null (L221 left-false):
+    // nothing replaces the img; the browser shows its own broken-image state.
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) {
+        this.options = opts;
+      }
+      _createImg() {
+        return document.createElement("img");
+      }
+      _setIconStyles() {}
+    };
+    const author: any = {}; // no createIcon -> authorCreate undefined
+    const leaf = makeMarker(author);
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/broken2.png",
+    });
+    const icon: any = leaf.options.icon;
+    const img: HTMLImageElement = icon.createIcon();
+    const host = document.createElement("div");
+    host.appendChild(img);
+    img.onerror?.(new Event("error"));
+    // No authorCreate to call; the img stays where it is.
+    expect(host.contains(img)).toBe(true);
+  });
+
+  it("onerror with a detached img (no parentNode) leaves it detached", () => {
+    // fresh-present but img.parentNode null arm (L221 right-false): the fresh
+    // element is built but cannot be swapped in, so nothing changes.
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) {
+        this.options = opts;
+      }
+      _createImg() {
+        return document.createElement("img");
+      }
+      _setIconStyles() {}
+    };
+    const author = makeAuthorIcon();
+    const authorCreateSpy = vi.fn(() => document.createElement("div"));
+    author.createIcon = authorCreateSpy;
+    const leaf = makeMarker(author);
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/broken3.png",
+    });
+    const icon: any = leaf.options.icon;
+    const img: HTMLImageElement = icon.createIcon();
+    // Do NOT mount the img: parentNode stays null.
+    img.onerror?.(new Event("error"));
+    expect(authorCreateSpy).toHaveBeenCalled();
+    expect(img.parentNode).toBeNull();
+  });
+
+  it("skips _setIconStyles when the L stub lacks it", () => {
+    // L228 false arm: no _setIconStyles on the stub -> the call is skipped.
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) {
+        this.options = opts;
+      }
+      _createImg() {
+        return document.createElement("img");
+      }
+      // no _setIconStyles
+    };
+    const author = makeAuthorIcon();
+    const leaf = makeMarker(author);
+    applyIconToLeaves(makeMarkerGroup(leaf), "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/plain.png",
+    });
+    const icon: any = leaf.options.icon;
+    const img: HTMLImageElement = icon.createIcon();
+    expect(img.tagName).toBe("IMG");
+  });
+});
