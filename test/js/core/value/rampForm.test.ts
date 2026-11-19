@@ -391,6 +391,9 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
       menu.indexOf("{", menu.indexOf(":is(")),
     );
     expect(shellSelector).toContain(".foliplus-scheme-picker-dropdown");
+    // Only list-shaped scroll containers are in the recipe; large panel
+    // bodies (panel-content, row-panel) are excluded -- reserving a gutter
+    // lane there shifts their text/geometry on every open.
     // The shared scrollbar recipe owns the thin + stable-gutter decision for
     // every foliplus scrollable surface, the picker included.
     const scrollbar = css("foliplus/css/common/scrollbar.css");
@@ -403,9 +406,7 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     expect(scrollbarSelector).toContain(".foliplus-scheme-picker-dropdown");
     expect(scrollbarSelector).toContain(".foliplus-layer-more-menu");
     expect(scrollbarSelector).toContain(".foliplus-search-result-panel");
-    expect(scrollbarSelector).toContain(".foliplus-row-panel");
     expect(scrollbarSelector).toContain(".foliplus-dropdown-list");
-    expect(scrollbarSelector).toContain(".foliplus-panel-content");
     // The token group is the single value source.
     const tokens = css("foliplus/css/common/token.css");
     expect(tokens).toContain("--foliplus-scrollbar-width: thin");

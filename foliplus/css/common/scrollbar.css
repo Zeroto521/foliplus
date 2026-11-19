@@ -15,13 +15,16 @@
   one place, and a new scrollable surface joins the list instead of drifting.
   The property VALUES are tokens, so the whole recipe reads from one group.
   ══════════════════════════════════════════════════════════════════════ */
+/* Only list-shaped scroll containers join the stable-gutter recipe. Large
+     panel bodies (panel-content, row-panel) scroll rarely and reserving a
+     gutter lane there shifts their text/geometry on every open -- a real
+     layout regression the browser parity tests catch. Those surfaces keep
+     the OS default scrollbar chrome. */
 :is(
   .foliplus-search-result-panel,
   .foliplus-layer-more-menu,
-  .foliplus-row-panel,
   .foliplus-dropdown-list,
-  .foliplus-scheme-picker-dropdown,
-  .foliplus-panel-content
+  .foliplus-scheme-picker-dropdown
 ) {
   scrollbar-width: var(--foliplus-scrollbar-width);
   scrollbar-gutter: var(--foliplus-scrollbar-gutter);
