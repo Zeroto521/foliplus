@@ -1288,7 +1288,6 @@ describe("applyIconToLeaves — divicon-class source", () => {
       kind: "divicon-class",
       value: "pin",
     });
-    const icon: any = leaf.options.icon;
     expect(window.L.divIcon).toHaveBeenCalled();
     const opts = (window.L.divIcon as any).mock.calls[0][0];
     expect(opts.className).toBe("foliplus-shape-pin");
