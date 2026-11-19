@@ -19,7 +19,7 @@ import { disposeBorderRow, resetLayerBorder } from "./border.js";
 import { renderDelegatedStylePanel } from "./delegated.js";
 import { disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
-import { syncColorRowVisibility, resetLayerIcon } from "./icon.js";
+import { resetLayerIcon, syncColorRowVisibility } from "./icon.js";
 import { resetLayerIconColor } from "./iconColor.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerMarkerColor } from "./markerColor.js";

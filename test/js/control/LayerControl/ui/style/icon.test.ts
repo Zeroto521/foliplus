@@ -1,4 +1,9 @@
-import { initFixture, makeAuthorIcon, makeDefaultIconAuthor, findItem } from "../fixture.js";
+import {
+  findItem,
+  initFixture,
+  makeAuthorIcon,
+  makeDefaultIconAuthor,
+} from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
@@ -1405,7 +1410,6 @@ describe("icon rehydrate drift guard", () => {
   });
 });
 
-
 // ── Declaration-only URL / divIcon trigger + URL-mode color-row sync (PR #1228
 // scope cut: the panel no longer offers an edit entry, so the trigger NAMES the
 // declared source and the color rows hide in URL mode). ──
@@ -1423,12 +1427,8 @@ describe("declared url / divicon trigger + URL-mode color-row sync", () => {
     writeIntentKeys(ui, "overlay1", [[INTENT.ICON, icon]]);
     const item = findItem(ui, "overlay1")!;
     ui.openStylePanel("overlay1");
-    const panel = item.querySelector(
-      `.${CONST.CLASSES.STYLE_PANEL}`,
-    ) as HTMLElement;
-    const iconRow = panel.querySelector(
-      `[data-style-dim="icon"]`,
-    ) as HTMLElement;
+    const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement;
+    const iconRow = panel.querySelector(`[data-style-dim="icon"]`) as HTMLElement;
     const trigger = iconRow.querySelector(
       `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
     ) as HTMLElement;
@@ -1444,7 +1444,10 @@ describe("declared url / divicon trigger + URL-mode color-row sync", () => {
   });
 
   it("names a declared url source in the trigger (honest preview, no glyph)", () => {
-    const { trigger } = openPanelWithIcon({ kind: "url", value: "https://example.com/pin.png" });
+    const { trigger } = openPanelWithIcon({
+      kind: "url",
+      value: "https://example.com/pin.png",
+    });
     expect(trigger.textContent).toContain("https://example.com/pin.png");
     expect(trigger.title).toContain("https://example.com/pin.png");
     expect(
@@ -1465,9 +1468,14 @@ describe("declared url / divicon trigger + URL-mode color-row sync", () => {
   it("hides iconColor and markerColor rows in URL mode (buildIconRow sync on open)", () => {
     // URL mode is the pre-set intent BEFORE the panel opens, so buildIconRow
     // runs syncColorRowVisibility at row-build time and hides the color rows.
-    const { panel } = openPanelWithIcon({ kind: "url", value: "https://example.com/pin.png" });
+    const { panel } = openPanelWithIcon({
+      kind: "url",
+      value: "https://example.com/pin.png",
+    });
     const colorRow = panel.querySelector(`[data-style-dim="iconColor"]`) as HTMLElement;
-    const markerColorRow = panel.querySelector(`[data-style-dim="markerColor"]`) as HTMLElement;
+    const markerColorRow = panel.querySelector(
+      `[data-style-dim="markerColor"]`,
+    ) as HTMLElement;
     expect(colorRow).not.toBeNull();
     expect(colorRow.hidden).toBe(true);
     expect(markerColorRow.hidden).toBe(true);
@@ -1479,7 +1487,9 @@ describe("declared url / divicon trigger + URL-mode color-row sync", () => {
     const item2 = findItem(u2, "overlay1")!;
     u2.openStylePanel("overlay1");
     const panel2 = item2.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement;
-    const colorRow2 = panel2.querySelector(`[data-style-dim="iconColor"]`) as HTMLElement;
+    const colorRow2 = panel2.querySelector(
+      `[data-style-dim="iconColor"]`,
+    ) as HTMLElement;
     expect(colorRow2.hidden).toBe(false);
   });
 });

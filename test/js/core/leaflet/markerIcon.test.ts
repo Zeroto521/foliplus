@@ -1288,11 +1288,15 @@ describe("applyIconToLeaves — url source fallback", () => {
   beforeEach(() => {
     (window.L as any).Icon = class {
       options: any;
-      constructor(opts: any) { this.options = { ...opts }; }
+      constructor(opts: any) {
+        this.options = { ...opts };
+      }
       _setIconStyles() {}
     };
     (window.L as any).Icon.Default = class {};
-    (window.L as any).DivIcon = class { constructor(public options: any) {} };
+    (window.L as any).DivIcon = class {
+      constructor(public options: any) {}
+    };
     (window.L as any).divIcon = vi.fn((o: any) => new (window.L as any).DivIcon(o));
   });
 
@@ -1304,8 +1308,10 @@ describe("applyIconToLeaves — url source fallback", () => {
       getElement: () => document.createElement("div"),
     };
     const layer = { options: {}, eachLayer: vi.fn((fn: (l: any) => void) => fn(leaf)) };
-    applyIconToLeaves(layer, "star", undefined, undefined, undefined,
-      { kind: "url", value: "https://example.com/fallback.png" });
+    applyIconToLeaves(layer, "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/fallback.png",
+    });
     expect(leaf.setIcon).toHaveBeenCalled();
     const icon = leaf.setIcon.mock.calls[0][0];
     expect(icon.options.iconUrl).toBe("https://example.com/fallback.png");

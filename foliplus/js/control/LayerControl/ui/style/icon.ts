@@ -166,15 +166,12 @@ const syncColorRowVisibility = (
   panelRoot?: HTMLElement | null,
 ): void => {
   const urlMode = getIntent(ui, layerId, INTENT.ICON)?.kind === ICON_KIND.URL;
-  const root =
-    panelRoot ?? iconRowEl?.closest(`${CONST.CLASSES.STYLE_PANEL}`) ?? null;
+  const root = panelRoot ?? iconRowEl?.closest(`${CONST.CLASSES.STYLE_PANEL}`) ?? null;
   if (!root) return;
   for (const dim of COLOR_ROWS_HIDDEN_IN_URL_MODE) {
-    root
-      .querySelectorAll<HTMLElement>(`[data-style-dim="${dim}"]`)
-      .forEach(row => {
-        row.hidden = urlMode;
-      });
+    root.querySelectorAll<HTMLElement>(`[data-style-dim="${dim}"]`).forEach(row => {
+      row.hidden = urlMode;
+    });
   }
 };
 /** The layer's current icon source as {kind, value}, or null when uncovered.

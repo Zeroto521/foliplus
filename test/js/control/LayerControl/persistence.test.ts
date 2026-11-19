@@ -1300,13 +1300,25 @@ describe("LayerPersistence", () => {
       // persists and can never reach an <img src> from storage.
       seedStorage({
         layers: {
-          a: { icon: { kind: "url", value: "https://example.com/pin.png" }, overrides: ["icon"] },
-          b: { icon: { kind: "url", value: "data:text/html,<script>" }, overrides: ["icon"] },
-          c: { icon: { kind: "url", value: "javascript:alert(1)" }, overrides: ["icon"] },
+          a: {
+            icon: { kind: "url", value: "https://example.com/pin.png" },
+            overrides: ["icon"],
+          },
+          b: {
+            icon: { kind: "url", value: "data:text/html,<script>" },
+            overrides: ["icon"],
+          },
+          c: {
+            icon: { kind: "url", value: "javascript:alert(1)" },
+            overrides: ["icon"],
+          },
         },
       });
       expect(makePersistence().load().layers).toEqual({
-        a: { icon: { kind: "url", value: "https://example.com/pin.png" }, overrides: ["icon"] },
+        a: {
+          icon: { kind: "url", value: "https://example.com/pin.png" },
+          overrides: ["icon"],
+        },
       });
     });
     it("keeps a divicon-class icon whose shape is whitelisted and drops an unknown shape", () => {
@@ -1316,7 +1328,10 @@ describe("LayerPersistence", () => {
       seedStorage({
         layers: {
           a: { icon: { kind: "divicon-class", value: "square" }, overrides: ["icon"] },
-          b: { icon: { kind: "divicon-class", value: "not-a-shape" }, overrides: ["icon"] },
+          b: {
+            icon: { kind: "divicon-class", value: "not-a-shape" },
+            overrides: ["icon"],
+          },
         },
       });
       expect(makePersistence().load().layers).toEqual({
