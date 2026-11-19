@@ -1661,6 +1661,85 @@ describe("LayerController", () => {
     });
   });
 
+  // ── replayStoredState (single replay entry) ──
+
+  describe("replayStoredState", () => {
+    it("replays projection/name/order/style via applyUserState then filter, in that order", () => {
+      manager.ui = {
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+
+      const moved = manager.replayStoredState("overlay1");
+
+      // The single-entry contract: projection → name → order → style dims run
+      // inside applyUserState(id), then filter replays after — filter's hidden
+      // class depends on the DOM the style pass paints.
+      expect(manager.ui!.applyUserState).toHaveBeenCalledWith("overlay1");
+      expect(filterSpy).toHaveBeenCalledWith("overlay1");
+      expect(filterSpy.mock.invocationCallOrder[0]).toBeGreaterThan(
+        (manager.ui!.applyUserState as ReturnType<typeof vi.fn>).mock
+          .invocationCallOrder[0],
+      );
+      expect(moved).toEqual([]);
+    });
+
+    it("is idempotent — a second call replays the same dimensions the same way", () => {
+      manager.ui = {
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+
+      manager.replayStoredState("overlay1");
+      manager.replayStoredState("overlay1");
+
+      expect(manager.ui!.applyUserState).toHaveBeenCalledTimes(2);
+      expect(manager.ui!.applyUserState).toHaveBeenNthCalledWith(1, "overlay1");
+      expect(manager.ui!.applyUserState).toHaveBeenNthCalledWith(2, "overlay1");
+      expect(filterSpy).toHaveBeenCalledTimes(2);
+      expect(filterSpy).toHaveBeenNthCalledWith(1, "overlay1");
+      expect(filterSpy).toHaveBeenNthCalledWith(2, "overlay1");
+    });
+
+    it("tolerates a missing ui (pre-attach) and still replays the filter", () => {
+      manager.ui = undefined as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+
+      const moved = manager.replayStoredState("overlay1");
+
+      expect(moved).toEqual([]);
+      expect(filterSpy).toHaveBeenCalledWith("overlay1");
+    });
+  });
+
+  describe("replayStoredStateAll", () => {
+    it("sweeps applyUserState() once then replays the filter for every registered layer", () => {
+      manager.ui = {
+        applyUserState: vi.fn(() => []),
+      } as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+      const ids = manager.layerRegistry.items.map(l => l.id);
+
+      const moved = manager.replayStoredStateAll();
+
+      // The A-path sweep: projection-all + name + order + declared style dims
+      // in one applyUserState(), then per-layer filter replay.
+      expect(manager.ui!.applyUserState).toHaveBeenCalledTimes(1);
+      expect(manager.ui!.applyUserState).toHaveBeenCalledWith();
+      expect(filterSpy).toHaveBeenCalledTimes(ids.length);
+      for (const id of ids) expect(filterSpy).toHaveBeenCalledWith(id);
+      expect(moved).toEqual([]);
+    });
+  });
+
   // ── forgetSavedOrder ──
 
   // Component clear paths (Heatmap, Measure) call this to drop an id from the
