@@ -151,6 +151,10 @@ interface Fixture {
 function makeFixture(opts: FixtureOpts = {}): Fixture {
   const container = document.createElement("div");
   container.getBoundingClientRect = containerRect;
+  // jsdom 31 resolves computed styles on connected elements only, so the
+  // fixture's panes (and the shadow's display:none) must be attached for
+  // isAdmittedRoot / effectiveOpacity to see them.
+  document.body.append(container);
 
   const contentPane = document.createElement("div");
   const shadowPane = document.createElement("div"); // per-layer
@@ -175,6 +179,11 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
   (noPerLayerPane || opts.shadowInSharedPane ? sharedPane : shadowPane).appendChild(
     shadow,
   );
+
+  // jsdom 31 resolves computed styles on connected elements only, so the
+  // panes holding the shadow / icon must be attached for isAdmittedRoot /
+  // effectiveOpacity to see display:none and the opacity value.
+  container.append(contentPane, shadowPane, sharedPane);
 
   const layer = {
     options: {

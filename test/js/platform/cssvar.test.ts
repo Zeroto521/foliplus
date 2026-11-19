@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cssVar } from "#platform/cssvar.js";
 
 describe("cssVar", () => {
@@ -7,6 +7,11 @@ describe("cssVar", () => {
   beforeEach(() => {
     el = document.createElement("div");
     el.style.setProperty("--test-color", "red");
+    document.body.append(el);
+  });
+
+  afterEach(() => {
+    el.remove();
   });
 
   it("reads a CSS custom property", () => {
@@ -20,7 +25,9 @@ describe("cssVar", () => {
   it("returns fallback when property is empty", () => {
     const empty = document.createElement("div");
     empty.style.setProperty("--empty", "  ");
+    document.body.append(empty);
     expect(cssVar(empty, "--empty", "default")).toBe("default");
+    empty.remove();
   });
 
   it("returns empty string when no fallback is provided and property is missing", () => {

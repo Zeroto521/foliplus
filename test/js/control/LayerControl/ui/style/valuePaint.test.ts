@@ -18,6 +18,7 @@ import { pinStyleOnHighlight } from "#control/LayerControl/ui/style/pin.js";
 import { FACE, walkStyleLeaves } from "#control/LayerControl/ui/style/styleBag.js";
 import {
   type ValueFaceDecl,
+  forgetDegradedHint,
   paintByValue,
 } from "#control/LayerControl/ui/style/valuePaint.js";
 
@@ -247,6 +248,40 @@ it("reports the classify degradation at most once per layer per page", () => {
   const showHint = (ui.c.map.foliplus as any).showHint;
   expect(showHint).toHaveBeenCalledTimes(1);
   expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
+  warnSpy.mockRestore();
+});
+
+it("re-arms the hint for a layer id that a removed layer wore", () => {
+  // The dedup Set is keyed by the map, but the ids inside it are not
+  // bounded by anything: a layer removed mid-session keeps its id for the
+  // life of the page. That is worse than the retained bytes — a page that
+  // reuses the id for a fresh layer would read as "already hinted" and the
+  // new layer would degrade silently, even though the dependency has since
+  // loaded. The teardown drop clears the id; deleting forgetDegradedHint
+  // makes this red (the second paint reuses the cached decision and the
+  // hint stays at one).
+  installChroma(["#ff0000", "#00ff00", "#0000ff"]);
+  delete globalThis.ss;
+  const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const layer = makeFeatureLayer([
+    { properties: { value: 1 } },
+    { properties: { value: 9 } },
+  ]);
+  const ui = makeUI(layer);
+  const showHint = (ui.c.map.foliplus as any).showHint;
+
+  paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
+  expect(showHint).toHaveBeenCalledTimes(1);
+
+  // The layer leaves the page: the teardown drops its decision.
+  forgetDegradedHint(ui.c.map, "demo1");
+
+  // A layer reusing the id starts un-hinted: the degradation is reported
+  // again instead of staying silent.
+  paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
+
+  expect(showHint).toHaveBeenCalledTimes(2);
+  expect(showHint.mock.calls[1][1]).toBe("style_value_classify_degraded");
   warnSpy.mockRestore();
 });
 

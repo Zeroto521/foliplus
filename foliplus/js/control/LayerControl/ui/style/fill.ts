@@ -102,7 +102,7 @@ import {
   normalizeHexColor,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredBorder } from "#control/LayerControl/declaredBorder.js";
+import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";
 
 /** Whether the layer's surface can honestly carry a fill write.
  *  Pure capability check: `capabilities.fill === "native"`.
