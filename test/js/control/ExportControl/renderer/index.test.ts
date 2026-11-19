@@ -180,6 +180,11 @@ function makeFixture(opts: FixtureOpts = {}): Fixture {
     shadow,
   );
 
+  // jsdom 31 resolves computed styles on connected elements only, so the
+  // panes holding the shadow / icon must be attached for isAdmittedRoot /
+  // effectiveOpacity to see display:none and the opacity value.
+  container.append(contentPane, shadowPane, sharedPane);
+
   const layer = {
     options: {
       pane: "layer-content",

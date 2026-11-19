@@ -4315,8 +4315,12 @@ describe("fill row — original colors", () => {
       s.replace(/(\d+(?:\.\d+)?)%/g, (_, num: string) => {
         return `${String(parseFloat(num))}%`;
       });
-    const stop = canonical([color, ...positions].join(" "));
-    expect(canonical(gradient)).toContain(stop);
+    // jsdom 31 serializes a double-position stop ("color 0% 33.33%") as two
+    // stops with the color repeated ("color 0%, color 33.33%"), so assert each
+    // position's own "color pos" pair rather than one contiguous string.
+    for (const position of positions) {
+      expect(canonical(gradient)).toContain(canonical(`${color} ${position}`));
+    }
   };
 
   const readoutOf = (row: HTMLElement, name: string): string =>

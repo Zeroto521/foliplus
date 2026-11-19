@@ -619,11 +619,10 @@ const displayColor = (value: string): string => {
   const probe = document.createElement("span");
   probe.style.color = value;
   if (!probe.style.color) return value;
-  // jsdom 31's CSS engine resolves computed styles on connected elements only,
-  // so the probe must be attached for named / functional colors ("gray",
-  // "hsl(...)") to resolve — a detached probe reads back the default #000000.
-  // The probe is transient: attached for the read, removed immediately, so the
-  // live document is untouched (same contract as the detached probe before).
+  // Why the probe is CONNECTED: jsdom 31's CSS engine does not resolve
+  // computed styles on elements not attached to the document, so a detached
+  // probe would read back the default #000000 instead of "gray" / "hsl(...)".
+  // Attach for the read, remove immediately — the live document is untouched.
   document.body.append(probe);
   try {
     const match = /^rgba?\(([^)]+)\)$/.exec(getComputedStyle(probe).color);
