@@ -33,12 +33,12 @@
 // @see https://eslint.org/docs/latest/use/configure/
 import tseslint from "typescript-eslint";
 
-// `import/no-cycle` runs with the syntax-level pass, not the type-aware one.
+// `import-x/no-cycle` runs with the syntax-level pass, not the type-aware one.
 // It needs a TS-capable resolver (the repo's `.js` extension spec resolves to
 // `.ts` files, and `#core/*`-style aliases rely on tsconfig `paths`) — the
 // typescript resolver is the only one that handles both. See the exemption
 // block at the bottom for the files still flagged by the rule.
-const importPlugin = (await import("eslint-plugin-import")).default;
+const importPlugin = (await import("eslint-plugin-import-x")).default;
 
 // Component directories — single source of truth for the no-restricted-paths
 // zones. Adding a new component requires only appending its name here; all
@@ -85,20 +85,20 @@ export default [
       "config/**/*.mjs",
       "eslint.config.js",
     ],
-    plugins: { import: importPlugin },
+    plugins: { "import-x": importPlugin },
     settings: {
-      // eslint-plugin-import's default `validExtensions` is
+      // eslint-plugin-import-x's default `validExtensions` is
       // `['.js', '.mjs', '.cjs']`; without these the builder silently drops
       // every `.ts` import it can't parse, and `no-cycle` never fires.
-      "import/extensions": [".js", ".mjs", ".cjs", ".ts", ".tsx"],
-      "import/resolver": {
+      "import-x/extensions": [".js", ".mjs", ".cjs", ".ts", ".tsx"],
+      "import-x/resolver": {
         typescript: { project: "./tsconfig.json" },
       },
     },
     rules: {
       // Circular dependencies are almost always a smell — they complicate
       // initialization order and make tree-shaking / module bundling fragile.
-      // `import/no-cycle` runs here (syntax-level, no type program) rather
+      // `import-x/no-cycle` runs here (syntax-level, no type program) rather
       // than in `typed.mjs`. It ignores type-only imports by
       // default, so a `import type { X } from "./sibling"` edge never trips
       // it — that only matters when the value edge itself is what closes the
@@ -108,7 +108,7 @@ export default [
       // history/search bidirectional). These are pre-existing value cycles
       // that were already in the shipped codebase; they belong in their own
       // cleanup PRs, not here.
-      "import/no-cycle": ["error", { maxDepth: 10 }],
+      "import-x/no-cycle": ["error", { maxDepth: 10 }],
 
       // Layered dependency direction — the runtime tree is a strict DAG:
       //   common/  (bottom: DOM/storage/format utilities)
@@ -140,7 +140,7 @@ export default [
       // Component directories are defined once below and expanded into
       // glob patterns. Adding a new component requires only appending its
       // name to COMPONENT_DIRS — all three zone groups update automatically.
-      "import/no-restricted-paths": [
+      "import-x/no-restricted-paths": [
         "error",
         {
           zones: [
@@ -315,7 +315,7 @@ export default [
     },
   },
 
-  // ── `import/no-cycle` is enabled globally ──
+  // ── `import-x/no-cycle` is enabled globally ──
   // Both pre-existing value cycles have been broken:
   //   - LayerControl/ui/listPanel/rowView ↔ projection (broken in #640)
   //   - SearchControl/logic/history ↔ search (broken in this PR via panel.ts)
