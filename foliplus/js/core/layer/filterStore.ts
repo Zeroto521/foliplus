@@ -90,6 +90,11 @@ interface FilterSourceHost {
   /** kept / total in the surface's own unit — a feature leaf, a hex cell or a
    *  measurement item are all valid, so the unit is never inferred here. */
   counts?(): { kept: number; total: number };
+  /** Cheap presence probe: does this surface expose at least one filterable
+   *  field? O(K) constant (bounded leaf scan), never builds the full model.
+   *  Absent = the surface is assumed filterable when it reports a dimension
+   *  (Heatmap/Measure keep their existing dimension-driven semantics). */
+  hasFields?(): boolean;
 }
 
 /** A filter store bound to one layer. Register a surface, then read and write
@@ -353,13 +358,15 @@ const createFilterStore = (): FilterStore => {
     drop(layerId, source) {
       const record = readRecord();
       const layer = record.layers[layerId];
-      if (!layer?.sources?.[source]) return;
-      dropSource(layerId, source);
       // A departed source is gone: its declaration is stale and must not
-      // re-seed a future re-add of the same id. Only the persisted value and
-      // the declaration are removed — no apply, no publish (the caller owns
-      // the repaint; a departed source must not re-render the heatmap).
+      // re-seed a future re-add of the same id. The host must leave the
+      // registry too, or an eager-registered surface (a layer's generic
+      // filter) stays in the map forever and answers probes for a layer that
+      // no longer exists. No apply, no publish (the caller owns the repaint;
+      // a departed source must not re-render the heatmap).
+      if (layer?.sources?.[source]) dropSource(layerId, source);
       declarations.get(layerId)?.delete(source);
+      hosts.delete(keyOf(layerId, source));
     },
     filterModel(layerId, name) {
       const host = hosts.get(keyOf(layerId, name));
