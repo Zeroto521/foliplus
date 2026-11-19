@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   __entryUrl,
   computePatch,
+  isJsFile,
+  isPythonFile,
   main,
   parseAddedLines,
   parseArgs,
@@ -211,6 +213,44 @@ describe("toRel", () => {
     const r = toRel("/outside/repo/other.ts", REPO);
     expect(r.startsWith("outside/repo/other.ts")).toBe(false);
     expect(r.endsWith("other.ts")).toBe(true);
+  });
+});
+
+describe("scope classification (Python vs JS vs other)", () => {
+  it("classifies a foliplus .py source as Python (excluded)", () => {
+    expect(isPythonFile("foliplus/control/LayerControl.py")).toBe(true);
+    expect(isJsFile("foliplus/control/LayerControl.py")).toBe(false);
+  });
+
+  it("classifies a test/python file as Python (excluded)", () => {
+    expect(isPythonFile("test/python/test_layer_control.py")).toBe(true);
+    expect(isJsFile("test/python/test_layer_control.py")).toBe(false);
+  });
+
+  it("classifies a script .py as Python (excluded)", () => {
+    expect(isPythonFile("script/check/foo.py")).toBe(true);
+    expect(isJsFile("script/check/foo.py")).toBe(false);
+  });
+
+  it("classifies a .ts source as JS (counted)", () => {
+    expect(isJsFile("foliplus/js/core/layer/role.ts")).toBe(true);
+    expect(isPythonFile("foliplus/js/core/layer/role.ts")).toBe(false);
+  });
+
+  it("classifies a test .ts as JS (counted)", () => {
+    expect(isJsFile("test/js/script/check/patch-coverage.test.ts")).toBe(true);
+    expect(isPythonFile("test/js/script/check/patch-coverage.test.ts")).toBe(false);
+  });
+
+  it("classifies a non-JS non-Python file as neither (excluded)", () => {
+    const rel = "CHANGELOG.md";
+    expect(isJsFile(rel)).toBe(false);
+    expect(isPythonFile(rel)).toBe(false);
+  });
+
+  it("classifies a .mjs build script as JS (counted)", () => {
+    expect(isJsFile("script/build/build.mjs")).toBe(true);
+    expect(isPythonFile("script/build/build.mjs")).toBe(false);
   });
 });
 
@@ -954,6 +994,123 @@ describe("main CLI error paths", () => {
       );
       runCli([`--cwd=${repo}`, "--base=HEAD"], "/some/other/entry.mjs");
       expect(log).toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  afterAll(() => {
+    rmSync(repo, { recursive: true, force: true });
+  });
+});
+describe("scope CLI tests (Python skipped, JS counted, mixed)", () => {
+  const repo = mkdtempSync(join(tmpdir(), "patch-cov-scope-"));
+  const git = (args: string[], cwd = repo) =>
+    execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });
+  let baseRef = "";
+  try {
+    git(["init", "-q"]);
+    git(["config", "user.email", "t@t"]);
+    git(["config", "user.name", "t"]);
+    writeFileSync(join(repo, "src.ts"), "const a = 1;\n");
+    writeFileSync(join(repo, "src.py"), "def f():\n    pass\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "base"]);
+    baseRef = git(["rev-parse", "HEAD"]).trim();
+  } catch {
+    baseRef = "";
+  }
+
+  it("passes with a clear skip message on a pure Python change", () => {
+    if (!baseRef) return;
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 1\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "python-only"]);
+    mkdirSync(join(repo, "coverage"));
+    writeFileSync(join(repo, "coverage", "coverage-final.json"), "{}");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(0);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain(
+        "src.py: skipped: Python (covered by pytest, not this mirror)",
+      );
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  it("fails on a mixed change when the JS side is uncovered, listing JS lines only", () => {
+    if (!baseRef) return;
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 2\n");
+    writeFileSync(join(repo, "src.ts"), "const a = 1;\nconst b = 2;\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "mixed"]);
+    const covPath = join(repo, "coverage", "coverage-final.json");
+    const cov = {
+      [join(repo, "src.ts").replace(/\\/g, "/")]: {
+        statementMap: {
+          "0": { start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
+          "1": { start: { line: 2, column: 0 }, end: { line: 2, column: 0 } },
+        },
+        s: { "0": 1, "1": 0 },
+        branchMap: {},
+        b: {},
+      },
+    };
+    writeFileSync(covPath, JSON.stringify(cov));
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(1);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("src.ts: uncovered added lines 2");
+      expect(out).toContain(
+        "src.py: skipped: Python (covered by pytest, not this mirror)",
+      );
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  it("skips a non-JS non-Python file with the generic message", () => {
+    if (!baseRef) return;
+    // Capture the current HEAD so this test's diff covers ONLY the README change
+    // (the previous tests' src.ts/src.py commits stay out of this diff).
+    const prevHead = git(["rev-parse", "HEAD"]).trim();
+    writeFileSync(join(repo, "README.md"), "# readme\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "readme-only"]);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${prevHead}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+        ]),
+      );
+      expect(code).toBe(0);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain(
+        "README.md: skipped: not in the coverage report (excluded or non-JS)",
+      );
     } finally {
       log.mockRestore();
     }
