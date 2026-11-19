@@ -37,7 +37,7 @@ import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { FORM_CLASS, POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredIconSize } from "#control/LayerControl/declaredIconSize.js";
+import { readDeclaredIconSize } from "#control/LayerControl/declaredParse.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
  *  or undefined when the layer declares none -- the whole-icon box edge the
