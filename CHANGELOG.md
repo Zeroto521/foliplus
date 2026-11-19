@@ -48,7 +48,6 @@
 
 ### Fixed
 
-- `LayerControl` / `HeatmapControl` / `MeasureControl`: a dropped filter source releases its registered surface host, so a departed source can no longer answer presence or model probes (the filter host registry stays bounded by live surfaces) ([#1234](https://github.com/Zeroto521/foliplus/pull/1234))
 - `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728))
 - `LayerControl`: a row panel (style/attrs) measures the space above and below its anchor row and flips upward when the space below is tight, so a tall panel on a low row is no longer clipped by the map's edge ([#725](https://github.com/Zeroto521/foliplus/pull/725), [#846](https://github.com/Zeroto521/foliplus/pull/846), [#859](https://github.com/Zeroto521/foliplus/pull/859), [#917](https://github.com/Zeroto521/foliplus/pull/917))
 - `LayerControl`: value-based fill follows the layer's real geometry, and features added after a fill was set are repainted instead of keeping the declared colour ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#1050](https://github.com/Zeroto521/foliplus/pull/1050))
@@ -69,6 +68,7 @@
 - `ScaleControl` / `LayerControl`: the bottom-left scale bar no longer covers an unpinned row panel — the row panel reads the page-level floating z-index token instead of a bare literal ([#1187](https://github.com/Zeroto521/foliplus/pull/1187), [#1199](https://github.com/Zeroto521/foliplus/pull/1199))
 - fold panels join the overlay registry's `map:panel` exclusive group, so opening any other overlay collapses an open fold panel (`collapse_on_outside=False` keeps it open) ([#1193](https://github.com/Zeroto521/foliplus/pull/1193))
 - `LayerControl` / `HeatmapControl`: a jenks or quantile classification degrades to equal breaks with a user-visible hint when simple-statistics is not loaded, instead of silently leaving the layer uncolored ([#1223](https://github.com/Zeroto521/foliplus/pull/1223), [#1227](https://github.com/Zeroto521/foliplus/pull/1227))
+- `LayerControl` / `HeatmapControl` / `MeasureControl`: a dropped filter source releases its registered surface host, so a departed source can no longer answer presence or model probes (the filter host registry stays bounded by live surfaces) ([#1234](https://github.com/Zeroto521/foliplus/pull/1234))
 
 ## [v0.4.1] (2026-10-18)
 
