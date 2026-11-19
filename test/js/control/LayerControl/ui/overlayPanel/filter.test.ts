@@ -1161,30 +1161,26 @@ describe("LayerUI filter panel", () => {
       spy.mockRestore();
     });
 
-    it("selects every option / clears the selection from the popup footer", () => {
+    it("selects every option / clears the selection from the select-all row", () => {
       const spy = spyTranslator();
       const { item, owner } = registerEnum();
       ui.openFilterPanel(item);
       openList(item);
 
-      const footer = listOf()!.querySelector(".foliplus-dropdown-footer");
-      expect(footer).not.toBeNull();
-      const footerButtons = (): HTMLButtonElement[] =>
-        Array.from(
-          listOf()!.querySelectorAll<HTMLButtonElement>(
-            ".foliplus-dropdown-footer button",
-          ),
-        );
-      const buttons = footerButtons();
-      expect(buttons).toHaveLength(2);
-      const [selectAll, clear] = buttons;
+      const rowOf = (): HTMLDivElement =>
+        listOf()!.querySelector(".foliplus-dropdown-select-all") as HTMLDivElement;
+      const boxOf = (): HTMLInputElement =>
+        rowOf().querySelector("input[type=checkbox]") as HTMLInputElement;
+
+      expect(rowOf()).not.toBeNull();
       // The labels come from the locale vocabulary, never hardcoded English.
       expect(ui.T).toHaveBeenCalledWith("filter_enum_select_all");
-      expect(ui.T).toHaveBeenCalledWith("filter_enum_clear");
-      expect(selectAll.textContent).toBe(ui.T("filter_enum_select_all"));
-      expect(clear.textContent).toBe(ui.T("filter_enum_clear"));
+      expect(rowOf().textContent).toContain(ui.T("filter_enum_select_all"));
+      // Nothing picked: the box reads unchecked (never indeterminate).
+      expect(boxOf().checked).toBe(false);
+      expect(boxOf().indeterminate).toBe(false);
 
-      selectAll.click();
+      rowOf().click();
       expect(owner.filter).toEqual({
         kind: "enum",
         field: "type",
@@ -1192,54 +1188,60 @@ describe("LayerUI filter panel", () => {
       });
       expect(labelOf(item)).toBe("4 selected");
       expect(readout(item).textContent).toBe("8 of 8");
-      // All picked: the re-rendered footer disables select-all.
-      expect(footerButtons()[0].disabled).toBe(true);
-      expect(footerButtons()[1].disabled).toBe(false);
+      // All picked: the re-rendered row reads checked and flips to the
+      // deselect word, so the label keeps answering the current action.
+      expect(boxOf().checked).toBe(true);
+      expect(boxOf().indeterminate).toBe(false);
+      expect(ui.T).toHaveBeenCalledWith("filter_enum_deselect_all");
+      expect(rowOf().textContent).toContain(ui.T("filter_enum_deselect_all"));
 
-      footerButtons()[1].click();
+      rowOf().click();
       expect(owner.filter).toBeUndefined();
       expect(labelOf(item)).toBe("All");
       expect(readout(item).textContent).toBe("8 of 8");
-      // None picked: clear is a no-op and reads disabled again.
-      expect(footerButtons()[0].disabled).toBe(false);
-      expect(footerButtons()[1].disabled).toBe(true);
+      // None picked again: the box reads unchecked, never half-full.
+      expect(boxOf().checked).toBe(false);
+      expect(boxOf().indeterminate).toBe(false);
       spy.mockRestore();
     });
 
-    it("ignores a press on the disabled select-all footer button", () => {
+    it("a select-all press never leaves a partial selection behind", () => {
       const spy = spyTranslator();
       const { item, owner } = registerEnum();
       ui.openFilterPanel(item);
       openList(item);
 
-      const footerButtons = (): HTMLButtonElement[] =>
-        Array.from(
-          listOf()!.querySelectorAll<HTMLButtonElement>(
-            ".foliplus-dropdown-footer button",
-          ),
-        );
+      const rowOf = (): HTMLDivElement =>
+        listOf()!.querySelector(".foliplus-dropdown-select-all") as HTMLDivElement;
+      const boxOf = (): HTMLInputElement =>
+        rowOf().querySelector("input[type=checkbox]") as HTMLInputElement;
 
-      // Select every option through the footer: the re-rendered footer then
-      // disables select-all because the action is already a no-op.
-      footerButtons()[0].click();
+      // A press answers the current state: with everything already picked it
+      // clears the whole set, and it cannot toggle the selection into a
+      // partial one (the old disabled select-all button guarded this by being
+      // inert; the tri-state box guards it by reading its own state).
+      rowOf().click();
       expect(owner.filter).toEqual({
         kind: "enum",
         field: "type",
         values: ["marker", "distance", "polygon", "circle"],
       });
-      const [selectAll, clear] = footerButtons();
-      expect(selectAll.disabled).toBe(true);
-      expect(clear.disabled).toBe(false);
+      expect(boxOf().checked).toBe(true);
 
-      // A press on the disabled select-all is a no-op: the filter keeps every
-      // value instead of toggling into a partial selection.
-      selectAll.click();
+      rowOf().click();
+      expect(owner.filter).toBeUndefined();
+      expect(labelOf(item)).toBe("All");
+      // Picking one option by hand, the row reads indeterminate and the next
+      // press completes the set rather than clearing it.
+      clickOption("marker");
+      expect(boxOf().checked).toBe(false);
+      expect(boxOf().indeterminate).toBe(true);
+      rowOf().click();
       expect(owner.filter).toEqual({
         kind: "enum",
         field: "type",
         values: ["marker", "distance", "polygon", "circle"],
       });
-      expect(labelOf(item)).toBe("4 selected");
       spy.mockRestore();
     });
     it("disables the trigger and stays inert for a zero-option enum", () => {

@@ -18,7 +18,6 @@ import type {
 } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import {
-  DROPDOWN_CLASS,
   type Dropdown,
   type DropdownOverlay,
   type DropdownSurface,
@@ -325,31 +324,12 @@ const renderEnumBody = (
     onChange: (_value, values) => deps.write(enumFilterOf(dim, new Set(values))),
     ...deps.surface,
     overlay: deps.overlay,
-    // The multiple-mode footer: select every option / clear the selection.
-    // The buttons carry the shared locale vocabulary — never hardcoded
-    // English — and disable when the action is already a no-op.
-    multipleFooter: actions => {
-      const total = dim.options.length;
-      const footer = dom.el("div", { class: DROPDOWN_CLASS.FOOTER });
-      const selectAllBtn = dom.el(
-        "button",
-        { type: "button" },
-        deps.T("filter_enum_select_all"),
-      ) as HTMLButtonElement;
-      if (actions.getCount() === total) selectAllBtn.disabled = true;
-      // listener-exempt: control-DOM，随面板移除
-      selectAllBtn.onclick = () => actions.selectAll();
-      const clearBtn = dom.el(
-        "button",
-        { type: "button" },
-        deps.T("filter_enum_clear"),
-      ) as HTMLButtonElement;
-      if (actions.getCount() === 0) clearBtn.disabled = true;
-      // listener-exempt: control-DOM，随面板移除
-      clearBtn.onclick = () => actions.clear();
-      footer.append(selectAllBtn, clearBtn);
-      return footer;
-    },
+    // The dropdown paints the select-all row itself (multiple mode); the
+    // filter body only supplies its locale labels, so no language is hardcoded
+    // in either layer. Pressing the row selects every option, and again when
+    // everything is picked it clears them.
+    selectAllLabel: deps.T("filter_enum_select_all"),
+    selectAllDeselectLabel: deps.T("filter_enum_deselect_all"),
   });
   // The owner declared no options: nothing to select, and an empty popup would
   // read as a broken control.

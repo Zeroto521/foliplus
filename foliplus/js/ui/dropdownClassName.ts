@@ -13,9 +13,14 @@ const DROPDOWN_CLASS = {
   LABEL: "foliplus-dropdown-label",
   PLACEHOLDER: "foliplus-dropdown-placeholder",
   LIST: "foliplus-dropdown-list",
-  FOOTER: "foliplus-dropdown-footer",
   OPTION: "foliplus-dropdown-option",
   OPTION_LABEL: "foliplus-dropdown-option-label",
+  /** The built-in select-all row a multiple-mode dropdown paints above its
+   *  options. Not an option: it acts on every item, so it sits in the listbox
+   *  `head` slot and stays out of the keyboard walk. */
+  SELECT_ALL_ROW: "foliplus-dropdown-select-all",
+  /** Its label span, so the row can shrink like an option label. */
+  SELECT_ALL_LABEL: "foliplus-dropdown-select-all-label",
   OPEN: "foliplus-dropdown-open",
   UP: "foliplus-dropdown-up",
   PORTAL: "foliplus-dropdown-portal",

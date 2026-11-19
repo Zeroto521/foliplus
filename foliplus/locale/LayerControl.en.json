@@ -116,6 +116,7 @@
   "LayerControl.filter_enum_any": "All",
   "LayerControl.filter_enum_count": "{n} selected",
   "LayerControl.filter_enum_select_all": "Select all",
+  "LayerControl.filter_enum_deselect_all": "Deselect all",
   "LayerControl.filter_enum_clear": "Clear",
   "LayerControl.filter_clear": "Clear",
   "LayerControl.filter_clear_tooltip": "Clear this layer's filter",

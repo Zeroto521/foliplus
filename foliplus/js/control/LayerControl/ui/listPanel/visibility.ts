@@ -12,6 +12,7 @@ import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
 import { ROLE, paintsAtZoom } from "#core/layer/index.js";
+import { selectAllStateOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the
@@ -175,14 +176,13 @@ const writeToggleAllCheckbox = (
   role: string,
 ): void => {
   const c = ui.listPanel.checkedCount?.[role] ?? { total: 0, on: 0 };
-  const allChecked = c.total > 0 && c.on === c.total;
-  const noneChecked = c.on === 0;
+  // The tri-state verdict comes from the shared helper the dropdown select-all
+  // row uses, so the two cannot disagree about when a box is half-full.
+  const { state, allChecked } = selectAllStateOf(c.total, c.on);
   allCb.checked = allChecked;
-  allCb.indeterminate = !allChecked && !noneChecked;
+  allCb.indeterminate = state === "indeterminate";
   allCb.title = ui.T(
-    allChecked || allCb.indeterminate
-      ? "toggle_all_deselect_tooltip"
-      : "toggle_all_select_tooltip",
+    state === "none" ? "toggle_all_select_tooltip" : "toggle_all_deselect_tooltip",
   );
 };
 

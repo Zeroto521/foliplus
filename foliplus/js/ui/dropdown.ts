@@ -23,10 +23,12 @@
 //    rewriting the options or the value programmatically.
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
+import { buildCheckSlot } from "./checkSlot.js";
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
 import { applyOptionRowA11y } from "./optionRow.js";
+import { selectAllAction, selectAllStateOf } from "./selectAllState.js";
 import type { Dropdown, DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -40,16 +42,6 @@ interface DropdownItem {
   disabled?: boolean;
   title?: string;
   disabledHint?: string;
-}
-
-/** The select-all / clear actions the multiple-mode footer can drive. The
- *  consumer builds the footer element (with its locale labels) and wires the
- *  two buttons to these; `getCount` lets the footer disable an action that is
- *  already a no-op (all picked / none picked). */
-interface DropdownFooterActions {
-  selectAll: () => void;
-  clear: () => void;
-  getCount: () => number;
 }
 
 /** Highest host-panel rank a popup can sit in. The registry owns the
@@ -109,11 +101,15 @@ interface DropdownOptions extends DropdownSurface {
   className?: string;
   triggerAttributes?: Record<string, string>;
   selectedLabel?: (labels: readonly string[]) => string;
-  /** Multiple-mode footer element (a select-all / clear bar). The consumer
-   *  supplies the element and its locale labels; the dropdown wires the two
-   *  actions and re-reads the selection after every change. Ignored when
-   *  `multiple` is false. */
-  multipleFooter?: (actions: DropdownFooterActions) => HTMLElement | null;
+  /** Locale label for the built-in select-all row. The dropdown paints the
+   *  row itself in `multiple` mode and reads only this text from the consumer,
+   *  so no language is hardcoded here. Falls back to "Select all". Ignored
+   *  when `multiple` is false. */
+  selectAllLabel?: string;
+  /** Locale label for the select-all row once every option is picked: pressing
+   *  it then clears the selection, so it needs a different word. Defaults to
+   *  `selectAllLabel`. Ignored when `multiple` is false. */
+  selectAllDeselectLabel?: string;
   onChange?: (value: string, values: readonly string[]) => void;
   onToggle?: (open: boolean, list: HTMLElement | null) => void;
 }
@@ -297,23 +293,76 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     wrapper.append(native);
   }
 
-  // The multiple-mode footer actions: set every option / clear the selection,
+  // The multiple-mode set actions: select every option / clear the selection,
   // then commit through the same write path a row press uses (onChange +
-  // native change). A re-render follows so the rows and the footer buttons
+  // native change). A re-render follows so the options and the select-all row
   // answer the new selection.
   const selectAllValues = (): void => {
     if (state.destroyed || !state.multiple) return;
     state.values = new Set(state.items.map(item => item.value));
     renderLabel(state);
     commit(state);
-    if (listboxOf(state).isOpen()) listboxOf(state).refresh();
+    // refreshHead, not refresh: the options are untouched, so rebuilding them
+    // would drop focus off the row a keyboard user is walking.
+    if (listboxOf(state).isOpen()) listboxOf(state).refreshHead();
   };
   const clearValues = (): void => {
     if (state.destroyed || !state.multiple) return;
     state.values = new Set();
     renderLabel(state);
     commit(state);
-    if (listboxOf(state).isOpen()) listboxOf(state).refresh();
+    if (listboxOf(state).isOpen()) listboxOf(state).refreshHead();
+  };
+  /** The built-in select-all row: one tri-state checkbox above the options,
+   *  pressing it selects everything or clears it (a tri-state toggle over the
+   *  whole set, so no separate Clear action is needed).
+   *
+   *  Rebuilt on every renderRows — the listbox clears the list first — so the
+   *  checkbox is always read off the current selection. */
+  const selectAllRowOf = (): HTMLElement => {
+    const total = state.items.length;
+    const count = valuesOf(state).length;
+    const verdict = selectAllStateOf(total, count);
+    const { slot, box } = buildCheckSlot(total, count);
+    // The box is the row control: a real <input type="checkbox">, so focus,
+    // keyboard and the indeterminate state all come from the platform. It is
+    // pointer-transparent (CSS) so a press anywhere on the row reaches the row
+    // handler below; keyboard stays on the box, where Space toggles it natively
+    // and fires change.
+    const label = dom.el(
+      "span",
+      { class: DROPDOWN_CLASS.SELECT_ALL_LABEL },
+      verdict.allChecked
+        ? (opts.selectAllDeselectLabel ?? opts.selectAllLabel ?? "Select all")
+        : (opts.selectAllLabel ?? "Select all"),
+    );
+    const row = dom.el("div", {
+      role: "button",
+      "aria-pressed": String(verdict.allChecked),
+      class: DROPDOWN_CLASS.SELECT_ALL_ROW,
+    });
+    row.append(slot, label);
+    // Pressing the row moves the whole set: everything picked clears it, anything
+    // less selects it all (selectAllAction — the layer toggle-all shares this).
+    // The action answers the CURRENT state read at press time, not at build time:
+    // a stale read would clear a partially-picked list on its first press.
+    const act = (): void => {
+      if (state.destroyed) return;
+      const now = selectAllStateOf(state.items.length, valuesOf(state).length);
+      if (selectAllAction(now.state) === "clear") clearValues();
+      else selectAllValues();
+    };
+    // One dispatch, however the press lands: a row press forwards to the box,
+    // which is what fires change. Wiring both the row and the box would toggle
+    // twice on a press that lands on the box itself (its own click bubbles up to
+    // the row), so the box is the only thing that fires the action.
+    // listener-exempt: control-DOM, removed with the dropdown
+    row.onclick = () => {
+      if (state.destroyed) return;
+      box.click();
+    };
+    box.onchange = () => act();
+    return row;
   };
   const listbox = createListbox({
     trigger,
@@ -353,14 +402,10 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     },
     renderTrigger: () => renderLabel(state),
     onRowActivate: index => activateRow(state, index),
-    footer: opts.multipleFooter
-      ? () =>
-          opts.multipleFooter?.({
-            selectAll: selectAllValues,
-            clear: clearValues,
-            getCount: () => valuesOf(state).length,
-          }) ?? null
-      : undefined,
+    // The select-all row paints itself above the options: the dropdown builds
+    // it once (multiple mode only) and re-reads the selection after every change,
+    // so its box and label always answer the current pick.
+    head: multiple ? selectAllRowOf : undefined,
     onToggle: open => {
       opts.onToggle?.(open, listbox.getList());
     },
