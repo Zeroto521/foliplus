@@ -67,7 +67,17 @@
 .foliplus-style-fill-readonly {
   display: flex;
   align-items: center;
-  cursor: default;
+  /* cursor: default is the shared .foliplus-readonly contract in form.css;
+     every .foliplus-style-fill-readonly element also carries
+     .foliplus-readonly, so the pointer affordance is owned there, not here. */
+}
+
+/* The read-only box's value text stays copyable: the style panel inherits
+   user-select: none from the shared row-panel recipe, and a read-out that
+   cannot be selected cannot be copied. The box itself stays non-interactive
+   (cursor: default, no focus) — only the value span opts back in. */
+.foliplus-style-fill-readonly .foliplus-style-fill-original-value {
+  user-select: text;
 }
 
 /* The monochrome original-colors opacity readout takes the same width as the
@@ -164,8 +174,12 @@
 
 /* The size row's px field sits at the right edge of the control column — the
    numeric column the border row's weight field also occupies — while its value
-   stays horizontally centered inside the box. */
-.foliplus-style-size-row .foliplus-form-inline {
+   stays horizontally centered inside the box. STYLE_SIZE_ROW is the shared
+   right-align hook (reused by fill-opacity / border-width rows); the true
+   size row also carries its own hook class, which must be addressed by
+   STYLE_SIZE_HOOK_ROW, never by STYLE_SIZE_ROW. */
+.foliplus-style-size-row .foliplus-form-inline,
+.foliplus-style-size-hook-row .foliplus-form-inline {
   justify-content: flex-end;
 }
 

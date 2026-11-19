@@ -717,7 +717,10 @@ describe("Slider primitive", () => {
     // put both at 294, 13px right of the thumb.
     expect(bubble.style.left).toBe("307px");
     expect(bubble.style.getPropertyValue("--foliplus-bubble-arrow")).toBe("0px");
-    expect(bubble.style.transform).toBe("translate(-50%, 0)");
+    // The bubble is centred on the thumb by a -50% x translation. jsdom 31
+    // serializes the zero-length y component canonically away, so accept both
+    // the explicit "0" (jsdom 30) and the elided form (jsdom 31 / browsers).
+    expect(bubble.style.transform).toMatch(/^translate\(-50%(,\s*0(px)?)?\)$/);
     expect(bubble.dataset.side).toBe("above");
   });
 

@@ -51,6 +51,15 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredIconSize } from "#control/LayerControl/declaredParse.js";
+
+/** The author-declared icon pixel size for this layer (foliplus icon_size),
+ *  or undefined when the layer declares none -- the whole-icon box edge the
+ *  marker construction scales to. Read off the layer so a declared size rides
+ *  every re-derivation (glyph / icon-colour / chassis write) without each
+ *  caller re-deriving it. */
+const declaredIconSizeOf = (layer: unknown): number | undefined =>
+  readDeclaredIconSize(layer).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain
@@ -113,6 +122,7 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
     glyph,
     hasOpacity ? opacityIntent : undefined,
     coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+    declaredIconSizeOf(layer),
   );
 };
 /** Write the layer's color and replay the walk.
@@ -183,6 +193,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
       glyph,
       undefined,
       coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      declaredIconSizeOf(layer),
     );
   } else {
     // No author paint: restore the author icon, then re-apply a user glyph
@@ -195,6 +206,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
         glyph,
         undefined,
         coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+        declaredIconSizeOf(layer),
       );
     }
   }
@@ -236,6 +248,7 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     inlineControls(input, opacityGroup),
     CONST.CLASSES.STYLE_ICON_COLOR_ROW,
   );
+  row.dataset.styleDim = "iconColor";
   input.addEventListener("input", () => {
     const next = input.value;
     if (!/^#[0-9a-f]{6}$/i.test(next)) return;
@@ -292,13 +305,7 @@ const ICON_COLOR_DIMENSION = registerDimension<{
     );
   },
   reset: (ui, layerId) => resetLayerIconColor(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!layerCanIconColor(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.ICON_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.ICON_COLOR_OPACITY)
-      ? "user"
-      : "author";
-  },
+  intentKeys: [INTENT.ICON_COLOR, INTENT.ICON_COLOR_OPACITY],
   contentChange: {
     kind: "frame",
     face: FACE.ICON_COLOR,

@@ -232,6 +232,38 @@ describe("generic data-layer filter (controller wiring)", () => {
       expect(path(a.leaf)).toBe(true);
     });
 
+    it("replayFilter rebuilds the snapshot on demand when a reload cleared it", () => {
+      // The reload root cause (user-verified): after a refresh the store's
+      // filterFeatures row is gone (the feature-build slice runs lazily), so
+      // the layeradd replay's applyFilterClass used to raw-read the store,
+      // get null, and leave every marker visible while the panel showed the
+      // restored filter. applyFilterClass now routes through
+      // ensureFilterFeatures, so the replay builds the snapshot from the
+      // registered layer's geometry and re-applies the class.
+      const el = document.createElement("path");
+      const leaf = Object.assign(new window.L.Polygon(), {
+        feature: { properties: { value: 1 } },
+        getElement: () => el,
+      });
+      manager.registerLayer({
+        id: "reload",
+        name: "Reload",
+        role: "overlay",
+        layer: leaf,
+      });
+      manager.setLayerFilter("reload", between("value", [2, 5]));
+      const hidden = () => el.classList.contains(CONST.CLASSES.FILTER_HIDDEN);
+      expect(hidden()).toBe(true);
+      // A reload clears the snapshot (built lazily) and recreates the DOM —
+      // the class is gone from the fresh element.
+      ui.runtimeStore.deleteFilterFeatures("reload");
+      el.classList.remove(CONST.CLASSES.FILTER_HIDDEN);
+      expect(hidden()).toBe(false);
+      // The layeradd replay must rebuild the snapshot and re-apply.
+      (manager as unknown as { replayFilter(id: string): void }).replayFilter("reload");
+      expect(hidden()).toBe(true);
+    });
+
     it("the layeradd handler replays a committed filter onto a re-added layer", () => {
       // The 415-419 replay branch only runs when a filter is committed and a
       // layer rejoins the map; the direct replayFilter tests above cover the
@@ -334,6 +366,37 @@ describe("generic data-layer filter (controller wiring)", () => {
       });
       expect(manager.genericFilterModel("flt1")).toBeNull();
     });
+  });
+
+  it("bumpDataRevision invalidates the cached filterFeatures (Tier2 rebuild)", () => {
+    const features = makeFeatures();
+    ui.runtimeStore.setFilterFeatures("flt1", features);
+    // First read caches at revision 0.
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
+    // Bump — the cached row is now stale and must be rebuilt.
+    ui.runtimeStore.bumpDataRevision("flt1");
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
+    expect(manager.genericFilterModel("flt1")?.total).toBe(3);
+  });
+
+  it("bumpDataRevision is per-id: a sibling layer's cache is untouched", () => {
+    const features = makeFeatures();
+    ui.runtimeStore.setFilterFeatures("flt1", features);
+    ui.runtimeStore.setFilterFeatures("sib", makeFeatures());
+    manager.genericFilterModel("flt1");
+    ui.runtimeStore.bumpDataRevision("sib");
+    // flt1's cached answer stays valid (its revision did not move).
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
+    expect(manager.genericFilterModel("flt1")?.total).toBe(3);
+  });
+
+  it("a layer with no walkable layer falls back to the pre-seeded snapshot", () => {
+    // flt1 was never given a layer object (the registerLayer call carries no
+    // `layer`), so buildFilterFeatures has nothing to walk. The pre-seeded
+    // row is the source of truth and must survive.
+    const features = makeFeatures();
+    ui.runtimeStore.setFilterFeatures("flt1", features);
+    expect(manager.genericFilterModel("flt1")).not.toBeNull();
   });
 
   describe("declared filter seeding (per-layer declaration → committed filter)", () => {

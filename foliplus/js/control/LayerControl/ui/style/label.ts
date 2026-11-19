@@ -42,6 +42,13 @@ const invalidateFieldCache = (ui: LayerUI, layerId: string): void => {
   // dropped must lose both caches in one move.
   ui.runtimeStore.deleteSnapshot(layerId);
   ui.c.label.invalidateResolvedField(layerId);
+  // The generic filter field model is a cache over the same feature set:
+  // drop the Tier2 filterFeatures row and bump the dataRevision so the
+  // Tier1 presence probe knows its cached answer is stale too. The two
+  // invalidations live here because this is the single confluence point
+  // for LAYER_ITEM_REMOVED / LAYER_ITEM_COUNT_CHANGE / LAYER_ITEM_UPDATED.
+  ui.runtimeStore.deleteFilterFeatures(layerId);
+  ui.runtimeStore.bumpDataRevision(layerId);
 };
 
 /** Rebuild this layer's label text from the tree it has *now*. Expensive:

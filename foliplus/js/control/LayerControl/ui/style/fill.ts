@@ -102,6 +102,7 @@ import {
   normalizeHexColor,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";
 
 /** Whether the layer's surface can honestly carry a fill write.
  *  Pure capability check: `capabilities.fill === "native"`.
@@ -519,10 +520,12 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     // overwrite: bindLiveColor only owns oninput today.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevColorChange = colorEl.onchange;
+    // listener-exempt: style-panel color input change handler (flush chain) on a panel-owned element
     colorEl.onchange = ev => {
       prevColorChange?.call(colorEl, ev);
       flush();
     };
+    // listener-exempt: style-panel color input blur handler (flush at drag end) on a panel-owned element
     colorEl.onblur = flush;
   }
 
@@ -543,10 +546,12 @@ const bindSolidDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     // instead of overwriting it. blur is free.
     const flush = () => flushStyleDimApply(FACE.FILL, layerId, ui);
     const prevChange = opacityEl.onchange;
+    // listener-exempt: style-panel opacity input change handler (flush chain) on a panel-owned element
     opacityEl.onchange = ev => {
       prevChange?.call(opacityEl, ev);
       flush();
     };
+    // listener-exempt: style-panel opacity input blur handler (flush at drag end) on a panel-owned element
     opacityEl.onblur = flush;
   }
 };
@@ -727,6 +732,10 @@ const FILL_DIMENSION = registerDimension<{
     };
   },
   row: buildFillRow,
+  /** Bind the fill block's live controls. The panel hands the exact block
+   *  `row()` built (already carrying data-style-dim=fill), so the block lookup
+   *  in bindFillRow resolves to itself — no class-based re-lookup. */
+  bind: bindFillRow,
   /** Intent+persist + schedule the fill face landing. `patch` is already
    *  normalized (hex / 0-1). Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
@@ -742,8 +751,16 @@ const FILL_DIMENSION = registerDimension<{
     // edits the fill (colour, mode, value), the border must re-derive from
     // each leaf's new paint. The fill write is the single commit path, so
     // the border replay rides here — no extra listener, no cross-face
-    // event. Only when the stored border mode is follow-fill.
-    if (getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) === STYLE_MODE.FOLLOW_FILL) {
+    // event. Replay when the follow-fill mode is in force: stored (the
+    // user chose it) or declared (foliplus.border follow_fill, no stored
+    // mode). A stored solid/value border steps aside — it does not follow.
+    const borderMode = getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE);
+    const layerObj = ui.c.layerRegistry.get(layerId)?.layer ?? ui.c.findLayer(layerId);
+    const borderFollowFill =
+      borderMode === STYLE_MODE.FOLLOW_FILL ||
+      (borderMode === undefined &&
+        readDeclaredBorder(layerObj, layerId).declared === STYLE_MODE.FOLLOW_FILL);
+    if (borderFollowFill) {
       replayFace(ui, layerId, FACE.STROKE);
     }
   },
@@ -786,13 +803,7 @@ const FILL_DIMENSION = registerDimension<{
     }
     walkFillLeaves(layer, node => restoreStyleDim(node, FACE.FILL));
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanFill(ui, layerId)) return "none";
-    for (const key of FILL_INTENT_KEYS) {
-      if (ui.intentStore.isUserSet(layerId, key)) return "user";
-    }
-    return "author";
-  },
+  intentKeys: FILL_INTENT_KEYS,
   /** Content-change replay: a stored fill repaints the leaves that just
    *  landed — without it a streamed addData keeps the new features at the
    *  author's color and a running value fill classifies on stale breaks. The

@@ -73,12 +73,34 @@ ZOOM_RANGE_KEY = "zoom_range"
 MEASURE_TYPE_FIELD = "type"
 #: The declaration key that asks for a layer folder.
 FOLDER_KEY = "folder"
+#: The longest folder name a declaration may carry, in Unicode code points.
+#: A folder name is a short label read on a list row, not a data field: past
+#: this the row's ellipsis hides everything and the value is far likelier a
+#: pasted value than a name. Mirrors FOLDER_NAME_MAX in the JS reader
+#: (LayerInfoRegistry), so Python and JS cannot disagree about which names
+#: reach the panel. Measured after normalising, so whitespace padding cannot
+#: disguise a long name and a padded name is judged by what the author sees.
+FOLDER_NAME_MAX = 64
 #: The per-layer fill declaration key.
 FILL_KEY = "fill"
 #: The per-layer label declaration key.
 LABEL_KEY = "label"
 #: The per-layer filter declaration key.
 FILTER_KEY = "filter"
+#: The per-layer border declaration key: the author declares a
+#: border mode default (follow_fill) on the layer, read by the JS panel as a
+#: read-time default under the user's stored choice.
+BORDER_KEY = "border"
+#: The per-layer marker chassis-colour declaration key: the author names one
+#: of the runtime's marker chassis presets (markerColorPreset.ts) as a
+#: read-time default. folium's named Icon colours are a DIFFERENT palette
+#: (different hex values), so this chassis vocabulary is not expressible via
+#: folium kwargs - that is why it is a foliplus declaration.
+MARKER_COLOR_KEY = "marker_color"
+#: The per-layer marker icon pixel-size declaration key: a whole-number pixel
+#: size for the marker icon. folium's Icon carries a fixed pixel size and
+#: exposes no scaling channel, so this too is a foliplus-only declaration.
+ICON_SIZE_KEY = "icon_size"
 #: The filter's kind discriminator (a declared filter is a range or an enum).
 FilterKind = Literal["range", "enum"]
 
@@ -500,6 +522,56 @@ def normalise_layer_filter(
     )
 
 
+# ── Border declaration ────────────────────────────────────────────────
+def normalise_border(
+    raw: object,
+    *,
+    owner: str,
+    subject: str | None = None,
+    source: str | None = None,
+) -> dict[str, str] | None:
+    """Normalise one declared ``{"mode": "follow_fill"}`` border.
+
+    Returns ``{"mode": "follow_fill"}`` when the declaration is usable, else
+    ``None``: "not declared" and "declared but invalid" are the same state
+    downstream - the border stays on its derived default (original/solid)
+    rather than painting a mode the author never saw validated.
+
+    ``owner`` names the control and ``subject`` the specific subject (a layer
+    name), so every message and de-duplication note is attributable.
+    ``source`` is how the caller wrote it (the layer's ``foliplus['border']``),
+    so the warning points at the entry point they used. The only recognised
+    mode is ``follow_fill``; a missing/unknown mode warns once and is ignored.
+    """
+    if raw is None:
+        return None
+
+    where = f"{owner}: {subject}" if subject else owner
+    declared = source or f"foliplus[{BORDER_KEY!r}]"
+
+    def reject(reason: str) -> None:
+        note = f"{owner}:{subject or '-'}:border:{reason}"
+        warn_foliplus(
+            note,
+            f"{where} declares {declared} {reason} - ignored",
+        )
+
+    if not isinstance(raw, Mapping):
+        reject(f"as {type(raw).__name__}; expected a mapping")
+        return None
+    # An extra key is a typo to surface, never a reason to drop the
+    # author's follow_fill intent: warn one-by-one and keep the valid mode
+    # (the same contract the JS reader follows, so Python and JS can never
+    # disagree about whether the declaration survived).
+    for key in sorted((key for key in raw if key != "mode"), key=repr):
+        reject(f"with unknown key {key!r}; expected only mode")
+    mode = raw.get("mode")
+    if mode != "follow_fill":
+        reject(f"with a mode {mode!r}; expected 'follow_fill'")
+        return None
+    return {"mode": mode}
+
+
 # ── Folder declaration ───────────────────────────────────────────────────
 def normalise_folder(
     raw: object,
@@ -518,8 +590,9 @@ def normalise_folder(
     ``owner`` names the layer and ``subject`` the specific subject, so every
     message and de-duplication note is attributable. ``source`` is how the
     caller wrote it (the layer's ``foliplus['folder']``), so the warning
-    points at the entry point they used. A non-string or blank value warns
-    once and is ignored. This reader only reads and strips the name; role
+    points at the entry point they used. A non-string, blank or over-long
+    value warns once and is ignored. This reader only reads, normalises and
+    caps the name; role
     matching, the stable caller-folder id and the folder registry live with
     the grouping work, not here.
     """
@@ -543,4 +616,112 @@ def normalise_folder(
     if not name:
         reject("as an empty or whitespace-only string; expected a non-empty string")
         return None
+    # The cap is measured on the normalised name: the same strip/fold that
+    # keeps a padded name from looking long is what the panel will show, so a
+    # name the author intends is not rejected by whitespace they never see.
+    if len(name) > FOLDER_NAME_MAX:
+        reject(
+            f"at {len(name)} code points; expected at most {FOLDER_NAME_MAX}",
+        )
+        return None
     return name
+
+
+# ── Marker chassis-colour declaration ────────────────────────────────
+def normalise_marker_color(
+    raw: object,
+    *,
+    owner: str,
+    subject: str | None = None,
+    source: str | None = None,
+) -> str | None:
+    """Normalise one declared marker chassis preset name.
+
+    Returns the stripped preset name when the declaration is a non-empty
+    string, else ``None``: "not declared" and "declared but invalid" are the
+    same state downstream - the marker keeps its derived chassis colour
+    rather than painting a name the author never saw validated.
+
+    Only the *shape* is gated here (a non-empty string). Whether the name is
+    one of the runtime's chassis presets is the JS reader's verdict: the
+    preset vocabulary lives in markerColorPreset.ts, and duplicating the
+    19-name closed set here would be a second list to keep in step with the
+    runtime's - the same split the enum filter uses (shape here, vocabulary
+    at the consumer). An unknown name therefore survives this reader and is
+    warned once by the JS panel, which owns the preset table.
+
+    ``owner`` names the control and ``subject`` the specific subject (a layer
+    name), so every message and de-duplication note is attributable.
+    ``source`` is how the caller wrote it (the layer's
+    ``foliplus['marker_color']``), so the warning points at the entry point
+    they used. A non-string or blank value warns once and is ignored.
+    """
+    if raw is None:
+        return None
+
+    where = f"{owner}: {subject}" if subject else owner
+    declared = source or f"foliplus[{MARKER_COLOR_KEY!r}]"
+
+    def reject(reason: str) -> None:
+        note = f"{owner}:{subject or '-'}:marker_color:{reason}"
+        warn_foliplus(
+            note,
+            f"{where} declares {declared} {reason} - ignored",
+        )
+
+    if not isinstance(raw, str):
+        reject(f"as {type(raw).__name__}; expected a non-empty string")
+        return None
+    name = raw.strip()
+    if not name:
+        reject("as an empty or whitespace-only string; expected a non-empty string")
+        return None
+    return name
+
+
+# ── Marker icon pixel-size declaration ───────────────────────────────
+def normalise_icon_size(
+    raw: object,
+    *,
+    owner: str,
+    subject: str | None = None,
+    source: str | None = None,
+) -> int | None:
+    """Normalise one declared marker icon pixel size.
+
+    Returns a positive int when the declaration is usable, else ``None``:
+    "not declared" and "declared but invalid" are the same state downstream -
+    the marker keeps its built-in pixel size rather than scaling to a value
+    the author never saw validated.
+
+    A whole-number pixel size is required: a marker icon scales as a box, so a
+    fractional pixel is not meaningful, and a zero/negative size would hide
+    the marker. ``numbers.Integral`` rather than ``int`` so a numpy/pandas
+    scalar from a data-driven declaration is accepted like any other integer;
+    ``bool`` is an ``int`` subclass but never a size, so it is rejected too.
+
+    ``owner`` names the control and ``subject`` the specific subject (a layer
+    name); ``source`` is how the caller wrote it. A non-integer, zero or
+    negative value warns once and is ignored.
+    """
+    if raw is None:
+        return None
+
+    where = f"{owner}: {subject}" if subject else owner
+    declared = source or f"foliplus[{ICON_SIZE_KEY!r}]"
+
+    def reject(reason: str) -> None:
+        note = f"{owner}:{subject or '-'}:icon_size:{reason}"
+        warn_foliplus(
+            note,
+            f"{where} declares {declared} {reason} - ignored",
+        )
+
+    if isinstance(raw, bool) or not isinstance(raw, numbers.Integral):
+        reject(f"as {type(raw).__name__}; expected a positive whole number of pixels")
+        return None
+    size = int(raw)
+    if size <= 0:
+        reject(f"as {size}; expected a positive whole number of pixels")
+        return None
+    return size

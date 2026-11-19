@@ -71,6 +71,46 @@ describe("LayerUI attrs", () => {
       expect(entry?.panels()).toEqual([]);
     });
 
+    it("deleting the layer closes its open attrs panel (LAYER_REMOVED)", () => {
+      manager.registerLayer({
+        id: "L1",
+        name: "Added",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      const item = findItem(ui, "L1");
+      ui.openAttrsPanel(item);
+      expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).not.toBeNull();
+
+      expect(manager.deleteLayer("L1")).toBe(true);
+
+      expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
+    });
+
+    it("deleting another layer keeps this attrs panel open", () => {
+      manager.registerLayer({
+        id: "L1",
+        name: "Added",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      manager.registerLayer({
+        id: "L2",
+        name: "Other",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      const item = findItem(ui, "L1");
+      ui.openAttrsPanel(item);
+      expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).not.toBeNull();
+
+      expect(manager.deleteLayer("L2")).toBe(true);
+
+      expect(item.querySelector(`.${CONST.CLASSES.ATTRS_PANEL}`)).not.toBeNull();
+      expect(ui.overlayPanel.activeAttrsPanel?.layerId).toBe("L1");
+    });
+
     const rows = (panel: HTMLElement): Array<[string, string]> =>
       Array.from(panel.querySelectorAll(".foliplus-form-row")).map(
         r =>

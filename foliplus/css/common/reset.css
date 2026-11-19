@@ -13,6 +13,16 @@
 .leaflet-bar:has(.foliplus-is-expanded) {
   z-index: var(--foliplus-z-index-floating);
 }
+/* A corner group holding a foliplus fold/panel control sits one step above
+  Leaflet's own 1000, so its tall panel clears a plain control's corner
+  (scale bar, attribution) that a later-created sibling would otherwise
+  paint over. Scoped to the fold/panel shell so a plain foliplus control
+  (Scale, Locate) keeps the stock corner order; a second foliplus control
+  in the same corner still orders by DOM position. */
+.leaflet-top:has(> .leaflet-bar > .foliplus-ctrl-fold),
+.leaflet-bottom:has(> .leaflet-bar > .foliplus-ctrl-fold) {
+  z-index: var(--foliplus-z-index-control-corner);
+}
 
 /* Pin the map's type scale to foliplus's 10px base.
    The page used to inherit it from Bootstrap 3's "html { font-size: 62.5% }":

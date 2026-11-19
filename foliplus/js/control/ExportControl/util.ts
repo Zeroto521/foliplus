@@ -49,11 +49,13 @@ const loadImage = (src: string, crossOrigin?: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     if (crossOrigin) i.crossOrigin = crossOrigin;
+    // listener-exempt: one-shot image load handler, self-detached on fire (i.onload = null)
     i.onload = () => {
       i.onload = null;
       i.onerror = null;
       resolve(i);
     };
+    // listener-exempt: one-shot image error handler, self-detached on fire (i.onerror = null)
     i.onerror = () => {
       i.onload = null;
       i.onerror = null;

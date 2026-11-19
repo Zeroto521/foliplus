@@ -44,6 +44,18 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import {
+  readDeclaredIconSize,
+  readDeclaredMarkerColor,
+} from "#control/LayerControl/declaredParse.js";
+
+/** The author-declared icon pixel size for this layer (foliplus icon_size),
+ *  or undefined when the layer declares none -- the whole-icon box edge the
+ *  marker construction scales to. Read off the layer so a declared size rides
+ *  every re-derivation (glyph / icon-colour / chassis write) without each
+ *  caller re-deriving it. */
+const declaredIconSizeOf = (layer: unknown): number | undefined =>
+  readDeclaredIconSize(layer).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the marker-color capability (an awesome-markers chassis carrier —
@@ -74,18 +86,45 @@ const authorMarkerColor = (layer: unknown): string | null => {
   return found;
 };
 
-/** The author's chassis hex, or the default blue when the author declares
- *  nothing (awesome-markers defaults to blue). A non-preset author value (a
- *  hex the author painted directly) is used as-is; a preset name is mapped
- *  forward through the preset table. */
-const authorMarkerColorHex = (layer: unknown): string => {
+/** The author's own chassis hex, or null when the author declares no chassis
+ *  (or names a value that is neither a preset nor a 6-digit hex). The
+ *  awesome-markers default blue is NOT conflated with the absence — the
+ *  absence is a distinct state so a foliplus-declared chassis (or the
+ *  derived default) can take the paint. A non-preset author value (a hex the
+ *  author painted directly) is used as-is; a preset name is mapped forward
+ *  through the preset table. */
+const authorMarkerColorHex = (layer: unknown): string | null => {
   const author = authorMarkerColor(layer);
-  if (!author) return MARKER_COLOR_PRESET_HEX.blue;
+  if (!author) return null;
   if (/^#[0-9a-f]{6}$/i.test(author)) return author.toLowerCase();
   const mapped = (MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[
     author
   ];
-  return mapped ?? MARKER_COLOR_PRESET_HEX.blue;
+  return mapped ?? null;
+};
+
+/** The chassis paint when the user has not picked one: the author's own
+ *  chassis, else the author-declared foliplus marker_color, else the
+ *  awesome-markers default blue. The declaration is a read-time default the
+ *  paint and the row both read — a panel pick wins and Reset returns here. */
+const resolveChassisPaint = (layer: unknown): string =>
+  authorMarkerColorHex(layer) ??
+  declaredMarkerColorHex(layer) ??
+  MARKER_COLOR_PRESET_HEX.blue;
+
+/** The chassis hex the AUTHOR DECLARED via foliplus={"marker_color": "<preset>"},
+ *  or null when the layer declares nothing (or an out-of-vocabulary name, which
+ *  declaredMarkerColor warns about and reads as not-declared). This is the
+ *  lowest-priority chassis source: a panel pick (intent) or the author's own
+ *  painted/preset colour both win over it, and it only replaces the derived
+ *  default blue. A preset name maps forward through the same table a panel pick
+ *  uses, so a declared chassis lands on the library sprite. */
+const declaredMarkerColorHex = (layer: unknown): string | null => {
+  const { declared } = readDeclaredMarkerColor(layer);
+  if (!declared) return null;
+  return (
+    (MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[declared] ?? null
+  );
 };
 
 /** Apply the layer's stored chassis color + opacity to every marker leaf,
@@ -103,7 +142,7 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
   // orthogonal: a user glyph wins, else the author's own glyph name. The
   // icon color rides the same one-shot construction.
   const paint =
-    typeof markerColor === "string" ? markerColor : authorMarkerColorHex(layer);
+    typeof markerColor === "string" ? markerColor : resolveChassisPaint(layer);
   const glyph =
     currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
   const iconColor = getIntent(ui, layerId, INTENT.ICON_COLOR);
@@ -113,6 +152,7 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
     glyph,
     typeof iconColor === "string" ? iconColor : undefined,
     typeof opacity === "number" ? opacity : undefined,
+    declaredIconSizeOf(layer),
   );
 };
 /** Write the layer's chassis color and replay the walk.
@@ -182,20 +222,64 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
       authorHex,
       glyph,
       typeof iconColor === "string" ? iconColor : undefined,
+      declaredIconSizeOf(layer),
     );
   } else {
     // No author chassis: restore the author icon, then re-apply a user glyph
     // / icon color so resetting the chassis never clears them (orthogonal).
+    // The re-apply lands on the DECLARED chassis (the read-time default Reset
+    // returns to), else the derived blue — never the hardcoded blue.
     resetIconLeaves(layer);
     if (glyph || typeof iconColor === "string") {
       applyMarkerColorToLeaves(
         layer,
-        MARKER_COLOR_PRESET_HEX.blue,
+        resolveChassisPaint(layer),
         glyph,
         typeof iconColor === "string" ? iconColor : undefined,
+        declaredIconSizeOf(layer),
       );
     }
   }
+};
+
+/** Attach-sweep replay for an author-declared chassis only.
+ *
+ *  The provenance loop in applyUserState reaches only layers the user
+ *  touched; a layer whose marker_color is declared but never edited is
+ *  absent from it, and only a declaration needs the extra pass. Layers with a
+ *  stored intent are skipped so the sweep does not apply the same chassis
+ *  twice. Mirrors replayDeclaredFill / replayDeclaredBorder. */
+const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+
+const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
+  if (
+    getIntent(ui, layerId, INTENT.MARKER_COLOR) !== undefined ||
+    getIntent(ui, layerId, INTENT.MARKER_COLOR_OPACITY) !== undefined
+  ) {
+    return;
+  }
+  const layer = ui.c.findLayer(layerId);
+  if (!layer) return;
+  if (declaredMarkerColorHex(layer) === null) return;
+  let painted = declaredReplayed.get(ui);
+  if (painted?.has(layerId)) return;
+  // An author-chassis marker needs no replay (the author icon is the map
+  // state); only a declared chassis with no author chassis is a read-time
+  // default the paint must apply.
+  if (authorMarkerColorHex(layer) === null) {
+    applyMarkerColorToLeaves(
+      layer,
+      declaredMarkerColorHex(layer)!,
+      authorGlyphNameOnLayer(layer)?.name ?? null,
+      undefined,
+      declaredIconSizeOf(layer),
+    );
+  }
+  if (!painted) {
+    painted = new Set();
+    declaredReplayed.set(ui, painted);
+  }
+  painted.add(layerId);
 };
 
 /** Build the marker-color row: a swatch input plus a chassis-opacity number
@@ -206,7 +290,10 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
   const current = getIntent(ui, layerId, INTENT.MARKER_COLOR);
-  const value = typeof current === "string" ? current : authorMarkerColorHex(layer);
+  // A panel pick wins; else the author's own chassis; else the
+  // author-declared foliplus marker_color (the read-time default Reset
+  // returns to); else the awesome-markers blue.
+  const value = typeof current === "string" ? current : resolveChassisPaint(layer);
   const input = colorInput({
     value,
     ariaLabel: ui.T("style_marker_color"),
@@ -227,6 +314,7 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
     inlineControls(input, opacityGroup),
     CONST.CLASSES.STYLE_MARKER_COLOR_ROW,
   );
+  row.dataset.styleDim = "markerColor";
   input.addEventListener("input", () => {
     const next = input.value;
     if (!/^#[0-9a-f]{6}$/i.test(next)) return;
@@ -283,13 +371,7 @@ const MARKER_COLOR_DIMENSION = registerDimension<{
     );
   },
   reset: (ui, layerId) => resetLayerMarkerColor(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!layerCanMarkerColor(ui, layerId)) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.MARKER_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.MARKER_COLOR_OPACITY)
-      ? "user"
-      : "author";
-  },
+  intentKeys: [INTENT.MARKER_COLOR, INTENT.MARKER_COLOR_OPACITY],
   contentChange: {
     kind: "frame",
     face: FACE.MARKER_COLOR,
@@ -307,5 +389,6 @@ export {
   commitMarkerColor,
   commitMarkerColorOpacity,
   layerCanMarkerColor,
+  replayDeclaredMarkerColor,
   resetLayerMarkerColor,
 };

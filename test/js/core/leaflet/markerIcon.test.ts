@@ -688,6 +688,35 @@ describe("buildMarkerIcon chassis span", () => {
     const div = derived.createIcon();
     expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
   });
+  it("removes the probe div even when getComputedStyle throws (try/finally)", () => {
+    // The probe-div branch attaches a probe to the body, then reads its
+    // computed background. If getComputedStyle throws (a hostile or broken
+    // CSS environment), the try/finally must still remove the probe — the
+    // live document is never left with a stray hidden div.
+    const author = makeAuthorIcon({ bg: "none" });
+    const spy = vi.spyOn(window, "getComputedStyle").mockImplementation(() => {
+      throw new Error("computed style unavailable");
+    });
+    try {
+      const derived = buildMarkerIcon({
+        author,
+        glyph: "circle",
+        markerColor: "#436978",
+        markerColorOpacity: 50,
+      }) as any;
+      const div = derived.createIcon();
+      expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    // The probe div appended to body must be gone.
+    const stray = Array.from(document.body.children).filter(
+      el =>
+        el.className === "awesome-marker-icon-preset awesome-marker" &&
+        (el as HTMLElement).style.visibility === "hidden",
+    );
+    expect(stray.length).toBe(0);
+  });
   it("skips the probe div when the document body is unavailable", () => {
     // The probe-div branch guards on document.body (a detached/headless
     // context). With no body, readChassisSprite must return null without
@@ -877,6 +906,79 @@ describe("buildMarkerIcon", () => {
     expect(derived.options.html).toContain("foliplus-marker-glyph");
     expect(derived.options.html).toContain("fa-solid");
     expect(derived.options.html).toContain("fa-map-pin");
+  });
+  it("scales the div-icon box and anchor by a declared icon_size", () => {
+    // The author-declared icon pixel size is a WHOLE-ICON scale: the built-in
+    // 25x41 box and its [12,41] anchor grow by one factor so the pin tip stays
+    // pinned. A declared size that is ignored would render the built-in box.
+    const author = makeDefaultIconAuthor();
+    const derived = buildMarkerIcon({ author, glyph: "map-pin", iconSize: 50 }) as any;
+    expect(derived.options.iconSize).toEqual([50, 82]);
+    expect(derived.options.iconAnchor).toEqual([25, 82]);
+  });
+
+  it("leaves the built-in box untouched when no icon_size is declared", () => {
+    // The pure-additive contract: a layer that declares no icon_size renders
+    // at the built-in 25x41 / [12,41], byte-identical to before the channel.
+    const author = makeDefaultIconAuthor();
+    const derived = buildMarkerIcon({ author, glyph: "map-pin" }) as any;
+    expect(derived.options.iconSize).toEqual([25, 41]);
+    expect(derived.options.iconAnchor).toEqual([12, 41]);
+  });
+  it("is a no-op when the declared icon_size equals the built-in 25", () => {
+    // The declared-size boundary: a size equal to the built-in width scales by
+    // exactly 1, so the box and anchor round back to the built-in 25x41 /
+    // [12,41]. A branch that rescaled unconditionally would drift the anchor
+    // (round(12.5) vs floor(12.5)) even at scale 1.
+    const author = makeDefaultIconAuthor();
+    const derived = buildMarkerIcon({ author, glyph: "map-pin", iconSize: 25 }) as any;
+    expect(derived.options.iconSize).toEqual([25, 41]);
+    expect(derived.options.iconAnchor).toEqual([12, 41]);
+  });
+
+  it("falls back to the built-in box for an invalid icon_size (0 / negative / NaN)", () => {
+    // A declared size that cannot scale (0, negative, NaN) degrades to the
+    // built-in 25x41 / [12,41] rather than producing a zero or NaN box that
+    // would drop the glyph below the point. Deleting the guard in scaleBox
+    // makes every one of these produce a degenerate box and turns this red.
+    const author = makeDefaultIconAuthor();
+    for (const bad of [0, -5, Number.NaN]) {
+      const derived = buildMarkerIcon({
+        author,
+        glyph: "map-pin",
+        iconSize: bad,
+      }) as any;
+      expect(derived.options.iconSize, String(bad)).toEqual([25, 41]);
+      expect(derived.options.iconAnchor, String(bad)).toEqual([12, 41]);
+    }
+  });
+
+  it("scales the awesome-markers chassis by one uniform transform (and skips it when invalid)", () => {
+    // The sprite path never recomputes background geometry: it scales the WHOLE
+    // rendered chassis by one transform anchored at the pin tip, so the sprite
+    // stays pixel-identical internally and only the drawn size changes. An
+    // invalid declared size must leave the chassis transform untouched (no-op).
+    // Deleting the applyDeclaredIconScale call (or its guard) turns both halves
+    // of this test red.
+    const scaled = buildMarkerIcon({
+      author: makeAuthorIcon(),
+      glyph: "star",
+      iconSize: 50,
+    }) as any;
+    const scaledDiv = scaled.createIcon() as HTMLElement;
+    expect(scaledDiv.style.transformOrigin).toBe("12px 41px");
+    expect(scaledDiv.style.transform).toBe("scale(2)");
+
+    for (const bad of [0, -5, Number.NaN]) {
+      const untouched = buildMarkerIcon({
+        author: makeAuthorIcon(),
+        glyph: "star",
+        iconSize: bad,
+      }) as any;
+      const div = untouched.createIcon() as HTMLElement;
+      expect(div.style.transform, String(bad)).toBe("");
+      expect(div.style.transformOrigin, String(bad)).toBe("");
+    }
   });
   it("paints the applied glyph under the panel prefix when no author family wins (render path)", () => {
     // The control knob (coerced) reaches the build: the applied glyph renders

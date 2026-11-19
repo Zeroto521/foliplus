@@ -27,12 +27,13 @@ import {
   type CreateLayersOpts,
   DIM,
   FILTER_SOURCE,
+  FOLDER_NAME_MAX,
+  type FilterDimension,
   type FilterEnumDimension,
   type FilterRangeDimension,
   type FilterStore,
   type FolderLayout,
   type FolderLayoutManager,
-  type FolderSection,
   GEOM_TYPE,
   type IconIntent,
   type LabelAwareLayer,
@@ -40,6 +41,7 @@ import {
   type LayerCapabilities,
   LayerFactory,
   type LayerFilter,
+  type LayerFilterFeatures,
   type LayerFilterModel,
   LayerInfoRegistry,
   type LayerKind,
@@ -48,12 +50,14 @@ import {
   type LayerStyleSnapshot,
   type LayerSurface,
   PaneManager,
+  RECURSION,
   ROLE,
   type RegisterLayerOpts,
   type StyleMode,
   type StyleProvenance,
   SurfaceIndex,
   type ValueConfig,
+  buildFilterFeatures,
   countFeatureGeometry,
   createFolder,
   deleteFolder,
@@ -64,8 +68,10 @@ import {
   filterLeafSet,
   filterStep,
   findLayer,
+  folderNameLength,
+  folderNameTooLong,
   folderOf,
-  freezeSectionOrder,
+  freezeRoleOrder,
   normalizeFolderName,
   renameFolder,
   visibleDomOf,
@@ -73,7 +79,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
-import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
+import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
@@ -187,6 +193,33 @@ const capabilityKey = (caps: LayerCapabilities): string =>
  *  The panel shows the shared hint so the user knows the list is partial. */
 const ENUM_OPTION_LIMIT = 50;
 
+/** The generic filter presence probe scans at most this many geometry leaves.
+ *  Column-shaped GeoJSON means the first K leaves represent the field shape
+ *  with near-certainty (see design §3), so an O(K) bounded scan answers
+ *  "does this layer expose any filterable field" without a full walk. The
+ *  probe is conservative by design: a layer whose first K leaves carry no
+ *  property value reads false even when a later leaf has one (the menu then
+ *  hides the Filter entry until the author declares a filter). */
+const PROBE_K = 64;
+
+/** Why a folder create/rename was refused. `blank` is an empty or
+ *  whitespace-only name, `duplicate` is a name already taken (same role or
+ *  colliding with the name-keyed directory), `too-long` is a name over
+ *  {@link FOLDER_NAME_MAX}, and `missing` is a rename whose old folder no
+ *  longer exists — a stale reference, not a user-input mistake. */
+type FolderRefusalReason = "blank" | "duplicate" | "too-long" | "missing";
+
+/** The outcome of {@link LayerController.createFolder}: `ok: true` on success,
+ *  otherwise `ok: false` with the {@link FolderRefusalReason} — never
+ *  `"missing"`, since a create has no old folder to lose. */
+type FolderCreateResult =
+  { ok: true } | { ok: false; reason: Exclude<FolderRefusalReason, "missing"> };
+
+/** The outcome of {@link LayerController.renameFolder}: `ok: true` on success
+ *  (including a normalisation-only no-op), otherwise `ok: false` with the
+ *  {@link FolderRefusalReason} so the panel can say why. */
+type FolderRenameResult = { ok: true } | { ok: false; reason: FolderRefusalReason };
+
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer
@@ -260,6 +293,15 @@ class LayerController implements LayerAPI {
   /** The generic filter's hidden-leaf set per layer id, kept so the label
    *  label walk can skip hidden leaves without recomputing the filter. */
   declare hiddenSets: Map<string, WeakSet<L.Layer>>;
+  /** Tier1 presence-probe cache: layerId -> {revision, has}. A menu row
+   *  render must not re-scan the layer, so the probe answer is cached per
+   *  (layerId, dataRevision) — a stale row (unbumped) is a cache hit. */
+  private readonly filterProbe = new Map<string, { revision: number; has: boolean }>();
+  /** Tier2 filterFeatures build revision: layerId -> dataRevision at build.
+   *  The cached row is valid only while this equals the store's current
+   *  dataRevision; a mismatch means the feature set changed and the row
+   *  must be rebuilt. */
+  private readonly filterFeaturesRev = new Map<string, number>();
   /** The icon-replay handler registered on the shared markerIcon module. A
    *  marker icon rebuild swaps the element but not the leaf; this re-applies
    *  the filter hidden class so the DOM class and the leaf-keyed hidden set
@@ -323,7 +365,7 @@ class LayerController implements LayerAPI {
         if (!removedIds.has(layerInfo.id)) return true;
         // Late-binding fallback (folium script-stream order) — same single
         // point as `findLayer` / ExportControl's `resolveLayer`.
-        const layer = layerInfo.layer ?? findLayer(this.map, layerInfo.id);
+        const layer = this.resolveLayer(layerInfo);
         if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
         return false;
       }),
@@ -680,11 +722,7 @@ class LayerController implements LayerAPI {
     for (const surface of this.surfaceIndex.values()) {
       // Retired surfaces never stay in `surfaces`: `unregisterEntry` destroys
       // the face and deletes it from the map in the same synchronous step, and
-      // a same-id replacement swaps it before any event can run. This is a
-      // failsafe for a broken invariant, not a state this flow produces —
-      // exempt from the branch-coverage gate for that reason.
-      /* v8 ignore next */
-      if (surface.retired) continue;
+
       if (!includeSelf && surface.layer === layer) continue;
       if (!this.confirmsOwnership(surface, layer)) continue;
       surface.markContentDirty();
@@ -751,7 +789,7 @@ class LayerController implements LayerAPI {
     return this.folderLayout.layout;
   }
   /** The display name of the folder a layer currently belongs to (from the
-   *  layout's member assignment), or null when the layer is at section root. */
+   *  layout's member assignment), or null when the layer is at role root. */
   folderNameOf(layerId: string): string | null {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return null;
@@ -861,14 +899,16 @@ class LayerController implements LayerAPI {
 
   /** Return the number of geometric features in a registered layer.
    *  Third-party provider wins (Canvas layers need this). Fallback uses walkLeaf.
-   *  Returns null when the layer cannot be meaningfully counted (Canvas without
-   *  provider, base tile layers, or unknown non-container layers).
+   *  `null` when the id is not registered; `undefined` when the layer exists
+   *  but cannot be meaningfully counted (Canvas without provider, base tile
+   *  layers, or unknown non-container layers).
    *  @param {string} id - Layer id.
-   *  @returns {number|null} Feature count, or null when count is unavailable. */
-  getFeatureCount(id: string): number | null {
+   *  @returns {number|null|undefined} Feature count, `null` = id not found,
+   *   `undefined` = id exists but has no countable features. */
+  getFeatureCount(id: string): number | null | undefined {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
-    if (layerInfo.role === ROLE.BASE) return null;
+    if (layerInfo.role === ROLE.BASE) return undefined;
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -879,16 +919,16 @@ class LayerController implements LayerAPI {
         // Provider threw (e.g. canvas in a failing state). Log so the failure
         // is visible rather than silently returning a stale 0-count. For
         // Canvas/unknown layers the walkLeaf fallback is a no-op anyway
-        // (returns null), so this is a defensive fallback, not a real path.
+        // (returns undefined), so this is a defensive fallback, not a real path.
         this.log.error(`featureCountProvider threw for "${id}":`, err);
       }
     }
     // 2. Fallback via walkLeaf — only valid for feature containers.
     const layer = this.findLayer(layerInfo);
-    if (!layer) return null;
+    if (!layer) return undefined;
     if (isGroupLike(layer)) return countFeatureGeometry(layer);
     // 3. Canvas or unknown non-container → no meaningful count.
-    return null;
+    return undefined;
   }
 
   /** Notify subscribers that a layer's feature count may have changed.
@@ -1169,7 +1209,6 @@ class LayerController implements LayerAPI {
     target: {
       filterProvider?: (() => LayerFilterModel | null) | null;
       filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
-      hasFilterFields?: (() => boolean) | null;
       canvas?: HTMLCanvasElement | null;
       styleSetters?: Record<string, (value: unknown) => void> | null;
       role?: LayerRole;
@@ -1186,16 +1225,11 @@ class LayerController implements LayerAPI {
       target.filterProvider = () => this.genericFilterModel(id);
       target.filterSetter = (filter: LayerFilter | undefined) =>
         this.setLayerFilter(id, filter);
-      // Cheap gate: only the cached filter-features row is read, never the
-      // dimension projection. The menu renders this per row; a full model
-      // build would re-traverse the snapshot each time.
-      target.hasFilterFields = () => {
-        const features = this.ui?.runtimeStore.getFilterFeatures(id);
-        return !!(
-          features &&
-          (features.numericFields.length > 0 || features.enumFields.length > 0)
-        );
-      };
+      // Eager host registration: the menu must be able to probe presence
+      // without opening the panel, so the host exists before first render.
+      // The registration itself is a pure map write — no leaf walk, no
+      // field scan (lead constraint: eager = zero traversal).
+      this.ensureGenericHost(id);
     }
   }
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
@@ -1216,9 +1250,9 @@ class LayerController implements LayerAPI {
 
     // A layer's role is fixed for the id's whole lifetime — it picks the
     // z ladder, the attribution and basemap semantics, and which panel
-    // section owns the row. Re-registering with a different role would be a
+    // role owns the row. Re-registering with a different role would be a
     // role change, which no code path models: the in-place upsert would
-    // strand the row in the old section with a stale section boundary
+    // strand the row in the old role with a stale role boundary
     // (firstBaseIdx) and a partition invariant broken. Refuse before any
     // mutation — unregister first if the role really must change.
     const existingRole = this.layerRegistry.get(opts.id);
@@ -1233,6 +1267,12 @@ class LayerController implements LayerAPI {
     // Inject the generic filter capability for ordinary data layers. The
     // caller-explicit capability (Heatmap/Measure) wins; see the helper.
     this.injectGenericFilterCapability(opts, opts.id);
+    // A (re-)registration can carry a different feature set than the one the
+    // filter caches were built from: invalidate so the next probe/model
+    // rebuilds. Cheap (no walk), and a first registration is a no-op bump
+    // against the initial revision 0. Optional-chained: a pre-attach
+    // registration (no ui yet) has no cache to invalidate.
+    this.ui?.runtimeStore?.bumpDataRevision?.(opts.id);
 
     const { layerInfo, hidden, mutation } = this.domain.registerEntry(
       opts,
@@ -1537,6 +1577,11 @@ class LayerController implements LayerAPI {
     const retired = this.retireEntry(id);
     if (!retired) return false;
 
+    // The layer left the registry: its filter caches are stale and must
+    // not answer for a re-registered layer with different data.
+    this.filterProbe.delete(id);
+    this.filterFeaturesRev.delete(id);
+
     const operation = this.beginOperation();
     // Flush before any fan-out: the registry is already updated, and a
     // throwing consumer must not leave the persisted order listing the id.
@@ -1581,11 +1626,11 @@ class LayerController implements LayerAPI {
       role === ROLE.BASE
         ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
         : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
-    // Keep the header while the section still owns a folder key: the
+    // Keep the header while the role still owns a folder key: the
     // empty-folder cleanup button must stay reachable after the last layer
     // goes (hard constraint 1 / builder-4 ④).
-    const sectionKeys = this.folderLayout.layout.order[role] ?? [];
-    if (!container.querySelector(anchorSel) && sectionKeys.length === 0) {
+    const roleKeys = this.folderLayout.layout.order[role] ?? [];
+    if (!container.querySelector(anchorSel) && roleKeys.length === 0) {
       container
         .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-role="${role}"]`)
         ?.remove();
@@ -1743,7 +1788,7 @@ class LayerController implements LayerAPI {
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer existed, false otherwise.
    */
-  /** Freeze a section's block order when a folder is about to lose its
+  /** Freeze a role's block order when a folder is about to lose its
    *  LAST member. Called from the delete path with the
    *  PRE-removal registry snapshot, so the emptied folder's own block is part
    *  of the materialised order. Returns true when a freeze was written to
@@ -1751,7 +1796,7 @@ class LayerController implements LayerAPI {
   private freezeEmptyFolder(layerInfo: LayerInfo): boolean {
     const folder = folderOf(this.folderLayout.layout, layerInfo);
     if (!folder) return false;
-    const section = layerInfo.role === ROLE.BASE ? "base" : "overlay";
+    const role = layerInfo.role === ROLE.BASE ? "base" : "overlay";
     const key = normalizeFolderName(folder);
     const members = this.layerRegistry.layers.filter(
       l =>
@@ -1760,12 +1805,7 @@ class LayerController implements LayerAPI {
     );
     if (members.length !== 1) return false; // not the last member
     this.folderLayout.set(
-      freezeSectionOrder(
-        this.folderLayout.layout,
-        section,
-        this.layerRegistry.layers,
-        key,
-      ),
+      freezeRoleOrder(this.folderLayout.layout, role, this.layerRegistry.layers, key),
     );
     return true;
   }
@@ -1815,11 +1855,11 @@ class LayerController implements LayerAPI {
     }
 
     // Folder empty-freeze: if this layer is the LAST member of its folder,
-    // materialise the section's whole block order into the folder layout
+    // materialise the role's whole block order into the folder layout
     // BEFORE the removal — at this point the folder still has its last member,
     // so its block is part of the snapshot and the frozen order is not
     // self-contradictory. The persisted layout then keeps the emptied folder's
-    // position (the block order stays frozen while the section has no live
+    // position (the block order stays frozen while the role has no live
     // members) and a later new folder lands at the block tail.
     const frozen = this.freezeEmptyFolder(layerInfo);
     const retired = this.retireEntry(id);
@@ -1863,6 +1903,12 @@ class LayerController implements LayerAPI {
     // resurrect. filterStore.drop clears the value AND the declaration
     // without applying or publishing (the layer's DOM is already gone).
     this.filterStore.drop(id, FILTER_SOURCE.GENERIC);
+    // Drop the controller-side filter caches with the layer: a departed id
+    // must not leave a probe/features-revision entry behind, or a later
+    // re-add of the same id would hit the stale cached answer (P2 leak:
+    // 50k layers churned through add/drop would grow these maps).
+    this.filterProbe.delete(id);
+    this.filterFeaturesRev.delete(id);
 
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);
@@ -1876,54 +1922,69 @@ class LayerController implements LayerAPI {
     operation.throwIfFailed();
     return true;
   }
-  /** Explicitly create one (possibly empty) folder block in one section.
+  /** Explicitly create one (possibly empty) folder block in one role.
    *
    *  This is the user-facing counterpart of the empty-folder freeze for the
    *  CREATE direction: a folder with no live member is materialised into the
-   *  folder layout so the block survives at the section tail.
+   *  folder layout so the block survives at the role tail.
    *
-   *  Returns false (and writes nothing) when the name is blank after
-   *  normalisation, or when a folder with the same normalised name already
-   *  exists in this section (identity key collision). A different section may
+   *  Returns `{ ok: false, reason }` (and writes nothing) when the name is
+   *  blank after normalisation (`reason: "blank"`), when it exceeds the
+   *  readable cap (`"too-long"`), or when a folder with the same normalised
+   *  name already exists in this role (`"duplicate"`). A different role may
    *  freely reuse the same name — base and overlay folders are distinct.
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param name - The folder's display name (normalised for the key).
    * @param opts - Optional control over persistence.
-   * @returns true when the folder was created, false otherwise.
+   * @returns `{ ok: true }` when the folder was created, otherwise
+   *   `{ ok: false, reason }` with the {@link FolderRefusalReason}.
    */
   createFolder(
-    section: FolderSection,
+    role: LayerRole,
     name: string,
     opts?: { persist?: boolean },
-  ): boolean {
+  ): FolderCreateResult {
     const key = normalizeFolderName(name);
-    if (key === "") return false;
+    if (key === "") return { ok: false, reason: "blank" };
+    // The same cap the author's declaration is held to: a name the panel
+    // could create would be unreadable on its own row.
+    if (folderNameTooLong(name)) {
+      this.log.warn(
+        `createFolder refused a ${folderNameLength(name)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
+      );
+      return { ok: false, reason: "too-long" };
+    }
     const layout = this.folderLayout.layout;
-    if ((layout.order[section] ?? []).includes(key)) return false;
-    if (
+    const order = layout.order[role] ?? [];
+    // A same-role order collision OR a live member of THIS role already filed
+    // under the same key is a duplicate. The name-keyed directory is NOT a
+    // duplicate for create: a different role may reuse the same key and the
+    // core createFolder reuses the shared directory entry, so only this role's
+    // order and live members make a create collide.
+    const duplicate =
+      order.includes(key) ||
       this.layerRegistry.layers.some(
         l =>
+          l.role === role &&
           folderOf(layout, l) !== null &&
           normalizeFolderName(folderOf(layout, l)!) === key,
-      )
-    ) {
-      return false;
-    }
+      );
+    if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the tail through the single source: the
     // manager's set schedules the debounced write; the registry re-derives the
     // display order from the updated layout.
-    this.folderLayout.set(createFolder(layout, section, name));
+    this.folderLayout.set(createFolder(layout, role, name));
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {
       this.folderLayout.flush();
     }
     if (this.ui) this.ui.reindexAfterMove();
-    return true;
+    return { ok: true };
   }
 
-  /** Rename one folder block in one section.
+  /** Rename one folder block in one role.
    *
    *  The rename changes the folder's identity key AND every live member's
    *  `folder` display spelling, but NEVER moves the block: the old key is
@@ -1932,57 +1993,75 @@ class LayerController implements LayerAPI {
    *  frozen) leaves `layout.order` untouched — the block stays unlisted and
    *  its members move with it because their `folder` spelling changed.
    *
-   *  Returns false (and writes nothing) when the old folder does not exist in
-   *  this section, when the new name is blank after normalisation, or when a
-   *  folder with the same normalised new name already exists in this section
-   *  (other than the old folder itself — a normalisation-only rename is a
-   *  no-op that returns true without writing).
+   *  Returns `{ ok: false, reason }` (and writes nothing) when the old folder
+   *  does not exist (`reason: "missing"`), when the new name is blank after
+   *  normalisation (`"blank"`), when the new name exceeds the readable cap
+   *  (`"too-long"`), or when a folder with the same normalised new name
+   *  already exists (`"duplicate"`; other than the old folder itself — a
+   *  normalisation-only rename is a no-op that returns `{ ok: true }` without
+   *  writing).
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param oldName - The folder's current display name.
    * @param newName - The folder's new display name.
    * @param opts - Optional control over persistence.
-   * @returns true when the folder was renamed, false otherwise.
+   * @returns `{ ok: true }` when the folder was renamed (including a
+   *   normalisation-only no-op), otherwise `{ ok: false, reason }` with the
+   *   {@link FolderRefusalReason}.
    */
   renameFolder(
-    section: FolderSection,
+    role: LayerRole,
     oldName: string,
     newName: string,
     opts?: { persist?: boolean },
-  ): boolean {
+  ): FolderRenameResult {
     const oldKey = normalizeFolderName(oldName);
     const newKey = normalizeFolderName(newName);
-    if (newKey === "") return false;
-    if (oldKey === newKey) return true; // normalisation-only rename: no-op
+    if (newKey === "") return { ok: false, reason: "blank" };
+    // Held to the same cap before the no-op check, so a name that is too
+    // long cannot be retained by renaming it to itself.
+    if (folderNameTooLong(newName)) {
+      this.log.warn(
+        `renameFolder refused a ${folderNameLength(newName)} code point folder name; expected at most ${FOLDER_NAME_MAX} - ignored`,
+      );
+      return { ok: false, reason: "too-long" };
+    }
+    if (oldKey === newKey) return { ok: true }; // normalisation-only rename: no-op
     const layout = this.folderLayout.layout;
-    const order = layout.order[section] ?? [];
+    const order = layout.order[role] ?? [];
     const inOrder = order.includes(oldKey);
     const inDirectory = layout.folders.some(f => f.key === oldKey);
     const hasLive = this.layerRegistry.layers.some(l => folderOf(layout, l) === oldKey);
-    if (!inOrder && !inDirectory && !hasLive) return false;
-    if (order.includes(newKey)) return false;
-    if (
+    if (!inOrder && !inDirectory && !hasLive) return { ok: false, reason: "missing" };
+    // The duplicate predicate mirrors the core renameFolder's refusal set: the
+    // name-keyed directory is GLOBAL (one entry per name, shared by both roles),
+    // so a rename to a name already in the directory is refused even when the
+    // colliding folder lives in the other role. Narrowing this to order[role]
+    // would let the controller report { ok: true } while the core renameFolder
+    // silently no-ops on its own global directory check — a lying success, not a
+    // corrupt layout.
+    const duplicate =
+      order.includes(newKey) ||
+      layout.folders.some(f => f.key === newKey) ||
       this.layerRegistry.layers.some(
         l =>
           folderOf(layout, l) !== null &&
           normalizeFolderName(folderOf(layout, l)!) === newKey,
-      )
-    ) {
-      return false;
-    }
+      );
+    if (duplicate) return { ok: false, reason: "duplicate" };
     // The rename rewrites only the display name (and the block-order key in
     // place); every member assignment keeps its key, so the block stays put.
-    this.folderLayout.set(renameFolder(layout, section, oldName, newName));
+    this.folderLayout.set(renameFolder(layout, role, oldName, newName));
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {
       this.folderLayout.flush();
     }
     if (this.ui) this.ui.reindexAfterMove();
-    return true;
+    return { ok: true };
   }
 
-  /** Explicitly delete one folder block in one section.
+  /** Explicitly delete one folder block in one role.
    *
    *  This is the user-facing counterpart of {@link freezeEmptyFolder} (#911):
    *  freeze is the AUTOMATIC keep (a folder that would lose its last member
@@ -1991,34 +2070,34 @@ class LayerController implements LayerAPI {
    *  exclusive — an explicit delete never routes through the freeze, and the
    *  freeze never hands control here.
    *
-   *  Every member of the folder (same section + same normalize(name)) is
+   *  Every member of the folder (same role + same normalize(name)) is
    *  PROMOTED to root, never retired: the layer stays registered and visible,
    *  only its folder association drops. The folder's key is then removed from
    *  `layout.order`, and the materialised block order is re-derived. The
    *  display name is not separately persisted, so no name cleanup is owed.
    *
    *  Returns false (and writes nothing) when the folder does not exist —
-   *  no members in this section and no key in `layout.order`. An existing but
+   *  no members in this role and no key in `layout.order`. An existing but
    *  empty folder (a key with no live member) deletes the key and returns
    *  true without touching any layer.
    *
-   * @param section - The UI section (role) the folder belongs to.
+   * @param role - The UI role the folder belongs to.
    * @param folderName - The folder's display name (normalised for the key).
    * @param opts - Optional control over persistence.
    * @returns true when the folder existed and was removed, false otherwise.
    */
   deleteFolder(
-    section: FolderSection,
+    role: LayerRole,
     folderName: string,
     opts?: { persist?: boolean },
   ): boolean {
     const key = normalizeFolderName(folderName);
     const layout = this.folderLayout.layout;
-    const inOrder = (layout.order[section] ?? []).includes(key);
+    const inOrder = (layout.order[role] ?? []).includes(key);
     const inDirectory = layout.folders.some(f => f.key === key);
     const members = this.layerRegistry.layers.filter(
       l =>
-        l.role === section &&
+        l.role === role &&
         folderOf(layout, l) !== null &&
         normalizeFolderName(folderOf(layout, l)!) === key,
     );
@@ -2026,7 +2105,7 @@ class LayerController implements LayerAPI {
     // The delete promotes every member to root and removes the directory /
     // order entries; the registry re-derives the display order from the
     // updated layout.
-    this.folderLayout.set(deleteFolder(layout, section, folderName));
+    this.folderLayout.set(deleteFolder(layout, role, folderName));
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {
@@ -2036,21 +2115,21 @@ class LayerController implements LayerAPI {
     return true;
   }
 
-  /** Remove every EMPTY folder key from one section in
+  /** Remove every EMPTY folder key from one role in
    *  one operation.
    *
    *  A folder whose last member was deleted leaves a stale key behind (the
    *  automatic freeze is the reason it survives at all). The clean button on
-   *  the section header clears all of them in a single pass: one schedule,
+   *  the role header clears all of them in a single pass: one schedule,
    *  one flush, one repaint. Returns how many keys were removed (0 = nothing
    *  to clean, no write).
    *
-   * @param section - The UI section (role) whose empty folders are cleaned.
+   * @param role - The UI role whose empty folders are cleaned.
    * @returns The number of empty folder keys removed.
    */
-  cleanEmptyFolders(section: FolderSection): number {
+  cleanEmptyFolders(role: LayerRole): number {
     const layout = this.folderLayout.layout;
-    const listed = layout.order[section] ?? [];
+    const listed = layout.order[role] ?? [];
     const emptyKeys = listed.filter(
       k => !this.layerRegistry.layers.some(l => folderOf(layout, l) === k),
     );
@@ -2058,7 +2137,7 @@ class LayerController implements LayerAPI {
     const remaining = listed.filter(k => !emptyKeys.includes(k));
     this.folderLayout.set({
       ...layout,
-      order: { ...layout.order, [section]: remaining },
+      order: { ...layout.order, [role]: remaining },
     });
     this.folderLayout.flush();
     if (this.ui) this.ui.reindexAfterMove();
@@ -2200,42 +2279,22 @@ class LayerController implements LayerAPI {
    *  Reads the runtime store through `this.ui` — the provider is injected
    *  lazily so a registration before attach still resolves. */
   genericFilterModel(id: string): LayerFilterModel | null {
-    const features = this.ui?.runtimeStore.getFilterFeatures(id);
-    if (
-      !features ||
-      (features.numericFields.length === 0 && features.enumFields.length === 0)
-    ) {
-      return null;
-    }
-    const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
-    const hidden = filterLeafSet(features.features, filter);
-    let kept = features.total;
-    for (const feature of features.features) {
-      if (hidden.has(feature.leaf)) kept--;
-    }
-    // Numeric fields become range dimensions; discrete string/boolean fields
-    // become enum dimensions (S4c). Both share the panel's field picker, so a
-    // mixed layer switches between a slider and a value list.
-    const rangeDimensions: FilterRangeDimension[] = features.numericFields.map(
-      field => ({
-        kind: "range",
-        field,
-        range: features.ranges[field],
-        step: filterStep(features.ranges[field]),
-      }),
-    );
-    const enumDimensions: FilterEnumDimension[] = features.enumFields.map(field => {
-      const all = features.enumValues[field] ?? [];
-      const truncated = all.length > ENUM_OPTION_LIMIT;
-      const options = (truncated ? all.slice(0, ENUM_OPTION_LIMIT) : all).map(
-        value => ({ value, label: value }),
-      );
-      return { kind: "enum", field, options, multi: true, truncated };
-    });
-    const dimensions = [...rangeDimensions, ...enumDimensions];
-    // Field picker (D5): the panel offers every numeric and enum field and
-    // switches through onField. The active field is NOT stored — the
-    // committed atom reports it (D8), so no extra persistent key.
+    // Single producer: the host owns dimensions/counts (Tier2, cached);
+    // filterStore.filterModel routes the read through the host. The host
+    // was registered eagerly (injectGenericFilterCapability) so this read
+    // never falls back to a missing-host empty model.
+    this.ensureGenericHost(id);
+    const model = this.filterStore.filterModel(id, FILTER_SOURCE.GENERIC);
+    // No dimension = no filterable field (empty state), not a null host.
+    if (model.dimensions.length === 0) return null;
+    // The host's dimensions/counts pass already built (and cached) the
+    // filterFeatures row, so the field picker reads the same cached
+    // snapshot — never a second walk.
+    // Invariant: `dimensions.length > 0` (checked above) implies the
+    // host's dimensions() pass already built and cached the filterFeatures
+    // row, so the snapshot is present here — the read is a cache hit, never
+    // a null. `?.`/`??` would only hide a broken invariant.
+    const features = this.ui!.runtimeStore.getFilterFeatures(id)!;
     const fields = [
       ...features.numericFields.map(field => ({
         value: field,
@@ -2248,12 +2307,11 @@ class LayerController implements LayerAPI {
         numeric: false,
       })),
     ];
-    const onField = (_field: string): void => {
-      // Clear the old field's atom so the panel re-derives from the new
-      // dimension's full range. setLayerFilter is the single write-through.
-      this.setLayerFilter(id, undefined);
+    return {
+      ...model,
+      fields,
+      onField: (_field: string) => this.setLayerFilter(id, undefined),
     };
-    return { dimensions, filter, kept, total: features.total, fields, onField };
   }
 
   /** Register (or re-register) the generic filter host on the shared per-map
@@ -2267,7 +2325,197 @@ class LayerController implements LayerAPI {
       normalize: (filter: LayerFilter) => filter,
       apply: (filter: LayerFilter) => this.applyFilterClass(id, filter),
       publish: () => publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id }),
+      // Tier1: cheap presence probe — O(K) bounded scan, first hit stops.
+      hasFields: () => this.hasGenericFields(id),
+      // Tier2: full model — built once on first call, cached until
+      // dataRevision moves; the cache is shared with genericFilterModel.
+      dimensions: () => this.genericDimensions(id),
+      counts: () => this.genericCounts(id),
     });
+  }
+
+  /** Tier1 presence probe: does this layer expose at least one filterable
+   *  field? Scans the first PROBE_K geometry leaves only (O(K), first hit
+   *  stops), so a 50k layer costs the same as a 10-leaf one. Cached per
+   *  (layerId, dataRevision): the menu renders this per row, so a stale row
+   *  must not re-scan. A layer with no geometry leaf (or whose first
+   *  PROBE_K leaves carry no property value) reads false — the conservative
+   *  probe semantics. */
+  private hasGenericFields(id: string): boolean {
+    const layer = this.layerRegistry.get(id)?.layer;
+    if (!layer) return false;
+    const revision = this.ui!.runtimeStore.getDataRevision(id);
+    const cached = this.filterProbe.get(id);
+    if (cached?.revision === revision) return cached.has;
+    // A cached filterFeatures row is an authoritative presence answer: it was
+    // built by a full walk (Tier2) and is valid at this revision, so the
+    // bounded probe never needs to re-scan what a full build already knows.
+    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    if (
+      features &&
+      (features.numericFields.length > 0 || features.enumFields.length > 0)
+    ) {
+      this.filterProbe.set(id, { revision, has: true });
+      return true;
+    }
+    const has = this.scanGenericFields(layer);
+    this.filterProbe.set(id, { revision, has });
+    return has;
+  }
+
+  /** Bounded presence scan over a layer's geometry leaves. A private
+   *  recursion — not walkLeaf (no short-circuit) nor someLeaf (whose
+   *  pred-true short-circuit would conflate "matched" with "visited": the
+   *  probe must keep scanning up to PROBE_K leaves even after a non-matching
+   *  leaf, and someLeaf stops at the first pred-true, which here would
+   *  report a match at the first property-bearing leaf — correct only when
+   *  that is also the first leaf). The bounded visit is the point: stop
+   *  descending after PROBE_K leaves, so a 50k layer is never walked in
+   *  full for a menu row render. Depth guard mirrors walkLeaf's
+   *  RECURSION.LAYER_DEPTH. */
+  private scanGenericFields(layer: L.Layer): boolean {
+    let seen = 0;
+    let has = false;
+    const walk = (node: L.Layer, depth: number): boolean => {
+      if (depth > RECURSION.LAYER_DEPTH) return false; // same cap as walkLeaf
+      if (isGroupLike(node as Parameters<typeof isGroupLike>[0])) {
+        // Enumerate children: eachLayer when present (Leaflet containers),
+        // else the _layers registry (window globals / wrappers). Reaching
+        // through the adapter keeps the walk inside the adapter's boundary.
+        let kids: L.Layer[] = [];
+        try {
+          const tn = node as Parameters<typeof internalLayers>[0];
+          if (typeof tn.eachLayer === "function") {
+            tn.eachLayer(k => kids.push(k));
+          } else {
+            // isGroupLike(tn) guarantees internalLayers returns a non-null _layers record.
+            const reg = internalLayers(tn)!;
+            kids = Object.values(reg);
+          }
+        } catch {
+          kids = [];
+        }
+        for (const kid of kids) {
+          if (walk(kid, depth + 1)) return true;
+          if (seen >= PROBE_K) return false;
+        }
+        return false;
+      }
+      seen++;
+      if ((node as LabelAwareLayer).isLabel) return false;
+      const props = (
+        node as {
+          feature?: { properties?: Record<string, unknown> };
+        }
+      ).feature?.properties;
+      if (!props) return false;
+      for (const raw of Object.values(props)) {
+        if (
+          (typeof raw === "number" && Number.isFinite(raw)) ||
+          (typeof raw === "string" && raw.length > 0) ||
+          typeof raw === "boolean"
+        ) {
+          has = true;
+          return true;
+        }
+      }
+      return false;
+    };
+    walk(layer, 0);
+    return has;
+  }
+
+  /** The layer object for a registry entry, falling back to the map's own
+   *  membership: a constructor-seeded layer's `layer` field stays unset until
+   *  its late binding (folium script-stream order), so the map is the only
+   *  reach until then. One resolution point — the attach-time removal pass
+   *  and the filter snapshot builder share it, so a CONFIG layer can build
+   *  its snapshot before its registry row resolves. */
+  private resolveLayer(
+    info: { id: string; layer?: L.Layer | null } | undefined,
+  ): L.Layer | null {
+    if (!info) return null;
+    return info.layer ?? findLayer(this.map, info.id);
+  }
+
+  /** Tier2: build (or return the cached) filterFeatures for a layer,
+   *  rebuilt when dataRevision moved. The cache is shared with
+   *  genericFilterModel and the field picker, so a menu probe never walks
+   *  the full tree and a model build reuses the same snapshot. */
+  private ensureFilterFeatures(id: string): LayerFilterFeatures | null {
+    const layer = this.resolveLayer(this.layerRegistry.get(id));
+    const revision = this.ui!.runtimeStore.getDataRevision(id);
+    const cached = this.ui!.runtimeStore.getFilterFeatures(id);
+    // A cached row at this revision is authoritative (Tier2 already built it).
+    if (cached && this.filterFeaturesRev.get(id) === revision) return cached;
+    // No walkable layer: keep a pre-seeded row (external owner / test fixture
+    // seeded the snapshot directly) rather than dropping it. Without this, a
+    // layer whose geometry is not reachable at probe time loses its model.
+    if (!layer) return cached ?? null;
+    const features = buildFilterFeatures(layer);
+    // An empty build means the layer exposed no walkable geometry leaf. A
+    // pre-seeded row (external owner / test fixture seeded the snapshot
+    // directly) is the source of truth and must not be replaced by an empty
+    // snapshot — the same preservation as the no-layer guard above. A
+    // genuinely field-less layer still stores its empty snapshot (no cached
+    // row), so an active filter hides nothing on it.
+    if (features.features.length === 0 && cached) return cached;
+    this.ui!.runtimeStore.setFilterFeatures(id, features);
+    this.filterFeaturesRev.set(id, revision);
+    return features;
+  }
+
+  /** Tier2 dimensions for the host: the cached filterFeatures row projected
+   *  into range/enum dimensions (same mapping genericFilterModel used to do
+   *  inline). Reads the shared cache, never a second walk. */
+  private genericDimensions(id: string): FilterDimension[] {
+    const features = this.ensureFilterFeatures(id);
+    if (!features) return [];
+    const range: FilterRangeDimension[] = features.numericFields.map(field => ({
+      kind: "range",
+      field,
+      range: features.ranges[field],
+      step: filterStep(features.ranges[field]),
+    }));
+    const enums: FilterEnumDimension[] = features.enumFields.map(field => {
+      const all = features.enumValues[field] ?? [];
+      const truncated = all.length > ENUM_OPTION_LIMIT;
+      const options = (truncated ? all.slice(0, ENUM_OPTION_LIMIT) : all).map(
+        value => ({ value, label: value }),
+      );
+      return { kind: "enum", field, options, multi: true, truncated };
+    });
+    return [...range, ...enums];
+  }
+
+  /** Tier2 kept/total for the host, read from the same cached snapshot. */
+  private genericCounts(id: string): { kept: number; total: number } {
+    const features = this.ensureFilterFeatures(id);
+    if (!features) return { kept: 0, total: 0 };
+    const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+    const hidden = filterLeafSet(features.features, filter);
+    let kept = features.total;
+    for (const feature of features.features) {
+      if (hidden.has(feature.leaf)) kept--;
+    }
+    return { kept, total: features.total };
+  }
+
+  /** Public presence probe for the menu: does this layer expose at least
+   *  one filterable field? Never opens the panel / never builds the full
+   *  model — an O(K) bounded scan, first hit stops. The author-declaration
+   *  escape hatch: a declared filter makes the row usable even when the
+   *  probe reads false (the author knows a field exists beyond the probe's
+   *  window). */
+  hasFilterableFields(id: string): boolean {
+    const li = this.layerRegistry.get(id);
+    if (!li) return false;
+    // Escape hatch: author declaration (or a user value) implies a
+    // filterable field — a declared filter targets a field the author
+    // knows exists, even when the probe's bounded window missed it.
+    const declared = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+    if (declared !== undefined) return true;
+    return this.hasGenericFields(id);
   }
 
   /** The generic filter's write-through: store the filter, compute the hidden
@@ -2323,7 +2571,16 @@ class LayerController implements LayerAPI {
   }
 
   private applyFilterClass(id: string, filter: LayerFilter | undefined): void {
-    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    // The snapshot builder reads the runtime store, so it is attach-time
+    // only. Before attach there is no snapshot and no builder: the
+    // constructor's declared-filter replay is intentionally a no-op (the
+    // feature-build slice has not run) — the class pass happens later, on
+    // layeradd, once the layer's geometry is on the map.
+    if (!this.ui) {
+      this.hiddenSets.set(id, new WeakSet());
+      return;
+    }
+    const features = this.ensureFilterFeatures(id);
     if (!features) {
       this.hiddenSets.set(id, new WeakSet());
       return;
@@ -2347,11 +2604,6 @@ class LayerController implements LayerAPI {
     const next = new Map<string, string>();
     const changed: string[] = [];
     for (const [id, surface] of this.surfaceIndex.entries()) {
-      // Same invariant as the direct-membership scan: a retired surface is
-      // destroyed and removed from `surfaces` in one synchronous step, so the
-      // pass never sees one. Failsafe only — exempt from the branch gate.
-      /* v8 ignore next */
-      if (surface.retired) continue;
       const key = capabilityKey(surface.capabilities);
       next.set(id, key);
       const previous = this.capabilitySnapshot.get(id);

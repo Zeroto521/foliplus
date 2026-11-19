@@ -61,7 +61,7 @@ import {
   saveState,
   setVisibleIntent,
 } from "./state.js";
-import { applyBorderToLayer } from "./style/border.js";
+import { applyBorderToLayer, replayDeclaredBorder } from "./style/border.js";
 import { applyIconToLayer } from "./style/icon.js";
 import { applyIconColorToLayer } from "./style/iconColor.js";
 import {
@@ -72,7 +72,10 @@ import {
   replayDeclaredFill,
   replayFillState,
 } from "./style/index.js";
-import { applyMarkerColorToLayer } from "./style/markerColor.js";
+import {
+  applyMarkerColorToLayer,
+  replayDeclaredMarkerColor,
+} from "./style/markerColor.js";
 import { applySizeToLayer } from "./style/size.js";
 import {
   dropStyleDimApplies,
@@ -330,6 +333,8 @@ class LayerUI implements LayerUISurface {
     if (id === undefined) {
       for (const layerInfo of this.c.layerRegistry.layers) {
         replayDeclaredFill(this, layerInfo.id);
+        replayDeclaredBorder(this, layerInfo.id);
+        replayDeclaredMarkerColor(this, layerInfo.id);
       }
     }
     return moved;

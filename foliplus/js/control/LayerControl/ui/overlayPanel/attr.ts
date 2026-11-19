@@ -209,6 +209,14 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     );
   }
 
+  // An external delete retires the owned layer: the row (and its attrs
+  // panel) is being removed. Close without flushing — there is nothing
+  // to commit, the layer is gone.
+  ui.overlayPanel.attrsRemovedUnsub = ui.events.on(EVENTS.LAYER_REMOVED, ({ id }) => {
+    if (id !== layerId) return;
+    closeAttrsPanel(ui, false);
+  });
+
   // Division of labour (single authority, no overlap): the PanelController
   // owns the dismissal contract (outside press, Escape, closeFromClick,
   // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
@@ -225,7 +233,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
     owner: "layer",
     localId: "attrs",
     rank: 600,
-    exclusiveGroup: "layer:rows",
+    exclusiveGroup: "map:panel",
     clearsCursorOnClose: true,
     dismiss: { outsidePress: "mousedown" } satisfies Partial<Dismiss>,
     root: () => ui.overlayPanel.activeAttrsPanel?.panel ?? null,
@@ -281,6 +289,8 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
     ui.overlayPanel.attrsUnsubscribe();
     ui.overlayPanel.attrsUnsubscribe = null;
   }
+  ui.overlayPanel.attrsRemovedUnsub?.();
+  ui.overlayPanel.attrsRemovedUnsub = null;
   if (!ui.overlayPanel.activeAttrsPanel) return;
   const item = ui.overlayPanel.activeAttrsPanel.item;
   unpinRowPanel(item);

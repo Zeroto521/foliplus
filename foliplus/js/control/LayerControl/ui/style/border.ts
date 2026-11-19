@@ -103,6 +103,7 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";
 
 /** Shared border-row shell. Two callers — the vector `buildBorderRow`
  *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's
@@ -213,15 +214,36 @@ const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
 const effectiveBorderValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   getIntent(ui, layerId, INTENT.BORDER_VALUE);
 
+/** The author's declared border mode default (foliplus.border), read as
+ *  a read-time default under the user's stored choice. The declaration is
+ *  validated by the reader; this helper only maps the layer to it. A layer
+ *  that never declares a border reads undefined — byte-identical to before. */
+const declaredBorderMode = (ui: LayerUI, layerId: string): StyleMode | undefined => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  const declared = readDeclaredBorder(
+    layerInfo?.layer ?? ui.c.findLayer(layerId),
+    layerId,
+  ).declared;
+  // A follow-fill declaration is inapplicable on a line: the line's border
+  // is its own colour, there is no fill face behind it to follow. The
+  // declaration is not invalid — it simply steps aside on a channel that
+  // cannot paint it, the same honest degradation a stored follow_fill gets
+  // (supportsInherit false → the resolver reads solid).
+  return declared === STYLE_MODE.FOLLOW_FILL && !borderCarriesValue(ui, layerId)
+    ? declared
+    : undefined;
+};
+
 /** The mode the border row shows and the stroke paints.
  *
  *  mode or (value ? value : solid) — the shared stroke resolver. A stored
- *  mode always wins; a mode-less border defers to whether an own value
- *  exists. No fill-side fallback: the border never inherits the fill's
- *  config. */
+ *  mode always wins; a mode-less border defers to the author's declared
+ *  mode (foliplus.border), then to whether an own value exists. No
+ *  fill-side fallback beyond the declaration: the border never inherits
+ *  the fill's config. */
 const effectiveBorderMode = (ui: LayerUI, layerId: string): StyleMode =>
   resolveStrokeMode(
-    getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE),
+    getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) ?? declaredBorderMode(ui, layerId),
     effectiveBorderValue(ui, layerId),
   );
 
@@ -393,7 +415,6 @@ const applyValueStrokeToLayer = (ui: LayerUI, layerId: string): void => {
   // write and the highlight pin. This hook only derives the live config so
   // the pin's getter and a later fill-only repaint agree with this paint.
   const value = effectiveBorderValue(ui, layerId);
-  if (value === undefined) return;
   applyValueStroke(
     ui,
     layerId,
@@ -598,16 +619,25 @@ const displayColor = (value: string): string => {
   const probe = document.createElement("span");
   probe.style.color = value;
   if (!probe.style.color) return value;
-  const match = /^rgba?\(([^)]+)\)$/.exec(getComputedStyle(probe).color);
-  const channels = (match?.[1] ?? "")
-    .split(/[\s,/]+/)
-    .filter(Boolean)
-    .map(part => parseInt(part, 10));
-  if (channels.length < 3 || channels.some(Number.isNaN)) return value;
-  return `#${channels
-    .slice(0, 3)
-    .map(part => part.toString(16).padStart(2, "0"))
-    .join("")}`;
+  // Why the probe is CONNECTED: jsdom 31's CSS engine does not resolve
+  // computed styles on elements not attached to the document, so a detached
+  // probe would read back the default #000000 instead of "gray" / "hsl(...)".
+  // Attach for the read, remove immediately — the live document is untouched.
+  document.body.append(probe);
+  try {
+    const match = /^rgba?\(([^)]+)\)$/.exec(getComputedStyle(probe).color);
+    const channels = (match?.[1] ?? "")
+      .split(/[\s,/]+/)
+      .filter(Boolean)
+      .map(part => parseInt(part, 10));
+    if (channels.length < 3 || channels.some(Number.isNaN)) return value;
+    return `#${channels
+      .slice(0, 3)
+      .map(part => part.toString(16).padStart(2, "0"))
+      .join("")}`;
+  } finally {
+    probe.remove();
+  }
 };
 
 const colorSelector = (className?: string) =>
@@ -670,10 +700,12 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
     if (target.onFlush) {
       const flush = target.onFlush;
       const prevColorChange = colorEl.onchange;
+      // listener-exempt: style-panel color input change handler (flush chain) on a panel-owned element
       colorEl.onchange = ev => {
         prevColorChange?.call(colorEl, ev);
         flush();
       };
+      // listener-exempt: style-panel color input blur handler (flush at drag end) on a panel-owned element
       colorEl.onblur = () => flush();
     }
   }
@@ -690,10 +722,12 @@ const bindBorderRowShell = (row: HTMLElement, target: BorderRowBindTarget): void
     if (target.onFlush) {
       const flush = target.onFlush;
       const prevWeightChange = weightEl.onchange;
+      // listener-exempt: style-panel weight input change handler (flush chain) on a panel-owned element
       weightEl.onchange = ev => {
         prevWeightChange?.call(weightEl, ev);
         flush();
       };
+      // listener-exempt: style-panel weight input blur handler (flush at drag end) on a panel-owned element
       weightEl.onblur = () => flush();
     }
   }
@@ -829,6 +863,10 @@ const disposeBorderRow = (ui: LayerUI): void => {
  *  migration is performed. */
 const borderSpec = (ui: LayerUI, layerId: string): DisplayModeSpec => ({
   stored: getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE),
+  // The author's declared mode default (foliplus.border follow_fill): a
+  // read-time default the panel shows when no mode intent exists, and Reset
+  // returns to. Steps aside once the user stores any border mode.
+  declaredMode: declaredBorderMode(ui, layerId),
   declaredValue: false, // border never declares value
   colorIntent: getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined,
   valueIntent: effectiveBorderValue(ui, layerId) !== undefined,
@@ -972,6 +1010,7 @@ const bindBorderValueDetail = (
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
   ) as HTMLSelectElement;
+  // listener-exempt: style-panel field select handler on a panel-owned element
   fieldSelect.onchange = () =>
     writeBorderValue(ui, layerId, { field: fieldSelect.value });
 
@@ -979,6 +1018,7 @@ const bindBorderValueDetail = (
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
   ) as HTMLSelectElement | null;
   if (methodSelect !== null) {
+    // listener-exempt: style-panel method select handler on a panel-owned element
     methodSelect.onchange = () =>
       writeBorderValue(ui, layerId, {
         method: methodSelect.value as ValueConfig["method"],
@@ -989,6 +1029,7 @@ const bindBorderValueDetail = (
     `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
   ) as HTMLSelectElement | null;
   if (classesSelect !== null) {
+    // listener-exempt: style-panel classes select handler on a panel-owned element
     classesSelect.onchange = () => {
       const next = writeBorderValue(ui, layerId, {
         classes: parseInt(classesSelect.value, 10),
@@ -1143,6 +1184,10 @@ const BORDER_DIMENSION = registerDimension<{
     };
   },
   row: buildBorderRow,
+  /** Bind the border block's live controls. The panel hands the exact block
+   *  `row()` built (already carrying data-style-dim=border), so the block lookup
+   *  in bindBorderRow resolves to itself — no class-based re-lookup. */
+  bind: bindBorderRow,
   /** Intent+persist + schedule the stroke face landing. `patch` is already
    *  normalized. Omitted keys leave that sub-dimension alone. */
   write: (ui, layerId, patch) => {
@@ -1163,23 +1208,20 @@ const BORDER_DIMENSION = registerDimension<{
   reset: (ui, layerId) => {
     cancelStyleDimApply(FACE.STROKE, layerId, ui);
     resetIntentKeys(ui, layerId, BORDER_INTENT_KEYS);
+    // A declared follow_fill border is Reset's target too: clearing the
+    // user's intent must reveal the author's declared border (follow the
+    // fill), not the per-feature stroke beneath. Applying here reads the
+    // declaration from the layer (no intent left) — mirror of fill's reset.
+    if (declaredBorderMode(ui, layerId) === STYLE_MODE.FOLLOW_FILL) {
+      applyBorderToLayer(ui, layerId);
+      return;
+    }
     const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
     if (!layer) return;
     // Same restore walk as fill — one styleBag contract, not two copies.
     walkStyleLeaves(layer, node => restoreStyleDim(node, FACE.STROKE));
   },
-  valueSource: (ui, layerId) => {
-    if (!layerCanBorder(ui, layerId)) return "none";
-    if (
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_COLOR) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_WEIGHT) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_VALUE) ||
-      ui.intentStore.isUserSet(layerId, INTENT.BORDER_STYLE_MODE)
-    ) {
-      return "user";
-    }
-    return "author";
-  },
+  intentKeys: BORDER_INTENT_KEYS,
   /** Content-change replay: a stroke chosen before a leaf landed reaches it
    *  through the same coalesced walk an edit takes. The when-gate mirrors
    *  applyBorderToLayer's own bail, before any scheduler box is allocated. */
@@ -1191,13 +1233,41 @@ const BORDER_DIMENSION = registerDimension<{
       getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined ||
       getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined ||
       getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined ||
-      effectiveBorderValue(ui, layerId) !== undefined,
+      effectiveBorderValue(ui, layerId) !== undefined ||
+      // A declared follow_fill border has no stored mode intent, yet a leaf
+      // that lands late must still be repainted: the declaration is the
+      // border's default paint. Without this arm the border would never
+      // reach a leaf added after the panel opened.
+      declaredBorderMode(ui, layerId) === STYLE_MODE.FOLLOW_FILL,
     run: (ui, layerId) => applyBorderToLayer(ui, layerId),
   },
 });
 
+const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+
+/** Replay a layer's declared follow_fill border onto the map. A declaration
+ *  is a read-time default, not a stored override, so the provenance sweep in
+ *  applyUserState never reaches it; without this pass the border would open
+ *  on the author's stroke until the first panel touch — the mirror of
+ *  replayDeclaredFill. Called once per layer on attach. */
+const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
+  for (const key of BORDER_INTENT_KEYS) {
+    if (getIntent(ui, layerId, key) !== undefined) return;
+  }
+  if (declaredBorderMode(ui, layerId) !== STYLE_MODE.FOLLOW_FILL) return;
+  let painted = declaredReplayed.get(ui);
+  if (painted?.has(layerId)) return;
+  applyBorderToLayer(ui, layerId);
+  if (!painted) {
+    painted = new Set();
+    declaredReplayed.set(ui, painted);
+  }
+  painted.add(layerId);
+};
+
 export {
   applyBorderToLayer,
+  replayDeclaredBorder,
   authoredBorder,
   bindBorderRow,
   bindBorderRowShell,

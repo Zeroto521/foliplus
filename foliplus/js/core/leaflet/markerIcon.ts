@@ -84,10 +84,13 @@ const readChassisSprite = (
     probe.style.visibility = "hidden";
     probe.style.left = "-9999px"; // placement-adapter: offscreen icon probe
     document.body.appendChild(probe);
-    const computed = getComputedStyle(probe);
-    url = computed.backgroundImage;
-    position = computed.backgroundPosition || "0 0";
-    document.body.removeChild(probe);
+    try {
+      const computed = getComputedStyle(probe);
+      url = computed.backgroundImage;
+      position = computed.backgroundPosition || "0 0";
+    } finally {
+      probe.remove();
+    }
   }
   const sprite = /^url\(/.test(url) ? { url, position } : null;
   chassisSpriteCache.set(presetName, sprite);
@@ -128,6 +131,8 @@ const authorIconOf = (leaf: object): unknown =>
 const defaultIconProto = (): unknown => {
   // jsdom always defines the Leaflet global, so the no-L branch is a
   // Leaflet-free-DOM guard, not a state this flow produces.
+  // unreachable: this flow always runs with a Leaflet global (jsdom defines
+  // it), so the Leaflet-free-DOM arms are guards for a DOM we never reach.
   /* v8 ignore start -- Leaflet-free DOM only: this flow always runs with a
    * Leaflet global and a present Icon.Default.prototype; both arms are
    * guards for a DOM we never reach. */
@@ -181,6 +186,54 @@ const authorGlyphColorOf = (
  *  author’s icon unchanged when the author is not a Leaflet icon (no
  *  `createIcon` to override) — honest degradation, not a fabricated divIcon.
  */
+/** Scale the built-in 25x41 marker box (and its [12,41] anchor) to a declared
+ *  whole-icon pixel edge. The height/width ratio and the anchor's relative
+ *  position are preserved, so the pin tip stays pinned and the glyph grows or
+ *  shrinks as ONE box rather than a stretched glyph in a fixed frame. An
+ *  absent/invalid declared size falls through to the built-in dimensions. */
+const scaleBox = (
+  baseWidth: number,
+  baseHeight: number,
+  declaredSize: number | undefined,
+): { size: [number, number]; anchor: [number, number] } => {
+  if (
+    typeof declaredSize !== "number" ||
+    !Number.isFinite(declaredSize) ||
+    declaredSize <= 0
+  ) {
+    return {
+      size: [baseWidth, baseHeight],
+      anchor: [Math.floor(baseWidth / 2), baseHeight],
+    };
+  }
+  const scale = declaredSize / baseWidth;
+  return {
+    size: [Math.round(declaredSize), Math.round(baseHeight * scale)],
+    anchor: [Math.floor((baseWidth / 2) * scale), Math.round(baseHeight * scale)],
+  };
+};
+/** Scale an already-built awesome-markers chassis to a declared whole-icon
+ *  pixel edge. The library paints the sprite at its own fixed size via the
+ *  author's stylesheet, so rather than recompute the background geometry we
+ *  scale the WHOLE rendered box by one uniform transform with the origin at
+ *  the pin tip -- the sprite stays pixel-identical internally and only the
+ *  drawn size changes. An absent/invalid declared size is a no-op. */
+const applyDeclaredIconScale = (
+  div: HTMLElement,
+  declaredSize: number | undefined,
+): void => {
+  if (
+    typeof declaredSize !== "number" ||
+    !Number.isFinite(declaredSize) ||
+    declaredSize <= 0
+  ) {
+    return;
+  }
+  const BASE_WIDTH = 25;
+  const scale = declaredSize / BASE_WIDTH;
+  div.style.transformOrigin = "12px 41px";
+  div.style.transform = `scale(${scale})`;
+};
 const buildMarkerIcon = (opts: {
   /** The author’s captured icon object (or the Leaflet default prototype). */
   author: unknown;
@@ -207,6 +260,12 @@ const buildMarkerIcon = (opts: {
    *  control-level prefix (coerced), not the author's, because the applied
    *  glyph is a panel choice. */
   prefix?: string;
+  /** The AUTHOR-DECLARED icon pixel size (foliplus icon_size), the whole-icon
+   *  box edge every marker leaf scales to. Absent = the built-in size (the
+   *  25x41 div-icon / the author's own awesome-markers sprite), so a layer
+   *  that declares nothing renders exactly as before. A declared size scales
+   *  the box and the anchor together so the pin tip stays on the point. */
+  iconSize?: number;
 }): unknown => {
   const author = opts.author as
     { createIcon?: () => HTMLElement; options?: { iconColor?: string } } | undefined;
@@ -260,11 +319,15 @@ const buildMarkerIcon = (opts: {
     // glyph explicitly — white when neither the user nor the author named a
     // color, the same default the derive path uses. One color, one alpha.
     const defaultPaint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
+    // A declared icon size scales the built-in 25x41 box and its [12,41]
+    // anchor by one factor, so the pin tip stays pinned and the glyph grows
+    // or shrinks as a single box.
+    const box = scaleBox(25, 41, opts.iconSize);
     return L.divIcon({
       className: MARKER_CLASS.DEFAULT,
       html: glyphHtml(glyph, "", `color:${defaultPaint}`, prefix),
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
+      iconSize: box.size,
+      iconAnchor: box.anchor,
     });
   }
   const derived = Object.create(author) as {
@@ -376,6 +439,11 @@ const buildMarkerIcon = (opts: {
         div.appendChild(span);
       }
     }
+    // A declared icon size scales the WHOLE rendered chassis (sprite + glyph)
+    // by one uniform transform, so the awesome-markers sprite stays
+    // pixel-identical internally (no background-size recompute) and only the
+    // drawn size changes. The origin is the pin tip, so the pin stays pinned.
+    applyDeclaredIconScale(div, opts.iconSize);
     return div;
   };
   return derived;
@@ -439,6 +507,8 @@ const paintMountedChassis = (
     // the flat colour as the paint — the baked gradient/stroke are color
     // channels, not alpha, so they are lost (the sprite's physical limit).
     const sprite = readChassisSprite("blue", el);
+    // unreachable: the blue sprite is always readable once any span is mounted
+    // (the container that produced it painted it from the live stylesheet).
     /* v8 ignore start -- the blue sprite is always readable once any span is
      * mounted: the container that produced the span painted it from the live
      * stylesheet (or an inline background), so a re-paint reads the cached
@@ -495,14 +565,21 @@ const applyIconToLeaves = (
   color?: string,
   opacity?: number,
   prefix?: string,
+  iconSize?: number,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
-    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
-    if (author === undefined) return;
-    const derived = buildMarkerIcon({ author, glyph, color, opacity, prefix });
+
+    const derived = buildMarkerIcon({
+      author,
+      glyph,
+      color,
+      opacity,
+      prefix,
+      iconSize,
+    });
     setLeafIcon(leaf, derived);
   });
 };
@@ -518,14 +595,14 @@ const applyIconColorToLeaves = (
   glyph: string | null,
   opacity?: number,
   prefix?: string,
+  iconSize?: number,
 ): void => {
   const panelPrefix = prefix ?? DEFAULT_GLYPH_PREFIX;
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
-    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
-    if (author === undefined) return;
+
     // A colour/opacity-only write on an already-mounted leaf whose glyph is
     // unchanged paints the node in place — same element reference, no rebuild.
     const el = mountedIconElement(leaf);
@@ -544,6 +621,7 @@ const applyIconColorToLeaves = (
       color,
       opacity,
       prefix: panelPrefix,
+      iconSize,
     });
     setLeafIcon(leaf, derived);
   });
@@ -559,13 +637,13 @@ const applyMarkerColorToLeaves = (
   glyph: string | null,
   color?: string,
   markerColorOpacity?: number,
+  iconSize?: number,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
-    /* v8 ignore next -- defensive: captureAuthorIcon always sets a value */
-    if (author === undefined) return;
+
     // A colour/opacity-only write on an already-mounted leaf whose chassis
     // span already carries the pin paints the span in place — same element
     // reference, no rebuild. A mechanism change (span dropped by a preset at
@@ -580,6 +658,7 @@ const applyMarkerColorToLeaves = (
       color,
       markerColor,
       markerColorOpacity,
+      iconSize,
     });
     setLeafIcon(leaf, derived);
   });

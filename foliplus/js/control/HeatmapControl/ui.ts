@@ -281,6 +281,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     if (name) ctrl.schemePicker?.selectScheme(name);
   };
 
+  // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
   ctrl.aggSelect.onchange = () => {
     ctrl.mgr.agg = ctrl.aggSelect.value;
     updateFieldSelector(ctrl);
@@ -295,6 +296,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     });
   };
 
+  // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
   ctrl.fieldSelect.onchange = () => {
     ctrl.mgr.field = ctrl.fieldSelect.value;
     // Drop the memo with the write: the reads below resolve through
@@ -318,6 +320,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     });
   };
 
+  // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
   ctrl.methodSelect.onchange = () => {
     // The select only ever carries an option value, but the field is typed
     // closed: writing an unrecognised name would leave the manager in a state
@@ -329,6 +332,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
   };
 
+  // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
   ctrl.classSelect.onchange = () => {
     ctrl.mgr.numClasses = Math.min(
       CLASS_COUNT.MAX,
@@ -344,6 +348,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
   };
 
+  // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
   ctrl.schemeSelectHidden.onchange = () => {
     const name = ctrl.schemeSelectHidden.value;
     ctrl.schemePicker?.setValue(name);
@@ -355,6 +360,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   const clearBtn = panelContent.querySelector(
     `[${CONST.DATA_ATTR.BTN_CLEAR}]`,
   ) as HTMLButtonElement;
+  // listener-exempt: heatmap control-DOM clear button handler on a control-owned element (removed with the control)
   clearBtn.onclick = () => {
     finishPanelReset({
       // Steps, not one opaque closure: a failing step is logged and the rest
@@ -482,6 +488,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
   if (ctrl.mgr.selectedLayerId) sel.value = ctrl.mgr.selectedLayerId;
   else sel.selectedIndex = 0;
 
+  // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
   sel.onchange = () => {
     ctrl.mgr.selectedLayerId = sel.value || null;
     if (ctrl.extraBody) {

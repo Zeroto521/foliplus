@@ -4,7 +4,7 @@
 // Split out of fill.ts so fillValue.ts (the value detail) and originalDetail.ts
 // (the original readout) can build the same 0-100 number input and commit the
 // same intent without importing fill.ts — fill.ts imports both of those
-// modules, so importing back would close a cycle (import/no-cycle maxDepth 10).
+// modules, so importing back would close a cycle (import-x/no-cycle maxDepth 10).
 import { INTENT, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { getDimension } from "./registry.js";

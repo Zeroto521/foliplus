@@ -159,6 +159,8 @@ const restoreFocusAfterDuplicate = (
   // needs every navigable item to refuse focus, so the tail stays exempt from
   // the branch gate rather than deleted: folding the wrong row must not
   // strand keyboard focus on <body>.
+  // unreachable: the surviving row is focusable by construction; only a
+  // folded duplicate (display:none) refuses focus, which jsdom cannot stage.
   /* v8 ignore start */
   // Nearest navigable neighbour: forward first, then backward. Folded or
   // otherwise unfocusable rows simply fail the probe and the walk moves on.
@@ -311,7 +313,7 @@ const syncRowOrder = (ui: LayerUI): void => {
   const targets: HTMLElement[] = [];
   // Anchor push follows the layer order (renderInitialList's ordering): a
   // role's anchor is pushed the first time the loop sees one of its rows. A
-  // section that owns only an empty folder key (no live rows) has its anchor
+  // role that owns only an empty folder key (no live rows) has its anchor
   // pushed after the loop instead, so it stays reachable for the cleanup
   // button and the drift check cannot false-warn (builder-4 ②).
   const anchorSeen = new Set<string>();
@@ -379,12 +381,12 @@ const syncRowOrder = (ui: LayerUI): void => {
   }
 };
 
-/** Whether `role`'s section should render its toggle-all header row.
+/** Whether `role`'s role should render its toggle-all header row.
  *  Shared by renderInitialList, syncRowOrder, insertLayerItem and retireRow so
- *  the four cannot drift apart (builder-4 ②③④). A section keeps its header
+ *  the four cannot drift apart (builder-4 ②③④). A role keeps its header
  *  while it owns at least one live layer OR at least one folder key in the
  *  persisted order — the latter keeps the empty-folder cleanup button reachable
- *  after the section's layers are gone (hard constraint 1).
+ *  after the role's layers are gone (hard constraint 1).
  *  @param {LayerUI} ui - The control surface.
  *  @param {string} role - A LayerRole ("overlay" | "base").
  *  @returns {boolean} True when the header must be rendered. */
@@ -407,10 +409,10 @@ const renderInitialList = (ui: LayerUI) => {
   // established or Escape cleared it, and either way it should stay cleared.
   const ref = cursorRef(ui);
   const frag = document.createDocumentFragment();
-  // Headers follow the layer order: a section's header is appended the first
-  // time the loop sees one of its rows, so a two-section panel keeps
+  // Headers follow the layer order: a role's header is appended the first
+  // time the loop sees one of its rows, so a two-role panel keeps
   // [overlay header][overlay rows][base header][base rows] (the ordering the
-  // layer sequence already establishes). A section that owns only an empty
+  // layer sequence already establishes). A role that owns only an empty
   // folder key — no live rows — gets its header after the loop, keeping the
   // empty-folder cleanup button reachable (hard constraint 1 / builder-4 ②).
   const headerSeen = new Set<string>();
@@ -433,7 +435,7 @@ const renderInitialList = (ui: LayerUI) => {
     frag.appendChild(item);
   }
 
-  // A section that owns only an empty folder key (no live rows) gets its
+  // A role that owns only an empty folder key (no live rows) gets its
   // header after the loop: the layer sequence could not introduce it, and
   // the cleanup entry must stay reachable.
   for (const role of [ROLE.OVERLAY, ROLE.BASE]) {
@@ -498,7 +500,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const role = layerInfo.role;
 
   // `firstOfGroup` anchors the INSERT position: the first ROW of this role,
-  // not the section header. The header is checked separately so a late row
+  // not the role header. The header is checked separately so a late row
   // lands at its registry depth (beside its role's other rows) instead of
   // being wedged above the header — the TOGGLE_ALL match must not become an
   // insertion anchor, so the header stays adjacent to its rows.
@@ -528,7 +530,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   frag.appendChild(item);
 
   if (!firstOfGroup) {
-    // BASE inserts before the first base row (end of the base section).
+    // BASE inserts before the first base row (end of the base role).
     // OVERLAY inserts before the first base row; when none exists, append at
     // the end.
     const nextAnchor = container.querySelector(
@@ -580,8 +582,8 @@ const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
   updateItemLabel(item, displayName(ui, layerInfo.id));
 };
 
-/** Count the section's empty folder keys (key present, zero live members).
- *  A key is empty when no live layer in the section has normalize(folder)===key.
+/** Count the role's empty folder keys (key present, zero live members).
+ *  A key is empty when no live layer in the role has normalize(folder)===key.
  *  Called on every render — never cached (hard constraint 3). */
 const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
   const layout = ui.c.folderLayoutView;
@@ -620,7 +622,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       { class: CONST.CLASSES.CHECKBOX },
       dom.el("input", {
         type: "checkbox",
-        "data-role": "toggle-all",
+        "data-role": CONST.TOGGLE_ALL_ROLE,
         checked: "",
         title: ui.T("toggle_all_deselect_tooltip"),
       }),
@@ -631,7 +633,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   );
 };
 
-/** Build the section's "clean empty folders" button when the section owns at
+/** Build the role's "clean empty folders" button when the role owns at
  *  least one empty folder key; otherwise an empty array. A native <button>
  *  so keyboard users Tab to it (hard constraint 4b); the click handler is
  *  bound on the container by lifecycle, and the keydown guard sits in
@@ -771,18 +773,18 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  *     the layer focus overlay, or the row keyboard cursor
  */
 
-/** Incremental three-state sync of a section header's "clean empty folders"
+/** Incremental three-state sync of a role header's "clean empty folders"
  *  button. Runs on LAYER_ROLE_COUNT_CHANGED so a folder's last
  *  member leaving (deleteLayer freeze) shows the button, and a layer
  *  rejoining the folder hides it — without a full rebuild (which would drop
  *  focus/drag state). Idempotent: a no-op when the button state already
- *  matches the section's empty-folder keys, so a double event never stacks a
+ *  matches the role's empty-folder keys, so a double event never stacks a
  *  second button. */
 const syncCleanButton = (ui: LayerUI, role: string): void => {
   const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
   );
-  if (!row) return; // no header for this section (yet) — nothing to sync
+  if (!row) return; // no header for this role (yet) — nothing to sync
   const existing = row.querySelector(CONST.SEL.CLEAN_FOLDERS);
   const empty = emptyFolderKeys(ui, role);
   if (empty.length === 0) {

@@ -5,13 +5,19 @@ from collections.abc import Mapping
 from folium.map import Layer
 
 from foliplus._declaration import (
+    BORDER_KEY,
     FILL_KEY,
     FILTER_KEY,
     FOLDER_KEY,
+    ICON_SIZE_KEY,
     LABEL_KEY,
+    MARKER_COLOR_KEY,
     ZOOM_RANGE_KEY,
+    normalise_border,
     normalise_folder,
+    normalise_icon_size,
     normalise_layer_filter,
+    normalise_marker_color,
     normalise_zoom_range,
     warn_foliplus,
 )
@@ -22,7 +28,18 @@ from foliplus._declaration import (
 #: layer options); zoom_range and folder are normalised here into CONFIG
 #: data[].zoomRange / data[].folder so the visibility and grouping policies
 #: read one CONF fact instead of the raw namespace.
-FOLIPLUS_KEYS = frozenset({FILL_KEY, LABEL_KEY, FILTER_KEY, FOLDER_KEY, ZOOM_RANGE_KEY})
+FOLIPLUS_KEYS = frozenset(
+    {
+        FILL_KEY,
+        LABEL_KEY,
+        FILTER_KEY,
+        FOLDER_KEY,
+        ZOOM_RANGE_KEY,
+        BORDER_KEY,
+        MARKER_COLOR_KEY,
+        ICON_SIZE_KEY,
+    }
+)
 
 
 def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None:
@@ -72,7 +89,9 @@ def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(FOLIPLUS_KEYS)} - ignored",
             )
-        elif key in {FILL_KEY, LABEL_KEY, FILTER_KEY} and not isinstance(value, dict):
+        elif key in {FILL_KEY, LABEL_KEY, FILTER_KEY, BORDER_KEY} and not isinstance(
+            value, dict
+        ):
             warn_foliplus(
                 f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "
@@ -152,4 +171,79 @@ def declared_filter(item: Layer, layer_name: str) -> dict[str, object] | None:
         owner="LayerControl",
         subject=f"layer {layer_name!r}",
         source="foliplus['filter']",
+    )
+
+
+def declared_border(item: Layer, layer_name: str) -> dict[str, str] | None:
+    """Normalise one layer ``foliplus={"border": {"mode": "follow_fill"}}``.
+
+    Returns ``{"mode": "follow_fill"}`` when the declaration is usable, else
+    ``None``: "not declared" and "declared but invalid" are the same state
+    downstream - the border stays on its derived default (original/solid)
+    rather than painting a mode the author never saw validated.
+
+    Mirrors :func:`declared_zoom_range`: the same namespace read, the same
+    unknown-key warning family, and the same single read point that owns the
+    warning for layers. The shared reader in :mod:`foliplus._declaration` owns
+    the ``border`` shape and the warning family, so layering the same rules
+    here and on the controls cannot drift.
+    """
+    namespace = foliplus_namespace(item, layer_name)
+    if namespace is None:
+        return None
+    return normalise_border(
+        namespace.get(BORDER_KEY),
+        owner="LayerControl",
+        subject=f"layer {layer_name!r}",
+        source="foliplus['border']",
+    )
+
+
+def declared_marker_color(item: Layer, layer_name: str) -> str | None:
+    """Normalise one layer ``foliplus={"marker_color": "<preset>"}``.
+
+    Returns the preset name when the declaration is usable, else ``None``:
+    "not declared" and "declared but invalid" are the same state downstream -
+    the marker keeps its derived chassis colour rather than painting a name
+    the author never saw validated.
+
+    Mirrors :func:`declared_border`: the same namespace read, the same
+    unknown-key warning family, and the same single read point that owns the
+    warning for layers. Python gates the string shape and reports a malformed
+    declaration at collection time; whether the name is one of the runtime's
+    chassis presets is the JS reader's verdict (the preset vocabulary lives
+    in markerColorPreset.ts, and the JS panel owns that closed set).
+    """
+    namespace = foliplus_namespace(item, layer_name)
+    if namespace is None:
+        return None
+    return normalise_marker_color(
+        namespace.get(MARKER_COLOR_KEY),
+        owner="LayerControl",
+        subject=f"layer {layer_name!r}",
+        source="foliplus['marker_color']",
+    )
+
+
+def declared_icon_size(item: Layer, layer_name: str) -> int | None:
+    """Normalise one layer ``foliplus={"icon_size": <px>}``.
+
+    Returns a positive pixel size when the declaration is usable, else
+    ``None``: "not declared" and "declared but invalid" are the same state
+    downstream - the marker keeps its built-in pixel size rather than scaling
+    to a value the author never saw validated.
+
+    Mirrors :func:`declared_border`: the same namespace read, the same
+    unknown-key warning family, and the same single read point that owns the
+    warning for layers. folium's Icon exposes no pixel-size channel, so this
+    is a foliplus-only declaration the JS runtime scales the marker icon by.
+    """
+    namespace = foliplus_namespace(item, layer_name)
+    if namespace is None:
+        return None
+    return normalise_icon_size(
+        namespace.get(ICON_SIZE_KEY),
+        owner="LayerControl",
+        subject=f"layer {layer_name!r}",
+        source="foliplus['icon_size']",
     )

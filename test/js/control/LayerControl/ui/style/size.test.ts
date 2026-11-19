@@ -224,7 +224,8 @@ describe("buildSizeRow", () => {
     // One number field on the shared form-number-input chrome, exactly like
     // the border-weight and fill-opacity inputs — no trailing unit span.
     const row = buildSizeRow(ui, "overlay1")!;
-    expect(row.classList.contains(CONST.CLASSES.STYLE_SIZE_ROW)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.STYLE_SIZE_HOOK_ROW)).toBe(true);
+    expect(row.dataset.styleDim).toBe("size");
     expect(row.querySelector(".foliplus-form-unit")).toBeNull();
     const input = sizeInput(row);
     expect(input.classList.contains("foliplus-form-number-input")).toBe(true);
@@ -585,7 +586,7 @@ describe("panel integration", () => {
     ui.openStylePanel("overlay1");
     const styleRows = rows(item);
     const sizeIdx = styleRows.findIndex(r =>
-      r.classList.contains(CONST.CLASSES.STYLE_SIZE_ROW),
+      r.classList.contains(CONST.CLASSES.STYLE_SIZE_HOOK_ROW),
     );
     expect(sizeIdx).toBeGreaterThan(-1);
     expect(
@@ -605,7 +606,7 @@ describe("panel integration", () => {
     const styleRows = rows(item);
     expect(styleRows.length).toBeGreaterThan(0);
     expect(
-      styleRows.every(r => !r.classList.contains(CONST.CLASSES.STYLE_SIZE_ROW)),
+      styleRows.every(r => !r.classList.contains(CONST.CLASSES.STYLE_SIZE_HOOK_ROW)),
     ).toBe(true);
     closeStylePanel(ui, false);
   });
@@ -620,7 +621,7 @@ describe("panel integration", () => {
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
-    expect(item.querySelector(`.${CONST.CLASSES.STYLE_SIZE_ROW}`)).toBeNull();
+    expect(item.querySelector(`.${CONST.CLASSES.STYLE_SIZE_HOOK_ROW}`)).toBeNull();
     closeStylePanel(ui, false);
   });
 

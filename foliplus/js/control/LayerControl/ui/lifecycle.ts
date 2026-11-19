@@ -65,9 +65,10 @@ import {
   releaseStyleApplyOwner,
   scheduleStyleDimApply,
 } from "./style/styleBag.js";
+import { forgetDegradedHint } from "./style/valuePaint.js";
 import type { LayerUI } from "./surface.js";
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
-import { ROLE, sectionOf } from "#core/layer/index.js";
+import { type LayerRole, ROLE } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /**
@@ -176,10 +177,15 @@ const bindLayerEvents = (ui: LayerUI): void => {
 
   ui.onChange = event => {
     const checkbox = (event.target as HTMLElement).closest(
-      '[data-role="toggle-all"]',
+      `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
     ) as HTMLInputElement | null;
     if (checkbox) {
-      const row = checkbox.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
+      // Climb on the row's identity key, not its class: the checkbox carries
+      // the sentinel role, so the climb skips it and lands on the row that owns
+      // the role.
+      const row =
+        (checkbox.closest(CONST.SEL.TOGGLE_ALL_ROW) as HTMLElement | null) ??
+        (checkbox.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null);
       if (!row) return;
       // Derive the target state from the actual layer selection rather than
       // checkbox.checked — the browser resets indeterminate before the change
@@ -229,7 +235,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
 
     // The clean-empty-folders button lives inside the toggle-all
     // header, so it must be intercepted BEFORE the toggle-all branch folds
-    // the section. stopPropagation keeps the press from reaching the row /
+    // the role. stopPropagation keeps the press from reaching the row /
     // map (hard constraint 4).
     const cleanBtn = el.closest(CONST.SEL.CLEAN_FOLDERS) as HTMLElement | null;
     if (cleanBtn) {
@@ -237,13 +243,20 @@ const bindLayerEvents = (ui: LayerUI): void => {
       event.preventDefault();
       const role = cleanBtn.dataset.role ?? "";
       if (role) {
-        ui.c.cleanEmptyFolders(sectionOf(role as Parameters<typeof sectionOf>[0]));
+        ui.c.cleanEmptyFolders(role as LayerRole);
       }
       return;
     }
 
-    const toggleAllEl = el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null;
-    if (!toggleAllEl || el.closest('[data-role="toggle-all"]')) return;
+    // The fold branch climbs on the header row's identity key, never on the
+    // row class (see SEL.TOGGLE_ALL_ROW), and the click landing on the row's own
+    // toggle-all checkbox is the onChange path, not a fold.
+    const toggleAllEl =
+      (el.closest(CONST.SEL.TOGGLE_ALL_ROW) as HTMLElement | null) ??
+      (el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null);
+    if (!toggleAllEl || el.closest(`[data-role="${CONST.TOGGLE_ALL_ROLE}"]`)) {
+      return;
+    }
     toggleFold(ui, toggleAllEl.dataset.role ?? "");
   };
 
@@ -401,6 +414,10 @@ const bindLayerEvents = (ui: LayerUI): void => {
       // be a walk for its own sake.
       invalidateFieldCache(ui, payload.id);
       dropStyleDimApplies(payload.id, ui);
+      // The classify-degradation dedup keeps one id per hinted layer per page;
+      // drop it with the layer so a page that reuses the id cannot inherit a
+      // "already warned" decision from the layer that wore it first.
+      forgetDegradedHint(ui.c.map, payload.id);
     }),
     subscribe(EVENTS.LAYER_ROLE_COUNT_CHANGED, (payload: { role: string }) => {
       syncToggleAll(ui, payload.role);

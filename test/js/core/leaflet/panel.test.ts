@@ -6,6 +6,7 @@ import {
   ROW_PANEL_MIN_HEIGHT,
   ROW_PANEL_TOP_INSET,
   adjustPanelZIndex,
+  bindFoldOverlay,
   bindFoldToggle,
   bindMapSync,
   bindOutsideCollapse,
@@ -34,46 +35,46 @@ describe("adjustPanelZIndex", () => {
   it("resets z-index when collapsed", () => {
     const bar = document.createElement("div");
     bar.className = "leaflet-bar";
-    const section = document.createElement("div");
-    section.className = "leaflet-top";
+    const corner = document.createElement("div");
+    corner.className = "leaflet-top";
     const container = document.createElement("div");
     bar.appendChild(container);
-    section.appendChild(bar);
+    corner.appendChild(bar);
     // container.closest(".leaflet-bar") requires container to be inside the bar
     bar.style.zIndex = "501";
-    section.style.zIndex = "509";
+    corner.style.zIndex = "509";
 
     adjustPanelZIndex({ container, expanded: false });
     expect(bar.style.zIndex).toBe("");
-    expect(section.style.zIndex).toBe("");
+    expect(corner.style.zIndex).toBe("");
   });
 
   it("sets z-index from cssVar when expanded", () => {
     const bar = document.createElement("div");
     bar.className = "leaflet-bar";
-    const section = document.createElement("div");
-    section.className = "leaflet-top";
+    const corner = document.createElement("div");
+    corner.className = "leaflet-top";
     const container = document.createElement("div");
     bar.appendChild(container);
-    section.appendChild(bar);
+    corner.appendChild(bar);
 
     // setup.js doesn't stub getComputedStyle globally here; cssVar
     // reads document.documentElement computed style. jsdom returns
     // empty string, so cssVar falls back to the token default "9990"
-    // (--foliplus-z-index-floating). Offsets: bar +1, section +9.
+    // (--foliplus-z-index-floating). Offsets: bar +1, corner +9.
     adjustPanelZIndex({ container, expanded: true });
     expect(bar.style.zIndex).toBe("9991");
-    expect(section.style.zIndex).toBe("9999");
+    expect(corner.style.zIndex).toBe("9999");
   });
 
   it("reads --foliplus-z-index-floating from the token when present", () => {
     const bar = document.createElement("div");
     bar.className = "leaflet-bar";
-    const section = document.createElement("div");
-    section.className = "leaflet-top";
+    const corner = document.createElement("div");
+    corner.className = "leaflet-top";
     const container = document.createElement("div");
     bar.appendChild(container);
-    section.appendChild(bar);
+    corner.appendChild(bar);
 
     const spy = vi.spyOn(window, "getComputedStyle").mockReturnValue({
       getPropertyValue: (prop: string) =>
@@ -85,10 +86,10 @@ describe("adjustPanelZIndex", () => {
       spy.mockRestore();
     }
     expect(bar.style.zIndex).toBe("9991");
-    expect(section.style.zIndex).toBe("9999");
+    expect(corner.style.zIndex).toBe("9999");
   });
 
-  it("handles container without bar/section", () => {
+  it("handles container without bar/corner", () => {
     const container = document.createElement("div");
     expect(() => adjustPanelZIndex({ container, expanded: true })).not.toThrow();
   });
@@ -149,6 +150,27 @@ describe("bindPanelToggle", () => {
     ).not.toThrow();
     expect(domEvent.on).not.toHaveBeenCalled();
   });
+
+  it("calls onExpand/onCollapse hooks", () => {
+    const { container, btn, hdr } = makePanel();
+    const onExpand = vi.fn();
+    const onCollapse = vi.fn();
+    bindPanelToggle({
+      container,
+      toggleBtn: ".foliplus-toggle-btn",
+      header: ".foliplus-panel-header",
+      onExpand,
+      onCollapse,
+    });
+
+    btn.click();
+    expect(onExpand).toHaveBeenCalledTimes(1);
+    expect(onCollapse).not.toHaveBeenCalled();
+
+    hdr.click();
+    expect(onCollapse).toHaveBeenCalledTimes(1);
+    expect(onExpand).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("bindFoldToggle", () => {
@@ -199,6 +221,191 @@ describe("bindFoldToggle", () => {
     bindFoldToggle({ container, toggleBtn: btn });
     btn.click();
     expect(domEvent.stop).toHaveBeenCalled();
+  });
+});
+
+describe("bindFoldOverlay", () => {
+  function makeFold() {
+    const container = document.createElement("div");
+    container.className = "foliplus-ctrl-fold foliplus-is-collapsed";
+    const btn = document.createElement("button");
+    btn.className = "foliplus-toggle-btn";
+    container.appendChild(btn);
+    document.body.appendChild(container);
+    return { container, btn };
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("registers the fold panel with the registry and closes on group open", () => {
+    // Minimal map stub: ensureOverlayRegistry only needs a key.
+    const on = vi.fn();
+    const map = { _leaflet_id: 1, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const { groupOpen } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.panel",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    // The entry is registered and opens through the toggle class.
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+    // groupOpen on a sibling closes this one (no sibling here, no error).
+    groupOpen();
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+  });
+
+  it("close refuses Escape and respects canClose", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 2, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const canClose = vi.fn(() => true);
+    bindFoldOverlay({
+      map,
+      container,
+      id: "test.panel2",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+
+    // A sibling in the same group opens -> the registry closes this one
+    // (restoreFocus:false path inside close()).
+    const { container: sibling } = makeFold();
+    const { groupOpen: siblingOpen } = bindFoldOverlay({
+      map,
+      container: sibling,
+      id: "test.sibling",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () => true,
+    });
+    sibling.classList.add("foliplus-is-expanded");
+    sibling.classList.remove("foliplus-is-collapsed");
+
+    siblingOpen();
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
+
+    // canClose false leaves the panel open.
+    const { container: gated } = makeFold();
+    bindFoldOverlay({
+      map,
+      container: gated,
+      id: "test.gated",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () => false,
+    });
+    gated.classList.add("foliplus-is-expanded");
+    gated.classList.remove("foliplus-is-collapsed");
+    const { groupOpen: gateOpen } = bindFoldOverlay({
+      map,
+      container: gated,
+      id: "test.gated2",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      canClose: () => true,
+    });
+    gateOpen();
+    expect(gated.classList.contains("foliplus-is-expanded")).toBe(true);
+  });
+
+  it("attached panels merge into panels() and keep the fold open on press", () => {
+    // The SearchControl passes `panels` (its floating results panel is attached
+    // to the map container, not the fold container). The registry's press
+    // containment consults the merged panels(): a press on the attached panel
+    // is inside the surface, so the fold stays open.
+    const on = vi.fn();
+    const map = { _leaflet_id: 3, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const attached = document.createElement("div");
+    attached.className = "test-attached";
+    document.body.appendChild(attached);
+    bindFoldOverlay({
+      map,
+      container,
+      id: "test.attached",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+      panels: () => [attached],
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+
+    attached.dispatchEvent(
+      new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+    );
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+  });
+
+  it("Escape never closes a fold panel (fold panels stay out of Escape closing)", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 4, on } as unknown as L.Map;
+    const { container } = makeFold();
+    bindFoldOverlay({
+      map,
+      container,
+      id: "test.escape",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+
+    // The registry's Escape dispatch calls top.close({ restoreFocus: true });
+    // a fold panel refuses that, so the panel stays open (and Escape keeps
+    // being available to the panel's own handlers).
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(true);
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(false);
+  });
+
+  it("close on a collapsed fold panel is a no-op", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 5, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const { close } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.collapsed",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    // Starts collapsed: close must refuse without throwing or expanding.
+    expect(close({ restoreFocus: false })).toBe(false);
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(false);
+  });
+
+  it("close collapses an expanded fold panel and reports success", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 6, on } as unknown as L.Map;
+    const { container } = makeFold();
+    const { close } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.close",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+    expect(close({ restoreFocus: false })).toBe(true);
+    expect(container.classList.contains("foliplus-is-collapsed")).toBe(true);
+    expect(container.classList.contains("foliplus-is-expanded")).toBe(false);
   });
 });
 
@@ -688,6 +895,33 @@ describe("createPanelControl", () => {
     document.body.appendChild(outside);
     outside.click();
     expect(result.ctrl.classList.contains("foliplus-is-collapsed")).toBe(true);
+  });
+
+  it("skipOutsideCollapse replaces the outside listener with a no-op", () => {
+    // HeatmapControl registers its panel on the overlay registry itself, so
+    // createPanelControl must not also install a document outside listener
+    // (the returned destroy becomes the no-op arm).
+    const result = createPanelControl({
+      cssClass: "heatmap-ctrl",
+      toggleTitle: "Toggle",
+      toggleSvg: "<svg/>",
+      panelTitle: "Panel",
+      closeTitle: "Close",
+      skipOutsideCollapse: true,
+    });
+    document.body.appendChild(result.container);
+    result.toggleBtn!.click();
+    expect(result.ctrl.classList.contains("foliplus-is-expanded")).toBe(true);
+
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    outside.click();
+    expect(result.ctrl.classList.contains("foliplus-is-expanded")).toBe(true);
+
+    // Invoking the returned destroy is the no-op arm: it must not throw and
+    // must not install/unbind any outside listener (the caller owns the
+    // registry entry instead).
+    expect(() => result.destroy()).not.toThrow();
   });
 
   it("stays open on an outside press when collapseOnOutside is false", () => {

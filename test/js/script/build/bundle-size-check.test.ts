@@ -30,10 +30,9 @@ import { stripLeadingBlockComment } from "#script/build/bundle-size-lib.mjs";
 // dist/, so the case skips cleanly instead of crashing on the missing dir.
 const distReady = existsSync(resolve(process.cwd(), "foliplus/dist"));
 
-// A dev build (build:dev) emits unminified output larger than the minified
-// ceilings these dist-dependent cases assert, so they also skip when build.mjs
-// wrote the .dev-build marker; the absolute gate stays in CI's minified path.
-const distDev = existsSync(resolve(process.cwd(), "foliplus/dist/.dev-build"));
+// The gates now REFUSE a dev dist (devDistMessage -> EXIT_FUSE) rather than
+// measuring it, so there is no "skip on dev" case: the checkout-default case
+// below passes devDist:false to exercise the normal minified path.
 
 type BundleArgs = {
   help: boolean;
@@ -93,6 +92,50 @@ const mkDist = (root: string, files: Record<string, string>) => {
     writeFileSync(join(dir, name), content, "utf-8");
   }
 };
+
+// The dev-dist guard (shared devDistMessage in bundle-size-lib.mjs). A
+// build:dev dist would bake inflated sizes into a baseline every later PR
+// diffs against, so both check() and emit() must REFUSE it with EXIT_FUSE and
+// a human-readable message. Driven through the devDist dep seam, never the
+// real dist. EXIT_FUSE is 1 (bundle-size-lib exit table).
+describe("bundle-size-check dev-dist guard", () => {
+  const errInto = () => vi.spyOn(console, "error").mockImplementation(() => {});
+
+  it("check() refuses a dev dist with a non-zero exit and a clear message", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": "x" });
+    const error = errInto();
+    try {
+      expect(check({}, root, { devDist: true })).toBe(1);
+      const text = error.mock.calls.join("\n");
+      expect(text).toMatch(/dev \(unminified\) build/i);
+      expect(text).toContain("npm run build");
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("emit() refuses a dev dist so no inflated baseline is captured", () => {
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": "x" });
+    const error = errInto();
+    try {
+      expect(emit({ emit: join(root, "base.json") }, root, { devDist: true })).toBe(1);
+      expect(existsSync(join(root, "base.json"))).toBe(false);
+      expect(error.mock.calls.join("\n")).toMatch(/dev \(unminified\) build/i);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it("check() measures normally when the dist is not a dev build", () => {
+    // Reverse proof: devDist:false reaches the size read, so the guard cannot
+    // degenerate into "always refuse". No baseline -> the bare-listing path.
+    const root = mkTmp();
+    mkDist(root, { "foliplus-LocateControl.min.js": "x" });
+    expect(check({}, root, { devDist: false })).not.toBe(1);
+  });
+});
 
 // Write a baseline sizes file to `root` and return its path.
 const writeBaseline = (root: string, data: unknown): string => {
@@ -1499,9 +1542,6 @@ describe("cli entry point", () => {
     if (!distReady) {
       skip("no foliplus/dist build present");
     }
-    if (distDev) {
-      skip("dev (unminified) build: absolute caps hold only for minified output");
-    }
     // `node script/bundle-size-check.mjs` without --root reads the checkout's
     // own dist; without a --baseline that is a bare size listing, which exits
     // 0 regardless of what the dist holds. Same shape as the Makefile target.
@@ -1510,7 +1550,9 @@ describe("cli entry point", () => {
       .mockImplementation((code?: string | number | null | undefined) => {
         throw new Error(`exit:${code}`);
       });
-    expect(() => main([])).toThrow("exit:0");
+    // devDist:false — the real dist may carry a dev marker; this case is the
+    // bare-listing verdict, not the guard (which has its own cases below).
+    expect(() => main([], { devDist: false })).toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
   }, 30000);
 

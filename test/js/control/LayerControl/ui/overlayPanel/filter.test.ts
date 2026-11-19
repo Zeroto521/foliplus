@@ -693,6 +693,20 @@ describe("LayerUI filter panel", () => {
 
         expect(panel.querySelector(`.${CONST.CLASSES.FILTER_SLIDER}`)).toBeNull();
         expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM}`)).not.toBeNull();
+        // The P1 regression: switching to an enum field must NOT drop the
+        // field row — the panel still answers "which field" next to "what
+        // values". The field row carries the stable data-* identity.
+        const fieldRow = panel.querySelector(
+          `[data-filter-field="kind"]`,
+        ) as HTMLElement;
+        expect(fieldRow).not.toBeNull();
+        // The field select still offers both fields and stays on the enum one.
+        const fieldSelect = fieldRow.querySelector("select") as HTMLSelectElement;
+        expect(fieldSelect.value).toBe("kind");
+        expect(Array.from(fieldSelect.options).map(o => o.value)).toEqual([
+          "mag",
+          "kind",
+        ]);
       });
     });
 
@@ -953,8 +967,11 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
 
       const panel = panelOf(item)!;
+      // The enum condition row is reached by its stable data-* identity: the
+      // field row also carries FILTER_FIELD, so the shared class would match
+      // the wrong row now that both bodies render a field row.
       const fieldCell = panel.querySelector(
-        `.${CONST.CLASSES.FILTER_FIELD}`,
+        `[data-filter-value="enum"]`,
       ) as HTMLElement;
       // One label only: the row's label cell carries the shared "Values"
       // caption (never a component word like "Type") and the control cell
@@ -1379,9 +1396,7 @@ describe("LayerUI filter panel", () => {
       ui.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "shape" });
 
       expect(triggerOf(item)).not.toBe(oldTrigger);
-      const fieldCell = item.querySelector(
-        `.${CONST.CLASSES.FILTER_FIELD}`,
-      ) as HTMLElement;
+      const fieldCell = item.querySelector(`[data-filter-value="enum"]`) as HTMLElement;
       const row = fieldCell.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement;
       // The caption stays panel-owned across the rebuild.
       expect(row.querySelector(`.${PANEL_CLASS.FORM_LABEL}`)!.textContent).toBe(
@@ -1437,6 +1452,123 @@ describe("LayerUI filter panel", () => {
       ui.openFilterPanel(item);
       const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
       expect(panel.querySelector(`.${CONST.CLASSES.FILTER_ENUM_HINT}`)).toBeNull();
+    });
+  });
+
+  describe("field / value row data-* identity", () => {
+    /** The field and value rows must be addressable by their stable data-*
+     *  identity, not by a shared class (a multi-condition tree can reuse
+     *  the FILTER_FIELD class, so class-name reach-around is the very
+     *  bug class this guards). */
+    const multiFieldProvider = (): LayerFilterModel => ({
+      dimensions: [
+        { kind: "range", field: "mag", range: [0, 10] as [number, number], step: 1 },
+        {
+          kind: "enum",
+          field: "kind",
+          options: [{ value: "a", label: "A" }],
+          multi: true,
+        },
+      ],
+      filter: undefined,
+      kept: 10,
+      total: 10,
+      fields: [
+        { value: "mag", label: "mag", numeric: true },
+        { value: "kind", label: "kind", numeric: false },
+      ],
+      onField: () => {},
+    });
+    const openMulti = (): HTMLElement => {
+      registerPoints();
+      const reg = ui.c.layerRegistry.get("pnt") as any;
+      reg.filterProvider = multiFieldProvider;
+      reg.filterSetter = () => {};
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      return item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+    };
+
+    it("addresses the field row by data-filter-field (not by class)", () => {
+      const panel = openMulti();
+      const fieldRow = panel.querySelector(`[data-filter-field="mag"]`) as HTMLElement;
+      expect(fieldRow).not.toBeNull();
+      // The data-* query disambiguates the row that the shared FILTER_FIELD
+      // class also matches; the class query is not the unique path.
+      expect(
+        panel.querySelectorAll(`.${CONST.CLASSES.FILTER_FIELD}`).length,
+      ).toBeGreaterThanOrEqual(1);
+    });
+
+    it("addresses the range value row by data-filter-value=range", () => {
+      const panel = openMulti();
+      const valueRow = panel.querySelector(
+        `[data-filter-value="range"]`,
+      ) as HTMLElement;
+      expect(valueRow).not.toBeNull();
+    });
+
+    it("addresses the enum value row by data-filter-value=enum after switching", () => {
+      const panel = openMulti();
+      const select = panel.querySelector("select") as HTMLSelectElement;
+      select.value = "kind";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      const enumRow = panel.querySelector(`[data-filter-value="enum"]`) as HTMLElement;
+      expect(enumRow).not.toBeNull();
+      // The field row survives the switch and still carries the new field.
+      const fieldRow = panel.querySelector(`[data-filter-field="kind"]`) as HTMLElement;
+      expect(fieldRow).not.toBeNull();
+    });
+
+    it("keeps exactly one field row in the panel after switching to enum", () => {
+      const panel = openMulti();
+      const select = panel.querySelector("select") as HTMLSelectElement;
+      select.value = "kind";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      // One field row, never two (the enum body must not add a second one).
+      expect(panel.querySelectorAll(`[data-filter-field]`).length).toBe(1);
+      // One value row: the enum body's own row, not the range slider.
+      expect(panel.querySelectorAll(`[data-filter-value]`).length).toBe(1);
+    });
+
+    it("orders the field row before the value row", () => {
+      const panel = openMulti();
+      const fieldRow = panel.querySelector(`[data-filter-field="mag"]`) as HTMLElement;
+      const valueRow = panel.querySelector(
+        `[data-filter-value="range"]`,
+      ) as HTMLElement;
+      const rows = Array.from(panel.querySelectorAll(`.${PANEL_CLASS.FORM_ROW}`));
+      const fieldIdx = rows.indexOf(
+        fieldRow.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement,
+      );
+      const valueIdx = rows.indexOf(
+        valueRow.closest(`.${PANEL_CLASS.FORM_ROW}`) as HTMLElement,
+      );
+      expect(fieldIdx).toBeGreaterThanOrEqual(0);
+      expect(valueIdx).toBeGreaterThan(fieldIdx);
+    });
+
+    it("gives the read-only field cell the same data-* identity", () => {
+      // An owner without fields (Heatmap/Measure) still gets the identity.
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      const panel = item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`) as HTMLElement;
+      const fieldRow = panel.querySelector(
+        `[data-filter-field="magnitude"]`,
+      ) as HTMLElement;
+      expect(fieldRow).not.toBeNull();
+      expect(fieldRow.querySelector("select")).toBeNull();
+    });
+
+    it("does not leak the field identity onto the value row", () => {
+      const panel = openMulti();
+      const valueRow = panel.querySelector(
+        `[data-filter-value="range"]`,
+      ) as HTMLElement;
+      expect(valueRow.getAttribute("data-filter-field")).toBeNull();
+      const fieldRow = panel.querySelector(`[data-filter-field="mag"]`) as HTMLElement;
+      expect(fieldRow.getAttribute("data-filter-value")).toBeNull();
     });
   });
 
@@ -1887,6 +2019,62 @@ describe("LayerUI filter panel", () => {
       expect(ui.overlayPanel.activeFilterPanel).toBeNull();
       expect(ui.overlayPanel.filterOverlayUnregister).toBeNull();
       expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
+    });
+    it("deleting a user-added layer closes its open filter panel (LAYER_REMOVED)", () => {
+      // A user-added (non-component-owned) layer retires through retireEntry →
+      // LAYER_REMOVED (not LAYER_DELETED). The filter panel must close on that
+      // path — this is the v1 gap the dual subscription fixes.
+      registerPoints();
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+
+      expect(manager.deleteLayer("pnt")).toBe(true);
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+      expect(ui.overlayPanel.filterUnsubscribe).toBeNull();
+    });
+
+    it("deleting a component-owned layer closes its open filter panel (LAYER_DELETED regression lock)", () => {
+      // Heatmap/Measure rows are component-owned (styleSetters): deleteLayer
+      // emits LAYER_DELETED, not LAYER_REMOVED. The filter panel's existing
+      // LAYER_DELETED subscription must stay — this is the regression lock.
+      const owner = makeOwner([10, 20, 30]);
+      manager.registerLayer({
+        id: "heat1",
+        name: "Heat",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        styleSetters: { color: vi.fn() },
+        filterProvider: owner.filterProvider,
+        filterSetter: owner.filterSetter,
+      } as any);
+      const item = findItem(ui, "heat1");
+      ui.openFilterPanel(item);
+      expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+
+      expect(manager.deleteLayer("heat1")).toBe(true);
+
+      expect(item.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).toBeNull();
+      expect(ui.overlayPanel.activeFilterPanel).toBeNull();
+    });
+
+    it("deleting another layer keeps this filter panel open", () => {
+      registerPoints();
+      manager.registerLayer({
+        id: "L2",
+        name: "Other",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      const item = findItem(ui, "pnt");
+      ui.openFilterPanel(item);
+      expect(ui.overlayPanel.activeFilterPanel).not.toBeNull();
+
+      expect(manager.deleteLayer("L2")).toBe(true);
+
+      expect(ui.overlayPanel.activeFilterPanel?.layerId).toBe("pnt");
     });
   });
 

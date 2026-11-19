@@ -34,8 +34,8 @@ import {
 import {
   closeStylePanel,
   layerHasLabelFields,
-  layerHasStyleDelegation,
   refreshStylePanel,
+  styleCapability,
 } from "#control/LayerControl/ui/style/index.js";
 import { coerceAnnotationFields } from "#control/LayerControl/ui/style/label.js";
 import { clampPct, resetLayerOpacity } from "#control/LayerControl/ui/style/opacity.js";
@@ -142,6 +142,53 @@ describe("LayerUI style panel", () => {
     const panel = panelOf(item)!;
     expect(panel).not.toBeNull();
     expect(panel.getAttribute("role")).toBe("dialog");
+  });
+  it("deleting the layer closes its open style panel (LAYER_REMOVED)", () => {
+    // A user-added layer retires through retireEntry → LAYER_REMOVED; the
+    // style panel must close itself rather than leave a drawer for a row
+    // that is about to disappear.
+    manager.registerLayer({
+      id: "L1",
+      name: "Added",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as any);
+    const item = findItem(ui, "L1");
+    ui.openStylePanel("L1");
+    expect(panelOf(item)).not.toBeUndefined();
+
+    expect(manager.deleteLayer("L1")).toBe(true);
+
+    // The row is gone from the DOM; the panel state must be fully closed.
+    expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
+    expect(ui.overlayPanel.stylePanelEl).toBeNull();
+    expect(ui.overlayPanel.styleUnsubscribe).toBeNull();
+    expect(ui.overlayPanel.styleRemovedUnsub).toBeNull();
+    expect(document.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)).toBeNull();
+  });
+
+  it("deleting another layer keeps this style panel open", () => {
+    manager.registerLayer({
+      id: "L1",
+      name: "Added",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as any);
+    manager.registerLayer({
+      id: "L2",
+      name: "Other",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as any);
+    const item = findItem(ui, "L1");
+    ui.openStylePanel("L1");
+    expect(panelOf(item)).not.toBeUndefined();
+
+    expect(manager.deleteLayer("L2")).toBe(true);
+
+    expect(panelOf(findItem(ui, "L1"))).not.toBeUndefined();
+    expect(ui.overlayPanel.stylePanelLayerId).toBe("L1");
+    expect(ui.overlayPanel.styleRemovedUnsub).not.toBeNull();
   });
 
   it("its registry entry reports no containment once the panel is gone", () => {
@@ -1288,10 +1335,10 @@ describe("LayerUI style panel", () => {
     expect(order.indexOf(layer!)).toBeLessThan(order.indexOf(label as Element));
     // The label dimension's row is one wrapper (toggle + body) — the
     // structural hook the Label content is selected by.
-    const labelSection = panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SECTION}`);
-    expect(labelSection).not.toBeNull();
+    const labelBlock = panel.querySelector(`.${CONST.CLASSES.STYLE_LABEL_SECTION}`);
+    expect(labelBlock).not.toBeNull();
     expect(
-      labelSection!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
+      labelBlock!.querySelector(`.${CONST.CLASSES.STYLE_TOGGLE_INPUT}`),
     ).not.toBeNull();
   });
 
@@ -2876,8 +2923,8 @@ describe("LayerUI style panel", () => {
     expect(labelFormatSetter).toHaveBeenCalledWith("auto");
   });
 
-  it("layerHasStyleDelegation is true only for layers with styleSetters", () => {
-    expect(layerHasStyleDelegation(ui, "overlay1")).toBe(false);
+  it("styleDelegation is true only for layers with styleSetters", () => {
+    expect(styleCapability(ui, "overlay1").styleDelegation).toBe(false);
 
     manager.registerLayer({
       id: "heat1",
@@ -2886,7 +2933,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({ labelShow: true }),
       styleSetters: { labelShow: vi.fn() },
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(true);
+    expect(styleCapability(ui, "heat1").styleDelegation).toBe(true);
   });
 
   it("delegated panel renders only the controls the component declared", () => {
@@ -3131,7 +3178,7 @@ describe("LayerUI style panel", () => {
       styleProvider: () => ({}),
       styleSetters: {},
     });
-    expect(layerHasStyleDelegation(ui, "heat1")).toBe(false);
+    expect(styleCapability(ui, "heat1").styleDelegation).toBe(false);
   });
 
   it("delegated panel collapses body when label toggle is off", () => {

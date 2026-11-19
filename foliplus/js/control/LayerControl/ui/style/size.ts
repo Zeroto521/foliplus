@@ -160,7 +160,7 @@ const firstAuthorRadius = (ui: LayerUI, layerId: string): number => {
 const buildSizeRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   if (!styleCapability(ui, layerId).dims.size) return null;
   const label = ui.T("style_size");
-  return formRow(
+  const row = formRow(
     label,
     inlineControls(
       numberInput({
@@ -173,8 +173,14 @@ const buildSizeRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
         unitSuffix: ui._("foliplus.unit_px"),
       }),
     ),
-    CONST.CLASSES.STYLE_SIZE_ROW,
+    // STYLE_SIZE_ROW is reused by fill-opacity / border-width rows for CSS
+    // right-alignment only. The TRUE size row's own hook class is the single
+    // addressing key; a panel/tests lookup by STYLE_SIZE_ROW must never bind
+    // this row (that reuse is exactly the #154 root cause).
+    CONST.CLASSES.STYLE_SIZE_HOOK_ROW,
   );
+  row.dataset.styleDim = DIM.SIZE;
+  return row;
 };
 
 /** Wire the size field to its commit path. Called from `openStylePanel`. */
@@ -214,6 +220,11 @@ const SIZE_DIMENSION = registerDimension<number>({
    *  gate is `layerCanSize` — the same check `buildSizeRow` re-runs for its
    *  direct callers. So the `null` mode is unreachable on this path. */
   row: (ui, layerId) => buildSizeRow(ui, layerId) as HTMLElement,
+  /** Bind the size field's commit path. The panel calls this right after
+   *  `row()` returns, with the exact row just built — the descriptor owns
+   *  the binding so a reused row class (STYLE_SIZE_ROW on fill/border rows)
+   *  can never steal this row's input. */
+  bind: bindSizeRow,
   /** Cohesive user write: round to a whole pixel, skip an unchanged value,
    *  record intent + provenance, then replay the stored intent onto the
    *  layer's current leaves. */
@@ -224,10 +235,7 @@ const SIZE_DIMENSION = registerDimension<number>({
   },
   /** Cohesive reset: clear the override, save, restore the authored radii. */
   reset: (ui, layerId) => resetLayerSize(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!styleCapability(ui, layerId).dims.size) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.SIZE) ? "user" : "author";
-  },
+  intentKeys: [INTENT.SIZE],
   /** Content-change replay: a pixel radius chosen before a leaf landed
    *  reaches it — the when-gate bails when the user never chose a size,
    *  before any scheduler box is allocated, so an untouched layer keeps its

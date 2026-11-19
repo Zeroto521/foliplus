@@ -25,8 +25,11 @@ from conftest import feature_collection
 from foliplus import LayerControl
 from foliplus.control.LayerControl._layer_declaration import (
     FOLIPLUS_KEYS,
+    declared_border,
     declared_filter,
     declared_folder,
+    declared_icon_size,
+    declared_marker_color,
     declared_zoom_range,
     foliplus_namespace,
 )
@@ -256,6 +259,16 @@ def test_non_string_folder_is_dropped_with_a_warning():
     assert "folder" not in entry
 
 
+def test_overlong_folder_is_dropped_with_a_warning():
+    with pytest.warns(UserWarning, match="expected at most 64"):
+        html = _render(_geo(foliplus={"folder": "N" * 65}))
+    entry = _conf(html)["data"][0]
+    assert "folder" not in entry
+    # The malformed folder is a warning, never a reason to drop the layer:
+    # the row still reaches the panel, just at the section root.
+    assert entry["name"] == "Declared"
+
+
 def test_shared_folder_adopted_by_all_declaring_layers():
     # Two layers sharing a folder name are one group, not a conflict: each
     # declaring layer adopts the folder (no discard, no ambiguity warning) -
@@ -482,3 +495,110 @@ def test_third_source_reuses_shared_normaliser():
         )
 
     assert demo_declared_filter(layer, "Pop") == declared_filter(layer, "Pop")
+
+
+def test_declared_border_follow_fill_is_read():
+    layer = _geo(foliplus={"border": {"mode": "follow_fill"}})
+    assert declared_border(layer, "Declared") == {"mode": "follow_fill"}
+
+
+def test_undeclared_border_is_none_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert declared_border(_geo(), "Declared") is None
+
+    assert caught == []
+
+
+def test_invalid_border_warns_and_reads_none():
+    with pytest.warns(UserWarning, match="border"):
+        assert (
+            declared_border(_geo(foliplus={"border": {"mode": "solid"}}), "Declared")
+            is None
+        )
+
+
+def test_border_stays_out_of_conf():
+    # The border declaration is read by the JS panel off layer.options.foliplus
+    # (the same channel as fill/label): CONF must not carry a border key.
+    html = _render(_geo(foliplus={"border": {"mode": "follow_fill"}}))
+    entry = _conf(html)["data"][0]
+    assert "border" not in entry
+
+
+# ── marker_color declaration (audit #12: the chassis preset palette is not
+#    folium's named colours, so Python cannot express it via folium kwargs) ──
+def test_declared_marker_color_is_read():
+    layer = _geo(foliplus={"marker_color": "darkred"})
+    assert declared_marker_color(layer, "Declared") == "darkred"
+
+
+def test_undeclared_marker_color_is_none_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert declared_marker_color(_geo(), "Declared") is None
+
+    assert caught == []
+
+
+def test_non_string_marker_color_warns_and_reads_none():
+    with pytest.warns(UserWarning, match="marker_color"):
+        assert (
+            declared_marker_color(_geo(foliplus={"marker_color": 7}), "Declared")
+            is None
+        )
+
+
+def test_blank_marker_color_warns_and_reads_none():
+    with pytest.warns(UserWarning, match="marker_color"):
+        assert (
+            declared_marker_color(_geo(foliplus={"marker_color": "   "}), "Declared")
+            is None
+        )
+
+
+def test_marker_color_stays_out_of_conf():
+    # Read by the JS panel off layer.options.foliplus (the border channel):
+    # CONF must not carry a marker_color key.
+    entry = _conf(_render(_geo(foliplus={"marker_color": "darkred"})))["data"][0]
+    assert "marker_color" not in entry
+
+
+def test_marker_color_key_is_a_known_foliplus_key():
+    assert "marker_color" in FOLIPLUS_KEYS
+
+
+# ── icon_size declaration (audit #13: folium Icon has no pixel-size channel) ──
+def test_declared_icon_size_is_read():
+    layer = _geo(foliplus={"icon_size": 36})
+    assert declared_icon_size(layer, "Declared") == 36
+
+
+def test_undeclared_icon_size_is_none_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert declared_icon_size(_geo(), "Declared") is None
+
+    assert caught == []
+
+
+@pytest.mark.parametrize("raw", [0, -8, 12.5, "36", True])
+def test_invalid_icon_size_warns_and_reads_none(raw):
+    with pytest.warns(UserWarning, match="icon_size"):
+        assert declared_icon_size(_geo(foliplus={"icon_size": raw}), "Declared") is None
+
+
+def test_icon_size_stays_out_of_conf():
+    entry = _conf(_render(_geo(foliplus={"icon_size": 36})))["data"][0]
+    assert "icon_size" not in entry
+
+
+def test_icon_size_key_is_a_known_foliplus_key():
+    assert "icon_size" in FOLIPLUS_KEYS
+
+
+def test_unknown_foliplus_key_still_warns():
+    # The two new keys joined the whitelist: an actually-unknown key must
+    # still trip the namespace warning (the whitelist did not swallow it).
+    with pytest.warns(UserWarning, match="unknown foliplus key"):
+        declared_marker_color(_geo(foliplus={"marker_colour": "darkred"}), "Declared")

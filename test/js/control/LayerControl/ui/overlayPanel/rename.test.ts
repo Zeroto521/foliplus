@@ -173,6 +173,52 @@ describe("LayerUI rename", () => {
       showHint.mockRestore();
     });
 
+    it("deleting the layer cancels its open rename without committing (LAYER_REMOVED)", () => {
+      // A user-added layer registered after attach: rename opens an inline
+      // input; deleteLayer retires it via retireEntry → LAYER_REMOVED. The
+      // in-flight rename must be cancelled (not committed) so a rename for a
+      // deleted layer is never written.
+      manager.registerLayer({
+        id: "L1",
+        name: "Added",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      const item = findItem(ui, "L1");
+      ui.renameLayer("L1");
+      expect(ui.overlayPanel.activeRenameId).toBe("L1");
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+      input.value = "Should Not Commit";
+
+      expect(manager.deleteLayer("L1")).toBe(true);
+
+      // Cancel path: the rename is torn down silently, no value written.
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
+      expect(manager.layerRegistry.get("L1")).toBeUndefined();
+    });
+
+    it("deleting another layer keeps this rename input open", () => {
+      manager.registerLayer({
+        id: "L1",
+        name: "Added",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      manager.registerLayer({
+        id: "L2",
+        name: "Other",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      } as any);
+      ui.renameLayer("L1");
+      expect(ui.overlayPanel.activeRenameId).toBe("L1");
+
+      expect(manager.deleteLayer("L2")).toBe(true);
+
+      expect(ui.overlayPanel.activeRenameId).toBe("L1");
+    });
+
     it("blur after the input is torn down does not re-commit", () => {
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");

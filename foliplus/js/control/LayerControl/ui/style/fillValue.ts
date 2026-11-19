@@ -659,6 +659,7 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,
   ) as HTMLSelectElement;
+  // listener-exempt: style-panel field select handler on a panel-owned element
   fieldSelect.onchange = () =>
     writeFillValue(ui, layerId, { field: fieldSelect.value });
 
@@ -666,6 +667,7 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     `.${CONST.CLASSES.STYLE_FILL_METHOD_SELECT}`,
   ) as HTMLSelectElement | null;
   if (methodSelect !== null) {
+    // listener-exempt: style-panel method select handler on a panel-owned element
     methodSelect.onchange = () =>
       writeFillValue(ui, layerId, {
         method: methodSelect.value as ValueConfig["method"],
@@ -676,6 +678,7 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     `.${CONST.CLASSES.STYLE_FILL_CLASSES_SELECT}`,
   ) as HTMLSelectElement | null;
   if (classesSelect !== null) {
+    // listener-exempt: style-panel classes select handler on a panel-owned element
     classesSelect.onchange = () => {
       const next = writeFillValue(ui, layerId, {
         classes: parseInt(classesSelect.value, 10),

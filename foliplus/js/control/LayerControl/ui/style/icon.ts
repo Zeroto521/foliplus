@@ -37,6 +37,15 @@ import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { FORM_CLASS, POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredIconSize } from "#control/LayerControl/declaredParse.js";
+
+/** The author-declared icon pixel size for this layer (foliplus icon_size),
+ *  or undefined when the layer declares none -- the whole-icon box edge the
+ *  marker construction scales to. Read off the layer so a declared size rides
+ *  every re-derivation (glyph / icon-colour / chassis write) without each
+ *  caller re-deriving it. */
+const declaredIconSizeOf = (layer: unknown): number | undefined =>
+  readDeclaredIconSize(layer).declared;
 
 /** Grid columns for the glyph picker popup. */
 const GLYPH_GRID_COLS = 8;
@@ -67,6 +76,7 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
     typeof color === "string" ? color : undefined,
     typeof opacity === "number" ? opacity : undefined,
     panelPrefix,
+    declaredIconSizeOf(layer),
   );
 };
 /** Write the layer's glyph and replay the walk. */
@@ -107,6 +117,7 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
       typeof opacity === "number" ? opacity : undefined,
       authorGlyphPrefix(ui, layerId) ??
         coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      declaredIconSizeOf(layer),
     );
   }
 };
@@ -219,6 +230,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   renderTrigger();
 
   const row = formRow(ui.T("style_icon"), trigger, CONST.CLASSES.STYLE_ICON_ROW);
+  row.dataset.styleDim = "icon";
   bindGlyphGrid(ui, layerId, trigger, row, renderTrigger);
   return row;
 };
@@ -251,8 +263,6 @@ const bindGlyphGrid = (
   };
 
   const open = () => {
-    /* v8 ignore next -- defensive: trigger handler closes before re-opening */
-    if (grid) return;
     const built = buildGlyphGrid(ui, layerId, trigger, close, renderTrigger);
     grid = built.grid;
     // While the grid is open it owns the arrow / Home / End / Enter / Space
@@ -285,6 +295,7 @@ const bindGlyphGrid = (
     grid.dataset.closeOnKey = "1";
   };
 
+  // listener-exempt: style-panel icon trigger button handler on a panel-owned element
   trigger.onclick = () => {
     if (grid) close();
     else open();
@@ -329,6 +340,7 @@ const buildGlyphGrid = (
     if (glyph === current) {
       cell.classList.add(CONST.CLASSES.STYLE_ICON_CELL_SELECTED);
     }
+    // listener-exempt: style-panel icon cell button handler on a panel-owned element
     cell.onclick = () => {
       commitGlyph(ui, layerId, glyph);
       renderTrigger();
@@ -389,10 +401,7 @@ const ICON_DIMENSION = registerDimension<IconIntent>({
     });
   },
   reset: (ui, layerId) => resetLayerIcon(ui, layerId),
-  valueSource: (ui, layerId) => {
-    if (!styleCapability(ui, layerId).dims.icon) return "none";
-    return ui.intentStore.isUserSet(layerId, INTENT.ICON) ? "user" : "author";
-  },
+  intentKeys: [INTENT.ICON],
   contentChange: {
     kind: "frame",
     face: FACE.ICON,

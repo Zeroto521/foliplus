@@ -20,6 +20,7 @@ import { setIntent } from "#control/LayerControl/ui/intent.js";
 import { BORDER_DIMENSION } from "#control/LayerControl/ui/style/border.js";
 import { DELEGATED_DIM_ORDER } from "#control/LayerControl/ui/style/delegated.js";
 import { FILL_DIMENSION } from "#control/LayerControl/ui/style/fill.js";
+import { closeStylePanel } from "#control/LayerControl/ui/style/index.js";
 import { LABEL_DIMENSION } from "#control/LayerControl/ui/style/labelDimension.js";
 import { OPACITY_DIMENSION } from "#control/LayerControl/ui/style/opacity.js";
 import {
@@ -32,6 +33,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "#control/LayerControl/ui/style/registry.js";
+import { SIZE_DIMENSION } from "#control/LayerControl/ui/style/size.js";
 import {
   ZOOM_RANGE_DIMENSION,
   resetLayerZoomRange,
@@ -572,6 +574,92 @@ describe("LayerControl style-panel dimension registry — opacity descriptor", (
   });
 });
 
+describe("LayerControl style-panel dimension registry — default valueSource", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const overlayLayer = {
+    options: {},
+    setZIndex: vi.fn(),
+    eachLayer: vi.fn(),
+    getBounds: vi.fn(() => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 0, lng: 0 }),
+      getNorthEast: () => ({ lat: 1, lng: 1 }),
+    })),
+  };
+
+  const initWithOverlay = () => {
+    installLeafletGlobals();
+    return initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Overlay",
+          role: "overlay",
+          layer: overlayLayer,
+        },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+  };
+
+  beforeEach(() => {
+    ({ manager, ui } = initWithOverlay());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+  });
+
+  it("installs the three-state valueSource from gate + intentKeys", () => {
+    // The built-in opacity dim declares intentKeys and no valueSource, so the
+    // registry installed the default: gate rejects → "none"; owned key
+    // user-set → "user"; else "author". This locks the contract that
+    // a style-value dim gets its provenance answer from the descriptor's own
+    // gate + intentKeys, never a second hand-copied implementation.
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
+      capabilities: { opacity: "pane" },
+      paneNames: [],
+      panes: [],
+      geometryType: () => "polygon",
+    } as never);
+    expect(OPACITY_DIMENSION.valueSource!(ui, "not-registered")).toBe("none");
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("author");
+    OPACITY_DIMENSION.write!(ui, "overlay1", 0.3);
+    expect(OPACITY_DIMENSION.valueSource!(ui, "overlay1")).toBe("user");
+  });
+
+  it("a descriptor with its own valueSource overrides the default", () => {
+    // An explicit valueSource slot wins over the gate+intentKeys default.
+    // This dim has intentKeys (so the default would install) but declares its
+    // own valueSource — the registry must not overwrite it.
+    const overrideDim = {
+      key: "test.dim.override",
+      gate: () => true,
+      value: () => 1,
+      row: () => document.createElement("div"),
+      intentKeys: ["opacity"] as never,
+      valueSource: () => "author" as const,
+      contentChange: { kind: "none" },
+    } as unknown as LayerDimension<number>;
+    const registered = registerDimension(overrideDim);
+    expect(registered.valueSource!(ui, "overlay1")).toBe("author");
+  });
+
+  it("a content dim (label) without intentKeys gets no valueSource", () => {
+    expect(LABEL_DIMENSION.valueSource).toBeUndefined();
+  });
+});
+
 describe("LayerControl style-panel dimension registry — fill descriptor", () => {
   let manager: LayerController;
   let ui: LayerUI;
@@ -912,6 +1000,117 @@ describe("LayerControl style-panel dimension registry — zoomRange descriptor",
   });
 });
 
+describe("dimension bind contract", () => {
+  // The root cause: the panel re-looked-up rows by a reused class
+  // (STYLE_SIZE_ROW matched a fill-opacity row), so a bind landed on the
+  // wrong element. The fix: each descriptor owns a `bind` that receives the
+  // EXACT row its `row()` built, and every row carries a unique
+  // data-style-dim=key. This locks both invariants so a future dimension
+  // cannot drift back to a class-based re-lookup.
+  it("the three re-lookup dimensions declare bind; the rest wire themselves", () => {
+    // fill / size / border are the rows the panel USED to re-lookup by class
+    // and hand to a shared binder. They must each carry a `bind` now so the
+    // panel can call it with the exact row instead of querySelector'ing.
+    // opacity / zoomRange wire their controls inside `row()` (Slider), and
+    // icon / iconColor / markerColor / label are built already-bound or are
+    // panel-delegated — none of them ever had a panel re-lookup, so they do
+    // NOT require a bind slot (the optional ?. call is a no-op for them).
+    for (const key of ["fill", "size", "border"]) {
+      expect(typeof getDimension(key)!.bind, `dimension ${key} must declare bind`).toBe(
+        "function",
+      );
+    }
+    for (const key of [
+      "opacity",
+      "zoomRange",
+      "icon",
+      "iconColor",
+      "markerColor",
+      "label",
+    ]) {
+      expect(
+        getDimension(key)!.bind,
+        `dimension ${key} must NOT declare bind`,
+      ).toBeUndefined();
+    }
+  });
+
+  it("every row built by a gated descriptor carries data-style-dim=key, exactly once", () => {
+    const { ui } = initFixture();
+    // All style dims available (fill/stroke native, opacity/zoomRange pane,
+    // label native) so every row builder runs.
+    vi.spyOn(ui.c, "surfaceFor").mockReturnValue({
+      capabilities: {
+        fill: "native",
+        stroke: "native",
+        opacity: "pane",
+        zoomRange: "pane",
+        label: "native",
+        size: "native",
+        icon: "native",
+        iconColor: "native",
+        markerColor: "native",
+      },
+      paneNames: [],
+      geometryType: () => "polygon",
+    } as never);
+    for (const key of [...DIM_ORDER, ...LABEL_DIM_ORDER]) {
+      const dim = getDimension(key)!;
+      const row = dim.row(ui, "overlay1") as HTMLElement;
+      expect(row, `row for ${key} must build`).not.toBeNull();
+      expect(
+        row.matches(`[data-style-dim="${key}"]`),
+        `row ${key} carries data-style-dim`,
+      ).toBe(true);
+      expect(
+        row.querySelectorAll(`[data-style-dim="${key}"]`).length,
+        `row ${key} no nested duplicate`,
+      ).toBe(0);
+    }
+  });
+});
+// A pixel-radius leaf whose setRadius records the write — the dead-man test
+// needs a real CircleMarker-shaped layer so the size row's gate passes.
+const makeRadiusLeaf = (radius = 10): any => {
+  const leaf: any = {
+    options: { radius, color: "#000000", weight: 2 },
+    _radius: radius,
+    setStyle: vi.fn(),
+  };
+  leaf.getRadius = () => leaf._radius;
+  leaf.setRadius = vi.fn((px: number) => {
+    leaf._radius = px;
+    leaf.options.radius = px;
+    return leaf;
+  });
+  return leaf;
+};
+describe("panel calls descriptor bind with the exact row it built", () => {
+  // P2-1 dead-man: the panel MUST invoke the descriptor's bind with the row
+  // its own row() returned. If the panel stops calling dim.bind?.(...) (a
+  // regression back to a class-based re-lookup), this test goes red even
+  // though every descriptor still *declares* bind.
+  it("openStylePanel calls SIZE_DIMENSION.bind once with the size row", () => {
+    const { ui } = initFixture({
+      data: [
+        { id: "overlay1", name: "CM", role: "overlay", layer: makeRadiusLeaf(10) },
+        {
+          id: "base1",
+          name: "OSM",
+          role: "base",
+          layer: { options: {}, setZIndex: vi.fn() } as never,
+          paneName: "tilePane",
+        },
+      ],
+    });
+    const spy = vi.spyOn(SIZE_DIMENSION, "bind").mockImplementation(() => {});
+    ui.openStylePanel("overlay1");
+    expect(spy).toHaveBeenCalledTimes(1);
+    const arg = spy.mock.calls[0]?.[2] as HTMLElement;
+    expect(arg.dataset.styleDim).toBe("size");
+    closeStylePanel(ui, false);
+  });
+});
 describe("content dimension slot omission (label)", () => {
   // label is a *content* dimension, not a style-value dimension: its state
   // lives in the label config manager, not LayerIntentStore keys. The

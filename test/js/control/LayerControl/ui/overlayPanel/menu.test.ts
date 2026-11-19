@@ -147,9 +147,14 @@ describe("LayerUI menu", () => {
         name: "Has Fields",
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
-        filterProvider: () => null,
+        filterProvider: () => ({
+          dimensions: [
+            { kind: "enum", field: "kind", options: [], multi: true, truncated: false },
+          ],
+          kept: 1,
+          total: 1,
+        }),
         filterSetter: () => {},
-        hasFilterFields: () => true,
       });
       const item = findItem(ui, "has-fields");
 
@@ -171,7 +176,6 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => null,
         filterSetter: () => {},
-        hasFilterFields: () => false,
       });
       const item = findItem(ui, "no-fields");
 
@@ -871,7 +875,7 @@ describe("LayerUI menu", () => {
         expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
       });
 
-      it("uses the member assignment section over the layer role when they diverge", () => {
+      it("uses the member assignment role over the layer role when they diverge", () => {
         const folderSpy = vi.fn();
         ui.c.deleteFolder = folderSpy;
         manager.registerLayer({
@@ -888,10 +892,10 @@ describe("LayerUI menu", () => {
         (
           ui.c.folderLayoutView.members as Record<
             string,
-            { section: string; folder: string }
+            { role: string; folder: string }
           >
         )["folder2"] = {
-          section: "base",
+          role: "base",
           folder: "green space",
         };
         const item = attachedPanel(ui).querySelector(
@@ -1017,7 +1021,7 @@ describe("LayerUI menu", () => {
     });
 
     it("does not disable the style entry when the layer has styleSetters but no label fields", () => {
-      // Set styleSetters on the layer info in the registry — layerHasStyleDelegation
+      // Set styleSetters on the layer info in the registry — styleDelegation
       // reads from ui.c.layerRegistry, not window.foliplus.styleDelegation.
       const li = manager.layerRegistry.get("overlay1");
       li!.styleSetters = { color: vi.fn() };
@@ -1417,7 +1421,6 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
         filterProvider: () => null,
         filterSetter: () => {},
-        hasFilterFields: () => false,
       } as any);
       const item = findItem(ui, "noFields");
 
@@ -1437,9 +1440,14 @@ describe("LayerUI menu", () => {
         name: "Points",
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
-        filterProvider: () => null,
+        filterProvider: () => ({
+          dimensions: [
+            { kind: "enum", field: "kind", options: [], multi: true, truncated: false },
+          ],
+          kept: 1,
+          total: 1,
+        }),
         filterSetter: () => {},
-        hasFilterFields: () => true,
       } as any);
       const item = findItem(ui, "hasFields");
 

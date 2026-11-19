@@ -5,41 +5,18 @@
 // opacity / zoom-range rows.
 import type { LayerUI } from "../surface.js";
 import { bindBorderRowShell, buildBorderRowShell } from "./border.js";
+// The delegated drawer's Layer-row order comes from the shared table
+// (dimTable.ts) — the single source of which dims are LayerControl-owned.
+import { DELEGATED_DIM_ORDER } from "./dimTable.js";
 import { appendResetFooter } from "./frame.js";
-import { DIM_ORDER, gatedRows } from "./registry.js";
+import { gatedRows } from "./registry.js";
 import { type LabelStyleValues, renderLabelControls } from "#core/label/index.js";
-import { DIM } from "#core/layer/index.js";
 import { createRowPanel } from "#core/leaflet/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
 import { BORDER_WEIGHT, PANEL_CLASS, dropdownOverlay } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-
-/** The delegated drawer's Layer-row order: `DIM_ORDER` minus the
- *  component-write rows. `fill` and `border` write through `setStyle`,
- *  `size` through `setRadius`, and `icon` through `setIcon`; none of
- *  the four survives a component redraw, because a delegated layer's
- *  component replaces the leaves it owns. `fill` also has no delegated
- *  rendering path at all. Only LayerControl-owned rows (opacity, zoomRange)
- *  ride the delegated sweep; they survive a component's redraw. */
-const DELEGATED_DIM_ORDER = DIM_ORDER.filter(
-  key =>
-    key !== DIM.FILL &&
-    key !== DIM.BORDER &&
-    key !== DIM.SIZE &&
-    key !== DIM.ICON &&
-    key !== DIM.ICON_COLOR &&
-    key !== DIM.MARKER_COLOR,
-);
-
-/** Whether the layer delegates its style to the drawer via styleSetters
- *  (third-party canvas layers: Heatmap, Measure). The ⋮ menu's Style item
- *  also enables for these. */
-const layerHasStyleDelegation = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  return !!layerInfo?.styleSetters && Object.keys(layerInfo.styleSetters).length > 0;
-};
 
 /** Build the border-style row for a delegated layer (only HeatmapControl
  *  publishes borderWeight / borderColor today). Delegates to the shared
@@ -176,7 +153,13 @@ const renderDelegatedStylePanel = (
   const rows = gatedRows(ui, layerId, DELEGATED_DIM_ORDER);
   if (borderRow || rows.length > 0) {
     if (borderRow) content.appendChild(borderRow);
-    for (const dim of rows) content.appendChild(dim.row(ui, layerId));
+    // Same bind contract as the label panel: build then bind, no re-lookup.
+    // Delegated rows are opacity/zoomRange (no bind — Slider wires itself).
+    for (const dim of rows) {
+      const row = dim.row(ui, layerId);
+      content.appendChild(row);
+      dim.bind?.(ui, layerId, row);
+    }
   }
   if (root.children.length) {
     content.appendChild(root);
@@ -187,9 +170,4 @@ const renderDelegatedStylePanel = (
   return panel;
 };
 
-export {
-  DELEGATED_DIM_ORDER,
-  buildDelegatedBorderRow,
-  layerHasStyleDelegation,
-  renderDelegatedStylePanel,
-};
+export { DELEGATED_DIM_ORDER, buildDelegatedBorderRow, renderDelegatedStylePanel };
