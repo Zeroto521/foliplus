@@ -688,6 +688,35 @@ describe("buildMarkerIcon chassis span", () => {
     const div = derived.createIcon();
     expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
   });
+  it("removes the probe div even when getComputedStyle throws (try/finally)", () => {
+    // The probe-div branch attaches a probe to the body, then reads its
+    // computed background. If getComputedStyle throws (a hostile or broken
+    // CSS environment), the try/finally must still remove the probe — the
+    // live document is never left with a stray hidden div.
+    const author = makeAuthorIcon({ bg: "none" });
+    const spy = vi.spyOn(window, "getComputedStyle").mockImplementation(() => {
+      throw new Error("computed style unavailable");
+    });
+    try {
+      const derived = buildMarkerIcon({
+        author,
+        glyph: "circle",
+        markerColor: "#436978",
+        markerColorOpacity: 50,
+      }) as any;
+      const div = derived.createIcon();
+      expect(div.querySelector(".foliplus-marker-chassis")).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    // The probe div appended to body must be gone.
+    const stray = Array.from(document.body.children).filter(
+      el =>
+        el.className === "awesome-marker-icon-preset awesome-marker" &&
+        (el as HTMLElement).style.visibility === "hidden",
+    );
+    expect(stray.length).toBe(0);
+  });
   it("skips the probe div when the document body is unavailable", () => {
     // The probe-div branch guards on document.body (a detached/headless
     // context). With no body, readChassisSprite must return null without
