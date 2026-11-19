@@ -1500,11 +1500,15 @@ describe("declared url / divicon trigger + URL-mode color-row sync", () => {
     // buildUrlIcon news L.Icon, so give it a constructable stub here.
     (window.L as any).Icon = class {
       options: any;
-      constructor(opts: any) { this.options = { ...opts }; }
+      constructor(opts: any) {
+        this.options = { ...opts };
+      }
     };
     const marker = makeMarker({ type: "school" }, makeAuthorIcon());
-    const { manager: mgr2, ui: ui2 } = fixtureWithMarkers([marker]);
-    writeIntentKeys(ui2, "overlay1", [[INTENT.ICON, { kind: "url", value: "https://example.com/y.png" }]]);
+    const { ui: ui2 } = fixtureWithMarkers([marker]);
+    writeIntentKeys(ui2, "overlay1", [
+      [INTENT.ICON, { kind: "url", value: "https://example.com/y.png" }],
+    ]);
     applyIconToLayer(ui2, "overlay1");
     flushIcon("overlay1");
     expect(marker.setIcon).toHaveBeenCalled();
