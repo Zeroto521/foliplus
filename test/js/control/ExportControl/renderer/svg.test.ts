@@ -19,7 +19,18 @@ vi.mock("#control/ExportControl/util.js", async () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  document.body.replaceChildren();
 });
+
+/** Attach a pane (and its container) to the document — jsdom 31 resolves
+ *  computed styles on connected elements only, so the SVG serialisation /
+ *  prune loop needs the pane connected to read display/visibility/opacity. */
+const mount = (p: HTMLElement): HTMLElement => {
+  const container = makeRenderer().container;
+  document.body.append(container);
+  container.append(p);
+  return container;
+};
 
 describe("renderPaneSVG", () => {
   const NS = CONST.SVG_NS;
@@ -39,7 +50,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
@@ -55,7 +66,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
@@ -68,7 +79,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     const load = stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
@@ -83,7 +94,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     const load = stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     expect(load).not.toHaveBeenCalled();
     expect(ctx.drawImage).not.toHaveBeenCalled();
@@ -103,7 +114,7 @@ describe("renderPaneSVG", () => {
     svg.appendChild(document.createElementNS(NS, "path"));
     p.appendChild(svg);
     stubLoad();
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect(alphaDuringDraw).toBe(0.5);
     expect(ctx.globalAlpha).toBe(1);
@@ -127,7 +138,7 @@ describe("renderPaneSVG", () => {
     const srcs = captureSources();
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     expect((srcs[0] || "").match(/visibility:\s*hidden/g)).toBeNull();
@@ -149,7 +160,7 @@ describe("renderPaneSVG", () => {
     });
 
     await expect(
-      renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p),
+      renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p),
     ).rejects.toThrow("boom");
 
     expect(p.style.visibility).toBe("hidden");
@@ -175,7 +186,7 @@ describe("renderPaneSVG", () => {
     const srcs = captureSources();
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     const src = srcs[0] || "";
     expect((src.match(/visibility:\s*hidden/g) || []).length).toBe(1);
@@ -208,7 +219,7 @@ describe("renderPaneSVG", () => {
       const srcs = captureSources();
       stubLoad();
 
-      await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+      await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
       const src = srcs[0] || "";
       // Neither hidden path appears in the serialised SVG.
@@ -243,7 +254,7 @@ describe("renderPaneSVG", () => {
     const srcs = captureSources();
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     const src = srcs[0] || "";
     expect(src).toContain("L 200 200");
@@ -264,7 +275,7 @@ describe("renderPaneSVG", () => {
     p.appendChild(svg);
     stubLoad();
 
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
 
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
@@ -307,7 +318,7 @@ describe("renderPaneSVG — branch edges", () => {
       }),
     );
     stubLoad();
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
     expect(ctx.drawImage).toHaveBeenCalled();
   });
 
@@ -320,7 +331,7 @@ describe("renderPaneSVG — branch edges", () => {
     pinBox(svg, 0, 0, 200, 200);
     p.appendChild(svg);
     const load = vi.spyOn(UTIL, "loadImage").mockResolvedValue({} as any);
-    await renderPaneSVG(makeRenderer().container, positionedRC(1000, 1000, ctx), p);
+    await renderPaneSVG(mount(p), positionedRC(1000, 1000, ctx), p);
     // Either skipped by the empty-content guard or the length guard — no draw.
     expect(ctx.drawImage).not.toHaveBeenCalled();
     // load may or may not be called depending on which guard fires first.

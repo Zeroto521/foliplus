@@ -1,6 +1,6 @@
 // ui/canvasLabel unit tests — the one canvas text recipe shared by the
 // heatmap's hex values and LayerControl's label labels.
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   drawCanvasLabel,
   prepareCanvasLabel,
@@ -17,8 +17,15 @@ const root = (vars: Record<string, string> = {}): HTMLElement => {
   for (const [name, value] of Object.entries(vars)) {
     el.style.setProperty(name, value);
   }
+  document.body.append(el);
   return el;
 };
+
+// jsdom 31's CSS engine resolves custom properties on connected elements only,
+// so every container must be attached for getComputedStyle to see its tokens.
+afterEach(() => {
+  document.body.replaceChildren();
+});
 
 /** A recording 2D context — enough to observe what a draw writes. */
 const ctx = () => ({
