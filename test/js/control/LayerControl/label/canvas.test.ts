@@ -105,7 +105,12 @@ describe("LabelCanvas", () => {
     const canvas = new LabelCanvas(map, pane);
     // paint calls updatePosition, which bails on the missing mapPane.
     expect(() => canvas.paint([])).not.toThrow();
-    expect(elOf(canvas).style.left).toBe("");
+    // No mapPane: cancelMapPaneTranslate bails and applies no pan translation.
+    // jsdom 31 expands the constructor's "inset: 0" shorthand into
+    // left/top/right/bottom, so the inline left reads "0px" rather than
+    // "" — both mean "no pan offset was applied".
+    const left = elOf(canvas).style.left;
+    expect(left === "" || left === "0px").toBe(true);
   });
 
   it("hides and re-shows via visibility, leaving the drawn pixels intact", () => {

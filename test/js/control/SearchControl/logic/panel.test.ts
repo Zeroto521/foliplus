@@ -677,6 +677,10 @@ describe("positionPanel", () => {
       const panel = makePanelEl(200, 80);
       panel.style.setProperty("--foliplus-menu-gap", "auto");
       panel.style.setProperty("--foliplus-menu-max-height", "auto");
+      // jsdom 31 resolves custom properties on connected elements only, so the
+      // panel must be attached for cssVar to read the (malformed) token instead
+      // of falling back to the 4px default.
+      document.body.append(panel);
       const ctrl: any = {
         ...ctx(),
         panelWrap: panel,
