@@ -43,6 +43,11 @@ interface LayerRuntime {
    *  late-registered layers (folium's convention). Python carries the fact
    *  through `item.show`; JS no longer infers it from map membership. */
   authorVisible?: boolean;
+  /** Generic filter field-cache revision. Bumped whenever the layer's
+   *  feature set may have changed (the same points `fields`/`snapshot`
+   *  invalidate), so the Tier1 presence probe and the Tier2
+   *  filterFeatures row both know their cached answer is stale. */
+  dataRevision?: number;
 }
 
 /** Row store for {@link LayerRuntime} — the derived/transient twin of
@@ -137,6 +142,23 @@ class LayerRuntimeStore {
     if (!row) return;
     delete row.filterFeatures;
     this.prune(id);
+  }
+
+  /** The layer's generic filter field-cache revision. Starts at 0 and
+   *  moves by one on every bump, so a cache keyed on this value knows it
+   *  is stale without re-reading the feature set. Absent row = 0 (never
+   *  bumped) — the initial state, identical to an explicit 0. */
+  getDataRevision(id: string): number {
+    return this.rows.get(id)?.dataRevision ?? 0;
+  }
+
+  /** Mark the layer's generic filter field caches stale. Uses `ensure`
+   *  so a bump on a layer with no runtime row still records the
+   *  invalidation — a probe that reads the revision before any bump sees
+   *  0, and one after sees 1, so the cache is never wrongly hit. */
+  bumpDataRevision(id: string): void {
+    const row = this.ensure(id);
+    row.dataRevision = (row.dataRevision ?? 0) + 1;
   }
 
   // ── authorVisible (author-declared default snapshot) ───────────────

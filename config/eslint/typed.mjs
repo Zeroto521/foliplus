@@ -41,7 +41,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import tseslint from "typescript-eslint";
 
-const importPlugin = (await import("eslint-plugin-import")).default;
+const importPlugin = (await import("eslint-plugin-import-x")).default;
 
 // `tsconfigRootDir` must be the repository root, not this file's directory:
 // `project: ["./tsconfig.json"]` is resolved against it, and this config now
@@ -54,7 +54,7 @@ export default [
   ...base,
   {
     files: ["foliplus/js/**/*.ts"],
-    plugins: { "@typescript-eslint": tseslint.plugin, import: importPlugin },
+    plugins: { "@typescript-eslint": tseslint.plugin, "import-x": importPlugin },
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
@@ -75,7 +75,7 @@ export default [
       // Runs here rather than next to consistent-type-imports in base.mjs:
       // the rule resolves TS symbols (`requiresTypeChecking: true`) to tell a
       // type from a value, so it needs the tsconfig program — same reason as
-      // import/no-unused-modules below.
+      // import-x/no-unused-modules below.
       //
       // v8 renamed the old `fixStyle: "separate-type-exports"` option to
       // `fixMixedExportsWithInlineTypeSpecifier`: the default (false) is the
@@ -108,47 +108,6 @@ export default [
         "error",
         { ignoreTernaryTests: true },
       ],
-
-      // Dead-export detector. Catches exports that nothing in the tree
-      // imports — a bug smell in production code and a bundle-size leak.
-      //
-      // Runs here (with `parserOptions.project`) rather than in the base
-      // config because the rule needs the TS program to resolve imports
-      // across the codebase. Without the program, the resolver can't
-      // follow `#common/*` or `#core/*` aliases and fires on every export.
-      //
-      // The rule reads `.eslintrc.json` for its ignore patterns (a
-      // flat-config limitation — see eslint-plugin-import#3079); the
-      // file at the repo root mirrors the flat-config `ignores`.
-      //
-      // `ignoreExports` exempts the structural surfaces the rule can't
-      // see as consumers: re-export bridges and component entry points
-      // (index.ts), type-only modules (type.ts), test fixtures, build
-      // tooling, and config-schema.ts (consumed by Python's Jinja
-      // loader). Type-only dead exports are caught by the rule like any
-      // other — the `ignoreUnusedTypeExports` option was tested and found
-      // ineffective for standalone `export type { X }` statements (the
-      // 6 dead exports in this PR fired with the option enabled), so it
-      // has been removed. The rule then only fires on internal modules,
-      // where dead exports actually hide.
-      "import/no-unused-modules": [
-        "error",
-        {
-          unusedExports: true,
-        },
-      ],
-    },
-  },
-  {
-    files: [
-      "foliplus/js/**/index.ts",
-      "foliplus/js/**/type.ts",
-      "foliplus/js/config-schema.ts",
-      "test/js/**/*.{js,ts}",
-      "script/**/*.{js,cjs,mjs}",
-    ],
-    rules: {
-      "import/no-unused-modules": "off",
     },
   },
 ];

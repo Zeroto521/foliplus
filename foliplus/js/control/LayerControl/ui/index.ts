@@ -72,7 +72,10 @@ import {
   replayDeclaredFill,
   replayFillState,
 } from "./style/index.js";
-import { applyMarkerColorToLayer } from "./style/markerColor.js";
+import {
+  applyMarkerColorToLayer,
+  replayDeclaredMarkerColor,
+} from "./style/markerColor.js";
 import { applySizeToLayer } from "./style/size.js";
 import {
   dropStyleDimApplies,
@@ -331,6 +334,7 @@ class LayerUI implements LayerUISurface {
       for (const layerInfo of this.c.layerRegistry.layers) {
         replayDeclaredFill(this, layerInfo.id);
         replayDeclaredBorder(this, layerInfo.id);
+        replayDeclaredMarkerColor(this, layerInfo.id);
       }
     }
     return moved;

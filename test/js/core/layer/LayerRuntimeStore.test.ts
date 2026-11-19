@@ -154,6 +154,46 @@ describe("LayerRuntimeStore — authorVisible axis (author-declared default)", (
   });
 });
 
+describe("LayerRuntimeStore — dataRevision axis (filter field-cache revision)", () => {
+  it("reads 0 for an id that was never bumped (initial state)", () => {
+    const store = new LayerRuntimeStore();
+    expect(store.getDataRevision("l1")).toBe(0);
+  });
+
+  it("bumpDataRevision creates the row even when none existed (ensure semantics)", () => {
+    const store = new LayerRuntimeStore();
+    expect(store.get("l1")).toBeUndefined();
+    store.bumpDataRevision("l1");
+    expect(store.getDataRevision("l1")).toBe(1);
+    // The bump is a recorded fact even with no other axis — the row exists.
+    expect(store.ids()).toEqual(["l1"]);
+  });
+
+  it("bump increments by one per call (monotonic revision)", () => {
+    const store = new LayerRuntimeStore();
+    store.bumpDataRevision("l1");
+    store.bumpDataRevision("l1");
+    expect(store.getDataRevision("l1")).toBe(2);
+  });
+
+  it("bump is per-id: two layers move independently", () => {
+    const store = new LayerRuntimeStore();
+    store.bumpDataRevision("a");
+    store.bumpDataRevision("b");
+    store.bumpDataRevision("b");
+    expect(store.getDataRevision("a")).toBe(1);
+    expect(store.getDataRevision("b")).toBe(2);
+  });
+
+  it("drop clears the revision with the row (cache cannot answer a deleted id)", () => {
+    const store = new LayerRuntimeStore();
+    store.bumpDataRevision("l1");
+    store.drop("l1");
+    expect(store.get("l1")).toBeUndefined();
+    expect(store.getDataRevision("l1")).toBe(0);
+  });
+});
+
 describe("LayerRuntimeStore — lifecycle", () => {
   it("drop removes the whole row (unregister symmetry with dropRow)", () => {
     const store = new LayerRuntimeStore();

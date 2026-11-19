@@ -65,6 +65,7 @@ import {
   releaseStyleApplyOwner,
   scheduleStyleDimApply,
 } from "./style/styleBag.js";
+import { forgetDegradedHint } from "./style/valuePaint.js";
 import type { LayerUI } from "./surface.js";
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { type LayerRole, ROLE } from "#core/layer/index.js";
@@ -413,6 +414,10 @@ const bindLayerEvents = (ui: LayerUI): void => {
       // be a walk for its own sake.
       invalidateFieldCache(ui, payload.id);
       dropStyleDimApplies(payload.id, ui);
+      // The classify-degradation dedup keeps one id per hinted layer per page;
+      // drop it with the layer so a page that reuses the id cannot inherit a
+      // "already warned" decision from the layer that wore it first.
+      forgetDegradedHint(ui.c.map, payload.id);
     }),
     subscribe(EVENTS.LAYER_ROLE_COUNT_CHANGED, (payload: { role: string }) => {
       syncToggleAll(ui, payload.role);
