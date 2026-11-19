@@ -7969,7 +7969,6 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.options).toEqual([]);
     expect(dim.truncated).toBe(false);
   });
-
 });
 
 describe("LayerAPI.getStyle", () => {
@@ -8043,13 +8042,17 @@ describe("LayerAPI.getStyle", () => {
     expect(snap!.label?.show).toBe(true);
   });
 
-it("catches a throwing styleProvider and returns registry values", () => {
+  it("catches a throwing styleProvider and returns registry values", () => {
     const { manager } = initFixture();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({
-      id: "throw1", name: "Throw", role: "overlay",
+      id: "throw1",
+      name: "Throw",
+      role: "overlay",
       layer: { options: {} },
-      styleProvider: () => { throw new Error("provider boom"); },
+      styleProvider: () => {
+        throw new Error("provider boom");
+      },
     } as any);
     // The throw is caught; the snapshot is still returned with registry values.
     const snap = manager.getStyle("throw1");
@@ -8061,7 +8064,9 @@ it("catches a throwing styleProvider and returns registry values", () => {
     const { manager } = initFixture();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({
-      id: "ls1", name: "LS", role: "overlay",
+      id: "ls1",
+      name: "LS",
+      role: "overlay",
       layer: { options: {} },
       styleProvider: () => ({ labelSize: 14 }),
     } as any);
@@ -8073,7 +8078,9 @@ it("catches a throwing styleProvider and returns registry values", () => {
     const { manager } = initFixture();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({
-      id: "bc1", name: "BC", role: "overlay",
+      id: "bc1",
+      name: "BC",
+      role: "overlay",
       layer: { options: {} },
       styleProvider: () => ({ borderColor: "#ff0000" }),
     } as any);
@@ -8085,7 +8092,9 @@ it("catches a throwing styleProvider and returns registry values", () => {
     const { manager } = initFixture();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({
-      id: "nlc1", name: "NLC", role: "overlay",
+      id: "nlc1",
+      name: "NLC",
+      role: "overlay",
       layer: { options: {} },
       styleProvider: () => ({ labelColor: 42 }),
     } as any);
@@ -8099,7 +8108,9 @@ it("catches a throwing styleProvider and returns registry values", () => {
     const { manager } = initFixture();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({
-      id: "nls1", name: "NLS", role: "overlay",
+      id: "nls1",
+      name: "NLS",
+      role: "overlay",
       layer: { options: {} },
       styleProvider: () => ({ labelShow: "yes" }),
     } as any);
@@ -8112,7 +8123,9 @@ it("catches a throwing styleProvider and returns registry values", () => {
     const { manager } = initFixture();
     manager.map.hasLayer.mockReturnValue(true);
     manager.registerLayer({
-      id: "nbw1", name: "NBW", role: "overlay",
+      id: "nbw1",
+      name: "NBW",
+      role: "overlay",
       layer: { options: {} },
       styleProvider: () => ({ borderWeight: "heavy" }),
     } as any);
@@ -8143,7 +8156,10 @@ it("catches a throwing styleProvider and returns registry values", () => {
     manager.registerLayer({ id: "pf1", name: "PF", role: "overlay", layer });
     // Seed the fill intent so the fill dimension gate opens.
     setIntent(ui, "pf1", "fillValue", {
-      field: "v", classes: 5, method: "quantile", scheme: "YlOrRd",
+      field: "v",
+      classes: 5,
+      method: "quantile",
+      scheme: "YlOrRd",
     } as any);
     const info = manager.layerRegistry.get("pf1")!;
     (info as any).fillAuthor = { perFeature: true, distinct: 5, stops: [] };
@@ -8168,7 +8184,6 @@ it("catches a throwing styleProvider and returns registry values", () => {
     expect(snap!.label!.show).toBe(false);
   });
 
-
   it("polygon leaf: a fill carrier reports per-feature paint with no aggregate colour", () => {
     // Areal geometry opens the fill gate, so the author's per-feature
     // declaration wins and the aggregate colour is withheld.
@@ -8185,7 +8200,12 @@ it("catches a throwing styleProvider and returns registry values", () => {
     Object.setPrototypeOf(layer, new window.L.Path());
     const { manager } = initFixture({ data: [] });
     manager.map.hasLayer.mockReturnValue(true);
-    manager.registerLayer({ id: "areal1", name: "Areal", role: "overlay", layer: layer as any });
+    manager.registerLayer({
+      id: "areal1",
+      name: "Areal",
+      role: "overlay",
+      layer: layer as any,
+    });
     const info = manager.layerRegistry.get("areal1")!;
     (info as any).fillAuthor = { perFeature: true, distinct: 3, stops: [] };
     const snap = manager.getStyle("areal1");
@@ -8223,7 +8243,6 @@ it("catches a throwing styleProvider and returns registry values", () => {
     expect(snap!.label).toBeUndefined();
   });
 });
-
 
 describe("cross-panel contract: external actions × open overlays", () => {
   let manager: LayerController;
