@@ -598,9 +598,9 @@ def normalise_border(
         return {"mode": "value", "field": raw["field"]}
 
     if mode == "follow_fill":
-        if has_field:
-            reject("with a field; 'follow_fill' contradicts a value-mode field")
-            return None
+        # A follow_fill shell never carries a field: the contradiction is
+        # reported before the unknown-key loop (a field is a known value-mode
+        # key, so this branch is only reached without one).
         return {"mode": mode}
 
     if mode == "value":

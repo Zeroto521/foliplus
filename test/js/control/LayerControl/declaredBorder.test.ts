@@ -161,4 +161,13 @@ describe("readDeclaredBorder", () => {
     expect(read.declared).toBe(STYLE_MODE.VALUE);
     expect(read.declaredValue?.classes).toBe(7);
   });
+
+  it("rejects a value declaration whose shared schema is unbuildable (invalid kind)", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "value", field: "score", kind: "bogus" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.length).toBeGreaterThan(0);
+  });
 });
