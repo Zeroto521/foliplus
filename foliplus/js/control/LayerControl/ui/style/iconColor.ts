@@ -51,6 +51,15 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { readDeclaredIconSize } from "#control/LayerControl/declaredIconSize.js";
+
+/** The author-declared icon pixel size for this layer (foliplus icon_size),
+ *  or undefined when the layer declares none -- the whole-icon box edge the
+ *  marker construction scales to. Read off the layer so a declared size rides
+ *  every re-derivation (glyph / icon-colour / chassis write) without each
+ *  caller re-deriving it. */
+const declaredIconSizeOf = (layer: unknown): number | undefined =>
+  readDeclaredIconSize(layer).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain
@@ -113,6 +122,7 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
     glyph,
     hasOpacity ? opacityIntent : undefined,
     coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+    declaredIconSizeOf(layer),
   );
 };
 /** Write the layer's color and replay the walk.
@@ -183,6 +193,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
       glyph,
       undefined,
       coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      declaredIconSizeOf(layer),
     );
   } else {
     // No author paint: restore the author icon, then re-apply a user glyph
@@ -195,6 +206,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
         glyph,
         undefined,
         coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+        declaredIconSizeOf(layer),
       );
     }
   }
