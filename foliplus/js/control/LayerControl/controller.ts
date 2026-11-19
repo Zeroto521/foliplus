@@ -2142,9 +2142,9 @@ class LayerController implements LayerAPI {
     // or an unbuilt row falls back to the empty state rather than throwing
     // on a non-null assertion.
     const features = this.ui?.runtimeStore.getFilterFeatures(id);
-    // Unreachable in practice: dimensions.length > 0 (checked above) implies
-    // the host's dimensions() pass already built the row, so this arm is
-    // type-level only — keep it as a defensive read, not a coverage target.
+    // dimensions.length > 0 (checked above) implies the host's dimensions()
+    // pass already built the row, so this arm is type-level only.
+    // unreachable: defensive read, not a coverage target.
     /* v8 ignore next */
     if (!features) return null;
     const fields = [
