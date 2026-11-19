@@ -4299,6 +4299,30 @@ describe("fill row — original colors", () => {
   const stripOf = (row: HTMLElement): HTMLElement =>
     boxOf(row, CONST.CLASSES.STYLE_FILL_ORIGINAL_STRIP);
 
+  /** Assert a gradient stop in canonical serialization form. jsdom 31's CSS
+   *  engine re-serializes inline style.background, dropping trailing zeros in
+   *  a percentage ("0.00%" -> "0%"), so the comparison is on the canonical
+   *  (trailing-zero-stripped) form rather than the authored "0.00%" string. */
+  const expectStop = (
+    gradient: string,
+    color: string,
+    ...positions: string[]
+  ): void => {
+    // Minimal decimal representation: a percentage token's trailing zeros and
+    // a bare "0.00" collapse to its shortest form ("0.00%" -> "0%",
+    // "100.00%" -> "100%"), matching how jsdom 31 re-serializes inline CSS.
+    const canonical = (s: string): string =>
+      s.replace(/(\d+(?:\.\d+)?)%/g, (_, num: string) => {
+        return `${String(parseFloat(num))}%`;
+      });
+    // jsdom 31 serializes a double-position stop ("color 0% 33.33%") as two
+    // stops with the color repeated ("color 0%, color 33.33%"), so assert each
+    // position's own "color pos" pair rather than one contiguous string.
+    for (const position of positions) {
+      expect(canonical(gradient)).toContain(canonical(`${color} ${position}`));
+    }
+  };
+
   const readoutOf = (row: HTMLElement, name: string): string =>
     (
       boxOf(row, name).querySelector(
@@ -4645,9 +4669,9 @@ describe("fill row — original colors", () => {
 
     // author's ramp, not a re-sorted set.
 
-    expect(gradient).toContain("rgb(13, 8, 135) 0.00%");
+    expectStop(gradient, "rgb(13, 8, 135)", "0%");
 
-    expect(gradient).toContain("rgb(177, 42, 144) 100.00%");
+    expectStop(gradient, "rgb(177, 42, 144)", "100%");
 
     const first = gradient.indexOf("rgb(13, 8, 135)");
 
@@ -4675,11 +4699,11 @@ describe("fill row — original colors", () => {
 
     // instead of interpolating across it.
 
-    expect(gradient).toContain("rgb(13, 8, 135) 0.00% 33.33%");
+    expectStop(gradient, "rgb(13, 8, 135)", "0%", "33.33%");
 
-    expect(gradient).toContain("rgb(106, 0, 168) 33.33% 66.67%");
+    expectStop(gradient, "rgb(106, 0, 168)", "33.33%", "66.67%");
 
-    expect(gradient).toContain("rgb(177, 42, 144) 66.67% 100.00%");
+    expectStop(gradient, "rgb(177, 42, 144)", "66.67%", "100%");
   });
 
   it("ranks a categorical layer deterministically and samples it down", () => {
