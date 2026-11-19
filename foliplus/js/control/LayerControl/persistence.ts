@@ -235,6 +235,9 @@ const PARSE_OVERRIDE: Record<
     if (kind === ICON_KIND.DIVICON_CLASS) {
       return divIconClassNameOf(value) !== null ? icon : null;
     }
+    // type-enforced: isIconIntent (L226) guarantees kind is
+    // GLYPH/URL/DIVICON_CLASS; this is exhaustiveness for TS Record.
+    /* v8 ignore next */
     return null;
   },
   iconColor: data =>

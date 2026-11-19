@@ -1316,6 +1316,27 @@ describe("applyIconToLeaves — url source fallback", () => {
     const icon = leaf.setIcon.mock.calls[0][0];
     expect(icon.options.iconUrl).toBe("https://example.com/fallback.png");
   });
+
+  it("createIcon returns a plain <img> from the document.createElement fallback", () => {
+    // Covers markerIcon.ts:235 — the create arm when neither _createImg nor
+    // authorCreate is a function. The derived icon replaced the leaf's icon
+    // (setIcon was called with it); call its createIcon to hit the arm and
+    // assert it yields an IMG element.
+    const leaf: any = {
+      feature: { properties: {} },
+      options: {},
+      setIcon: vi.fn(),
+      getElement: () => document.createElement("div"),
+    };
+    const layer = { options: {}, eachLayer: vi.fn((fn: (l: any) => void) => fn(leaf)) };
+    applyIconToLeaves(layer, "star", undefined, undefined, undefined, {
+      kind: "url",
+      value: "https://example.com/fallback2.png",
+    });
+    const icon = leaf.setIcon.mock.calls[0][0] as { createIcon: () => HTMLElement };
+    const el = icon.createIcon();
+    expect(el.tagName).toBe("IMG");
+  });
 });
 
 describe("applyIconToLeaves — divicon-class source", () => {
