@@ -8321,6 +8321,37 @@ describe("LayerAPI.getStyle", () => {
     expect(s.icon?.markerColor).toBe("#00ff00");
     expect(s.icon?.markerColorOpacity).toBe(0.6);
   });
+
+  it("SNAPSHOT_READERS keys == STYLE_DIM_TABLE keys (P2-2 source-scan guard)", async () => {
+    // Table-driven assembly guard: SNAPSHOT_READERS in controller.ts must
+    // have an entry for every paint dimension in STYLE_DIM_TABLE. A new
+    // dimension that adds a descriptor but forgets a reader row would
+    // silently produce no snapshot field — this source-scan guard catches
+    // the drift at CI, not in production.
+    const { readFileSync } = await import("node:fs");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const here = dirname(fileURLToPath(import.meta.url));
+    const read = (rel: string) => readFileSync(join(here, "../../../..", rel), "utf8");
+    const controllerSrc = read("foliplus/js/control/LayerControl/controller.ts");
+    const dimTableSrc = read("foliplus/js/control/LayerControl/ui/style/dimTable.ts");
+    // Scan SNAPSHOT_READERS body for `[DIM.X]:` keys
+    const readersStart = controllerSrc.indexOf("const SNAPSHOT_READERS");
+    const readersEnd = controllerSrc.indexOf("\n};", readersStart);
+    const readersBody = controllerSrc.slice(readersStart, readersEnd);
+    const readerKeys = new Set(
+      [...readersBody.matchAll(/\[DIM\.(\w+)\]/g)].map(m => m[1]),
+    );
+    // Scan STYLE_DIM_TABLE body for `key: DIM.X` entries
+    const tableStart = dimTableSrc.indexOf("const STYLE_DIM_TABLE");
+    const tableEnd = dimTableSrc.indexOf("\n];", tableStart);
+    const tableBody = dimTableSrc.slice(tableStart, tableEnd);
+    const dimKeys = new Set([...tableBody.matchAll(/key: DIM\.(\w+)/g)].map(m => m[1]));
+    // SNAPSHOT_READERS covers exactly the layer-role style dims (excluding
+    // LABEL, which is the Label role's content dimension, not a paint dim).
+    const styleDims = new Set([...dimKeys].filter(k => k !== "LABEL"));
+    expect([...readerKeys].sort()).toEqual([...styleDims].sort());
+  });
 });
 
 describe("cross-panel contract: external actions × open overlays", () => {
