@@ -1135,13 +1135,48 @@ class LayerController implements LayerAPI {
           field: string;
           is: (v: unknown) => boolean;
         }> = [
-          { key: "labelColor", target: "label", field: "color", is: (v): v is string => typeof v === "string" },
-          { key: "labelShow", target: "label", field: "show", is: (v): v is boolean => typeof v === "boolean" },
-          { key: "labelSize", target: "label", field: "size", is: (v): v is number => typeof v === "number" },
-          { key: "labelFormat", target: "label", field: "format", is: (v): v is string => typeof v === "string" },
-          { key: "labelCollide", target: "label", field: "collide", is: (v): v is boolean => typeof v === "boolean" },
-          { key: "borderColor", target: "border", field: "color", is: (v): v is string => typeof v === "string" },
-          { key: "borderWeight", target: "border", field: "weight", is: (v): v is number => typeof v === "number" },
+          {
+            key: "labelColor",
+            target: "label",
+            field: "color",
+            is: (v): v is string => typeof v === "string",
+          },
+          {
+            key: "labelShow",
+            target: "label",
+            field: "show",
+            is: (v): v is boolean => typeof v === "boolean",
+          },
+          {
+            key: "labelSize",
+            target: "label",
+            field: "size",
+            is: (v): v is number => typeof v === "number",
+          },
+          {
+            key: "labelFormat",
+            target: "label",
+            field: "format",
+            is: (v): v is string => typeof v === "string",
+          },
+          {
+            key: "labelCollide",
+            target: "label",
+            field: "collide",
+            is: (v): v is boolean => typeof v === "boolean",
+          },
+          {
+            key: "borderColor",
+            target: "border",
+            field: "color",
+            is: (v): v is string => typeof v === "string",
+          },
+          {
+            key: "borderWeight",
+            target: "border",
+            field: "weight",
+            is: (v): v is number => typeof v === "number",
+          },
         ];
         for (const spec of PROVIDER_KEYS) {
           const v = values[spec.key];
