@@ -114,13 +114,11 @@ const main = (root = process.cwd()) => {
   return hits.length === 0 ? 0 : 1;
 };
 
-const runCli = (argv, entry) => {
-  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
-    process.exitCode = main(argv[0]);
+const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
+  if (entry !== undefined && path.resolve(entry) === selfUrl) {
+    process.exitCode = main(argv[0] || process.cwd());
   }
 };
 runCli(process.argv.slice(2), process.argv[1]);
 
-const __entryUrl = fileURLToPath(import.meta.url);
-
-export { findBareFormClassLiterals, hasBareToken, main, runCli, walk, __entryUrl };
+export { findBareFormClassLiterals, hasBareToken, main, runCli, walk };

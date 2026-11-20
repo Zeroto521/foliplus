@@ -368,22 +368,11 @@ const main = (argv = process.argv.slice(2)) => {
   return 0;
 };
 
-const runCli = entry => {
-  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
-    process.exitCode = main(process.argv.slice(2));
+const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
+  if (entry !== undefined && path.resolve(entry) === selfUrl) {
+    process.exitCode = main(argv);
   }
 };
-runCli(process.argv[1]);
+runCli(process.argv.slice(2), process.argv[1]);
 
-const __entryUrl = fileURLToPath(import.meta.url);
-
-export {
-  check,
-  classifyLine,
-  inventory,
-  legacyAliasCheck,
-  main,
-  runCli,
-  walk,
-  __entryUrl,
-};
+export { check, classifyLine, inventory, legacyAliasCheck, main, runCli, walk };
