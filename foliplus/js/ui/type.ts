@@ -179,11 +179,6 @@ interface SliderOptions {
   /** Id of a description element, announced with the control (and, for a
    *  range, with the group). */
   describedBy?: string;
-  /** Keep the value bubble(s) up at all times, not only while dragging or
-   *  focused. The two end labels always keep the static extent (the rail's
-   *  range); the bubble is the moving readout. Opt-in: the filter panel wants
-   *  the current range readable without touching the control. */
-  alwaysVisible?: boolean;
 }
 
 /** Everything drawing a canvas label needs, resolved from the tokens. */

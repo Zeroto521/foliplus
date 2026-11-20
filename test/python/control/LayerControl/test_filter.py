@@ -211,6 +211,46 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert res["afterSelectOptions"] == ["mag", "kind"], res
             # The field row precedes the value row.
             assert res["fieldBeforeValue"] is True, res
+            # The field row precedes the value row.
+            assert res["fieldBeforeValue"] is True, res
+            assert not errors, f"JS errors: {errors}"
+
+    def test_range_slider_bubble_never_covers_field_row(self, browser, tmp_path):
+        """The filter panel's range slider must not stand a bubble over the
+        Field dropdown row (P3-1, PR #1261 rework).
+
+        The range body renders the field row (which field) directly above the
+        condition row (over what range). A standing bubble portals to <body> as
+        a fixed overlay and lands on the row above whenever the thumb is near
+        the top of the track; with the standing-bubble half reverted the bubble
+        exists only during a drag/focus gesture and hides when the gesture
+        ends, so the field row is never occluded at rest.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            panel_ready(page)
+            res = page.evaluate(_js("LayerControl/filter_range_overlay"))
+            assert res is not None, "range-overlay probe could not run"
+            assert res.get("ok"), res
+            # The range slider really rendered — the assertions are not vacuous.
+            assert res["sliderPresent"] is True, res
+            # P1-1 acceptance: at rest there is NO bubble, so the Field dropdown
+            # row above the slider is never occluded by a standing readout.
+            assert res["bubblesAtRest"] == [], (
+                f"a standing bubble is present at rest: {res}"
+            )
+            # The bubble is a gesture affordance: it may show on focus but must
+            # not persist after the gesture ends.
+            if res["thumbCount"] > 0:
+                assert res["bubblesOnFocus"], f"no bubble shown on focus: {res}"
+                assert all(not b["on"] for b in res["bubblesAfterBlur"]), (
+                    f"bubble persisted after blur: {res}"
+                )
+                # When the field row actually has layout, a live bubble must not
+                # land on it (bbox non-intersection).
+                if res["fieldRowBBox"]["width"] > 0 and res["bubblesOnFocus"]:
+                    assert res["fieldOverlappedOnFocus"] is False, (
+                        f"a bubble intersects the field row: {res}"
+                    )
             assert not errors, f"JS errors: {errors}"
 
     def test_enum_filter_keyboard_and_map_press_close(self, browser, tmp_path):

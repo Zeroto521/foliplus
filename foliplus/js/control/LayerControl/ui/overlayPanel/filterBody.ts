@@ -192,11 +192,6 @@ const renderRangeBody = (
       { at: dim.range[1], tone: "limit" },
     ],
     // The current range stays readable without touching the control: both
-    // thumbs' bubbles are up at all times, not just during a drag or a focus.
-    // The end labels keep the rail's own range, which is what they name. The
-    // bubble is portaled off the panel, so opting in adds no panel layout;
-    // opacity/zoom-range do not opt in.
-    alwaysVisible: true,
     disabled: dim.range[0] === dim.range[1],
     input: value => deps.write(atomOf(dim.field, value as [number, number])),
     change: value => deps.write(atomOf(dim.field, value as [number, number])),
