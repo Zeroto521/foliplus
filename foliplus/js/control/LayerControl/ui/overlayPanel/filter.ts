@@ -29,7 +29,7 @@
 // panel-level keydown live here.
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { type FilterBody, dimensionShapeKey, renderBody } from "./filterBody.js";
 import { EVENTS } from "#core/event/index.js";
 import type {
@@ -384,12 +384,9 @@ const subscribeFilterSignals = (
     const current = ui.c.layerRegistry.get(id);
     if (current !== state.entry) closeFilterPanel(ui, false);
   };
-  // Component-owned rows (Heatmap today) clear via LAYER_DELETED instead of
-  // unregistering, and the event lands *before* the entry is pruned — so the
-  // identity check cannot answer it, the id match must.
-  const onDeleted = ({ id }: { id: string }): void => {
-    if (id === state.layerId) closeFilterPanel(ui, false);
-  };
+  // Anchor-teardown contract (cross-panel): LAYER_DELETED (component clear)
+  // and LAYER_REMOVED (unregister) both close the panel — the shared helper
+  // owns the decision, see subscribeLayerTearDown in teardown.ts.
   const unsubs = [
     ui.events.on(EVENTS.LAYER_FILTER_CHANGE, ({ id }) => {
       if (id === state.layerId) refresh();
@@ -404,8 +401,9 @@ const subscribeFilterSignals = (
     ui.events.on(EVENTS.LAYER_ITEM_UPDATED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REFRESHED, onEntrySignal),
     ui.events.on(EVENTS.LAYER_ITEM_REMOVED, onEntrySignal),
-    ui.events.on(EVENTS.LAYER_DELETED, onDeleted),
-    ui.events.on(EVENTS.LAYER_REMOVED, onDeleted),
+    subscribeLayerTearDown(ui, state.layerId, () => {
+      closeFilterPanel(ui, false);
+    }),
   ];
   return () => unsubs.forEach(off => off());
 };

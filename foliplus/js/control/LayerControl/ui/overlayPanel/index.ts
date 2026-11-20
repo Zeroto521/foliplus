@@ -34,6 +34,10 @@ class OverlayPanel {
   menuOverlayUnregister: (() => void) | null = null;
   /** Release the menu's scroll/resize/row-count reposition pass (installed while open). */
   menuReposition: (() => void) | null = null;
+  /** Anchor-teardown watch while the overflow menu is open: LAYER_REMOVED /
+   *  LAYER_DELETED for the anchored layer close the menu. Installed by
+   *  openMoreMenu, released by closeMoreMenu. */
+  menuRemovedUnsub: (() => void) | null = null;
   /** Currently visible attributes panel, or null. */
   activeAttrsPanel: {
     item: HTMLElement;

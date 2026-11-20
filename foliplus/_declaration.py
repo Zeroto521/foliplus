@@ -530,18 +530,30 @@ def normalise_border(
     subject: str | None = None,
     source: str | None = None,
 ) -> dict[str, str] | None:
-    """Normalise one declared ``{"mode": "follow_fill"}`` border.
+    """Normalise one declared border into its single canonical shape.
 
-    Returns ``{"mode": "follow_fill"}`` when the declaration is usable, else
-    ``None``: "not declared" and "declared but invalid" are the same state
+    Two declaration shapes converge here (the lead's single-rule-table ruling,
+    mirrored 1:1 by the JS parseBorder): a mode-shell `{"mode": "follow_fill"}`
+    or `{"mode": "value", "field": ...}`, and the flat fill-isomorphic form
+    `{"field": ...}` (implicit value mode). `mode`, when present, is
+    authoritative: a mode + field combination is contradictory and invalid.
+
+    Returns the normalised record `{"mode": "follow_fill"}` or
+    `{"mode": "value", "field": ...}` when the declaration is usable, else
+    `None`: "not declared" and "declared but invalid" are the same state
     downstream - the border stays on its derived default (original/solid)
     rather than painting a mode the author never saw validated.
 
-    ``owner`` names the control and ``subject`` the specific subject (a layer
+    `owner` names the control and `subject` the specific subject (a layer
     name), so every message and de-duplication note is attributable.
-    ``source`` is how the caller wrote it (the layer's ``foliplus['border']``),
-    so the warning points at the entry point they used. The only recognised
-    mode is ``follow_fill``; a missing/unknown mode warns once and is ignored.
+    `source` is how the caller wrote it (the layer's `foliplus['border']`),
+    so the warning points at the entry point they used.
+
+    Python validates the STRUCTURAL shape only (mapping, mode/field presence,
+    the mode + field contradiction, known keys) — the field TYPE validation
+    lives in the JS reader, the same division the fill declaration follows
+    (Python gates the fill mapping shape, JS validates fill's fields), so
+    Python can never be stricter or looser than JS on what an author may write.
     """
     if raw is None:
         return None
@@ -559,17 +571,46 @@ def normalise_border(
     if not isinstance(raw, Mapping):
         reject(f"as {type(raw).__name__}; expected a mapping")
         return None
-    # An extra key is a typo to surface, never a reason to drop the
-    # author's follow_fill intent: warn one-by-one and keep the valid mode
-    # (the same contract the JS reader follows, so Python and JS can never
-    # disagree about whether the declaration survived).
-    for key in sorted((key for key in raw if key != "mode"), key=repr):
-        reject(f"with unknown key {key!r}; expected only mode")
+
+    VALUE_KEYS = ("field", "method", "classes", "scheme", "kind")
+    has_field = "field" in raw
     mode = raw.get("mode")
-    if mode != "follow_fill":
-        reject(f"with a mode {mode!r}; expected 'follow_fill'")
+
+    if mode == "follow_fill" and has_field:
+        # The mode + field contradiction is the sharper defect: report it
+        # before any unknown-key warning, so the author sees why the shell
+        # cannot stand (a value-mode field on a follow_fill border).
+        reject("with a field; 'follow_fill' contradicts a value-mode field")
         return None
-    return {"mode": mode}
+
+    allowed = {"mode", *VALUE_KEYS} if mode != "follow_fill" else {"mode"}
+    for key in sorted((key for key in raw if key not in allowed), key=repr):
+        reject(
+            f"with unknown key {key!r}; expected only {', '.join(sorted(allowed, key=repr))}"
+        )
+
+    if mode is None:
+        if not has_field:
+            reject(
+                "without a mode or a field; expected {'mode': 'follow_fill'} or {'field': ...}"
+            )
+            return None
+        return {"mode": "value", "field": raw["field"]}
+
+    if mode == "follow_fill":
+        # A follow_fill shell never carries a field: the contradiction is
+        # reported before the unknown-key loop (a field is a known value-mode
+        # key, so this branch is only reached without one).
+        return {"mode": mode}
+
+    if mode == "value":
+        if not has_field:
+            reject("with a mode 'value' but no field; value mode requires a field")
+            return None
+        return {"mode": mode, "field": raw["field"]}
+
+    reject(f"with a mode {mode!r}; expected 'follow_fill' or 'value'")
+    return None
 
 
 # ── Folder declaration ───────────────────────────────────────────────────

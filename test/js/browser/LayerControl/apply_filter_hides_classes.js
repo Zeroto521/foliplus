@@ -59,15 +59,13 @@ async fixtures => {
     window[id] = layer;
     const leaves = [];
     walk(layer, leaves);
-    const features = {
-      features: leaves.map(l => ({ leaf: l, fields: { value: 1 } })),
-      total: leaves.length,
-      numericFields: ["value"],
-      ranges: { value: [1, 1] },
-      enumFields: [],
-      enumValues: {},
-    };
-    mgr.ui.runtimeStore.setFilterFeatures(id, features);
+    // No hand-seeded snapshot: the controller's ensureFilterFeatures must
+    // build the feature set from the layer's REAL geometry (walkLeaf over the
+    // live tree) when the filter is committed, and again on the layeradd
+    // replay below. Removing the buildFilterFeatures call inside
+    // ensureFilterFeatures leaves the snapshot empty, nothing matches the
+    // committed range, and every assertion here goes non-none — this probe is
+    // the browser-side lethal guard for the #1181 reload fix.
     mgr.setLayerFilter(id, filter);
     const elements = [];
     for (const leaf of leaves) {
@@ -102,6 +100,7 @@ async fixtures => {
     } catch (err) {
       replay = { error: String(err) };
     }
+
     out.push({ id, name, elements, replay });
     api.unregisterLayer(id);
     delete window[id];

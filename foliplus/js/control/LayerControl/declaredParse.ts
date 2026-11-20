@@ -4,26 +4,33 @@
 // Three per-layer foliplus declarations (border, icon_size, marker_color) share
 // one mechanical shape: a scalar (one-key object, one number, one preset name)
 // validated by a small parse and read through the shared readDeclaredKey
-// skeleton. This module owns those three parses and the key → parse registry, so
-// a new scalar channel registers here instead of opening another file; the
-// dimension-specific parse stays its own function (its own message, its own
-// invalid accumulation) — only the file is shared.
+// skeleton. Border is now two-shaped — the single-key follow_fill mode or the
+// flat fill-isomorphic value mode ({"field": ...}) — but still one normalized
+// outcome ({mode, valueConfig}) read through the same skeleton. This module
+// owns those three parses and the key → parse registry, so a new scalar channel
+// registers here instead of opening another file; the dimension-specific parse
+// stays its own function (its own message, its own invalid accumulation) — only
+// the file is shared.
 //
 // The read/cache/warn-once skeleton lives in {@link readDeclaredKey}; the
 // module owns only the parses and the thin readers that dispatch on them.
 // Public API names are unchanged (readDeclaredBorder / readDeclaredIconSize /
 // readDeclaredMarkerColor) — callers are untouched except for the import path.
+import { parseValueDeclaration } from "./declaredFill.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
-import { STYLE_MODE, type StyleMode } from "#core/layer/index.js";
+import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 
-/** The one recognised border declaration mode literal (public API, snake_case).
- *  The JS internal literal is "followFill"; this reader maps. */
-const DECLARED_BORDER_MODE = "follow_fill";
+/** The recognised border declaration mode literals (public API, snake_case).
+ *  The JS internal literals are "followFill" / "value"; this reader maps. */
+const DECLARED_BORDER_MODE_FOLLOW_FILL = "follow_fill";
+const DECLARED_BORDER_MODE_VALUE = "value";
 
 type DeclaredBorderRead = {
   /** The declared border mode, or undefined when absent/unbuildable. */
   declared?: StyleMode;
+  /** The declared value config, present exactly when the mode is value. */
+  declaredValue?: ValueConfig;
   /** One line per rejected key, already logged — kept for tests. */
   invalid: string[];
 };
@@ -37,14 +44,18 @@ type DeclaredMarkerColor = string | undefined;
 /** Empty read for a null/undefined layer (provisional, never cached). */
 const EMPTY: DeclaredBorderRead = { invalid: [] };
 
-/** Parse the flat `border` declaration into a validated border mode.
+/** Parse the `border` declaration into a validated border mode.
  *
- *  A declaration names the ONE mode the author wants as the read-time default.
- *  A missing/unknown `mode`, or a non-object declaration, drops the whole
+ *  A declaration names the ONE mode the author wants as the read-time default:
+ *  the single-key `follow_fill` (`{"mode": "follow_fill"}`) or the value mode
+ *  (mode-shell `{"mode": "value", "field": ...}` or the flat fill-isomorphic
+ *  `{"field": ...}`). mode, when present, is authoritative — a mode + field
+ *  combination is contradictory and invalid. A missing/unknown `mode`, a
+ *  missing `field` in value mode, or a non-object declaration drops the whole
  *  declaration (read as "not declared" — the border stays on its derived
  *  default rather than painting a mode the author never saw validated).
- *  Unknown keys degrade one by one (warned once, the rest survives — the
- *  shape is single-key today, so any extra key is a typo to surface).
+ *  Unknown keys degrade one by one (warned once, the rest survives — any extra
+ *  key is a typo to surface).
  *
  *  @param reject one rejected key: record it for the caller (tests) and warn
  *    once per (declared-key, layer, key) — the skeleton owns the dedup, the
@@ -70,26 +81,53 @@ const parseBorder = (
   }
   const data = raw as Record<string, unknown>;
 
-  // Unknown keys are ignored one by one; the rest of the declaration survives.
-  for (const key of Object.keys(data)) {
-    if (key !== "mode") {
-      rejectKey(key, `an unknown border key ${JSON.stringify(key)} (expected mode)`);
+  // Two declaration shapes converge to ONE normalized output (the lead's
+  // single-rule-table ruling): a mode-shell ({"mode": ...}) or the flat
+  // fill-isomorphic form ({"field": ...} = implicit value mode). mode, when
+  // present, is authoritative; a mode + field combination is contradictory
+  // and invalid.
+  const hasField = data.field !== undefined;
+  if (data.mode !== undefined) {
+    if (data.mode === DECLARED_BORDER_MODE_FOLLOW_FILL) {
+      // follow_fill is the one single-key mode: a value-mode field is a
+      // contradiction, never a silent merge.
+      for (const key of Object.keys(data)) {
+        if (key !== "mode") {
+          rejectKey(
+            key,
+            `an unknown border key ${JSON.stringify(key)} (expected mode)`,
+          );
+        }
+      }
+      if (hasField) {
+        rejectKey("field", "border.mode 'follow_fill' contradicts border.field");
+        return { invalid };
+      }
+      return { declared: STYLE_MODE.FOLLOW_FILL, invalid };
     }
+    if (data.mode === DECLARED_BORDER_MODE_VALUE) {
+      if (!hasField) {
+        rejectKey("field", "border.mode 'value' requires border.field");
+        return { invalid };
+      }
+    } else {
+      rejectKey(
+        "mode",
+        `invalid border.mode ${JSON.stringify(data.mode)} (expected "follow_fill" or "value")`,
+      );
+      return { invalid };
+    }
+  } else if (!hasField) {
+    // Neither a mode nor a field: the declaration names no mode at all.
+    rejectKey("mode", "a border declaration without a border.mode or border.field");
+    return { invalid };
   }
 
-  // mode is the one required key: without it there is no declaration.
-  if (data.mode === undefined) {
-    rejectKey("mode", "a border declaration without a border.mode");
-    return { invalid };
-  }
-  if (data.mode !== DECLARED_BORDER_MODE) {
-    rejectKey(
-      "mode",
-      `invalid border.mode ${JSON.stringify(data.mode)} (expected "follow_fill")`,
-    );
-    return { invalid };
-  }
-  return { declared: STYLE_MODE.FOLLOW_FILL, invalid };
+  // value mode (explicit "value" or implicit flat): validate the shared flat
+  // schema — the same parser fill uses, so the two faces cannot drift.
+  const config = parseValueDeclaration(data, rejectKey, "border");
+  if (config === undefined) return { invalid };
+  return { declared: STYLE_MODE.VALUE, declaredValue: config, invalid };
 };
 
 /** Parse the raw `icon_size` declaration into a validated pixel size.
