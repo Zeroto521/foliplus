@@ -13,13 +13,16 @@ slot); a FeatureGroup would not, because folium renders its options dict
 into Leaflet featureGroup layers slot (the first argument) and the
 declaration never reaches options at all.
 
-The default (div-icon) path is verified end to end: the declared page draws
-the marker bigger than an undeclared twin built from the same fixture, a
-relative assertion so no path-specific base size is ever hard-coded. The
-awesome-markers sprite path cannot be verified yet: #1216 scales it with a
-transform that Leaflet overwrites when it positions the marker after a
-setIcon, so a real browser never draws it larger - that defect is tracked
-separately (behind #1228) and this test stays honest about it.
+Both paths are verified end to end, each against an undeclared twin built
+from the same fixture so no path-specific base size is ever hard-coded: the
+default (div-icon) path draws the marker bigger, and the awesome-markers
+sprite path (an author icon) draws the sprite chassis bigger. The sprite path
+scales via an INNER wrapper (the outer div's transform is owned by Leaflet's
+positioning, so a scale there would be overwritten after setIcon) with the
+outer box sized to the scaled iconSize/anchor - the drawn width must equal the
+declared width, an absolute assertion that pins the fix (a regression that
+reverts to a transform on the outer div, or re-hardcodes the base width,
+turns it red).
 """
 
 from __future__ import annotations
@@ -84,11 +87,64 @@ class TestDeclaredIconSizeBrowser(LayerControlBrowserBase):
             undeclared = self._pick_glyph(page)
         self._assert_scaled(declared, undeclared)
 
+    def test_declared_icon_size_scales_the_sprite_marker(self, browser, tmp_path):
+        """An author (awesome-markers sprite) marker scales to the declared width.
+
+        The sprite path is the one #1216 could not verify: the old code put
+        the scale on the marker's own transform, which Leaflet overwrites when
+        it positions the marker after setIcon, so the sprite never drew
+        larger. The fix moves the scale to an inner wrapper and sizes the
+        outer box to the scaled iconSize/anchor, so a real browser draws the
+        chassis at exactly the declared width. An absolute assertion (== 50)
+        pins the fix: a regression to a marker-transform scale, or to a
+        hard-coded 25px base, renders a different width and turns this red.
+        """
+        declared_width = 50
+        with use_page(
+            self._make_page, browser, tmp_path, _sprite_fixture(True), slug="sd"
+        ) as (page, _):
+            self._open_style_ramp(page)
+            declared = self._pick_glyph(page)
+        with use_page(
+            self._make_page, browser, tmp_path, _sprite_fixture(False), slug="su"
+        ) as (page, _):
+            self._open_style_ramp(page)
+            undeclared = self._pick_glyph(page)
+        # The declared sprite chassis draws at the declared width (absolute).
+        d = declared["after"][0]
+        assert d["box"][0] == declared_width, (
+            "the declared sprite did not draw at the declared width: "
+            f"{d['box']} vs expected {declared_width}"
+        )
+        # And strictly wider than the undeclared twin (the author's 35px base).
+        u = undeclared["after"][0]
+        assert u["box"][0] > 0, f"undeclared sprite not drawn: {undeclared}"
+        assert d["box"][0] > u["box"][0], (
+            "the declared sprite was not drawn larger than the undeclared "
+            f"twin: declared {d['box']} vs undeclared {u['box']}"
+        )
+
 
 def _fixture(declared=True):
     """A point layer with no author icon - the default div-icon path."""
     return folium.GeoJson(
         _points(),
         name="Points",
+        foliplus={"icon_size": 50} if declared else {},
+    )
+
+
+def _sprite_fixture(declared=True):
+    """A point layer with an awesome-markers author icon (the sprite path).
+
+    The author's icon is a folium.Icon(color="blue"), which renders an
+    L.AwesomeMarkers icon (35x45 / [17,42]) - the path the declared size
+    must scale via the inner wrapper. The undeclared twin renders the
+    author's natural 35px chassis.
+    """
+    return folium.GeoJson(
+        _points(),
+        name="Points",
+        marker=folium.Marker(icon=folium.Icon(color="blue")),
         foliplus={"icon_size": 50} if declared else {},
     )
