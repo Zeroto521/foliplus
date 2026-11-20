@@ -464,6 +464,16 @@
      fits inside the inset. */
   --foliplus-scheme-picker-scrollbar-width: 0px;
 
+  /* ── Shared scrollbar recipe ──
+     One scrollbar language for every foliplus scrollable surface
+     (common/scrollbar.css applies them): a thin lane with a stable gutter,
+     so a list crossing its max-height does not shift its rows and a classic
+     scrollbar does not eat the width. The scheme picker's measured lane
+     (--foliplus-scheme-picker-scrollbar-width) stays separate — it is a
+     runtime measurement, not this decision. */
+  --foliplus-scrollbar-width: thin;
+  --foliplus-scrollbar-gutter: stable;
+
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
   --foliplus-drag-border-width: var(--foliplus-border-thick);

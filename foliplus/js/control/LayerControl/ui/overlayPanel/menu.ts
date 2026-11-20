@@ -115,7 +115,14 @@ const placeMoreMenu = (ui: LayerUI): void => {
     onSide: side => menu.classList.toggle(CONST.CLASSES.MORE_MENU_UP, side === "above"),
   });
   menu.style.maxWidth = `${placement.maxWidth}px`;
-  menu.style.maxHeight = `${placement.maxHeight}px`;
+  // Cap the height only when the placement actually restricts it below the
+  // menu's natural height. The engine caps maxHeight to the available strip
+  // (the space between the anchor and the clip edge), which is tighter than
+  // the content for a small menu near the panel bottom — that would force a
+  // 5-item menu into a scroll it does not need. Only a menu the strip
+  // genuinely cannot hold gets the cap (and scrolls).
+  menu.style.maxHeight =
+    placement.maxHeight < menu.scrollHeight ? `${placement.maxHeight}px` : "";
 };
 
 /** Coalesced re-place pass bound while the menu is open. A scroll inside the
