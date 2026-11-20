@@ -61,6 +61,7 @@ export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export { SLIDER_CLASS } from "./sliderClassName.js";
 export { LABEL_CLASS } from "./labelClassName.js";
+export { MENU_ROW_CLASS } from "./menuRowClassName.js";
 export { ensureActiveVisible } from "./scrollIntoView.js";
 export { selectAllAction, selectAllStateOf } from "./selectAllState.js";
 export type { SelectAllState, SelectAllVerdict } from "./selectAllState.js";

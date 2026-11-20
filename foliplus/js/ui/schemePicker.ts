@@ -12,7 +12,7 @@ import { createListbox } from "./listbox.js";
 import { buildLeadSlot } from "./checkSlot.js";
 import { PANEL_CLASS } from "./panelClassName.js";
 import { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
-import { DROPDOWN_CLASS } from "./dropdownClassName.js";
+import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import type { SchemePicker } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -301,7 +301,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     },
     classes: {
       list: classes.dropdown,
-      row: classes.item,
+      row: [classes.item, MENU_ROW_CLASS.ROW].join(" "),
       portal: SCHEME_PICKER_CLASS.PORTAL,
       up: "",
       open: classes.open,
