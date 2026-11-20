@@ -1,6 +1,10 @@
-import { initFixture } from "./fixture.js";
+import { findItem, initFixture } from "./fixture.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { countChildLayersOf, isContainerLayer } from "#core/layer/index.js";
+import {
+  countChildLayers,
+  countChildLayersOf,
+  isContainerLayer,
+} from "#core/layer/index.js";
 import { buildRowCell } from "#control/LayerControl/ui/listPanel/index.js";
 
 // A minimal container stub: group-like with a child registry + fixed list.
@@ -129,5 +133,61 @@ describe("container layer row", () => {
     // Delete the layer; the container's clearLayers should be called and no throw.
     expect(() => manager.deleteLayer("grp")).not.toThrow();
     expect(container.clearLayers).toHaveBeenCalled();
+  });
+
+  it("countChildLayers: a missing layer counts zero", () => {
+    // The guard arm: countChildLayers(null | undefined) must read 0, never
+    // dereference the node. A container row always passes a real layer, so
+    // this arm is the defensive floor.
+    expect(countChildLayers(null as unknown as L.Layer)).toBe(0);
+    expect(countChildLayers(undefined as unknown as L.Layer)).toBe(0);
+  });
+
+  it("attrs panel names a container by its child count", () => {
+    // The attrs panel for a container layer reports the direct child count
+    // with the attr_child_count label (container != null arm in attr.ts).
+    const container = makeContainer([{ options: {} }, { options: {} }]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    const item = findItem(ui, "grp");
+    ui.openAttrsPanel(item);
+    const rows = Array.from(
+      item.querySelectorAll<HTMLElement>(".foliplus-form-row"),
+    ).map(row => [
+      row.querySelector(".foliplus-form-label")?.textContent ?? "",
+      row.querySelector(".foliplus-form-control")?.textContent ?? "",
+    ]);
+    // The type row names the container, the count row names the child count.
+    const typeRow = rows.find(([label]) => label === "LayerControl.attr_type");
+    const countRow = rows.find(([label]) => label === "LayerControl.attr_child_count");
+    expect(typeRow?.[1]).toBe("LayerControl.type_container");
+    expect(countRow?.[1]).toBe("2");
+  });
+
+  it("attrs panel for a layer with no Leaflet layer falls back to the feature count", () => {
+    // A logical layer with no Leaflet representation (layer == null) reaches
+    // the attr panel with a null layer: the container ternaries must not
+    // dereference it, and the count falls back to getFeatureCount.
+    const r = initFixture({
+      data: [{ id: "virtual1", name: "Virtual", role: "overlay" } as never],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    const item = findItem(ui, "virtual1");
+    expect(() => ui.openAttrsPanel(item)).not.toThrow();
+    const rows = Array.from(
+      item.querySelectorAll<HTMLElement>(".foliplus-form-row"),
+    ).map(row => [
+      row.querySelector(".foliplus-form-label")?.textContent ?? "",
+      row.querySelector(".foliplus-form-control")?.textContent ?? "",
+    ]);
+    // No container: the count row keeps the feature-count label.
+    const countRow = rows.find(
+      ([label]) => label === "LayerControl.attr_feature_count",
+    );
+    expect(countRow).toBeDefined();
   });
 });
