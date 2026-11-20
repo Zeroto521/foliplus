@@ -27,6 +27,7 @@ import {
   type CreateLayersOpts,
   FILTER_SOURCE,
   FOLDER_NAME_MAX,
+  type FilterDimension,
   type FilterEnumDimension,
   type FilterRangeDimension,
   type FilterStore,
@@ -38,6 +39,7 @@ import {
   type LayerCapabilities,
   LayerFactory,
   type LayerFilter,
+  type LayerFilterFeatures,
   type LayerFilterModel,
   LayerInfoRegistry,
   type LayerKind,
@@ -45,9 +47,11 @@ import {
   type LayerRole,
   type LayerSurface,
   PaneManager,
+  RECURSION,
   ROLE,
   type RegisterLayerOpts,
   SurfaceIndex,
+  buildFilterFeatures,
   countFeatureGeometry,
   createFolder,
   deleteFolder,
@@ -69,7 +73,7 @@ import {
   zFor,
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
-import { hasAttachedPath, isGroupLike } from "#core/leafletAdapter.js";
+import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
@@ -182,6 +186,15 @@ const capabilityKey = (caps: LayerCapabilities): string =>
  *  The panel shows the shared hint so the user knows the list is partial. */
 const ENUM_OPTION_LIMIT = 50;
 
+/** The generic filter presence probe scans at most this many geometry leaves.
+ *  Column-shaped GeoJSON means the first K leaves represent the field shape
+ *  with near-certainty (see design §3), so an O(K) bounded scan answers
+ *  "does this layer expose any filterable field" without a full walk. The
+ *  probe is conservative by design: a layer whose first K leaves carry no
+ *  property value reads false even when a later leaf has one (the menu then
+ *  hides the Filter entry until the author declares a filter). */
+const PROBE_K = 64;
+
 /** Why a folder create/rename was refused. `blank` is an empty or
  *  whitespace-only name, `duplicate` is a name already taken (same role or
  *  colliding with the name-keyed directory), `too-long` is a name over
@@ -273,6 +286,15 @@ class LayerController implements LayerAPI {
   /** The generic filter's hidden-leaf set per layer id, kept so the label
    *  label walk can skip hidden leaves without recomputing the filter. */
   declare hiddenSets: Map<string, WeakSet<L.Layer>>;
+  /** Tier1 presence-probe cache: layerId -> {revision, has}. A menu row
+   *  render must not re-scan the layer, so the probe answer is cached per
+   *  (layerId, dataRevision) — a stale row (unbumped) is a cache hit. */
+  private readonly filterProbe = new Map<string, { revision: number; has: boolean }>();
+  /** Tier2 filterFeatures build revision: layerId -> dataRevision at build.
+   *  The cached row is valid only while this equals the store's current
+   *  dataRevision; a mismatch means the feature set changed and the row
+   *  must be rebuilt. */
+  private readonly filterFeaturesRev = new Map<string, number>();
   /** The icon-replay handler registered on the shared markerIcon module. A
    *  marker icon rebuild swaps the element but not the leaf; this re-applies
    *  the filter hidden class so the DOM class and the leaf-keyed hidden set
@@ -336,7 +358,7 @@ class LayerController implements LayerAPI {
         if (!removedIds.has(layerInfo.id)) return true;
         // Late-binding fallback (folium script-stream order) — same single
         // point as `findLayer` / ExportControl's `resolveLayer`.
-        const layer = layerInfo.layer ?? findLayer(this.map, layerInfo.id);
+        const layer = this.resolveLayer(layerInfo);
         if (layer && this.map.hasLayer(layer)) this.map.removeLayer(layer);
         return false;
       }),
@@ -1032,7 +1054,6 @@ class LayerController implements LayerAPI {
     target: {
       filterProvider?: (() => LayerFilterModel | null) | null;
       filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
-      hasFilterFields?: (() => boolean) | null;
       canvas?: HTMLCanvasElement | null;
       styleSetters?: Record<string, (value: unknown) => void> | null;
       role?: LayerRole;
@@ -1049,16 +1070,11 @@ class LayerController implements LayerAPI {
       target.filterProvider = () => this.genericFilterModel(id);
       target.filterSetter = (filter: LayerFilter | undefined) =>
         this.setLayerFilter(id, filter);
-      // Cheap gate: only the cached filter-features row is read, never the
-      // dimension projection. The menu renders this per row; a full model
-      // build would re-traverse the snapshot each time.
-      target.hasFilterFields = () => {
-        const features = this.ui?.runtimeStore.getFilterFeatures(id);
-        return !!(
-          features &&
-          (features.numericFields.length > 0 || features.enumFields.length > 0)
-        );
-      };
+      // Eager host registration: the menu must be able to probe presence
+      // without opening the panel, so the host exists before first render.
+      // The registration itself is a pure map write — no leaf walk, no
+      // field scan (lead constraint: eager = zero traversal).
+      this.ensureGenericHost(id);
     }
   }
   registerLayer(opts: RegisterLayerOpts): HTMLElement | null {
@@ -1096,6 +1112,12 @@ class LayerController implements LayerAPI {
     // Inject the generic filter capability for ordinary data layers. The
     // caller-explicit capability (Heatmap/Measure) wins; see the helper.
     this.injectGenericFilterCapability(opts, opts.id);
+    // A (re-)registration can carry a different feature set than the one the
+    // filter caches were built from: invalidate so the next probe/model
+    // rebuilds. Cheap (no walk), and a first registration is a no-op bump
+    // against the initial revision 0. Optional-chained: a pre-attach
+    // registration (no ui yet) has no cache to invalidate.
+    this.ui?.runtimeStore?.bumpDataRevision?.(opts.id);
 
     const { layerInfo, hidden, mutation } = this.domain.registerEntry(
       opts,
@@ -1399,6 +1421,11 @@ class LayerController implements LayerAPI {
   unregisterLayer(id: string): boolean {
     const retired = this.retireEntry(id);
     if (!retired) return false;
+
+    // The layer left the registry: its filter caches are stale and must
+    // not answer for a re-registered layer with different data.
+    this.filterProbe.delete(id);
+    this.filterFeaturesRev.delete(id);
 
     const operation = this.beginOperation();
     // Flush before any fan-out: the registry is already updated, and a
@@ -1721,6 +1748,12 @@ class LayerController implements LayerAPI {
     // resurrect. filterStore.drop clears the value AND the declaration
     // without applying or publishing (the layer's DOM is already gone).
     this.filterStore.drop(id, FILTER_SOURCE.GENERIC);
+    // Drop the controller-side filter caches with the layer: a departed id
+    // must not leave a probe/features-revision entry behind, or a later
+    // re-add of the same id would hit the stale cached answer (P2 leak:
+    // 50k layers churned through add/drop would grow these maps).
+    this.filterProbe.delete(id);
+    this.filterFeaturesRev.delete(id);
 
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);
@@ -2091,42 +2124,22 @@ class LayerController implements LayerAPI {
    *  Reads the runtime store through `this.ui` — the provider is injected
    *  lazily so a registration before attach still resolves. */
   genericFilterModel(id: string): LayerFilterModel | null {
-    const features = this.ui?.runtimeStore.getFilterFeatures(id);
-    if (
-      !features ||
-      (features.numericFields.length === 0 && features.enumFields.length === 0)
-    ) {
-      return null;
-    }
-    const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
-    const hidden = filterLeafSet(features.features, filter);
-    let kept = features.total;
-    for (const feature of features.features) {
-      if (hidden.has(feature.leaf)) kept--;
-    }
-    // Numeric fields become range dimensions; discrete string/boolean fields
-    // become enum dimensions (S4c). Both share the panel's field picker, so a
-    // mixed layer switches between a slider and a value list.
-    const rangeDimensions: FilterRangeDimension[] = features.numericFields.map(
-      field => ({
-        kind: "range",
-        field,
-        range: features.ranges[field],
-        step: filterStep(features.ranges[field]),
-      }),
-    );
-    const enumDimensions: FilterEnumDimension[] = features.enumFields.map(field => {
-      const all = features.enumValues[field] ?? [];
-      const truncated = all.length > ENUM_OPTION_LIMIT;
-      const options = (truncated ? all.slice(0, ENUM_OPTION_LIMIT) : all).map(
-        value => ({ value, label: value }),
-      );
-      return { kind: "enum", field, options, multi: true, truncated };
-    });
-    const dimensions = [...rangeDimensions, ...enumDimensions];
-    // Field picker (D5): the panel offers every numeric and enum field and
-    // switches through onField. The active field is NOT stored — the
-    // committed atom reports it (D8), so no extra persistent key.
+    // Single producer: the host owns dimensions/counts (Tier2, cached);
+    // filterStore.filterModel routes the read through the host. The host
+    // was registered eagerly (injectGenericFilterCapability) so this read
+    // never falls back to a missing-host empty model.
+    this.ensureGenericHost(id);
+    const model = this.filterStore.filterModel(id, FILTER_SOURCE.GENERIC);
+    // No dimension = no filterable field (empty state), not a null host.
+    if (model.dimensions.length === 0) return null;
+    // The host's dimensions/counts pass already built (and cached) the
+    // filterFeatures row, so the field picker reads the same cached
+    // snapshot — never a second walk.
+    // Invariant: `dimensions.length > 0` (checked above) implies the
+    // host's dimensions() pass already built and cached the filterFeatures
+    // row, so the snapshot is present here — the read is a cache hit, never
+    // a null. `?.`/`??` would only hide a broken invariant.
+    const features = this.ui!.runtimeStore.getFilterFeatures(id)!;
     const fields = [
       ...features.numericFields.map(field => ({
         value: field,
@@ -2139,12 +2152,11 @@ class LayerController implements LayerAPI {
         numeric: false,
       })),
     ];
-    const onField = (_field: string): void => {
-      // Clear the old field's atom so the panel re-derives from the new
-      // dimension's full range. setLayerFilter is the single write-through.
-      this.setLayerFilter(id, undefined);
+    return {
+      ...model,
+      fields,
+      onField: (_field: string) => this.setLayerFilter(id, undefined),
     };
-    return { dimensions, filter, kept, total: features.total, fields, onField };
   }
 
   /** Register (or re-register) the generic filter host on the shared per-map
@@ -2158,7 +2170,197 @@ class LayerController implements LayerAPI {
       normalize: (filter: LayerFilter) => filter,
       apply: (filter: LayerFilter) => this.applyFilterClass(id, filter),
       publish: () => publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id }),
+      // Tier1: cheap presence probe — O(K) bounded scan, first hit stops.
+      hasFields: () => this.hasGenericFields(id),
+      // Tier2: full model — built once on first call, cached until
+      // dataRevision moves; the cache is shared with genericFilterModel.
+      dimensions: () => this.genericDimensions(id),
+      counts: () => this.genericCounts(id),
     });
+  }
+
+  /** Tier1 presence probe: does this layer expose at least one filterable
+   *  field? Scans the first PROBE_K geometry leaves only (O(K), first hit
+   *  stops), so a 50k layer costs the same as a 10-leaf one. Cached per
+   *  (layerId, dataRevision): the menu renders this per row, so a stale row
+   *  must not re-scan. A layer with no geometry leaf (or whose first
+   *  PROBE_K leaves carry no property value) reads false — the conservative
+   *  probe semantics. */
+  private hasGenericFields(id: string): boolean {
+    const layer = this.layerRegistry.get(id)?.layer;
+    if (!layer) return false;
+    const revision = this.ui!.runtimeStore.getDataRevision(id);
+    const cached = this.filterProbe.get(id);
+    if (cached?.revision === revision) return cached.has;
+    // A cached filterFeatures row is an authoritative presence answer: it was
+    // built by a full walk (Tier2) and is valid at this revision, so the
+    // bounded probe never needs to re-scan what a full build already knows.
+    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    if (
+      features &&
+      (features.numericFields.length > 0 || features.enumFields.length > 0)
+    ) {
+      this.filterProbe.set(id, { revision, has: true });
+      return true;
+    }
+    const has = this.scanGenericFields(layer);
+    this.filterProbe.set(id, { revision, has });
+    return has;
+  }
+
+  /** Bounded presence scan over a layer's geometry leaves. A private
+   *  recursion — not walkLeaf (no short-circuit) nor someLeaf (whose
+   *  pred-true short-circuit would conflate "matched" with "visited": the
+   *  probe must keep scanning up to PROBE_K leaves even after a non-matching
+   *  leaf, and someLeaf stops at the first pred-true, which here would
+   *  report a match at the first property-bearing leaf — correct only when
+   *  that is also the first leaf). The bounded visit is the point: stop
+   *  descending after PROBE_K leaves, so a 50k layer is never walked in
+   *  full for a menu row render. Depth guard mirrors walkLeaf's
+   *  RECURSION.LAYER_DEPTH. */
+  private scanGenericFields(layer: L.Layer): boolean {
+    let seen = 0;
+    let has = false;
+    const walk = (node: L.Layer, depth: number): boolean => {
+      if (depth > RECURSION.LAYER_DEPTH) return false; // same cap as walkLeaf
+      if (isGroupLike(node as Parameters<typeof isGroupLike>[0])) {
+        // Enumerate children: eachLayer when present (Leaflet containers),
+        // else the _layers registry (window globals / wrappers). Reaching
+        // through the adapter keeps the walk inside the adapter's boundary.
+        let kids: L.Layer[] = [];
+        try {
+          const tn = node as Parameters<typeof internalLayers>[0];
+          if (typeof tn.eachLayer === "function") {
+            tn.eachLayer(k => kids.push(k));
+          } else {
+            // isGroupLike(tn) guarantees internalLayers returns a non-null _layers record.
+            const reg = internalLayers(tn)!;
+            kids = Object.values(reg);
+          }
+        } catch {
+          kids = [];
+        }
+        for (const kid of kids) {
+          if (walk(kid, depth + 1)) return true;
+          if (seen >= PROBE_K) return false;
+        }
+        return false;
+      }
+      seen++;
+      if ((node as LabelAwareLayer).isLabel) return false;
+      const props = (
+        node as {
+          feature?: { properties?: Record<string, unknown> };
+        }
+      ).feature?.properties;
+      if (!props) return false;
+      for (const raw of Object.values(props)) {
+        if (
+          (typeof raw === "number" && Number.isFinite(raw)) ||
+          (typeof raw === "string" && raw.length > 0) ||
+          typeof raw === "boolean"
+        ) {
+          has = true;
+          return true;
+        }
+      }
+      return false;
+    };
+    walk(layer, 0);
+    return has;
+  }
+
+  /** The layer object for a registry entry, falling back to the map's own
+   *  membership: a constructor-seeded layer's `layer` field stays unset until
+   *  its late binding (folium script-stream order), so the map is the only
+   *  reach until then. One resolution point — the attach-time removal pass
+   *  and the filter snapshot builder share it, so a CONFIG layer can build
+   *  its snapshot before its registry row resolves. */
+  private resolveLayer(
+    info: { id: string; layer?: L.Layer | null } | undefined,
+  ): L.Layer | null {
+    if (!info) return null;
+    return info.layer ?? findLayer(this.map, info.id);
+  }
+
+  /** Tier2: build (or return the cached) filterFeatures for a layer,
+   *  rebuilt when dataRevision moved. The cache is shared with
+   *  genericFilterModel and the field picker, so a menu probe never walks
+   *  the full tree and a model build reuses the same snapshot. */
+  private ensureFilterFeatures(id: string): LayerFilterFeatures | null {
+    const layer = this.resolveLayer(this.layerRegistry.get(id));
+    const revision = this.ui!.runtimeStore.getDataRevision(id);
+    const cached = this.ui!.runtimeStore.getFilterFeatures(id);
+    // A cached row at this revision is authoritative (Tier2 already built it).
+    if (cached && this.filterFeaturesRev.get(id) === revision) return cached;
+    // No walkable layer: keep a pre-seeded row (external owner / test fixture
+    // seeded the snapshot directly) rather than dropping it. Without this, a
+    // layer whose geometry is not reachable at probe time loses its model.
+    if (!layer) return cached ?? null;
+    const features = buildFilterFeatures(layer);
+    // An empty build means the layer exposed no walkable geometry leaf. A
+    // pre-seeded row (external owner / test fixture seeded the snapshot
+    // directly) is the source of truth and must not be replaced by an empty
+    // snapshot — the same preservation as the no-layer guard above. A
+    // genuinely field-less layer still stores its empty snapshot (no cached
+    // row), so an active filter hides nothing on it.
+    if (features.features.length === 0 && cached) return cached;
+    this.ui!.runtimeStore.setFilterFeatures(id, features);
+    this.filterFeaturesRev.set(id, revision);
+    return features;
+  }
+
+  /** Tier2 dimensions for the host: the cached filterFeatures row projected
+   *  into range/enum dimensions (same mapping genericFilterModel used to do
+   *  inline). Reads the shared cache, never a second walk. */
+  private genericDimensions(id: string): FilterDimension[] {
+    const features = this.ensureFilterFeatures(id);
+    if (!features) return [];
+    const range: FilterRangeDimension[] = features.numericFields.map(field => ({
+      kind: "range",
+      field,
+      range: features.ranges[field],
+      step: filterStep(features.ranges[field]),
+    }));
+    const enums: FilterEnumDimension[] = features.enumFields.map(field => {
+      const all = features.enumValues[field] ?? [];
+      const truncated = all.length > ENUM_OPTION_LIMIT;
+      const options = (truncated ? all.slice(0, ENUM_OPTION_LIMIT) : all).map(
+        value => ({ value, label: value }),
+      );
+      return { kind: "enum", field, options, multi: true, truncated };
+    });
+    return [...range, ...enums];
+  }
+
+  /** Tier2 kept/total for the host, read from the same cached snapshot. */
+  private genericCounts(id: string): { kept: number; total: number } {
+    const features = this.ensureFilterFeatures(id);
+    if (!features) return { kept: 0, total: 0 };
+    const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+    const hidden = filterLeafSet(features.features, filter);
+    let kept = features.total;
+    for (const feature of features.features) {
+      if (hidden.has(feature.leaf)) kept--;
+    }
+    return { kept, total: features.total };
+  }
+
+  /** Public presence probe for the menu: does this layer expose at least
+   *  one filterable field? Never opens the panel / never builds the full
+   *  model — an O(K) bounded scan, first hit stops. The author-declaration
+   *  escape hatch: a declared filter makes the row usable even when the
+   *  probe reads false (the author knows a field exists beyond the probe's
+   *  window). */
+  hasFilterableFields(id: string): boolean {
+    const li = this.layerRegistry.get(id);
+    if (!li) return false;
+    // Escape hatch: author declaration (or a user value) implies a
+    // filterable field — a declared filter targets a field the author
+    // knows exists, even when the probe's bounded window missed it.
+    const declared = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+    if (declared !== undefined) return true;
+    return this.hasGenericFields(id);
   }
 
   /** The generic filter's write-through: store the filter, compute the hidden
@@ -2214,7 +2416,16 @@ class LayerController implements LayerAPI {
   }
 
   private applyFilterClass(id: string, filter: LayerFilter | undefined): void {
-    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    // The snapshot builder reads the runtime store, so it is attach-time
+    // only. Before attach there is no snapshot and no builder: the
+    // constructor's declared-filter replay is intentionally a no-op (the
+    // feature-build slice has not run) — the class pass happens later, on
+    // layeradd, once the layer's geometry is on the map.
+    if (!this.ui) {
+      this.hiddenSets.set(id, new WeakSet());
+      return;
+    }
+    const features = this.ensureFilterFeatures(id);
     if (!features) {
       this.hiddenSets.set(id, new WeakSet());
       return;
@@ -2232,6 +2443,17 @@ class LayerController implements LayerAPI {
     const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
     if (filter === undefined) return;
     this.applyFilterClass(id, filter);
+  }
+  /** Replay every committed filter onto the layers seeded at construction.
+   *  Those layers were already on the map when this control attached, so they
+   *  never pass through layeradd or registerLayer — the two sites that replay
+   *  a filter. Without this pass a reload restores the condition into the
+   *  store while the map keeps painting the full data (#1181). Runs from the
+   *  UI attach sequence, after the runtime store exists. */
+  replayAllFilters(): void {
+    for (const layerInfo of this.layerRegistry.items) {
+      this.replayFilter(layerInfo.id);
+    }
   }
 
   private notifyCapabilityChanges(): void {

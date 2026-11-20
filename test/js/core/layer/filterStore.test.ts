@@ -487,6 +487,135 @@ describe("filterStore — invariants", () => {
     expect(store.drop("L1", "ghost")).toBeUndefined();
     expect(store.sources("L1")).toEqual([]);
   });
+  it("drop removes the registered host so a departed surface cannot answer probes (the host registry guard)", () => {
+    const store = createFilterStore();
+    const host = makeEnumHost(["marker"]);
+    store.registerHost("L1", "filter", host);
+    // Before drop, the host answers.
+    expect(store.sources("L1")).toEqual(["filter"]);
+    expect(store.filterModel("L1", "filter").dimensions).toEqual([]); // no dimensions declared
+    store.drop("L1", "filter");
+    // The source no longer reports; the model degrades to the empty shape and
+    // must NOT read the old host (a dropped surface is gone, not dormant).
+    expect(store.sources("L1")).toEqual([]);
+    expect(store.filterModel("L1", "filter")).toEqual({
+      dimensions: [],
+      filter: undefined,
+      kept: 0,
+      total: 0,
+    });
+    // Re-registering after a drop is allowed (a re-add of the same layer id).
+    const host2 = makeEnumHost(["marker"]);
+    store.registerHost("L1", "filter", host2);
+    expect(store.sources("L1")).toEqual(["filter"]);
+    store.setFilter("L1", "filter", enumFilter("marker"));
+    expect(store.isOwned("L1", "filter")).toBe(true);
+  });
+
+  it("drop leaves a sibling source's host registered", () => {
+    const store = createFilterStore();
+    store.registerHost("L1", "filter", makeEnumHost(["marker"]));
+    store.registerHost("L1", "measure", makeEnumHost(["distance"]));
+    store.drop("L1", "filter");
+    expect(store.sources("L1")).toEqual(["measure"]);
+    // The measure host still answers.
+    expect(store.filterModel("L1", "measure")).toEqual({
+      dimensions: [],
+      filter: undefined,
+      kept: 0,
+      total: 0,
+    });
+  });
+
+  it("hasFields is optional and absent on a host that does not declare it (default-false semantics)", () => {
+    const store = createFilterStore();
+    store.registerHost("L1", "filter", makeEnumHost(["marker"]));
+    // The store never calls hasFields itself — it is a caller-side probe.
+    // The interface is optional, so a host without it compiles and the store
+    // still answers model/filter.
+    expect(store.filterModel("L1", "filter").dimensions).toEqual([]);
+    expect(store.getFilter("L1", "filter")).toBeUndefined();
+  });
+
+  it("eager registration never touches data: registering a host performs no read or write", () => {
+    const store = createFilterStore();
+    const apply = vi.fn();
+    const host: FilterSourceHost = {
+      ...makeEnumHost(["marker"]),
+      apply,
+    };
+    // registerHost must be a pure map write — no setFilter, no apply, no
+    // persistence, no dimension query.
+    store.registerHost("L1", "filter", host);
+    expect(apply).not.toHaveBeenCalled();
+    expect(store.sources("L1")).toEqual(["filter"]);
+    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+  });
+
+  it("drop removes the registered host so a departed surface cannot answer probes (the host registry guard)", () => {
+    const store = createFilterStore();
+    const host = makeEnumHost(["marker"]);
+    store.registerHost("L1", "filter", host);
+    // Before drop, the host answers.
+    expect(store.sources("L1")).toEqual(["filter"]);
+    expect(store.filterModel("L1", "filter").dimensions).toEqual([]); // no dimensions declared
+    store.drop("L1", "filter");
+    // The source no longer reports; the model degrades to the empty shape and
+    // must NOT read the old host (a dropped surface is gone, not dormant).
+    expect(store.sources("L1")).toEqual([]);
+    expect(store.filterModel("L1", "filter")).toEqual({
+      dimensions: [],
+      filter: undefined,
+      kept: 0,
+      total: 0,
+    });
+    // Re-registering after a drop is allowed (a re-add of the same layer id).
+    const host2 = makeEnumHost(["marker"]);
+    store.registerHost("L1", "filter", host2);
+    expect(store.sources("L1")).toEqual(["filter"]);
+    store.setFilter("L1", "filter", enumFilter("marker"));
+    expect(store.isOwned("L1", "filter")).toBe(true);
+  });
+
+  it("drop leaves a sibling source's host registered", () => {
+    const store = createFilterStore();
+    store.registerHost("L1", "filter", makeEnumHost(["marker"]));
+    store.registerHost("L1", "measure", makeEnumHost(["distance"]));
+    store.drop("L1", "filter");
+    expect(store.sources("L1")).toEqual(["measure"]);
+    // The measure host still answers.
+    expect(store.filterModel("L1", "measure")).toEqual({
+      dimensions: [],
+      filter: undefined,
+      kept: 0,
+      total: 0,
+    });
+  });
+
+  it("hasFields is optional and absent on a host that does not declare it (default-false semantics)", () => {
+    const store = createFilterStore();
+    store.registerHost("L1", "filter", makeEnumHost(["marker"]));
+    // The store never calls hasFields itself — it is a caller-side probe.
+    // The interface is optional, so a host without it compiles and the store
+    // still answers model/filter.
+    expect(store.filterModel("L1", "filter").dimensions).toEqual([]);
+    expect(store.getFilter("L1", "filter")).toBeUndefined();
+  });
+
+  it("eager registration never touches data: registering a host performs no read or write", () => {
+    const store = createFilterStore();
+    const apply = vi.fn();
+    const host: FilterSourceHost = {
+      ...makeEnumHost(["marker"]),
+      apply,
+    };
+    // registerHost must be a pure map write — no setFilter, no apply, no
+    // persistence, no dimension query.
+    store.registerHost("L1", "filter", host);
+    expect(apply).not.toHaveBeenCalled();
+    expect(store.sources("L1")).toEqual(["filter"]);
+    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+  });
 
   it("whole-layer reset keeps sibling layers and rewrites the record", () => {
     // The removeRecord-vs-writeRecord branch: a reset of one layer while

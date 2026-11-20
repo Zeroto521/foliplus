@@ -20,6 +20,20 @@
  * Exit 0 when the patch meets the threshold (or has no executable added
  * lines); exit 1 listing the uncovered added lines otherwise; exit 2 on an
  * environment error (missing coverage report, failing git diff).
+ *
+ * Scope: only JS/TS sources count toward the patch (vitest covers them).
+ * Python sources are excluded and reported as skipped — `make test-js`
+ * only produces JS coverage, so a Python-only change must not fail this mirror
+ * (Python is covered by pytest, not this mirror). A changed file is Python when
+ * it ends in .py or lives under test/python/ (foliplus/*.py and below,
+ * test/python/* and below, script/*.py). Any other non-JS file (markdown,
+ * yaml, config) is skipped too.
+ *
+ * Why this is not wired into `make gate`: 94e3b1f0 reverted the make gate
+ * target because "CI already covers all checks independently" — the CI
+ * workflows run lint / format / typecheck / tests as separate jobs, so a
+ * local aggregate gate would duplicate work and drift from CI. This script
+ * stays a standalone check; run it before push.
  */
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
@@ -45,6 +59,24 @@ const toRel = (absPath, cwd) => {
   const normCwd = slash(path.resolve(cwd)).replace(/\/+$/, "");
   return p.startsWith(`${normCwd}/`) ? p.slice(normCwd.length + 1) : p;
 };
+
+/**
+ * A changed file counts toward the patch only when vitest can cover it
+ * (JS/TS sources). Everything else — Python, markdown, yaml, configs — is
+ * outside this mirror's scope.
+ */
+const isJsFile = rel => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(slash(rel));
+
+/**
+ * A Python-scope file is excluded from the patch and reported as skipped.
+ * Python is covered by pytest (`--cov=foliplus --cov=script`), not by the
+ * vitest report this mirror reads, so a Python-only change must not fail here.
+ * The rule covers foliplus/*.py and below, test/python/* and below, and
+ * script/*.py — any .py file, plus any path under test/python/ (defensive
+ * for future non-.py files).
+ */
+const isPythonFile = rel =>
+  /\.py$/.test(slash(rel)) || slash(rel).startsWith("test/python/");
 
 /**
  * Parse a unified diff into { <relativePath>: Set<addedLine> }.
@@ -346,6 +378,21 @@ const main = (opts = parseArgs(process.argv.slice(2))) => {
     console.log(`[patch-coverage] no diff against ${opts.base}; patch is empty — pass`);
     return 0;
   }
+  // Scope split: only JS/TS files count toward the patch. Python files are
+  // skipped (covered by pytest, not this mirror); other non-JS files are
+  // skipped too (excluded from the vitest report).
+  const jsFiles = new Map();
+  const pythonFiles = [];
+  const otherFiles = [];
+  for (const [rel, lines] of diffAdded) {
+    if (isPythonFile(rel)) {
+      pythonFiles.push(rel);
+    } else if (isJsFile(rel)) {
+      jsFiles.set(rel, lines);
+    } else {
+      otherFiles.push(rel);
+    }
+  }
   const loaded = loadCoverage(opts);
   if (!loaded) {
     console.error(
@@ -354,9 +401,17 @@ const main = (opts = parseArgs(process.argv.slice(2))) => {
     );
     return 2;
   }
-  const res = computePatch(diffAdded, loaded.covByRel);
+  const res = computePatch(jsFiles, loaded.covByRel);
   const target = (threshold * 100).toFixed(1);
   const got = (res.pct * 100).toFixed(1);
+  // Report out-of-scope files first so a Python-only change is visibly a skip,
+  // not a silent pass.
+  for (const f of pythonFiles) {
+    console.log(`  ${f}: skipped: Python (covered by pytest, not this mirror)`);
+  }
+  for (const f of otherFiles) {
+    console.log(`  ${f}: skipped: not in the coverage report (excluded or non-JS)`);
+  }
   console.log(
     `[patch-coverage] ${got}% patch (${res.covered}/${res.total} added executable lines covered); target ${target}%`,
   );
@@ -403,6 +458,8 @@ export {
   computePatch,
   parseArgs,
   loadCoverage,
+  isJsFile,
+  isPythonFile,
   main,
   runCli,
   __entryUrl,

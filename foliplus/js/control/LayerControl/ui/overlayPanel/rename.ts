@@ -4,8 +4,7 @@ import { INTENT, setIntent } from "../intent.js";
 import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
-import { EVENTS } from "#core/event/index.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import {
   createInlineEditInput,
@@ -52,8 +51,9 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   // (the Escape branch) — there is no committed value to write into a row
   // that is about to disappear, and finishRename's registry guard would
   // skip the teardown anyway.
-  ui.overlayPanel.renameRemovedUnsub = ui.events.on(EVENTS.LAYER_REMOVED, ({ id }) => {
-    if (id !== layerId) return;
+  // Anchor-teardown contract (cross-panel): close on BOTH LAYER_REMOVED and
+  // LAYER_DELETED — see subscribeLayerTearDown in teardown.ts.
+  ui.overlayPanel.renameRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
     ui.overlayPanel.renameRemovedUnsub?.();
     ui.overlayPanel.renameRemovedUnsub = null;
     finishRename(ui, false);

@@ -2,7 +2,7 @@
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { EVENTS } from "#core/event/index.js";
 import {
@@ -363,6 +363,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   menu.addEventListener("click", event => handleMenuClick(ui, event));
 
   ui.overlayPanel.activeMenu = { item, menu, layerId };
+  // Anchor-teardown contract (cross-panel): an external delete/clear of the
+  // anchored layer must not leave the menu (and its activeMenu / reposition /
+  // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
+  ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
+    closeMoreMenu(ui, false);
+  });
   // Same PanelController wiring as attr/filter: the dismissal contract and
   // registry identity live on the controller (dismiss outsidePress is
   // "click" for the menu — a press is a click-selection, not a drag-away).
@@ -437,12 +443,12 @@ const isComponentLayer = (ui: LayerUI, layerId: string): boolean => {
 const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
   const layer = ui.c.layerRegistry.get(layerId);
   if (!isFilterCapable(layer)) return false;
-  // A capability row is still filterable only when it actually has a field to
-  // filter on: a generic layer with an empty model (no numeric/enum fields)
-  // must not open the empty panel. The cheap gate reads only the cached
-  // filter-features row; a full filterProvider() build is the fallback.
-  if (layer.hasFilterFields) return layer.hasFilterFields();
-  return layer.filterProvider() !== null;
+  // Generic data layers (LayerControl's own): an O(K) presence probe — never
+  // a full model build, so the menu row render stays O(K) per row.
+  // Heatmap/Measure/third-party owners declare their own model; their
+  // presence is dimension-driven and read through the existing fallback
+  // (a capable owner with a null model is an empty layer — disabled).
+  return ui.c.hasFilterableFields(layerId) || layer.filterProvider() !== null;
 };
 
 const buildDeleteItem = (
@@ -525,6 +531,8 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
+  ui.overlayPanel.menuRemovedUnsub?.();
+  ui.overlayPanel.menuRemovedUnsub = null;
   ui.overlayPanel.menuOverlayUnregister?.();
   ui.overlayPanel.menuOverlayUnregister = null;
   ui.overlayPanel.menuReposition?.();

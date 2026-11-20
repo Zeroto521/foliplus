@@ -14,7 +14,7 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { disposeBorderRow, resetLayerBorder } from "./border.js";
 import { renderDelegatedStylePanel } from "./delegated.js";
 import { disposeFillRow, resetLayerFill } from "./fill.js";
@@ -387,13 +387,11 @@ const bindStylePanel = (
   // An external delete retires the owned layer: the row (and its style
   // drawer) is being removed. Close the panel without committing — the
   // layer is gone, so there is no value to flush into it.
-  ui.overlayPanel.styleRemovedUnsub = ui.c.events.on(
-    EVENTS.LAYER_REMOVED,
-    (payload: { id: string }) => {
-      if (payload.id !== layerId) return;
-      closeStylePanel(ui, false);
-    },
-  );
+  // Anchor-teardown contract (cross-panel): close on BOTH LAYER_REMOVED and
+  // LAYER_DELETED — see subscribeLayerTearDown in teardown.ts.
+  ui.overlayPanel.styleRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
+    closeStylePanel(ui, false);
+  });
 
   // While the panel is open, a zoom change must move the current-zoom marker
   // on the zoom-range row and refresh its out-of-range state. The map-level

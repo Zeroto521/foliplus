@@ -85,10 +85,13 @@ const readChassisSprite = (
     probe.style.visibility = "hidden";
     probe.style.left = "-9999px"; // placement-adapter: offscreen icon probe
     document.body.appendChild(probe);
-    const computed = getComputedStyle(probe);
-    url = computed.backgroundImage;
-    position = computed.backgroundPosition || "0 0";
-    document.body.removeChild(probe);
+    try {
+      const computed = getComputedStyle(probe);
+      url = computed.backgroundImage;
+      position = computed.backgroundPosition || "0 0";
+    } finally {
+      probe.remove();
+    }
   }
   const sprite = /^url\(/.test(url) ? { url, position } : null;
   chassisSpriteCache.set(presetName, sprite);
