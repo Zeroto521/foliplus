@@ -454,10 +454,13 @@ const refusesHiddenFocus = (() => {
 
 /** Child sequence signature: layer rows by id, anchors by group. */
 const childKeys = (ui: LayerUI) =>
-  Array.from(attachedPanel(ui).children).map(
-    el =>
-      el.getAttribute(CONST.DATA.LAYER_ID) ?? `role:${el.getAttribute("data-role")}`,
-  );
+  Array.from(attachedPanel(ui).children)
+    // The panel footer (restore-author-layout row) is not a layer row; skip it.
+    .filter(el => !el.classList.contains("foliplus-btn-row"))
+    .map(
+      el =>
+        el.getAttribute(CONST.DATA.LAYER_ID) ?? `role:${el.getAttribute("data-role")}`,
+    );
 
 /** The panel sequence renderInitialList would emit for this registry: each
  *  group's anchor before its first row, rows in registry order. */
@@ -1616,6 +1619,7 @@ describe("clean-empty-folders button and role header order", () => {
     manager.ui?.reindexAfterMove?.();
     const container = attachedPanel(ui);
     const kinds = Array.from(container.children)
+      .filter(el => !el.classList.contains("foliplus-btn-row"))
       .filter(el => !el.getAttribute(CONST.DATA.LAYER_ID)?.startsWith("foliplus_"))
       .map(el => {
         if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) {

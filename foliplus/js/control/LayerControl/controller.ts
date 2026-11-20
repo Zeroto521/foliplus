@@ -66,8 +66,12 @@ import {
   folderNameTooLong,
   folderOf,
   freezeRoleOrder,
+  moveLayerToFolder,
+  moveLayerToRoot,
   normalizeFolderName,
   renameFolder,
+  restoreAuthorLayout,
+  seedFolderLayout,
   visibleDomOf,
   walkLeaf,
   zFor,
@@ -1989,6 +1993,109 @@ class LayerController implements LayerAPI {
     this.folderLayout.flush();
     if (this.ui) this.ui.reindexAfterMove();
     return emptyKeys.length;
+  }
+  /**
+   * Restore the author's declared folder layout.
+   *
+   * The user-facing counterpart of the core restoreAuthorLayout: clears every
+   * user move/rename/order decision by resetting the layout's order and
+   * members to the author's declaration (re-seeded from the registry). The
+   * folder name directory survives (a rename the user made is kept only when
+   * it differs from the author's spelling).
+   *
+   * The button's disabled state is driven by isAuthorLayout: when the current
+   * layout already equals the seed, there is nothing to restore.
+   *
+   * @returns true when the layout was reset, false when it was already the
+   *   author layout (nothing to restore - no write).
+   */
+  restoreAuthorLayout(): boolean {
+    const layout = this.folderLayout.layout;
+    if (this.isAuthorLayout()) {
+      return false;
+    }
+    this.folderLayout.set(restoreAuthorLayout(layout));
+    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
+    this.folderLayout.flush();
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
+  }
+
+  /** Whether the live folder layout equals the author's declaration.
+   *
+   *  The disabled predicate for the footer's restore button. The layout is at
+   *  the author state when:
+   *    - no role has a user-created block key (order is empty), and
+   *    - every layer's EFFECTIVE folder assignment matches its author
+   *      declaration (folderOf falls back to layer.folder when the layout has
+   *      no member entry for it, so an empty members map already means "all
+   *      author declared").
+   *  This is the field-by-field equality the checklist's A4 entry names —
+   *  computed on the effective assignment rather than the raw members map,
+   *  because the core restore clears members to {} (the fallback IS the
+   *  author state).
+   */
+  isAuthorLayout(): boolean {
+    const layout = this.folderLayout.layout;
+    // No user-created block keys anywhere.
+    for (const role of Object.keys(layout.order) as LayerRole[]) {
+      if ((layout.order[role] ?? []).length > 0) return false;
+    }
+    // Every layer's effective folder matches its author declaration.
+    for (const layer of this.layerRegistry.layers) {
+      const effective = folderOf(layout, layer);
+      const author = layer.folder ?? null;
+      if (normalizeFolderName(effective ?? "") !== normalizeFolderName(author ?? "")) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Move a layer into a folder (creating the block if needed).
+   *
+   *  The user-facing counterpart of the core moveLayerToFolder: materialises
+   *  the target folder's block key at the role tail when it does not exist,
+   *  and pins the layer's assignment to the folder.
+   *
+   * @param layerId - The layer's id.
+   * @param role - The UI role the layer belongs to (the folder is role-scoped).
+   * @param folderName - The target folder's display name (normalised to a key).
+   * @returns true when the assignment was written, false when the layer is
+   *   unknown or the target name is blank after normalisation.
+   */
+  moveLayerToFolder(layerId: string, role: LayerRole, folderName: string): boolean {
+    const layerInfo = this.layerRegistry.get(layerId);
+    if (!layerInfo) return false;
+    const key = normalizeFolderName(folderName);
+    if (key === "") return false;
+    this.folderLayout.set(
+      moveLayerToFolder(this.folderLayout.layout, layerId, role, folderName),
+    );
+    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
+    this.folderLayout.flush();
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
+  }
+
+  /** Move a layer back to its role root.
+   *
+   *  The user-facing counterpart of the core moveLayerToRoot: pins the layer's
+   *  assignment to root (folder: ""), overriding the author's declaration.
+   *
+   * @param layerId - The layer's id.
+   * @param role - The UI role the layer belongs to.
+   * @returns true when the assignment was written, false when the layer is
+   *   unknown.
+   */
+  moveLayerToRoot(layerId: string, role: LayerRole): boolean {
+    const layerInfo = this.layerRegistry.get(layerId);
+    if (!layerInfo) return false;
+    this.folderLayout.set(moveLayerToRoot(this.folderLayout.layout, layerId, role));
+    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
+    this.folderLayout.flush();
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
   }
 
   /**
