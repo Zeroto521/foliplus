@@ -73,8 +73,27 @@ describe("vocabulary guard: no section middle-layer", () => {
   });
 
   it("whitelist drift fails loudly", () => {
-    for (const rel of EXEMPT_DIRS) {
-      expect(typeof rel, `${rel} exempt dir`).toBe("string");
+    // Every whitelisted word must actually occur in the scanned tree's raw
+    // source. A whitelist entry that masks no occurrence is drift: it lets
+    // the guard silently swallow a real regression, or is a stale entry that
+    // should be removed. Adding a bogus entry to ALLOWED_WORDS fails this
+    // loudly instead of passing silently.
+    const roots = [join(REPO_ROOT, "foliplus", "js"), join(REPO_ROOT, "test", "js")];
+    const seen = new Set<string>();
+    for (const root of roots) {
+      for (const file of walk(root)) {
+        const rel = relative(REPO_ROOT, file).replace(/\\/g, "/");
+        if (EXEMPT_FILES.has(rel)) continue;
+        const src = readFileSync(file, "utf8");
+        for (const w of ALLOWED_WORDS) {
+          if (new RegExp(`\\b${w}\\b`).test(src)) seen.add(w);
+        }
+      }
     }
+    const missing = [...ALLOWED_WORDS].filter(w => !seen.has(w));
+    expect(
+      missing,
+      `whitelist entries masking no source occurrence (drift): ${missing.join(", ")}`,
+    ).toEqual([]);
   });
 });

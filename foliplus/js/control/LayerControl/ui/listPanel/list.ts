@@ -381,7 +381,7 @@ const syncRowOrder = (ui: LayerUI): void => {
   }
 };
 
-/** Whether `role`'s role should render its toggle-all header row.
+/** Whether the given role should render its toggle-all header row.
  *  Shared by renderInitialList, syncRowOrder, insertLayerItem and retireRow so
  *  the four cannot drift apart (builder-4 ②③④). A role keeps its header
  *  while it owns at least one live layer OR at least one folder key in the

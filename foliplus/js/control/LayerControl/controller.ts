@@ -1264,6 +1264,7 @@ class LayerController implements LayerAPI {
     return snapshot;
   }
 
+  /* v8 ignore stop */
   /** Broadcast a layer's registry / map-membership change with the id and kind
    *  stamped from the registry entry — LayerController's single emit site, so
    *  every subscriber can filter on the payload instead of re-walking the
@@ -1889,7 +1890,7 @@ class LayerController implements LayerAPI {
    * The event bus carries the notification; the component owns the wipe.
    *
    * User-added layers are deleted for good: the id is added to `removed` so
-   * the registry refuses it again, and the three sections that key by layer
+   * the registry refuses it again, and the three stores that key by layer
    * id — order, the rename, the label config — are pruned. Only a user
    * who pointed at a row and chose "delete" knows the layer is gone for
    * good; per-dimension resets drop one provenance marker instead, which is
@@ -2852,5 +2853,3 @@ class LayerController implements LayerAPI {
 }
 
 export { LayerController, installBringToFrontPatch, uninstallBringToFrontPatch };
-/* v8 ignore stop */
-/* v8 ignore stop */
