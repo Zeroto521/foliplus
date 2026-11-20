@@ -14,7 +14,7 @@ import warnings
 
 import pytest
 
-from foliplus.control.LayerControl._folders import _folder_key, normalise_folders
+from foliplus.control.LayerControl._folder import _folder_key, normalise_folders
 
 
 class TestNormaliseFolders:

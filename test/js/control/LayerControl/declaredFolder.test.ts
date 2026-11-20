@@ -4,7 +4,7 @@ import {
   authorFoldedKeys,
   effectiveFolderFolded,
   folderFoldKey,
-} from "#control/LayerControl/folderFold.js";
+} from "#control/LayerControl/declaredFolder.js";
 
 describe("folderFoldKey", () => {
   it("builds role::normalizedFolderName keys", () => {
@@ -58,14 +58,14 @@ describe("authorFoldedKeys", () => {
     expect(keys.size).toBe(0);
   });
 
-  it("skips null / non-array entries and unknown sections (tolerant derivation)", () => {
+  it("skips null / non-array entries and unknown role keys (tolerant derivation)", () => {
     const keys = authorFoldedKeys({
       overlay: [
         null as unknown as { name: string; folded?: boolean },
         { name: "边界", folded: true },
       ],
       base: [],
-      unknown_section: [{ name: "幽灵", folded: true }],
+      unknownRole: [{ name: "幽灵", folded: true }],
     } as unknown as FolderDefaults);
     expect(keys).toEqual(new Set(["overlay::边界"]));
   });

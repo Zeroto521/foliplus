@@ -1,4 +1,4 @@
-// control/LayerControl/folderFold — author-declared default fold state + the
+// control/LayerControl/declaredFolder — author-declared default fold state + the
 // effective fold resolution the panel renders with.
 //
 // The author writes LayerControl(folders={"overlay": [{"name": "业务数据",
@@ -70,9 +70,9 @@ const authorFoldedKeys = (folders: FolderDefaults | null | undefined): Set<strin
 /** Resolve the effective fold state a folder row renders with.
  *
  *  Priority: user override (folded) > author default (folded) > expanded.
- *  The user override is the persisted foldedFolders set (owned by task-12);
- *  the author default is {@link authorFoldedKeys}. See the NOTE above for
- *  the Set-based "user expands over author fold" edge.
+ *  The user override is the persisted foldedFolders set, written by the
+ *  panel's own toggle; the author default is {@link authorFoldedKeys}. See
+ *  the NOTE above for the Set-based "user expands over author fold" edge.
  *
  *  @param {ReadonlySet<string>} authorKeys - The author default folded keys.
  *  @param {ReadonlySet<string>} userKeys - The user override folded keys.

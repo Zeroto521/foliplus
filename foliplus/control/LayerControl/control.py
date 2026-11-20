@@ -12,7 +12,7 @@ from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._folders import normalise_folders
+from ._folder import normalise_folders
 from ._layer_declaration import (
     declared_border,
     declared_filter,
@@ -120,12 +120,16 @@ class LayerControl(BaseControl):
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
+
     folders : dict, optional
         Central folder-defaults config: author-declared default folded state
-        per folder, keyed by role. Entries are ``{"name": ..., "folded": ...}``;
-        only ``name`` is required (a non-empty string), ``folded`` is an optional
-        bool (default expanded). A name may be declared even with no members yet.
-        A user manual fold/unfold always wins over the author default.
+        per folder, keyed by role (multiple folders per role — hence the
+        plural ``folders``, unlike the per-layer ``foliplus={"folder": ...}``
+        which is singular because one layer belongs to one folder). Entries
+        are ``{"name": ..., "folded": ...}``; only ``name`` is required (a
+        non-empty string), ``folded`` is an optional bool (default expanded).
+        A name may be declared even with no members yet. A user manual
+        fold/unfold always wins over the author default.
 
 
     Examples

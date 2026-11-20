@@ -1,4 +1,4 @@
-# foliplus/control/LayerControl/_folders — the central folder-defaults declaration.
+# foliplus/control/LayerControl/_folder — the central folder-defaults declaration.
 #
 # The author passes folders={"overlay": [{"name": ..., "folded": ...}], "base": [...]}
 # to LayerControl. This module is the single place that normalises that payload
