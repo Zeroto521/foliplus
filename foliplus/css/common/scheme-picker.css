@@ -124,20 +124,14 @@
       )
     )
     0 calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-border-thick));
-  /* Reserved here, transparent: the selected state recolours this border
-     instead of painting an inset box-shadow, so the scheme picker reads its
-     bar off the same 2px --foliplus-border-thick the shared dropdown row and
-     the LayerControl row do. The padding above subtracts it so the colour
-     strip still lands on the trigger strip's x. */
-  border-left: var(--foliplus-border-thick) solid transparent;
-  height: var(--foliplus-menu-row-h);
-  box-sizing: border-box;
+  /* The selection bar is shared (common/row.css .foliplus-menu-row): the
+     base reserves the 2px border and the selected state recolours it. The
+     padding above still subtracts it so the colour strip lands on the
+     trigger strip's x. */
   /* The ✓ lead overlays the row's left edge (position:absolute), so the row
      must be the lead's containing block. */
   position: relative;
   cursor: pointer;
-  font-size: var(--foliplus-font-size-sm);
-  color: var(--foliplus-text-primary);
   transition:
     background-color var(--foliplus-transition-fast),
     border-color var(--foliplus-transition-fast);
@@ -187,12 +181,9 @@
   /* Persistent "selected scheme" state: the soft wash plus the accent left
      bar, recoloured on the border the base row already reserves. */
   background: var(--foliplus-menu-row-selected-bg);
-  border-left-color: var(--foliplus-accent-primary);
 }
 
 .foliplus-scheme-picker-item:focus-visible {
-  outline: none;
-  border-left-color: var(--foliplus-accent-primary);
   box-shadow: var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
   transition: box-shadow var(--foliplus-transition-fast);

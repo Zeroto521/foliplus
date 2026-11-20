@@ -131,23 +131,13 @@
   align-items: center;
   gap: var(--foliplus-space-sm);
   width: 100%;
-  min-height: var(--foliplus-menu-row-h);
   padding: var(--foliplus-space-xs) var(--foliplus-space-md);
   border: 0;
-  /* The selected-row bar lives here, not in a token: a real border every row
-     carries (transparent in the base) so the option, the scheme-picker item
-     and the LayerControl row all reserve the same 2px and the label never
-     shifts when the state changes. */
-  border-left: var(--foliplus-border-thick) solid transparent;
   border-radius: 0;
   background: transparent;
-  color: var(--foliplus-text-primary);
-  font-family: inherit;
-  font-size: var(--foliplus-font-size-md);
   line-height: 1.5;
   text-align: left;
   cursor: pointer;
-  box-sizing: border-box;
   transition: background-color var(--foliplus-transition-fast);
 }
 .foliplus-dropdown-option:hover:not([disabled]) {
@@ -169,11 +159,8 @@
    answers on top of it. */
 .foliplus-dropdown-option[aria-selected="true"] {
   background: var(--foliplus-menu-row-selected-bg);
-  border-left-color: var(--foliplus-accent-primary);
 }
 .foliplus-dropdown-option:focus-visible {
-  outline: none;
-  border-left-color: var(--foliplus-accent-primary);
   box-shadow: var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
 }

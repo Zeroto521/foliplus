@@ -71,4 +71,4 @@ const buildLeadSlot = (glyphClass: string): LeadSlot => {
   return { slot, paint };
 };
 
-export { buildCheckboxSlot, buildLeadSlot, paintCheckSlot };
+export { buildCheckboxSlot, buildLeadSlot };

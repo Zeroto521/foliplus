@@ -26,6 +26,7 @@
 import { buildCheckboxSlot, buildLeadSlot } from "./checkSlot.js";
 import { CHECK_SLOT_CLASS } from "./checkSlotClassName.js";
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
+import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
 import { applyOptionRowA11y } from "./optionRow.js";
@@ -426,7 +427,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     },
     classes: {
       list: DROPDOWN_CLASS.LIST,
-      row: DROPDOWN_CLASS.OPTION,
+      row: [DROPDOWN_CLASS.OPTION, MENU_ROW_CLASS.ROW].join(" "),
       rowLabel: DROPDOWN_CLASS.OPTION_LABEL,
       portal: DROPDOWN_CLASS.PORTAL,
       up: DROPDOWN_CLASS.UP,
