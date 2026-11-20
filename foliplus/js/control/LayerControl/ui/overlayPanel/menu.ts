@@ -383,12 +383,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Anchor-teardown contract (cross-panel): an external delete/clear of the
   // anchored layer must not leave the menu (and its activeMenu / reposition /
   // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
-  // Naming NOTE: `menuRemovedUnsub` reads as if it only covers the LAYER_REMOVED
-  // event, but subscribeLayerTearDown actually fires on both LAYER_REMOVED and
-  // LAYER_CLEARED. The attrs/rename/style counterparts carry the same historical
-  // name, so a local rename would not fix the family — renaming all four is
-  // out of scope here (see the P3 ledger row for #1240). The name is kept for
-  // cross-panel symmetry until a dedicated naming pass (or task-67) lands.
+  // Naming NOTE: subscribeLayerTearDown listens to both LAYER_REMOVED and
+  // LAYER_CLEARED, so the "Removed" in this name is historical. The whole
+  // *RemovedUnsub family (attrs/rename/style) shares the stale suffix; renaming
+  // the family is deferred to the naming-unification pass.
   ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
     closeMoreMenu(ui, false);
   });
