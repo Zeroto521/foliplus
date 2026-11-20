@@ -194,6 +194,40 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
+    it("reads a v5 record without foldedFolders as an empty set (v5 → v6)", () => {
+      // RECORD_VERSION 5 → 6 added `foldedFolders`. A v5 record has no such
+      // key; the read must default it to an empty array (additive, not a
+      // rename), and every other field survives. The next write stamps v6.
+      seedStorage({
+        version: 5,
+        order: ["a"],
+        renamedNames: { a: "A2" },
+        foldedRoles: ["overlay"],
+        layers: {},
+      });
+      const rec = makePersistence().load();
+      expect(rec.version).toBe(RECORD_VERSION);
+      expect(rec.order).toEqual(["a"]);
+      expect(rec.renamedNames).toEqual({ a: "A2" });
+      expect(rec.foldedRoles).toEqual(["overlay"]);
+      expect(rec.foldedFolders).toEqual([]);
+    });
+
+    it("reads a v6 record's foldedFolders as a validated string array", () => {
+      // The v6 read validates each key is a string; a non-array or a mixed
+      // array falls back to empty (the validation gate at persistence.ts:368).
+      seedStorage({
+        version: RECORD_VERSION,
+        order: [],
+        renamedNames: {},
+        foldedRoles: [],
+        foldedFolders: ["overlay::roads"],
+        layers: {},
+      });
+      const rec = makePersistence().load();
+      expect(rec.foldedFolders).toEqual(["overlay::roads"]);
+    });
+
     it("prunes a deleted id from the label segment on read", () => {
       // Deletion is not migration: the write side drops the ids it records
       // as removed, and the read side does the same — so a record written

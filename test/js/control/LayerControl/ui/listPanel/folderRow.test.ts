@@ -145,6 +145,34 @@ describe("ui/list folder rows", () => {
     expect(ui.listPanel.foldedFolders.has("overlay::roads")).toBe(true);
   });
 
+  it("persists foldedFolders when the save debounce flushes", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // initFixture ends with real timers; take fake timers AFTER the fixture
+    // so the save debounce can be flushed deterministically.
+    vi.useFakeTimers();
+    try {
+      toggleFolderFold(ui, "overlay", "roads");
+      // Flush the persistence debounce so the foldedFolders writer runs
+      // (state.ts:38) and the record hits storage.
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+      const rec = ui.c.persistence.load();
+      expect(rec.foldedFolders).toContain("overlay::roads");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("role menu show-all/hide-all toggles every layer in the role", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
@@ -287,6 +315,46 @@ describe("ui/list folder rows", () => {
     expect(folderRow!.getAttribute(CONST.DATA.FOLDER_KEY)).toBe("roads");
     const memberRow = ui.uiContainer!.querySelector('[data-layer-id="rd1"]');
     expect(memberRow!.querySelector(`.${CONST.CLASSES.FOLD_TREE}`)).not.toBeNull();
+  });
+
+  it("orders two unlisted folders by their member anchor", () => {
+    // Two folders that are NOT in layout.order land in the displayBlocks
+    // `rest` bucket and are sorted by anchor (list.ts:481 comparator).
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "rivers", name: "Rivers" },
+          { key: "roads", name: "Roads" },
+        ],
+        order: {},
+        members: {},
+      },
+      data: [
+        {
+          id: "rv1",
+          name: "Rivers",
+          role: "overlay",
+          folder: "Rivers",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const rows = Array.from(
+      ui.uiContainer!.querySelectorAll(`.${CONST.CLASSES.FOLDER_ROW}`),
+    );
+    // The two unlisted folders render as folder rows, in anchor order.
+    expect(rows.map(r => r.getAttribute(CONST.DATA.FOLDER_KEY))).toEqual([
+      "rivers",
+      "roads",
+    ]);
   });
 
   it("role menu new-folder creates a folder row and opens an inline rename", () => {
@@ -624,5 +692,62 @@ describe("ui/list folder rows", () => {
     // stable; folderLayout.renameFolder updates only the directory entry name).
     const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
     expect(folder?.name).toBe("roads-renamed");
+  });
+
+  it("clicking a folder row's checkbox does not fold the folder", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    // The click on the checkbox is the onChange path, not a fold: the fold
+    // handler's checkbox exclusion returns before toggling the folder.
+    folderCb.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(false);
+  });
+
+  it("folder rename cancel (Escape) leaves the folder name unchanged", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    const input = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.RENAME_INPUT}`,
+    ) as HTMLInputElement;
+    input.value = "roads-renamed";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    // Escape cancels: the folder keeps its original name.
+    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    expect(folder?.name).toBe("roads");
   });
 });
