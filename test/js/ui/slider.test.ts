@@ -1522,6 +1522,10 @@ describe("Slider width-adaptive end numbers", () => {
       value: 40,
       label: "x",
       values: { min: "0", max: "a very long upper bound" },
+      // Text-shaped max would trigger the align-mode edge rule; pin "dot"
+      // so this test exercises the width-fit path (which is what it means
+      // to test) and not the align path.
+      valuesAlign: "dot",
     });
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
@@ -1556,6 +1560,89 @@ describe("Slider width-adaptive end numbers", () => {
     stubRow(host, 240);
     measure(sliderOf(host)!);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+
+  it("auto-aligns numeric labels to dot (fitting label stays out of clamp)", () => {
+    // Numeric-shaped labels read as "the value at this point" and stay
+    // dot-centred unless they overflow their half.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+
+  it("auto-aligns text labels to edges even when they fit on their half", () => {
+    // A wide date / category token reads as the row's edge, not the dot's
+    // value, so it clamps regardless of width. This is the death test the
+    // user's report asks for: the old width-only rule used to leave a
+    // fitting text label dot-centred, crowding its sibling.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "Jan 1, 2020", max: "Dec 31, 2024" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    // Both edges clamp even though both labels would fit on their halves.
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it('explicit valuesAlign: "dot" keeps a text label dot-centred while it fits', () => {
+    // A caller that pins valuesAlign: "dot" opts out of the text-edge rule
+    // — the width-fit rule alone decides. This is the escape hatch a
+    // future numeric-looking token (like a currency string) may need.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "Jan 1, 2020", max: "Dec 31, 2024" },
+      valuesAlign: "dot",
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+
+  it('explicit valuesAlign: "edges" pins numeric labels to edges even when they fit', () => {
+    // The inverse escape hatch: a caller that wants the row-edge semantics
+    // for a numeric-shaped label (rare — a unit string that is numeric but
+    // conceptually an edge, like a percent bound) can force it.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0%", max: "100%" },
+      valuesAlign: "edges",
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 });
 

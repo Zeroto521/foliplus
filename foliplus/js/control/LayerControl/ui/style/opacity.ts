@@ -100,6 +100,8 @@ const buildOpacityRow = (ui: LayerUI, layerId: string): HTMLElement => {
     // `unitSuffix` vocabulary instead. Keep both in sync if the unit
     // presentation changes (a bare "0"/"100" here would read as unitless).
     values: { min: "0%", max: "100%" },
+    // Always numeric (percent) — keep dot-centred.
+    valuesAlign: "dot",
     input: value => commitOpacityPct(ui, layerId, host, Number(value)),
   });
   return dom.el(

@@ -51,6 +51,23 @@ const clamp = (value: number, lo: number, hi: number): number =>
 // the pool holds up to two live entries per slider — and an owner switch (a
 // second slider takes over) hides the first slider's bubbles outright, so the
 // live set never mixes two owners on one surface.
+/** True when a slider end label is numeric-shaped (digits, decimal point,
+ *  thousands separators, percent sign, currency symbol, minus sign, or a
+ *  compact-number suffix like K / M). Used by the `valuesAlign` auto
+ *  heuristic: a numeric label reads as "the value at this point" and stays
+ *  dot-centred, while a text label (letter / CJK / date separator) crowds
+ *  its sibling and wants the row's two edges instead. */
+const isNumericShaped = (text: string): boolean => {
+  const t = text.trim();
+  if (t === "") return true;
+  // Reject on any letter or CJK character — those are the text signals.
+  if (/[\p{L}\p{Script=Han}]/u.test(t)) return false;
+  // Accept if every remaining char is in the numeric vocabulary: digits,
+  // decimal point, comma (thousands), percent, minus / en-dash, whitespace,
+  // and the common compact-number suffixes K / M / B (case-insensitive).
+  return /^[\d.,%\-\u2212\sKMBkmb]+$/.test(t);
+};
+
 interface BubbleEntry {
   el: HTMLElement;
   owner: HTMLElement;
@@ -226,6 +243,9 @@ const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
 class Slider {
   readonly root: HTMLElement;
   private readonly opts: SliderOptions;
+  /** Resolved end-label alignment: numeric labels stay dot-centred, text
+   *  labels pin to the row's edges. See `valuesAlign` in SliderOptions. */
+  private readonly valuesAlignMode: "dot" | "edges";
   private readonly range: boolean;
   private readonly values: number[];
   private readonly track: HTMLElement;
@@ -277,6 +297,18 @@ class Slider {
       format: (value: number) => String(Math.round(value)),
       ...options,
     };
+    // Resolve end-label alignment once: numeric vs text content does not
+    // change after construction (values are fixed at build time). "auto"
+    // inspects both labels; explicit "dot" / "edges" wins.
+    const declaredAlign = options.valuesAlign ?? "auto";
+    this.valuesAlignMode =
+      declaredAlign === "auto"
+        ? options.values &&
+          isNumericShaped(options.values.min) &&
+          isNumericShaped(options.values.max)
+          ? "dot"
+          : "edges"
+        : declaredAlign;
     this.disabled = options.disabled ?? false;
     // A row may be built already mounted (a re-render into a live panel) or
     // detached and appended a moment later; either way the truth is known here.
@@ -670,8 +702,15 @@ class Slider {
     // half the row, minus the half-thumb anchor and the gap to its sibling.
     const half = rowWidth / 2 - thumb / 2 - gap;
     const fits = (el: HTMLElement) => el.scrollWidth <= half + 1;
-    const minClamp = !fits(this.minEl);
-    const maxClamp = !fits(this.maxEl);
+    // Alignment mode owns the clamp decision for text labels: "edges" means
+    // the label is a wide token (date, category, unit string) whose semantics
+    // are the row's ends, not "the value at this dot" — it clamps regardless
+    // of width so the row reads as left/right edge labels. "dot" keeps the
+    // width-fit rule (a numeric label that overflows its half still clamps,
+    // but one that fits stays centred on its dot).
+    const edgesMode = this.valuesAlignMode === "edges";
+    const minClamp = edgesMode || !fits(this.minEl);
+    const maxClamp = edgesMode || !fits(this.maxEl);
     this.minEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, minClamp);
     this.maxEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, maxClamp);
     // The deferred fit measure runs after the first layout, so the current

@@ -198,6 +198,8 @@ const buildZoomRangeRow = (ui: LayerUI, layerId: string): HTMLElement => {
     label: ui.T("style_zoom_range"),
     labels: [ui.T("style_zoom_range_min"), ui.T("style_zoom_range_max")],
     values: { min: String(mapMin), max: String(mapMax) },
+    // Always numeric (map zoom level) — keep dot-centred.
+    valuesAlign: "dot",
     marks: [
       { at: mapMin, tone: "limit" },
       { at: mapMax, tone: "limit" },
