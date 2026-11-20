@@ -2036,10 +2036,11 @@ class LayerController implements LayerAPI {
    */
   isAuthorLayout(): boolean {
     const layout = this.folderLayout.layout;
-    // No user-created block keys anywhere.
-    for (const role of Object.keys(layout.order) as LayerRole[]) {
-      if ((layout.order[role] ?? []).length > 0) return false;
-    }
+    // No user-created block keys anywhere. Every role key is a key list: the
+    // persisted document is shape-guarded on read (isFolderLayout rejects a
+    // non-array role value) and every in-memory writer sets an array, so a
+    // straight length check needs no fallback.
+    if (Object.values(layout.order).some(order => order.length > 0)) return false;
     // Every layer's effective folder matches its author declaration.
     for (const layer of this.layerRegistry.layers) {
       const effective = folderOf(layout, layer);

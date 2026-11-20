@@ -7782,6 +7782,28 @@ describe("restoreAuthorLayout", () => {
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
     expect(manager.isAuthorLayout()).toBe(true);
   });
+
+  it("[BR-7] restoreAuthorLayout: no ui -> reindexAfterMove not called", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["parks"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
+    (manager as any).ui = null;
+
+    // The reset still lands: the ui guard only skips the reindex.
+    expect(manager.restoreAuthorLayout()).toBe(true);
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("parks");
+    expect(reindex).not.toHaveBeenCalled();
+  });
 });
 
 describe("moveLayerToFolder", () => {
@@ -7838,6 +7860,29 @@ describe("moveLayerToFolder", () => {
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("parks");
   });
+
+  it("[BR-8] moveLayerToFolder: no ui -> reindexAfterMove not called", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
+    (manager as any).ui = null;
+
+    expect(manager.moveLayerToFolder("rd1", "overlay", "Parks")).toBe(true);
+    expect(manager.folderLayoutView.members.rd1).toEqual({
+      role: "overlay",
+      folder: "parks",
+    });
+    expect(reindex).not.toHaveBeenCalled();
+  });
 });
 
 describe("moveLayerToRoot", () => {
@@ -7875,6 +7920,29 @@ describe("moveLayerToRoot", () => {
 
     expect(manager.moveLayerToRoot("missing", "overlay")).toBe(false);
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+  });
+
+  it("[BR-9] moveLayerToRoot: no ui -> reindexAfterMove not called", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
+    (manager as any).ui = null;
+
+    expect(manager.moveLayerToRoot("rd1", "overlay")).toBe(true);
+    expect(manager.folderLayoutView.members.rd1).toEqual({
+      role: "overlay",
+      folder: "",
+    });
+    expect(reindex).not.toHaveBeenCalled();
   });
 });
 
