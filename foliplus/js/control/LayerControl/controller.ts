@@ -3,7 +3,7 @@ import { readDeclaredFilter } from "./declaredFilter.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
-import { collectDeltas } from "./ui/apply.js";
+import { type ProjectionBatch, collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 import {
   type CursorRef,
@@ -557,7 +557,7 @@ class LayerController implements LayerAPI {
       for (const layerInfo of this.layers) {
         const resolved = findLayer(this.map, layerInfo.id);
         if (resolved && L.stamp(resolved) === stamp) {
-          this.replayFilter(layerInfo.id);
+          this.replayStoredState(layerInfo.id);
           break;
         }
       }
@@ -832,6 +832,42 @@ class LayerController implements LayerAPI {
 
   replaySavedOrder(id?: string) {
     this.order.replaySavedOrder(id);
+  }
+
+  /** The single replay entry for every stored dimension of one layer.
+   *  Both registration paths — construction-seeded (A) and layeradd /
+   *  registerLayer (B) — route through here, so a new dimension has exactly
+   *  one replay site and neither path can drift (replay convergence). Fixed order:
+   *  projection (visible/opacity/zoomRange) → name → order → style dims →
+   *  filter, because filter's hidden class depends on the DOM the style pass
+   *  paints and order depends on the registry entry existing. Idempotent:
+   *  the attach sequence and a repeat layeradd may run this more than once.
+   *  The projection batch is returned (not published) so the caller can
+   *  settle its own rows/counts before announcing — same contract as
+   *  applyUserState. */
+  replayStoredState(id: string): ProjectionBatch {
+    const moved = this.ui?.applyUserState(id) ?? [];
+    this.replayFilter(id);
+    return moved;
+  }
+
+  /** Replay every registered layer's stored state — the A-path (attach) sweep.
+   *  Construction-seeded layers never pass through registerLayer or layeradd,
+   *  so the initial registry is routed through this once. Keeps the full-sweep
+   *  semantics of applyUserState() (projection-all, name over the intent store,
+   *  full order replay, declared fill/border replay) and adds the per-layer
+   *  filter replay that would otherwise only reach seed layers via a separate
+   *  pass. Returns the combined projection batch for the caller's notify. */
+  replayStoredStateAll(): ProjectionBatch {
+    // this.ui is always set before the attach sweep runs (lifecycle.ts calls
+    // replayStoredStateAll after ui exists); the ?? [] is a defensive read.
+    // unreachable: the null side of this.ui?.applyUserState() cannot run.
+    /* v8 ignore next */
+    const moved = this.ui?.applyUserState() ?? [];
+    for (const layerInfo of this.layerRegistry.items) {
+      this.replayFilter(layerInfo.id);
+    }
+    return moved;
   }
 
   // ==================== Public API Methods ====================
@@ -1167,15 +1203,16 @@ class LayerController implements LayerAPI {
       // pass that reaches a late-arriving layer's own visibility, opacity, name
       // and order. On a re-registration it also re-applies opacity onto the fresh
       // layer/canvas object (no-op when the user never changed it).
-      const moved = this.ui.applyUserState(opts.id);
+      // The single replay entry (replay convergence): stored projection + name + order
+      // + style dims + filter, in fixed order. Replaces the old two-site
+      // applyUserState(id)+replayFilter(id) pair so a new dimension cannot
+      // be added to only one path.
+      const moved = this.replayStoredState(opts.id);
       // Incremental: refresh only the new/updated row's cells instead of
       // re-scanning every row (initTypesAndVisibility is a full pass used on
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
       operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
-      // Re-apply a committed filter's hidden class onto the refreshed layer's
-      // fresh DOM elements (recreated when the layer is re-attached).
-      this.replayFilter(opts.id);
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: layerInfo.role,
       });
@@ -2451,18 +2488,6 @@ class LayerController implements LayerAPI {
     if (filter === undefined) return;
     this.applyFilterClass(id, filter);
   }
-  /** Replay every committed filter onto the layers seeded at construction.
-   *  Those layers were already on the map when this control attached, so they
-   *  never pass through layeradd or registerLayer — the two sites that replay
-   *  a filter. Without this pass a reload restores the condition into the
-   *  store while the map keeps painting the full data (#1181). Runs from the
-   *  UI attach sequence, after the runtime store exists. */
-  replayAllFilters(): void {
-    for (const layerInfo of this.layerRegistry.items) {
-      this.replayFilter(layerInfo.id);
-    }
-  }
-
   private notifyCapabilityChanges(): void {
     const next = new Map<string, string>();
     const changed: string[] = [];
