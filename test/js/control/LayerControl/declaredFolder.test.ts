@@ -69,6 +69,17 @@ describe("authorFoldedKeys", () => {
     } as unknown as FolderDefaults);
     expect(keys).toEqual(new Set(["overlay::边界"]));
   });
+
+  // The two role sections are read only when they hold an array: a stray value of
+  // another shape (a hand-built CONF bypassing the Python normaliser) is skipped
+  // wholesale rather than iterated as if it were entries.
+  it("skips a role section that is not an array (tolerant derivation)", () => {
+    const keys = authorFoldedKeys({
+      overlay: "业务数据" as unknown as { name: string; folded?: boolean }[],
+      base: [{ name: "底图", folded: true }],
+    } as unknown as FolderDefaults);
+    expect(keys).toEqual(new Set(["base::底图"]));
+  });
 });
 
 describe("effectiveFolderFolded", () => {
