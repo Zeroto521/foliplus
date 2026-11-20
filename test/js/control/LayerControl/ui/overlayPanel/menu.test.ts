@@ -213,6 +213,51 @@ describe("LayerUI menu", () => {
       expect(entry.getAttribute("title")).toBe(ui.T("filter_empty"));
     });
 
+    it("disables the Filter entry when the layer is hidden (task-97)", () => {
+      manager.registerLayer({
+        id: "hidden-layer",
+        name: "Hidden Layer",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({}),
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "hidden-layer");
+      const checkbox = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = false;
+      ui.openMoreMenu(item);
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action='${CONST.ACTION.FILTER_LAYER}']`,
+      ) as HTMLElement | null;
+      expect(entry).not.toBeNull();
+      expect(entry?.getAttribute("aria-disabled")).toBe("true");
+      expect(entry?.getAttribute("title")).toBe(ui.T("focus_layer_hidden"));
+    });
+
+    it("Filter entry stays enabled when layer is visible and has fields (task-97)", () => {
+      manager.registerLayer({
+        id: "visible-layer",
+        name: "Visible Layer",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({}),
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "visible-layer");
+      const checkbox = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = true;
+      ui.openMoreMenu(item);
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action='${CONST.ACTION.FILTER_LAYER}']`,
+      ) as HTMLElement | null;
+      expect(entry).not.toBeNull();
+      expect(entry?.getAttribute("aria-disabled")).not.toBe("true");
+    });
+
     it("creates a menu with the focus-layer action", () => {
       // A native <button> is focusable without tabindex — the item is no longer
       // a tabindex="0" li, so the attribute must be absent, not "0".
