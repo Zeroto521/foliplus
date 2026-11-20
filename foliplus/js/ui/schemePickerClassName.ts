@@ -31,6 +31,9 @@ const SCHEME_PICKER_CLASS = {
   /** The leading ✓ a scheme row paints on its selected entry — the same
    *  single-select mark the demo and the layer rows use. */
   LEAD: "foliplus-scheme-picker-lead",
+  /** The row content wrapper: the flex child that fills the row so the bar
+   *  keeps its full-width strip while the ✓ lead overlays it. */
+  ROW_CONTENT: "foliplus-scheme-picker-row-content",
   BLOCK: "foliplus-scheme-picker-block",
   PORTAL: "foliplus-scheme-picker-portal",
 } as const;

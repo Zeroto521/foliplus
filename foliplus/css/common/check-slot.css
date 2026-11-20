@@ -18,6 +18,14 @@
   align-items: center;
   justify-content: center;
 }
+/* The single-select ✓ lead: accent ink at the label's font size, the same
+   mark the demo and the layer rows use. One rule here so the dropdown's
+   single-mode lead and the scheme picker's overlay lead cannot drift. */
+.foliplus-check-slot-lead {
+  color: var(--foliplus-accent-primary);
+  font-size: var(--foliplus-font-size-md);
+  line-height: 1;
+}
 .foliplus-check-slot-box {
   position: relative;
   appearance: none;

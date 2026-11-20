@@ -230,21 +230,24 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     }
   };
 
-  // A scheme row: the label bar the engine paints plus the row's disabled
-  // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard and
-  // renders the title from `item.title` (provided by itemsOf, where the
-  // disabled hint lives); the adapter owns only the color bar.
-  // A scheme row: the ✓ lead, the color bar and the label. The engine owns
-  // the row's class/data-key/ARIA/click/keyboard and renders the title from
-  // `item.title` (provided by itemsOf, where the disabled hint lives); the
-  // adapter owns the indicator, the color bar and the label text.
-  const renderRow = (item: { value: string; disabled?: boolean }, ctx: { selected: boolean; index: number }) => {
+  // A scheme row: the ✓ lead and the color bar. The engine owns the row's
+  // class/data-key/ARIA/click/keyboard and renders the title from `item.title`
+  // (provided by itemsOf, where the disabled hint lives); the adapter owns the
+  // indicator and the color bar.
+  //
+  // The bar is the ONLY in-flow child (flex:1) so it spans the full row and
+  // stays aligned with the trigger strip — the strip-alignment invariant the
+  // browser test enforces. The ✓ lead is an absolute overlay on the bar's left
+  // edge, so it never shifts the bar's geometry.
+  const renderRow = (
+    item: { value: string; disabled?: boolean },
+    ctx: { selected: boolean; index: number },
+  ) => {
     const lead = buildLeadSlot(SCHEME_PICKER_CLASS.LEAD);
     lead.paint(ctx.selected);
     const bar = dom.el("div", { class: classes.bar });
     renderColorBar(bar, item.value, numClasses, classes.block, colorScale);
-    const label = dom.el("span", { class: DROPDOWN_CLASS.OPTION_LABEL }, schemeLabel(item.value));
-    return dom.el("span", null, lead.slot, bar, label);
+    return dom.el("span", { class: SCHEME_PICKER_CLASS.ROW_CONTENT }, lead.slot, bar);
   };
 
 

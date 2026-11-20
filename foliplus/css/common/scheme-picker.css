@@ -132,12 +132,39 @@
   border-left: var(--foliplus-border-thick) solid transparent;
   height: var(--foliplus-menu-row-h);
   box-sizing: border-box;
+  /* The ✓ lead overlays the row's left edge (position:absolute), so the row
+     must be the lead's containing block. */
+  position: relative;
   cursor: pointer;
   font-size: var(--foliplus-font-size-sm);
   color: var(--foliplus-text-primary);
   transition:
     background-color var(--foliplus-transition-fast),
     border-color var(--foliplus-transition-fast);
+}
+
+/* The row content wrapper: the flex child that fills the row. The bar
+   (flex:1) is its only in-flow child, so the strip still spans the row and
+   stays aligned with the trigger. The ✓ lead is an absolute overlay on the
+   bar's left edge — out of flow, so it never shifts the bar's geometry. */
+.foliplus-scheme-picker-row-content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  position: relative;
+}
+.foliplus-scheme-picker-row-content .foliplus-check-slot-lead {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  /* A fixed leading slot: the ✓ sits in a space-xl cell on the bar's left
+     edge, the same footprint the demo's in-flow lead uses, so the strip
+     never shifts. */
+  width: var(--foliplus-space-xl);
+  height: var(--foliplus-space-xl);
 }
 
 .foliplus-scheme-picker-item[aria-disabled="true"] {
