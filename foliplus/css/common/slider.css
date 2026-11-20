@@ -245,11 +245,21 @@
      in by that inset to sit flush with the rail (the thumb's outer edge).
      margin-inline-start/end are logical, so the mirror is automatic. */
   margin-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
+
+  /* When the opposite end label is dot-centred it is taken out of flow, so
+     this label would be the only flex child and space-between would pin it
+     to the row start. An auto end margin pushes it back to its own edge
+     (and the mirroring rule on the max does the same on the other side). */
+  margin-inline-end: auto;
 }
 .foliplus-slider-value-max.is-clamp {
   flex: 0 1 auto;
   text-align: end;
   margin-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
+
+  /* Mirror of the min rule: a lone clamped max must pin to its own edge,
+     not collapse to the row start when the min is dot-centred. */
+  margin-inline-start: auto;
 }
 .foliplus-slider-values > span.foliplus-slider-value-current {
   /* The drag-time readout is centred over the track and must not take part in
