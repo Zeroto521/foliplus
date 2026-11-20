@@ -28,6 +28,9 @@ const SCHEME_PICKER_CLASS = {
   OPEN: "foliplus-scheme-picker-open",
   DROPDOWN: "foliplus-scheme-picker-dropdown",
   ITEM: "foliplus-scheme-picker-item",
+  /** The leading ✓ a scheme row paints on its selected entry — the same
+   *  single-select mark the demo and the layer rows use. */
+  LEAD: "foliplus-scheme-picker-lead",
   BLOCK: "foliplus-scheme-picker-block",
   PORTAL: "foliplus-scheme-picker-portal",
 } as const;

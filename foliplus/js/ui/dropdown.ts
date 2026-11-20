@@ -23,7 +23,8 @@
 //    rewriting the options or the value programmatically.
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
-import { buildCheckSlot } from "./checkSlot.js";
+import { buildCheckboxSlot, buildLeadSlot } from "./checkSlot.js";
+import { CHECK_SLOT_CLASS } from "./checkSlotClassName.js";
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
@@ -319,11 +320,62 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
    *
    *  Rebuilt on every renderRows — the listbox clears the list first — so the
    *  checkbox is always read off the current selection. */
+  /** Render one option row: single-mode paints a ✓ lead on the selected row,
+   *  multiple-mode paints a per-row checkbox. The row button is built by the
+   *  engine; this fills its content and the leading indicator cell.
+   */
+  const renderOptionRow = (
+    item: DropdownItem,
+    ctx: { selected: boolean; index: number },
+    st: InternalState,
+  ): HTMLElement => {
+    const label = dom.el(
+      "span",
+      { class: DROPDOWN_CLASS.OPTION_LABEL },
+      item.label,
+    );
+    if (!st.multiple) {
+      const lead = buildLeadSlot(DROPDOWN_CLASS.LEAD);
+      lead.paint(ctx.selected);
+      return dom.el("span", null, lead.slot, label);
+    }
+    const box = dom.el("input", {
+      type: "checkbox",
+      class: CHECK_SLOT_CLASS.BOX + " " + DROPDOWN_CLASS.ROW_CHECKBOX,
+      // The row button is the interactive control; the box is the visual
+      // mark only (demo fidelity), so it is hidden from AT and the tab order.
+      "aria-hidden": "true",
+      tabindex: "-1",
+    }) as HTMLInputElement;
+    box.checked = ctx.selected;
+    const slot = dom.el("span", { class: CHECK_SLOT_CLASS.SLOT }, box);
+    return dom.el("span", null, slot, label);
+  };
+
+  /** Repaint one row's indicator in place (no rebuild). The row button is
+   *  the interactive control; its leading mark is queried and repainted,
+   *  so a toggle never needs a full renderRows.
+   */
+  const paintOptionRow = (
+    row: HTMLElement,
+    item: DropdownItem,
+    ctx: { selected: boolean; index: number },
+    st: InternalState,
+  ): void => {
+    if (st.multiple) {
+      const box = row.querySelector<HTMLInputElement>("input[type=checkbox]");
+      if (box) box.checked = ctx.selected;
+      return;
+    }
+    const lead = row.querySelector<HTMLElement>("." + DROPDOWN_CLASS.LEAD);
+    if (lead) lead.textContent = ctx.selected ? "\u2713" : "";
+  };
+
   const selectAllRowOf = (): HTMLElement => {
     const total = state.items.length;
     const count = valuesOf(state).length;
     const verdict = selectAllStateOf(total, count);
-    const { slot, box } = buildCheckSlot(total, count);
+    const { slot, box } = buildCheckboxSlot(total, count);
     // The box is the row control: a real <input type="checkbox">, so focus,
     // keyboard and the indeterminate state all come from the platform. It is
     // pointer-transparent (CSS) so a press anywhere on the row reaches the row
@@ -375,6 +427,10 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       selectedClass: DROPDOWN_CLASS.SELECTED,
       disabledAttr: "disabled",
       activedescendant: "none",
+      renderRow: (item, ctx) => renderOptionRow(item, ctx, state),
+      // Repaint the row's own indicator after a state change without a full
+      // rebuild (ui/listbox calls this from the row-toggle and refreshHead).
+      paintRow: (row, item, ctx) => paintOptionRow(row, item, ctx, state),
     },
     classes: {
       list: DROPDOWN_CLASS.LIST,
