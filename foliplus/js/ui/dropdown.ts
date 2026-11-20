@@ -329,11 +329,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     ctx: { selected: boolean; index: number },
     st: InternalState,
   ): HTMLElement => {
-    const label = dom.el(
-      "span",
-      { class: DROPDOWN_CLASS.OPTION_LABEL },
-      item.label,
-    );
+    const label = dom.el("span", { class: DROPDOWN_CLASS.OPTION_LABEL }, item.label);
     if (!st.multiple) {
       const lead = buildLeadSlot(DROPDOWN_CLASS.LEAD);
       lead.paint(ctx.selected);

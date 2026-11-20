@@ -6263,7 +6263,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       Array.from(classesDropdown.getList()!.querySelectorAll('[role="option"]')).map(
         option =>
           option.querySelector(".foliplus-dropdown-option-label")?.textContent ??
-            option.textContent,
+          option.textContent,
       ),
     ).toEqual(["2", "3", "4", "5", "6", "7", "8", "9"]);
 

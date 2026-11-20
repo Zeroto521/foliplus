@@ -105,8 +105,8 @@ const optionEls = (dropdown: Dropdown): HTMLButtonElement[] =>
 // The row content is lead + label (a ✓ for the selected single row). Read
 // the label span so the assertions stay lead-agnostic.
 const optionLabels = (dropdown: Dropdown): string[] =>
-  optionEls(dropdown).map(el =>
-    el.querySelector(`.${CLS.optionLabel}`)?.textContent ?? el.textContent ?? "",
+  optionEls(dropdown).map(
+    el => el.querySelector(`.${CLS.optionLabel}`)?.textContent ?? el.textContent ?? "",
   );
 
 const key = (
