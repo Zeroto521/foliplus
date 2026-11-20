@@ -43,6 +43,7 @@ const CLS = {
   label: "foliplus-dropdown-label",
   list: "foliplus-dropdown-list",
   option: "foliplus-dropdown-option",
+  optionLabel: "foliplus-dropdown-option-label",
   check: "foliplus-dropdown-check",
   placeholder: "foliplus-dropdown-placeholder",
 } as const;
@@ -101,6 +102,13 @@ const optionEls = (dropdown: Dropdown): HTMLButtonElement[] =>
     dropdown.getList()?.querySelectorAll<HTMLButtonElement>(`.${CLS.option}`) ?? [],
   );
 
+// The row content is lead + label (a ✓ for the selected single row). Read
+// the label span so the assertions stay lead-agnostic.
+const optionLabels = (dropdown: Dropdown): string[] =>
+  optionEls(dropdown).map(el =>
+    el.querySelector(`.${CLS.optionLabel}`)?.textContent ?? el.textContent ?? "",
+  );
+
 const key = (
   target: EventTarget,
   keyValue: string,
@@ -152,7 +160,7 @@ describe("dropdown: bridged single select", () => {
     dropdown.trigger.click();
     expect(dropdown.isOpen()).toBe(true);
     expect(dropdown.getList()?.hidden).toBe(false);
-    expect(optionEls(dropdown).map(el => el.textContent)).toEqual(["Alpha", "Bee"]);
+    expect(optionLabels(dropdown)).toEqual(["Alpha", "Bee"]);
     expect(dropdown.getList()?.getAttribute("role")).toBe("listbox");
     dropdown.trigger.click();
     expect(dropdown.isOpen()).toBe(false);
@@ -308,7 +316,7 @@ describe("dropdown: bridged single select", () => {
     dropdown.refresh();
     expect(labelOf(dropdown)).toBe("Why");
     dropdown.open();
-    expect(optionEls(dropdown).map(el => el.textContent)).toEqual(["Ex", "Why"]);
+    expect(optionLabels(dropdown)).toEqual(["Ex", "Why"]);
   });
 
   it("a change dispatched by someone else keeps the closed trigger in step", () => {
@@ -1160,7 +1168,7 @@ describe("dropdown: keyboard and edge cases", () => {
     // native select showed the value there, and so must the popup.
     const { dropdown } = bridged("x", [{ value: "x", label: "" }]);
     dropdown.trigger.click();
-    expect(optionEls(dropdown)[0].textContent).toBe("x");
+    expect(optionLabels(dropdown)[0]).toBe("x");
   });
 
   it("refresh in standalone mode repaints the label and adds no native write", () => {
@@ -1187,7 +1195,7 @@ describe("dropdown: keyboard and edge cases", () => {
     select.value = "x";
     dropdown.refresh();
     expect(dropdown.isOpen()).toBe(true);
-    expect(optionEls(dropdown).map(el => el.textContent)).toEqual(["Ex", "Why"]);
+    expect(optionLabels(dropdown)).toEqual(["Ex", "Why"]);
     expect(labelOf(dropdown)).toBe("Ex");
   });
 

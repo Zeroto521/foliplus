@@ -1,34 +1,34 @@
-// ui/checkSlot — the ONE check-slot builder: a real tri-state checkbox.
+// ui/checkSlot — the ONE leading-cell builder for a pickable row.
 //
 // Every row that lets a user pick something shows an indicator in the same
-// leading cell — the multiple-mode dropdown's select-all row, its option
-// rows, and the scheme picker. Each used to draw its own mark (a CSS glyph,
-// a tick column, a native box), so the same idea read three ways. This
-// module builds the one <input type="checkbox"> they all share; the caller
-// attaches the click/keydown wiring and the value model stays theirs.
-//
-// The tri-state comes from ui/selectAllState (selectAllStateOf) so the box
-// and the label that describe it cannot disagree about the same counts.
+// leading cell. There are two shapes by selection mode:
+//   • multiple — a real <input type="checkbox"> with tri-state (ui/selectAllState),
+//     used by the select-all row and every multiple-mode dropdown option.
+//   • single   — a ✓ glyph lead (aria-hidden, non-interactive), used by the
+//     single-mode dropdown option and the scheme picker's selected entry.
+// The caller owns the click / keyboard wiring and the value model; these
+// helpers only build the DOM and set the state, so one answer per mode.
 import { CHECK_SLOT_CLASS } from "./checkSlotClassName.js";
 import { type SelectAllState, selectAllStateOf } from "./selectAllState.js";
 import { dom } from "#platform/dom.js";
 
-/** The indicator a row paints for one pickable item. */
-type CheckSlot = {
+/** The ✓ a single-select row paints on its selected entry. */
+const LEAD_GLYPH = "\u2713";
+
+/** The multiple-mode slot: a checkbox cell. */
+type CheckboxSlot = {
   /** The slot cell to append at the front of the row. */
   slot: HTMLElement;
   /** The checkbox the slot paints; read its checked/indeterminate. */
   box: HTMLInputElement;
 };
 
-/** Build the shared check slot and paint its tri-state from item counts.
- *
- *  The caller owns the click / keyboard wiring and the value model; this
- *  helper only builds the DOM and sets the state, so one builder answers
- *  every surface. `total` may be 0 — an empty list paints an unchecked
- *  box, never a half-full one (see selectAllStateOf).
+/** Build the multiple-mode check slot and paint its tri-state from item
+ *  counts. The caller owns the click / keyboard wiring and the value model;
+ *  this helper only builds the DOM and sets the state. `total` may be 0 — an
+ *  empty list paints an unchecked box, never a half-full one (selectAllStateOf).
  */
-const buildCheckSlot = (total: number, selected: number): CheckSlot => {
+const buildCheckboxSlot = (total: number, selected: number): CheckboxSlot => {
   const box = dom.el("input", {
     type: "checkbox",
     class: CHECK_SLOT_CLASS.BOX,
@@ -42,13 +42,33 @@ const buildCheckSlot = (total: number, selected: number): CheckSlot => {
   return { slot, box };
 };
 
-/** Set an existing box to a tri-state without rebuilding it. Used by rows
- *  that stay in the DOM across a selection change (a select-all row that is
- *  re-read on every render).
- */
+/** Set an existing box to a tri-state without rebuilding it. */
 const paintCheckSlot = (box: HTMLInputElement, state: SelectAllState): void => {
   box.checked = state === "all";
   box.indeterminate = state === "indeterminate";
 };
 
-export { buildCheckSlot };
+/** The single-mode lead: a glyph cell the caller paints ✓/empty. The caller
+ *  names the surface class so the lead is styled by the shared row chrome,
+ *  not a per-surface copy.
+ */
+type LeadSlot = {
+  /** The slot cell to append at the front of the row. */
+  slot: HTMLElement;
+  /** Paint the ✓ mark for the row's selected state without rebuilding. */
+  paint: (selected: boolean) => void;
+};
+
+/** Build the single-mode ✓ lead. */
+const buildLeadSlot = (glyphClass: string): LeadSlot => {
+  const slot = dom.el("span", {
+    class: CHECK_SLOT_CLASS.SLOT + " " + CHECK_SLOT_CLASS.LEAD + " " + glyphClass,
+    "aria-hidden": "true",
+  });
+  const paint = (selected: boolean): void => {
+    slot.textContent = selected ? LEAD_GLYPH : "";
+  };
+  return { slot, paint };
+};
+
+export { buildCheckboxSlot, buildLeadSlot, paintCheckSlot };

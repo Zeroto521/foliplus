@@ -9,8 +9,10 @@
 //
 // Does NOT import any Heatmap or LayerControl module.
 import { createListbox } from "./listbox.js";
+import { buildLeadSlot } from "./checkSlot.js";
 import { PANEL_CLASS } from "./panelClassName.js";
 import { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
+import { DROPDOWN_CLASS } from "./dropdownClassName.js";
 import type { SchemePicker } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -232,11 +234,19 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
   // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard and
   // renders the title from `item.title` (provided by itemsOf, where the
   // disabled hint lives); the adapter owns only the color bar.
-  const renderRow = (item: { value: string; disabled?: boolean }) => {
+  // A scheme row: the ✓ lead, the color bar and the label. The engine owns
+  // the row's class/data-key/ARIA/click/keyboard and renders the title from
+  // `item.title` (provided by itemsOf, where the disabled hint lives); the
+  // adapter owns the indicator, the color bar and the label text.
+  const renderRow = (item: { value: string; disabled?: boolean }, ctx: { selected: boolean; index: number }) => {
+    const lead = buildLeadSlot(SCHEME_PICKER_CLASS.LEAD);
+    lead.paint(ctx.selected);
     const bar = dom.el("div", { class: classes.bar });
     renderColorBar(bar, item.value, numClasses, classes.block, colorScale);
-    return bar;
+    const label = dom.el("span", { class: DROPDOWN_CLASS.OPTION_LABEL }, schemeLabel(item.value));
+    return dom.el("span", null, lead.slot, bar, label);
   };
+
 
   // Apply a selection: update the value model + all picker-owned DOM, close
   // the dropdown, and notify. The engine calls this for a row activation
@@ -279,6 +289,12 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       disabledAttr: "aria-disabled",
       activedescendant: "trigger",
       renderRow,
+      // Repaint the active row's ✓ lead when the selection moves without a
+      // full rebuild (listbox calls this from the row-toggle and refreshHead).
+      paintRow: (row, _item, ctx) => {
+        const lead = row.querySelector<HTMLElement>("." + SCHEME_PICKER_CLASS.LEAD);
+        if (lead) lead.textContent = ctx.selected ? "\u2713" : "";
+      },
     },
     classes: {
       list: classes.dropdown,

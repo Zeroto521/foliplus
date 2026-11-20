@@ -15,6 +15,8 @@ const CHECK_SLOT_CLASS = {
   /** The checkbox the slot paints. A real input, so focus, keyboard and
    *  indeterminate all come from the platform rather than a drawn glyph. */
   BOX: "foliplus-check-slot-box",
+  /** The ✓ glyph a single-select row paints on its selected entry. */
+  LEAD: "foliplus-check-slot-lead",
 } as const;
 
 export { CHECK_SLOT_CLASS };

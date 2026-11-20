@@ -15,6 +15,12 @@ const DROPDOWN_CLASS = {
   LIST: "foliplus-dropdown-list",
   OPTION: "foliplus-dropdown-option",
   OPTION_LABEL: "foliplus-dropdown-option-label",
+  /** The leading ✓ a single-mode dropdown paints on its selected row. The
+   *  multiple-mode rows use the shared check slot (ui/checkSlot) instead. */
+  LEAD: "foliplus-dropdown-lead",
+  /** The per-row checkbox a multiple-mode dropdown paints on every option.
+   *  It reuses the shared check-slot box skin (css/common/check-slot.css). */
+  ROW_CHECKBOX: "foliplus-dropdown-checkbox",
   /** The built-in select-all row a multiple-mode dropdown paints above its
    *  options. Not an option: it acts on every item, so it sits in the listbox
    *  `head` slot and stays out of the keyboard walk. */

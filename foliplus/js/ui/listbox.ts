@@ -69,6 +69,17 @@ type ListboxRowShape = {
     item: ListboxItem,
     ctx: { selected: boolean; index: number },
   ) => HTMLElement;
+  /** Repaint a row's own indicator when its selected state changes without
+   *  rebuilding the row. A consumer whose renderRow draws a checkbox or a ✓
+   *  lead (ui/dropdown, ui/schemePicker) repaints it here; the engine calls
+   *  it from the row-toggle path and refreshHead, so the indicator never
+   *  goes stale between a state change and the next full render.
+   */
+  paintRow?: (
+    row: HTMLElement,
+    item: ListboxItem,
+    ctx: { selected: boolean; index: number },
+  ) => void;
 };
 
 /** The popup-host contract: where an open popup mounts and how it hears that
@@ -371,6 +382,8 @@ const renderRows = (state: InternalState): void => {
         const selectedNow = state.spec.selected().includes(item.value);
         row.setAttribute("aria-selected", selectedNow ? "true" : "false");
         row.classList.toggle(state.spec.shape.selectedClass, selectedNow);
+        // Repaint the row's own indicator (checkbox / ✓ lead).
+        state.spec.shape.paintRow?.(row, item, { selected: selectedNow, index });
         // The head (the select-all row) answers the same counts, so it re-reads
         // them on every pick: picking one option moves the box to
         // indeterminate, clearing the last one moves it back to none.
@@ -402,6 +415,7 @@ const refreshHead = (state: InternalState): void => {
     const on = selected.includes(item.value);
     row.setAttribute("aria-selected", on ? "true" : "false");
     row.classList.toggle(state.spec.shape.selectedClass, on);
+      state.spec.shape.paintRow?.(row, item, { selected: on, index });
   });
 };
 
@@ -655,6 +669,7 @@ const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
             state.spec.shape.selectedClass,
             selectedNow,
           );
+          state.spec.shape.paintRow?.(state.rowEls[index]!, item, { selected: selectedNow, index });
         } else {
           close(state, { restoreFocus: true });
         }
