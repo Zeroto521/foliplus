@@ -90,4 +90,4 @@ const effectiveFolderFolded = (
   return userKeys.has(key) || authorKeys.has(key);
 };
 
-export { FOLDER_FOLD_KEY_SEP, folderFoldKey, authorFoldedKeys, effectiveFolderFolded };
+export { folderFoldKey, authorFoldedKeys, effectiveFolderFolded };
