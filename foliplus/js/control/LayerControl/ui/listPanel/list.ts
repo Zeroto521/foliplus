@@ -3,6 +3,7 @@ import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import { closeAttrsPanel } from "../overlayPanel/attr.js";
+import { intentVisibleOf } from "../projection.js";
 import { closeStylePanel } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import {
@@ -13,9 +14,14 @@ import {
   syncListCursor,
 } from "./cursor.js";
 import { applyRowView, buildRowCell, displayName, writeTriState } from "./rowView.js";
-import { intentVisibleOf } from "../projection.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
-import { ROLE, folderOf, groupByFolder, normalizeFolderName, type LayerRole } from "#core/layer/index.js";
+import {
+  type LayerRole,
+  ROLE,
+  folderOf,
+  groupByFolder,
+  normalizeFolderName,
+} from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
@@ -420,10 +426,7 @@ const hasAnyFolder = (ui: LayerUI): boolean => {
 /** Role-level visibility aggregate: { total, on } across every layer of the
  *  role (folder members + root), read from the registry + intent — the same
  *  aggregator the toggle-all checkbox and the role count share. */
-const roleVisibility = (
-  ui: LayerUI,
-  role: string,
-): { total: number; on: number } => {
+const roleVisibility = (ui: LayerUI, role: string): { total: number; on: number } => {
   let total = 0;
   let on = 0;
   for (const li of ui.c.layers) {
@@ -753,7 +756,10 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
         {
           class: CONST.CLASSES.COUNT_COL,
           [CONST.DATA.ROLE]: role,
-          title: ui.T("role_count_tooltip").replace("{on}", String(vis.on)).replace("{total}", String(vis.total)),
+          title: ui
+            .T("role_count_tooltip")
+            .replace("{on}", String(vis.on))
+            .replace("{total}", String(vis.total)),
         },
         countText,
       ),
@@ -817,7 +823,6 @@ const cleanFolderButton = (ui: LayerUI, role: string): HTMLElement[] => {
   ];
 };
 
-
 /** Render a folder row (a user-created group inside a role).
  *  Structure per spec §1.2:
  *  [fold-btn][checkbox (tri-state)][label--folder][count(data-folder-key)]
@@ -850,14 +855,18 @@ const renderFolderRow = (
       [CONST.DATA.FOLDER_NAME]: folderName,
       "aria-expanded": folded ? "false" : "true",
       draggable: "true",
-      title: ui.T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip").replace("{name}", folderName),
+      title: ui
+        .T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip")
+        .replace("{name}", folderName),
     },
     dom.el(
       "button",
       {
         class: CONST.CLASSES.FOLD_BTN,
         "aria-expanded": folded ? "false" : "true",
-        "aria-label": ui.T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip").replace("{name}", folderName),
+        "aria-label": ui
+          .T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip")
+          .replace("{name}", folderName),
       },
       { html: SVGs.ICON_FOLD },
     ),
@@ -879,15 +888,15 @@ const renderFolderRow = (
       { class: `${CONST.CLASSES.LAYER_LABEL} ${CONST.CLASSES.FOLDER_LABEL}` },
       folderName,
     ),
-    dom.el("span", {
-      class: CONST.CLASSES.COUNT_COL,
-      [CONST.DATA.FOLDER_KEY]: folderKey,
-    }, countText),
     dom.el(
-      "div",
-      { class: CONST.CLASSES.TYPE_ICON_COL },
-      { html: SVGs.ICON_FOLDER },
+      "span",
+      {
+        class: CONST.CLASSES.COUNT_COL,
+        [CONST.DATA.FOLDER_KEY]: folderKey,
+      },
+      countText,
     ),
+    dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }, { html: SVGs.ICON_FOLDER }),
     dom.el(
       "button",
       {
@@ -912,7 +921,7 @@ const memberInfo = (
   if (!folderKey) return { isMember: false, isLast: false };
   const block = groupByFolder(ui.c.layers, layerInfo.role, layout).get(folderKey);
   if (!block) return { isMember: false, isLast: false };
-  const idx = block.members.findIndex((m) => m.id === layerInfo.id);
+  const idx = block.members.findIndex(m => m.id === layerInfo.id);
   return { isMember: true, isLast: idx === block.members.length - 1 };
 };
 

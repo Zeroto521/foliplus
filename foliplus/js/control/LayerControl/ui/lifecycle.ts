@@ -264,7 +264,10 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // folder. A drag does not fold (didDrag guard lives in handleDragStart).
     const folderRow = el.closest(CONST.SEL.FOLDER_ROW) as HTMLElement | null;
     if (folderRow) {
-      if (el.closest(`.${CONST.CLASSES.CHECKBOX}`) || el.closest(`.${CONST.CLASSES.MORE_BTN}`)) {
+      if (
+        el.closest(`.${CONST.CLASSES.CHECKBOX}`) ||
+        el.closest(`.${CONST.CLASSES.MORE_BTN}`)
+      ) {
         return;
       }
       const fk = folderRow.getAttribute(CONST.DATA.FOLDER_KEY);

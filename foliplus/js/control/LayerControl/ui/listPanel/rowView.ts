@@ -278,11 +278,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
  *  folder row compute their aggregate from the same visibility projection
  *  and call this to paint the checkbox — a layer row's own checkbox is
  *  always binary and never goes through here. */
-const writeTriState = (
-  input: HTMLInputElement,
-  total: number,
-  on: number,
-): void => {
+const writeTriState = (input: HTMLInputElement, total: number, on: number): void => {
   const allChecked = total > 0 && on === total;
   const noneChecked = on === 0;
   input.checked = allChecked;

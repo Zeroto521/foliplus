@@ -401,9 +401,7 @@ const mergeFields = (
     order: fields.order ? fields.order() : record.order,
     removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
-    foldedFolders: fields.foldedFolders
-      ? fields.foldedFolders()
-      : record.foldedFolders,
+    foldedFolders: fields.foldedFolders ? fields.foldedFolders() : record.foldedFolders,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
   };

@@ -1,10 +1,16 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
+import { folderFoldKey } from "../listPanel/drag.js";
+import { rebuildList } from "../listPanel/list.js";
+import { setFolderVisible } from "../listPanel/visibility.js";
+import { saveState, setVisibleIntent } from "../state.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
+import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
+import { type LayerRole, normalizeFolderName } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -18,13 +24,6 @@ import { throttleRaf } from "#platform/throttle.js";
 import { FORM_CLASS, PANEL_CLASS, placeSurface } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
-import { normalizeFolderName, type LayerRole } from "#core/layer/index.js";
-import { saveState, setVisibleIntent } from "../state.js";
-import { folderFoldKey } from "../listPanel/drag.js";
-import { rebuildList } from "../listPanel/list.js";
-import { setFolderVisible } from "../listPanel/visibility.js";
-import { finishRename } from "./rename.js";
-
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -739,8 +738,12 @@ const MENU_ACTIONS: Record<
   },
   [CONST.ACTION.RENAME_FOLDER]: ui => {
     const fk = ui.overlayPanel.activeMenu?.folderKey;
-    const role = ui.overlayPanel.activeMenu?.role ?? ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ?? "";
-    const name = ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
+    const role =
+      ui.overlayPanel.activeMenu?.role ??
+      ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ??
+      "";
+    const name =
+      ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
     ui.closeMoreMenu(false);
     if (fk && role && name) startFolderRename(ui, role, fk, name);
     return { closeMenu: false, restoreRowFocus: false };
@@ -784,7 +787,6 @@ const MENU_ACTIONS: Record<
     return { closeMenu: true, restoreRowFocus: true };
   },
 };
-
 
 /**
  * Run the action a menu entry carries. Shared by the delegated click handler
