@@ -7671,6 +7671,213 @@ describe("renameFolder", () => {
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
   });
 });
+
+describe("restoreAuthorLayout", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("isAuthorLayout is true at the seed: no block keys and every pin matches the declaration", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "b1",
+          name: "Base",
+          role: "base",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    expect(manager.isAuthorLayout()).toBe(true);
+  });
+
+  it("isAuthorLayout declines a layout that carries a user-created block key", () => {
+    // A persisted block order with no live member is a user write, not the
+    // author's declaration: the predicate must see it even when every layer's
+    // pin still matches its declaration.
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["parks"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("parks");
+    expect(manager.isAuthorLayout()).toBe(false);
+  });
+
+  it("isAuthorLayout declines once a member pin overrides the author declaration", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    expect(manager.isAuthorLayout()).toBe(true);
+
+    // Roads → Parks: the effective assignment no longer matches the declaration.
+    manager.moveLayerToFolder("rd1", "overlay", "Parks");
+
+    expect(manager.isAuthorLayout()).toBe(false);
+  });
+
+  it("restores the author layout and returns true", () => {
+    const { manager } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["parks"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    expect(manager.restoreAuthorLayout()).toBe(true);
+    // The user block is gone and the member map is cleared: the effective
+    // assignment falls back to the author declaration.
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("parks");
+    expect(manager.folderLayoutView.members).toEqual({});
+    expect(manager.isAuthorLayout()).toBe(true);
+    expect(readLayoutStorage()).not.toBeNull();
+  });
+
+  it("returns false and writes nothing when already at the author layout", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+
+    expect(manager.restoreAuthorLayout()).toBe(false);
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(manager.isAuthorLayout()).toBe(true);
+  });
+});
+
+describe("moveLayerToFolder", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("pins the layer and materialises the target block key", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    expect(manager.moveLayerToFolder("rd1", "overlay", "Parks")).toBe(true);
+    expect(manager.folderLayoutView.members.rd1).toEqual({
+      role: "overlay",
+      folder: "parks",
+    });
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("parks");
+    // A user pin is a write: the layout no longer matches the declaration.
+    expect(manager.isAuthorLayout()).toBe(false);
+  });
+
+  it("declines an unknown layer and writes nothing", () => {
+    const { manager } = initFixture({ data: [] });
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+
+    expect(manager.moveLayerToFolder("missing", "overlay", "Parks")).toBe(false);
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("parks");
+  });
+
+  it("declines a blank target name and writes nothing", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+
+    expect(manager.moveLayerToFolder("rd1", "overlay", "   ")).toBe(false);
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("parks");
+  });
+});
+
+describe("moveLayerToRoot", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("pins an author-foldered layer back to the role root", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "Roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    expect(manager.moveLayerToRoot("rd1", "overlay")).toBe(true);
+    // folder: "" is the root pin: it overrides the author's Roads declaration.
+    expect(manager.folderLayoutView.members.rd1).toEqual({
+      role: "overlay",
+      folder: "",
+    });
+    expect(manager.folderNameOf("rd1")).toBeNull();
+    expect(manager.isAuthorLayout()).toBe(false);
+  });
+
+  it("declines an unknown layer and writes nothing", () => {
+    const { manager } = initFixture({ data: [] });
+    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+
+    expect(manager.moveLayerToRoot("missing", "overlay")).toBe(false);
+    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+  });
+});
+
 describe("generic filter declaration seeding", () => {
   // The author's declared filter (CONF data[].filter) is a construction-time
   // constant, not a user write: the constructor captures it on the shared
