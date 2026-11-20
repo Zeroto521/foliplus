@@ -13,6 +13,12 @@ from typing import Literal
 
 LayerRole = Literal["base", "overlay"]
 
+#: The two role words, in a deterministic order. The single vocabulary for
+#: "which roles exist": a caller that needs to iterate them (the central
+#: folders config) reads this tuple instead of hand-rolling ("base", "overlay"),
+#: so the source cannot drift from :data:`LayerRole`.
+LAYER_ROLES: tuple[LayerRole, ...] = ("base", "overlay")
+
 
 def layer_role(layer: object) -> LayerRole:
     """The foliplus role of a folium layer.
