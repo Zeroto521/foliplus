@@ -697,7 +697,7 @@ describe("dropdown: multiple selections", () => {
 
     const boxes = () =>
       optionEls(dropdown).map(
-        el => el.querySelector("input[type=checkbox]")?.checked ?? null,
+        el => (el.querySelector("input[type=checkbox]") as HTMLInputElement | null)?.checked ?? null,
       );
     expect(boxes()).toEqual([true, false, true]);
     // Toggling a row repaints its box in place (paintRow multiple branch).

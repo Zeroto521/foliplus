@@ -62,7 +62,7 @@ type LeadSlot = {
 /** Build the single-mode ✓ lead. */
 const buildLeadSlot = (glyphClass: string): LeadSlot => {
   const slot = dom.el("span", {
-    class: CHECK_SLOT_CLASS.SLOT + " " + CHECK_SLOT_CLASS.LEAD + " " + glyphClass,
+    class: [CHECK_SLOT_CLASS.SLOT, CHECK_SLOT_CLASS.LEAD, glyphClass].join(" "),
     "aria-hidden": "true",
   });
   const paint = (selected: boolean): void => {
