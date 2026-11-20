@@ -147,7 +147,11 @@ const rowType = (
   // A container layer (folium FeatureGroup / LayerGroup) is its own row: it is
   // not a vector face, so its type icon is the group glyph and its type word
   // is the container label — never the geometry of its buried leaves.
-  if (layer && isContainerLayer(layer)) {
+  // A container row is a group of sub-layers shown as one row. A registered
+  // logical layer can also be backed by a group (an L.layerGroup()) but expose
+  // a featureCountProvider — that layer's count is provider-driven, so it is
+  // not a sub-layer container.
+  if (layer && !layerInfo.featureCountProvider && isContainerLayer(layer)) {
     return { svg: SVGs.ICON_LAYERS, key: "type_container" };
   }
   if (layer) {
@@ -182,9 +186,13 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     typeof layerInfo.filterProvider === "function" ? layerInfo.filterProvider() : null;
   const filtered = Boolean(filterModel?.filter);
   // A container's count column is its DIRECT child count (sub-layers), not a
-  // deep feature census — the row says "3 layers", not "12 features".
+  // deep feature census — the row says "3 layers", not "12 features". A logical
+  // layer backed by a group with a featureCountProvider keeps the provider
+  // count (the group is its representation, not a folder of sub-layers).
   const containerCount =
-    layer && isContainerLayer(layer) ? countChildLayersOf(layer) : null;
+    layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
+      ? countChildLayersOf(layer)
+      : null;
   const rawCount = filtered
     ? filterModel!.kept
     : containerCount != null

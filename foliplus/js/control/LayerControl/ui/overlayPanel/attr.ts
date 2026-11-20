@@ -80,7 +80,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ? "type_tile_map"
       : layerInfo?.iconSvg
         ? "type_custom"
-        : layer && isContainerLayer(layer)
+        : layer && !layerInfo?.featureCountProvider && isContainerLayer(layer)
           ? "type_container"
           : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
@@ -93,7 +93,10 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       layerInfo && typeof layerInfo.filterProvider === "function"
         ? layerInfo.filterProvider()
         : null;
-    const container = layerInfo && layer && isContainerLayer(layer) ? layer : null;
+    const container =
+      layerInfo && layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
+        ? layer
+        : null;
     const count =
       container != null
         ? countChildLayersOf(container)
