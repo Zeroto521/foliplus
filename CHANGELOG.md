@@ -40,6 +40,7 @@
 - `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
+- `ui`: the slider end-label shape heuristic treats an ISO date / range token (`2024-01-01`, `1/2`) as text (edges) instead of numeric, accepts a compact `K` / `M` / `B` suffix case-insensitively as numeric, and the `valuesAlign` auto resolution is covered directly ([#1249](https://github.com/Zeroto521/foliplus/pull/1249))
 
 ### Removed
 

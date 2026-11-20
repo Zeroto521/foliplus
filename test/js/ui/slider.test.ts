@@ -5,6 +5,7 @@ import {
   Slider,
   type SliderOptions,
   finishSlidersIn,
+  isNumericShaped,
   sliderOf,
 } from "#ui/index.js";
 
@@ -1635,6 +1636,140 @@ describe("Slider width-adaptive end numbers", () => {
       label: "x",
       values: { min: "0%", max: "100%" },
       valuesAlign: "edges",
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+});
+
+describe("isNumericShaped end-label shape", () => {
+  it("treats empty and plain numeric shapes as numeric", () => {
+    expect(isNumericShaped("")).toBe(true);
+    expect(isNumericShaped("0")).toBe(true);
+    expect(isNumericShaped("100")).toBe(true);
+    expect(isNumericShaped("1,000")).toBe(true);
+    expect(isNumericShaped("-5")).toBe(true);
+    expect(isNumericShaped("100%")).toBe(true);
+  });
+
+  it("treats a compact-number suffix as numeric (case-insensitive)", () => {
+    // P3-2: the suffix vocabulary is a single set with /i, not a mixed-case
+    // duplicate — 1.2K / 1.2k both read as the same compact number.
+    expect(isNumericShaped("1.2K")).toBe(true);
+    expect(isNumericShaped("1.2k")).toBe(true);
+    expect(isNumericShaped("1K")).toBe(true);
+    expect(isNumericShaped("2M")).toBe(true);
+    expect(isNumericShaped("3B")).toBe(true);
+  });
+
+  it("rejects a bare suffix letter as text", () => {
+    // K / M / B is a suffix, not a token by itself: a lone letter is text.
+    expect(isNumericShaped("K")).toBe(false);
+    expect(isNumericShaped("MB")).toBe(false);
+  });
+
+  it("rejects letter / CJK content as text", () => {
+    expect(isNumericShaped("abc")).toBe(false);
+    expect(isNumericShaped("2024年")).toBe(false);
+    expect(isNumericShaped("Jan 1, 2020")).toBe(false);
+    expect(isNumericShaped("Dec 31, 2024")).toBe(false);
+  });
+
+  it("rejects a date / range shape as text (P3-1)", () => {
+    // P3-1: an ISO date is all numeric vocabulary but the separators carry
+    // date semantics — a slider bound that is a date is an edge, not a value.
+    expect(isNumericShaped("2024-01-01")).toBe(false);
+    expect(isNumericShaped("2024/1/1")).toBe(false);
+    expect(isNumericShaped("1/2")).toBe(false);
+    expect(isNumericShaped("1-2")).toBe(false);
+  });
+
+  it("still treats a negative number as numeric (not a date)", () => {
+    // A leading minus is a sign, not a separator: -5 is numeric.
+    expect(isNumericShaped("-5")).toBe(true);
+    expect(isNumericShaped("-2024")).toBe(true);
+  });
+});
+
+describe("Slider valuesAlign mode resolution", () => {
+  const stubRow = (host: HTMLElement, width: number): HTMLElement => {
+    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
+    Object.defineProperty(row, "clientWidth", { value: width, configurable: true });
+    return row;
+  };
+  const stubLabel = (el: HTMLElement, intrinsic: number): void => {
+    Object.defineProperty(el, "scrollWidth", { value: intrinsic, configurable: true });
+  };
+  const endNumbers = (host: HTMLElement): [HTMLElement, HTMLElement] => [
+    host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement,
+    host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement,
+  ];
+  const measure = (slider: Slider): void =>
+    (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
+
+  it("auto with both numeric labels resolves dot (existing behavior)", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+  });
+
+  it("auto with a date-shaped bound resolves edges (P3-1 regression)", () => {
+    // P3-1: 2024-01-01 is no longer numeric-shaped, so auto must resolve
+    // edges — the old code left it dot-centred.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "2024-01-01", max: "2024-12-31" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("auto with no values resolves edges (values undefined)", () => {
+    // P2-1 branch coverage: options.values undefined → edges. There are no
+    // end-number elements to render, so assert the resolved mode directly.
+    const { slider } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+    });
+    const mode = (slider as unknown as { valuesAlignMode: string }).valuesAlignMode;
+    expect(mode).toBe("edges");
+  });
+
+  it("auto with mixed numeric / date shapes resolves edges (short-circuit)", () => {
+    // P2-1 branch coverage: isNumericShaped(min) true, isNumericShaped(max)
+    // false → the && short-circuits to edges.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "2024-12-31" },
     });
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);

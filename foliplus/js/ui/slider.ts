@@ -60,12 +60,21 @@ const clamp = (value: number, lo: number, hi: number): number =>
 const isNumericShaped = (text: string): boolean => {
   const t = text.trim();
   if (t === "") return true;
+  // A date / range shape (two or more digit runs joined by - or /, e.g.
+  // "2024-01-01", "1/2") reads as a text token, not a numeric value — the
+  // chars are all in the numeric vocabulary, but the separators carry date
+  // semantics (a slider bound is an ISO date, so the label is an edge).
+  if (/^\d+(?:[-/]\d+)+$/.test(t)) return false;
   // Reject on any letter or CJK character — those are the text signals.
-  if (/[\p{L}\p{Script=Han}]/u.test(t)) return false;
+  // A single trailing compact-number suffix (K / M / B) is part of the
+  // number, so it is peeled before the letter check (the accept regex then
+  // allows it as an optional suffix).
+  const core = t.replace(/[KMB]$/i, "");
+  if (/[\p{L}\p{Script=Han}]/u.test(core)) return false;
   // Accept if every remaining char is in the numeric vocabulary: digits,
   // decimal point, comma (thousands), percent, minus / en-dash, whitespace,
-  // and the common compact-number suffixes K / M / B (case-insensitive).
-  return /^[\d.,%\-\u2212\sKMBkmb]+$/.test(t);
+  // and an optional common compact-number suffix K / M / B (case-insensitive).
+  return /^[\d.,%\-\u2212\s]+[KMB]?$/i.test(t);
 };
 
 interface BubbleEntry {
@@ -1286,4 +1295,4 @@ class Slider {
   }
 }
 
-export { Slider, finishSlidersIn, sliderOf };
+export { Slider, finishSlidersIn, isNumericShaped, sliderOf };
