@@ -27,6 +27,12 @@ const log = createLogger("LayerControl");
 /** One thumb (number) or a range (min/max pair). */
 const INSTANCES = new WeakMap<HTMLElement, Slider>();
 
+/** Owners whose readout is permanent (alwaysVisible): their bubbles survive a
+ *  session ending, a blur, a tab switch and a neighbouring slider taking the
+ *  surface, and are re-shown after whatever dismissed them. Only a teardown
+ *  path removes them. */
+const standingOwners = new WeakSet<HTMLElement>();
+
 /** The slider rendered inside *host*, if any. */
 const sliderOf = (host: Element | null): Slider | undefined =>
   host instanceof HTMLElement ? INSTANCES.get(host) : undefined;
@@ -105,6 +111,11 @@ const bindFullscreen = (): void => {
       const host = fullscreenSurface(bubbleScope(pending.owner));
       if (pending.el.parentElement !== host) host.appendChild(pending.el);
     }
+    // A row with a permanent readout needs it back on the new surface. The
+    // pool is empty now (the hide above cleared it), so this is the snapshot.
+    for (const [, entry] of live) {
+      if (standingOwners.has(entry.owner)) sliderOf(entry.owner)?.ensureBubbles();
+    }
   });
 };
 
@@ -130,7 +141,13 @@ const showAnchor = (anchor: HTMLElement, owner: HTMLElement): BubbleEntry => {
     window.addEventListener(
       "scroll",
       () => {
-        for (const [a] of bubbles) hideAnchor(a);
+        // Snapshot: hideAnchor empties the pool as it goes, and the standing
+        // readouts have to come back in the same pass.
+        const live = [...bubbles.entries()];
+        for (const [a] of live) hideAnchor(a);
+        for (const [, entry] of live) {
+          if (standingOwners.has(entry.owner)) sliderOf(entry.owner)?.ensureBubbles();
+        }
       },
       true,
     );
@@ -138,7 +155,12 @@ const showAnchor = (anchor: HTMLElement, owner: HTMLElement): BubbleEntry => {
   // Owner switch: another slider wants the surface, so this slider's live
   // bubbles go away immediately (their anchors no longer belong to it).
   for (const [otherAnchor, other] of bubbles) {
-    if (other.owner !== owner) hideAnchor(otherAnchor, true);
+    // A neighbouring row may take the surface over a row whose readout is
+    // permanent: that row keeps its own bubble (each bubble is its anchor's
+    // node, so two standing readouts never share one).
+    if (other.owner !== owner && !standingOwners.has(other.owner)) {
+      hideAnchor(otherAnchor, true);
+    }
   }
   const live = bubbles.get(anchor);
   if (live) {
@@ -342,6 +364,7 @@ class Slider {
 
     host.append(this.track, this.valuesRow);
     INSTANCES.set(host, this);
+    if (this.opts.alwaysVisible) standingOwners.add(host);
 
     this.renderValues();
     this.renderMarks();
@@ -357,7 +380,12 @@ class Slider {
       this.fitObserver.observe(this.valuesRow);
     }
     requestAnimationFrame(() => {
-      if (this.root.isConnected) this.measureValuesFit();
+      if (this.root.isConnected) {
+        this.measureValuesFit();
+        // The constructor's own sync may have run before the row was mounted,
+        // when a standing readout could not read its anchor's geometry.
+        this.ensureBubbles();
+      }
     });
   }
 
@@ -439,7 +467,9 @@ class Slider {
       // A disabled control must not keep applying a live drag: commit what the
       // pointer already produced, then drop the session so no move lands.
       this.endSession(true);
-      this.hideBubble();
+      this.hideBubble(undefined, false, true);
+    } else {
+      this.ensureBubbles();
     }
     this.applyAria();
   }
@@ -464,14 +494,17 @@ class Slider {
   }
 
   /** Finish a live drag as a commit. Safe when nothing is in flight: the
-   *  session only emits when the pointer actually moved. */
+   *  session only emits when the pointer actually moved. The row is going away
+   *  with the panel, so a standing readout goes with it (a bubble is portaled
+   *  to the map's surface, and must not outlive its slider). */
   finish(): void {
     this.endSession(true);
+    this.hideBubble(undefined, true, true);
   }
 
   /** Drop the bubbles if this slider owns them (teardown path). */
   dismissBubble(): void {
-    this.hideBubble();
+    this.hideBubble(undefined, false, true);
   }
 
   /** Mirror the ARIA state onto the thumbs and the group. */
@@ -510,13 +543,14 @@ class Slider {
         [
           "hide-bubble",
           () => {
-            this.hideBubble(undefined, true);
+            this.hideBubble(undefined, true, true);
           },
         ],
         [
           "deregister",
           () => {
             INSTANCES.delete(this.root);
+            standingOwners.delete(this.root);
           },
         ],
         ["clear-children", () => this.root.replaceChildren()],
@@ -763,18 +797,9 @@ class Slider {
       dot.classList.toggle(SLIDER_CLASS.DOT_COVERED, at >= lo && at <= hi);
     }
 
-    // Opt-in end readouts: report the current thumbs, not the static extent,
-    // and refresh on every value change (drag, key, pan). Opacity/zoom-range
-    // keep the static extent readout. No layout churn: the text swap only
-    // reflows the two end spans.
-    if (this.opts.alwaysVisible && this.minEl && this.maxEl) {
-      // The caller may explicitly opt out of a formatter (`format: undefined`)
-      // the way it does for the thumb's aria-valuetext and the bubble; the
-      // readout follows that same fallback.
-      const format = this.opts.format ?? ((value: number) => String(value));
-      this.minEl.textContent = format(this.values[0]);
-      this.maxEl.textContent = format(this.values[this.values.length - 1]);
-    }
+    // A row with a standing readout needs its bubbles alive on every value
+    // change (drag, key, pan); the two end labels keep the static extent.
+    this.ensureBubbles();
     if (this.currentEl && this.opts.current) {
       const current = this.opts.current;
       // Centre the label on the dot it names: the dot rides the track (inset by
@@ -1185,15 +1210,48 @@ class Slider {
   }
 
   // ── Bubble ──────────────────────────────────────────────────
+  /** Keep the standing readout alive. A row with `alwaysVisible` shows its
+   *  bubble(s) on every value change, and a session ending leaves them up: the
+   *  end labels keep the static extent, so the bubble is the moving readout.
+   *  Rows that do not opt in keep the drag/focus readout only.
+   *  Public on purpose: the page-level listeners that dismiss the pool (scroll,
+   *  a surface change) have to put a standing readout back from outside the
+   *  class, through the row they own. */
+  ensureBubbles(): void {
+    if (!this.opts.alwaysVisible || this.disabled) return;
+    // A row built detached has no anchor geometry yet; the constructor's own
+    // deferred pass covers it once the panel has mounted the row.
+    if (!this.root.isConnected) return;
+    this.thumbs.forEach((thumb, index) => {
+      // The bubble is page-level and keyed by anchor, so it may already be
+      // live and merely out of step with the value: refresh its text then.
+      // Parked nodes (hidden in the fade window) are dropped again; showBubble
+      // reuses them and cancels the timer.
+      const entry = bubbles.get(thumb);
+      if (entry) {
+        this.setBubbleText(entry.el, index);
+        return;
+      }
+      this.showBubble(index);
+    });
+  }
+
   private showBubble(index: number): void {
     const thumb = this.thumbs[index];
     if (!thumb) return;
     const entry = showAnchor(thumb, this.root);
     this.bubbleAnchors.add(thumb);
-    entry.el.textContent =
-      this.opts.format?.(this.values[index]) ?? String(this.values[index]);
+    this.setBubbleText(entry.el, index);
     entry.el.classList.add("is-on");
     placeBubble(thumb.getBoundingClientRect(), entry.el);
+  }
+
+  /** The bubble's text for *index*: the row's formatter, or the raw value when
+   *  the caller opted out of one. One place so the standing readout and the
+   *  drag/focus readout can never spell the same value two ways. */
+  private setBubbleText(el: HTMLElement, index: number): void {
+    el.textContent =
+      this.opts.format?.(this.values[index]) ?? String(this.values[index]);
   }
 
   /** Refresh every bubble this slider owns. Text is updated synchronously so
@@ -1206,10 +1264,7 @@ class Slider {
       const entry = bubbles.get(anchor);
       if (entry) {
         const index = this.thumbs.indexOf(anchor);
-        if (index >= 0) {
-          entry.el.textContent =
-            this.opts.format?.(this.values[index]) ?? String(this.values[index]);
-        }
+        if (index >= 0) this.setBubbleText(entry.el, index);
       }
     }
     if (this.bubbleFrame) return;
@@ -1222,7 +1277,11 @@ class Slider {
     });
   }
 
-  private hideBubble(index?: number, immediate = false): void {
+  private hideBubble(index?: number, immediate = false, forced = false): void {
+    // A standing readout survives the ordinary endings (a blur, the end of a
+    // session): it is the row's permanent value, not a drag affordance. Only a
+    // teardown path (destroy, finish, dismiss, a disabled control) forces it.
+    if (this.opts.alwaysVisible && !forced) return;
     const anchors =
       index === undefined
         ? [...this.bubbleAnchors, ...this.thumbs.filter(t => pendingHide.has(t))]

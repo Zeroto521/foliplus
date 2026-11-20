@@ -128,7 +128,10 @@ describe("Slider primitive", () => {
     expect(sliderOf(host)!.value).toBe(100);
   });
 
-  it("refreshes the opt-in end readouts on a value change", () => {
+  it("keeps the end labels on the rail's own range when the thumbs move", () => {
+    // The end labels are the rail's extent (0 / 100), not a readout of the
+    // thumbs: a thumb parked in the middle would otherwise make them lie about
+    // where the rail's ends are. The moving value belongs to the bubble.
     const { host } = make({
       min: 0,
       max: 100,
@@ -139,20 +142,19 @@ describe("Slider primitive", () => {
     });
     const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
     const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
-    expect(minEl.textContent).toBe("20");
-    expect(maxEl.textContent).toBe("80");
     press(thumb(host, 0), "ArrowRight");
-    expect(minEl.textContent).toBe("21");
     press(thumb(host, 1), "ArrowLeft");
-    expect(maxEl.textContent).toBe("79");
+    expect(minEl.textContent).toBe("0");
+    expect(maxEl.textContent).toBe("100");
+    expect(sliderOf(host)!.value).toEqual([21, 79]);
   });
 
-  it("falls back to the plain value when the caller opts out of a formatter", () => {
+  it("falls back to the plain value in the bubble when the caller opts out of a formatter", () => {
     // An explicit `format: undefined` overrides the constructor default the
-    // way it does for the thumb aria-valuetext and the bubble, so the end
-    // readout must take the same fallback. The difference is only visible on
-    // a fractional step: the default rounds to the nearest integer, the
-    // fallback reports the value it holds.
+    // way it does for the thumb's aria-valuetext, so the bubble must take the
+    // same fallback. The difference is only visible on a fractional step: the
+    // default rounds to the nearest integer, the fallback reports the value it
+    // holds.
     const { host } = make({
       min: 0,
       max: 100,
@@ -163,12 +165,10 @@ describe("Slider primitive", () => {
       format: undefined,
       alwaysVisible: true,
     });
-    const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
-    const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
-    expect(minEl.textContent).toBe("20.5");
-    expect(maxEl.textContent).toBe("21");
+    const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+    expect(bubble.textContent).toBe("20.5");
     press(thumb(host, 0), "ArrowRight");
-    expect(minEl.textContent).toBe("21");
+    expect(bubble.textContent).toBe("21");
   });
 
   it("slides a collapsed pair together instead of dead-locking", () => {
@@ -545,6 +545,101 @@ describe("Slider primitive", () => {
     // than create a bubble for a missing anchor.
     (slider as unknown as { showBubble: (i: number) => void }).showBubble(99);
     expect(document.querySelector(`.${SLIDER_CLASS.BUBBLE}`)).toBeNull();
+  });
+
+  it("keeps the opt-in readout up and in step with the value", () => {
+    // The readout is a permanent value, not a drag affordance: an ending (a blur
+    // off the thumb, a released drag) must not hide it, and its text is the
+    // thumb's own value, one bubble per thumb on a range.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      values: { min: "0", max: "100" },
+      alwaysVisible: true,
+    });
+    // The bubble is portaled off the row (to the map's surface, else <body>),
+    // so it is found on the document, not under the host.
+    const [lo, hi] = document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}`);
+    expect(lo.textContent).toBe("20");
+    expect(hi.textContent).toBe("80");
+    thumb(host, 0).dispatchEvent(new Event("blur"));
+    expect(lo.classList.contains("is-on")).toBe(true);
+    expect(hi.classList.contains("is-on")).toBe(true);
+    press(thumb(host, 0), "ArrowRight");
+    expect(lo.textContent).toBe("21");
+    press(thumb(host, 1), "ArrowLeft");
+    expect(hi.textContent).toBe("79");
+  });
+
+  it("keeps the opt-in readout up through a whole drag", async () => {
+    // Every ending of a live session — a pointer release, a blur off the thumb,
+    // a release the page never delivered — leaves the readout standing, and the
+    // node that hid itself is reused rather than leaked.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      alwaysVisible: true,
+    });
+    const track = stubTrack(host, { width: 100 });
+    // A press in the segment between the thumbs grabs the pair, so the drag
+    // moves both readouts at once.
+    track.dispatchEvent(pointer("pointerdown", 30));
+    track.dispatchEvent(pointer("pointermove", 45));
+    thumb(host, 0).dispatchEvent(new Event("blur"));
+    track.dispatchEvent(pointer("pointerup", 45));
+    const [lo] = document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}`);
+    await new Promise(resolve => window.setTimeout(resolve, 200));
+    expect(lo.classList.contains("is-on")).toBe(true);
+    const [, hi] = document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}`);
+    expect(lo.textContent).toBe("35");
+    expect(hi.textContent).toBe("95");
+    expect(sliderOf(host)!.value).toEqual([35, 95]);
+  });
+
+  it("puts the opt-in readout back after a scroll dismisses it", () => {
+    make({
+      min: 0,
+      max: 100,
+      value: 25,
+      label: "x",
+      alwaysVisible: true,
+    });
+    const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+    window.dispatchEvent(new Event("scroll"));
+    expect(bubble.classList.contains("is-on")).toBe(true);
+  });
+
+  it("keeps two opt-in readouts when another row takes the surface", () => {
+    make({ min: 0, max: 100, value: 40, label: "a", alwaysVisible: true });
+    const b = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "b",
+      alwaysVisible: true,
+    });
+    thumb(b.host, 0).dispatchEvent(new Event("focus"));
+    const bubbles = [...document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}`)];
+    expect(bubbles).toHaveLength(3);
+    expect(bubbles.every(el => el.classList.contains("is-on"))).toBe(true);
+  });
+
+  it("drops the opt-in readout when the row is dropped", () => {
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      alwaysVisible: true,
+    });
+    expect(document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}`)).toHaveLength(2);
+    finishSlidersIn(document.body);
+    expect(document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}`)).toHaveLength(0);
+    host.remove();
   });
 
   it("skips bubbles whose anchor left the pool", () => {
@@ -1063,6 +1158,35 @@ describe("Slider primitive", () => {
         .querySelector(`.${SLIDER_CLASS.THUMB}`)
         ?.classList.contains(SLIDER_CLASS.DRAGGING),
     ).toBe(false);
+  });
+
+  it("puts the opt-in readout back on the surface after a fullscreen change", () => {
+    // The bubble does not survive the transition (its anchor moved), but a row
+    // whose readout is permanent needs it straight back — on the new surface,
+    // where the map now paints.
+    const map = document.createElement("div");
+    map.className = "leaflet-container";
+    document.body.appendChild(map);
+    hosts.push(map);
+    const host = document.createElement("div");
+    map.appendChild(host);
+    hosts.push(host);
+    new Slider(host, {
+      min: 0,
+      max: 100,
+      value: [20, 80],
+      label: "x",
+      alwaysVisible: true,
+    });
+    const [lo] = document.querySelectorAll(`.${SLIDER_CLASS.BUBBLE}`);
+    expect(lo.classList.contains("is-on")).toBe(true);
+    setPseudoFullscreen(map, true);
+    expect(lo.parentElement).toBe(map);
+    expect(lo.classList.contains("is-on")).toBe(true);
+    setPseudoFullscreen(map, false);
+    expect(lo.parentElement).toBe(document.body);
+    expect(lo.classList.contains("is-on")).toBe(true);
+    map.remove();
   });
 
   it("mounts the bubble on the fullscreen element", () => {

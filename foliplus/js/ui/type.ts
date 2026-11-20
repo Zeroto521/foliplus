@@ -179,10 +179,10 @@ interface SliderOptions {
   /** Id of a description element, announced with the control (and, for a
    *  range, with the group). */
   describedBy?: string;
-  /** Keep the two end readouts under the rail showing the CURRENT thumb
-   *  values (not the static extent) and refresh them on every value change.
-   *  Opt-in: the filter panel wants the current range always readable;
-   *  opacity/zoom-range keep the static extent readout. */
+  /** Keep the value bubble(s) up at all times, not only while dragging or
+   *  focused. The two end labels always keep the static extent (the rail's
+   *  range); the bubble is the moving readout. Opt-in: the filter panel wants
+   *  the current range readable without touching the control. */
   alwaysVisible?: boolean;
 }
 
