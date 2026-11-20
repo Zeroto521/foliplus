@@ -1,9 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  __entryUrl,
   findOverlayContractViolations,
   main,
   runCli,
@@ -102,7 +101,6 @@ describe("createDropdown overlay contract", () => {
   });
 
   it("pins the entry-url CLI contract (same as the other guards)", () => {
-    expect(__entryUrl.endsWith("dropdown-overlay-guard.mjs")).toBe(true);
     // main() must exit 1 on a violation, 0 on clean — the CLI gate.
     const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
     mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
@@ -179,11 +177,17 @@ describe("walk and CLI paths (coverage)", () => {
       join(clean, "foliplus", "js", "ui", "ok.ts"),
       "const d = createDropdown({ items, overlay });\n",
     );
-    expect(runCli([clean], undefined)).toBe(undefined); // entry mismatch -> no run
+    expect(
+      runCli([clean], undefined, resolve("script/check/dropdown-overlay-guard.mjs")),
+    ).toBe(undefined); // entry mismatch -> no run
     const prev = process.exitCode;
     process.exitCode = undefined;
     try {
-      runCli([clean], __entryUrl);
+      runCli(
+        [clean],
+        resolve("script/check/dropdown-overlay-guard.mjs"),
+        resolve("script/check/dropdown-overlay-guard.mjs"),
+      );
       expect(process.exitCode).toBe(0); // clean tree -> exit 0 arm
     } finally {
       process.exitCode = prev;
@@ -201,7 +205,11 @@ describe("walk and CLI paths (coverage)", () => {
     const prev = process.exitCode;
     process.exitCode = undefined;
     try {
-      runCli([dir], __entryUrl);
+      runCli(
+        [dir],
+        resolve("script/check/dropdown-overlay-guard.mjs"),
+        resolve("script/check/dropdown-overlay-guard.mjs"),
+      );
       expect(process.exitCode).toBe(1);
     } finally {
       process.exitCode = prev;

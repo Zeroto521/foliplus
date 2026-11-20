@@ -136,14 +136,12 @@ const main = root => {
   process.stdout.write(`${JSON.stringify(keys, null, 2)}\n`);
 };
 
-const runCli = (argv, entry) => {
-  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
-    main(process.argv[2] ?? path.resolve(repoRoot(import.meta.url), "foliplus", "js"));
+const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
+  if (entry !== undefined && path.resolve(entry) === selfUrl) {
+    main(argv[0] ?? path.resolve(repoRoot(import.meta.url), "foliplus", "js"));
   }
 };
 runCli(process.argv.slice(2), process.argv[1]);
-
-const __entryUrl = fileURLToPath(import.meta.url);
 
 export {
   ROOT,
@@ -157,5 +155,4 @@ export {
   collectAll,
   main,
   runCli,
-  __entryUrl,
 };

@@ -5,7 +5,6 @@ import {
   DIMENSION_REPLAY_CALLS,
   SANCTIONED_BODIES,
   SKIP_DIR,
-  __entryUrl,
   findConvergenceViolations,
   isDefinition,
   main,
@@ -283,10 +282,18 @@ describe("main / runCli", () => {
   });
 
   it("runCli sets exitCode only when the entry matches the module URL", () => {
-    runCli([REPO_ROOT], __entryUrl);
+    runCli(
+      [REPO_ROOT],
+      resolve("script/check/replay-convergence.mjs"),
+      resolve("script/check/replay-convergence.mjs"),
+    );
     expect(process.exitCode).toBe(0);
     // A different entry must not touch exitCode.
-    runCli([REPO_ROOT], "/some/other/entry.mjs");
+    runCli(
+      [REPO_ROOT],
+      "/some/other/entry.mjs",
+      resolve("script/check/replay-convergence.mjs"),
+    );
     expect(process.exitCode).toBe(0);
   });
 
@@ -299,7 +306,11 @@ describe("main / runCli", () => {
     });
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      runCli([dir], __entryUrl);
+      runCli(
+        [dir],
+        resolve("script/check/replay-convergence.mjs"),
+        resolve("script/check/replay-convergence.mjs"),
+      );
       expect(process.exitCode).toBe(1);
       const out = log.mock.calls.map(a => a.join(" ")).join("\n");
       expect(out).toContain("this.replayFilter(id);");
@@ -315,7 +326,11 @@ describe("main / runCli", () => {
     // exercises the || process.cwd() fallback branch.
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
-      runCli([], __entryUrl);
+      runCli(
+        [],
+        resolve("script/check/replay-convergence.mjs"),
+        resolve("script/check/replay-convergence.mjs"),
+      );
       expect(process.exitCode).toBe(0);
     } finally {
       log.mockRestore();
