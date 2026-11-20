@@ -654,6 +654,31 @@ describe("dropdown: multiple selections", () => {
     expect(changes).toEqual(["b"]);
   });
 
+  it("the select-all action stays inert after destroy (destroyed guards)", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+
+    // Hold the box node: after destroy the row's change handler must be inert
+    // (act() early-returns on destroyed, so selectAllValues/clearValues never
+    // resurrect a torn-down popup).
+    const box = dropdown
+      .getList()!
+      .querySelector<HTMLInputElement>(
+        ".foliplus-dropdown-select-all input[type=checkbox]",
+      )!;
+    dropdown.destroy();
+    expect(() =>
+      box.dispatchEvent(new Event("change", { bubbles: true })),
+    ).not.toThrow();
+    expect(dropdown.getValues()).toEqual([]);
+  });
+
   it("the select-all row keeps working after the popup closes", () => {
     const changes: string[][] = [];
     const dropdown = createDropdown({

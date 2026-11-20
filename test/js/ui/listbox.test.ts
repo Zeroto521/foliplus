@@ -2939,3 +2939,215 @@ describe("listbox engine: focused row stays visible (scrollIntoView guard)", () 
     expect(spy).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
   });
 });
+
+describe("listbox engine: refreshHead (head slot)", () => {
+  // A head-slot listbox: the head is a real row that re-reads its state on every
+  // refreshHead. The rows are the picker shape; the head is deliberately outside
+  // rowEls so it never joins the keyboard walk.
+  const makeHeadPicker = (
+    initialItems: { value: string; label: string }[],
+    initialSelected: string[],
+    opts: { multiple?: boolean } = {},
+  ) => {
+    let items = initialItems;
+    let selected = initialSelected;
+    const cell = document.createElement("div");
+    cell.className = "picker-cell";
+    const trigger = document.createElement("div");
+    trigger.className = "picker-trigger";
+    trigger.setAttribute("role", "combobox");
+    trigger.setAttribute("aria-label", "Color scheme");
+    trigger.setAttribute("tabindex", "0");
+    cell.appendChild(trigger);
+    document.body.appendChild(cell);
+
+    const activated: number[] = [];
+    const onSurfaceChange = vi.fn<() => () => void>(() => () => {});
+    const surface: DropdownSurface = { onSurfaceChange: onSurfaceChange as never };
+
+    // The head answers the current selection count: a select-all-like row that
+    // re-renders its label on every refreshHead.
+    const headEl = () => {
+      const el = document.createElement("div");
+      el.className = "picker-head";
+      el.setAttribute("data-count", String(selected.length));
+      el.textContent = selected.length === items.length ? "all" : "some";
+      return el;
+    };
+
+    const listbox = createListbox({
+      trigger,
+      items: () => items,
+      selected: () => selected,
+      head: headEl,
+      multiple: opts.multiple,
+      shape: {
+        rowTag: "div",
+        dataKey: "data-scheme-name",
+        selectedClass: "foliplus-is-active",
+        disabledAttr: "aria-disabled",
+        activedescendant: "trigger",
+        renderRow: (item, ctx) => {
+          const bar = document.createElement("div");
+          bar.className = "picker-bar";
+          bar.textContent = item.label;
+          if (ctx.selected) bar.setAttribute("data-selected", "true");
+          return bar;
+        },
+      },
+      classes: {
+        list: "picker-list",
+        row: "picker-row",
+        portal: "is-portalled",
+        up: "is-up",
+        open: "is-open",
+      },
+      surface,
+      dismiss: { kind: "local" },
+      onRowActivate: index => {
+        activated.push(index);
+      },
+    });
+    cleanup.push(() => listbox.destroy());
+    const setItems = (next: { value: string; label: string }[]) => {
+      items = next;
+    };
+    const setSelected = (next: string[]) => {
+      selected = next;
+    };
+    return { cell, trigger, listbox, activated, setItems, setSelected, headEl };
+  };
+
+  const headOf = (listbox: ReturnType<typeof createListbox>) =>
+    listbox.getList()?.querySelector<HTMLElement>(".picker-head");
+
+  it("renders the head above the rows on open", () => {
+    const { listbox } = makeHeadPicker(
+      [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      ["a"],
+    );
+    listbox.open();
+    expect(headOf(listbox)).not.toBeNull();
+    // The head is the FIRST child of the list (it sits above the options).
+    expect(
+      listbox.getList()?.firstElementChild?.classList.contains("picker-head"),
+    ).toBe(true);
+    expect(headOf(listbox)?.getAttribute("data-count")).toBe("1");
+  });
+
+  it("refreshHead re-reads the head state and the rows without rebuilding them", () => {
+    const { listbox, setSelected } = makeHeadPicker(
+      [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      [],
+    );
+    listbox.open();
+    const headBefore = headOf(listbox);
+    const rowsBefore = pickerRows(listbox);
+    expect(rowsBefore).toHaveLength(2);
+    // Selecting everything: the head must answer "all" and the rows re-read aria.
+    setSelected(["a", "b"]);
+    listbox.refreshHead();
+    const headAfter = headOf(listbox);
+    // The head node is rebuilt (fresh DOM), but the row nodes are kept.
+    expect(headAfter).not.toBe(headBefore);
+    expect(headAfter?.getAttribute("data-count")).toBe("2");
+    expect(headAfter?.textContent).toBe("all");
+    expect(pickerRows(listbox)).toHaveLength(2);
+    // The row nodes are the SAME nodes (not rebuilt): refreshHead keeps them.
+    expect(pickerRows(listbox)[0]).toBe(rowsBefore[0]);
+    expect(pickerRows(listbox)[1]).toBe(rowsBefore[1]);
+  });
+
+  it("refreshHead answers an item that shrank out of the items list", () => {
+    const { listbox, setItems } = makeHeadPicker(
+      [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+        { value: "c", label: "Gamma" },
+      ],
+      ["a", "b", "c"],
+    );
+    listbox.open();
+    // The rows were built for three items; the model now only reports two. The
+    // row-loop guard must skip the missing index instead of throwing on an
+    // out-of-range read (the item-missing branch at listbox refreshHead).
+    setItems([
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+    ]);
+    expect(() => listbox.refreshHead()).not.toThrow();
+    // The surviving rows answer the fresh selection; the third row node is kept
+    // but its item is gone — the guard skipped it.
+    const els = pickerRows(listbox);
+    expect(els).toHaveLength(3);
+    expect(els[0].getAttribute("aria-selected")).toBe("true");
+    expect(els[1].getAttribute("aria-selected")).toBe("true");
+    // The head reads the selection count, not the item count: the selection is
+    // unchanged (still all three), so the count stays 3 even though the model
+    // now reports two items. The guard's job is to skip the vanished row, not
+    // to rewrite the selection.
+    expect(headOf(listbox)?.getAttribute("data-count")).toBe("3");
+  });
+
+  it("refreshHead stays inert after destroy (destroyed guard)", () => {
+    const { listbox } = makeHeadPicker(
+      [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      ["a"],
+    );
+    listbox.open();
+    listbox.destroy();
+    // The public refreshHead and the internal one both early-return on a
+    // destroyed state: no throw, no resurrected list.
+    expect(() => listbox.refreshHead()).not.toThrow();
+    expect(listbox.getList()).toBeNull();
+  });
+
+  it("a row toggle after destroy stays inert (internal refreshHead destroyed guard)", () => {
+    // The INTERNAL refreshHead(state) is reached from the row-toggle path in
+    // multiple mode (renderRows' row click handler), NOT from the public
+    // refreshHead() (which early-returns at the destroyed/isOpen guard before
+    // reaching it). Toggling a row after destroy must therefore hit the
+    // destroyed-return INSIDE refreshHead instead of touching a torn-down list.
+    const { listbox } = makeHeadPicker(
+      [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      ["a"],
+      { multiple: true },
+    );
+    listbox.open();
+    const els = pickerRows(listbox);
+    listbox.destroy();
+    // The row click handler is still attached after destroy; the internal
+    // refreshHead must early-return on destroyed instead of re-reading state.
+    expect(() =>
+      els[0].dispatchEvent(new MouseEvent("click", { bubbles: true })),
+    ).not.toThrow();
+    expect(listbox.getList()).toBeNull();
+  });
+
+  it("refreshHead stays inert while the popup is closed (isOpen guard)", () => {
+    const { listbox } = makeHeadPicker(
+      [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Beta" },
+      ],
+      ["a"],
+    );
+    listbox.open();
+    listbox.close();
+    // The popup is closed: the public guard early-returns without touching the
+    // list, so a set action that lands while closed never re-opens the popup.
+    expect(() => listbox.refreshHead()).not.toThrow();
+  });
+});
