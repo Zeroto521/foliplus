@@ -1629,22 +1629,22 @@ describe("Slider width-adaptive end numbers", () => {
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
   });
 
-  it('explicit valuesAlign: "edges" pins numeric labels to edges even when they fit', () => {
-    // The inverse escape hatch: a caller that wants the row-edge semantics
-    // for a numeric-shaped label (rare — a unit string that is numeric but
-    // conceptually an edge, like a percent bound) can force it.
+  it("pins a percent bound to the edge when it is wider than the thumb", () => {
+    // A percent bound (0% / 100%, ~17 / ~28px) is wider than the thumb (14px),
+    // so it is an axis label and pins to the row's edge even in dot mode. This
+    // is the user's report: the scale's end labels are axis labels, not values
+    // at the dots, so they read flush with the row's two ends.
     const { host } = make({
       min: 0,
       max: 100,
       value: 40,
       label: "x",
       values: { min: "0%", max: "100%" },
-      valuesAlign: "edges",
     });
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
+    stubLabel(minEl, 17);
+    stubLabel(maxEl, 28);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);

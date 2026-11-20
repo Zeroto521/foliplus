@@ -3090,8 +3090,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         f"{max_label['box']}"
                     )
 
-                # The min names the first thumb, the max the last. Each label
-                # centre sits on its thumb's centre (dot-centred, <= 1px).
+                # The min names the first thumb, the max the last. The width rule
+                # decides the label's alignment: a label no wider than the thumb
+                # (a bare digit) centres on its dot (<= 1px); anything wider is
+                # an axis label and pins to the row's edge (its outer box sits
+                # on the values row's edge).
                 def centre(box):
                     return (box["left"] + box["right"]) / 2
 
@@ -3106,18 +3109,37 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 else:
                     min_dot = row["track"]["right"]
                     max_dot = row["track"]["left"]
-                min_drift = abs(centre(min_label["box"]) - min_dot)
-                max_drift = abs(centre(max_label["box"]) - max_dot)
-                assert min_drift <= 1.0, (
-                    f"{name} min number is not centred on its dot: "
-                    f"{centre(min_label['box']):.2f}px vs "
-                    f"{min_dot:.2f}px (drift {min_drift:.2f}px)"
-                )
-                assert max_drift <= 1.0, (
-                    f"{name} max number is not centred on its dot: "
-                    f"{centre(max_label['box']):.2f}px vs "
-                    f"{max_dot:.2f}px (drift {max_drift:.2f}px)"
-                )
+                thumb_width = row["thumbs"][0]["box"]["width"]
+                # The width rule decides the alignment: a label no wider than
+                # the thumb (a bare digit) centres on its dot; anything wider
+                # (a percent bound, a multi-digit number) is an axis label and
+                # pins to the row's edge, flush with the values row's box.
+                for label, dot, side in (
+                    (min_label, min_dot, "min"),
+                    (max_label, max_dot, "max"),
+                ):
+                    width = label["box"]["width"]
+                    # An axis label pins to its own row end. The flex row
+                    # follows the document direction, so in LTR the min pins
+                    # left and the max pins right; in RTL the anchors mirror.
+                    values_box = row["values"]
+                    if width <= thumb_width + 1:
+                        drift = abs(centre(label["box"]) - dot)
+                        assert drift <= 1.0, (
+                            f"{name} {side} number is not centred on its dot: "
+                            f"{centre(label['box']):.2f}px vs "
+                            f"{dot:.2f}px (drift {drift:.2f}px)"
+                        )
+                    else:
+                        # The min sits on the logical start edge, the max on
+                        # the logical end edge; mirrored swaps them.
+                        flush_edge = "left" if (side == "min") != mirrored else "right"
+                        label_edge = label["box"][flush_edge]
+                        row_edge = values_box[flush_edge]
+                        assert abs(label_edge - row_edge) <= 1.0, (
+                            f"{name} {side} axis label is not flush {flush_edge}: "
+                            f"{label['box']} vs values row {values_box}"
+                        )
                 # A dot-centred label may overhang the values row by half its
                 # own width (that is the layout's design: the anchor is a half
                 # thumb in from the row edge). The panel's clip box is the real
@@ -3143,7 +3165,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 # inset on each side, and the values row spans the control's
                 # width (it no longer takes the inset).
                 slider, track = row["slider"], row["track"]
-                thumb_width = row["thumbs"][0]["box"]["width"]
                 assert abs(slider["width"] - (track["width"] + thumb_width)) <= 1.0, (
                     f"the {name} slider was widened: {slider} vs track {track}"
                 )

@@ -182,14 +182,15 @@
 }
 
 /* ── The scale's numbers ────────────────────────────────────────
-   The end numbers are a width-adaptive pair: a label that fits on its half
-   is centred on the dot it names (a thumb parks at the rail's end, so its
-   centre is half a thumb in from the control's edge); a label too wide to
-   fit centred without crossing the row's middle switches to the clamp state
-   (class is-clamp) and pins to the row's own edge, clipping its text toward
-   the inside so it never paints past the container or overlaps its sibling.
-   The row spans the control's width (no inset), so the dot-centre anchor is
-   a half thumb in from the row edge on each side. */
+   The end numbers are a width-adaptive pair: a label no wider than the
+   thumb centres on the dot it names (a thumb parks at the rail's end, so its
+   centre is half a thumb in from the control's edge); anything wider is an
+   axis label and switches to the clamp state (class is-clamp), which pins
+   it to the row's own edge, clipping its text toward the inside so it never
+   paints past the container or overlaps its sibling. A dot-centred label is
+   anchored a half thumb in and shifted back half its own width, so it
+   overhangs the row edge as soon as it is wider than the thumb — only a bare
+   digit can centre. */
 .foliplus-slider-values {
   /* The containing block for the drag-time readout and the dot-centred end
      numbers: their offsets resolve against this row (position: relative
