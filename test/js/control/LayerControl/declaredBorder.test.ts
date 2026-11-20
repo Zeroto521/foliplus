@@ -90,4 +90,84 @@ describe("readDeclaredBorder", () => {
     expect(read.declared).toBeUndefined();
     expect(read.invalid.length).toBeGreaterThan(0);
   });
+  it("reads a value-mode shell declaration", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "value", field: "score", scheme: "Reds" } }),
+      "overlay1",
+    );
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.VALUE);
+    expect(read.declaredValue).toEqual({
+      field: "score",
+      method: "jenks",
+      classes: 6,
+      scheme: "Reds",
+    });
+  });
+
+  it("reads the flat fill-isomorphic form as an implicit value mode", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { field: "score", scheme: "Reds" } }),
+      "overlay1",
+    );
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.VALUE);
+    expect(read.declaredValue?.field).toBe("score");
+    expect(read.declaredValue?.scheme).toBe("Reds");
+  });
+
+  it("rejects a value mode without a field (value mode requires one)", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "value" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.length).toBeGreaterThan(0);
+  });
+
+  it("rejects a follow_fill mode with a field (contradiction)", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "follow_fill", field: "score" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.length).toBeGreaterThan(0);
+  });
+
+  it("reads an explicit category value declaration", () => {
+    const read = readDeclaredBorder(
+      layerWith({
+        border: {
+          mode: "value",
+          field: "cls",
+          kind: "category",
+          scheme: "Set1",
+        },
+      }),
+      "overlay1",
+    );
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.VALUE);
+    expect(read.declaredValue?.kind).toBe("category");
+    expect(read.declaredValue?.scheme).toBe("Set1");
+  });
+
+  it("reads the declared value config but not the mode shell keys into it", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "value", field: "score", classes: 7 } }),
+      "overlay1",
+    );
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.VALUE);
+    expect(read.declaredValue?.classes).toBe(7);
+  });
+
+  it("rejects a value declaration whose shared schema is unbuildable (invalid kind)", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "value", field: "score", kind: "bogus" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.length).toBeGreaterThan(0);
+  });
 });
