@@ -546,11 +546,6 @@ describe("Slider primitive", () => {
     expect(document.querySelector(`.${SLIDER_CLASS.BUBBLE}`)).toBeNull();
   });
 
-
-
-
-
-
   it("skips bubbles whose anchor left the pool", () => {
     const { slider } = make({ min: 0, max: 10, value: 4, label: "x" });
     // An anchor that is no longer in the pool (e.g. hidden by an owner
@@ -1068,7 +1063,6 @@ describe("Slider primitive", () => {
         ?.classList.contains(SLIDER_CLASS.DRAGGING),
     ).toBe(false);
   });
-
 
   it("mounts the bubble on the fullscreen element", () => {
     const { host } = make({ min: 0, max: 100, value: 42, label: "x" });

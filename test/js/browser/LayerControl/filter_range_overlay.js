@@ -43,9 +43,7 @@ async () => {
   // element it passes to `new Slider`, and the constructor adds the root class
   // to that same element.
   const sliderHost = () => rangeRow();
-  const bubbleEls = () => [
-    ...document.querySelectorAll(".foliplus-slider-bubble"),
-  ];
+  const bubbleEls = () => [...document.querySelectorAll(".foliplus-slider-bubble")];
   const visible = el => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0 && !el.hidden;
@@ -95,16 +93,19 @@ async () => {
       .toJSON();
     out.fieldRowDisplay = getComputedStyle(fr).display;
     out.fieldRowVisible = fr.offsetParent !== null;
-    out.panelContentBox = panel()
-      .querySelector(".foliplus-panel-content")
-      ?.getBoundingClientRect()
-      .toJSON() ?? null;
+    out.panelContentBox =
+      panel()
+        .querySelector(".foliplus-panel-content")
+        ?.getBoundingClientRect()
+        .toJSON() ?? null;
 
     // At rest: no bubble may stand over the field row.
-    out.bubblesAtRest = bubbleEls().filter(visible).map(el => {
-      const r = el.getBoundingClientRect();
-      return { bbox: r.toJSON(), on: el.classList.contains("is-on") };
-    });
+    out.bubblesAtRest = bubbleEls()
+      .filter(visible)
+      .map(el => {
+        const r = el.getBoundingClientRect();
+        return { bbox: r.toJSON(), on: el.classList.contains("is-on") };
+      });
     out.fieldOverlappedAtRest = out.bubblesAtRest.some(b =>
       intersects(b.bbox, out.fieldRowBBox),
     );
@@ -117,18 +118,22 @@ async () => {
     if (thumbs.length > 0) {
       thumbs[0].dispatchEvent(new Event("focus"));
       await wait(20);
-      out.bubblesOnFocus = bubbleEls().filter(visible).map(el => {
-        const r = el.getBoundingClientRect();
-        return { bbox: r.toJSON(), on: el.classList.contains("is-on") };
-      });
+      out.bubblesOnFocus = bubbleEls()
+        .filter(visible)
+        .map(el => {
+          const r = el.getBoundingClientRect();
+          return { bbox: r.toJSON(), on: el.classList.contains("is-on") };
+        });
       out.fieldOverlappedOnFocus = out.bubblesOnFocus.some(b =>
         intersects(b.bbox, out.fieldRowBBox),
       );
       thumbs[0].dispatchEvent(new Event("blur"));
       await wait(20);
-      out.bubblesAfterBlur = bubbleEls().filter(visible).map(el => ({
-        on: el.classList.contains("is-on"),
-      }));
+      out.bubblesAfterBlur = bubbleEls()
+        .filter(visible)
+        .map(el => ({
+          on: el.classList.contains("is-on"),
+        }));
     }
 
     out.ok = true;
