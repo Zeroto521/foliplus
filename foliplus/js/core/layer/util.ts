@@ -151,6 +151,15 @@ const getGeometryType = (layer: L.Layer): string => {
       : CONST.GEOM_TYPE.POINT;
 };
 
+/** The structural shape a container exposes: a child registry (Leaflet's
+ *  `_layers` object, read through the adapter's own `internalLayers`) or the
+ *  add/remove pair a group owns. */
+type ContainerLike = L.Layer & {
+  addLayer?: (layer: L.Layer) => unknown;
+  getLayers?: () => L.Layer[];
+  eachLayer?: (fn: (layer: L.Layer) => void) => void;
+};
+
 /** Whether a layer is a container of other layers.
  *
  *  A container is a group-like node that OWNS a child registry — a real
@@ -168,21 +177,19 @@ const getGeometryType = (layer: L.Layer): string => {
  *
  *  @param {L.Layer} layer - Leaflet layer (container or leaf).
  *  @returns {boolean} Whether the layer is a user-facing container. */
-const isContainerLayer = (layer: L.Layer): boolean => {
+const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
   if (!isGroupLike(layer)) return false;
   // A real container enumerates children through Leaflet's child registry
   // (the _layers object) or the add/remove pair. A leaf stand-in that happens
   // to carry eachLayer (a Polygon stand-in in tests, a marker with a stray
   // method) is NOT a container — it has no child registry to own.
-  const asNode = layer as unknown as {
-    _layers?: unknown;
-    addLayer?: unknown;
-    getLayers?: unknown;
-  };
+  const c = layer as Partial<ContainerLike>;
+  // The child-registry read is the adapter's own reach (internalLayers), so
+  // this module never touches a Leaflet private field directly.
   const hasChildRegistry =
-    asNode._layers !== undefined ||
-    typeof asNode.addLayer === "function" ||
-    typeof asNode.getLayers === "function";
+    internalLayers(layer) !== undefined ||
+    typeof c.addLayer === "function" ||
+    typeof c.getLayers === "function";
   if (!hasChildRegistry) return false;
   // GeoJSON is a data layer with a group shape (FeatureGroup -> LayerGroup); it
   // owns no sub-layers, so a naive eachLayer probe would mislabel EVERY
@@ -190,7 +197,7 @@ const isContainerLayer = (layer: L.Layer): boolean => {
   // the guard keeps a jsdom mock L (no GeoJSON class) from throwing.
   if (
     typeof L.GeoJSON === "function" &&
-    layer instanceof (L.GeoJSON as unknown as new () => L.Layer)
+    layer instanceof (L.GeoJSON as new () => L.Layer)
   ) {
     return false;
   }
@@ -200,17 +207,16 @@ const isContainerLayer = (layer: L.Layer): boolean => {
   // paths) carry none, so the two cannot be confused.
   let featureChildCount = 0;
   let childCount = 0;
-  try {
-    const each = (layer as { eachLayer?: (fn: (c: unknown) => void) => void })
-      .eachLayer;
-    if (each) {
-      each.call(layer, (c: unknown) => {
+  const each = c.eachLayer;
+  if (each) {
+    try {
+      each.call(layer, (child: L.Layer) => {
         childCount++;
-        if ((c as { feature?: unknown }).feature !== undefined) featureChildCount++;
+        if (child && "feature" in child) featureChildCount++;
       });
+    } catch {
+      /* hostile getter — treat as non-GeoJSON, the walk will decide */
     }
-  } catch {
-    /* hostile getter — treat as non-GeoJSON, the walk will decide */
   }
   if (childCount > 0 && featureChildCount === childCount) return false;
   return true;
