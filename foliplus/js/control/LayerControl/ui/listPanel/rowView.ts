@@ -271,7 +271,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-/** Write a checkbox's tri-state visual (checked / indeterminate / 
+/** Write a checkbox's tri-state visual (checked / indeterminate /
  *  aria-checked) from a `{ total, on }` aggregate. This is a row visual
  *  write, so it lives in the single row-view writer (the charter that
  *  confines every row visual write to rowView.ts). Both the role row and the
