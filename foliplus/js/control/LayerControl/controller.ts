@@ -2444,6 +2444,17 @@ class LayerController implements LayerAPI {
     if (filter === undefined) return;
     this.applyFilterClass(id, filter);
   }
+  /** Replay every committed filter onto the layers seeded at construction.
+   *  Those layers were already on the map when this control attached, so they
+   *  never pass through layeradd or registerLayer — the two sites that replay
+   *  a filter. Without this pass a reload restores the condition into the
+   *  store while the map keeps painting the full data (#1181). Runs from the
+   *  UI attach sequence, after the runtime store exists. */
+  replayAllFilters(): void {
+    for (const layerInfo of this.layerRegistry.items) {
+      this.replayFilter(layerInfo.id);
+    }
+  }
 
   private notifyCapabilityChanges(): void {
     const next = new Map<string, string>();
