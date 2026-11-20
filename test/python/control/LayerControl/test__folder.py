@@ -101,6 +101,19 @@ class TestNormaliseFolders:
         assert result == {"overlay": [], "base": []}
 
 
+    def test_non_sequence_section_value_warns_and_is_ignored(self) -> None:
+        # A section value that is not a sequence (a bare string, a mapping, an
+        # int) is rejected wholesale rather than iterated as if it were entries.
+        with pytest.warns(UserWarning, match="expected a list"):
+            result = normalise_folders({"overlay": "not a list"})
+        assert result == {"overlay": [], "base": []}
+
+    def test_mapping_section_value_warns_and_is_ignored(self) -> None:
+        # A mapping as a section value is also not a sequence and is rejected.
+        with pytest.warns(UserWarning, match="expected a list"):
+            result = normalise_folders({"overlay": {"name": "A"}})
+        assert result == {"overlay": [], "base": []}
+
 class TestFolderKey:
     """_folder_key mirrors the JS normalizeFolderName."""
 
