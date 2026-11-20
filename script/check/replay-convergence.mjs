@@ -26,6 +26,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // The per-dimension replay functions that must be called only from the replay
 // entry (replayStoredState / replayStoredStateAll) or the applyUserState
@@ -83,12 +84,9 @@ const startsSanctionedBody = line => {
     // the name is not preceded by a receiver dot (this./ui./c. — that would be
     // a CALL, not a definition), and a body brace is on the same line.
     const headRe = new RegExp(`(^|[^A-Za-z0-9_.])${name}\\s*\\(`);
-    const m = line.match(headRe);
-    if (m && /\{/.test(line)) {
-      // The matched name must not be a receiver call (dot immediately before).
-      const dotBefore = m.index > 0 && line[m.index - 1] === ".";
-      if (!dotBefore) return true;
-    }
+    // headRe's prefix class [^A-Za-z0-9_.] already excludes a preceding dot, so
+    // a receiver call (this./ui./c.) can never match — no dotBefore check needed.
+    if (headRe.test(line) && /\{/.test(line)) return true;
     const fnRe = new RegExp(`(?:const|function)\\s+${name}\\s*\\(`);
     if (fnRe.test(line)) return true;
   }
@@ -185,10 +183,31 @@ const findConvergenceViolations = (root = process.cwd()) => {
   return violations;
 };
 
-export { findConvergenceViolations, walk };
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const root = process.argv[2] || process.cwd();
+const main = (root = process.cwd()) => {
   const hits = findConvergenceViolations(root);
   for (const h of hits) console.log(`${h.file}:${h.line}: ${h.text}`);
-  process.exit(hits.length ? 1 : 0);
-}
+  return hits.length ? 1 : 0;
+};
+
+const runCli = (argv, entry) => {
+  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
+    process.exitCode = main(argv[0] || process.cwd());
+  }
+};
+runCli(process.argv.slice(2), process.argv[1]);
+
+const __entryUrl = fileURLToPath(import.meta.url);
+
+export {
+  DIMENSION_REPLAY_CALLS,
+  SANCTIONED_BODIES,
+  SKIP_DIR,
+  walk,
+  startsSanctionedBody,
+  isDefinition,
+  stripSanctionedBodies,
+  findConvergenceViolations,
+  main,
+  runCli,
+  __entryUrl,
+};

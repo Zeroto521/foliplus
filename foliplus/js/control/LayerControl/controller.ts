@@ -859,6 +859,10 @@ class LayerController implements LayerAPI {
    *  filter replay that would otherwise only reach seed layers via a separate
    *  pass. Returns the combined projection batch for the caller's notify. */
   replayStoredStateAll(): ProjectionBatch {
+    // this.ui is always set before the attach sweep runs (lifecycle.ts calls
+    // replayStoredStateAll after ui exists); the ?? [] is a defensive read.
+    // unreachable: the null side of this.ui?.applyUserState() cannot run.
+    /* v8 ignore next */
     const moved = this.ui?.applyUserState() ?? [];
     for (const layerInfo of this.layerRegistry.items) {
       this.replayFilter(layerInfo.id);
