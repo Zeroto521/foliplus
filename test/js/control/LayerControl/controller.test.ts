@@ -8296,6 +8296,31 @@ describe("LayerAPI.getStyle", () => {
     const snap = manager.getStyle("nolbl2");
     expect(snap!.label).toBeUndefined();
   });
+
+  it("icon block shallow-merges icon + iconColor + markerColor (P2-2 guard)", () => {
+    const layer = wrap(makeLeaf());
+    const { manager, ui } = initFixture({
+      data: [{ id: "iconmerge", name: "IconMerge", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "iconmerge",
+      name: "IconMerge",
+      role: "overlay",
+      layer,
+    });
+    setIntent(ui, "iconmerge", "icon", { value: "star", size: 16 });
+    setIntent(ui, "iconmerge", "iconColor", "#ff0000");
+    setIntent(ui, "iconmerge", "iconColorOpacity", 0.8);
+    setIntent(ui, "iconmerge", "markerColor", "#00ff00");
+    setIntent(ui, "iconmerge", "markerColorOpacity", 0.6);
+    const s = manager.getStyle("iconmerge")!;
+    expect(s.icon?.glyph).toBe("star");
+    expect(s.icon?.color).toBe("#ff0000");
+    expect(s.icon?.colorOpacity).toBe(0.8);
+    expect(s.icon?.markerColor).toBe("#00ff00");
+    expect(s.icon?.markerColorOpacity).toBe(0.6);
+  });
 });
 
 describe("cross-panel contract: external actions × open overlays", () => {

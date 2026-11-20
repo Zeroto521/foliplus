@@ -85,7 +85,7 @@ import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
-import { getDimension } from "#control/LayerControl/ui/style/registry.js";
+import { DIM_ORDER, getDimension } from "#control/LayerControl/ui/style/registry.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -219,6 +219,124 @@ type FolderCreateResult =
  *  (including a normalisation-only no-op), otherwise `ok: false` with the
  *  {@link FolderRefusalReason} so the panel can say why. */
 type FolderRenameResult = { ok: true } | { ok: false; reason: FolderRefusalReason };
+
+/** Table-driven style-snapshot readers — the single source of truth for
+ *  how one dimension's intent value maps onto a LayerStyleSnapshot key.
+ *  Adding a new style dimension = add a DIM enum entry + a descriptor (in
+ *  dimTable.ts) + ONE row here; the getStyle() body never changes.
+ *
+ *  Each entry receives the layer UI, id, and registry entry (fill / border
+ *  use layerInfo.fillAuthor to resolve perFeature); returning undefined
+ *  means the dimension is absent from the snapshot. Icon partials are
+ *  shallow-merged by getStyleSnapshot so icon / iconColor / markerColor can
+ *  each contribute to the same `snapshot.icon` block. */
+type SnapshotReader = (
+  ui: LayerUI,
+  id: string,
+  layerInfo: LayerInfo | undefined,
+) => Partial<LayerStyleSnapshot> | undefined;
+
+const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
+  [DIM.OPACITY]: (ui, id) => {
+    const v = getDimension<number>(DIM.OPACITY)?.value(ui, id);
+    return typeof v === "number" ? { opacity: v } : undefined;
+  },
+  [DIM.ZOOM_RANGE]: (ui, id) => {
+    const v = getDimension<{ min: number; max: number }>(DIM.ZOOM_RANGE)?.value(ui, id);
+    return v ? { zoomRange: v } : undefined;
+  },
+  [DIM.SIZE]: (ui, id) => {
+    const v = getDimension<number>(DIM.SIZE)?.value(ui, id);
+    return typeof v === "number" ? { size: { radius: v } } : undefined;
+  },
+  [DIM.FILL]: (ui, id, layerInfo) => {
+    const v = getDimension<{
+      color?: string;
+      opacity?: number | null;
+      mode?: StyleMode;
+      value?: ValueConfig;
+    }>(DIM.FILL)?.value(ui, id);
+    if (!v) return undefined;
+    const perFeature =
+      (getDimension(DIM.FILL)?.gate(ui, id) ?? false) &&
+      // Author per-feature paint wins: color is per-leaf, not single.
+      Boolean(layerInfo?.fillAuthor?.perFeature);
+    return {
+      fill: {
+        color: perFeature ? undefined : v.color,
+        opacity: v.opacity,
+        mode: v.mode,
+        value: v.value,
+        perFeature,
+        note: undefined,
+      },
+    };
+  },
+  [DIM.BORDER]: (ui, id) => {
+    const v = getDimension<{
+      color?: string;
+      weight?: number;
+      mode?: StyleMode;
+      value?: ValueConfig;
+    }>(DIM.BORDER)?.value(ui, id);
+    if (!v) return undefined;
+    return {
+      border: {
+        color: v.color,
+        weight: v.weight,
+        mode: v.mode,
+        value: v.value,
+        // Border per-feature is the ORIGINAL mode (author's own stroke).
+        perFeature: v.mode === "original",
+        note: undefined,
+      },
+    };
+  },
+  [DIM.ICON]: (ui, id) => {
+    const v = getDimension<IconIntent>(DIM.ICON)?.value(ui, id);
+    return v ? { icon: { glyph: v.value } } : undefined;
+  },
+  [DIM.ICON_COLOR]: (ui, id) => {
+    const v = getDimension<{ value?: string; opacity?: number }>(DIM.ICON_COLOR)?.value(
+      ui,
+      id,
+    );
+    if (!v) return undefined;
+    return { icon: { color: v.value, colorOpacity: v.opacity } };
+  },
+  [DIM.MARKER_COLOR]: (ui, id) => {
+    const v = getDimension<{ value?: string; opacity?: number }>(
+      DIM.MARKER_COLOR,
+    )?.value(ui, id);
+    if (!v) return undefined;
+    return { icon: { markerColor: v.value, markerColorOpacity: v.opacity } };
+  },
+};
+
+/** Assemble the value shape of a LayerStyleSnapshot by walking DIM_ORDER
+ *  and consulting SNAPSHOT_READERS. Icon partials shallow-merge on the
+ *  nested icon block. Provenance is filled in separately by getStyle().
+ *  Label is NOT in DIM_ORDER (it is the content dimension of the Label
+ *  role, not a paint dimension of the layer role) — the caller adds it. */
+const getStyleSnapshot = (
+  ui: LayerUI,
+  id: string,
+  layerInfo: LayerInfo | undefined,
+): Partial<LayerStyleSnapshot> => {
+  const out: Partial<LayerStyleSnapshot> = {};
+  for (const key of DIM_ORDER) {
+    const reader = SNAPSHOT_READERS[key];
+    if (!reader) continue;
+    const partial = reader(ui, id, layerInfo);
+    if (!partial) continue;
+    if ("icon" in partial && partial.icon) {
+      out.icon = { ...(out.icon ?? {}), ...partial.icon };
+    } else {
+      Object.assign(out, partial);
+    }
+  }
+  return out;
+};
 
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
@@ -1032,93 +1150,34 @@ class LayerController implements LayerAPI {
       if (src === "author") return "author";
       return "declaration";
     };
-    const snapshot: LayerStyleSnapshot = { id, provenance: {} };
-    // Numeric / shape dimensions with their own value shape.
-    const opacity = getDimension<number>(DIM.OPACITY)?.value(ui, id);
-    if (typeof opacity === "number") snapshot.opacity = opacity;
-    snapshot.provenance.opacity = prov(DIM.OPACITY);
-    const zoomRange = getDimension<{ min: number; max: number }>(DIM.ZOOM_RANGE)?.value(
-      ui,
+    const snapshot: LayerStyleSnapshot = {
       id,
-    );
-    if (zoomRange) snapshot.zoomRange = zoomRange;
-    snapshot.provenance.zoomRange = prov(DIM.ZOOM_RANGE);
-    const size = getDimension<number>(DIM.SIZE)?.value(ui, id);
-    if (typeof size === "number") snapshot.size = { radius: size };
-    snapshot.provenance.size = prov(DIM.SIZE);
-    // Paint dimensions: fill / border expose mode + per-feature semantics.
-    const fill = getDimension<{
-      color?: string;
-      opacity?: number | null;
-      mode?: StyleMode;
-      value?: ValueConfig;
-    }>(DIM.FILL)?.value(ui, id);
-    if (fill) {
-      const perFeature =
-        getDimension(DIM.FILL)!.gate(ui, id) &&
-        // Author per-feature paint wins: color is per-leaf, not single.
-        Boolean(layerInfo.fillAuthor?.perFeature);
-      snapshot.fill = {
-        color: perFeature ? undefined : fill.color,
-        opacity: fill.opacity,
-        mode: fill.mode,
-        value: fill.value,
-        perFeature,
-        note: undefined,
-      };
+      ...getStyleSnapshot(ui, id, layerInfo),
+      provenance: {},
+    };
+    // Provenance: walk DIM_ORDER via the same prov() helper. The label
+    // content dimension is not in DIM_ORDER — handled below.
+    for (const key of DIM_ORDER) {
+      snapshot.provenance[key as keyof LayerStyleSnapshot["provenance"]] = prov(key);
     }
-    snapshot.provenance.fill = prov(DIM.FILL);
-    const border = getDimension<{
-      color?: string;
-      weight?: number;
-      mode?: StyleMode;
-      value?: ValueConfig;
-    }>(DIM.BORDER)?.value(ui, id);
-    if (border) {
-      snapshot.border = {
-        color: border.color,
-        weight: border.weight,
-        mode: border.mode,
-        value: border.value,
-        // Border per-feature is the ORIGINAL mode (author's own stroke).
-        perFeature: border.mode === "original",
-        note: undefined,
-      };
-    }
-    snapshot.provenance.border = prov(DIM.BORDER);
-    // Icon + its colour / marker colour overrides.
-    const icon = getDimension<IconIntent>(DIM.ICON)?.value(ui, id);
-    const iconColor = getDimension<{ value?: string; opacity?: number }>(
-      DIM.ICON_COLOR,
-    )?.value(ui, id);
-    const markerColor = getDimension<{ value?: string; opacity?: number }>(
-      DIM.MARKER_COLOR,
-    )?.value(ui, id);
-    if (icon || iconColor || markerColor) {
-      snapshot.icon = {
-        glyph: icon?.value,
-        color: iconColor?.value,
-        colorOpacity: iconColor?.opacity,
-        markerColor: markerColor?.value,
-        markerColorOpacity: markerColor?.opacity,
-      };
-    }
-    snapshot.provenance.icon = prov(DIM.ICON);
-    snapshot.provenance.iconColor = prov(DIM.ICON_COLOR);
-    snapshot.provenance.markerColor = prov(DIM.MARKER_COLOR);
-    // Label — content dimension, no provenance tiers.
-    const label = this.label.getConfig(id);
-    if (label) {
-      snapshot.label = {
-        show: label.show,
-        field: label.field,
-        color: label.color,
-        size: label.size,
-        format: label.format,
-        collide: label.collide,
-      };
-    }
+    // Label — content dimension, not in DIM_ORDER: the Label role's own
+    // paint channel (labelManager), not a layer-role paint dimension, so
+    // the registry walk above never reaches it. Provenance still filled
+    // via the DIM.LABEL descriptor's valueSource.
     snapshot.provenance.label = prov(DIM.LABEL);
+    {
+      const label = this.label.getConfig(id);
+      if (label) {
+        snapshot.label = {
+          show: label.show,
+          field: label.field,
+          color: label.color,
+          size: label.size,
+          format: label.format,
+          collide: label.collide,
+        };
+      }
+    }
     // Delegated style provider (Heatmap/Measure): merge their values under
     // the same keys so a host reads one shape regardless of who owns the
     // paint. The provider wins on its own keys; registry values stay.
