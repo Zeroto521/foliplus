@@ -82,7 +82,7 @@ class ListPanel {
   /** The author's declared default folded-folder key set, derived from
    *  `CONF.folders` (never persisted — it is author config baked into the
    *  page, so a reload always re-derives it). This is the "default" layer of
-   *  the fold state: the user override (foldedFolders) is checked
+   *  the fold state: the user override (foldedRoles) is checked
    *  first and this falls back under it. See control/LayerControl/declaredFolder.ts. */
   authorFoldedFolders: Set<string> = new Set();
   /** Per-role tri-state checkbox counts. Rebuilt by the full-scan

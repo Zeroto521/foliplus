@@ -9,12 +9,12 @@
 //
 // The priority chain is frozen at .foliplus/design/folder-final-design.md §2.2:
 //   built-in (expanded) < author default (this module) < user override
-// (the persisted foldedFolders set). A user's manual fold/unfold always wins
+// (the persisted foldedRoles set). A user's manual fold/unfold always wins
 // and then stops the author default from affecting that folder; Reset clears
 // the user override and falls back to the author default.
 //
 // NOTE on the "user expands an author-folded folder" edge: with the Set-based
-// user override (foldedFolders = folded keys only), a user's explicit EXPAND
+// user override (foldedRoles = folded keys only), a user's explicit EXPAND
 // over an author default fold cannot be distinguished from "never touched".
 // The Set model therefore resolves effective = userFold || authorFold, which
 // keeps the author default until the user re-folds. Upgrading the override to
@@ -70,7 +70,7 @@ const authorFoldedKeys = (folders: FolderDefaults | null | undefined): Set<strin
 /** Resolve the effective fold state a folder row renders with.
  *
  *  Priority: user override (folded) > author default (folded) > expanded.
- *  The user override is the persisted foldedFolders set, written by the
+ *  The user override is the persisted foldedRoles set, written by the
  *  panel's own toggle; the author default is {@link authorFoldedKeys}. See
  *  the NOTE above for the Set-based "user expands over author fold" edge.
  *

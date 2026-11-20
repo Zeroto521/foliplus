@@ -131,7 +131,6 @@ class LayerControl(BaseControl):
         A name may be declared even with no members yet. A user manual
         fold/unfold always wins over the author default.
 
-
     Examples
     --------
     Mount the panel on a map:
