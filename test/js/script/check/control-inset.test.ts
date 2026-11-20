@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  __entryUrl,
   findControlInsetViolations,
   main,
   runCli,
@@ -115,7 +114,11 @@ describe("control inset single source", () => {
     const prev = process.exitCode;
     process.exitCode = 0;
     const dir = makeRepo(GOOD);
-    runCli([dir], __entryUrl);
+    runCli(
+      [dir],
+      resolve("script/check/control-inset.mjs"),
+      resolve("script/check/control-inset.mjs"),
+    );
     expect(process.exitCode).toBe(0);
     process.exitCode = prev;
     rmSync(dir, { recursive: true, force: true });
@@ -124,7 +127,11 @@ describe("control inset single source", () => {
   it("runCli dispatch is a no-op when the entry is not this module", () => {
     const prev = process.exitCode;
     process.exitCode = 42;
-    runCli([resolve(".")], "C:/not/this/module.js");
+    runCli(
+      [resolve(".")],
+      "C:/not/this/module.js",
+      resolve("script/check/control-inset.mjs"),
+    );
     expect(process.exitCode).toBe(42);
     process.exitCode = prev;
   });
@@ -165,7 +172,11 @@ describe("control inset single source", () => {
   padding-left: var(--foliplus-space-md);
 }
 `);
-    runCli([dir], __entryUrl);
+    runCli(
+      [dir],
+      resolve("script/check/control-inset.mjs"),
+      resolve("script/check/control-inset.mjs"),
+    );
     expect(process.exitCode).toBe(1);
     process.exitCode = prev;
     rmSync(dir, { recursive: true, force: true });

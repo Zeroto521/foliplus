@@ -9,7 +9,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  __entryUrl,
   findBareFormClassLiterals,
   hasBareToken,
   main,
@@ -108,7 +107,11 @@ describe("FORM_CLASS literals use the shared vocabulary", () => {
       join(dir, "foliplus", "js", "ui", "ok.ts"),
       "const x = { value: 1 };\n",
     );
-    runCli([dir], __entryUrl);
+    runCli(
+      [dir],
+      resolve("script/check/form-class-literal.mjs"),
+      resolve("script/check/form-class-literal.mjs"),
+    );
     expect(process.exitCode).toBe(0);
     process.exitCode = prev;
     rmSync(dir, { recursive: true, force: true });
@@ -117,7 +120,11 @@ describe("FORM_CLASS literals use the shared vocabulary", () => {
   it("runCli dispatch is a no-op when the entry is not this module", () => {
     const prev = process.exitCode;
     process.exitCode = 42;
-    runCli([process.cwd()], "C:/not/this/module.js");
+    runCli(
+      [process.cwd()],
+      "C:/not/this/module.js",
+      resolve("script/check/form-class-literal.mjs"),
+    );
     expect(process.exitCode).toBe(42);
     process.exitCode = prev;
   });

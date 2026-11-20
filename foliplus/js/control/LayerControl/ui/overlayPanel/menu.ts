@@ -168,6 +168,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // of opening an empty panel.
   const filterInfo = filterCapabilityOf(ui, layerId);
   const filterHasFields = layerSupportsFilter(ui, layerId);
+  // Consistent with style: a hidden layer gets no visual feedback from a
+  // filter action (the panel would target an invisible layer), so the entry
+  // is disabled for the same reason style is. Tooltip priority mirrors
+  // style: the hidden reason first, then the no-fields reason.
+  const filterDisabled = focusReason === "hidden" || !filterHasFields;
   if (filterInfo) {
     menu.appendChild(
       dom.el(
@@ -176,8 +181,13 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           type: "button",
           "data-action": CONST.ACTION.FILTER_LAYER,
           role: "menuitem",
-          title: filterHasFields ? ui.T("filter_layer_tooltip") : ui.T("filter_empty"),
-          "aria-disabled": filterHasFields ? "false" : "true",
+          title:
+            focusReason === "hidden"
+              ? ui.T(focusDisabledLocaleKey("hidden"))
+              : filterHasFields
+                ? ui.T("filter_layer_tooltip")
+                : ui.T("filter_empty"),
+          "aria-disabled": filterDisabled ? "true" : "false",
         },
         { html: SVGs.ICON_FILTER },
         ui.T("filter_layer"),

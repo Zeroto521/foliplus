@@ -1,9 +1,8 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  __entryUrl,
   check,
   classifyLine,
   inventory,
@@ -259,12 +258,16 @@ describe("style-mode-usage CLI dispatch and edge cases", () => {
   });
 
   it("runCli with a non-matching entry is a no-op", () => {
-    runCli("/some/other/path.js");
+    runCli([], "/some/other/path.js", resolve("script/check/style-mode-usage.mjs"));
     expect(true).toBe(true);
   });
 
   it("runCli with the matching entry dispatches main", () => {
-    runCli(__entryUrl);
+    runCli(
+      [],
+      resolve("script/check/style-mode-usage.mjs"),
+      resolve("script/check/style-mode-usage.mjs"),
+    );
     expect(typeof process.exitCode).toBe("number");
   });
 

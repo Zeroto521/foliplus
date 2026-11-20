@@ -7055,6 +7055,23 @@ it("fresh-layer-read: a first read on an un-built id builds filterFeatures from 
   writeSpy.mockRestore();
 });
 
+it("genericFilterModel returns null when the cached feature row is gone (B)", () => {
+  // The dimensions read and the features read are two store calls; a host
+  // whose cached row is cleared between them (a teardown racing the panel
+  // open) must fall back to the empty state instead of throwing.
+  installLeafletGlobals();
+  const { manager, ui } = initFixture({ data: [] });
+  vi.spyOn((manager as any).filterStore, "filterModel").mockReturnValue({
+    dimensions: [{ kind: "range", field: "mag", range: [0, 10], step: 1 }],
+    ranges: { mag: [0, 10] },
+    enumFields: [],
+    enumValues: {},
+    total: 5,
+  } as any);
+  vi.spyOn(ui.runtimeStore, "getFilterFeatures").mockReturnValue(undefined as any);
+  expect(manager.genericFilterModel("gone1")).toBeNull();
+});
+
 it("scanGenericFields prunes a group nested deeper than RECURSION.LAYER_DEPTH (B)", () => {
   // depth > 10 returns false inside walk - a >10-deep nesting must be pruned,
   // not walked to the bottom. Build a 12-deep chain where only the innermost

@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  __entryUrl,
   findBareValueKindLiterals,
   main,
   runCli,
@@ -195,7 +194,11 @@ describe("value-kind literals use the VALUE_KIND constant", () => {
       "const x = { value: 1 };\n",
     );
     // The script's own entry URL matches, so runCli takes its branch and calls main.
-    runCli([dir], __entryUrl);
+    runCli(
+      [dir],
+      resolve("script/check/value-kind-literal.mjs"),
+      resolve("script/check/value-kind-literal.mjs"),
+    );
     expect(process.exitCode).toBe(0);
     process.exitCode = prev;
     rmSync(dir, { recursive: true, force: true });
@@ -204,7 +207,11 @@ describe("value-kind literals use the VALUE_KIND constant", () => {
   it("runCli dispatch is a no-op when the entry is not this module", () => {
     const prev = process.exitCode;
     process.exitCode = 42;
-    runCli([process.cwd()], "C:/not/this/module.js");
+    runCli(
+      [process.cwd()],
+      "C:/not/this/module.js",
+      resolve("script/check/value-kind-literal.mjs"),
+    );
     expect(process.exitCode).toBe(42);
     process.exitCode = prev;
   });
