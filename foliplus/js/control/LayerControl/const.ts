@@ -127,7 +127,7 @@ const CLASSES = {
    *  row is near the panel's bottom edge). */
   MORE_MENU_UP: "foliplus-layer-more-menu-up",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
-  /** The section header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the section owns at least one empty folder key. */
+  /** The role header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the role owns at least one empty folder key. */
   CLEAN_FOLDERS_BTN: "foliplus-layer-clean-folders",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEPARATOR_LABEL: "foliplus-layer-sep-label",
@@ -181,9 +181,9 @@ const CLASSES = {
   STYLE_FORMAT_SELECT: LABEL_CLASS.STYLE_FORMAT_SELECT,
   STYLE_TOGGLE_INPUT: LABEL_CLASS.STYLE_TOGGLE_INPUT,
   STYLE_BODY: LABEL_CLASS.STYLE_BODY,
-  /** The Label section's row wrapper — the `label` dimension's `row`
+  /** The Label group's row wrapper — the `label` dimension's `row`
    *  element (toggle + body), so the panel assembly and the tests can
-   *  select the section's content as one unit. No styles hang off it. */
+   *  select the group's content as one unit. No styles hang off it. */
   STYLE_LABEL_SECTION: "foliplus-style-label-section",
   STYLE_LABEL_COLOR_INPUT: LABEL_CLASS.STYLE_LABEL_COLOR_INPUT,
   STYLE_LABEL_SIZE_INPUT: LABEL_CLASS.STYLE_LABEL_SIZE_INPUT,

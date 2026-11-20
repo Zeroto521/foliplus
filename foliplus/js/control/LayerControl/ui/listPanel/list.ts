@@ -46,7 +46,7 @@ const initTypesAndVisibility = (ui: LayerUI): ProjectionBatch => {
   // registry is skipped by the sweep, not dropped from the record —
   // stored
   // state is erased only by an explicit delete.
-  const moved = ui.applyUserState();
+  const moved = ui.c.replayStoredStateAll();
 
   // First-load visibility is the author's `show=`: no code fallback for
   // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
@@ -381,7 +381,7 @@ const syncRowOrder = (ui: LayerUI): void => {
   }
 };
 
-/** Whether `role`'s role should render its toggle-all header row.
+/** Whether the given role should render its toggle-all header row.
  *  Shared by renderInitialList, syncRowOrder, insertLayerItem and retireRow so
  *  the four cannot drift apart (builder-4 ②③④). A role keeps its header
  *  while it owns at least one live layer OR at least one folder key in the

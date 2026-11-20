@@ -3,7 +3,7 @@ import { readDeclaredFilter } from "./declaredFilter.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
-import { collectDeltas } from "./ui/apply.js";
+import { type ProjectionBatch, collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
 import {
   type CursorRef,
@@ -25,6 +25,7 @@ import {
   type CreateColorOpts,
   type CreateLayersAPI,
   type CreateLayersOpts,
+  DIM,
   FILTER_SOURCE,
   FOLDER_NAME_MAX,
   type FilterDimension,
@@ -34,6 +35,7 @@ import {
   type FolderLayout,
   type FolderLayoutManager,
   GEOM_TYPE,
+  type IconIntent,
   type LabelAwareLayer,
   type LayerAPI,
   type LayerCapabilities,
@@ -45,12 +47,16 @@ import {
   type LayerKind,
   LayerOrder,
   type LayerRole,
+  type LayerStyleSnapshot,
   type LayerSurface,
   PaneManager,
   RECURSION,
   ROLE,
   type RegisterLayerOpts,
+  type StyleMode,
+  type StyleProvenance,
   SurfaceIndex,
+  type ValueConfig,
   buildFilterFeatures,
   countFeatureGeometry,
   createFolder,
@@ -74,11 +80,13 @@ import {
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
+import { DIM_ORDER, getDimension } from "#control/LayerControl/ui/style/registry.js";
 
 type LayerControllerEnv = {
   readonly T: (key: string) => string;
@@ -214,6 +222,126 @@ type FolderCreateResult =
  *  (including a normalisation-only no-op), otherwise `ok: false` with the
  *  {@link FolderRefusalReason} so the panel can say why. */
 type FolderRenameResult = { ok: true } | { ok: false; reason: FolderRefusalReason };
+
+/** Table-driven style-snapshot readers — the single source of truth for
+ *  how one dimension's intent value maps onto a LayerStyleSnapshot key.
+ *  Adding a new style dimension = add a DIM enum entry + a descriptor (in
+ *  dimTable.ts) + ONE row here; the getStyle() body never changes.
+ *
+ *  Each entry receives the layer UI, id, and registry entry (fill / border
+ *  use layerInfo.fillAuthor to resolve perFeature); returning undefined
+ *  means the dimension is absent from the snapshot. Icon partials are
+ *  shallow-merged by getStyleSnapshot so icon / iconColor / markerColor can
+ *  each contribute to the same `snapshot.icon` block. */
+type SnapshotReader = (
+  ui: LayerUI,
+  id: string,
+  layerInfo: LayerInfo | undefined,
+) => Partial<LayerStyleSnapshot> | undefined;
+
+// unreachable: guards short-circuit on layer shapes getStyle() rejects via null return.
+/* v8 ignore start */
+const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
+  [DIM.OPACITY]: (ui, id) => {
+    const v = getDimension<number>(DIM.OPACITY)?.value(ui, id);
+    return typeof v === "number" ? { opacity: v } : undefined;
+  },
+  [DIM.ZOOM_RANGE]: (ui, id) => {
+    const v = getDimension<{ min: number; max: number }>(DIM.ZOOM_RANGE)?.value(ui, id);
+    return v ? { zoomRange: v } : undefined;
+  },
+  [DIM.SIZE]: (ui, id) => {
+    const v = getDimension<number>(DIM.SIZE)?.value(ui, id);
+    return typeof v === "number" ? { size: { radius: v } } : undefined;
+  },
+  [DIM.FILL]: (ui, id, layerInfo) => {
+    const v = getDimension<{
+      color?: string;
+      opacity?: number | null;
+      mode?: StyleMode;
+      value?: ValueConfig;
+    }>(DIM.FILL)?.value(ui, id);
+    if (!v) return undefined;
+    const perFeature =
+      (getDimension(DIM.FILL)?.gate(ui, id) ?? false) &&
+      // Author per-feature paint wins: color is per-leaf, not single.
+      Boolean(layerInfo?.fillAuthor?.perFeature);
+    return {
+      fill: {
+        color: perFeature ? undefined : v.color,
+        opacity: v.opacity,
+        mode: v.mode,
+        value: v.value,
+        perFeature,
+        note: undefined,
+      },
+    };
+  },
+  [DIM.BORDER]: (ui, id) => {
+    const v = getDimension<{
+      color?: string;
+      weight?: number;
+      mode?: StyleMode;
+      value?: ValueConfig;
+    }>(DIM.BORDER)?.value(ui, id);
+    if (!v) return undefined;
+    return {
+      border: {
+        color: v.color,
+        weight: v.weight,
+        mode: v.mode,
+        value: v.value,
+        // Border per-feature is the ORIGINAL mode (author's own stroke).
+        perFeature: v.mode === "original",
+        note: undefined,
+      },
+    };
+  },
+  [DIM.ICON]: (ui, id) => {
+    const v = getDimension<IconIntent>(DIM.ICON)?.value(ui, id);
+    return v ? { icon: { glyph: v.value } } : undefined;
+  },
+  [DIM.ICON_COLOR]: (ui, id) => {
+    const v = getDimension<{ value?: string; opacity?: number }>(DIM.ICON_COLOR)?.value(
+      ui,
+      id,
+    );
+    if (!v) return undefined;
+    return { icon: { color: v.value, colorOpacity: v.opacity } };
+  },
+  [DIM.MARKER_COLOR]: (ui, id) => {
+    const v = getDimension<{ value?: string; opacity?: number }>(
+      DIM.MARKER_COLOR,
+    )?.value(ui, id);
+    if (!v) return undefined;
+    return { icon: { markerColor: v.value, markerColorOpacity: v.opacity } };
+  },
+};
+
+/** Assemble the value shape of a LayerStyleSnapshot by walking DIM_ORDER
+ *  and consulting SNAPSHOT_READERS. Icon partials shallow-merge on the
+ *  nested icon block. Provenance is filled in separately by getStyle().
+ *  Label is NOT in DIM_ORDER (it is the content dimension of the Label
+ *  role, not a paint dimension of the layer role) — the caller adds it. */
+const getStyleSnapshot = (
+  ui: LayerUI,
+  id: string,
+  layerInfo: LayerInfo | undefined,
+): Partial<LayerStyleSnapshot> => {
+  const out: Partial<LayerStyleSnapshot> = {};
+  for (const key of DIM_ORDER) {
+    const reader = SNAPSHOT_READERS[key];
+    if (!reader) continue;
+    const partial = reader(ui, id, layerInfo);
+    if (!partial) continue;
+    if ("icon" in partial && partial.icon) {
+      out.icon = { ...(out.icon ?? {}), ...partial.icon };
+    } else {
+      Object.assign(out, partial);
+    }
+  }
+  return out;
+};
 
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
@@ -557,7 +685,7 @@ class LayerController implements LayerAPI {
       for (const layerInfo of this.layers) {
         const resolved = findLayer(this.map, layerInfo.id);
         if (resolved && L.stamp(resolved) === stamp) {
-          this.replayFilter(layerInfo.id);
+          this.replayStoredState(layerInfo.id);
           break;
         }
       }
@@ -834,6 +962,42 @@ class LayerController implements LayerAPI {
     this.order.replaySavedOrder(id);
   }
 
+  /** The single replay entry for every stored dimension of one layer.
+   *  Both registration paths — construction-seeded (A) and layeradd /
+   *  registerLayer (B) — route through here, so a new dimension has exactly
+   *  one replay site and neither path can drift (replay convergence). Fixed order:
+   *  projection (visible/opacity/zoomRange) → name → order → style dims →
+   *  filter, because filter's hidden class depends on the DOM the style pass
+   *  paints and order depends on the registry entry existing. Idempotent:
+   *  the attach sequence and a repeat layeradd may run this more than once.
+   *  The projection batch is returned (not published) so the caller can
+   *  settle its own rows/counts before announcing — same contract as
+   *  applyUserState. */
+  replayStoredState(id: string): ProjectionBatch {
+    const moved = this.ui?.applyUserState(id) ?? [];
+    this.replayFilter(id);
+    return moved;
+  }
+
+  /** Replay every registered layer's stored state — the A-path (attach) sweep.
+   *  Construction-seeded layers never pass through registerLayer or layeradd,
+   *  so the initial registry is routed through this once. Keeps the full-sweep
+   *  semantics of applyUserState() (projection-all, name over the intent store,
+   *  full order replay, declared fill/border replay) and adds the per-layer
+   *  filter replay that would otherwise only reach seed layers via a separate
+   *  pass. Returns the combined projection batch for the caller's notify. */
+  replayStoredStateAll(): ProjectionBatch {
+    // this.ui is always set before the attach sweep runs (lifecycle.ts calls
+    // replayStoredStateAll after ui exists); the ?? [] is a defensive read.
+    // unreachable: the null side of this.ui?.applyUserState() cannot run.
+    /* v8 ignore next */
+    const moved = this.ui?.applyUserState() ?? [];
+    for (const layerInfo of this.layerRegistry.items) {
+      this.replayFilter(layerInfo.id);
+    }
+    return moved;
+  }
+
   // ==================== Public API Methods ====================
 
   /** Get the geometry type of a registered layer.
@@ -996,6 +1160,147 @@ class LayerController implements LayerAPI {
     return pts;
   }
 
+  /** Read one layer's current effective style through the dimension
+   *  registry — the single source of truth the style panel already
+   *  publishes. Aggregates every dimension's `value()` reader; never a
+   *  second walk, never a copy of the colour-reading logic.
+   *
+   *  Boundary:
+   *  - Unregistered id → `null` (mirrors setVisible / getFeatureCount
+   *    for an unknown id).
+   *  - No-capability dimension → absent field + provenance "none"
+   *    (the surface cannot carry it, so the value is not reported).
+   *  - Delegated layer (Heatmap/Measure declare styleProvider) → the
+   *    provider's values are merged in under the same fill / border /
+   *    label keys so a host reads one shape regardless of owner.
+   *
+   *  Before attach (`this.ui` null) the panel has not been wired, so
+   *  this returns null — callers that need a snapshot before the panel
+   *  is ready should wait for the control's attach. */
+  getStyle(id: string): LayerStyleSnapshot | null {
+    if (!this.ui) return null;
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    const ui = this.ui;
+    // unreachable: prov() keys come from DIM_ORDER; getDimension always finds a match.
+    /* v8 ignore start */
+    const prov = (key: string): StyleProvenance => {
+      const dim = getDimension(key);
+      if (!dim) return "none";
+      if (!dim.gate(ui, id)) return "none";
+      const src = dim.valueSource?.(ui, id);
+      if (src === "user") return "user";
+      if (src === "author") return "author";
+      return "declaration";
+    };
+    const snapshot: LayerStyleSnapshot = {
+      id,
+      ...getStyleSnapshot(ui, id, layerInfo),
+      provenance: {},
+    };
+    // Provenance: walk DIM_ORDER via the same prov() helper. The label
+    // content dimension is not in DIM_ORDER — handled below.
+    for (const key of DIM_ORDER) {
+      snapshot.provenance[key as keyof LayerStyleSnapshot["provenance"]] = prov(key);
+    }
+    // Label — content dimension, not in DIM_ORDER: the Label role's own
+    // paint channel (labelManager), not a layer-role paint dimension, so
+    // the registry walk above never reaches it. Provenance still filled
+    // via the DIM.LABEL descriptor's valueSource.
+    snapshot.provenance.label = prov(DIM.LABEL);
+    {
+      const label = this.label.getConfig(id);
+      if (label) {
+        snapshot.label = {
+          show: label.show,
+          field: label.field,
+          color: label.color,
+          size: label.size,
+          format: label.format,
+          collide: label.collide,
+        };
+      }
+    }
+    // Delegated style provider (Heatmap/Measure): merge their values under
+    // the same keys so a host reads one shape regardless of who owns the
+    // paint. The provider wins on its own keys; registry values stay.
+    const provider = layerInfo.styleProvider;
+    if (typeof provider === "function") {
+      try {
+        const values = provider() as Record<string, unknown>;
+        // Table-driven provider merge (replay convergence on the read side):
+        // each entry maps one provider key to its snapshot path and a type
+        // guard. A provider adding a key updates this table, not a new if.
+        const PROVIDER_KEYS: ReadonlyArray<{
+          key: string;
+          target: "label" | "border";
+          field: string;
+          is: (v: unknown) => boolean;
+        }> = [
+          {
+            key: "labelColor",
+            target: "label",
+            field: "color",
+            is: (v): v is string => typeof v === "string",
+          },
+          {
+            key: "labelShow",
+            target: "label",
+            field: "show",
+            is: (v): v is boolean => typeof v === "boolean",
+          },
+          {
+            key: "labelSize",
+            target: "label",
+            field: "size",
+            is: (v): v is number => typeof v === "number",
+          },
+          {
+            key: "labelFormat",
+            target: "label",
+            field: "format",
+            // NumberStyle whitelist (P3-3): the declared format is one of four
+            // tokens, not an arbitrary string — a stray value would silently
+            // break the label renderer if it slipped through.
+            is: (v): v is NumberStyle =>
+              v === "auto" || v === "int" || v === "comma" || v === "percent",
+          },
+          {
+            key: "labelCollide",
+            target: "label",
+            field: "collide",
+            is: (v): v is boolean => typeof v === "boolean",
+          },
+          {
+            key: "borderColor",
+            target: "border",
+            field: "color",
+            is: (v): v is string => typeof v === "string",
+          },
+          {
+            key: "borderWeight",
+            target: "border",
+            field: "weight",
+            is: (v): v is number => typeof v === "number",
+          },
+        ];
+        for (const spec of PROVIDER_KEYS) {
+          const v = values[spec.key];
+          if (!spec.is(v)) continue;
+          const cur = snapshot[spec.target] ?? {};
+          snapshot[spec.target] = { ...cur, [spec.field]: v } as typeof cur;
+        }
+      } catch (err) {
+        // Provider threw (canvas layer in a bad state) — return the
+        // registry values we already have; the delegated panel shows the
+        // same fallback.
+        this.log.warn(`styleProvider threw for "${id}":`, err);
+      }
+    }
+    return snapshot;
+  }
+
+  /* v8 ignore stop */
   /** Broadcast a layer's registry / map-membership change with the id and kind
    *  stamped from the registry entry — LayerController's single emit site, so
    *  every subscriber can filter on the payload instead of re-walking the
@@ -1167,15 +1472,16 @@ class LayerController implements LayerAPI {
       // pass that reaches a late-arriving layer's own visibility, opacity, name
       // and order. On a re-registration it also re-applies opacity onto the fresh
       // layer/canvas object (no-op when the user never changed it).
-      const moved = this.ui.applyUserState(opts.id);
+      // The single replay entry (replay convergence): stored projection + name + order
+      // + style dims + filter, in fixed order. Replaces the old two-site
+      // applyUserState(id)+replayFilter(id) pair so a new dimension cannot
+      // be added to only one path.
+      const moved = this.replayStoredState(opts.id);
       // Incremental: refresh only the new/updated row's cells instead of
       // re-scanning every row (initTypesAndVisibility is a full pass used on
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
       operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
-      // Re-apply a committed filter's hidden class onto the refreshed layer's
-      // fresh DOM elements (recreated when the layer is re-attached).
-      this.replayFilter(opts.id);
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: layerInfo.role,
       });
@@ -1621,7 +1927,7 @@ class LayerController implements LayerAPI {
    * The event bus carries the notification; the component owns the wipe.
    *
    * User-added layers are deleted for good: the id is added to `removed` so
-   * the registry refuses it again, and the three sections that key by layer
+   * the registry refuses it again, and the three stores that key by layer
    * id — order, the rename, the label config — are pruned. Only a user
    * who pointed at a row and chose "delete" knows the layer is gone for
    * good; per-dimension resets drop one provenance marker instead, which is
@@ -2451,18 +2757,6 @@ class LayerController implements LayerAPI {
     if (filter === undefined) return;
     this.applyFilterClass(id, filter);
   }
-  /** Replay every committed filter onto the layers seeded at construction.
-   *  Those layers were already on the map when this control attached, so they
-   *  never pass through layeradd or registerLayer — the two sites that replay
-   *  a filter. Without this pass a reload restores the condition into the
-   *  store while the map keeps painting the full data (#1181). Runs from the
-   *  UI attach sequence, after the runtime store exists. */
-  replayAllFilters(): void {
-    for (const layerInfo of this.layerRegistry.items) {
-      this.replayFilter(layerInfo.id);
-    }
-  }
-
   private notifyCapabilityChanges(): void {
     const next = new Map<string, string>();
     const changed: string[] = [];
