@@ -22,10 +22,19 @@
      the OS default scrollbar chrome. */
 :is(
   .foliplus-search-result-panel,
-  .foliplus-layer-more-menu,
   .foliplus-dropdown-list,
   .foliplus-scheme-picker-dropdown
 ) {
   scrollbar-width: var(--foliplus-scrollbar-width);
   scrollbar-gutter: var(--foliplus-scrollbar-gutter);
+}
+/* The ⋮ more-menu is deliberately NOT in the stable-gutter list above: its
+     item set is fixed at open time (Filter / Style / Focus / Rename /
+     Attributes / Confirm Delete) and never grows or shrinks while open, so
+     there is no scrollbar appearance/disappearance to absorb and the reserved
+     gutter lane would just read as a blank column. It still gets the thin
+     lane for the (rare) case where the constrained viewport makes the menu
+     itself scroll. */
+.foliplus-layer-more-menu {
+  scrollbar-width: var(--foliplus-scrollbar-width);
 }
