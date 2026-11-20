@@ -28,10 +28,12 @@ class TestNormaliseFolders:
             assert normalise_folders("not a mapping") is None
 
     def test_basic_entries_round_trip(self) -> None:
-        result = normalise_folders({
-            "overlay": [{"name": "业务数据", "folded": True}],
-            "base": [{"name": "底图"}],
-        })
+        result = normalise_folders(
+            {
+                "overlay": [{"name": "业务数据", "folded": True}],
+                "base": [{"name": "底图"}],
+            }
+        )
         assert result == {
             "overlay": [{"name": "业务数据", "folded": True}],
             "base": [{"name": "底图", "folded": False}],
@@ -66,22 +68,32 @@ class TestNormaliseFolders:
         assert result == {"overlay": [], "base": []}
 
     def test_same_name_merges_last_wins_on_folded(self) -> None:
-        result = normalise_folders({
-            "overlay": [
-                {"name": "业务数据", "folded": True},
-                {"name": " 业务数据 ", "folded": False},
-            ],
-        })
-        assert result == {"overlay": [{"name": "业务数据", "folded": False}], "base": []}
+        result = normalise_folders(
+            {
+                "overlay": [
+                    {"name": "业务数据", "folded": True},
+                    {"name": " 业务数据 ", "folded": False},
+                ],
+            }
+        )
+        assert result == {
+            "overlay": [{"name": "业务数据", "folded": False}],
+            "base": [],
+        }
 
     def test_same_name_keeps_first_display_spelling(self) -> None:
-        result = normalise_folders({
-            "overlay": [
-                {"name": "业务数据"},
-                {"name": " 业务数据 "},
-            ],
-        })
-        assert result == {"overlay": [{"name": "业务数据", "folded": False}], "base": []}
+        result = normalise_folders(
+            {
+                "overlay": [
+                    {"name": "业务数据"},
+                    {"name": " 业务数据 "},
+                ],
+            }
+        )
+        assert result == {
+            "overlay": [{"name": "业务数据", "folded": False}],
+            "base": [],
+        }
 
     def test_entries_must_be_mappings(self) -> None:
         with pytest.warns(UserWarning, match="expected a mapping"):
@@ -104,16 +116,19 @@ class TestLayerControlFoldersConfig:
 
     def test_default_folders_is_none(self) -> None:
         from foliplus import LayerControl
+
         assert LayerControl().folders is None
 
     def test_folders_is_a_config_field(self) -> None:
         from foliplus import LayerControl
+
         assert "folders" in LayerControl._config_fields
 
     def test_folders_serialises_into_config(self) -> None:
         import folium
 
         from foliplus import LayerControl
+
         ctrl = LayerControl(folders={"overlay": [{"name": "业务数据", "folded": True}]})
         cfg = ctrl._build_config()
         assert cfg["folders"] == {
@@ -125,5 +140,6 @@ class TestLayerControlFoldersConfig:
         import folium
 
         from foliplus import LayerControl
+
         ctrl = LayerControl(folders="bad")
         assert ctrl._build_config()["folders"] is None

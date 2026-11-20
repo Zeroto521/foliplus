@@ -21,6 +21,7 @@ from ._role import LAYER_ROLES
 #: once) — a future key is its own card, never silently dropped.
 FOLDER_DEFAULT_KEYS = ("name", "folded")
 
+
 #: The folder-default identity key. Mirrors the JS reader's normalizeFolderName
 #: (foliplus/js/core/layer/folderLayout.ts): NFC → whitespace fold → trim →
 #: casefold. Python emits the *display* name (first-seen, trimmed) while JS
@@ -75,9 +76,7 @@ def normalise_folders(
         if entries is None:
             out[section] = []
             continue
-        if not isinstance(entries, (list, tuple)) or isinstance(
-            entries, (str, bytes)
-        ):
+        if not isinstance(entries, (list, tuple)) or isinstance(entries, (str, bytes)):
             reject(section, f"as {type(entries).__name__}; expected a list")
             out[section] = []
             continue
