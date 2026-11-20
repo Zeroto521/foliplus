@@ -147,6 +147,7 @@ class LayerControl(BaseControl):
     >>> gdf.explore(foliplus={"fill": {"field": "score", "scheme": "Reds"}})
 
     Notes
+    -----
 
     The per-layer declaration namespace is documented in :doc:`/guide/declaration`.
     The keys are:
@@ -191,6 +192,17 @@ class LayerControl(BaseControl):
 
     A folder keeps its group row after its last layer is removed, so you
     can still drag more layers into it.
+
+    How a ``zoom_range`` declaration is resolved:
+
+    - A user stored range always wins: the row shows it and it never changes.
+    - A valid declaration: the row opens on it and Reset returns to it.
+    - No declaration: the row opens on the map's own range.
+    - A declared range the map cannot meet: Treated as undeclared, the layer
+      stays visible at every level, the degradation warns once, and the row
+      stays editable (it shows the stored value, else the map's range).
+    - A malformed declaration (missing key, non-int, inverted, unknown key):
+      Warns once and is treated as undeclared; never hides the layer.
 
     A declaration is a default, never a rewrite: it does not modify the
     layer's own data.
