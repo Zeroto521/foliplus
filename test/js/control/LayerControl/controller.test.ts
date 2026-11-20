@@ -8349,7 +8349,7 @@ describe("LayerAPI.getStyle", () => {
       role: "overlay",
       layer,
     });
-    setIntent(ui, "iconmerge", "icon", { value: "star" });
+    setIntent(ui, "iconmerge", "icon", { kind: "glyph", value: "star" });
     setIntent(ui, "iconmerge", "iconColor", "#ff0000");
     setIntent(ui, "iconmerge", "iconColorOpacity", 0.8);
     setIntent(ui, "iconmerge", "markerColor", "#00ff00");
