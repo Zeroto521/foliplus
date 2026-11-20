@@ -1774,7 +1774,7 @@ describe("fold panel focus return (a11y)", () => {
     const map = { _leaflet_id: 91, on } as unknown as L.Map;
     const { container, btn } = makeFold();
     const focusSpy = vi.spyOn(btn, "focus");
-    bindFoldOverlay({
+    const { close } = bindFoldOverlay({
       map,
       container,
       id: "test.focus.panel2",
@@ -1807,7 +1807,7 @@ describe("fold panel focus return (a11y)", () => {
     });
     container.classList.add("foliplus-is-expanded");
     container.classList.remove("foliplus-is-collapsed");
-    let result: boolean | void;
+    let result: boolean | void = false;
     expect(() => {
       result = close({ restoreFocus: false });
     }).not.toThrow();
