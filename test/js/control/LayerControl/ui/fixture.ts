@@ -541,6 +541,21 @@ export const makeAuthorIcon = (
       // sprite class must survive the derived chassis swap.
       div.className =
         `awesome-marker-${name} ${this.options.className ?? cfg.className}`.trim();
+      // The real awesome-markers _setIconStyles also sizes the box and offsets
+      // it by the anchor (inline width/height + margin) — the derived icon
+      // scales iconSize/iconAnchor before createIcon, so the fixture must
+      // honour that, or a scaled build would stay at the natural box and the
+      // outer Leaflet-positioned frame would not reflect the declared size.
+      const size = this.options.iconSize as [number, number] | undefined;
+      const anchor = this.options.iconAnchor as [number, number] | undefined;
+      if (size) {
+        div.style.width = `${size[0]}px`;
+        div.style.height = `${size[1]}px`;
+      }
+      if (anchor) {
+        div.style.marginLeft = `${-anchor[0]}px`;
+        div.style.marginTop = `${-anchor[1]}px`;
+      }
     }),
     createShadow: cfg.withShadow
       ? vi.fn(() => {

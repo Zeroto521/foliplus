@@ -955,9 +955,12 @@ describe("buildMarkerIcon", () => {
 
   it("scales the awesome-markers chassis by one uniform transform (and skips it when invalid)", () => {
     // The sprite path never recomputes background geometry: it scales the WHOLE
-    // rendered chassis by one transform anchored at the pin tip, so the sprite
-    // stays pixel-identical internally and only the drawn size changes. An
-    // invalid declared size must leave the chassis transform untouched (no-op).
+    // rendered chassis by one uniform transform on an INNER wrapper, so the
+    // sprite stays pixel-identical internally and only the drawn size changes.
+    // Leaflet overwrites the OUTER div's transform when it positions the marker
+    // after setIcon, so the scale must live on the inner wrapper — the outer
+    // box is sized to the scaled iconSize/anchor (the Leaflet-positioned frame).
+    // An invalid declared size must leave the chassis untouched (no-op).
     // Deleting the applyDeclaredIconScale call (or its guard) turns both halves
     // of this test red.
     const scaled = buildMarkerIcon({
@@ -965,9 +968,29 @@ describe("buildMarkerIcon", () => {
       glyph: "star",
       iconSize: 50,
     }) as any;
+    // The fixture author's base is [36,46] / [18,46], so the scale factor is
+    // measured from the ACTUAL path's geometry (a hard-coded BASE_WIDTH would
+    // mis-scale this sprite path — the defect this test pins).
+    const baseW = 36;
+    const baseH = 46;
+    const scale = 50 / baseW;
     const scaledDiv = scaled.createIcon() as HTMLElement;
-    expect(scaledDiv.style.transformOrigin).toBe("12px 41px");
-    expect(scaledDiv.style.transform).toBe("scale(2)");
+    // The outer box is the Leaflet-positioned frame: sized to the scaled
+    // iconSize/anchor (width/height inline, margin by the anchor).
+    expect(scaledDiv.style.width).toBe("50px");
+    expect(scaledDiv.style.height).toBe("64px");
+    // The scale lives on the inner wrapper, anchored at the pin tip.
+    const inner = scaledDiv.firstElementChild as HTMLElement;
+    expect(inner).toBeTruthy();
+    // jsdom normalises the origin to "0px 0px" (a browser reads it the same).
+    expect(inner.style.transformOrigin).toBe("0px 0px");
+    // jsdom normalises the transform to 5 decimal places; parse the factor
+    // and compare approximately (a browser computes the exact ratio).
+    const m = /scale\(([-\d.]+)\)/.exec(inner.style.transform);
+    expect(m, inner.style.transform).toBeTruthy();
+    expect(Number(m![1])).toBeCloseTo(scale, 5);
+    expect(inner.style.width).toBe(`${baseW}px`);
+    expect(inner.style.height).toBe(`${baseH}px`);
 
     for (const bad of [0, -5, Number.NaN]) {
       const untouched = buildMarkerIcon({
@@ -976,8 +999,12 @@ describe("buildMarkerIcon", () => {
         iconSize: bad,
       }) as any;
       const div = untouched.createIcon() as HTMLElement;
-      expect(div.style.transform, String(bad)).toBe("");
-      expect(div.style.transformOrigin, String(bad)).toBe("");
+      // No inner scale wrapper, no scale — the chassis renders author-identical
+      // (the glyph <i> is the author's own child, never a scaled wrapper).
+      const wrapper = Array.from(div.children).find(
+        el => el instanceof HTMLElement && /^scale\(/.test(el.style.transform),
+      );
+      expect(wrapper, String(bad)).toBeUndefined();
     }
   });
   it("paints the applied glyph under the panel prefix when no author family wins (render path)", () => {
