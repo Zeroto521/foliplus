@@ -192,6 +192,12 @@
    option. The set actions re-read the current selection (ui/dropdown.ts), so
    the box and its label never go stale after a pick. */
 .foliplus-dropdown-select-all {
+  /* Demo fidelity (.foliplus/demo/multiselect-demo-A-bar.html): the row is
+     sticky at the top of the list so a long option list scrolling under it
+     keeps the select-all affordance in view. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--foliplus-space-sm);
@@ -199,6 +205,12 @@
   min-height: var(--foliplus-menu-row-h);
   padding: var(--foliplus-space-xs) var(--foliplus-space-md);
   color: var(--foliplus-text-primary);
+  /* Demo fidelity: raised surface + slightly heavier label so the row reads
+     as a header above the option list. The token vocabulary has no
+     neutral-50; --foliplus-surface-raised (neutral-100) is the single
+     source for "slightly raised above the list". */
+  background: var(--foliplus-surface-raised);
+  font-weight: 500;
   font-size: var(--foliplus-font-size-md);
   line-height: 1.5;
   cursor: pointer;
