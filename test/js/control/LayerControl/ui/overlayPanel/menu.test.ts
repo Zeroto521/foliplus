@@ -213,7 +213,7 @@ describe("LayerUI menu", () => {
       expect(entry.getAttribute("title")).toBe(ui.T("filter_empty"));
     });
 
-    it("disables the Filter entry when the layer is hidden (task-97)", () => {
+    it("disables the Filter entry when the layer is hidden", () => {
       manager.registerLayer({
         id: "hidden-layer",
         name: "Hidden Layer",
@@ -236,7 +236,7 @@ describe("LayerUI menu", () => {
       expect(entry?.getAttribute("title")).toBe(ui.T("focus_layer_hidden"));
     });
 
-    it("Filter entry stays enabled when layer is visible and has fields (task-97)", () => {
+    it("Filter entry stays enabled when layer is visible and has fields", () => {
       manager.registerLayer({
         id: "visible-layer",
         name: "Visible Layer",
