@@ -8349,7 +8349,7 @@ describe("LayerAPI.getStyle", () => {
       role: "overlay",
       layer,
     });
-    setIntent(ui, "iconmerge", "icon", { value: "star", size: 16 });
+    setIntent(ui, "iconmerge", "icon", { value: "star" });
     setIntent(ui, "iconmerge", "iconColor", "#ff0000");
     setIntent(ui, "iconmerge", "iconColorOpacity", 0.8);
     setIntent(ui, "iconmerge", "markerColor", "#00ff00");
@@ -8388,8 +8388,7 @@ describe("LayerAPI.getStyle", () => {
     // silently produce no snapshot field — this source-scan guard catches
     // the drift at CI, not in production.
     const { readFileSync } = await import("node:fs");
-    const { dirname, join } = await import("node:path");
-    const { fileURLToPath } = await import("node:url");
+    const { join } = await import("node:path");
     // Repo root (vitest cwd), same pattern as vocabulary.test.ts — avoids a
     // 4-level `../` chain that the deep-relative-path guard would reject.
     const repoRoot = process.cwd();
