@@ -154,11 +154,16 @@ const currentGlyph = (ui: LayerUI, layerId: string): string | null => {
  *  sibling lookup from any one row reaches the others. */
 const COLOR_ROWS_HIDDEN_IN_URL_MODE = ["iconColor", "markerColor"] as const;
 
-/** The live icon row element, set by buildIconRow and read by the URL-mode
- *  color-row visibility sync. The color rows are siblings of the icon row in
- *  the style-panel content, so walking up from the icon row to the panel root
- *  reaches them all. */
-let iconRowEl: HTMLElement | null = null;
+/** The live icon row element, per UI. The sync calls that recover the panel
+ *  root (applyIconToLayer, buildIconRow, the glyph-grid commit) hold no panel
+ *  root of their own, so they walk up from the row stored here — keyed by the
+ *  LayerUI rather than a single module-level element, since two LayerControls
+ *  on one page each own a row and a shared slot would let the second read the
+ *  first's row and hide the first panel's color rows. The color rows are
+ *  siblings of the icon row in the style-panel content, so walking up from the
+ *  icon row to the panel root reaches them all. Mirrors fill's per-UI
+ *  `declaredReplayed` slot. */
+const iconRowByUi = new WeakMap<LayerUI, HTMLElement>();
 
 const syncColorRowVisibility = (
   ui: LayerUI,
@@ -166,7 +171,8 @@ const syncColorRowVisibility = (
   panelRoot?: HTMLElement | null,
 ): void => {
   const urlMode = getIntent(ui, layerId, INTENT.ICON)?.kind === ICON_KIND.URL;
-  const root = panelRoot ?? iconRowEl?.closest(`${CONST.CLASSES.STYLE_PANEL}`) ?? null;
+  const root =
+    panelRoot ?? iconRowByUi.get(ui)?.closest(`.${CONST.CLASSES.STYLE_PANEL}`) ?? null;
   if (!root) return;
   for (const dim of COLOR_ROWS_HIDDEN_IN_URL_MODE) {
     root.querySelectorAll<HTMLElement>(`[data-style-dim="${dim}"]`).forEach(row => {
@@ -304,7 +310,7 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   row.dataset.styleDim = "icon";
   // The URL-mode color-row sync reaches the sibling color rows through this
   // row's panel root, so keep the live element where the sync can read it.
-  iconRowEl = row;
+  iconRowByUi.set(ui, row);
   syncColorRowVisibility(ui, layerId);
   bindGlyphGrid(ui, layerId, trigger, row, renderTrigger);
   return row;
