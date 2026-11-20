@@ -71,7 +71,6 @@ import {
   normalizeFolderName,
   renameFolder,
   restoreAuthorLayout,
-  seedFolderLayout,
   visibleDomOf,
   walkLeaf,
   zFor,
