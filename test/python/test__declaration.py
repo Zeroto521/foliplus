@@ -535,7 +535,41 @@ class TestNormaliseBorder:
         with pytest.warns(UserWarning) as record:
             assert normalise_border({}, owner="Owner") is None
 
-        assert "with a mode None" in str(record[0].message)
+        assert "without a mode or a field" in str(record[0].message)
+
+    def test_a_value_mode_shell_is_returned(self) -> None:
+        assert normalise_border(
+            {"mode": "value", "field": "count", "scheme": "Reds"}, owner="Owner"
+        ) == {"mode": "value", "field": "count"}
+
+    def test_a_flat_fill_isomorphic_form_is_an_implicit_value_mode(self) -> None:
+        assert normalise_border({"field": "count"}, owner="Owner") == {
+            "mode": "value",
+            "field": "count",
+        }
+
+    def test_a_value_mode_without_a_field_warns_and_degrades(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_border({"mode": "value"}, owner="Owner") is None
+
+        assert "requires a field" in str(record[0].message)
+
+    def test_a_follow_fill_with_a_field_is_a_contradiction(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_border(
+                    {"mode": "follow_fill", "field": "count"}, owner="Owner"
+                )
+                is None
+            )
+
+        assert "contradicts" in str(record[0].message)
+
+    def test_an_unknown_mode_message_names_both_literals(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_border({"mode": "solid"}, owner="Owner") is None
+
+        assert "expected 'follow_fill' or 'value'" in str(record[0].message)
 
     def test_an_unknown_key_warns_but_keeps_the_valid_mode(self) -> None:
         with pytest.warns(UserWarning) as record:
@@ -590,6 +624,8 @@ class TestNormaliseBorder:
         for raw in [
             None,
             {"mode": "follow_fill"},
+            {"mode": "value", "field": "count"},
+            {"field": "count"},
             {"mode": "nope"},
             {},
             42,

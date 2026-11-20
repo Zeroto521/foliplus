@@ -32,6 +32,7 @@ import {
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+import { divIconClassNameOf } from "./iconSource.js";
 import { MARKER_CLASS } from "./markerClassName.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
@@ -84,10 +85,13 @@ const readChassisSprite = (
     probe.style.visibility = "hidden";
     probe.style.left = "-9999px"; // placement-adapter: offscreen icon probe
     document.body.appendChild(probe);
-    const computed = getComputedStyle(probe);
-    url = computed.backgroundImage;
-    position = computed.backgroundPosition || "0 0";
-    document.body.removeChild(probe);
+    try {
+      const computed = getComputedStyle(probe);
+      url = computed.backgroundImage;
+      position = computed.backgroundPosition || "0 0";
+    } finally {
+      probe.remove();
+    }
   }
   const sprite = /^url\(/.test(url) ? { url, position } : null;
   chassisSpriteCache.set(presetName, sprite);
@@ -183,6 +187,86 @@ const authorGlyphColorOf = (
  *  author’s icon unchanged when the author is not a Leaflet icon (no
  *  `createIcon` to override) — honest degradation, not a fabricated divIcon.
  */
+
+/** Build a native `L.Icon` from a user URL — the URL icon source. The URL
+ *  becomes the `<img>` `src` Leaflet loads natively (no HTML of ours, so a
+ *  whitelisted URL is the only injection face and it is already gated by
+ *  `isAllowedIconUrl` at the intent/persistence layer). `loading=lazy` +
+ *  `decoding=async` keep a layer of many URL markers from firing every
+ *  request at once, and `onerror` degrades honestly to the author's captured
+ *  icon (never a fabricated divIcon), matching the glyph path's fallback. */
+const buildUrlIcon = (opts: { url: string; author: unknown }): unknown => {
+  const icon = new L.Icon({ iconUrl: opts.url }) as {
+    options: { iconUrl: string; loading?: string; decoding?: string };
+    createIcon: () => HTMLElement;
+    _createImg?: () => HTMLImageElement;
+    _setIconStyles?: (img: HTMLElement, name: string) => void;
+  };
+  icon.options.loading = "lazy";
+  icon.options.decoding = "async";
+  const authorCreate = (opts.author as { createIcon?: unknown } | undefined)
+    ?.createIcon;
+  const create =
+    typeof icon._createImg === "function"
+      ? () => {
+          const img = icon._createImg!();
+          img.src = opts.url;
+          img.alt = "";
+          // listener-exempt: leaf-DOM <img> error handler, replaced with the author icon on fallback
+          img.onerror = () => {
+            // Honest degradation: a URL that fails to load falls back to the
+            // author's captured icon (or the Leaflet default), never a fabricated
+            // divIcon. Leaflet's own createIcon(null) re-runs the author paint.
+            try {
+              const fresh = authorCreate
+                ? (authorCreate as () => HTMLElement).call(opts.author)
+                : null;
+              if (fresh && img.parentNode) img.parentNode.replaceChild(fresh, img);
+            } catch {
+              // A hostile author createIcon throwing here must not break the map:
+              // the broken <img> stays (the browser shows its own broken-image
+              // state) rather than the walk dying mid-tree.
+            }
+          };
+          if (typeof icon._setIconStyles === "function") {
+            icon._setIconStyles(img, "icon");
+          }
+          return img;
+        }
+      : typeof authorCreate === "function"
+        ? () => (authorCreate as () => HTMLElement).call(opts.author)
+        : () => document.createElement("img");
+  icon.createIcon = create;
+  return icon;
+};
+
+/** Build the authorized divIcon source: a whitelisted `className` plus the
+ *  plain-text glyph the shared renderer emits (never innerHTML of our own —
+ *  the only HTML is glyphHtml's text-safe `<i>`). A shape whose key is not in
+ *  the whitelist degrades to the author icon; the inner glyph always resolves
+ *  through resolveGlyph, so an invalid glyph name falls back the same way the
+ *  glyph source does. */
+const buildDivIconClassIcon = (opts: {
+  shape: string;
+  glyph: string;
+  author: unknown;
+  color?: string;
+  opacity?: number;
+  prefix?: string;
+}): unknown => {
+  const className = divIconClassNameOf(opts.shape);
+  if (className === null) return opts.author;
+  const glyph = resolveGlyph(opts.glyph) ?? "circle";
+  const prefix = opts.prefix ?? DEFAULT_GLYPH_PREFIX;
+  const paint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
+  return L.divIcon({
+    className,
+    html: glyphHtml(glyph, "", `color:${paint}`, prefix),
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+};
+
 /** Scale the built-in 25x41 marker box (and its [12,41] anchor) to a declared
  *  whole-icon pixel edge. The height/width ratio and the anchor's relative
  *  position are preserved, so the pin tip stays pinned and the glyph grows or
@@ -231,6 +315,7 @@ const applyDeclaredIconScale = (
   div.style.transformOrigin = "12px 41px";
   div.style.transform = `scale(${scale})`;
 };
+
 const buildMarkerIcon = (opts: {
   /** The author’s captured icon object (or the Leaflet default prototype). */
   author: unknown;
@@ -562,12 +647,38 @@ const applyIconToLeaves = (
   color?: string,
   opacity?: number,
   prefix?: string,
+  source?: { kind: string; value: string },
   iconSize?: number,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
+
+    // The three icon sources share this one walk. A URL or an authorized
+    // divIcon className is a WHOLE-ICON shape (not a glyph swap inside the
+    // author's chassis), so they build their own icon from the author capture
+    // (the Reset target) and skip the glyph-derive path entirely. The caller
+    // (the panel's applyIconToLayer) reads the intent kind and forwards it as
+    // `source`; a glyph intent (or no source) takes the derive path.
+    if (source?.kind === "url") {
+      setLeafIcon(leaf, buildUrlIcon({ url: source.value, author }));
+      return;
+    }
+    if (source?.kind === "divicon-class") {
+      setLeafIcon(
+        leaf,
+        buildDivIconClassIcon({
+          shape: source.value,
+          glyph,
+          author,
+          color,
+          opacity,
+          prefix,
+        }),
+      );
+      return;
+    }
 
     const derived = buildMarkerIcon({
       author,

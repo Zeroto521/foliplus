@@ -109,6 +109,12 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // initial layers never go through registerLayer, which is where the
   // id-specified path replays them for late registrations.
   const moved = ui.applyUserState();
+  // Initial layers never pass through layeradd or registerLayer, so the filter
+  // replay those paths perform must run here too: a reload restores the
+  // committed filter into the store, and without this pass the map keeps
+  // painting the full data (#1181). Runs after applyUserState so the runtime
+  // store and the rows exist.
+  ui.c.replayAllFilters();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
   syncListCursor(ui);

@@ -953,7 +953,15 @@ def browser() -> Generator[_CdnBrowserProxy, None, None]:
     probe = _Flaky95Probe(worker_id, _HEALTH_SAMPLE_N)
 
     with sync_playwright() as pw:
-        with pw.chromium.launch(headless=True) as browser:
+        # Honor a locally-installed browser executable (e.g.
+        # FOLIPLUS_BROWSER_EXECUTABLE=<path to chrome.exe>) so a local e2e run
+        # can use an already-present chromium build instead of the
+        # playwright-version-pinned one. CI leaves it unset -> default.
+        _exe = os.environ.get("FOLIPLUS_BROWSER_EXECUTABLE") or None
+        _launch_kwargs = {"headless": True}
+        if _exe:
+            _launch_kwargs["executable_path"] = _exe
+        with pw.chromium.launch(**_launch_kwargs) as browser:
             if _BROWSER_MODE == "shared":
                 proxy = _SharedContextBrowserProxy(browser, probe)
             else:

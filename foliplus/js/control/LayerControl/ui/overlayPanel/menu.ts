@@ -2,7 +2,7 @@
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { EVENTS } from "#core/event/index.js";
 import {
@@ -115,7 +115,14 @@ const placeMoreMenu = (ui: LayerUI): void => {
     onSide: side => menu.classList.toggle(CONST.CLASSES.MORE_MENU_UP, side === "above"),
   });
   menu.style.maxWidth = `${placement.maxWidth}px`;
-  menu.style.maxHeight = `${placement.maxHeight}px`;
+  // Cap the height only when the placement actually restricts it below the
+  // menu's natural height. The engine caps maxHeight to the available strip
+  // (the space between the anchor and the clip edge), which is tighter than
+  // the content for a small menu near the panel bottom — that would force a
+  // 5-item menu into a scroll it does not need. Only a menu the strip
+  // genuinely cannot hold gets the cap (and scrolls).
+  menu.style.maxHeight =
+    placement.maxHeight < menu.scrollHeight ? `${placement.maxHeight}px` : "";
 };
 
 /** Coalesced re-place pass bound while the menu is open. A scroll inside the
@@ -363,6 +370,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   menu.addEventListener("click", event => handleMenuClick(ui, event));
 
   ui.overlayPanel.activeMenu = { item, menu, layerId };
+  // Anchor-teardown contract (cross-panel): an external delete/clear of the
+  // anchored layer must not leave the menu (and its activeMenu / reposition /
+  // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
+  ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
+    closeMoreMenu(ui, false);
+  });
   // Same PanelController wiring as attr/filter: the dismissal contract and
   // registry identity live on the controller (dismiss outsidePress is
   // "click" for the menu — a press is a click-selection, not a drag-away).
@@ -525,6 +538,8 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
+  ui.overlayPanel.menuRemovedUnsub?.();
+  ui.overlayPanel.menuRemovedUnsub = null;
   ui.overlayPanel.menuOverlayUnregister?.();
   ui.overlayPanel.menuOverlayUnregister = null;
   ui.overlayPanel.menuReposition?.();

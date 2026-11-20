@@ -64,11 +64,13 @@
        the owner row straight into its menu, so the owner stays lit the whole
        way: the menu is its descendant. */
     margin: 0;
-    /* Fits the widest item (4-char CJK ≈90px, EN long word ≈104px) with a
-       little slack, without the dead gap the verb-only labels left at 128px.
-       Min-width — not fixed — so a future longer label widens it instead of
-       clipping. */
-    min-width: 112px;
+    /* Width: the menu sizes to its widest item (max-content) instead of a
+       fixed min-width, so a long label ("Confirm Delete") widens the menu
+       rather than clipping; max-width caps it at the shared menu cap. The
+       placement engine writes the frame cap as inline maxWidth, so a menu
+       near the viewport edge still fits. */
+    width: max-content;
+    max-width: var(--foliplus-menu-max-width);
     padding: var(--foliplus-space-xs) 0;
     display: none;
     list-style: none;

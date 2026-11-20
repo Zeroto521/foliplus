@@ -14,12 +14,12 @@
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { disposeBorderRow, resetLayerBorder } from "./border.js";
 import { renderDelegatedStylePanel } from "./delegated.js";
 import { disposeFillRow, resetLayerFill } from "./fill.js";
 import { appendResetFooter } from "./frame.js";
-import { resetLayerIcon } from "./icon.js";
+import { resetLayerIcon, syncColorRowVisibility } from "./icon.js";
 import { resetLayerIconColor } from "./iconColor.js";
 import { applyPatch, layerFields, resetStyleLabel, syncFormatRow } from "./label.js";
 import { resetLayerMarkerColor } from "./markerColor.js";
@@ -387,13 +387,11 @@ const bindStylePanel = (
   // An external delete retires the owned layer: the row (and its style
   // drawer) is being removed. Close the panel without committing — the
   // layer is gone, so there is no value to flush into it.
-  ui.overlayPanel.styleRemovedUnsub = ui.c.events.on(
-    EVENTS.LAYER_REMOVED,
-    (payload: { id: string }) => {
-      if (payload.id !== layerId) return;
-      closeStylePanel(ui, false);
-    },
-  );
+  // Anchor-teardown contract (cross-panel): close on BOTH LAYER_REMOVED and
+  // LAYER_DELETED — see subscribeLayerTearDown in teardown.ts.
+  ui.overlayPanel.styleRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
+    closeStylePanel(ui, false);
+  });
 
   // While the panel is open, a zoom change must move the current-zoom marker
   // on the zoom-range row and refresh its out-of-range state. The map-level
@@ -473,6 +471,13 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   // generates the entry (id "layer.style") and returns the detach.
   ui.overlayPanel.styleOverlayUnregister = attachPanel(ui.c.map, controller);
   controller.open();
+  // URL-mode color-row hide (PR #1228 declaration-only scope): the icon row's
+  // own sync runs at build time, when the panel is still detached and the
+  // color rows are not yet appended - closest(STYLE_PANEL) is null and the
+  // lookup is empty, so the hide never lands. Re-run once the panel is in the
+  // DOM (controller.open() appended it) so a DECLARED url source hides the
+  // color rows on open, not only on a panel write.
+  syncColorRowVisibility(ui, layerId, panel);
 };
 
 /** Refresh the open style panel in place after a Reset.

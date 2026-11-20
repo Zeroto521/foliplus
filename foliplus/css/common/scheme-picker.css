@@ -79,10 +79,9 @@
      it cannot be painted by the row, so a lane wider than the inset leaves the
      strip shorter than the trigger by (lane - inset) px — see the item rule. */
   overflow-x: hidden;
-  scrollbar-gutter: stable;
-  /* Optional, and cheap: a scheme list of seven rows usually fits, but a
-     custom long list should not get a full-width OS scrollbar. */
-  scrollbar-width: thin;
+  /* Scrollbar chrome (thin + stable gutter) is the shared recipe in
+     common/scrollbar.css — one decision for every foliplus scrollable
+     surface. This block only keeps the overhang clip. */
   /* Shell box model: declare the full list + margin so a host framework's
      bare ol,ul defaults (list-style disc, margin-bottom 1rem) cannot
      leak into the dropdown. */

@@ -68,3 +68,40 @@ describe("readDeclaredKey", () => {
     expect(read).toEqual({ invalid: [] });
   });
 });
+
+describe("readDeclaredKey — the folium-rendered camelCase spelling", () => {
+  // folium's renderer camelizes every option key at render time, so the
+  // namespace a real map carries spells a multi-word key as `iconSize`, not
+  // `icon_size`. These are the death tests for that channel: a reader that
+  // only looks up the snake_case name reads nothing on a rendered map.
+  it("reads a multi-word key folium spelled in lowerCamelCase", () => {
+    const layer = layerWith({ iconSize: 50 });
+    const parse = vi.fn((raw: unknown) => ({ declared: raw, invalid: [] }));
+    const read = readDeclaredKey(layer, "overlay1", "icon_size", parse);
+    expect(read.declared).toBe(50);
+  });
+
+  it("prefers the snake_case spelling when both are declared", () => {
+    const layer = layerWith({ icon_size: 50, iconSize: 36 });
+    const parse = vi.fn((raw: unknown) => ({ declared: raw, invalid: [] }));
+    const read = readDeclaredKey(layer, "overlay1", "icon_size", parse);
+    expect(read.declared).toBe(50);
+  });
+
+  it("reads nothing when neither spelling is declared", () => {
+    const layer = layerWith({ icon: { symbol: "x" } });
+    const parse = vi.fn((_raw: unknown) => ({ invalid: [] }));
+    const read = readDeclaredKey(layer, "overlay1", "icon_size", parse);
+    expect(parse).toHaveBeenCalledWith(undefined, "overlay1", expect.any(Function));
+    expect(read).toEqual({ invalid: [] });
+  });
+
+  it("caches the camelCase read like any other (no re-parse)", () => {
+    const layer = layerWith({ markerColor: "blue" });
+    const parse = vi.fn((raw: unknown) => ({ declared: raw, invalid: [] }));
+    readDeclaredKey(layer, "overlay1", "marker_color", parse);
+    readDeclaredKey(layer, "overlay1", "marker_color", parse);
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(parse).toHaveBeenLastCalledWith("blue", "overlay1", expect.any(Function));
+  });
+});

@@ -12,7 +12,13 @@
 // The Leaflet-facing half (capture / derive / apply / reset walks) lives in
 // core/leaflet/markerIcon.ts; this file keeps only the intent slot, the FACE
 // schedule and the panel/trigger/grid DOM.
-import { ICON_KIND, INTENT, type IconIntent, getIntent } from "../intent.js";
+import {
+  ICON_KIND,
+  INTENT,
+  type IconIntent,
+  type IconKind,
+  getIntent,
+} from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
@@ -60,24 +66,32 @@ const layerCanIcon = (ui: LayerUI, layerId: string): boolean =>
  *  the user never touched keeps exactly what the author declared. */
 const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   const intent = getIntent(ui, layerId, INTENT.ICON);
-  if (intent?.kind !== ICON_KIND.GLYPH) return;
+  if (!intent) return;
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   // Merge the current marker color + opacity into the SAME derived-icon
   // construction (the color is a separate dimension, but setIcon
   // replaces the whole icon, so a glyph edit must carry the current
-  // color and a color edit must carry the current glyph).
+  // color and a color edit must carry the current glyph). A URL / divIcon
+  // source ignores the color (an <img> cannot inherit it; the divIcon paints
+  // its own), but the walk still needs the intent kind to route.
   const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
   const panelPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
   const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   applyIconToLeaves(
     layer,
-    intent.value,
+    intent.kind === ICON_KIND.GLYPH ? intent.value : "circle",
     typeof color === "string" ? color : undefined,
     typeof opacity === "number" ? opacity : undefined,
     panelPrefix,
+    // The intent kind routes the walk: glyph -> derive, url / divicon-class
+    // -> their whole-icon builders (see applyIconToLeaves).
+    { kind: intent.kind, value: intent.value },
     declaredIconSizeOf(layer),
   );
+  // URL mode hides the color rows (decision 5) — re-synced on every icon
+  // write so a URL -> glyph switch brings them back.
+  syncColorRowVisibility(ui, layerId);
 };
 /** Write the layer's glyph and replay the walk. */
 const commitGlyph = (ui: LayerUI, layerId: string, glyph: string): void => {
@@ -127,6 +141,49 @@ const currentGlyph = (ui: LayerUI, layerId: string): string | null => {
   const intent = getIntent(ui, layerId, INTENT.ICON);
   return intent?.kind === ICON_KIND.GLYPH ? intent.value : null;
 };
+/** Decision ⑤ (URL mode honest degradation): an <img> URL icon cannot inherit
+ *  a color, so the ICON_COLOR / ICON_COLOR_OPACITY / MARKER_COLOR rows are
+ *  HIDDEN (not greyed) while a URL source is active — the design pins "hide,
+ *  not disable", so the user is never offered a control that would not paint.
+ *  The rows' capability GATES stay untouched (a gate is a pure capability bit,
+ *  locked to the reader by the parity test); this is a row-level visibility
+ *  sync keyed on the icon intent kind. A glyph / divIcon source keeps all
+ *  three rows (a divIcon inherits color through its glyph, a glyph through the
+ *  derive). The three color rows are found by their shared data-style-dim hook
+ *  inside the icon row's own style panel — the panel appends every row, so a
+ *  sibling lookup from any one row reaches the others. */
+const COLOR_ROWS_HIDDEN_IN_URL_MODE = ["iconColor", "markerColor"] as const;
+
+/** The live icon row element, set by buildIconRow and read by the URL-mode
+ *  color-row visibility sync. The color rows are siblings of the icon row in
+ *  the style-panel content, so walking up from the icon row to the panel root
+ *  reaches them all. */
+let iconRowEl: HTMLElement | null = null;
+
+const syncColorRowVisibility = (
+  ui: LayerUI,
+  layerId: string,
+  panelRoot?: HTMLElement | null,
+): void => {
+  const urlMode = getIntent(ui, layerId, INTENT.ICON)?.kind === ICON_KIND.URL;
+  const root = panelRoot ?? iconRowEl?.closest(`${CONST.CLASSES.STYLE_PANEL}`) ?? null;
+  if (!root) return;
+  for (const dim of COLOR_ROWS_HIDDEN_IN_URL_MODE) {
+    root.querySelectorAll<HTMLElement>(`[data-style-dim="${dim}"]`).forEach(row => {
+      row.hidden = urlMode;
+    });
+  }
+};
+/** The layer's current icon source as {kind, value}, or null when uncovered.
+ *  The picker reads this to highlight the active source and to seed the URL /
+ *  shape inputs. */
+const currentIcon = (
+  ui: LayerUI,
+  layerId: string,
+): { kind: IconKind; value: string } | null => {
+  const intent = getIntent(ui, layerId, INTENT.ICON);
+  return intent ? { kind: intent.kind, value: intent.value } : null;
+};
 /** The author's own glyph name when the layer's marker icon declares one
  *  (awesome-markers/Leaflet put the name in
  *  `leaf.options.icon.options.icon`). Used for the row preview only — the
@@ -173,8 +230,11 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
   const renderTrigger = () => {
     // Covered: the user's glyph. Uncovered: the author's declared glyph
     // (preview only — the write is still the author icon), else the
-    // author-original label.
-    const userGlyph = currentGlyph(ui, layerId);
+    // author-original label. A URL / divIcon source shows the URL / shape
+    // name in the trigger (the <img> cannot preview a glyph, so the name IS
+    // the honest preview).
+    const source = currentIcon(ui, layerId);
+    const userGlyph = source?.kind === ICON_KIND.GLYPH ? source.value : null;
     const author = userGlyph ? null : authorGlyphName(ui, layerId);
     const authorPrefix = userGlyph ? null : authorGlyphPrefix(ui, layerId);
     const value = userGlyph ?? author?.name ?? null;
@@ -217,6 +277,17 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
       trigger.title = hint;
       trigger.setAttribute("aria-label", hint);
       trigger.classList.add(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
+    } else if (
+      source?.kind === ICON_KIND.URL ||
+      source?.kind === ICON_KIND.DIVICON_CLASS
+    ) {
+      // A URL / divIcon source has no glyph preview (an <img> cannot show a
+      // glyph), so the trigger names the source itself — the URL or the shape
+      // key. Honest: the name IS what the marker renders.
+      glyphBox.innerHTML = "";
+      nameBox.textContent = source.value;
+      trigger.title = source.value;
+      trigger.classList.remove(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE);
     } else {
       // No user glyph and no author-declared name: the true author-original
       // label. (An author-invalid declaration never reaches here — author.name
@@ -231,6 +302,10 @@ const buildIconRow = (ui: LayerUI, layerId: string): HTMLElement | null => {
 
   const row = formRow(ui.T("style_icon"), trigger, CONST.CLASSES.STYLE_ICON_ROW);
   row.dataset.styleDim = "icon";
+  // The URL-mode color-row sync reaches the sibling color rows through this
+  // row's panel root, so keep the live element where the sync can read it.
+  iconRowEl = row;
+  syncColorRowVisibility(ui, layerId);
   bindGlyphGrid(ui, layerId, trigger, row, renderTrigger);
   return row;
 };
@@ -323,6 +398,13 @@ const buildGlyphGrid = (
   }) as HTMLElement;
   const cells: HTMLButtonElement[] = [];
 
+  // Declaration-only (user decision 2026-11-19): a URL / divIcon shape is set
+  // by the AUTHOR (folium.Icon(icon_url=) / a declared shape), never edited in
+  // the panel. The popup offers only the glyph grid; a declared URL / shape
+  // surfaces as a read-only trigger label via renderTrigger below. No edit
+  // entry point here — the URL input + shape buttons that used to live in
+  // this popup are gone (the glyph grid stays).
+
   for (const glyph of PICKER_GLYPHS) {
     const cell = dom.el(
       "button",
@@ -343,6 +425,8 @@ const buildGlyphGrid = (
     // listener-exempt: style-panel icon cell button handler on a panel-owned element
     cell.onclick = () => {
       commitGlyph(ui, layerId, glyph);
+      // A glyph source restores the color rows a URL source had hidden.
+      syncColorRowVisibility(ui, layerId);
       renderTrigger();
       close();
       // The grid is gone: hand focus back to the trigger, the element that
@@ -410,6 +494,7 @@ const ICON_DIMENSION = registerDimension<IconIntent>({
   },
 });
 export {
+  syncColorRowVisibility,
   ICON_DIMENSION,
   applyIconToLayer,
   buildIconRow,

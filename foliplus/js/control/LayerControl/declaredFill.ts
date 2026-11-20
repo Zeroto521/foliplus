@@ -82,6 +82,112 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
 const isName = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
+/** Parse a flat value-mode declaration (the fill schema) into a validated
+ *  {@link ValueConfig}.
+ *
+ *  The shared value-mode parser: fill and border reuse the SAME flat schema —
+ *  `field` (required) plus `method` / `classes` / `scheme` / `kind` — so an
+ *  author learns one declaration shape and the two faces cannot drift on what
+ *  they accept. `scope` ("fill" | "border") names the face in the messages
+ *  ("invalid fill.field" vs "invalid border.field"), which keeps the fill
+ *  warnings byte-identical while the border warnings read naturally.
+ *
+ *  `rejectKey` is the caller's already-prefixed rejection closure (it records
+ *  the message for tests and warns once per scope); the "declared fill/border"
+ *  warning prefix is the caller's, never this parser's.
+ *
+ *  Returns the validated config, or `undefined` when the declaration is
+ *  unbuildable (no `field`, an unknown `kind`, or an explicit category without
+ *  a `scheme`) — the caller then drops the whole declaration rather than
+ *  painting a misleading solid face. `method`/`classes`/`scheme` take the panel
+ *  defaults where the author stayed silent. `kind` is omitted from the numeric
+ *  record (absent = numeric, inferred by the caller against the layer's own
+ *  values); an explicit category is returned with its kind and a required
+ *  scheme. */
+const parseValueDeclaration = (
+  data: Record<string, unknown>,
+  rejectKey: (key: string, message: string) => void,
+  scope: "fill" | "border",
+): ValueConfig | undefined => {
+  let field: string | undefined;
+  if (data.field !== undefined) {
+    if (isName(data.field)) field = data.field;
+    else {
+      rejectKey(
+        "field",
+        `invalid ${scope}.field ${JSON.stringify(data.field)} (expected a property name)`,
+      );
+    }
+  }
+  if (field === undefined) {
+    rejectKey("field", `a ${scope} declaration without a ${scope}.field`);
+    return undefined;
+  }
+  if (data.kind !== undefined && !isValueKind(data.kind)) {
+    rejectKey(
+      "kind",
+      `invalid ${scope}.kind ${JSON.stringify(data.kind)} (expected "numeric" or "category")`,
+    );
+    return undefined;
+  }
+  if (data.kind === VALUE_KIND.CATEGORY) {
+    if (data.scheme === undefined) {
+      rejectKey("scheme", `a category ${scope} declaration without a ${scope}.scheme`);
+      return undefined;
+    }
+    if (!isName(data.scheme)) {
+      rejectKey(
+        "scheme",
+        `invalid ${scope}.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
+      );
+      return undefined;
+    }
+    return {
+      kind: VALUE_KIND.CATEGORY,
+      field,
+      method: CONST.FILL_VALUE.METHOD_DEFAULT,
+      classes: CLASS_COUNT.DEFAULT,
+      scheme: data.scheme,
+    };
+  }
+  let method: ValueConfig["method"] = CONST.FILL_VALUE.METHOD_DEFAULT;
+  if (data.method !== undefined) {
+    if (isClassifyMethod(data.method)) method = data.method;
+    else {
+      rejectKey(
+        "method",
+        `invalid ${scope}.method ${JSON.stringify(data.method)} (expected ${METHOD_ORDER.join("/")})`,
+      );
+    }
+  }
+  let classes: number = CLASS_COUNT.DEFAULT;
+  if (data.classes !== undefined) {
+    if (
+      typeof data.classes === "number" &&
+      Number.isInteger(data.classes) &&
+      data.classes >= CLASS_COUNT.MIN
+    ) {
+      classes = data.classes;
+    } else {
+      rejectKey(
+        "classes",
+        `invalid ${scope}.classes ${JSON.stringify(data.classes)} (expected an integer >= ${CLASS_COUNT.MIN})`,
+      );
+    }
+  }
+  let scheme: string = CONST.FILL_VALUE.SCHEME_DEFAULT;
+  if (data.scheme !== undefined) {
+    if (isName(data.scheme)) scheme = data.scheme;
+    else {
+      rejectKey(
+        "scheme",
+        `invalid ${scope}.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
+      );
+    }
+  }
+  return { field, method, classes, scheme };
+};
+
 /** Parse the flat `fill` declaration into a validated {@link DeclaredFill}.
  *
  *  One declaration, one "color by value" instruction: naming a usable `field`
@@ -129,122 +235,14 @@ const parse = (
     }
   }
 
-  // field is the one required key: without it nothing can be classified, so
-  // the declaration is dropped whole (reported as fill.field, the primary
-  // key — a declaration missing both field and scheme warns about the field
-  // only, which is the one that determines whether any ramp exists).
-  let field: string | undefined;
-  if (data.field !== undefined) {
-    if (isName(data.field)) field = data.field;
-    else {
-      rejectKey(
-        "field",
-        `invalid fill.field ${JSON.stringify(data.field)} (expected a property name)`,
-      );
-    }
-  }
-  if (field === undefined) {
-    rejectKey("field", "a fill declaration without a fill.field");
-    return { invalid };
-  }
-
-  // kind is the optional override that picks the mode. Absent reads as
-  // "numeric" (the pre-kind record shape, resolved by inference in fill.ts);
-  // an unrecognized kind drops the declaration whole — the persistence reader
-  // applies the same rule, so a kind this client cannot build is never
-  // misapplied as a numeric ramp.
-  if (data.kind !== undefined && !isValueKind(data.kind)) {
-    rejectKey(
-      "kind",
-      `invalid fill.kind ${JSON.stringify(data.kind)} (expected "numeric" or "category")`,
-    );
-    return { invalid };
-  }
-
-  if (data.kind === VALUE_KIND.CATEGORY) {
-    // A categorical mode needs its qualitative palette — the one key beyond the
-    // field a category ramp cannot build without. A missing scheme is a hard
-    // rejection for an *explicit* category: the author chose the mode, so there
-    // is no ordered method to fall back to. Only an *inferred* category fills a
-    // default (CATEGORY_SCHEME_DEFAULT in fill.ts, slice ②), where the author
-    // did not pick a kind at all. method/classes are irrelevant (a category is
-    // not ordered, so "classify" has no meaning) and deliberately not
-    // validated, the same rule isValueConfig applies to a persisted
-    // category record; they are kept at the type level so the union stays
-    // assignable to the numeric RampConfig.
-    if (data.scheme === undefined) {
-      rejectKey("scheme", "a category fill declaration without a fill.scheme");
-      return { invalid };
-    }
-    if (!isName(data.scheme)) {
-      rejectKey(
-        "scheme",
-        `invalid fill.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
-      );
-      return { invalid };
-    }
-    return {
-      declared: {
-        kind: VALUE_KIND.CATEGORY,
-        field,
-        method: CONST.FILL_VALUE.METHOD_DEFAULT,
-        classes: CLASS_COUNT.DEFAULT,
-        scheme: data.scheme,
-      },
-      invalid,
-    };
-  }
-
-  // numeric (kind absent or "numeric"): validate the classifier inputs, each
-  // key degrading on its own with defaults where the author stayed silent.
-  let method: ValueConfig["method"] = CONST.FILL_VALUE.METHOD_DEFAULT;
-  if (data.method !== undefined) {
-    if (isClassifyMethod(data.method)) method = data.method;
-    else {
-      rejectKey(
-        "method",
-        `invalid fill.method ${JSON.stringify(data.method)} (expected ${METHOD_ORDER.join("/")})`,
-      );
-    }
-  }
-
-  // The declared count is the author's, not the panel's: anything an integer
-  // classifier can build is kept as-is (a declared 12 paints 12 and the panel
-  // shows 12 as its own option). Only an unbuildable count is rejected —
-  // non-integer, or below MIN where the classes stop meaning anything. The
-  // write path clamps to the persisted 2..9 range, so the first user edit
-  // converges; the declaration itself is never rewritten.
-  let classes: number = CLASS_COUNT.DEFAULT;
-  if (data.classes !== undefined) {
-    if (
-      typeof data.classes === "number" &&
-      Number.isInteger(data.classes) &&
-      data.classes >= CLASS_COUNT.MIN
-    ) {
-      classes = data.classes;
-    } else {
-      rejectKey(
-        "classes",
-        `invalid fill.classes ${JSON.stringify(data.classes)} (expected an integer >= ${CLASS_COUNT.MIN})`,
-      );
-    }
-  }
-
-  let scheme: string = CONST.FILL_VALUE.SCHEME_DEFAULT;
-  if (data.scheme !== undefined) {
-    if (isName(data.scheme)) scheme = data.scheme;
-    else {
-      rejectKey(
-        "scheme",
-        `invalid fill.scheme ${JSON.stringify(data.scheme)} (expected a palette name)`,
-      );
-    }
-  }
-
-  // kind is deliberately omitted (absent = numeric): fill.ts infers it from
-  // the layer's values and fills the category scheme default only when the
-  // inference lands on category.
-  return { declared: { field, method, classes, scheme }, invalid };
+  // The flat value fields are validated by the shared parser: the one
+  // declaration schema fill and border reuse (field required; method/classes/
+  // scheme/kind optional). A hard drop (no field, unknown kind, category
+  // without scheme) returns undefined and drops the whole declaration; the
+  // config is the declared read-time default.
+  const config = parseValueDeclaration(data, rejectKey, "fill");
+  if (config === undefined) return { invalid };
+  return { declared: config, invalid };
 };
 
 /** Read (and cache) the fill declaration on one layer.
@@ -268,4 +266,4 @@ const readDeclaredFill = (layer: unknown, layerId?: string): DeclaredFillRead =>
   return readDeclaredKey(layer, layerId, "fill", parse);
 };
 
-export { readDeclaredFill };
+export { readDeclaredFill, parseValueDeclaration };

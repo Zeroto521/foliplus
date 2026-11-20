@@ -260,6 +260,13 @@ const bindFoldOverlay = (opts: {
       opts.container.classList.remove(PANEL_CLASS.EXPANDED);
       opts.container.classList.add(PANEL_CLASS.COLLAPSED);
       adjustPanelZIndex({ container: opts.container, expanded: false });
+      // Return focus to the toggle that opened the panel (a11y): a keyboard
+      // user who opened a fold panel and closed it via outside press should
+      // not strand focus on <body> — the toggle is the natural landing spot.
+      const toggle = opts.container.querySelector<HTMLElement>(
+        `.${PANEL_CLASS.TOGGLE_BTN}`,
+      );
+      if (toggle && document.activeElement !== toggle) toggle.focus();
       return true;
     },
     panels: () => {

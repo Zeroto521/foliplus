@@ -382,10 +382,14 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     const dropdown = blockOf(scheme, ".foliplus-scheme-picker-dropdown {");
     expect(dropdown).not.toContain("overflow-y");
     expect(dropdown).toContain("overflow-x: hidden");
-    expect(dropdown).toContain("scrollbar-gutter: stable");
+    // Scrollbar chrome is the shared recipe (common/scrollbar.css), not a
+    // private declaration here: the picker's block must not restate it.
+    expect(dropdown).not.toContain("scrollbar-gutter");
+    expect(dropdown).not.toContain("scrollbar-width");
     const menu = css("foliplus/css/common/menu.css");
     const shell = blockOf(menu, ":is(");
     expect(shell).toContain("overflow-y: auto");
+    expect(shell).toContain("overflow-x: hidden");
     // blockOf returns only the declaration block; the selector list precedes
     // the opening brace, and the picker must be in it (one shell owns the box).
     const shellSelector = menu.slice(
@@ -393,6 +397,26 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
       menu.indexOf("{", menu.indexOf(":is(")),
     );
     expect(shellSelector).toContain(".foliplus-scheme-picker-dropdown");
+    // Only list-shaped scroll containers are in the recipe; large panel
+    // bodies (panel-content, row-panel) are excluded -- reserving a gutter
+    // lane there shifts their text/geometry on every open.
+    // The shared scrollbar recipe owns the thin + stable-gutter decision for
+    // every foliplus scrollable surface, the picker included.
+    const scrollbar = css("foliplus/css/common/scrollbar.css");
+    expect(scrollbar).toContain("scrollbar-width: var(--foliplus-scrollbar-width)");
+    expect(scrollbar).toContain("scrollbar-gutter: var(--foliplus-scrollbar-gutter)");
+    const scrollbarSelector = scrollbar.slice(
+      scrollbar.indexOf(":is("),
+      scrollbar.indexOf("{", scrollbar.indexOf(":is(")),
+    );
+    expect(scrollbarSelector).toContain(".foliplus-scheme-picker-dropdown");
+    expect(scrollbarSelector).toContain(".foliplus-layer-more-menu");
+    expect(scrollbarSelector).toContain(".foliplus-search-result-panel");
+    expect(scrollbarSelector).toContain(".foliplus-dropdown-list");
+    // The token group is the single value source.
+    const tokens = css("foliplus/css/common/token.css");
+    expect(tokens).toContain("--foliplus-scrollbar-width: thin");
+    expect(tokens).toContain("--foliplus-scrollbar-gutter: stable");
   });
 
   it("keeps the strip on the scrollport right edge when the lane exceeds the inset", () => {
