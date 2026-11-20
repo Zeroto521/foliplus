@@ -410,7 +410,13 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
       scrollbar.indexOf("{", scrollbar.indexOf(":is(")),
     );
     expect(scrollbarSelector).toContain(".foliplus-scheme-picker-dropdown");
-    expect(scrollbarSelector).toContain(".foliplus-layer-more-menu");
+    // .foliplus-layer-more-menu is deliberately NOT here: its item set is
+    // fixed at open time, so there is no scrollbar appearance to absorb.
+    // It still gets the thin lane via a separate width-only rule.
+    expect(scrollbarSelector).not.toContain(".foliplus-layer-more-menu");
+    const menuRule = scrollbar.slice(scrollbar.indexOf(".foliplus-layer-more-menu {"));
+    expect(menuRule).toContain("scrollbar-width");
+    expect(menuRule).not.toContain("scrollbar-gutter");
     expect(scrollbarSelector).toContain(".foliplus-search-result-panel");
     expect(scrollbarSelector).toContain(".foliplus-dropdown-list");
     // The token group is the single value source.
