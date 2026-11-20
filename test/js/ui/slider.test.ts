@@ -558,6 +558,19 @@ describe("Slider primitive", () => {
     ).not.toThrow();
   });
 
+  it("skips a bubble whose thumb left the slider's pool", () => {
+    const { slider } = make({ min: 0, max: 100, value: 40, label: "x" });
+    // A bubble is live on a real thumb; drop that thumb from the slider's pool
+    // (e.g. a row rebuild) and refresh. The anchor stays in the bubble map but
+    // no longer has a thumb, so the text refresh must skip it without crashing.
+    (slider as unknown as { showBubble: (i: number) => void }).showBubble(0);
+    const thumbs = (slider as unknown as { thumbs: HTMLElement[] }).thumbs;
+    thumbs.splice(0, 1);
+    expect(() =>
+      (slider as unknown as { updateBubbles: () => void }).updateBubbles(),
+    ).not.toThrow();
+  });
+
   it("keeps the bubble text in step with keyboard steps", () => {
     const { host } = make({ min: 0, max: 100, value: 40, label: "x" });
     const thumbEl = thumb(host);
