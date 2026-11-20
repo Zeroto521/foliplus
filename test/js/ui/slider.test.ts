@@ -1510,7 +1510,7 @@ describe("Slider width-adaptive end numbers", () => {
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
+    stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
@@ -1539,7 +1539,10 @@ describe("Slider width-adaptive end numbers", () => {
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("re-measures when the row's width changes, both ways", () => {
+  it("keeps a dot-centred label centred regardless of the row's width", () => {
+    // A dot-centred label is anchored by the thumb (w <= thumb stays inside
+    // the row), not by the row's half — so a short numeric label never
+    // clamps, no matter how narrow the row gets.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1550,22 +1553,23 @@ describe("Slider width-adaptive end numbers", () => {
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 60);
+    stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     stubRow(host, 40);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     stubRow(host, 240);
     measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
   });
 
   it("auto-aligns numeric labels to dot (fitting label stays out of clamp)", () => {
     // Numeric-shaped labels read as "the value at this point" and stay
-    // dot-centred unless they overflow their half.
+    // dot-centred unless they overhang the thumb (and so the row edge).
     const { host } = make({
       min: 0,
       max: 100,
@@ -1576,7 +1580,7 @@ describe("Slider width-adaptive end numbers", () => {
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
+    stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
@@ -1604,7 +1608,7 @@ describe("Slider width-adaptive end numbers", () => {
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it('explicit valuesAlign: "dot" keeps a text label dot-centred while it fits', () => {
+  it('explicit valuesAlign: "dot" keeps a text label dot-centred while it fits the dot anchor', () => {
     // A caller that pins valuesAlign: "dot" opts out of the text-edge rule
     // — the width-fit rule alone decides. This is the escape hatch a
     // future numeric-looking token (like a currency string) may need.
@@ -1619,7 +1623,7 @@ describe("Slider width-adaptive end numbers", () => {
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
+    stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
@@ -1641,6 +1645,27 @@ describe("Slider width-adaptive end numbers", () => {
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
     stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+  it("clamps a long numeric label (like 5860 / 28654) to its edge", () => {
+    // A numeric label wider than the thumb (a 4-5 digit number) overhangs the
+    // row edge when dot-centred (anchor thumb/2, shift -w/2 -> outer edge
+    // thumb/2 - w/2 < 0), so it clamps to the edge even though its mode is
+    // "dot". This is the user's report: 5860 / 28654 must read as the row's
+    // two ends, not centred on the dots.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "5860", max: "28654" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 40);
+    stubLabel(maxEl, 60);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
@@ -1723,7 +1748,7 @@ describe("Slider valuesAlign mode resolution", () => {
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
+    stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);

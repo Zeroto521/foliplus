@@ -706,17 +706,18 @@ class Slider {
       parseFloat(
         getComputedStyle(this.root).getPropertyValue("--foliplus-slider-thumb-size"),
       ) || 14;
-    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
-    // A label may stay dot-centred while it does not cross the row's middle:
-    // half the row, minus the half-thumb anchor and the gap to its sibling.
-    const half = rowWidth / 2 - thumb / 2 - gap;
-    const fits = (el: HTMLElement) => el.scrollWidth <= half + 1;
+    // A dot-centred label is anchored a half-thumb in from the row edge and
+    // shifted back half its own width (translateX(-50%)), so its outer edge
+    // sits at thumb/2 - w/2. It stays inside the row only while w <= thumb;
+    // a wider label (a long number like 5860) would overhang the row edge,
+    // so it clamps to the edge regardless of the row's width.
+    const fits = (el: HTMLElement) => el.scrollWidth <= thumb + 1;
     // Alignment mode owns the clamp decision for text labels: "edges" means
     // the label is a wide token (date, category, unit string) whose semantics
     // are the row's ends, not "the value at this dot" — it clamps regardless
     // of width so the row reads as left/right edge labels. "dot" keeps the
-    // width-fit rule (a numeric label that overflows its half still clamps,
-    // but one that fits stays centred on its dot).
+    // width-fit rule (a numeric label that overhangs the row edge still clamps,
+    // but one that fits the thumb stays centred on its dot).
     const edgesMode = this.valuesAlignMode === "edges";
     const minClamp = edgesMode || !fits(this.minEl);
     const maxClamp = edgesMode || !fits(this.maxEl);
