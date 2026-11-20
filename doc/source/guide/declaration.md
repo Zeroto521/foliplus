@@ -216,6 +216,14 @@ feature property) plus exactly one of the two forms:
 warns once and is ignored — the layer starts unfiltered, never
 filtered-to-empty. An inverted range (``min > max``) is also ignored.
 
+:::{note}
+
+An ``enum`` filter's value names are not validated in Python — the runtime
+(the JavaScript reader) is the one that rejects an unknown name, so a typo
+in ``values`` surfaces at runtime rather than at declaration time.
+
+:::
+
 (border)=
 
 ## ``border`` — border default mode
@@ -269,6 +277,14 @@ blank name warns once and is ignored. Whether the name is one of the runtime's
 presets is the JavaScript reader's verdict — an unknown preset name warns once
 and degrades to the derived default (the panel's built-in blue), never an
 unvalidated colour.
+
+:::{note}
+
+The authoritative preset list lives in ``markerColorPreset.ts``
+(``foliplus/js/core/leaflet/``) — this page lists it for readability and
+drifts if the runtime set changes.
+
+:::
 
 (icon_size)=
 
@@ -327,6 +343,13 @@ The URL is accepted on a strict whitelist — ``https?://`` and
 (``data:image/svg+xml`` can carry script), as are ``data:text/html`` and
 ``javascript:``. A non-matching URL is ignored (the panel degrades to the
 FontAwesome glyph), never rendered at all.
+
+:::{note}
+
+The whitelist regex lives in ``iconSource.ts`` (``foliplus/js/core/leaflet/``) —
+this page states the policy; the code owns the exact pattern.
+
+:::
 
 ### divIcon shape
 
