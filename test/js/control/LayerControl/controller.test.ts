@@ -8170,6 +8170,60 @@ describe("LayerAPI.getStyle", () => {
     expect(snap!.fill!.perFeature).toBe(false);
   });
 
+  it("reads iconColor and markerColor opacity into the snapshot icon block", () => {
+    // P2-1: the icon-colour / marker-colour dimensions carry {value, opacity};
+    // the snapshot must not discard the opacity halves.
+    const layer = wrap(makeLeaf({ value: 1 }));
+    const { manager, ui } = initFixture({
+      data: [{ id: "ico1", name: "ICO", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "ico1", name: "ICO", role: "overlay", layer });
+    setIntent(ui, "ico1", "iconColor", "#ff0000");
+    setIntent(ui, "ico1", "iconColorOpacity", 40);
+    setIntent(ui, "ico1", "markerColor", "#00ff00");
+    setIntent(ui, "ico1", "markerColorOpacity", 60);
+    const snap = manager.getStyle("ico1")!;
+    expect(snap.icon).toBeDefined();
+    expect(snap.icon!.color).toBe("#ff0000");
+    expect(snap.icon!.colorOpacity).toBe(40);
+    expect(snap.icon!.markerColor).toBe("#00ff00");
+    expect(snap.icon!.markerColorOpacity).toBe(60);
+  });
+
+  it("merges a styleProvider labelFormat into the snapshot label block", () => {
+    // P2-3: the provider's labelFormat was previously dropped; the table-driven
+    // merge must carry it.
+    const { manager } = initFixture();
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "lfmt",
+      name: "LFMT",
+      role: "overlay",
+      layer: { options: {} },
+      styleProvider: () => ({ labelFormat: "{name}: {value}" }),
+    } as any);
+    const snap = manager.getStyle("lfmt")!;
+    expect(snap.label?.format).toBe("{name}: {value}");
+  });
+
+  it("merges a styleProvider labelCollide into the snapshot label block", () => {
+    // P2-4: MeasureControl's styleProvider returns labelCollide; it must land
+    // in the snapshot label block.
+    const { manager } = initFixture();
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({
+      id: "lcol",
+      name: "LCOL",
+      role: "overlay",
+      layer: { options: {} },
+      styleProvider: () => ({ labelShow: true, labelCollide: true }),
+    } as any);
+    const snap = manager.getStyle("lcol")!;
+    expect(snap.label?.show).toBe(true);
+    expect(snap.label?.collide).toBe(true);
+  });
+
   it("no label config means no label block in snapshot", () => {
     const layer = wrap(makeLeaf({ value: 1 }));
     const { manager } = initFixture({

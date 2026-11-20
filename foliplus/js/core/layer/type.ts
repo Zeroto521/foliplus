@@ -1140,7 +1140,16 @@ interface LayerStyleSnapshot {
   /** Marker radius (CircleMarker only). */
   size?: { radius?: number };
   /** Marker glyph + its color / markerColor overrides. */
-  icon?: { glyph?: string; color?: string; markerColor?: string };
+  icon?: {
+    glyph?: string;
+    color?: string;
+    /** Opacity of the icon colour override (0-1 or 0-100 per the dimension's
+     *  storage unit). Absent when no icon-colour opacity is set. */
+    colorOpacity?: number;
+    markerColor?: string;
+    /** Opacity of the marker-colour override. Absent when not set. */
+    markerColorOpacity?: number;
+  };
   /** Label config (content dimension, no provenance tiers). */
   label?: {
     show?: boolean;

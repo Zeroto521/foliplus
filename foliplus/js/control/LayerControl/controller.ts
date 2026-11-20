@@ -1098,7 +1098,9 @@ class LayerController implements LayerAPI {
       snapshot.icon = {
         glyph: icon?.value,
         color: iconColor?.value,
+        colorOpacity: iconColor?.opacity,
         markerColor: markerColor?.value,
+        markerColorOpacity: markerColor?.opacity,
       };
     }
     snapshot.provenance.icon = prov(DIM.ICON);
@@ -1124,20 +1126,28 @@ class LayerController implements LayerAPI {
     if (typeof provider === "function") {
       try {
         const values = provider() as Record<string, unknown>;
-        if (typeof values.labelColor === "string") {
-          snapshot.label = { ...snapshot.label, color: values.labelColor };
-        }
-        if (typeof values.labelShow === "boolean") {
-          snapshot.label = { ...snapshot.label, show: values.labelShow };
-        }
-        if (typeof values.labelSize === "number") {
-          snapshot.label = { ...snapshot.label, size: values.labelSize };
-        }
-        if (typeof values.borderColor === "string") {
-          snapshot.border = { color: values.borderColor, ...snapshot.border };
-        }
-        if (typeof values.borderWeight === "number") {
-          snapshot.border = { weight: values.borderWeight, ...snapshot.border };
+        // Table-driven provider merge (replay convergence on the read side):
+        // each entry maps one provider key to its snapshot path and a type
+        // guard. A provider adding a key updates this table, not a new if.
+        const PROVIDER_KEYS: ReadonlyArray<{
+          key: string;
+          target: "label" | "border";
+          field: string;
+          is: (v: unknown) => boolean;
+        }> = [
+          { key: "labelColor", target: "label", field: "color", is: (v): v is string => typeof v === "string" },
+          { key: "labelShow", target: "label", field: "show", is: (v): v is boolean => typeof v === "boolean" },
+          { key: "labelSize", target: "label", field: "size", is: (v): v is number => typeof v === "number" },
+          { key: "labelFormat", target: "label", field: "format", is: (v): v is string => typeof v === "string" },
+          { key: "labelCollide", target: "label", field: "collide", is: (v): v is boolean => typeof v === "boolean" },
+          { key: "borderColor", target: "border", field: "color", is: (v): v is string => typeof v === "string" },
+          { key: "borderWeight", target: "border", field: "weight", is: (v): v is number => typeof v === "number" },
+        ];
+        for (const spec of PROVIDER_KEYS) {
+          const v = values[spec.key];
+          if (!spec.is(v)) continue;
+          const cur = snapshot[spec.target] ?? {};
+          snapshot[spec.target] = { ...cur, [spec.field]: v } as typeof cur;
         }
       } catch (err) {
         // Provider threw (canvas layer in a bad state) — return the
