@@ -152,7 +152,7 @@ class LayerOrder {
       if (!neighbor) continue;
       // The saved order is one role-agnostic id list; a neighbor of the
       // OTHER role is not a legal placement anchor — replaying onto it
-      // would interleave the blocks and strand a stale section boundary.
+      // would interleave the blocks and strand a stale role boundary.
       if (neighbor.role !== layerInfo.role) continue;
       const to = registry.indexOf(neighbor);
       // Removing `layerInfo` first shifts every later index down by one.

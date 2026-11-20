@@ -97,7 +97,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(layout.order.overlay).toEqual(["roads"]);
   });
 
-  it("createFolder allows the same key in different sections", () => {
+  it("createFolder allows the same key in different roles", () => {
     let layout = emptyFolderLayout();
     layout = createFolder(layout, "overlay", "Roads");
     layout = createFolder(layout, "base", "Roads");
@@ -146,7 +146,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(layout.order.overlay).toEqual([]);
   });
 
-  it("deleteFolder leaves members in other sections untouched", () => {
+  it("deleteFolder leaves members in other roles untouched", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],
@@ -434,7 +434,7 @@ describe("pure helper coverage", () => {
     expect(order.map(e => e.id)).toEqual(["a"]);
   });
 
-  it("fullDisplayOrder composes both sections", () => {
+  it("fullDisplayOrder composes both roles", () => {
     const layout = emptyFolderLayout();
     const entries = [
       entry("a", "overlay", null, 0),
@@ -453,7 +453,7 @@ describe("pure helper coverage", () => {
     expect(next.order.overlay).toEqual(["roads"]);
   });
 
-  it("createFolder reuses an existing directory entry across sections", () => {
+  it("createFolder reuses an existing directory entry across roles", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],

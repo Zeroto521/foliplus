@@ -87,8 +87,8 @@ const GEOM_TYPE = {
  *  "overlay"). Owned by core so z / registry / factory compare against one
  *  definition; consumers import it from the `core/layer` barrel.
  *
- *  Named ROLE because it says what the layer *is*. The UI section is projected
- *  from it by `sectionOf` (role.ts) rather than being a second string. */
+ *  Named ROLE because it says what the layer *is*. The UI section IS the role
+ *  (no separate section middle-layer), so the panel reads the role directly. */
 const ROLE = { OVERLAY: "overlay", BASE: "base" } as const;
 
 /** Layer kind names — the `LayerKind` vocabulary ("tile" | "vector" | "canvas"

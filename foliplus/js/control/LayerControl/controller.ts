@@ -1621,7 +1621,7 @@ class LayerController implements LayerAPI {
    * The event bus carries the notification; the component owns the wipe.
    *
    * User-added layers are deleted for good: the id is added to `removed` so
-   * the registry refuses it again, and the three sections that key by layer
+   * the registry refuses it again, and the three stores that key by layer
    * id — order, the rename, the label config — are pruned. Only a user
    * who pointed at a row and chose "delete" knows the layer is gone for
    * good; per-dimension resets drop one provenance marker instead, which is
