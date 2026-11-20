@@ -662,6 +662,49 @@ describe("dropdown: multiple selections", () => {
     expect(changes).toEqual(["b"]);
   });
 
+  it("single-mode paints a ✓ lead on the selected row at render", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      value: "a",
+      onChange: () => {},
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+
+    const leads = () =>
+      optionEls(dropdown).map(
+        el => el.querySelector(".foliplus-dropdown-lead")?.textContent ?? "",
+      );
+    expect(leads()).toEqual(["\u2713", "", ""]);
+    optionEls(dropdown)[1].click();
+    expect(dropdown.getValue()).toBe("b");
+    dropdown.open();
+    expect(leads()).toEqual(["", "\u2713", ""]);
+  });
+
+  it("multiple-mode paints a per-row checkbox reflecting the selection", () => {
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+      values: ["a", "c"],
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.open();
+
+    const boxes = () =>
+      optionEls(dropdown).map(
+        el => el.querySelector("input[type=checkbox]")?.checked ?? null,
+      );
+    expect(boxes()).toEqual([true, false, true]);
+    // Toggling a row repaints its box in place (paintRow multiple branch).
+    optionEls(dropdown)[1].click();
+    expect(boxes()).toEqual([true, true, true]);
+  });
+
   it("the select-all action stays inert after destroy (destroyed guards)", () => {
     const dropdown = createDropdown({
       overlay: mockOverlay().overlay,

@@ -358,13 +358,9 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     ctx: { selected: boolean; index: number },
     st: InternalState,
   ): void => {
-    if (st.multiple) {
-      const box = row.querySelector<HTMLInputElement>("input[type=checkbox]");
-      if (box) box.checked = ctx.selected;
-      return;
-    }
-    const lead = row.querySelector<HTMLElement>("." + DROPDOWN_CLASS.LEAD);
-    if (lead) lead.textContent = ctx.selected ? "\u2713" : "";
+    if (!st.multiple) return;
+    const box = row.querySelector<HTMLInputElement>("input[type=checkbox]");
+    if (box) box.checked = ctx.selected;
   };
 
   const selectAllRowOf = (): HTMLElement => {

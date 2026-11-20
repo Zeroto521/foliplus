@@ -574,6 +574,19 @@ describe("setValue", () => {
     expect(trigger.title).toBe("Blues");
     picker.destroy();
   });
+  it("paints a ✓ lead on the active scheme row at render", () => {
+    const { picker, trigger } = makePicker();
+    trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const leads = () =>
+      Array.from(picker.getDropdown()!.querySelectorAll("[role=option]")).map(
+        el => el.querySelector(".foliplus-scheme-picker-lead")?.textContent ?? "",
+      );
+    expect(leads().filter(Boolean)).toHaveLength(1);
+    expect(leads()[leads().findIndex(t => t === "\u2713")]).toBe("\u2713");
+    picker.setValue("Blues");
+    expect(leads().filter(Boolean)).toHaveLength(1);
+    picker.destroy();
+  });
 
   it("does not trigger onChange", () => {
     const onChange = vi.fn();
