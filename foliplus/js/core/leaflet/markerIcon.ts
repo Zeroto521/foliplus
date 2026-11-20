@@ -293,6 +293,13 @@ const scaleBox = (
     anchor: [Math.floor((baseWidth / 2) * scale), Math.round(baseHeight * scale)],
   };
 };
+/** Awesome-markers sprite natural box (the CDN's real geometry).
+ *  spriteBaseOf falls back to this when the author declares no iconSize.
+ *  Tests intentionally use a DIFFERENT fixture size ([36,46]) to prove the
+ *  code reads the author's declared size, not a hard-coded default — see
+ *  the markerIcon.test.ts scale test. */
+const AWESOME_MARKERS_DEFAULT_SIZE: [number, number] = [35, 45];
+
 /** The author's sprite geometry (natural box + anchor), read once per
  *  build so the scale factor is measured from the ACTUAL path's base —
  *  the awesome-markers sprite is 35x45 / [17,42], the div-icon 25x41 /
@@ -311,7 +318,7 @@ const spriteBaseOf = (author: unknown): SpriteBase => {
   )?.options;
   const size = Array.isArray(opts?.iconSize)
     ? opts.iconSize
-    : ([35, 45] as [number, number]);
+    : AWESOME_MARKERS_DEFAULT_SIZE;
   const anchor = Array.isArray(opts?.iconAnchor)
     ? opts.iconAnchor
     : ([Math.floor(size[0] / 2), size[1]] as [number, number]);
@@ -339,6 +346,9 @@ const applyDeclaredIconScale = (
   // _setIconStyles painted), the inline background, and the glyph/chassis
   // children. The outer box is only the Leaflet-positioned frame.
   inner.className = div.className;
+  // Dedicated vocabulary class so CSS and tests can find the scale wrapper
+  // without relying on the outer-to-inner structural relationship.
+  inner.classList.add(MARKER_CLASS.SCALE_WRAPPER);
   inner.style.backgroundImage = div.style.backgroundImage;
   inner.style.backgroundPosition = div.style.backgroundPosition;
   inner.style.width = `${base.width}px`;
