@@ -483,4 +483,146 @@ describe("ui/list folder rows", () => {
       ui.uiContainer!.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`),
     ).not.toBeNull();
   });
+
+  it("openMoreMenu on a folder row opens the folder menu (rename/show/hide/delete)", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    ui.openMoreMenu(folderRow);
+    const menu = ui.overlayPanel.activeMenu?.menu;
+    expect(menu).toBeTruthy();
+    const actions = [...menu!.querySelectorAll<HTMLElement>("[data-action]")].map(
+      b => b.dataset.action,
+    );
+    expect(actions).toContain(CONST.ACTION.RENAME_FOLDER);
+    expect(actions).toContain(CONST.ACTION.SHOW_FOLDER);
+    expect(actions).toContain(CONST.ACTION.HIDE_FOLDER);
+    expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
+  });
+
+  it("openMoreMenu on a role row opens the role menu (new-folder/expand/collapse/show/hide)", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    ui.openRoleMenu(roleRow);
+    const menu = ui.overlayPanel.activeMenu?.menu;
+    expect(menu).toBeTruthy();
+    const actions = [...menu!.querySelectorAll<HTMLElement>("[data-action]")].map(
+      b => b.dataset.action,
+    );
+    expect(actions).toContain(CONST.ACTION.NEW_FOLDER);
+    expect(actions).toContain(CONST.ACTION.EXPAND_ALL);
+    expect(actions).toContain(CONST.ACTION.COLLAPSE_ALL);
+    expect(actions).toContain(CONST.ACTION.SHOW_ALL);
+    expect(actions).toContain(CONST.ACTION.HIDE_ALL);
+  });
+
+  it("folder row checkbox change hides/shows every member through handleChange", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Parks",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    ui.handleChange({ target: folderCb } as unknown as Event);
+    const member1 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    const member2 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd2"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(member1.checked).toBe(false);
+    expect(member2.checked).toBe(false);
+    // Toggle back on: the folder row's checkbox flips the group visible.
+    const folderCb2 = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb2.checked = true;
+    ui.handleChange({ target: folderCb2 } as unknown as Event);
+    const member3 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    const member4 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd2"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(member3.checked).toBe(true);
+    expect(member4.checked).toBe(true);
+  });
+
+  it("folder rename commit renames the folder in the layout", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    const input = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.RENAME_INPUT}`,
+    ) as HTMLInputElement;
+    input.value = "roads-renamed";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    // A rename rewrites the DISPLAY name, not the identity key (the key is
+    // stable; folderLayout.renameFolder updates only the directory entry name).
+    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    expect(folder?.name).toBe("roads-renamed");
+  });
 });
