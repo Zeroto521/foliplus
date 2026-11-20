@@ -42,6 +42,26 @@ describe("container layer row", () => {
     expect(isContainerLayer(geoShape)).toBe(false);
   });
 
+  it("isContainerLayer: excludes a real L.GeoJSON instance", () => {
+    // jsdom has no L.GeoJSON; the predicate guards the instanceof check, so
+    // stub the class to exercise the GeoJSON exclusion branch.
+    class GeoJSONStub {
+      _layers: Record<string, unknown> = {};
+      eachLayer(fn: (c: unknown) => void): void {
+        for (const c of Object.values(this._layers)) fn(c);
+      }
+    }
+    const prev = (window as any).L.GeoJSON;
+    (window as any).L.GeoJSON = GeoJSONStub;
+    try {
+      const geo = new GeoJSONStub();
+      geo._layers["1"] = { feature: { type: "Feature" } };
+      expect(isContainerLayer(geo as unknown as L.Layer)).toBe(false);
+    } finally {
+      (window as any).L.GeoJSON = prev;
+    }
+  });
+
   it("countChildLayers: direct children, not deep leaves", () => {
     const leaf1: any = { options: {} };
     const leaf2: any = { options: {} };
