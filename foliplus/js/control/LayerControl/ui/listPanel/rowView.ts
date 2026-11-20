@@ -152,6 +152,10 @@ const rowType = (
   // a featureCountProvider — that layer's count is provider-driven, so it is
   // not a sub-layer container.
   if (layer && !layerInfo.featureCountProvider && isContainerLayer(layer)) {
+    // Materialize the surface before the container answer: a container whose
+    // leaves expose labelable properties still needs its label pane, and the
+    // surface is what declares it (withLabelSpec runs inside surfaceFor).
+    ui.c.surfaceFor(layerInfo);
     return { svg: SVGs.ICON_LAYERS, key: "type_container" };
   }
   if (layer) {
