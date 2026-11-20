@@ -2,7 +2,7 @@
 import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { EVENTS } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
 import {
@@ -212,8 +212,9 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // An external delete retires the owned layer: the row (and its attrs
   // panel) is being removed. Close without flushing — there is nothing
   // to commit, the layer is gone.
-  ui.overlayPanel.attrsRemovedUnsub = ui.events.on(EVENTS.LAYER_REMOVED, ({ id }) => {
-    if (id !== layerId) return;
+  // Anchor-teardown contract (cross-panel): close on BOTH LAYER_REMOVED and
+  // LAYER_DELETED — see subscribeLayerTearDown in teardown.ts.
+  ui.overlayPanel.attrsRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
     closeAttrsPanel(ui, false);
   });
 

@@ -80,6 +80,7 @@ import {
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
+import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
@@ -197,9 +198,11 @@ const ENUM_OPTION_LIMIT = 50;
  *  Column-shaped GeoJSON means the first K leaves represent the field shape
  *  with near-certainty (see design §3), so an O(K) bounded scan answers
  *  "does this layer expose any filterable field" without a full walk. The
- *  probe is conservative by design: a layer whose first K leaves carry no
- *  property value reads false even when a later leaf has one (the menu then
- *  hides the Filter entry until the author declares a filter). */
+ *  probe is conservative by design: a layer whose first PROBE_K (64)
+ *  leaves carry no property value reads false even when a later leaf has
+ *  one — the menu hides the Filter entry until the author declares a
+ *  filter explicitly (a column-shaped GeoJSON whose first 64 rows are
+ *  property-empty must declare its filterable field). */
 const PROBE_K = 64;
 
 /** Why a folder create/rename was refused. `blank` is an empty or
@@ -1216,7 +1219,11 @@ class LayerController implements LayerAPI {
             key: "labelFormat",
             target: "label",
             field: "format",
-            is: (v): v is string => typeof v === "string",
+            // NumberStyle whitelist (P3-3): the declared format is one of four
+            // tokens, not an arbitrary string — a stray value would silently
+            // break the label renderer if it slipped through.
+            is: (v): v is NumberStyle =>
+              v === "auto" || v === "int" || v === "comma" || v === "percent",
           },
           {
             key: "labelCollide",
@@ -2394,11 +2401,16 @@ class LayerController implements LayerAPI {
     // The host's dimensions/counts pass already built (and cached) the
     // filterFeatures row, so the field picker reads the same cached
     // snapshot — never a second walk.
-    // Invariant: `dimensions.length > 0` (checked above) implies the
-    // host's dimensions() pass already built and cached the filterFeatures
-    // row, so the snapshot is present here — the read is a cache hit, never
-    // a null. `?.`/`??` would only hide a broken invariant.
-    const features = this.ui!.runtimeStore.getFilterFeatures(id)!;
+    // Defensive read: the snapshot is normally a cache hit (dimensions >
+    // 0 implies the host's dimensions() pass built it), but a missing host
+    // or an unbuilt row falls back to the empty state rather than throwing
+    // on a non-null assertion.
+    const features = this.ui?.runtimeStore.getFilterFeatures(id);
+    // dimensions.length > 0 (checked above) implies the host's dimensions()
+    // pass already built the row, so this arm is type-level only.
+    // unreachable: defensive read, not a coverage target.
+    /* v8 ignore next */
+    if (!features) return null;
     const fields = [
       ...features.numericFields.map(field => ({
         value: field,
@@ -2702,6 +2714,17 @@ class LayerController implements LayerAPI {
     const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
     if (filter === undefined) return;
     this.applyFilterClass(id, filter);
+  }
+  /** Replay every committed filter onto the layers seeded at construction.
+   *  Those layers were already on the map when this control attached, so they
+   *  never pass through layeradd or registerLayer — the two sites that replay
+   *  a filter. Without this pass a reload restores the condition into the
+   *  store while the map keeps painting the full data (#1181). Runs from the
+   *  UI attach sequence, after the runtime store exists. */
+  replayAllFilters(): void {
+    for (const layerInfo of this.layerRegistry.items) {
+      this.replayFilter(layerInfo.id);
+    }
   }
 
   private notifyCapabilityChanges(): void {

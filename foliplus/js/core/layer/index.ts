@@ -158,6 +158,7 @@ export {
   LIVE,
   STYLE_KEYS,
 } from "./intent.js";
+export type { IconKind } from "./intent.js";
 export {
   createFilterStore,
   ensureFilterStore,

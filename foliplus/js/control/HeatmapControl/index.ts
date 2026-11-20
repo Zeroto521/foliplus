@@ -88,10 +88,11 @@ class HeatmapControl extends defineControl({
     // from outliving a control that is removed but not garbage-collected.
     // Returns the cleanup (must not call it now): executing the body would
     // detach the registry entry at build time.
-    this.effect(() => () => {
+    const teardownFold = () => {
       destroy();
       fold.detach();
-    });
+    };
+    this.effect(() => teardownFold);
     this.ctrl = ctrl;
     this.mgr.ui = this;
     bindControls(this, panelContent);
