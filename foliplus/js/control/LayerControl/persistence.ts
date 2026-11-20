@@ -31,6 +31,8 @@ type LiveState = {
   order?: () => string[];
   removed?: () => string[];
   foldedRoles?: () => string[];
+  /** User-folded folder identities (`role::name`). */
+  foldedFolders?: () => string[];
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
@@ -72,14 +74,21 @@ type LiveState = {
  *  config's on-wire key). There is deliberately no compatibility read: the
  *  field rename is a breaking change accepted for this release, so an old v4
  *  record still loads but its label config is dropped, and the next write
- *  stamps v5. */
-const RECORD_VERSION = 5;
+ *  stamps v5.
+ *
+ *  5 → 6: `foldedFolders` was added (the user's folded-folder
+ *  overrides). This one is additive: an old v5 record reads the field as
+ *  absent (empty set = "everything expanded"), which is the same behavior
+ *  the record had before the field existed, so there is no compatibility
+ *  read to ship — the next write stamps v6. */
+const RECORD_VERSION = 6;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
   foldedRoles: [],
+  foldedFolders: [],
   renamedNames: {},
   layers: {},
 });
@@ -354,6 +363,12 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
   ) {
     record.foldedRoles = data.foldedRoles as string[];
   }
+  if (
+    Array.isArray(data.foldedFolders) &&
+    data.foldedFolders.every(key => typeof key === "string")
+  ) {
+    record.foldedFolders = data.foldedFolders as string[];
+  }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
   }
@@ -386,6 +401,9 @@ const mergeFields = (
     order: fields.order ? fields.order() : record.order,
     removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
+    foldedFolders: fields.foldedFolders
+      ? fields.foldedFolders()
+      : record.foldedFolders,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
   };

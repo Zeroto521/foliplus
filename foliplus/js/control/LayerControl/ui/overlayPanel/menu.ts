@@ -12,12 +12,19 @@ import {
   createPanel,
 } from "#core/leaflet/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
-import { dom } from "#platform/dom.js";
+import { createInlineEditInput, dom } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 import { throttleRaf } from "#platform/throttle.js";
-import { PANEL_CLASS, placeSurface } from "#ui/index.js";
+import { FORM_CLASS, PANEL_CLASS, placeSurface } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
+import { normalizeFolderName, type LayerRole } from "#core/layer/index.js";
+import { saveState, setVisibleIntent } from "../state.js";
+import { folderFoldKey } from "../listPanel/drag.js";
+import { rebuildList } from "../listPanel/list.js";
+import { setFolderVisible } from "../listPanel/visibility.js";
+import { finishRename } from "./rename.js";
+
 
 /**
  * Open the "more" overflow dropdown for a given layer row.
@@ -146,6 +153,12 @@ const scheduleMoreMenu = (ui: LayerUI): (() => void) => {
 };
 
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
+  // A folder row is a .foliplus-layer-item too, but its ⋮ menu is the
+  // folder entry set (rename / show / hide / delete), not the layer set.
+  if (item.hasAttribute(CONST.DATA.FOLDER_KEY)) {
+    openFolderMenu(ui, item);
+    return;
+  }
   // Tear down the competing overlays first. The rename teardown in
   // particular keeps the row's label text fresh before we read it below.
   closeOverlays(ui);
@@ -583,6 +596,98 @@ const menuLayerId = (ui: LayerUI): string => ui.overlayPanel.activeMenu?.layerId
  *  (keyboard knew three of the six actions and sent the rest to focus-layer).
  *  The `Record<MenuAction, …>` shape makes a new CONST.ACTION value fail
  *  typecheck until its branch exists here. */
+const setRoleVisible = (ui: LayerUI, role: string, visible: boolean) => {
+  for (const info of ui.c.layerRegistry.items) {
+    if (info.role === role) setVisibleIntent(ui, info.id, visible, false);
+  }
+  saveState(ui);
+  rebuildList(ui);
+};
+
+const folderKeysOfRole = (ui: LayerUI, role: string): string[] => {
+  const layout = ui.c.folderLayoutView;
+  const keys = new Set<string>();
+  for (const m of Object.values(layout.members)) {
+    if (m.role === role && m.folder) keys.add(m.folder);
+  }
+  return [...keys];
+};
+
+const setAllFoldersFolded = (ui: LayerUI, role: string, folded: boolean) => {
+  for (const key of folderKeysOfRole(ui, role)) {
+    const fk = folderFoldKey(role, key);
+    if (folded) ui.listPanel.foldedFolders.add(fk);
+    else ui.listPanel.foldedFolders.delete(fk);
+  }
+  rebuildList(ui);
+  saveState(ui);
+};
+
+/** Start an inline rename on a folder row's label. The folder identity is the
+ *  role + normalized key; the label shows the display name. Commit calls the
+ *  controller so the block key, member spellings and persistence stay single-
+ *  sourced. Escape/empty cancel silently (spec §4.1: empty name = no-op). */
+const startFolderRename = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+  folderName: string,
+) => {
+  const item = ui.uiContainer?.querySelector<HTMLElement>(
+    `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
+  );
+  const label = item?.querySelector("label") as HTMLLabelElement | null;
+  if (!label) return;
+  closeOverlays(ui);
+  createInlineEditInput({
+    label,
+    initialValue: folderName,
+    className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
+    ariaLabel: ui.T("rename_folder_hint"),
+    isActive: () => true,
+    onCommit: trimmed => {
+      const next = trimmed.trim();
+      if (next && next !== folderName) {
+        ui.c.renameFolder(role as LayerRole, folderName, next);
+      }
+      finishRename(ui, true);
+    },
+    onCancel: () => finishRename(ui, true),
+  });
+};
+
+/** Start a new folder in a role: create it (controller) then open an inline
+ *  rename on its row so the user names it immediately. Blank/escape leaves the
+ *  default name (spec §4.1: silent no-op on empty). */
+const startNewFolder = (ui: LayerUI, role: string) => {
+  const result = ui.c.createFolder(role as LayerRole, "New Folder");
+  if (!result.ok) return;
+  rebuildList(ui);
+  const key = normalizeFolderName("New Folder");
+  // The row renders with the default label; open the rename on it so the user
+  // replaces the placeholder immediately. The folder row carries the key.
+  const item = ui.uiContainer?.querySelector<HTMLElement>(
+    `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(key)}"]`,
+  );
+  const label = item?.querySelector("label") as HTMLLabelElement | null;
+  if (!label) return;
+  closeOverlays(ui);
+  createInlineEditInput({
+    label,
+    initialValue: "",
+    className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
+    ariaLabel: ui.T("rename_folder_hint"),
+    isActive: () => true,
+    onCommit: trimmed => {
+      const next = trimmed.trim();
+      if (next) {
+        ui.c.renameFolder(role as LayerRole, "New Folder", next);
+      }
+      finishRename(ui, true);
+    },
+    onCancel: () => finishRename(ui, true),
+  });
+};
 const MENU_ACTIONS: Record<
   MenuAction,
   (ui: LayerUI, menuItem: HTMLElement) => MenuActionResult
@@ -632,7 +737,54 @@ const MENU_ACTIONS: Record<
     }
     return { closeMenu: false, restoreRowFocus: false };
   },
+  [CONST.ACTION.RENAME_FOLDER]: ui => {
+    const fk = ui.overlayPanel.activeMenu?.folderKey;
+    const role = ui.overlayPanel.activeMenu?.role ?? ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ?? "";
+    const name = ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
+    ui.closeMoreMenu(false);
+    if (fk && role && name) startFolderRename(ui, role, fk, name);
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.SHOW_FOLDER]: ui => {
+    const fk = ui.overlayPanel.activeMenu?.folderKey;
+    const role = ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (fk && role) setFolderVisible(ui, role, fk, true);
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.HIDE_FOLDER]: ui => {
+    const fk = ui.overlayPanel.activeMenu?.folderKey;
+    const role = ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (fk && role) setFolderVisible(ui, role, fk, false);
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.NEW_FOLDER]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    ui.closeMoreMenu(false);
+    startNewFolder(ui, role);
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.EXPAND_ALL]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) setAllFoldersFolded(ui, role, false);
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.COLLAPSE_ALL]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) setAllFoldersFolded(ui, role, true);
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.SHOW_ALL]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) setRoleVisible(ui, role, true);
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.HIDE_ALL]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) setRoleVisible(ui, role, false);
+    return { closeMenu: true, restoreRowFocus: true };
+  },
 };
+
 
 /**
  * Run the action a menu entry carries. Shared by the delegated click handler
@@ -670,11 +822,206 @@ const runMenuAction = (
   if (outcome.closeMenu) ui.closeMoreMenu(outcome.restoreRowFocus);
 };
 
+/** The shared menu-attach scaffold for the folder / role menus: create the
+ *  controller, wire focus-out dismissal + click dispatch, register the panel
+ *  and place + focus. `extras` extends the activeMenu record (folderKey or
+ *  role). Mirrors the layer menu's attach block - one authority per menu kind. */
+const attachRowMenu = (
+  ui: LayerUI,
+  item: HTMLElement,
+  menu: HTMLElement,
+  extras: { folderKey?: string; role?: string },
+) => {
+  const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+  const controller: PanelController = createPanel({
+    owner: "layer",
+    localId: "menu",
+    rank: 800,
+    exclusiveGroup: "map:panel",
+    clearsCursorOnClose: true,
+    dismiss: { outsidePress: "click" } satisfies Partial<Dismiss>,
+    root: () => ui.overlayPanel.activeMenu?.menu ?? null,
+    open: () => {
+      item.style.position = "relative";
+      item.appendChild(menu);
+    },
+    close: ({ restoreFocus }) => {
+      closeMoreMenu(ui, restoreFocus);
+      return true;
+    },
+  });
+  menu.addEventListener("focusout", event => {
+    const next = (event as FocusEvent).relatedTarget as Node | null;
+    if (next && (next === item || item.contains(next))) return;
+    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
+  });
+  menu.addEventListener("click", event => handleMenuClick(ui, event));
+  ui.overlayPanel.activeMenu = { item, menu, layerId, ...extras };
+  ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
+    closeMoreMenu(ui, false);
+  });
+  ui.overlayPanel.menuOverlayUnregister = attachPanel(ui.c.map, controller);
+  controller.open();
+  placeMoreMenu(ui);
+  ui.overlayPanel.menuReposition = scheduleMoreMenu(ui);
+  (
+    menu.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU} button`) as HTMLElement
+  ).focus();
+};
+
+/** Open the menu for a folder row. */
+const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
+  closeOverlays(ui);
+  const folderKey = item.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
+  const folderName = item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
+  const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.RENAME_FOLDER,
+        role: "menuitem",
+        title: ui.T("rename_folder_tooltip"),
+      },
+      { html: Icons.ICON_EDIT },
+      ui.T("rename_folder"),
+    ),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.SHOW_FOLDER,
+        role: "menuitem",
+        title: ui.T("show_folder_tooltip"),
+      },
+      { html: SVGs.ICON_FOLD },
+      ui.T("show_folder"),
+    ),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.HIDE_FOLDER,
+        role: "menuitem",
+        title: ui.T("hide_folder_tooltip"),
+      },
+      { html: SVGs.ICON_FOLD },
+      ui.T("hide_folder"),
+    ),
+  );
+  menu.appendChild(
+    dom.el("li", {
+      class: `.${CONST.CLASSES.MENU_DIVIDER} .${PANEL_CLASS.SECTION_DIVIDER}`,
+      role: "separator",
+      "aria-hidden": "true",
+    }),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.DELETE_FOLDER,
+        role: "menuitem",
+        title: ui.T("delete_folder_tooltip"),
+      },
+      { html: Icons.ICON_DELETE },
+      ui.T("delete_folder").replace("{name}", folderName),
+    ),
+  );
+  attachRowMenu(ui, item, menu, { folderKey });
+};
+
+/** Open the menu for a role (section) row. */
+const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
+  closeOverlays(ui);
+  const role = item.getAttribute(CONST.DATA.ROLE) ?? "";
+  const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.NEW_FOLDER,
+        role: "menuitem",
+        title: ui.T("new_folder_tooltip"),
+      },
+      { html: SVGs.ICON_FOLDER },
+      ui.T("new_folder"),
+    ),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.EXPAND_ALL,
+        role: "menuitem",
+        title: ui.T("expand_all_tooltip"),
+      },
+      { html: SVGs.ICON_FOLD },
+      ui.T("expand_all"),
+    ),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.COLLAPSE_ALL,
+        role: "menuitem",
+        title: ui.T("collapse_all_tooltip"),
+      },
+      { html: SVGs.ICON_FOLD },
+      ui.T("collapse_all"),
+    ),
+  );
+  menu.appendChild(
+    dom.el("li", {
+      class: `.${CONST.CLASSES.MENU_DIVIDER} .${PANEL_CLASS.SECTION_DIVIDER}`,
+      role: "separator",
+      "aria-hidden": "true",
+    }),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.SHOW_ALL,
+        role: "menuitem",
+        title: ui.T("show_all_tooltip"),
+      },
+      { html: SVGs.ICON_LAYERS },
+      ui.T("show_all"),
+    ),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.HIDE_ALL,
+        role: "menuitem",
+        title: ui.T("hide_all_tooltip"),
+      },
+      { html: SVGs.ICON_LAYERS },
+      ui.T("hide_all"),
+    ),
+  );
+  attachRowMenu(ui, item, menu, { role });
+};
 export {
   MENU_ACTIONS,
   activateDeleteItem,
   closeMoreMenu,
   handleMenuClick,
   openMoreMenu,
+  openRoleMenu,
   runMenuAction,
 };

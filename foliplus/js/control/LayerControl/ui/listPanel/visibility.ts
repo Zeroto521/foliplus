@@ -11,7 +11,7 @@ import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell } from "./rowView.js";
-import { ROLE, paintsAtZoom } from "#core/layer/index.js";
+import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the
@@ -24,7 +24,13 @@ const getLayerItems = (ui: LayerUI, role: string): Element[] => {
     role === ROLE.BASE
       ? `[data-layer-type="${ROLE.BASE}"]`
       : `:not([data-layer-type="${ROLE.BASE}"])`;
-  return Array.from(container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}`));
+  // Folder rows carry .foliplus-layer-item too (per spec §1.2) but are group
+  // rows, not leaf layers — exclude them so a role count never counts a
+  // folder as a layer.
+  const notFolder = `:not(${CONST.SEL.FOLDER_ROW})`;
+  return Array.from(
+    container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}${notFolder}`),
+  );
 };
 
 /** Whether a base layer actually paints right now: on the map, inside its own
@@ -293,9 +299,61 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   return true;
 };
 
+/** The visibility aggregate of one folder: `{ total, on }` across its live
+ *  members in `role`. The folder row's checkbox and count are both driven by
+ *  this single aggregate (spec §1.2/§4.7), so a role count and a folder
+ *  count can never disagree about a member. */
+const folderVisibility = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+): { total: number; on: number } => {
+  const layout = ui.c.folderLayoutView;
+  let total = 0;
+  let on = 0;
+  for (const info of ui.c.layerRegistry.items) {
+    if (info.role !== role) continue;
+    if (folderOf(layout, info) !== folderKey) continue;
+    total += 1;
+    if (intentVisibleOf(ui, info.id)) on += 1;
+  }
+  return { total, on };
+};
+
+/** Set every live member of one folder visible/hidden. One write per layer
+ *  (persist=false) then one save + rebuild, mirroring toggleAll's bulk path. */
+const setFolderVisible = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+  visible: boolean,
+): void => {
+  for (const info of ui.c.layerRegistry.items) {
+    if (info.role !== role) continue;
+    if (folderOf(ui.c.folderLayoutView, info) !== folderKey) continue;
+    setVisibleIntent(ui, info.id, visible, false);
+  }
+  saveState(ui);
+  ui.reindexAfterMove();
+};
+
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
+  // A folder row's checkbox is a group toggle for every member: the folder
+  // row has no data-layer-id (it is a group row, not a leaf), so the layer
+  // change path below would no-op. Climb to the folder row by its key.
+  const folderRow = target.closest(CONST.SEL.FOLDER_ROW) as HTMLElement | null;
+  if (folderRow) {
+    const fk = folderRow.getAttribute(CONST.DATA.FOLDER_KEY);
+    const role = folderRow.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (fk && role) {
+      const vis = folderVisibility(ui, role, fk);
+      const toVisible = vis.on !== vis.total;
+      setFolderVisible(ui, role, fk, toVisible);
+    }
+    return;
+  }
 
   // The row carries the identity: data-layer-id, not a positional index — a
   // late registration can sit anywhere in the DOM, so an index-based lookup
@@ -316,4 +374,6 @@ export {
   syncNoBasemap,
   applyVisibility,
   handleChange,
+  folderVisibility,
+  setFolderVisible,
 };

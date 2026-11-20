@@ -88,6 +88,13 @@ const ICON_FILTER = `
     <path d="M3 5 H21 L14 13 V20 L10 18 V13 Z"/>
   </svg>`;
 
+/** Folder glyph — a closed folder with a tab. Fixed per folder row (does not
+ *  change with the fold state; the fold arrow is the single source). */
+const ICON_FOLDER = `
+  <svg viewBox="0 0 24 24">
+    <path d="M3 6 a2 2 0 0 1 2-2 h4 l2 2 h8 a2 2 0 0 1 2 2 v10 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z"/>
+  </svg>`;
+
 export {
   ICON_COLOR,
   ICON_DRAG_HANDLE,
@@ -95,6 +102,7 @@ export {
   ICON_FILTER,
   ICON_FOCUS,
   ICON_FOLD,
+  ICON_FOLDER,
   ICON_LAYERS,
   ICON_LINE,
   ICON_MORE,

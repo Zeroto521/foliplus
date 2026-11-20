@@ -49,7 +49,7 @@ import {
 import { closeAttrsPanel, openAttrsPanel } from "./overlayPanel/attr.js";
 import { closeFilterPanel, openFilterPanel } from "./overlayPanel/filter.js";
 import { OverlayPanel } from "./overlayPanel/index.js";
-import { closeMoreMenu, openMoreMenu } from "./overlayPanel/menu.js";
+import { closeMoreMenu, openMoreMenu, openRoleMenu } from "./overlayPanel/menu.js";
 import { finishRename, renameLayer } from "./overlayPanel/rename.js";
 import { intentVisibleOf } from "./projection.js";
 import {
@@ -459,6 +459,9 @@ class LayerUI implements LayerUISurface {
   }
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);
+  }
+  openRoleMenu(item: HTMLElement) {
+    return openRoleMenu(this, item);
   }
   closeMoreMenu(setFocus: boolean) {
     return closeMoreMenu(this, setFocus);

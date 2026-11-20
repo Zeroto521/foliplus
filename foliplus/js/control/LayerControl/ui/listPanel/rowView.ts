@@ -271,5 +271,27 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+/** Write a checkbox's tri-state visual (checked / indeterminate / 
+ *  aria-checked) from a `{ total, on }` aggregate. This is a row visual
+ *  write, so it lives in the single row-view writer (the charter that
+ *  confines every row visual write to rowView.ts). Both the role row and the
+ *  folder row compute their aggregate from the same visibility projection
+ *  and call this to paint the checkbox — a layer row's own checkbox is
+ *  always binary and never goes through here. */
+const writeTriState = (
+  input: HTMLInputElement,
+  total: number,
+  on: number,
+): void => {
+  const allChecked = total > 0 && on === total;
+  const noneChecked = on === 0;
+  input.checked = allChecked;
+  input.indeterminate = !allChecked && !noneChecked;
+  input.setAttribute(
+    "aria-checked",
+    allChecked ? "true" : noneChecked ? "false" : "mixed",
+  );
+};
+
+export { applyRowView, buildRowCell, displayName, inZoomRange, rowView, writeTriState };
 export type { RowCell, RowLabels, RowView };

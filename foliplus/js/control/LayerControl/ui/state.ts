@@ -20,6 +20,7 @@ import type { LayerUI } from "./surface.js";
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.c.persistence.load();
   ui.listPanel.foldedRoles = new Set(state.foldedRoles);
+  ui.listPanel.foldedFolders = new Set(state.foldedFolders);
   // Intent values + provenance sink into the store. The label config is read
   // from `layers[id].label` only — the legacy top-level `annotations`
   // segment was dropped.
@@ -34,6 +35,7 @@ const loadPersistedState = (ui: LayerUI) => {
 const saveFoldState = (ui: LayerUI) => {
   ui.c.persistence.schedule({
     foldedRoles: () => [...ui.listPanel.foldedRoles],
+    foldedFolders: () => [...ui.listPanel.foldedFolders],
   });
 };
 

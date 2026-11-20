@@ -29,6 +29,10 @@ class OverlayPanel {
     item: HTMLElement;
     menu: HTMLElement;
     layerId: string;
+    /** The folder key the menu was opened for (folder rows only). */
+    folderKey?: string;
+    /** The role the menu was opened for (role rows only). */
+    role?: string;
   } | null = null;
   /** Unregister for the overflow menu's registry entry (installed while open). */
   menuOverlayUnregister: (() => void) | null = null;

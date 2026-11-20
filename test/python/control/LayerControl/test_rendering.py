@@ -256,12 +256,12 @@ class TestLayerControlRendering:
     def test_layer_item_6_column_grid(self, base_map: folium.Map):
         """Layer item uses 6-column grid-template-areas with all six slots."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert '"drag check label count icon more"' in css
+        assert '"rail check label count icon more"' in css
 
     def test_layer_item_grid_column_classes_rendered(self, base_map: folium.Map):
         """All 6 grid-column CSS classes appear in the rendered output."""
         html = render_control(LayerControl())
-        assert "foliplus-drag-cell" in html
+        assert "foliplus-layer-rail" in html
         assert "foliplus-layer-count" in html
         assert "foliplus-layer-more-btn" in html
         assert "foliplus-type-icon-col" in html
@@ -280,9 +280,9 @@ class TestLayerControlRendering:
         assert "grid-area: more" in css
 
     def test_drag_cell_grid_area(self):
-        """Drag cell is placed in the 'drag' grid area."""
+        """Rail cell is placed in the 'rail' grid area (v3.8: drag-cell renamed)."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert "grid-area: drag" in css
+        assert "grid-area: rail" in css
 
     def test_count_column_min_max_and_funnel_token(self):
         """The count column is a min/max track: the funnel token plus the
@@ -566,7 +566,7 @@ class TestLayerControlRendering:
         assert len(toggle_all_areas) == 1, (
             f"expected exactly one toggle-all template-areas line, got {toggle_all_areas}"
         )
-        assert "drag check label . . ." in toggle_all_areas[0]
+        assert "rail check label . . ." in toggle_all_areas[0]
         # No template-areas line references 'divider' as a named area —
         # the dual-declaration coupling (container slot + item grid-area)
         # only ever applied to divider and is now avoided.

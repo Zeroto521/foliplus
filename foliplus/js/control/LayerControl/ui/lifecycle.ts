@@ -29,6 +29,7 @@ import {
   handleDragStart,
   handleDrop,
   toggleFold,
+  toggleFolderFold,
 } from "./listPanel/drag.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
@@ -257,6 +258,22 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // The fold branch climbs on the header row's identity key, never on the
     // row class (see SEL.TOGGLE_ALL_ROW), and the click landing on the row's own
     // toggle-all checkbox is the onChange path, not a fold.
+    // A folder row's whole row folds its folder (spec §4.8), reusing the
+    // role handler path: the click on the row body (not the checkbox or the
+    // ⋮ button, which stopPropagation in their own handlers) toggles the
+    // folder. A drag does not fold (didDrag guard lives in handleDragStart).
+    const folderRow = el.closest(CONST.SEL.FOLDER_ROW) as HTMLElement | null;
+    if (folderRow) {
+      if (el.closest(`.${CONST.CLASSES.CHECKBOX}`) || el.closest(`.${CONST.CLASSES.MORE_BTN}`)) {
+        return;
+      }
+      const fk = folderRow.getAttribute(CONST.DATA.FOLDER_KEY);
+      const role = folderRow.getAttribute(CONST.DATA.ROLE) ?? "";
+      if (fk && role) {
+        toggleFolderFold(ui, role, fk);
+      }
+      return;
+    }
     const toggleAllEl =
       (el.closest(CONST.SEL.TOGGLE_ALL_ROW) as HTMLElement | null) ??
       (el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null);

@@ -13,6 +13,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   order: null,
   removed: [],
   foldedRoles: [],
+  foldedFolders: [],
   renamedNames: {},
   layers: {},
 });
@@ -61,6 +62,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: ["OVERLAYS"],
+        foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -77,6 +79,7 @@ describe("LayerPersistence", () => {
         order: ids,
         removed: [],
         foldedRoles: ["OVERLAYS"],
+        foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: {
           a: {
@@ -802,6 +805,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: ["OVERLAYS"],
+        foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -869,6 +873,7 @@ describe("LayerPersistence", () => {
         order: ["b", "a"],
         removed: [],
         foldedRoles: ["OVERLAYS"],
+        foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1459,6 +1464,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: ["OVERLAYS"],
+        foldedFolders: [],
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1488,6 +1494,7 @@ describe("LayerPersistence", () => {
         order: ["b", "a"],
         removed: [],
         foldedRoles: ["OVERLAYS"],
+        foldedFolders: [],
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1603,6 +1610,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: [],
+        foldedFolders: [],
         renamedNames: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
