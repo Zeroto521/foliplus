@@ -2449,9 +2449,8 @@ class LayerController implements LayerAPI {
     // on a non-null assertion.
     const features = this.ui?.runtimeStore.getFilterFeatures(id);
     // dimensions.length > 0 (checked above) implies the host's dimensions()
-    // pass already built the row, so this arm is type-level only.
-    // unreachable: defensive read, not a coverage target.
-    /* v8 ignore next */
+    // pass already built the row; this arm covers a host whose cached row was
+    // cleared between the two reads (a teardown racing the panel open).
     if (!features) return null;
     const fields = [
       ...features.numericFields.map(field => ({
