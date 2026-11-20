@@ -24,10 +24,18 @@ import {
 // inside the entries and the applyUserState style-dims helper.
 
 const REPO_ROOT = process.cwd();
-const TMP_BASE =
-  process.env.TEMP && existsSync(process.env.TEMP)
-    ? process.env.TEMP
-    : resolve(process.cwd(), ".foliplus", "tmp");
+// Prefer the OS temp dir (TEMP on Windows / TMPDIR on CI Linux); the
+// .foliplus/tmp fallback must be created first — mkdtempSync does NOT create
+// missing parents, so a bare fallback throws ENOENT on a fresh CI checkout.
+const TMP_BASE = (() => {
+  for (const key of ["TEMP", "TMPDIR", "TMP"]) {
+    const p = process.env[key];
+    if (p && existsSync(p)) return p;
+  }
+  const fallback = resolve(process.cwd(), ".foliplus", "tmp");
+  mkdirSync(fallback, { recursive: true });
+  return fallback;
+})();
 
 /** Build a synthetic LayerControl tree under a fresh temp dir. The four
  *  guard-target files are written so the test controls exactly what the
