@@ -219,7 +219,11 @@ describe("LayerUI menu", () => {
         name: "Hidden Layer",
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
-        filterProvider: () => ({}),
+        filterProvider: () => ({
+          dimensions: [{ kind: "range", field: "mag", range: [0, 10], step: 1 }],
+          kept: 0,
+          total: 0,
+        }),
         filterSetter: () => {},
       });
       const item = findItem(ui, "hidden-layer");
@@ -242,7 +246,11 @@ describe("LayerUI menu", () => {
         name: "Visible Layer",
         role: "overlay",
         layer: { options: {}, eachLayer: vi.fn() },
-        filterProvider: () => ({}),
+        filterProvider: () => ({
+          dimensions: [{ kind: "range", field: "mag", range: [0, 10], step: 1 }],
+          kept: 0,
+          total: 0,
+        }),
         filterSetter: () => {},
       });
       const item = findItem(ui, "visible-layer");
