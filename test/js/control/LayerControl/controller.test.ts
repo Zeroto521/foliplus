@@ -41,18 +41,18 @@ import {
   saveState,
 } from "#control/LayerControl/ui/state.js";
 
-/** Build a v2 folder-layout document from a v1 sections shape, for tests
+/** Build a v2 folder-layout document from a v1 order shape, for tests
  *  that seed a persisted block order. Each key also gets a folder entry with a
  *  display name equal to its key (the seeded order is all that matters here). */
 const layoutFromRoles = (
-  sections: Record<string, string[]>,
+  v1Order: Record<string, string[]>,
 ): Record<string, unknown> => {
   const keys = new Set<string>();
-  for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+  for (const list of Object.values(v1Order)) for (const k of list) keys.add(k);
   return {
     version: 2,
     folders: [...keys].map(key => ({ key, name: key })),
-    order: sections,
+    order: v1Order,
     members: {},
   };
 };

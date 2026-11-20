@@ -159,11 +159,11 @@ class LayerControl(BaseControl):
     +----------------+------+------------------------------------------------------------------+
     | ``zoom_range`` | dict | The layer's visible zoom range (see the zoom range table below). |
     +----------------+------+------------------------------------------------------------------+
-    | ``folder``     | str  | The layer's folder (role group) name; see the note below.        |
+    | ``folder``     | str  | The layer's folder (role) name; see the note below.              |
     +----------------+------+------------------------------------------------------------------+
 
-    Two layers declaring the same ``folder`` name in the same role and
-    role (for example ``foliplus={"folder": "底图"}``) are grouped into one
+    Two layers declaring the same ``folder`` name in the same role (for
+    example ``foliplus={"folder": "底图"}``) are grouped into one
     folder — a grouping intent, not a conflict, and it never warns.
 
     Folder names group case-insensitively after whitespace folding, so
@@ -428,7 +428,7 @@ class LayerControl(BaseControl):
 
         # A folder name shared by several layers is a grouping intent, not a
         # conflict: the JS side merges same-name declarations of the same role
-        # into one authorFolderId (folder = role group name, one group may
+        # into one authorFolderId (folder = role name, one role may
         # hold many member rows). Each declaring layer simply emits the name.
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).

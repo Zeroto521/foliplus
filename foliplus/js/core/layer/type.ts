@@ -188,7 +188,7 @@ interface LayerCapabilities {
    *    - "pane" — the registration edge declared a `role: "label"`
    *      PaneSpec (its features expose labelable `feature.properties`) and
    *      LayerSurface materializes that pane with the rest of the face, so
-   *      the style panel's Label section is honest to render.
+   *      the style panel's Label group is honest to render.
    *    - "none" — no labelable content (base tiles, canvas / color surfaces,
    *      shapes without properties): no pane, no row.
    *
@@ -488,7 +488,7 @@ interface LayerInfo {
   zoomRange?: AuthorZoomRange | null;
   /** Author's declared folder (CONFIG `data[].folder`). Absent/null means a
    *  root layer. Carries the author's display spelling; the grouping key is
-   *  `normalizeFolderName(folder)` (section + casefold identity). */
+   *  `normalizeFolderName(folder)` (role + casefold identity). */
   folder?: string | null;
   /** Epoch ms of the layer's first registration. Set by the registry itself —
    *  never by the provider — so a re-registration keeps the original value. */
