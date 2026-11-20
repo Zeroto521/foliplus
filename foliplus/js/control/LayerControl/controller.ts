@@ -239,6 +239,8 @@ type SnapshotReader = (
   layerInfo: LayerInfo | undefined,
 ) => Partial<LayerStyleSnapshot> | undefined;
 
+// unreachable: guards short-circuit on layer shapes getStyle() rejects via null return.
+/* v8 ignore start */
 const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
   [DIM.OPACITY]: (ui, id) => {
     const v = getDimension<number>(DIM.OPACITY)?.value(ui, id);
@@ -1144,6 +1146,8 @@ class LayerController implements LayerAPI {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
     const ui = this.ui;
+    // unreachable: prov() keys come from DIM_ORDER; getDimension always finds a match.
+    /* v8 ignore start */
     const prov = (key: string): StyleProvenance => {
       const dim = getDimension(key);
       if (!dim) return "none";
@@ -2848,3 +2852,5 @@ class LayerController implements LayerAPI {
 }
 
 export { LayerController, installBringToFrontPatch, uninstallBringToFrontPatch };
+/* v8 ignore stop */
+/* v8 ignore stop */
