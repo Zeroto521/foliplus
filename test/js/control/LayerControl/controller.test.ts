@@ -7969,6 +7969,27 @@ describe("genericFilterModel — enum dimensions", () => {
     expect(dim.options).toEqual([]);
     expect(dim.truncated).toBe(false);
   });
+
+  it("returns null when the host snapshot is missing (defensive read)", () => {
+    const manager = makeManager();
+    manager.ui = {
+      intentStore: makeStore(),
+      // A bare store with no seeded filterFeatures row: getFilterFeatures
+      // returns undefined, and the defensive read falls back to the empty
+      // state (null) instead of throwing on a non-null assertion.
+      runtimeStore: new LayerRuntimeStore(),
+      colorSurface: {} as any,
+      currentColor: "#000000",
+      dropPersistedLayerState: vi.fn(),
+      saveState: vi.fn(),
+      syncToggleAll: vi.fn(),
+      syncNoBasemap: vi.fn(),
+      renamedNames: {},
+      saveNamesState: vi.fn(),
+      invalidateFields: vi.fn(),
+    } as any;
+    expect(manager.genericFilterModel("overlay1")).toBeNull();
+  });
 });
 
 describe("cross-panel contract: external actions × open overlays", () => {
