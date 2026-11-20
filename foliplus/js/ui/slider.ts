@@ -708,10 +708,12 @@ class Slider {
       ) || 14;
     // A dot-centred label is anchored a half-thumb in from the row edge and
     // shifted back half its own width (translateX(-50%)), so its outer edge
-    // sits at thumb/2 - w/2. It stays inside the row only while w <= thumb;
-    // a wider label (a long number like 5860) would overhang the row edge,
-    // so it clamps to the edge regardless of the row's width.
-    const fits = (el: HTMLElement) => el.scrollWidth <= thumb + 1;
+    // sits at thumb/2 - w/2. A label up to twice the thumb (a percent bound,
+    // ~28px) centres on its dot with the overhang inside that half-thumb,
+    // still the control's own frame; a label wider than that (a long number
+    // like 5860, ~30px) would overhang the row edge, so it clamps to the
+    // edge regardless of the row's width.
+    const fits = (el: HTMLElement) => el.scrollWidth <= 2 * thumb + 1;
     // Alignment mode owns the clamp decision for text labels: "edges" means
     // the label is a wide token (date, category, unit string) whose semantics
     // are the row's ends, not "the value at this dot" — it clamps regardless
