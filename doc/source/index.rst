@@ -75,21 +75,16 @@ Features
 
 .. toctree::
    :maxdepth: 1
-   :caption: Quickstart
-
-   quickstart
-
-.. toctree::
-   :maxdepth: 1
    :caption: API Reference
 
    api
 
 .. toctree::
    :maxdepth: 1
-   :caption: Guides
+   :caption: Guide
 
-   guide/declarations
+   quickstart
+   guide/declaration
 
 .. toctree::
    :maxdepth: 1
