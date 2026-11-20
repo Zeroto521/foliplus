@@ -528,13 +528,13 @@
   }
 
   /* ── Folder row (a group header inside a role) ── */
-  .foliplus-layer-item--folder {
+  .foliplus-layer-item-folder {
     grid-template-areas: "rail check label count icon more";
     cursor: pointer;
     font-size: var(--foliplus-font-size-md);
     font-weight: var(--foliplus-font-weight-medium);
 
-    .foliplus-layer-label--folder {
+    .foliplus-layer-label-folder {
       min-width: 0;
       white-space: nowrap;
       overflow: hidden;
@@ -593,8 +593,8 @@
       border-left: var(--foliplus-border-thin) solid currentColor;
     }
   }
-  .foliplus-fold-tree--mid::after,
-  .foliplus-fold-tree--last::after {
+  .foliplus-fold-tree-mid::after,
+  .foliplus-fold-tree-last::after {
     content: "";
     position: absolute;
     left: var(--foliplus-space-sm);

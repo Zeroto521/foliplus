@@ -10,7 +10,7 @@ import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
-import { type LayerRole, normalizeFolderName } from "#core/layer/index.js";
+import { type LayerRole } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -662,30 +662,10 @@ const startNewFolder = (ui: LayerUI, role: string) => {
   const result = ui.c.createFolder(role as LayerRole, "New Folder");
   if (!result.ok) return;
   rebuildList(ui);
-  const key = normalizeFolderName("New Folder");
-  // The row renders with the default label; open the rename on it so the user
-  // replaces the placeholder immediately. The folder row carries the key.
-  const item = ui.uiContainer?.querySelector<HTMLElement>(
-    `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(key)}"]`,
-  );
-  const label = item?.querySelector("label") as HTMLLabelElement | null;
-  if (!label) return;
-  closeOverlays(ui);
-  createInlineEditInput({
-    label,
-    initialValue: "",
-    className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
-    ariaLabel: ui.T("rename_folder_hint"),
-    isActive: () => true,
-    onCommit: trimmed => {
-      const next = trimmed.trim();
-      if (next) {
-        ui.c.renameFolder(role as LayerRole, "New Folder", next);
-      }
-      finishRename(ui, true);
-    },
-    onCancel: () => finishRename(ui, true),
-  });
+  // An empty folder has no members yet, so it renders no row (groupByFolder is
+  // member-driven). The user names it via the folder's row once it owns a layer
+  // (the move-to-folder wiring lands separately); creating here is a silent
+  // no-op until then, which is the current effective behavior.
 };
 const MENU_ACTIONS: Record<
   MenuAction,

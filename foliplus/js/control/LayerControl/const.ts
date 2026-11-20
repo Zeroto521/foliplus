@@ -103,17 +103,17 @@ const CLASSES = {
   GROUP_FOLDED: "foliplus-layer-group-folded",
   LAYER_LABEL: "foliplus-layer-label",
   /** Folder row container (a user-created group inside a role). */
-  FOLDER_ROW: "foliplus-layer-item--folder",
+  FOLDER_ROW: "foliplus-layer-item-folder",
   /** Folder row name label. */
-  FOLDER_LABEL: "foliplus-layer-label--folder",
+  FOLDER_LABEL: "foliplus-layer-label-folder",
   /** Role (section) row container — the overlay/base group header. */
   ROLE_ROW: "foliplus-layer-role",
   /** Tree-line node inside a folder member's rail (static state). */
   FOLD_TREE: "foliplus-fold-tree",
   /** Tree-line connector: mid-folder member (├). */
-  FOLD_TREE_MID: "foliplus-fold-tree--mid",
+  FOLD_TREE_MID: "foliplus-fold-tree-mid",
   /** Tree-line connector: last folder member (└). */
-  FOLD_TREE_LAST: "foliplus-fold-tree--last",
+  FOLD_TREE_LAST: "foliplus-fold-tree-last",
   /** Role row's divider line, placed before the count column. */
   ROLE_DIVIDER: "foliplus-role-divider",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
@@ -400,7 +400,7 @@ const TOGGLE_ALL_ROLE = "toggle-all";
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
   /** Folder row (a user-created group). */
-  FOLDER_ROW: ".foliplus-layer-item--folder",
+  FOLDER_ROW: ".foliplus-layer-item-folder",
   /** Role (section) row. */
   ROLE_ROW: ".foliplus-layer-role",
   FOLD_TREE: ".foliplus-fold-tree",

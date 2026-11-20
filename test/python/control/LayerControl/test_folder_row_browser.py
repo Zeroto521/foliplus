@@ -36,16 +36,16 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
         with use_page(self._page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_timeout(400)
-            folder_row = page.query_selector(".foliplus-layer-item--folder")
+            folder_row = page.query_selector(".foliplus-layer-item-folder")
             assert folder_row is not None, "folder row not rendered"
             fk = folder_row.get_attribute("data-folder-key")
             assert fk == "roads", f"expected data-folder-key=roads, got {fk}"
             assert folder_row.get_attribute("data-role") == "overlay"
             member_guide = page.query_selector(
-                ".foliplus-layer-item:not(.foliplus-layer-item--folder) .foliplus-layer-rail .foliplus-fold-tree"
+                ".foliplus-layer-item:not(.foliplus-layer-item-folder) .foliplus-layer-rail .foliplus-fold-tree"
             )
             assert member_guide is not None, "member rail lacks fold-tree guide"
-            page.click(".foliplus-layer-item--folder .foliplus-layer-fold-btn")
+            page.click(".foliplus-layer-item-folder .foliplus-layer-fold-btn")
             page.wait_for_timeout(150)
             folded = page.evaluate(_js("LayerControl/count_row_folded"))
             assert folded >= 1, f"expected at least one folded member row, got {folded}"
