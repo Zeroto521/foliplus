@@ -110,3 +110,5 @@ foliplus/.build/
 # Local scratch output
 debug.log
 nul
+# PR body drafts are scratch files, never committed.
+.pr-body-*.md
