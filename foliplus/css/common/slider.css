@@ -240,10 +240,16 @@
 .foliplus-slider-value-min.is-clamp {
   flex: 0 1 auto;
   text-align: start;
+  /* A clamped label pins to the track's end, not the row's edge: the track
+     is inset half a thumb from the row on each side, so the label is pushed
+     in by that inset to sit flush with the rail (the thumb's outer edge).
+     margin-inline-start/end are logical, so the mirror is automatic. */
+  margin-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
 }
 .foliplus-slider-value-max.is-clamp {
   flex: 0 1 auto;
   text-align: end;
+  margin-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
 }
 .foliplus-slider-values > span.foliplus-slider-value-current {
   /* The drag-time readout is centred over the track and must not take part in

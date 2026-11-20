@@ -3119,10 +3119,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
                     (max_label, max_dot, "max"),
                 ):
                     width = label["box"]["width"]
-                    # An axis label pins to its own row end. The flex row
-                    # follows the document direction, so in LTR the min pins
-                    # left and the max pins right; in RTL the anchors mirror.
-                    values_box = row["values"]
                     if width <= thumb_width + 1:
                         drift = abs(centre(label["box"]) - dot)
                         assert drift <= 1.0, (
@@ -3131,16 +3127,16 @@ class TestStyleBrowser(LayerControlBrowserBase):
                             f"{dot:.2f}px (drift {drift:.2f}px)"
                         )
                     else:
-                        # The min sits on the logical start edge, the max on
-                        # the logical end edge; mirrored swaps them.
+                        # A clamped label pins to the track's end, not the row's
+                        # edge: the track is inset half a thumb from the row, so
+                        # the label's outer edge sits on the rail (the dot's
+                        # centre). The dot already encodes the mirror.
                         flush_edge = "left" if (side == "min") != mirrored else "right"
                         label_edge = label["box"][flush_edge]
-                        row_edge = values_box[flush_edge]
-                        assert abs(label_edge - row_edge) <= 1.0, (
-                            f"{name} {side} axis label is not flush {flush_edge}: "
-                            f"{label['box']} vs values row {values_box}"
+                        assert abs(label_edge - dot) <= 1.0, (
+                            f"{name} {side} axis label is not flush the track end ({flush_edge}): "
+                            f"{label['box']} vs dot {dot:.2f}px"
                         )
-                # A dot-centred label may overhang the values row by half its
                 # own width (that is the layout's design: the anchor is a half
                 # thumb in from the row edge). The panel's clip box is the real
                 # boundary; the live panel's numbers are short, so each label
