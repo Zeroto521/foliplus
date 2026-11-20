@@ -982,6 +982,9 @@ describe("buildMarkerIcon", () => {
     // The scale lives on the inner wrapper, anchored at the pin tip.
     const inner = scaledDiv.firstElementChild as HTMLElement;
     expect(inner).toBeTruthy();
+    // Dedicated vocabulary class (P3 item 5): CSS/tests find the scale
+    // wrapper by class, not by structural outer-to-inner lookup.
+    expect(inner.classList.contains("foliplus-marker-scale-wrapper")).toBe(true);
     // jsdom normalises the origin to "0px 0px" (a browser reads it the same).
     expect(inner.style.transformOrigin).toBe("0px 0px");
     // jsdom normalises the transform to 5 decimal places; parse the factor

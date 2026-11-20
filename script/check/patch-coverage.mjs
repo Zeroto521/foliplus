@@ -441,14 +441,12 @@ const main = (opts = parseArgs(process.argv.slice(2))) => {
   return 0;
 };
 
-const runCli = (argv, entry) => {
-  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
+const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
+  if (entry !== undefined && path.resolve(entry) === selfUrl) {
     process.exitCode = main(parseArgs(argv));
   }
 };
 runCli(process.argv.slice(2), process.argv[1]);
-
-const __entryUrl = fileURLToPath(import.meta.url);
 
 export {
   toRel,
@@ -462,5 +460,4 @@ export {
   isPythonFile,
   main,
   runCli,
-  __entryUrl,
 };

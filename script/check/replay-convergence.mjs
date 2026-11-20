@@ -189,14 +189,12 @@ const main = (root = process.cwd()) => {
   return hits.length ? 1 : 0;
 };
 
-const runCli = (argv, entry) => {
-  if (entry !== undefined && path.resolve(entry) === fileURLToPath(import.meta.url)) {
+const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
+  if (entry !== undefined && path.resolve(entry) === selfUrl) {
     process.exitCode = main(argv[0] || process.cwd());
   }
 };
 runCli(process.argv.slice(2), process.argv[1]);
-
-const __entryUrl = fileURLToPath(import.meta.url);
 
 export {
   DIMENSION_REPLAY_CALLS,
@@ -209,5 +207,4 @@ export {
   findConvergenceViolations,
   main,
   runCli,
-  __entryUrl,
 };
