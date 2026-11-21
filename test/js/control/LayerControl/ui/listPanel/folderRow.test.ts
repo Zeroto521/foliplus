@@ -805,6 +805,24 @@ describe("ui/list folder rows", () => {
     expect(divider!.classList.contains("foliplus-section-divider")).toBe(true);
   });
 
+  it("advertises the drag gesture with grab / grabbing cursors (issue 17)", () => {
+    // Spec v3.8 §1.3: every row is draggable, so the cursor says so. The rows
+    // used to sit on `default` and only switch to `move` mid-gesture.
+    const row = readFileSync(
+      repoPath("foliplus/css/control/LayerControl/row.css"),
+      "utf8",
+    );
+    const itemStart = row.indexOf(".foliplus-layer-item {");
+    const item = row.slice(itemStart, itemStart + 2000);
+    expect(item).toContain("cursor: grab");
+    expect(item).not.toContain("cursor: default");
+    const dragging = row.slice(
+      row.indexOf("&.foliplus-layer-dragging {"),
+      row.indexOf("&.foliplus-layer-drag-over-top {"),
+    );
+    expect(dragging).toContain("cursor: grabbing");
+  });
+
   it("keeps the role label chip on the row's own surface (issue 3)", () => {
     // The label paints a chip so the role divider's hairline does not cross
     // the text. A hard-coded surface colour punched a white hole in the

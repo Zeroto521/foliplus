@@ -413,7 +413,6 @@
   .foliplus-layer-item[data-layer-type="base"]:is(:hover, .foliplus-is-focused-row) {
     box-shadow: none;
     background: transparent;
-    cursor: default;
   }
   .foliplus-layer-item[data-layer-type="base"].foliplus-active:is(
       :hover,
@@ -433,7 +432,10 @@
     align-items: center;
     box-sizing: border-box;
     min-height: var(--foliplus-layer-row-min-height);
-    cursor: default;
+    /* Every row is draggable (spec v3.8 §1.3: folder / member / root rows all
+       carry draggable=true), so the cursor advertises the gesture. The
+       dragging state swaps to grabbing below. */
+    cursor: grab;
     user-select: none;
     border-radius: var(--foliplus-radius-sm);
     font-size: var(--foliplus-font-size-md);
@@ -521,6 +523,7 @@
     &.foliplus-layer-dragging {
       background: var(--foliplus-accent-light);
       opacity: var(--foliplus-alpha-70);
+      cursor: grabbing;
     }
     &.foliplus-layer-drag-over-top {
       border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
