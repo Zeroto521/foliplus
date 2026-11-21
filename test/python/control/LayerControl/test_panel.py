@@ -3108,12 +3108,14 @@ class TestPanelBrowser(LayerControlBrowserBase):
                         "type": "Feature",
                         "geometry": {
                             "type": "Polygon",
-                            "coordinates": [[
-                                [119.29, 26.078],
-                                [119.31, 26.082],
-                                [119.31, 26.075],
-                                [119.29, 26.078],
-                            ]],
+                            "coordinates": [
+                                [
+                                    [119.29, 26.078],
+                                    [119.31, 26.082],
+                                    [119.31, 26.075],
+                                    [119.29, 26.078],
+                                ]
+                            ],
                         },
                         "properties": {},
                     },
