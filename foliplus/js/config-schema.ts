@@ -10,6 +10,11 @@ import type { ControlPosition } from "leaflet";
 
 type NumberStyle = "auto" | "int" | "comma" | "percent";
 type ZoomRange = { min: number; max: number };
+type FolderDefaults = {
+  overlay: { name: string; folded?: boolean }[];
+  base: { name: string; folded?: boolean }[];
+};
+type RoleDefaults = { overlay: { folded?: boolean }; base: { folded?: boolean } };
 type LayerData = {
   name: string;
   id: string;
@@ -103,6 +108,8 @@ interface ConfigLayer extends ConfigCommon {
   label_collide: boolean;
   collapse_on_outside: boolean;
   icon_prefix: string;
+  folders: FolderDefaults | null; // Central folder-defaults config: author-declared default folded state per folder, keyed by role. Entries are {name, folded}; a name may be declared even with no members yet. A user manual fold always wins over the author default; same-name declarations merge (first spelling, folded last-wins).
+  roles: RoleDefaults | null; // Central role-defaults config: author-declared default folded state per role. Entries are {folded}; an absent role keeps the built-in expanded default. A user manual fold or expand always wins over the author default.
   /** Layer list collected from the parent map at render time via _extra_config. */
   data?: LayerData;
 }
@@ -176,6 +183,8 @@ interface ComponentConfig {
   zoomRange?: ZoomRange | null;
   label_collide?: boolean;
   icon_prefix?: string;
+  folders?: FolderDefaults | null; // Central folder-defaults config: author-declared default folded state per folder, keyed by role. Entries are {name, folded}; a name may be declared even with no members yet. A user manual fold always wins over the author default; same-name declarations merge (first spelling, folded last-wins).
+  roles?: RoleDefaults | null; // Central role-defaults config: author-declared default folded state per role. Entries are {folded}; an absent role keeps the built-in expanded default. A user manual fold or expand always wins over the author default.
   /** Layer list collected from the parent map at render time via _extra_config. */
   data?: LayerData;
   zoom?: number;
@@ -194,6 +203,8 @@ interface ComponentConfig {
 export type {
   NumberStyle,
   ZoomRange,
+  FolderDefaults,
+  RoleDefaults,
   LayerData,
   ProviderConfig,
   ConfigCommon,

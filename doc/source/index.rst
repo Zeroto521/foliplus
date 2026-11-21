@@ -74,19 +74,10 @@ Features
       Coordinate and address search via pluggable geocode providers.
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Quickstart
+   :maxdepth: 2
+   :caption: Contents
 
    quickstart
-
-.. toctree::
-   :maxdepth: 1
-   :caption: API Reference
-
+   guide/index
    api
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Changelog
-
    changelog

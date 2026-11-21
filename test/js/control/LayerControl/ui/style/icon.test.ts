@@ -1,4 +1,9 @@
-import { initFixture, makeAuthorIcon, makeDefaultIconAuthor } from "../fixture.js";
+import {
+  findItem,
+  initFixture,
+  makeAuthorIcon,
+  makeDefaultIconAuthor,
+} from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureInteraction } from "#core/interaction/index.js";
 import { DIM } from "#core/layer/index.js";
@@ -17,6 +22,7 @@ import {
   commitGlyph,
   layerCanIcon,
   resetLayerIcon,
+  syncColorRowVisibility,
 } from "#control/LayerControl/ui/style/icon.js";
 import {
   getDimension,
@@ -1402,5 +1408,151 @@ describe("icon rehydrate drift guard", () => {
     ).toBe(true);
     expect(trigger.textContent).toContain("no-such-glyph");
     expect(probed).toContain("fa-solid fa-no-such-glyph");
+  });
+});
+
+// ── Declaration-only URL / divIcon trigger + URL-mode color-row sync (PR #1228
+// scope cut: the panel no longer offers an edit entry, so the trigger NAMES the
+// declared source and the color rows hide in URL mode). ──
+describe("declared url / divicon trigger + URL-mode color-row sync", () => {
+  let manager: LayerController | undefined;
+  /** Open the style panel for a marker layer carrying the given icon intent,
+   *  return {ui, manager, panel, iconRow, trigger}. */
+  const openPanelWithIcon = (icon: { kind: string; value: string }) => {
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { manager: managerOuter, ui } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    // The intent is written BEFORE the panel opens, so buildIconRow runs
+    // syncColorRowVisibility at row-build time against this intent (the URL
+    // color-row hide is keyed on the intent at build, not on a later write).
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON, icon]]);
+    const item = findItem(ui, "overlay1")!;
+    ui.openStylePanel("overlay1");
+    const panel = item.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement;
+    const iconRow = panel.querySelector(`[data-style-dim="icon"]`) as HTMLElement;
+    const trigger = iconRow.querySelector(
+      `.${CONST.CLASSES.STYLE_ICON_TRIGGER}`,
+    ) as HTMLElement;
+    manager = managerOuter;
+    return { manager: managerOuter, ui, panel, iconRow, trigger };
+  };
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("names a declared url source in the trigger (honest preview, no glyph)", () => {
+    const { trigger } = openPanelWithIcon({
+      kind: "url",
+      value: "https://example.com/pin.png",
+    });
+    expect(trigger.textContent).toContain("https://example.com/pin.png");
+    expect(trigger.title).toContain("https://example.com/pin.png");
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(false);
+    expect(trigger.querySelector(".foliplus-marker-glyph")).toBeNull();
+  });
+
+  it("names a declared divicon-class source in the trigger (shape key)", () => {
+    const { trigger } = openPanelWithIcon({ kind: "divicon-class", value: "square" });
+    expect(trigger.textContent).toContain("square");
+    expect(trigger.title).toContain("square");
+    expect(
+      trigger.classList.contains(CONST.CLASSES.STYLE_ICON_TRIGGER_UNAVAILABLE),
+    ).toBe(false);
+  });
+
+  it("hides iconColor and markerColor rows in URL mode (buildIconRow sync on open)", () => {
+    // URL mode is the pre-set intent BEFORE the panel opens, so buildIconRow
+    // runs syncColorRowVisibility at row-build time and hides the color rows.
+    const { panel } = openPanelWithIcon({
+      kind: "url",
+      value: "https://example.com/pin.png",
+    });
+    const colorRow = panel.querySelector(`[data-style-dim="iconColor"]`) as HTMLElement;
+    const markerColorRow = panel.querySelector(
+      `[data-style-dim="markerColor"]`,
+    ) as HTMLElement;
+    expect(colorRow).not.toBeNull();
+    expect(colorRow.hidden).toBe(true);
+    expect(markerColorRow.hidden).toBe(true);
+    // Non-URL mode: a fresh open with a glyph intent keeps the rows visible.
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { ui: u2 } = fixtureWithMarkers([marker]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(u2, "overlay1", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
+    const item2 = findItem(u2, "overlay1")!;
+    u2.openStylePanel("overlay1");
+    const panel2 = item2.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`) as HTMLElement;
+    const colorRow2 = panel2.querySelector(
+      `[data-style-dim="iconColor"]`,
+    ) as HTMLElement;
+    expect(colorRow2.hidden).toBe(false);
+  });
+
+  it("applyIconToLayer routes a url-kind intent through the circle glyph arg", () => {
+    // markerIcon.ts:83 false path: a url / divicon-class intent carries no
+    // glyph value for the derive walk; the walk gets "circle" and the kind
+    // routes it to the whole-icon builder (applyIconToLeaves url branch).
+    // buildUrlIcon news L.Icon, so give it a constructable stub here.
+    (window.L as any).Icon = class {
+      options: any;
+      constructor(opts: any) {
+        this.options = { ...opts };
+      }
+    };
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { ui: ui2 } = fixtureWithMarkers([marker]);
+    writeIntentKeys(ui2, "overlay1", [
+      [INTENT.ICON, { kind: "url", value: "https://example.com/y.png" }],
+    ]);
+    applyIconToLayer(ui2, "overlay1");
+    flushIcon("overlay1");
+    expect(marker.setIcon).toHaveBeenCalled();
+  });
+
+  it("keeps two LayerControls color-row sync independent (P3 #1228)", () => {
+    // The URL-mode sync that recovers its panel root without a panelRoot arg
+    // (applyIconToLayer / glyph-commit path) must reach THIS ui own panel.
+    // A single module-level row slot would hand the last-built row to any
+    // caller, so A url sync would hide B (glyph, must stay visible) rows.
+    const markerA = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { ui: uiA } = fixtureWithMarkers([markerA]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(uiA, "overlay1", [
+      [INTENT.ICON, { kind: "url", value: "https://example.com/pin.png" }],
+    ]);
+    const markerB = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { ui: uiB } = fixtureWithMarkers([markerB]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(uiB, "overlay1", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
+    // Build A FIRST, then B: a module-level slot (if any) now points at B,
+    // so A no-panelRoot sync would leak onto B and hide its color rows.
+    const rowA = buildIconRow(uiA, "overlay1")!;
+    const rowB = buildIconRow(uiB, "overlay1")!;
+    const mount = (row: HTMLElement) => {
+      const panel = document.createElement("div");
+      panel.className = CONST.CLASSES.STYLE_PANEL;
+      panel.appendChild(row);
+      const colorRow = document.createElement("div");
+      colorRow.dataset.styleDim = "iconColor";
+      panel.appendChild(colorRow);
+      document.body.appendChild(panel);
+      return panel;
+    };
+    const panelA = mount(rowA);
+    const panelB = mount(rowB);
+    const hidden = (panel: HTMLElement) =>
+      (panel.querySelector(`[data-style-dim="iconColor"]`) as HTMLElement).hidden;
+    // The no-panelRoot sync for A must resolve to A panel, never leak to B.
+    // (Build-time sync runs before the row is mounted, so it is a no-op;
+    // the leak would show on the post-mount sync below.)
+    syncColorRowVisibility(uiA, "overlay1");
+    expect(hidden(panelA)).toBe(true);
+    expect(hidden(panelB)).toBe(false);
   });
 });

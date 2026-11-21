@@ -6,12 +6,17 @@ import type {
   PersistedLayerState,
 } from "./type.js";
 import {
+  ICON_KIND,
   STYLE_MODE,
   type ValueConfig,
   isIconIntent,
   isValueConfig,
 } from "#core/layer/index.js";
-import { isGlyphSyntax } from "#core/leaflet/index.js";
+import {
+  divIconClassNameOf,
+  isAllowedIconUrl,
+  isGlyphSyntax,
+} from "#core/leaflet/index.js";
 import { VALUE_KIND, isCategoryKind } from "#core/value/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
@@ -25,7 +30,7 @@ import { BORDER_WEIGHT } from "#ui/index.js";
 type LiveState = {
   order?: () => string[];
   removed?: () => string[];
-  foldedRoles?: () => string[];
+  foldedRoles?: () => Record<string, boolean>;
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
@@ -67,14 +72,23 @@ type LiveState = {
  *  config's on-wire key). There is deliberately no compatibility read: the
  *  field rename is a breaking change accepted for this release, so an old v4
  *  record still loads but its label config is dropped, and the next write
- *  stamps v5. */
-const RECORD_VERSION = 5;
+ *  stamps v5.
+ *
+ *  5 → 6: `foldedFolders` (the per-folder fold set) landed. Version 6 is
+ *  reserved for that task; there is no v6 read path here.
+ *
+ *  6 → 7: `foldedRoles` changed from a Set-shaped array (folded keys only)
+ *  to a Record<role, boolean> (per-role user opinion, both directions). There
+ *  is deliberately no compatibility read: the shape change is a breaking
+ *  change accepted for this release, so an old v5 record still loads but its
+ *  fold state is dropped (read as `{}`), and the next write stamps v7. */
+const RECORD_VERSION = 6;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
-  foldedRoles: [],
+  foldedRoles: {},
   renamedNames: {},
   layers: {},
 });
@@ -211,8 +225,29 @@ const PARSE_OVERRIDE: Record<
   zoomRange: data => parseZoomRange(data.zoomRange),
   size: data => parseSize(data.size),
   icon: data => {
+    // The three icon sources share the {kind, value} slot and are validated
+    // PER KIND: a glyph is an FA6 name, a url is a whitelisted image URL
+    // (never HTML — the panel renders it as a native <img>), a divicon-class
+    // is a whitelisted className key. A value that fails its kind's gate
+    // drops the whole intent (the author icon stays), never misapplied as
+    // another source.
     const icon = data.icon as { kind?: unknown; value?: unknown } | undefined;
-    return isIconIntent(icon) && isGlyphSyntax(icon?.value) ? icon : null;
+    if (!isIconIntent(icon) || !icon) return null;
+    const kind = icon.kind;
+    const value = icon.value;
+    if (kind === ICON_KIND.GLYPH) return isGlyphSyntax(value) ? icon : null;
+    if (kind === ICON_KIND.URL) return isAllowedIconUrl(value) ? icon : null;
+    // The persisted value is the SHAPE KEY; the inner glyph always resolves
+    // through the shared glyph pipeline at render (resolveGlyph degrades an
+    // invalid name to the author glyph), so only the className whitelist
+    // gates persistence here.
+    if (kind === ICON_KIND.DIVICON_CLASS) {
+      return divIconClassNameOf(value) !== null ? icon : null;
+    }
+    // type-enforced: isIconIntent (L226) guarantees kind is
+    // GLYPH/URL/DIVICON_CLASS; this is exhaustiveness for TS Record.
+    /* v8 ignore next */
+    return null;
   },
   iconColor: data =>
     isHexColor(data.iconColor) ? normalizeHexColor(data.iconColor) : null,
@@ -322,11 +357,20 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
   if (Array.isArray(data.removed) && data.removed.every(id => typeof id === "string")) {
     record.removed = data.removed as string[];
   }
-  if (
-    Array.isArray(data.foldedRoles) &&
-    data.foldedRoles.every(role => typeof role === "string")
-  ) {
-    record.foldedRoles = data.foldedRoles as string[];
+  // foldedRoles is now a Record<role, boolean> (v7+). A legacy array
+  // (v5 and earlier) is deliberately dropped — read as {} — so a stale
+  // record cannot mis-shape the fold state; the next write re-stamps v7.
+  if (Array.isArray(data.foldedRoles)) {
+    // Legacy array: no per-role opinion recorded, read as {}.
+  } else {
+    const roleMap = asObject(data.foldedRoles);
+    if (roleMap) {
+      const parsed: Record<string, boolean> = {};
+      for (const [role, value] of Object.entries(roleMap)) {
+        if (typeof value === "boolean") parsed[role] = value;
+      }
+      record.foldedRoles = parsed;
+    }
   }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;

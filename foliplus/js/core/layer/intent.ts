@@ -76,6 +76,8 @@ type StyleMode = (typeof STYLE_MODE)[keyof typeof STYLE_MODE];
  *  literal. Mirrors STYLE_MODE. */
 const ICON_KIND = {
   GLYPH: "glyph",
+  URL: "url",
+  DIVICON_CLASS: "divicon-class",
 } as const;
 type IconKind = (typeof ICON_KIND)[keyof typeof ICON_KIND];
 
@@ -222,7 +224,9 @@ type IconIntent = {
 const isIconIntent = (value: unknown): boolean =>
   typeof value === "object" &&
   value !== null &&
-  (value as { kind?: unknown }).kind === ICON_KIND.GLYPH &&
+  (Object.values(ICON_KIND) as string[]).includes(
+    (value as { kind?: unknown }).kind as string,
+  ) &&
   typeof (value as { value?: unknown }).value === "string";
 
 type LayerIntent = {
@@ -477,6 +481,7 @@ const STYLE_KEYS = {
 
 export { STYLE_MODE, ICON_KIND, INTENT, isValueConfig, isIconIntent, LIVE, STYLE_KEYS };
 export type {
+  IconKind,
   LabelConfig,
   StyleMode,
   ValueConfig,

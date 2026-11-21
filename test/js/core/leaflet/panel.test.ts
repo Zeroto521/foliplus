@@ -1732,3 +1732,87 @@ describe("floating gesture containment goes through the unified entry", () => {
     expect(stripComments(ctrlBody)).toMatch(/bindFloatingGestures\s*\(/);
   });
 });
+
+describe("fold panel focus return (a11y)", () => {
+  function makeFold() {
+    const container = document.createElement("div");
+    container.className = "foliplus-ctrl-fold foliplus-is-collapsed";
+    const btn = document.createElement("button");
+    btn.className = "foliplus-toggle-btn";
+    container.appendChild(btn);
+    document.body.appendChild(container);
+    return { container, btn };
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    (document.activeElement as HTMLElement | null)?.blur?.();
+  });
+
+  it("close returns focus to the toggle (outside-press landing spot)", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 90, on } as unknown as L.Map;
+    const { container, btn } = makeFold();
+    const { close } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.focus.panel",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+    btn.focus();
+    expect(document.activeElement).toBe(btn);
+    const closed = close({ restoreFocus: false });
+    expect(closed).toBe(true);
+    expect(document.activeElement).toBe(btn);
+  });
+
+  it("close does not re-focus the toggle when it is already activeElement", () => {
+    const on = vi.fn();
+    const map = { _leaflet_id: 91, on } as unknown as L.Map;
+    const { container, btn } = makeFold();
+    const focusSpy = vi.spyOn(btn, "focus");
+    const { close } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.focus.panel2",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+    btn.focus();
+    focusSpy.mockClear();
+    close({ restoreFocus: false });
+    expect(focusSpy).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(btn);
+  });
+  it("close with no toggle button in the container does not crash or focus", () => {
+    // The toggle && guard's false side: a container with no .foliplus-toggle-btn
+    // (querySelector returns null) must not crash and must not call focus().
+    const on = vi.fn();
+    const map = { _leaflet_id: 92, on } as unknown as L.Map;
+    const container = document.createElement("div");
+    container.className = "foliplus-ctrl-fold foliplus-is-collapsed";
+    // No toggle button appended -- querySelector returns null.
+    document.body.appendChild(container);
+    const { close } = bindFoldOverlay({
+      map,
+      container,
+      id: "test.focus.panel3",
+      exclusiveGroup: "map:panel",
+      pressPriority: 400,
+    });
+    container.classList.add("foliplus-is-expanded");
+    container.classList.remove("foliplus-is-collapsed");
+    let result: boolean | void = false;
+    expect(() => {
+      result = close({ restoreFocus: false });
+    }).not.toThrow();
+    expect(result).toBe(true);
+    // No focus landed anywhere specific (activeElement stays on body).
+    expect(document.activeElement).toBe(document.body);
+  });
+});

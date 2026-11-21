@@ -37,7 +37,7 @@ describe("LayerUI menu", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -86,11 +86,35 @@ describe("LayerUI menu", () => {
       expect(menu.style.left).toBe("0px");
       expect(menu.style.top).toBe("0px");
       expect(menu.style.maxWidth).not.toBe("");
-      expect(menu.style.maxHeight).not.toBe("");
+      // The height cap is applied only when the placement restricts the menu
+      // below its natural height. jsdom reports a 0 scrollHeight (no layout),
+      // so the small menu gets no cap — the no-scroll guard. A menu that
+      // genuinely exceeds the strip is capped (asserted below).
+      expect(menu.style.maxHeight).toBe("");
       // The reposition pass is bound while open and released on close.
       expect(ui.overlayPanel.menuReposition).not.toBeNull();
       ui.closeMoreMenu(false);
       expect(ui.overlayPanel.menuReposition).toBeNull();
+    });
+
+    it("caps the menu height only when the strip restricts it below the content", async () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU}`)!;
+      // A content taller than the available strip: the placement cap (0 in
+      // jsdom) is below the natural height, so the menu gets the cap and
+      // scrolls instead of overflowing the clip box. Re-place through the
+      // bound reposition pass (RAF-throttled) so the fresh scrollHeight is
+      // read, then flush the frame.
+      Object.defineProperty(menu, "scrollHeight", {
+        value: 300,
+        configurable: true,
+      });
+      // Re-place through the bound scroll listener (the reposition pass
+      // schedules a RAF-throttled placeMoreMenu); flush the frame.
+      window.dispatchEvent(new Event("scroll"));
+      await new Promise(resolve => requestAnimationFrame(() => resolve(null)));
+      expect(menu.style.maxHeight).not.toBe("");
     });
 
     it("leads with Filter (generic capability), then style, focus, rename, attributes", () => {
@@ -187,6 +211,59 @@ describe("LayerUI menu", () => {
       expect(entry).not.toBeNull();
       expect(entry.getAttribute("aria-disabled")).toBe("true");
       expect(entry.getAttribute("title")).toBe(ui.T("filter_empty"));
+    });
+
+    it("disables the Filter entry when the layer is hidden", () => {
+      manager.registerLayer({
+        id: "hidden-layer",
+        name: "Hidden Layer",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({
+          dimensions: [{ kind: "range", field: "mag", range: [0, 10], step: 1 }],
+          kept: 0,
+          total: 0,
+        }),
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "hidden-layer");
+      const checkbox = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = false;
+      ui.openMoreMenu(item);
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action='${CONST.ACTION.FILTER_LAYER}']`,
+      ) as HTMLElement | null;
+      expect(entry).not.toBeNull();
+      expect(entry?.getAttribute("aria-disabled")).toBe("true");
+      expect(entry?.getAttribute("title")).toBe(ui.T("focus_layer_hidden"));
+    });
+
+    it("Filter entry stays enabled when layer is visible and has fields", () => {
+      manager.registerLayer({
+        id: "visible-layer",
+        name: "Visible Layer",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+        filterProvider: () => ({
+          dimensions: [{ kind: "range", field: "mag", range: [0, 10], step: 1 }],
+          kept: 0,
+          total: 0,
+        }),
+        filterSetter: () => {},
+      });
+      const item = findItem(ui, "visible-layer");
+      const checkbox = item.querySelector(
+        'input[type="checkbox"]',
+      ) as HTMLInputElement | null;
+      if (checkbox) checkbox.checked = true;
+      ui.openMoreMenu(item);
+      const entry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action='${CONST.ACTION.FILTER_LAYER}']`,
+      ) as HTMLElement | null;
+      expect(entry).not.toBeNull();
+      expect(entry?.getAttribute("aria-disabled")).not.toBe("true");
     });
 
     it("creates a menu with the focus-layer action", () => {

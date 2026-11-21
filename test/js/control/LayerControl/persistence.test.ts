@@ -12,7 +12,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
-  foldedRoles: [],
+  foldedRoles: {},
   renamedNames: {},
   layers: {},
 });
@@ -52,7 +52,7 @@ describe("LayerPersistence", () => {
       seedStorage({
         version: RECORD_VERSION,
         order: ["a", "b"],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -60,7 +60,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -76,7 +76,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ids,
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         renamedNames: { a: "A2" },
         layers: {
           a: {
@@ -124,7 +124,7 @@ describe("LayerPersistence", () => {
       expect(rec.version).toBe(RECORD_VERSION);
       expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
-      expect(rec.foldedRoles).toEqual([]);
+      expect(rec.foldedRoles).toEqual({});
 
       vi.useFakeTimers();
       const save = spySave();
@@ -133,9 +133,37 @@ describe("LayerPersistence", () => {
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
       expect(lastRecord(save).version).toBe(RECORD_VERSION);
-      expect(lastRecord(save).foldedRoles).toEqual([]);
+      expect(lastRecord(save).foldedRoles).toEqual({});
       save.mockRestore();
       vi.useRealTimers();
+    });
+
+    it("drops a v5 array foldedRoles and reads it as {} (v7 shape change)", () => {
+      // RECORD_VERSION 6 → 7 changed foldedRoles from a Set-shaped array to a
+      // Record<role, boolean>. There is deliberately no compatibility read:
+      // the old array is dropped (fold state lost) while every other field
+      // survives, and the next write stamps the current version.
+      seedStorage({
+        version: 5,
+        order: ["a"],
+        foldedRoles: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+      });
+
+      const rec = makePersistence().load();
+      expect(rec.version).toBe(RECORD_VERSION);
+      expect(rec.order).toEqual(["a"]);
+      expect(rec.renamedNames).toEqual({ a: "A2" });
+      expect(rec.foldedRoles).toEqual({});
+    });
+
+    it("parses a v7 Record<role, boolean> foldedRoles with only boolean values", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        foldedRoles: { OVERLAYS: true, base: false },
+      });
+      const rec = makePersistence().load();
+      expect(rec.foldedRoles).toEqual({ OVERLAYS: true, base: false });
     });
 
     it("keeps the current key and drops the legacy segment (dual-key removal)", () => {
@@ -260,15 +288,15 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load().order).toEqual(null);
     });
 
-    it("drops non-string values from names and bad role ids from fold state", () => {
+    it("drops non-string values from names and non-boolean role opinions from fold state", () => {
       seedStorage({
         renamedNames: { a: "A2", b: 123, c: null },
-        foldedRoles: ["OVERLAYS", 7],
+        foldedRoles: { OVERLAYS: true, base: "yes", bogus: 7 },
       });
       const p = makePersistence();
 
       expect(p.load().renamedNames).toEqual({ a: "A2" });
-      expect(p.load().foldedRoles).toEqual([]);
+      expect(p.load().foldedRoles).toEqual({ OVERLAYS: true });
     });
 
     it("keeps removed ids in the order they were deleted", () => {
@@ -801,7 +829,8 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        // Legacy array foldedRoles is dropped as {} (v7 shape change, no compat read).
+        foldedRoles: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -868,7 +897,8 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["b", "a"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        // Legacy array foldedRoles reads as {} and stays {} through the write.
+        foldedRoles: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1294,6 +1324,50 @@ describe("LayerPersistence", () => {
         f: { icon: { kind: "glyph", value: "star" }, overrides: ["icon"] },
       });
     });
+    it("keeps a url icon source that passes the whitelist and drops one that fails it", () => {
+      // Per-kind validation (PR #1228): a url icon is validated by the SAME
+      // isAllowedIconUrl the renderer uses, so a non-whitelisted value never
+      // persists and can never reach an <img src> from storage.
+      seedStorage({
+        layers: {
+          a: {
+            icon: { kind: "url", value: "https://example.com/pin.png" },
+            overrides: ["icon"],
+          },
+          b: {
+            icon: { kind: "url", value: "data:text/html,<script>" },
+            overrides: ["icon"],
+          },
+          c: {
+            icon: { kind: "url", value: "javascript:alert(1)" },
+            overrides: ["icon"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: {
+          icon: { kind: "url", value: "https://example.com/pin.png" },
+          overrides: ["icon"],
+        },
+      });
+    });
+    it("keeps a divicon-class icon whose shape is whitelisted and drops an unknown shape", () => {
+      // Per-kind validation: the persisted value is the SHAPE KEY, gated by
+      // the className whitelist. An unknown shape drops the whole intent (the
+      // author icon stays), never misapplied as another source.
+      seedStorage({
+        layers: {
+          a: { icon: { kind: "divicon-class", value: "square" }, overrides: ["icon"] },
+          b: {
+            icon: { kind: "divicon-class", value: "not-a-shape" },
+            overrides: ["icon"],
+          },
+        },
+      });
+      expect(makePersistence().load().layers).toEqual({
+        a: { icon: { kind: "divicon-class", value: "square" }, overrides: ["icon"] },
+      });
+    });
     it("drops a fill override whose value fails validation", () => {
       seedStorage({
         layers: {
@@ -1401,7 +1475,7 @@ describe("LayerPersistence", () => {
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
       });
-      p.schedule({ foldedRoles: () => ["OVERLAYS"] });
+      p.schedule({ foldedRoles: () => ({ OVERLAYS: true }) });
       p.schedule({ renamedNames: () => ({ a: "A" }) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
@@ -1414,7 +1488,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1443,7 +1517,8 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["b", "a"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        // Legacy array foldedRoles reads as {} and the write leaves it alone.
+        foldedRoles: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1558,7 +1633,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: [],
+        foldedRoles: {},
         renamedNames: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1811,5 +1886,38 @@ describe("styleMode key migration (step 3 acceptance)", () => {
       fillStyleMode: STYLE_MODE.VALUE,
       overrides: ["fillStyleMode"],
     });
+  });
+
+  it("drops an unknown-kind icon intent (not glyph/url/divicon-class)", () => {
+    // Per-kind validation: the parser only recognises the three icon kinds.
+    // An unknown kind (e.g. "ramp") passes isIconIntent (a known kind string)
+    // but fails every per-kind gate and must drop the whole intent — it can
+    // never reach a renderer that would misinterpret it as another source.
+    seedStorage({
+      layers: {
+        a: { icon: { kind: "ramp", value: "x" }, overrides: ["icon"] },
+      },
+    });
+    expect(makePersistence().load().layers).toEqual({});
+  });
+  it("drops a divicon-class icon whose value is null (non-string)", () => {
+    // divIconClassNameOf(non-string) returns null → the intent is dropped.
+    seedStorage({
+      layers: {
+        a: { icon: { kind: "divicon-class", value: null }, overrides: ["icon"] },
+      },
+    });
+    expect(makePersistence().load().layers).toEqual({});
+  });
+
+  it("drops a glyph icon whose value passes isIconIntent but fails glyph syntax", () => {
+    // Line 229 false path: kind=glyph reaches the per-kind gate, but the
+    // value is a string that fails isGlyphSyntax (bad characters) -> null.
+    seedStorage({
+      layers: {
+        a: { icon: { kind: "glyph", value: "!!bad!!" }, overrides: ["icon"] },
+      },
+    });
+    expect(makePersistence().load().layers).toEqual({});
   });
 });

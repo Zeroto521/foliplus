@@ -32,6 +32,7 @@ import {
   isGlyphSyntax,
   resolveGlyph,
 } from "./glyphSource.js";
+import { divIconClassNameOf } from "./iconSource.js";
 import { MARKER_CLASS } from "./markerClassName.js";
 import { presetNameOfHex } from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
@@ -186,6 +187,86 @@ const authorGlyphColorOf = (
  *  author’s icon unchanged when the author is not a Leaflet icon (no
  *  `createIcon` to override) — honest degradation, not a fabricated divIcon.
  */
+
+/** Build a native `L.Icon` from a user URL — the URL icon source. The URL
+ *  becomes the `<img>` `src` Leaflet loads natively (no HTML of ours, so a
+ *  whitelisted URL is the only injection face and it is already gated by
+ *  `isAllowedIconUrl` at the intent/persistence layer). `loading=lazy` +
+ *  `decoding=async` keep a layer of many URL markers from firing every
+ *  request at once, and `onerror` degrades honestly to the author's captured
+ *  icon (never a fabricated divIcon), matching the glyph path's fallback. */
+const buildUrlIcon = (opts: { url: string; author: unknown }): unknown => {
+  const icon = new L.Icon({ iconUrl: opts.url }) as {
+    options: { iconUrl: string; loading?: string; decoding?: string };
+    createIcon: () => HTMLElement;
+    _createImg?: () => HTMLImageElement;
+    _setIconStyles?: (img: HTMLElement, name: string) => void;
+  };
+  icon.options.loading = "lazy";
+  icon.options.decoding = "async";
+  const authorCreate = (opts.author as { createIcon?: unknown } | undefined)
+    ?.createIcon;
+  const create =
+    typeof icon._createImg === "function"
+      ? () => {
+          const img = icon._createImg!();
+          img.src = opts.url;
+          img.alt = "";
+          // listener-exempt: leaf-DOM <img> error handler, replaced with the author icon on fallback
+          img.onerror = () => {
+            // Honest degradation: a URL that fails to load falls back to the
+            // author's captured icon (or the Leaflet default), never a fabricated
+            // divIcon. Leaflet's own createIcon(null) re-runs the author paint.
+            try {
+              const fresh = authorCreate
+                ? (authorCreate as () => HTMLElement).call(opts.author)
+                : null;
+              if (fresh && img.parentNode) img.parentNode.replaceChild(fresh, img);
+            } catch {
+              // A hostile author createIcon throwing here must not break the map:
+              // the broken <img> stays (the browser shows its own broken-image
+              // state) rather than the walk dying mid-tree.
+            }
+          };
+          if (typeof icon._setIconStyles === "function") {
+            icon._setIconStyles(img, "icon");
+          }
+          return img;
+        }
+      : typeof authorCreate === "function"
+        ? () => (authorCreate as () => HTMLElement).call(opts.author)
+        : () => document.createElement("img");
+  icon.createIcon = create;
+  return icon;
+};
+
+/** Build the authorized divIcon source: a whitelisted `className` plus the
+ *  plain-text glyph the shared renderer emits (never innerHTML of our own —
+ *  the only HTML is glyphHtml's text-safe `<i>`). A shape whose key is not in
+ *  the whitelist degrades to the author icon; the inner glyph always resolves
+ *  through resolveGlyph, so an invalid glyph name falls back the same way the
+ *  glyph source does. */
+const buildDivIconClassIcon = (opts: {
+  shape: string;
+  glyph: string;
+  author: unknown;
+  color?: string;
+  opacity?: number;
+  prefix?: string;
+}): unknown => {
+  const className = divIconClassNameOf(opts.shape);
+  if (className === null) return opts.author;
+  const glyph = resolveGlyph(opts.glyph) ?? "circle";
+  const prefix = opts.prefix ?? DEFAULT_GLYPH_PREFIX;
+  const paint = composeColorAlpha(opts.color ?? "#fff", opts.opacity ?? 100);
+  return L.divIcon({
+    className,
+    html: glyphHtml(glyph, "", `color:${paint}`, prefix),
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+  });
+};
+
 /** Scale the built-in 25x41 marker box (and its [12,41] anchor) to a declared
  *  whole-icon pixel edge. The height/width ratio and the anchor's relative
  *  position are preserved, so the pin tip stays pinned and the glyph grows or
@@ -212,28 +293,75 @@ const scaleBox = (
     anchor: [Math.floor((baseWidth / 2) * scale), Math.round(baseHeight * scale)],
   };
 };
+/** Awesome-markers sprite natural box (the CDN's real geometry).
+ *  spriteBaseOf falls back to this when the author declares no iconSize.
+ *  Tests intentionally use a DIFFERENT fixture size ([36,46]) to prove the
+ *  code reads the author's declared size, not a hard-coded default — see
+ *  the markerIcon.test.ts scale test. */
+const AWESOME_MARKERS_DEFAULT_SIZE: [number, number] = [35, 45];
+
+/** The author's sprite geometry (natural box + anchor), read once per
+ *  build so the scale factor is measured from the ACTUAL path's base —
+ *  the awesome-markers sprite is 35x45 / [17,42], the div-icon 25x41 /
+ *  [12,41], so a single hard-coded BASE_WIDTH would mis-scale one of them
+ *  (the defect the task pins). Falls back to the awesome-markers default
+ *  when the author names no size. */
+type SpriteBase = { width: number; height: number; anchorX: number; anchorY: number };
+const spriteBaseOf = (author: unknown): SpriteBase => {
+  const opts = (
+    author as {
+      options?: {
+        iconSize?: number | [number, number];
+        iconAnchor?: number | [number, number];
+      };
+    }
+  )?.options;
+  const size = Array.isArray(opts?.iconSize)
+    ? opts.iconSize
+    : AWESOME_MARKERS_DEFAULT_SIZE;
+  const anchor = Array.isArray(opts?.iconAnchor)
+    ? opts.iconAnchor
+    : ([Math.floor(size[0] / 2), size[1]] as [number, number]);
+  return { width: size[0], height: size[1], anchorX: anchor[0], anchorY: anchor[1] };
+};
+
 /** Scale an already-built awesome-markers chassis to a declared whole-icon
- *  pixel edge. The library paints the sprite at its own fixed size via the
- *  author's stylesheet, so rather than recompute the background geometry we
- *  scale the WHOLE rendered box by one uniform transform with the origin at
- *  the pin tip -- the sprite stays pixel-identical internally and only the
- *  drawn size changes. An absent/invalid declared size is a no-op. */
+ *  pixel edge. Leaflet positions the marker by writing a translate3d on the
+ *  SAME element after setIcon, so any scale placed there is overwritten (the
+ *  defect) — the scale therefore lives on an INNER wrapper that carries the
+ *  sprite content, while the outer box (already sized to the scaled
+ *  iconSize/anchor by the caller) stays the Leaflet-positioned frame. The
+ *  sprite stays pixel-identical internally (no background-size recompute),
+ *  only the drawn size changes; scaling about (0,0) with the outer box
+ *  pre-sized means the pin tip lands on the scaled anchor = the point. An
+ *  absent/invalid declared size is a no-op (the caller passes scale=1). */
 const applyDeclaredIconScale = (
   div: HTMLElement,
-  declaredSize: number | undefined,
+  base: SpriteBase,
+  scale: number,
 ): void => {
-  if (
-    typeof declaredSize !== "number" ||
-    !Number.isFinite(declaredSize) ||
-    declaredSize <= 0
-  ) {
-    return;
-  }
-  const BASE_WIDTH = 25;
-  const scale = declaredSize / BASE_WIDTH;
-  div.style.transformOrigin = "12px 41px";
-  div.style.transform = `scale(${scale})`;
+  if (scale === 1) return;
+  const inner = document.createElement("div");
+  // The inner carries the sprite paint: the class (which the author's
+  // _setIconStyles painted), the inline background, and the glyph/chassis
+  // children. The outer box is only the Leaflet-positioned frame.
+  inner.className = div.className;
+  // Dedicated vocabulary class so CSS and tests can find the scale wrapper
+  // without relying on the outer-to-inner structural relationship.
+  inner.classList.add(MARKER_CLASS.SCALE_WRAPPER);
+  inner.style.backgroundImage = div.style.backgroundImage;
+  inner.style.backgroundPosition = div.style.backgroundPosition;
+  inner.style.width = `${base.width}px`;
+  inner.style.height = `${base.height}px`;
+  inner.style.transformOrigin = "0 0";
+  inner.style.transform = `scale(${scale})`;
+  while (div.firstChild) inner.appendChild(div.firstChild);
+  // The outer no longer paints the sprite (the inner does).
+  div.style.backgroundImage = "none";
+  div.style.backgroundPosition = "";
+  div.appendChild(inner);
 };
+
 const buildMarkerIcon = (opts: {
   /** The author’s captured icon object (or the Leaflet default prototype). */
   author: unknown;
@@ -334,6 +462,29 @@ const buildMarkerIcon = (opts: {
     createIcon: () => HTMLElement | undefined;
     createShadow?: () => HTMLElement | undefined;
   };
+  // A declared icon size scales the sprite path's box and anchor BEFORE the
+  // author's createIcon runs, so its own `_setIconStyles` sizes the outer div
+  // to the scaled box (width/height) and offsets it by the scaled anchor —
+  // the outer div is then the Leaflet-positioned frame of the enlarged icon,
+  // and the inner scale (in applyDeclaredIconScale) only paints the sprite
+  // content at that size. The base is measured from the author's own geometry
+  // (defect: a hard-coded BASE_WIDTH mis-scaled the sprite path).
+  const spriteBase = spriteBaseOf(author);
+  const declaredSize =
+    typeof opts.iconSize === "number" &&
+    Number.isFinite(opts.iconSize) &&
+    opts.iconSize > 0
+      ? opts.iconSize
+      : undefined;
+  const spriteScale = declaredSize === undefined ? 1 : declaredSize / spriteBase.width;
+  const scaledSize: [number, number] = [
+    Math.round(spriteBase.width * spriteScale),
+    Math.round(spriteBase.height * spriteScale),
+  ];
+  const scaledAnchor: [number, number] = [
+    Math.round(spriteBase.anchorX * spriteScale),
+    Math.round(spriteBase.anchorY * spriteScale),
+  ];
   derived.createIcon = function (this: unknown) {
     // Reuse the author’s own chassis build and swap only the inner
     // content — className, backgroundImage/backgroundPosition, iconSize
@@ -343,17 +494,24 @@ const buildMarkerIcon = (opts: {
     // own `_setIconStyles` (the awesome-markers override paints
     // `awesome-marker-icon-<color>` from `options.markerColor`), so the
     // sprite — gradient, stroke, offsets — is never re-created in CSS.
+    // A declared icon size scales the box/anchor (computed above); a shallow
+    // spread would drop the awesome-markers DEFAULT options (className,
+    // iconSize, anchors, shadow...) that the constructor inherits through
+    // the prototype chain — inherit the author’s options object so the
+    // defaults stay reachable, then override on top.
+    const authorOptions = (author as { options?: object }).options;
+    const overrides: Record<string, unknown> = {};
     if (opts.markerColor !== undefined) {
-      // A shallow spread would drop the awesome-markers DEFAULT options
-      // (className: "awesome-marker", iconSize, anchors, shadow...) that the
-      // constructor inherits through the prototype chain — the re-derived
-      // class came out as "awesome-marker-icon-blue undefined". Inherit the
-      // author’s options object so the defaults stay reachable, then
-      // override just the chassis color on top.
-      const authorOptions = (author as { options?: object }).options;
-      (this as { options?: { markerColor?: string } }).options = Object.assign(
+      overrides.markerColor = chassisPreset ?? chassisHex;
+    }
+    if (declaredSize !== undefined) {
+      overrides.iconSize = scaledSize;
+      overrides.iconAnchor = scaledAnchor;
+    }
+    if (Object.keys(overrides).length > 0) {
+      (this as { options?: object }).options = Object.assign(
         Object.create(authorOptions ?? null),
-        { markerColor: chassisPreset ?? chassisHex },
+        overrides,
       );
     }
     const div = author.createIcon?.call(this) as HTMLElement | undefined;
@@ -440,10 +598,13 @@ const buildMarkerIcon = (opts: {
       }
     }
     // A declared icon size scales the WHOLE rendered chassis (sprite + glyph)
-    // by one uniform transform, so the awesome-markers sprite stays
-    // pixel-identical internally (no background-size recompute) and only the
-    // drawn size changes. The origin is the pin tip, so the pin stays pinned.
-    applyDeclaredIconScale(div, opts.iconSize);
+    // by one uniform transform on an INNER wrapper, so the awesome-markers
+    // sprite stays pixel-identical internally (no background-size recompute)
+    // and only the drawn size changes. Leaflet overwrites the OUTER div's
+    // transform when it positions the marker (setTransform), so the scale
+    // must not live on the outer element; the outer box is already sized to
+    // the scaled iconSize/anchor (above), so the pin tip lands on the point.
+    applyDeclaredIconScale(div, spriteBase, spriteScale);
     return div;
   };
   return derived;
@@ -565,12 +726,38 @@ const applyIconToLeaves = (
   color?: string,
   opacity?: number,
   prefix?: string,
+  source?: { kind: string; value: string },
   iconSize?: number,
 ): void => {
   walkLeaf(layer, leaf => {
     if (!isIconLeaf(leaf)) return;
     captureAuthorIcon(leaf);
     const author = authorIcon.get(leaf);
+
+    // The three icon sources share this one walk. A URL or an authorized
+    // divIcon className is a WHOLE-ICON shape (not a glyph swap inside the
+    // author's chassis), so they build their own icon from the author capture
+    // (the Reset target) and skip the glyph-derive path entirely. The caller
+    // (the panel's applyIconToLayer) reads the intent kind and forwards it as
+    // `source`; a glyph intent (or no source) takes the derive path.
+    if (source?.kind === "url") {
+      setLeafIcon(leaf, buildUrlIcon({ url: source.value, author }));
+      return;
+    }
+    if (source?.kind === "divicon-class") {
+      setLeafIcon(
+        leaf,
+        buildDivIconClassIcon({
+          shape: source.value,
+          glyph,
+          author,
+          color,
+          opacity,
+          prefix,
+        }),
+      );
+      return;
+    }
 
     const derived = buildMarkerIcon({
       author,

@@ -40,8 +40,10 @@ const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
   LayerControl: {
     collapse_on_outside: false,
     data: [],
-    label_collide: true,
+    folders: null,
     icon_prefix: "fa-solid",
+    label_collide: true,
+    roles: null,
   },
   LocateControl: {
     zoom: 15,

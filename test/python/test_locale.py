@@ -55,6 +55,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line",
     "LayerControl.type_polygon",
     "LayerControl.type_empty",
+    "LayerControl.type_container",
     # labelKey / titleKey passed as function parameters.
     "LayerControl.data_layer_label",
     "LocateControl.popup_title_geo",
@@ -76,6 +77,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line_short",
     "LayerControl.type_polygon_short",
     "LayerControl.type_empty_short",
+    "LayerControl.type_container_short",
     # Filter panel dynamic labels (filter.ts) — the result readout composes
     # its sentence from the {kept} / {total} template literals.
     # styleModeKey.ts — STYLE_MODE keys are object literals, not T() calls;
@@ -176,6 +178,19 @@ class TestRowTooltipVocabulary:
         en, zh = _TABLES["en"], _TABLES["zh"]
         assert en["LayerControl.filter_layer_tooltip"] == "Filter this layer's data"
         assert zh["LayerControl.filter_layer_tooltip"] == "筛选该图层的数据"
+
+    def test_container_says_group_not_container(self):
+        """The container type is user language, not the jargon "容器".
+
+        folium's API is LayerGroup/FeatureGroup; the user mental model is
+        "组" (group), and "图层组" maps directly to LayerGroup. The short
+        word stays distinct from the folder (user-dragged) vocabulary.
+        """
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        assert en["LayerControl.type_container"] == "Layer Group"
+        assert zh["LayerControl.type_container"] == "图层组"
+        assert en["LayerControl.type_container_short"] == "Group"
+        assert zh["LayerControl.type_container_short"] == "组"
 
 
 class TestLocaleConfig:

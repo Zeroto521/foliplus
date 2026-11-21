@@ -2,9 +2,9 @@
 import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
+import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { EVENTS } from "#core/event/index.js";
-import { ROLE } from "#core/layer/index.js";
+import { ROLE, countChildLayersOf, isContainerLayer } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -80,7 +80,9 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ? "type_tile_map"
       : layerInfo?.iconSvg
         ? "type_custom"
-        : `type_${gtype}`;
+        : layer && !layerInfo?.featureCountProvider && isContainerLayer(layer)
+          ? "type_container"
+          : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
   if (!isColor) {
     // The count is the layer's own unit and agrees with the row: a filtered
@@ -91,7 +93,16 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       layerInfo && typeof layerInfo.filterProvider === "function"
         ? layerInfo.filterProvider()
         : null;
-    const count = layerInfo ? ui.c.getFeatureCount(layerId) : null;
+    const container =
+      layerInfo && layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
+        ? layer
+        : null;
+    const count =
+      container != null
+        ? countChildLayersOf(container)
+        : layerInfo
+          ? ui.c.getFeatureCount(layerId)
+          : null;
     // The panel is the detail view, so counts are grouped (1,234) rather than
     // compacted — and `comma` defaults to one fraction digit, which would
     // render a whole number as "1,234.0", so pass 0 explicitly.
@@ -105,7 +116,10 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       : count == null
         ? ui.T("attr_empty")
         : grouped(count);
-    addRow(ui.T("attr_feature_count"), value);
+    addRow(
+      container != null ? ui.T("attr_child_count") : ui.T("attr_feature_count"),
+      value,
+    );
   }
   addRow(
     ui.T("attr_source"),
@@ -212,8 +226,9 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // An external delete retires the owned layer: the row (and its attrs
   // panel) is being removed. Close without flushing — there is nothing
   // to commit, the layer is gone.
-  ui.overlayPanel.attrsRemovedUnsub = ui.events.on(EVENTS.LAYER_REMOVED, ({ id }) => {
-    if (id !== layerId) return;
+  // Anchor-teardown contract (cross-panel): close on BOTH LAYER_REMOVED and
+  // LAYER_DELETED — see subscribeLayerTearDown in teardown.ts.
+  ui.overlayPanel.attrsRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
     closeAttrsPanel(ui, false);
   });
 

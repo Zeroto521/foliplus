@@ -16,6 +16,7 @@ import { type PaneSpec } from "#foliplus/core/layer/index.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
+import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import { LayerUI } from "#control/LayerControl/ui/index.js";
 import {
@@ -890,16 +891,16 @@ describe("label config seed — read order (write-new / read-old)", () => {
 });
 
 describe("ui/state saveFoldState", () => {
-  it("schedules the folded set through persistence", () => {
+  it("schedules the folded-role opinion map through persistence", () => {
     const schedule = vi.fn();
     const ui = {
-      foldedRoles: new Set(["overlay"]),
+      foldedRoles: { overlay: true },
       c: {
         persistence: { schedule },
         label: { configEntries: () => [] },
       },
       listPanel: {
-        foldedRoles: new Set(["overlay"]),
+        foldedRoles: { overlay: true },
         checkedCount: {},
       },
     } as unknown as LayerUI;
@@ -907,8 +908,10 @@ describe("ui/state saveFoldState", () => {
     // schedule takes a getter map so a later write can read the live state
     // instead of a snapshot at schedule time.
     expect(schedule).toHaveBeenCalledTimes(1);
-    const fields = schedule.mock.calls[0][0] as { foldedRoles: () => string[] };
-    expect(fields.foldedRoles()).toEqual(["overlay"]);
+    const fields = schedule.mock.calls[0][0] as {
+      foldedRoles: () => Record<string, boolean>;
+    };
+    expect(fields.foldedRoles()).toEqual({ overlay: true });
   });
 });
 
@@ -1539,7 +1542,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // must not seed an intent, and an id with only a bad config drops out.
     const bare = {
       intentStore: makeStore(),
-      listPanel: { foldedRoles: new Set<string>(), checkedCount: {} },
+      listPanel: { foldedRoles: {}, checkedCount: {} },
       c: {
         persistence: {
           load: () =>
@@ -1568,7 +1571,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     // direct record (or a future writer) can declare a marker with a bad value.
     const bare = {
       intentStore: makeStore(),
-      listPanel: { foldedRoles: new Set<string>(), checkedCount: {} },
+      listPanel: { foldedRoles: {}, checkedCount: {} },
       c: {
         persistence: {
           load: () =>
@@ -1662,7 +1665,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       CONST.STORAGE.KEY,
       JSON.stringify({
         order: null,
-        foldedRoles: ["Overlay"],
+        foldedRoles: { Overlay: true },
         renamedNames: {},
         layers: {
           overlay1: {
@@ -1676,7 +1679,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
 
     loadPersistedState(ui);
 
-    expect(ui.listPanel.foldedRoles).toEqual(new Set(["Overlay"]));
+    expect(ui.listPanel.foldedRoles).toEqual({ Overlay: true });
     expect(ui.intentStore.get("overlay1", "opacity")).toBe(0.35);
     expect(ui.intentStore.get("overlay1", "zoomRange")).toEqual([3, 12]);
     expect(ui.intentStore.dumpProvenance().overlay1).toEqual(["opacity", "zoomRange"]);
@@ -1691,7 +1694,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
       CONST.STORAGE.KEY,
       JSON.stringify({
         order: null,
-        foldedRoles: [],
+        foldedRoles: {},
         renamedNames: {},
         layers: {
           overlay1: {
@@ -2075,4 +2078,123 @@ it("a full replay announces after the direct style writes have landed", () => {
   ui.events.publish(EVENTS.CONTROL_ATTACHED, { component: "HeatmapControl" });
 
   expect(borderAtDelivery).toEqual(["#abcdef"]);
+});
+
+describe("authorFoldedFolders derivation from CONF.folders", () => {
+  it("derives the author default folded set on loadPersistedState", () => {
+    window.CONFIG.folders = {
+      overlay: [
+        { name: "业务数据", folded: true },
+        { name: "边界", folded: false },
+      ],
+      base: [{ name: "底图", folded: true }],
+    };
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayerWithStyle(
+            { color: "#111111", fillColor: "#222222" },
+            vi.fn(),
+          ),
+        },
+      ],
+    });
+    ui.loadPersistedState();
+    expect(ui.listPanel.authorFoldedFolders).toEqual(
+      new Set(["overlay::业务数据", "base::底图"]),
+    );
+  });
+
+  it("derives an empty set when CONF.folders is absent", () => {
+    delete window.CONFIG.folders;
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayerWithStyle(
+            { color: "#111111", fillColor: "#222222" },
+            vi.fn(),
+          ),
+        },
+      ],
+    });
+    ui.loadPersistedState();
+    expect(ui.listPanel.authorFoldedFolders).toEqual(new Set());
+  });
+
+  it("keeps author defaults separate from the user foldedRoles", () => {
+    window.CONFIG.folders = {
+      overlay: [{ name: "业务数据", folded: true }],
+      base: [],
+    };
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ foldedRoles: { overlay: true } }),
+    );
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayerWithStyle(
+            { color: "#111111", fillColor: "#222222" },
+            vi.fn(),
+          ),
+        },
+      ],
+    });
+    ui.loadPersistedState();
+    // foldedRoles (user) is separate from authorFoldedFolders (author default):
+    // they are two layers, never one set.
+    expect(ui.listPanel.foldedRoles).toEqual({ overlay: true });
+    expect(ui.listPanel.authorFoldedFolders).toEqual(new Set(["overlay::业务数据"]));
+  });
+
+  it("keeps a user-expanded author-folded role expanded across a reload", () => {
+    // The KEY acceptance case: the author declares overlay folded; the user
+    // expands it; a reload must keep it expanded (not snap back to the author
+    // default). The false entry in the Record is what carries the opinion.
+    window.CONFIG.roles = {
+      overlay: { folded: true },
+      base: { folded: false },
+    };
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ foldedRoles: { overlay: false } }),
+    );
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayerWithStyle(
+            { color: "#111111", fillColor: "#222222" },
+            vi.fn(),
+          ),
+        },
+      ],
+    });
+    ui.loadPersistedState();
+    // User opinion false (expand) recorded; author default says folded.
+    expect(ui.listPanel.foldedRoles).toEqual({ overlay: false });
+    expect(ui.listPanel.authorDefaultFoldedRoles).toEqual({
+      overlay: true,
+      base: false,
+    });
+    // Effective resolution: user expand wins over author fold → expanded.
+    expect(
+      effectiveRoleFolded(
+        ui.listPanel.foldedRoles,
+        ui.listPanel.authorDefaultFoldedRoles,
+        "overlay",
+      ),
+    ).toBe(false);
+  });
 });

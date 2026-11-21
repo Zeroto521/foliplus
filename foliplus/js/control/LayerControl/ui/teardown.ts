@@ -68,4 +68,32 @@ const closeOverlays = (ui: LayerUI): void => {
   publish(ui.events, EVENTS.OVERLAY_CLEAR);
 };
 
-export { closeOverlays };
+/** Anchor-teardown contract (cross-panel): a floating panel is anchored to a
+ *  layer id. Both LAYER_REMOVED (the id left the registry through the generic
+ *  teardown, id stays registerable) and LAYER_DELETED (the user cleared a
+ *  component-owned layer, id stays registerable for the next draw) mean the
+ *  anchor's data is going away, so every panel anchored to that id must close
+ *  — the panel's row is about to disappear, and a panel left pointing at a
+ *  gone layer id would write into the void.
+ *
+ *  One table for all five surfaces (filter / style / attrs / rename / menu):
+ *  each panel calls this helper instead of hand-rolling its own event
+ *  subscription, so the "which events close a panel" decision lives here
+ *  alone. Returns the combined unsubscribe.
+ */
+const subscribeLayerTearDown = (
+  ui: LayerUI,
+  layerId: string,
+  close: () => void,
+): (() => void) => {
+  const onTorn = ({ id }: { id: string }): void => {
+    if (id === layerId) close();
+  };
+  const unsubs = [
+    ui.events.on(EVENTS.LAYER_REMOVED, onTorn),
+    ui.events.on(EVENTS.LAYER_DELETED, onTorn),
+  ];
+  return () => unsubs.forEach(off => off());
+};
+
+export { closeOverlays, subscribeLayerTearDown };

@@ -6,6 +6,7 @@ import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
 import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
+import * as SVGs from "#control/LayerControl/icon.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#control/LayerControl/ui/intent.js";
 import {
@@ -423,7 +424,7 @@ describe("applyRowView (the single DOM write point)", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       focusController: { focusingLayerId: null },
-      listPanel: { checkedCount: {}, foldedRoles: new Set<string>() },
+      listPanel: { checkedCount: {}, foldedRoles: {} },
       T: (k: string) => k,
       config: { locale_code: "en" },
     } as unknown as LayerUI;
@@ -835,5 +836,92 @@ describe("pattern anchors", () => {
     const re = PATTERNS[5].re;
     expect(matched("input.title = view.checkboxTitle", re)).toEqual([]);
     expect(matched("input.title = `x ${value}`", re)).toEqual([]);
+  });
+});
+
+describe("container layer row", () => {
+  let manager: any;
+  let ui: any;
+  afterEach(() => {
+    manager?.destroy?.();
+    ui?.uiContainer?.remove();
+  });
+
+  const makeContainer = (children: unknown[] = []) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  it("row shows the container type icon and the child count", () => {
+    const leaf: any = { options: {} };
+    const container = makeContainer([leaf, leaf]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    const info = manager.layerRegistry.get("grp");
+    const cell = buildRowCell(ui, info);
+    // Container type: the container glyph + type_container label. The glyph is
+    // pinned off its single-sourced constant, not its markup — a two-square
+    // group icon drawn from <rect> would still be the container glyph, so the
+    // user contract is "which glyph", not "which shapes".
+    expect(cell.typeSvg).toBe(SVGs.ICON_CONTAINER);
+    expect(cell.typeLabel).toBe("LayerControl.type_container");
+    // Child count in the count column.
+    expect(cell.countText).toBe("2");
+  });
+
+  it("a logical layer backed by a group with a featureCountProvider is NOT a container", () => {
+    // Regression: the browser filter test registers a layer backed by an empty
+    // L.layerGroup() with a provider-driven count. isContainerLayer(empty group)
+    // is true (group-like + child registry), so the row misclassified it as a
+    // container and showed the child count (0) instead of the provider count.
+    // The group is the layer's Leaflet REPRESENTATION, not a folder of
+    // sub-layers — a provider-carrying layer keeps its provider count.
+    const group = makeContainer([]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: group }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    // Re-register with a provider (the CONFIG path supplies featureCountProvider
+    // for layers whose count is provider-authoritative).
+    const info = manager.registerLayer({
+      id: "grp",
+      name: "Group",
+      role: "overlay",
+      layer: group,
+      featureCountProvider: () => 8,
+    });
+    expect(info).not.toBeNull();
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    // Provider count wins over the child count.
+    expect(cell.countText).toBe("8");
+    // Not a container row: no group icon, no type_container label.
+    expect(cell.typeLabel).not.toBe("LayerControl.type_container");
+  });
+
+  it("container delete and teardown are safe", () => {
+    const container = makeContainer([{ options: {} }]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    // Delete the layer; the container's clearLayers should be called and no throw.
+    expect(() => manager.deleteLayer("grp")).not.toThrow();
+    expect(container.clearLayers).toHaveBeenCalled();
   });
 });

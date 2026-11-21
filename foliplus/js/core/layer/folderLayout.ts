@@ -170,10 +170,11 @@ const isFolderLayout = (raw: unknown): raw is FolderLayout => {
 };
 
 /** Tolerant read of the persisted layout. A corrupt or unknown-version
- *  payload (an array, a string, a record missing any role, a future
- *  version) reads back as an empty layout — it is not a persistence channel
- *  and must never be trusted as one. Read has NO side effect: a bad record is
- *  left as-is, never repaired on read (mirrors the filter-store read path). */
+ *  payload (an array, a string, a future version) reads back as an empty
+ *  layout — and an empty `order` (`{}`, no role keys) is the legal empty
+ *  state, not a corrupt one. It is not a persistence channel and must never
+ *  be trusted as one. Read has NO side effect: a bad record is left as-is,
+ *  never repaired on read (mirrors the filter-store read path). */
 const readFolderLayout = (): FolderLayout => {
   const loaded = loadRecord<unknown>(LAYOUT_DOC_KEY);
   return isFolderLayout(loaded) ? loaded : emptyFolderLayout();

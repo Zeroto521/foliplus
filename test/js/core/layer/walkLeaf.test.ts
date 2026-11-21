@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  countChildLayers,
+  countChildLayersOf,
   findLeaf,
   findNode,
   isContainerNode,
@@ -269,5 +271,41 @@ describe("isContainerNode", () => {
     });
     expect(() => isContainerNode(hostile)).not.toThrow();
     expect(isContainerNode(hostile)).toBe(false);
+  });
+});
+
+describe("countChildLayers", () => {
+  const makeGroup = (children: unknown[] = []) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  it("countChildLayers: direct children, not deep leaves", () => {
+    const leaf1: any = { options: {} };
+    const leaf2: any = { options: {} };
+    const inner = makeGroup([leaf1]);
+    const outer = makeGroup([inner, leaf2]);
+    expect(countChildLayersOf(outer)).toBe(2);
+    expect(countChildLayersOf(inner)).toBe(1);
+    expect(countChildLayersOf(makeGroup([]))).toBe(0);
+  });
+
+  it("countChildLayers: a missing layer counts zero", () => {
+    // The guard arm: countChildLayers(null | undefined) must read 0, never
+    // dereference the node. A container row always passes a real layer, so
+    // this arm is the defensive floor.
+    expect(countChildLayers(null as unknown as L.Layer)).toBe(0);
+    expect(countChildLayers(undefined as unknown as L.Layer)).toBe(0);
   });
 });

@@ -19,7 +19,11 @@ import { describe, expect, it } from "vitest";
 // and are exempt (they pair with the labeled start line).
 const REPO_ROOT = resolve(".");
 const JS_DIR = resolve(REPO_ROOT, "foliplus/js");
-const LABEL_RE = /\/\/\s*(unreachable|type-enforced)\s*:/;
+const LABEL_RE = /\/\/\s*(unreachable|type-enforced)\s*:\s*(\S.*)$/;
+// A label must name a real reason, not a placeholder: "unreachable: TODO"
+// (or FIXME/XXX) would pass an existence-only check while saying nothing
+// about why the branch cannot run.
+const PLACEHOLDER_RE = /^\s*(TODO|FIXME|XXX)\b/i;
 const SKIP_DIR = new Set(["node_modules", "dist", "coverage", ".git"]);
 const PER_FILE_MAX = 3;
 const REPO_MAX = 30;
@@ -34,6 +38,13 @@ function walk(dir: string, out: string[]): string[] {
   return out;
 }
 
+/** Is a candidate label line semantically meaningful? A label must name a
+ *  reason, not a placeholder: `// unreachable: TODO` is a label in name only. */
+export function isLabelMeaningful(line: string): boolean {
+  const m = line.match(LABEL_RE);
+  return m !== null && !PLACEHOLDER_RE.test(m[2]);
+}
+
 /** Collect every ignore directive in one file. A directive is a
  *  `v8 ignore next` or `v8 ignore start` line; `v8 ignore stop` lines are
  *  closers, not directives, and are skipped. Returns { line, labeled, block }. */
@@ -42,9 +53,10 @@ function collectDirectives(file: string): { line: number; labeled: boolean }[] {
   const directives: { line: number; labeled: boolean }[] = [];
   for (let i = 0; i < lines.length; i++) {
     if (/v8 ignore (next|start)/.test(lines[i])) {
-      // Label must appear in the 2 lines above (not counting the ignore line itself).
+      // Label must appear in the 2 lines above (not counting the ignore line
+      // itself) and name a real reason (not a TODO/FIXME/XXX placeholder).
       const window = lines.slice(Math.max(0, i - 2), i);
-      const labeled = window.some(l => LABEL_RE.test(l));
+      const labeled = window.some(isLabelMeaningful);
       directives.push({ line: i + 1, labeled });
     }
   }
@@ -83,5 +95,19 @@ describe("v8 ignore comments are labeled and bounded", () => {
 
   it("keeps the whole repo at or below the repo ceiling", () => {
     expect(total).toBeLessThanOrEqual(REPO_MAX);
+  });
+
+  it("rejects a placeholder label (TODO) as not meaningful", () => {
+    expect(isLabelMeaningful("  // unreachable: TODO handle this")).toBe(false);
+    expect(isLabelMeaningful("  // type-enforced: FIXME")).toBe(false);
+  });
+
+  it("accepts a label naming a real reason", () => {
+    expect(
+      isLabelMeaningful("  // unreachable: jsdom defines the Leaflet global"),
+    ).toBe(true);
+    expect(
+      isLabelMeaningful("  // type-enforced: the guard is a type-level invariant"),
+    ).toBe(true);
   });
 });

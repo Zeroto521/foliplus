@@ -27,7 +27,7 @@ describe("LayerUI attrs", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -946,4 +946,77 @@ describe("LayerUI attrs", () => {
     expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
   });
   // ─────────────────── more button visibility ───────────────────
+});
+
+describe("container layer attrs", () => {
+  let manager: any;
+  let ui: any;
+  afterEach(() => {
+    manager?.destroy?.();
+    ui?.uiContainer?.remove();
+  });
+
+  const makeContainer = (children: unknown[] = []) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  it("attrs panel names a container by its child count", () => {
+    // The attrs panel for a container layer reports the direct child count
+    // with the attr_child_count label (container != null arm in attr.ts).
+    const container = makeContainer([{ options: {} }, { options: {} }]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    const item = findItem(ui, "grp");
+    ui.openAttrsPanel(item);
+    const rows = Array.from(
+      item.querySelectorAll<HTMLElement>(".foliplus-form-row"),
+    ).map(row => [
+      row.querySelector(".foliplus-form-label")?.textContent ?? "",
+      row.querySelector(".foliplus-form-control")?.textContent ?? "",
+    ]);
+    // The type row names the container, the count row names the child count.
+    const typeRow = rows.find(([label]) => label === "LayerControl.attr_type");
+    const countRow = rows.find(([label]) => label === "LayerControl.attr_child_count");
+    expect(typeRow?.[1]).toBe("LayerControl.type_container");
+    expect(countRow?.[1]).toBe("2");
+  });
+
+  it("attrs panel for a layer with no Leaflet layer falls back to the feature count", () => {
+    // A logical layer with no Leaflet representation (layer == null) reaches
+    // the attr panel with a null layer: the container ternaries must not
+    // dereference it, and the count falls back to getFeatureCount.
+    const r = initFixture({
+      data: [{ id: "virtual1", name: "Virtual", role: "overlay" } as never],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    const item = findItem(ui, "virtual1");
+    expect(() => ui.openAttrsPanel(item)).not.toThrow();
+    const rows = Array.from(
+      item.querySelectorAll<HTMLElement>(".foliplus-form-row"),
+    ).map(row => [
+      row.querySelector(".foliplus-form-label")?.textContent ?? "",
+      row.querySelector(".foliplus-form-control")?.textContent ?? "",
+    ]);
+    // No container: the count row keeps the feature-count label.
+    const countRow = rows.find(
+      ([label]) => label === "LayerControl.attr_feature_count",
+    );
+    expect(countRow).toBeDefined();
+  });
 });

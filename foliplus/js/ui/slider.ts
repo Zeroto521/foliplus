@@ -43,6 +43,30 @@ const finishSlidersIn = (root: ParentNode): void => {
 const clamp = (value: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, value));
 
+/** Display width of one label in "digit columns": a CJK / full-width glyph
+ *  counts 2, everything else 1. The end-label alignment rule keys on this
+ *  width, not on a pixel measurement, so a Chinese value and a number with
+ *  the same visual span get the same alignment. */
+const displayWidth = (s: string): number => {
+  let w = 0;
+  for (const ch of s) {
+    // A for..of yields whole code points (a lone surrogate is one char), so
+    // index 0 is always in range and codePointAt never returns undefined; the
+    // cast keeps the branch out of the hot path.
+    const cp = ch.codePointAt(0) as number;
+    const wide =
+      (cp >= 0x1100 && cp <= 0x115f) ||
+      (cp >= 0x2e80 && cp <= 0xa4cf) ||
+      (cp >= 0xac00 && cp <= 0xd7a3) ||
+      (cp >= 0xf900 && cp <= 0xfaff) ||
+      (cp >= 0xfe30 && cp <= 0xfe6f) ||
+      (cp >= 0xff00 && cp <= 0xff60) ||
+      (cp >= 0xffe0 && cp <= 0xffe6);
+    w += wide ? 2 : 1;
+  }
+  return w;
+};
+
 // ── The value bubble ──────────────────────────────────────────────
 // Bubbles are page-level and keyed by anchor (the thumb element): a row that
 // owns one changes, the node does not. Keeping them out of every panel's
@@ -648,12 +672,15 @@ class Slider {
     this.valuesRow.appendChild(label);
   }
 
-  /** Width-adaptive end labels: a label that fits on its half stays
-   *  dot-centred (its centre on the parked dot's centre); a label too wide
-   *  to fit centred without crossing the row's middle switches to the clamp
-   *  state (class is-clamp), which pins it to the row's edge and clips its
-   *  text inward. Measured on render / open / resize — never on a drag
-   *  frame, so a pointermove cannot churn the layout. */
+  /** Width-adaptive end labels: the alignment rule keys on the label's
+   *  display width in digit columns (see displayWidth). A label that fits a
+   *  single digit column is dot-centred (its centre sits on the parked
+   *  thumb's centre, a half thumb in from the control edge); anything wider
+   *  is an axis label and pins to the slider's painted ends (class is-clamp,
+   *  the control's two edges — where the parked thumbs' outer edges land),
+   *  clipping its text toward the inside. The switch is decided per label on
+   *  render / open / resize — never on a drag frame, so a pointermove cannot
+   *  churn the layout. */
   private measureValuesFit(): void {
     if (!this.minEl || !this.maxEl || !this.opts.values) return;
     const rowWidth = this.valuesRow.clientWidth;
@@ -661,19 +688,16 @@ class Slider {
     // laid-out width; skip and let the deferred measure or the resize observer
     // decide once the row is in the document.
     if (rowWidth === 0) return;
-    const thumb =
-      parseFloat(
-        getComputedStyle(this.root).getPropertyValue("--foliplus-slider-thumb-size"),
-      ) || 14;
-    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
-    // A label may stay dot-centred while it does not cross the row's middle:
-    // half the row, minus the half-thumb anchor and the gap to its sibling.
-    const half = rowWidth / 2 - thumb / 2 - gap;
-    const fits = (el: HTMLElement) => el.scrollWidth <= half + 1;
-    const minClamp = !fits(this.minEl);
-    const maxClamp = !fits(this.maxEl);
-    this.minEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, minClamp);
-    this.maxEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, maxClamp);
+    // The rule: one display column = dot-centred (a bare digit like "0" or
+    // "A" centres on its dot); two or more = clamp to the track's ends. The
+    // fit keys on the rendered label text (opts.values), which is the same
+    // string renderValues wrote into the span, so no null text path exists.
+    const fit = (el: HTMLElement, text: string) =>
+      displayWidth(text) < 2
+        ? el.classList.remove(SLIDER_CLASS.VALUE_CLAMP)
+        : el.classList.add(SLIDER_CLASS.VALUE_CLAMP);
+    fit(this.minEl, this.opts.values.min);
+    fit(this.maxEl, this.opts.values.max);
     // The deferred fit measure runs after the first layout, so the current
     // label can finally read its dot's real centre (the constructor's own
     // sync saw zero-width boxes and deferred).
@@ -696,17 +720,14 @@ class Slider {
     if (centre === null) return;
     const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
     // The end numbers own the row's two edges; the current number may use
-    // the space strictly between their inner edges. A dot-centred end label
-    // overhangs inward, so its box edge is the real boundary.
+    // the space strictly between their inner edges. A clamped end label is
+    // pinned to the edge, so its box edge is the real boundary.
     const minBox = this.minEl?.getBoundingClientRect();
     const maxBox = this.maxEl?.getBoundingClientRect();
     const leftBound = minBox ? minBox.right - row.left + gap : gap;
     const rightBound = maxBox ? maxBox.left - row.left - gap : row.width - gap;
-    // A dot-centred label may grow room/2 on either side of the dot (the
-    // dot sits at the centre of the label), so the cap is twice the nearer
-    // distance to an end label's inner edge.
-    // A dot-centred label may grow room/2 on either side of the dot (the
-    // dot sits at the centre of the label), so the cap is twice the nearer
+    // The current number may grow room/2 on either side of the dot (the dot
+    // sits at the centre of the label), so the cap is twice the nearer
     // distance to an end label's inner edge.
     const room = Math.min(centre - leftBound, rightBound - centre) * 2;
     if (this.currentEl.scrollWidth <= room + 1) return;

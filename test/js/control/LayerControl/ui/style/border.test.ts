@@ -151,7 +151,7 @@ describe("layerCanBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -308,7 +308,7 @@ describe("authoredBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -390,7 +390,7 @@ describe("commit pipeline", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -571,7 +571,7 @@ describe("bindBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -635,7 +635,7 @@ describe("resetLayerBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -839,7 +839,7 @@ describe("highlight restore", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1012,7 +1012,7 @@ describe("applyBorderToLayer", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1214,7 +1214,7 @@ describe("buildBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1489,7 +1489,7 @@ describe("border apply scheduler (drag coalesce)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1982,7 +1982,7 @@ describe("value-stroke wiring (C1–C7)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -2165,7 +2165,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -2501,7 +2501,7 @@ describe("value-detail and shell wiring coverage", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -2629,7 +2629,7 @@ describe("follow-fill border mode", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -3007,6 +3007,45 @@ describe("follow-fill border mode", () => {
     replayDeclaredBorder(ui, "drep4");
     expect(leaves[0].setStyle).not.toHaveBeenCalled();
   });
+  // declared value (foliplus.border value mode)
+  // The declaration is a read-time value default: no stored intent - the
+  // border shows and classifies by the author's declared field/config.
+
+  it("declared value drives the display with no stored mode", () => {
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    registerDeclared("dv1", { mode: "value", field: "count", scheme: "Reds" }, leaves);
+    const block = buildBorderRow(ui, "dv1") as HTMLElement;
+    document.body.appendChild(block);
+    const select = selectOf(block)!;
+    expect(select.value).toBe("value");
+    // The declared config seeds the value detail.
+    const field = block.querySelector(
+      ".foliplus-style-fill-field-select",
+    ) as HTMLSelectElement | null;
+    expect(field?.value).toBe("count");
+  });
+
+  it("declared value paints the classified stroke on apply", () => {
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    registerDeclared("dv2", { mode: "value", field: "count", scheme: "Reds" }, leaves);
+    applyBorderToLayer(ui, "dv2");
+    // The border classified by value writes a color intent (the classification
+    // resolves a concrete stroke) and paints it.
+    expect(getIntent(ui, "dv2", "borderStyleMode")).toBeUndefined();
+    expect(leaves[0].setStyle).toHaveBeenCalled();
+  });
+
+  it("declared value is inapplicable on a polygon (outline never classifies)", () => {
+    // polygon area leaves carry the border only as the outline: the value mode
+    // steps aside on a channel that cannot paint it, like a stored value.
+    const leaves = [makeAreaLeaf(1), makeAreaLeaf(5)];
+    registerDeclared("dv3", { mode: "value", field: "count", scheme: "Reds" }, leaves);
+    const block = buildBorderRow(ui, "dv3") as HTMLElement;
+    document.body.appendChild(block);
+    const select = selectOf(block);
+    // value is not a mode option on a polygon border (only original+solid).
+    expect(Array.from(select!.options).map(o => o.value)).not.toContain("value");
+  });
 
   it("per-feature solid with no intent: the engine passes the derived author base (435 base arm)", () => {
     // Line 435 `base ?? solidColorOf`: the base (left) side is the missing
@@ -3084,7 +3123,7 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -3314,7 +3353,7 @@ describe("border options per geometry", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -3524,7 +3563,7 @@ describe("border solid derivation invariants", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#111111", "#222222"]);
   });
@@ -3650,7 +3689,7 @@ describe("border category value wiring", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#111111", "#222222"]);
   });
@@ -3889,7 +3928,7 @@ describe("border VALUE mode with no value field (defensive fallbacks)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 

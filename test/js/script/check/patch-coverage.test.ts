@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
-  __entryUrl,
   computePatch,
   isJsFile,
   isPythonFile,
   main,
   parseAddedLines,
   parseArgs,
+  parseCobertura,
   parseIstanbul,
   parseLcov,
   runCli,
@@ -552,6 +552,192 @@ describe("parseLcov", () => {
   });
 });
 
+describe("parseCobertura", () => {
+  const xmlFor = (root: string, filename: string, lineHits: Record<string, number>) => {
+    const lines = Object.entries(lineHits)
+      .map(([n, h]) => `      <line number="${n}" hits="${h}"/>`)
+      .join("\n");
+    return [
+      `<?xml version="1.0" ?>`,
+      "<coverage>",
+      "<sources>",
+      `<source>${root.replace(/\\/g, "/")}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      `<class name="${filename}" filename="${filename}">`,
+      "<lines>",
+      lines,
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+  };
+
+  it("maps a Cobertura class to a repo-relative path and records line hits", () => {
+    const xml = xmlFor(REPO, "foliplus/control/LayerControl/_folder.py", {
+      "1": 1,
+      "2": 0,
+    });
+    const covByRel = parseCobertura(xml, REPO);
+    const fc = covByRel.get("foliplus/control/LayerControl/_folder.py");
+    expect(fc).toBeDefined();
+    expect(fc.lines.get(1)).toBe("covered");
+    expect(fc.lines.get(2)).toBe("uncovered");
+  });
+
+  it("resolves a relative filename against the first source that exists on disk", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}/foliplus</source>`,
+      `<source>${REPO}/script</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="changelog_check.py" filename="check/changelog_check.py">',
+      "<lines>",
+      '<line number="1" hits="1"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, p => p.includes("script"));
+    const fc = covByRel.get("script/check/changelog_check.py");
+    expect(fc).toBeDefined();
+    expect(fc.lines.get(1)).toBe("covered");
+  });
+
+  it("falls back to the first source join when no source resolves on disk", () => {
+    const xml = xmlFor(REPO, "src.py", { "1": 1 });
+    const covByRel = parseCobertura(xml, REPO, () => false);
+    const fc = covByRel.get("src.py");
+    expect(fc).toBeDefined();
+    expect(fc.lines.get(1)).toBe("covered");
+  });
+
+  it("reports a branch partial from condition-coverage", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="3" hits="1" branch="true" condition-coverage="50% (1/2)"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    const fc = covByRel.get("src.py");
+    expect(fc.partials).toEqual([{ line: 3, untaken: 1, total: 2 }]);
+  });
+
+  it("does not report a partial when the branch is fully taken", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="4" hits="1" branch="true" condition-coverage="100% (2/2)"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    expect(covByRel.get("src.py").partials).toEqual([]);
+  });
+
+  it("ignores a line without a branch attribute (no partial)", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="5" hits="1"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    const fc = covByRel.get("src.py");
+    expect(fc.lines.get(5)).toBe("covered");
+    expect(fc.partials).toEqual([]);
+  });
+
+  it("falls back to the raw filename when there are no sources", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="1" hits="1"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    // No <sources> block: the defensive fallback keeps the raw filename.
+    const fc = covByRel.get("src.py");
+    expect(fc).toBeDefined();
+    expect(fc.lines.get(1)).toBe("covered");
+  });
+
+  it("treats a multi-hit line as covered and a zero-hit line as uncovered", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="1" hits="3"/>',
+      '<line number="2" hits="0"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    const fc = covByRel.get("src.py");
+    expect(fc.lines.get(1)).toBe("covered");
+    expect(fc.lines.get(2)).toBe("uncovered");
+  });
+});
+
 describe("computePatch", () => {
   const coverage = {
     [join(REPO, "foliplus/js/x.ts")]: entry(
@@ -990,9 +1176,14 @@ describe("main CLI error paths", () => {
     try {
       runCli(
         [`--cwd=${repo}`, "--base=HEAD", "--coverage=coverage/coverage-final.json"],
-        __entryUrl,
+        resolve("script/check/patch-coverage.mjs"),
+        resolve("script/check/patch-coverage.mjs"),
       );
-      runCli([`--cwd=${repo}`, "--base=HEAD"], "/some/other/entry.mjs");
+      runCli(
+        [`--cwd=${repo}`, "--base=HEAD"],
+        "/some/other/entry.mjs",
+        resolve("script/check/patch-coverage.mjs"),
+      );
       expect(log).toHaveBeenCalled();
     } finally {
       log.mockRestore();
@@ -1003,7 +1194,7 @@ describe("main CLI error paths", () => {
     rmSync(repo, { recursive: true, force: true });
   });
 });
-describe("scope CLI tests (Python skipped, JS counted, mixed)", () => {
+describe("scope CLI tests (Python scored, JS counted, mixed)", () => {
   const repo = mkdtempSync(join(tmpdir(), "patch-cov-scope-"));
   const git = (args: string[], cwd = repo) =>
     execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" });
@@ -1021,52 +1212,53 @@ describe("scope CLI tests (Python skipped, JS counted, mixed)", () => {
     baseRef = "";
   }
 
-  it("passes with a clear skip message on a pure Python change", () => {
-    if (!baseRef) return;
-    writeFileSync(join(repo, "src.py"), "def f():\n    return 1\n");
-    git(["add", "-A"]);
-    git(["commit", "-q", "-m", "python-only"]);
-    mkdirSync(join(repo, "coverage"));
-    writeFileSync(join(repo, "coverage", "coverage-final.json"), "{}");
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    try {
-      const code = main(
-        parseArgs([
-          `--cwd=${repo}`,
-          `--base=${baseRef}`,
-          "--threshold=0.95",
-          "--coverage=coverage/coverage-final.json",
-        ]),
-      );
-      expect(code).toBe(0);
-      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
-      expect(out).toContain(
-        "src.py: skipped: Python (covered by pytest, not this mirror)",
-      );
-    } finally {
-      log.mockRestore();
-    }
-  }, 30000);
-
-  it("fails on a mixed change when the JS side is uncovered, listing JS lines only", () => {
-    if (!baseRef) return;
-    writeFileSync(join(repo, "src.py"), "def f():\n    return 2\n");
-    writeFileSync(join(repo, "src.ts"), "const a = 1;\nconst b = 2;\n");
-    git(["add", "-A"]);
-    git(["commit", "-q", "-m", "mixed"]);
-    const covPath = join(repo, "coverage", "coverage-final.json");
+  const writeJsCov = (covPath: string, line2Covered: boolean) => {
     const cov = {
       [join(repo, "src.ts").replace(/\\/g, "/")]: {
         statementMap: {
           "0": { start: { line: 1, column: 0 }, end: { line: 1, column: 0 } },
           "1": { start: { line: 2, column: 0 }, end: { line: 2, column: 0 } },
         },
-        s: { "0": 1, "1": 0 },
+        s: { "0": 1, "1": line2Covered ? 1 : 0 },
         branchMap: {},
         b: {},
       },
     };
     writeFileSync(covPath, JSON.stringify(cov));
+  };
+
+  // A minimal Cobertura XML that reports src.py: line 1 covered, line 2
+  // covered/uncovered per the flag (the "return" body line).
+  const writePyCov = (covPath: string, line2Covered: boolean) => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${join(repo).replace(/\\/g, "/")}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="1" hits="1"/>',
+      `<line number="2" hits="${line2Covered ? 1 : 0}"/>`,
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    writeFileSync(covPath, xml);
+  };
+
+  it("scores a pure Python change against the Cobertura report", () => {
+    if (!baseRef) return;
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 1\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "python-only-covered"]);
+    mkdirSync(join(repo, "coverage"));
+    writeFileSync(join(repo, "coverage", "coverage-final.json"), "{}");
+    writePyCov(join(repo, "coverage.xml"), true);
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     try {
       const code = main(
@@ -1075,14 +1267,98 @@ describe("scope CLI tests (Python skipped, JS counted, mixed)", () => {
           `--base=${baseRef}`,
           "--threshold=0.95",
           "--coverage=coverage/coverage-final.json",
+          "--py-coverage=coverage.xml",
+        ]),
+      );
+      expect(code).toBe(0);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("Python: 100.0% patch");
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  it("fails a pure Python change with an uncovered added line", () => {
+    if (!baseRef) return;
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 2\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "python-only-uncovered"]);
+    writePyCov(join(repo, "coverage.xml"), false);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+          "--py-coverage=coverage.xml",
+        ]),
+      );
+      expect(code).toBe(1);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("Python FAIL");
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+
+  it("fails on a mixed change when the JS side is uncovered, listing JS lines", () => {
+    if (!baseRef) return;
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 2\n");
+    writeFileSync(join(repo, "src.ts"), "const a = 1;\nconst b = 2;\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "mixed"]);
+    const covPath = join(repo, "coverage", "coverage-final.json");
+    writeJsCov(covPath, false);
+    writePyCov(join(repo, "coverage.xml"), true);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+          "--py-coverage=coverage.xml",
         ]),
       );
       expect(code).toBe(1);
       const out = log.mock.calls.map(a => a.join(" ")).join("\n");
       expect(out).toContain("src.ts: uncovered added lines 2");
-      expect(out).toContain(
-        "src.py: skipped: Python (covered by pytest, not this mirror)",
+      expect(out).toContain("JS FAIL");
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
+  it("fails on a mixed change when the Python side is uncovered, listing Python lines", () => {
+    if (!baseRef) return;
+    // Commit a mixed change where JS is fully covered but Python is not.
+    writeFileSync(join(repo, "src.ts"), "const a = 1;\nconst b = 2;\n");
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 3\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "mixed-python-fail"]);
+    const covPath = join(repo, "coverage", "coverage-final.json");
+    mkdirSync(join(repo, "coverage"), { recursive: true });
+    writeJsCov(covPath, true);
+    writePyCov(join(repo, "coverage.xml"), false);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+          "--py-coverage=coverage.xml",
+        ]),
       );
+      expect(code).toBe(1);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("src.py: uncovered added lines 2");
+      expect(out).toContain("Python FAIL");
+      // The JS side is fine, so it must not be reported as failing.
+      expect(out).not.toContain("JS FAIL");
     } finally {
       log.mockRestore();
     }
@@ -1090,8 +1366,6 @@ describe("scope CLI tests (Python skipped, JS counted, mixed)", () => {
 
   it("skips a non-JS non-Python file with the generic message", () => {
     if (!baseRef) return;
-    // Capture the current HEAD so this test's diff covers ONLY the README change
-    // (the previous tests' src.ts/src.py commits stay out of this diff).
     const prevHead = git(["rev-parse", "HEAD"]).trim();
     writeFileSync(join(repo, "README.md"), "# readme\n");
     git(["add", "-A"]);
@@ -1109,11 +1383,29 @@ describe("scope CLI tests (Python skipped, JS counted, mixed)", () => {
       expect(code).toBe(0);
       const out = log.mock.calls.map(a => a.join(" ")).join("\n");
       expect(out).toContain(
-        "README.md: skipped: not in the coverage report (excluded or non-JS)",
+        "README.md: skipped: not in a coverage report (excluded or non-code)",
       );
     } finally {
       log.mockRestore();
     }
+  }, 30000);
+
+  it("returns 2 when the Python coverage report is missing on a Python patch", () => {
+    if (!baseRef) return;
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 1\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "py-no-report"]);
+    rmSync(join(repo, "coverage.xml"), { force: true });
+    const code = main(
+      parseArgs([
+        `--cwd=${repo}`,
+        `--base=${baseRef}`,
+        "--threshold=0.95",
+        "--coverage=coverage/coverage-final.json",
+        "--py-coverage=coverage.xml",
+      ]),
+    );
+    expect(code).toBe(2);
   }, 30000);
 
   afterAll(() => {

@@ -18,6 +18,7 @@ import { ROLE, folderOf, normalizeFolderName } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
@@ -46,7 +47,7 @@ const initTypesAndVisibility = (ui: LayerUI): ProjectionBatch => {
   // registry is skipped by the sweep, not dropped from the record —
   // stored
   // state is erased only by an explicit delete.
-  const moved = ui.applyUserState();
+  const moved = ui.c.replayStoredStateAll();
 
   // First-load visibility is the author's `show=`: no code fallback for
   // "no basemap visible" — the A′ hatch (see paintNoBasemapHatch) is the
@@ -381,7 +382,7 @@ const syncRowOrder = (ui: LayerUI): void => {
   }
 };
 
-/** Whether `role`'s role should render its toggle-all header row.
+/** Whether the given role should render its toggle-all header row.
  *  Shared by renderInitialList, syncRowOrder, insertLayerItem and retireRow so
  *  the four cannot drift apart (builder-4 ②③④). A role keeps its header
  *  while it owns at least one live layer OR at least one folder key in the
@@ -429,7 +430,13 @@ const renderInitialList = (ui: LayerUI) => {
       );
     }
     const item = renderLayerItem(ui, layerInfo);
-    if (ui.listPanel.foldedRoles.has(role)) {
+    if (
+      effectiveRoleFolded(
+        ui.listPanel.foldedRoles,
+        ui.listPanel.authorDefaultFoldedRoles,
+        role,
+      )
+    ) {
       item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     }
     frag.appendChild(item);
@@ -524,7 +531,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     );
   }
   const item = renderLayerItem(ui, layerInfo);
-  if (ui.listPanel.foldedRoles.has(role)) {
+  if (
+    effectiveRoleFolded(
+      ui.listPanel.foldedRoles,
+      ui.listPanel.authorDefaultFoldedRoles,
+      role,
+    )
+  ) {
     item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
   frag.appendChild(item);
@@ -601,7 +614,11 @@ const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
 };
 
 const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
-  const isFolded = ui.listPanel.foldedRoles.has(role);
+  const isFolded = effectiveRoleFolded(
+    ui.listPanel.foldedRoles,
+    ui.listPanel.authorDefaultFoldedRoles,
+    role,
+  );
   return dom.el(
     "div",
     {

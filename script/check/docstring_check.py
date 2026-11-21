@@ -72,7 +72,18 @@ CONTROL_CLASSES: dict[str, str] = _discover_control_classes()
 # Sphinx roles the docstrings use as cross-references. docutils alone does
 # not know them and would report ``Unknown interpreted text role`` (ERROR/3),
 # so they are registered as generic inline roles before parsing.
-_SPHINX_ROLES = ("class", "meth", "mod", "attr", "func", "exc", "data", "obj", "ref")
+_SPHINX_ROLES = (
+    "class",
+    "doc",
+    "meth",
+    "mod",
+    "attr",
+    "func",
+    "exc",
+    "data",
+    "obj",
+    "ref",
+)
 
 # ``Unexpected section title`` is a standalone-parse artifact, not a markup
 # bug: docutils reports it when a section heading follows a bullet list (which

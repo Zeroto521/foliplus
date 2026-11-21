@@ -328,3 +328,24 @@
 .foliplus-marker-default .foliplus-marker-glyph {
   font-size: var(--foliplus-icon-size-md);
 }
+
+/* The authorized divIcon shapes (the panel's className whitelist). Each is the
+   same footprint as the default chassis; only the silhouette differs, so they
+   read from the same tokens as the default — same glyph font, same flex
+   footprint — rather than copying declarations. A shape is added only when
+   its class joins MARKER_CLASS + this block. */
+.foliplus-shape-pin,
+.foliplus-shape-square {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.foliplus-shape-pin .foliplus-marker-glyph,
+.foliplus-shape-square .foliplus-marker-glyph {
+  font-size: var(--foliplus-icon-size-md);
+}
+
+.foliplus-shape-square {
+  align-items: center;
+}

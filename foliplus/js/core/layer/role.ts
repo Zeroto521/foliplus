@@ -6,11 +6,11 @@
 // projection IS the role, so there is no separate section middle-layer.
 //
 // The role vocabulary lives here so the panel never hand-rolls a role string
-// (a hardcoded "overlay" in a control would drift from the table below).
+// (a hardcoded "overlay" in a control would drift from the single source).
 import type { ROLE } from "./const.js";
 
 /** A layer's role — derived from `ROLE` (const.ts) so the runtime vocabulary
- *  stays a single source (a literal union here would drift from the table). */
+ *  stays a single source (a literal union here would drift from the ROLE constant). */
 type LayerRole = (typeof ROLE)[keyof typeof ROLE];
 
 export type { LayerRole };
