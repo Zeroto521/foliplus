@@ -1860,7 +1860,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             page.wait_for_function(
                 _js("LayerControl/wait_drag_handle_opacity"),
                 arg=[
-                    ".foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle",
+                    ".foliplus-layer-item.foliplus-active .foliplus-layer-rail .drag-handle",
                     0,
                     "1",
                 ],
@@ -1871,7 +1871,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             page.wait_for_function(
                 _js("LayerControl/wait_drag_handle_opacity"),
                 arg=[
-                    ".foliplus-layer-item.foliplus-active .foliplus-drag-cell .drag-handle",
+                    ".foliplus-layer-item.foliplus-active .foliplus-layer-rail .drag-handle",
                     0,
                     "0",
                 ],
@@ -2978,7 +2978,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             page.hover(":nth-match(" + ROW + ", 2)")
             page.wait_for_function(
                 _js("LayerControl/wait_drag_handle_opacity"),
-                arg=[ROW + " .foliplus-drag-cell .drag-handle", 1, "1"],
+                arg=[ROW + " .foliplus-layer-rail .drag-handle", 1, "1"],
                 timeout=2000,
             )
             assert page.is_visible(".foliplus-layer-more-menu.open")

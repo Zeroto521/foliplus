@@ -81,6 +81,7 @@ interface LayerUI {
   handleOutsideMousedown(event: MouseEvent): void;
   handleKeyDown(event: KeyboardEvent): void;
   openMoreMenu(item: HTMLElement): void;
+  openRoleMenu(item: HTMLElement): void;
   closeMoreMenu(setFocus: boolean): void;
   openAttrsPanel(item: HTMLElement): void;
   closeAttrsPanel(setFocus: boolean): void;
@@ -95,6 +96,7 @@ interface LayerUI {
   isFocusing(): boolean;
   cancelFocus(): void;
   syncNoBasemap(): void;
+  reindexAfterMove(): void;
 }
 
 export type { LayerUI };

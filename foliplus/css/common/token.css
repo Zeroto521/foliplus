@@ -52,6 +52,10 @@
   --foliplus-input-focus-border: var(--foliplus-red-500);
 
   --foliplus-divider-color: var(--foliplus-neutral-300);
+  /* The fold-tree guide is a structural line, not a hairline separator: it has
+     to stay legible against the row surface at 1px, so it takes the muted text
+     weight rather than the divider weight (issue 5). */
+  --foliplus-tree-line-color: var(--foliplus-text-muted);
 
   --foliplus-panel-header-bg: var(--foliplus-neutral-100);
   --foliplus-panel-header-hover: var(--foliplus-neutral-300);

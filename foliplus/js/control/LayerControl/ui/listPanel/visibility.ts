@@ -10,8 +10,13 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { applyRowView, buildRowCell } from "./rowView.js";
-import { ROLE, paintsAtZoom } from "#core/layer/index.js";
+import {
+  applyRowView,
+  buildRowCell,
+  writeRoleCount,
+  writeTriState,
+} from "./rowView.js";
+import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the
@@ -24,7 +29,12 @@ const getLayerItems = (ui: LayerUI, role: string): Element[] => {
     role === ROLE.BASE
       ? `[data-layer-type="${ROLE.BASE}"]`
       : `:not([data-layer-type="${ROLE.BASE}"])`;
-  return Array.from(container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}`));
+  // Folder rows and role rows carry .foliplus-layer-item too (per spec §1.2)
+  // but are group rows, not leaf layers — LEAF_ITEM excludes both so a role
+  // count never counts a group as a layer.
+  return Array.from(
+    container.querySelectorAll(`${CONST.SEL.LEAF_ITEM}${inGroup}`),
+  );
 };
 
 /** Whether a base layer actually paints right now: on the map, inside its own
@@ -120,9 +130,33 @@ const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
   notifyDeltas(ui, announced);
 };
 
-/** Full rescan that populates `ui.listPanel.checkedCount[role]` from the DOM + intent,
- *  then writes the toggle-all checkbox off the fresh count. Called only at
- *  reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
+/** Repaint each folder header of one role from its own aggregate: the
+ *  tri-state checkbox and the count cell. The folder row is a group row like
+ *  the role header, so it reconciles on the same cadence — a member toggled
+ *  from anywhere (its own checkbox, the folder checkbox, the role checkbox, a
+ *  host `setVisible`) leaves both group rows agreeing with the members. */
+const syncFolderRows = (ui: LayerUI, role: string): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  const rows = container.querySelectorAll(
+    `${CONST.SEL.FOLDER_ROW}[data-role="${role}"]`,
+  );
+  for (const row of Array.from(rows)) {
+    const folderKey = row.getAttribute(CONST.DATA.FOLDER_KEY);
+    if (!folderKey) continue;
+    const vis = folderVisibility(ui, role, folderKey);
+    const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (box) writeTriState(box, vis.total, vis.on);
+    row.classList.toggle(CONST.CLASSES.ACTIVE, vis.on > 0);
+    writeRoleCount(row, vis.total, vis.on);
+  }
+};
+
+/** Repaint every group row of one role — the role header and each folder
+ *  header — from its own visibility aggregate. One pass, one source: a group
+ *  row's checkbox and its count always come from the same aggregate, and a
+ *  reconcile point never has to remember which group rows exist. Called only
+ *  at reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
  *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
  *  to keep the update O(1). */
 const syncToggleAll = (ui: LayerUI, role: string) => {
@@ -175,15 +209,39 @@ const writeToggleAllCheckbox = (
   role: string,
 ): void => {
   const c = ui.listPanel.checkedCount?.[role] ?? { total: 0, on: 0 };
-  const allChecked = c.total > 0 && c.on === c.total;
-  const noneChecked = c.on === 0;
-  allCb.checked = allChecked;
-  allCb.indeterminate = !allChecked && !noneChecked;
+  // One tri-state writer for every group row: the role header and the folder
+  // headers paint checked / indeterminate / aria-checked from the same rule.
+  writeTriState(allCb, c.total, c.on);
   allCb.title = ui.T(
-    allChecked || allCb.indeterminate
+    allCb.checked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
   );
+  // The count column is the row's other half of the same aggregate. It used
+  // to be written once by the initial render and never again, so a layer
+  // registered after that render (the solid basemap registers in the
+  // initTypesAndVisibility pass, one tick later) left the count stale —
+  // "3" beside four rows. Writing it here keeps it on the same source and
+  // the same cadence as the checkbox.
+  const row =
+    allCb.closest(CONST.SEL.TOGGLE_ALL_ROW) ?? allCb.closest(CONST.SEL.TOGGLE_ALL);
+  // The icon wake follows the same aggregate as the checkbox and the count.
+  row?.classList.toggle(CONST.CLASSES.ACTIVE, c.on > 0);
+  if (row) {
+    writeRoleCount(
+      row,
+      c.total,
+      c.on,
+      ui
+        .T("role_count_tooltip")
+        .replace("{on}", String(c.on))
+        .replace("{total}", String(c.total)),
+    );
+  }
+  // Every group row of the role repaints on the same cadence: both the O(1)
+  // click path and the full rescan funnel through here, so a folder header can
+  // never lag the role header it sits under.
+  syncFolderRows(ui, role);
 };
 
 /** Incrementally update the role's `checkedCount.on` by `delta` (typically
@@ -293,9 +351,61 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   return true;
 };
 
+/** The visibility aggregate of one folder: `{ total, on }` across its live
+ *  members in `role`. The folder row's checkbox and count are both driven by
+ *  this single aggregate (spec §1.2/§4.7), so a role count and a folder
+ *  count can never disagree about a member. */
+const folderVisibility = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+): { total: number; on: number } => {
+  const layout = ui.c.folderLayoutView;
+  let total = 0;
+  let on = 0;
+  for (const info of ui.c.layerRegistry.items) {
+    if (info.role !== role) continue;
+    if (folderOf(layout, info) !== folderKey) continue;
+    total += 1;
+    if (intentVisibleOf(ui, info.id)) on += 1;
+  }
+  return { total, on };
+};
+
+/** Set every live member of one folder visible/hidden. One write per layer
+ *  (persist=false) then one save + rebuild, mirroring toggleAll's bulk path. */
+const setFolderVisible = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+  visible: boolean,
+): void => {
+  for (const info of ui.c.layerRegistry.items) {
+    if (info.role !== role) continue;
+    if (folderOf(ui.c.folderLayoutView, info) !== folderKey) continue;
+    setVisibleIntent(ui, info.id, visible, false);
+  }
+  saveState(ui);
+  ui.reindexAfterMove();
+};
+
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
+  // A folder row's checkbox is a group toggle for every member: the folder
+  // row has no data-layer-id (it is a group row, not a leaf), so the layer
+  // change path below would no-op. Climb to the folder row by its key.
+  const folderRow = target.closest(CONST.SEL.FOLDER_ROW) as HTMLElement | null;
+  if (folderRow) {
+    const fk = folderRow.getAttribute(CONST.DATA.FOLDER_KEY);
+    const role = folderRow.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (fk && role) {
+      const vis = folderVisibility(ui, role, fk);
+      const toVisible = vis.on !== vis.total;
+      setFolderVisible(ui, role, fk, toVisible);
+    }
+    return;
+  }
 
   // The row carries the identity: data-layer-id, not a positional index — a
   // late registration can sit anywhere in the DOM, so an index-based lookup
@@ -316,4 +426,5 @@ export {
   syncNoBasemap,
   applyVisibility,
   handleChange,
+  setFolderVisible,
 };

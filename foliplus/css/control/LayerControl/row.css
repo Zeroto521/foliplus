@@ -84,17 +84,23 @@
   /* ── Section label (rendered only inside toggle-all rows) ── */
   .foliplus-layer-sep-label {
     grid-area: label;
+    position: relative;
+    z-index: 1;
     font-size: var(--foliplus-font-size-xs);
     color: var(--foliplus-text-muted);
     text-transform: uppercase;
     letter-spacing: var(--foliplus-letter-spacing-tight);
     white-space: nowrap;
+    /* The role row's divider fills the label column behind this label; the
+       surface paint creates the text gap so the hairline does not cross the
+       label (spec v3.6: divider ends before the count column). */
+    background: var(--foliplus-surface);
   }
 
   /* ── Shared grid placements (each row is an independent grid container,
        so these global rules apply inside all of them via grid-context evaluation). */
-  .foliplus-drag-cell {
-    grid-area: drag;
+  .foliplus-layer-rail {
+    grid-area: rail;
     /* Always black. The grip is a static affordance, not a control that joins
        the hover/active color dance, so it never tints accent. */
     color: var(--foliplus-text-primary);
@@ -121,12 +127,13 @@
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     display: grid;
     grid-template-columns: var(--foliplus-grid-layer-cols);
-    /* Drag/check/label are named slots (placed via item-level grid-area
-       shared with layer-item rows). Divider is 3 anonymous slots —
-       positioned by grid-column: 4 / -1 on the item, not a named area.
-       This avoids the dual-declaration coupling (template-areas + item
-       grid-area) that only the divider originally had. */
-    grid-template-areas: "drag check label . . .";
+    /* Rail/check/label/count/icon/more are named slots (placed via
+       item-level grid-area shared with layer-item rows). The role row now
+       carries count/icon/more (spec v3.6 §1.2), so it uses the same six
+       named areas as folder/layer rows — otherwise those grid-area names
+       would auto-place into one implicit cell and overlap. The role divider
+       is placed by grid-column: 3 (label column only), not a named area. */
+    grid-template-areas: "rail check label count icon more";
     column-gap: var(--foliplus-grid-layer-gap);
     align-items: center;
     /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
@@ -168,7 +175,7 @@
 
   /* ── Fold toggle button ── */
   .foliplus-layer-fold-btn {
-    grid-area: drag;
+    grid-area: rail;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -345,7 +352,7 @@
         0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary);
       background: var(--foliplus-surface);
 
-      .foliplus-drag-cell .drag-handle {
+      .foliplus-layer-rail .drag-handle {
         opacity: 1;
       }
       .foliplus-type-icon-col {
@@ -367,7 +374,7 @@
        appended inside the row, and CSS :active matches the pressed element
        plus every ancestor, so a press on any panel/menu control would
        otherwise light the owner row. The row's own label / checkbox /
-       drag-cell still receive the wash. :has is already in use below
+       rail still receive the wash. :has is already in use below
        (line ~359) so no browser support regression. */
     &:not([data-layer-type="base"]):not(
         :has(.foliplus-row-panel :active, .foliplus-layer-more-menu :active)
@@ -414,7 +421,7 @@
   .foliplus-layer-item {
     display: grid;
     grid-template-columns: var(--foliplus-grid-layer-cols);
-    grid-template-areas: "drag check label count icon more";
+    grid-template-areas: "rail check label count icon more";
     column-gap: var(--foliplus-grid-layer-gap);
     padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
       var(--foliplus-space-md) var(--foliplus-space-sm);
@@ -525,5 +532,120 @@
       animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
         var(--foliplus-drag-pulse-count);
     }
+  }
+
+  /* ── Folder row (a group header inside a role) ── */
+  .foliplus-layer-item-folder {
+    grid-template-areas: "rail check label count icon more";
+    cursor: pointer;
+    font-size: var(--foliplus-font-size-md);
+    font-weight: var(--foliplus-font-weight-medium);
+
+    .foliplus-layer-label-folder {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-size: var(--foliplus-font-size-md);
+      font-weight: var(--foliplus-font-weight-medium);
+    }
+    &.foliplus-layer-folded {
+      border-left-color: var(--foliplus-accent-primary);
+
+      .foliplus-layer-fold-btn svg {
+        transform: rotate(180deg);
+      }
+      .foliplus-layer-fold-btn {
+        color: var(--foliplus-accent-primary);
+      }
+    }
+  }
+
+  /* ── Role row (section header, now a ⋮ row too) ── */
+  .foliplus-layer-role {
+    font-size: var(--foliplus-font-size-xs);
+    font-weight: var(--foliplus-font-weight-semibold);
+    letter-spacing: var(--foliplus-letter-spacing-tight);
+
+    .foliplus-layer-sep-label {
+      font-size: var(--foliplus-font-size-xs);
+      font-weight: var(--foliplus-font-weight-semibold);
+    }
+  }
+
+  /* ── Role divider: the shared section-divider paint, label column only ──
+     The element carries .foliplus-section-divider too, so the paint (soft
+     gradient at both ends) is the one recipe main has always used; this rule
+     only narrows the span to the label column, because the role row now owns
+     the count / icon / more cells the pre-folder divider ran through. */
+  .foliplus-role-divider {
+    grid-column: 3;
+    justify-self: stretch;
+    align-self: center;
+  }
+
+  /* ── Fold-tree guides for folder members (rail column) ──
+     The vertical stem sits on the rail's centre line, so it lines up with the
+     fold chevron of the folder header above it (issue 5). Two shapes, not one:
+     --mid is a branch that continues below this row (├), --last is the elbow
+     that ends the branch (└), so the stem stops at the horizontal stub. */
+  .foliplus-fold-tree {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    color: var(--foliplus-tree-line-color);
+
+    &::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      border-left: var(--foliplus-border-thin) solid currentColor;
+      transform: translateX(-50%);
+    }
+  }
+  /* └ — the branch ends here: the stem stops at the elbow. */
+  .foliplus-fold-tree-last::before {
+    bottom: 50%;
+  }
+  .foliplus-fold-tree-mid::after,
+  .foliplus-fold-tree-last::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    right: 0;
+    top: 50%;
+    height: 0;
+    border-bottom: var(--foliplus-border-thin) solid currentColor;
+    transform: translateY(-50%);
+  }
+
+  /* ── Rail cell: tree guides by default, grip on hover (mutual exclusion) ── */
+  .foliplus-layer-rail {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* When the rail has a tree guide, hide the grip until hover; on hover,
+     show the grip and hide the guide. A member row shows a grip on hover
+     exactly like a root row (spec §3.3). */
+  .foliplus-layer-item .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .foliplus-layer-item:hover
+    .foliplus-layer-rail:has(.foliplus-fold-tree)
+    .drag-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .foliplus-layer-item:hover
+    .foliplus-layer-rail:has(.foliplus-fold-tree)
+    .foliplus-fold-tree {
+    opacity: 0;
   }
 }

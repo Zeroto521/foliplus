@@ -1,8 +1,10 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
+import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import { closeAttrsPanel } from "../overlayPanel/attr.js";
+import { intentVisibleOf } from "../projection.js";
 import { closeStylePanel } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import {
@@ -12,10 +14,23 @@ import {
   restoreCursor,
   syncListCursor,
 } from "./cursor.js";
-import { applyRowView, buildRowCell, displayName } from "./rowView.js";
+import {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  roleCountText,
+  writeTriState,
+} from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
-import { ROLE, folderOf, normalizeFolderName } from "#core/layer/index.js";
+import {
+  type LayerRole,
+  ROLE,
+  folderOf,
+  groupByFolder,
+  normalizeFolderName,
+} from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
+import { ICON_GLOBE } from "#platform/icon.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -397,6 +412,94 @@ const rolesWithHeader = (ui: LayerUI, role: string): boolean => {
   return Boolean(keys && keys.length > 0);
 };
 
+/** True when the panel owns at least one folder key (any role). The
+ *  conditional-render gate: no folders → the rail slot stays exactly as
+ *  today (byte-identical); at least one folder → every row adds its rail
+ *  content and the role row gains divider/count/type-icon/more. */
+const hasAnyFolder = (ui: LayerUI): boolean => {
+  const layout = ui.c.folderLayoutView;
+  // A folder exists if a role holds an ordered block key, OR any live member
+  // is assigned to a folder. Declared-only grouping (no persisted order yet)
+  // materialises the folder row from the member assignments, so the gate must
+  // read members too — checking only `order` leaves a declared folder invisible
+  // until the first user action freezes the order.
+  return (
+    (layout.order[ROLE.OVERLAY]?.length ?? 0) > 0 ||
+    (layout.order[ROLE.BASE]?.length ?? 0) > 0 ||
+    Object.values(layout.members).some(m => m.folder !== "")
+  );
+};
+
+/** Role-level visibility aggregate: { total, on } across every layer of the
+ *  role (folder members + root), read from the registry + intent — the same
+ *  aggregator the toggle-all checkbox and the role count share. */
+const roleVisibility = (ui: LayerUI, role: string): { total: number; on: number } => {
+  let total = 0;
+  let on = 0;
+  for (const li of ui.c.layers) {
+    if (li.role !== role) continue;
+    total++;
+    if (intentVisibleOf(ui, li.id)) on++;
+  }
+  return { total, on };
+};
+
+/** Folder-level visibility aggregate for one folder key. */
+const folderVisibility = (
+  ui: LayerUI,
+  role: string,
+  key: string,
+): { total: number; on: number } => {
+  let total = 0;
+  let on = 0;
+  for (const li of ui.c.layers) {
+    if (li.role !== role) continue;
+    const f = folderOf(ui.c.folderLayoutView, li);
+    if (!f || normalizeFolderName(f) !== key) continue;
+    total++;
+    if (intentVisibleOf(ui, li.id)) on++;
+  }
+  return { total, on };
+};
+
+/** The role's display blocks in exact `roleOrder` order, but with folder rows
+ *  preserved: `{ kind: "folder", key, name, block }` for each folder block and
+ *  `{ kind: "layer", layer }` for each root layer. Mirrors `roleOrder` — a
+ *  folder block's members are emitted contiguously, then the role's root
+ *  layers. */
+const displayBlocks = (
+  ui: LayerUI,
+  role: string,
+): Array<
+  | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
+  | { kind: "layer"; layer: LayerInfo }
+> => {
+  const layout = ui.c.folderLayoutView;
+  const folders = groupByFolder(ui.c.layers, role as LayerRole, layout);
+  const listed = layout.order[role as keyof typeof layout.order] ?? [];
+  const listedKeys = new Set(listed);
+  const blocks = [];
+  for (const key of listed) {
+    const block = folders.get(key);
+    if (block) blocks.push(block);
+  }
+  const rest = [...folders.values()]
+    .filter(block => !listedKeys.has(block.key))
+    .sort((a, b) => a.anchor - b.anchor);
+  blocks.push(...rest);
+  const out: Array<
+    | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
+    | { kind: "layer"; layer: LayerInfo }
+  > = [];
+  for (const block of blocks) {
+    out.push({ kind: "folder", key: block.key, name: block.displayName, block });
+  }
+  const rootLayers = ui.c.layers.filter(
+    li => li.role === role && !folderOf(layout, li),
+  );
+  for (const li of rootLayers) out.push({ kind: "layer", layer: li });
+  return out;
+};
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -416,38 +519,55 @@ const renderInitialList = (ui: LayerUI) => {
   // folder key — no live rows — gets its header after the loop, keeping the
   // empty-folder cleanup button reachable (hard constraint 1 / builder-4 ②).
   const headerSeen = new Set<string>();
+  // Folder-aware row order: for each role with a header, emit the role row,
+  // then each folder block (folder row + members) and the role's root layers
+  // in the exact `roleOrder` sequence (spec §1.1 / folderLayout.ts).
+  const roleLabel = (role: string) =>
+    role === ROLE.BASE ? "base_map_label" : "data_layer_label";
+  const emitRole = (role: string) => {
+    if (headerSeen.has(role) || !rolesWithHeader(ui, role)) return;
+    headerSeen.add(role);
+    frag.appendChild(renderToggleAllRow(ui, role, roleLabel(role)));
+    const roleFolded = ui.listPanel.foldedRoles.has(role);
+    for (const block of displayBlocks(ui, role)) {
+      if (block.kind === "folder") {
+        const row = renderFolderRow(ui, role, block.key, block.name);
+        const folderFolded = effectiveFolderFolded(
+          ui.listPanel.authorFoldedFolders,
+          ui.listPanel.foldedFolders,
+          role,
+          block.key,
+        );
+        // The row paints its own fold state (renderFolderRow); only the
+        // members are hidden here.
+        frag.appendChild(row);
+        for (const member of block.block.members) {
+          const item = renderLayerItem(ui, member);
+          if (roleFolded || folderFolded) {
+            item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+          }
+          frag.appendChild(item);
+        }
+      } else {
+        const item = renderLayerItem(ui, block.layer);
+        if (roleFolded) {
+          item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+        }
+        frag.appendChild(item);
+      }
+    }
+  };
+  // Roles in the order the layer sequence introduces them (overlay then base
+  // for a two-role panel), then any role that owns only an empty folder key.
+  const seenRoleOrder: string[] = [];
   for (const layerInfo of ui.c.layers) {
-    const role = layerInfo.role;
-    if (!headerSeen.has(role) && rolesWithHeader(ui, role)) {
-      headerSeen.add(role);
-      frag.appendChild(
-        renderToggleAllRow(
-          ui,
-          role,
-          role === ROLE.BASE ? "base_map_label" : "data_layer_label",
-        ),
-      );
+    if (!seenRoleOrder.includes(layerInfo.role)) {
+      seenRoleOrder.push(layerInfo.role);
+      emitRole(layerInfo.role);
     }
-    const item = renderLayerItem(ui, layerInfo);
-    if (ui.listPanel.foldedRoles.has(role)) {
-      item.classList.add(CONST.CLASSES.GROUP_FOLDED);
-    }
-    frag.appendChild(item);
   }
-
-  // A role that owns only an empty folder key (no live rows) gets its
-  // header after the loop: the layer sequence could not introduce it, and
-  // the cleanup entry must stay reachable.
   for (const role of [ROLE.OVERLAY, ROLE.BASE]) {
-    if (!headerSeen.has(role) && rolesWithHeader(ui, role)) {
-      frag.appendChild(
-        renderToggleAllRow(
-          ui,
-          role,
-          role === ROLE.BASE ? "base_map_label" : "data_layer_label",
-        ),
-      );
-    }
+    if (!headerSeen.has(role)) emitRole(role);
   }
 
   // The rebuild drops every row (and any style panel anchored in one). A drag
@@ -506,8 +626,8 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // insertion anchor, so the header stays adjacent to its rows.
   const firstRowSel =
     role === ROLE.BASE
-      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`
-      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
+      ? `${CONST.SEL.LEAF_ITEM}[data-layer-type="${ROLE.BASE}"]`
+      : `${CONST.SEL.LEAF_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
   const firstOfGroup = container.querySelector(firstRowSel);
   const header = container.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
@@ -602,14 +722,12 @@ const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
 
 const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   const isFolded = ui.listPanel.foldedRoles.has(role);
-  return dom.el(
-    "div",
-    {
-      class: `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}`,
-      tabindex: "0",
-      "data-role": role,
-      title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
-    },
+  const withFolders = hasAnyFolder(ui);
+  // Role-level count: aggregated with the same source as the checkbox
+  // (spec §2.8 — role count and checkbox state come from one aggregator).
+  const vis = roleVisibility(ui, role);
+  const countText = roleCountText(vis.total, vis.on);
+  const children: HTMLElement[] = [
     dom.el(
       "button",
       {
@@ -620,16 +738,88 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
     dom.el(
       "div",
       { class: CONST.CLASSES.CHECKBOX },
-      dom.el("input", {
-        type: "checkbox",
-        "data-role": CONST.TOGGLE_ALL_ROLE,
-        checked: "",
-        title: ui.T("toggle_all_deselect_tooltip"),
-      }),
+      (() => {
+        const input = dom.el("input", {
+          type: "checkbox",
+          "data-role": CONST.TOGGLE_ALL_ROLE,
+          checked: "",
+          title: ui.T("toggle_all_deselect_tooltip"),
+        }) as HTMLInputElement;
+        writeTriState(input, vis.total, vis.on);
+        return input;
+      })(),
     ),
     dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
-    sectionDivider("div"),
-    ...cleanFolderButton(ui, role),
+  ];
+  if (withFolders) {
+    // v3.6: role row gains the divider (before count), the layer-count
+    // (role layer count, not feature count), the role-level type icon and a
+    // row-level ⋮ (independent of the panel-header ⋮).
+    // Same paint recipe as the shared section divider (soft gradient at both
+    // ends); only the span differs, because the role row now owns the count /
+    // icon / more cells that the pre-folder divider used to run through. A
+    // second hand-rolled line here is what made the two role sections look
+    // different from main (issue 4).
+    const roleDivider = sectionDivider("div");
+    roleDivider.classList.add(CONST.CLASSES.ROLE_DIVIDER);
+    children.push(roleDivider);
+    children.push(
+      dom.el(
+        "span",
+        {
+          class: CONST.CLASSES.COUNT_COL,
+          [CONST.DATA.ROLE]: role,
+          title: ui
+            .T("role_count_tooltip")
+            .replace("{on}", String(vis.on))
+            .replace("{total}", String(vis.total)),
+        },
+        countText,
+      ),
+    );
+    children.push(
+      dom.el(
+        "div",
+        { class: CONST.CLASSES.TYPE_ICON_COL },
+        { html: role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS },
+      ),
+    );
+    children.push(
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.MORE_BTN,
+          type: "button",
+          title: ui.T("role_more_tooltip"),
+          "aria-label": ui.T("role_more_tooltip"),
+        },
+        { html: SVGs.ICON_MORE },
+      ),
+    );
+  }
+  // spec v3.6 §1.2: when the role has folders, the role row carries its own
+  // .foliplus-role-divider (before the count); the shared panel
+  // section-divider is the pre-folder leftover and must not render (it would
+  // overlap count/icon/more). A plain role row (no folders) keeps the shared
+  // divider, exactly as before folders existed.
+  if (!withFolders) children.push(sectionDivider("div"));
+  children.push(...cleanFolderButton(ui, role));
+  return dom.el(
+    "div",
+    {
+      // The role row carries LAYER_ITEM so the shared cell styles (count,
+      // type icon, more button, label) apply to it exactly as they do to a
+      // layer or folder row. Without it the role row is the only row type
+      // outside that shared block, and its count/icon/more silently fall back
+      // to unstyled defaults — the misalignment this class fixes at the root.
+      // ACTIVE is the icon wake: a group row whose members are on reads as
+      // active exactly like a checked layer row (issue 3).
+      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
+      tabindex: "0",
+      "data-role": role,
+      title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
+    },
+    ...children,
   );
 };
 
@@ -656,6 +846,110 @@ const cleanFolderButton = (ui: LayerUI, role: string): HTMLElement[] => {
       label,
     ),
   ];
+};
+
+/** Render a folder row (a user-created group inside a role).
+ *  Structure per spec §1.2:
+ *  [fold-btn][checkbox (tri-state)][label--folder][count(data-folder-key)]
+ *  [type-icon-col (folder icon, fixed)][more-btn].
+ *  The whole row is clickable (fold toggle, reusing the role handler path);
+ *  the checkbox and more button stopPropagation in lifecycle. */
+const renderFolderRow = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+  folderName: string,
+) => {
+  const folded = effectiveFolderFolded(
+    ui.listPanel.authorFoldedFolders,
+    ui.listPanel.foldedFolders,
+    role,
+    folderKey,
+  );
+  const vis = folderVisibility(ui, role, folderKey);
+  const countText = roleCountText(vis.total, vis.on);
+  return dom.el(
+    "div",
+    {
+      // FOLDED is the row's own state (chevron direction, accent rail);
+      // GROUP_FOLDED means "hidden because my group is folded" and belongs to
+      // the members only — putting it here hid the header itself, which is the
+      // only way back to the members (issue 10).
+      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
+      tabindex: "0",
+      [CONST.DATA.ROLE]: role,
+      [CONST.DATA.FOLDER_KEY]: folderKey,
+      [CONST.DATA.FOLDER_NAME]: folderName,
+      "aria-expanded": folded ? "false" : "true",
+      draggable: "true",
+      title: ui
+        .T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip")
+        .replace("{name}", folderName),
+    },
+    dom.el(
+      "button",
+      {
+        class: CONST.CLASSES.FOLD_BTN,
+        "aria-expanded": folded ? "false" : "true",
+        "aria-label": ui
+          .T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip")
+          .replace("{name}", folderName),
+      },
+      { html: SVGs.ICON_FOLD },
+    ),
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.CHECKBOX },
+      (() => {
+        const input = dom.el("input", {
+          type: "checkbox",
+          checked: "",
+          "aria-label": ui.T("folder_toggle_checkbox").replace("{name}", folderName),
+        }) as HTMLInputElement;
+        writeTriState(input, vis.total, vis.on);
+        return input;
+      })(),
+    ),
+    dom.el(
+      "label",
+      { class: `${CONST.CLASSES.LAYER_LABEL} ${CONST.CLASSES.FOLDER_LABEL}` },
+      folderName,
+    ),
+    dom.el(
+      "span",
+      {
+        class: CONST.CLASSES.COUNT_COL,
+        [CONST.DATA.FOLDER_KEY]: folderKey,
+      },
+      countText,
+    ),
+    dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }, { html: SVGs.ICON_FOLDER }),
+    dom.el(
+      "button",
+      {
+        class: CONST.CLASSES.MORE_BTN,
+        type: "button",
+        title: ui.T("folder_more_tooltip"),
+        "aria-label": ui.T("folder_more_tooltip"),
+      },
+      { html: SVGs.ICON_MORE },
+    ),
+  );
+};
+
+/** Whether a layer is a folder member and, if so, whether it is the last one
+ *  in its folder (drives the └ vs ├ tree connector). */
+const memberInfo = (
+  ui: LayerUI,
+  layerInfo: LayerInfo,
+): { isMember: boolean; isLast: boolean } => {
+  const layout = ui.c.folderLayoutView;
+  const folderKey = folderOf(layout, layerInfo);
+  if (!folderKey) return { isMember: false, isLast: false };
+  const block = groupByFolder(ui.c.layers, layerInfo.role, layout).get(folderKey);
+  if (!block) return { isMember: false, isLast: false };
+  const idx = block.members.findIndex(m => m.id === layerInfo.id);
+  return { isMember: true, isLast: idx === block.members.length - 1 };
 };
 
 /** Render a single layer row.
@@ -685,12 +979,36 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // All layers get the "more" button — data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
+  const withFolders = hasAnyFolder(ui);
+  const railChildren: HTMLElement[] = [];
+  if (withFolders) {
+    // v3.6: with folders the rail slot is the tree-line (member) or empty
+    // (root) at rest, and the drag grip appears on hover. The grip element is
+    // always present (existing drag-probe readers query it); the tree node is
+    // the sibling the hover swap toggles. At rest the grip is opacity 0
+    // (existing recipe) and the tree is the visible occupant.
+    const mem = memberInfo(ui, layerInfo);
+    if (mem.isMember) {
+      railChildren.push(
+        dom.el("span", {
+          class: `${CONST.CLASSES.FOLD_TREE}${
+            mem.isLast
+              ? ` ${CONST.CLASSES.FOLD_TREE_LAST}`
+              : ` ${CONST.CLASSES.FOLD_TREE_MID}`
+          }`,
+          title: ui.T("drag_tooltip"),
+        }),
+      );
+    }
+  }
+  const railCell = dom.el(
+    "span",
+    { class: CONST.CLASSES.RAIL_CELL, title: ui.T("drag_tooltip") },
+    ...railChildren,
+  );
+  railCell.insertAdjacentHTML("beforeend", SVGs.ICON_DRAG_HANDLE);
   const children: HTMLElement[] = [
-    dom.el(
-      "span",
-      { class: CONST.CLASSES.DRAG_CELL, title: ui.T("drag_tooltip") },
-      { html: SVGs.ICON_DRAG_HANDLE },
-    ),
+    railCell,
     dom.el(
       "div",
       { class: CONST.CLASSES.CHECKBOX },

@@ -297,5 +297,55 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+/** Write a checkbox's tri-state visual (checked / indeterminate /
+ *  aria-checked) from a `{ total, on }` aggregate. This is a row visual
+ *  write, so it lives in the single row-view writer (the charter that
+ *  confines every row visual write to rowView.ts). Both the role row and the
+ *  folder row compute their aggregate from the same visibility projection
+ *  and call this to paint the checkbox — a layer row's own checkbox is
+ *  always binary and never goes through here. */
+const writeTriState = (input: HTMLInputElement, total: number, on: number): void => {
+  const allChecked = total > 0 && on === total;
+  const noneChecked = on === 0;
+  input.checked = allChecked;
+  input.indeterminate = !allChecked && !noneChecked;
+  input.setAttribute(
+    "aria-checked",
+    allChecked ? "true" : noneChecked ? "false" : "mixed",
+  );
+};
+
+/** The role row's count text: one number when the whole role agrees, a
+ *  kept-of-total pair otherwise. Shared by the initial render and every later
+ *  reconcile so the two can never drift. */
+const roleCountText = (total: number, on: number): string =>
+  on === total ? String(total) : on === 0 ? `0/${total}` : `${on}/${total}`;
+
+/** Write the role row's count cell — text and tooltip — from the same
+ *  `{ total, on }` aggregate the tri-state checkbox paints. A row visual
+ *  write, so it lives in the single row-view writer alongside writeTriState. */
+const writeRoleCount = (
+  row: Element,
+  total: number,
+  on: number,
+  tooltip?: string,
+): void => {
+  const countEl = row.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
+  if (!countEl) return;
+  countEl.textContent = roleCountText(total, on);
+  // A group row that carries no tooltip keeps none: writing an empty title
+  // would suppress the row's own tooltip bubbling.
+  if (tooltip !== undefined) countEl.setAttribute("title", tooltip);
+};
+
+export {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  inZoomRange,
+  roleCountText,
+  rowView,
+  writeRoleCount,
+  writeTriState,
+};
 export type { RowCell, RowLabels, RowView };

@@ -49,6 +49,11 @@ type LayerPersistedRecord = {
    *  registered and so never reaches them. */
   removed: string[];
   foldedRoles: string[];
+  /** Folded folder identities the user collapsed: `role::normalizedFolderName`
+   *  (the same two-part key the folder row writes on itself). A user override —
+   *  author defaults fall below it, built-in "all expanded" below
+   *  that. */
+  foldedFolders: string[];
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
   /** Layer id → the user's per-layer intent. Empty means the user changed

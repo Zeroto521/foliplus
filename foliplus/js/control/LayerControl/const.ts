@@ -96,9 +96,26 @@ const CLASSES = {
   CTRL: "foliplus-layer-ctrl",
   ACTIVE: "foliplus-active",
   CHECKBOX: "foliplus-checkbox",
-  DRAG_CELL: "foliplus-drag-cell",
+  /** The row's leading rail: the grid slot that holds the fold chevron (role /
+   *  folder rows), the layer tree-line (├/└, root dash) and the hover drag
+   *  grip. One slot, three occupants by row kind — never renamed again. */
+  RAIL_CELL: "foliplus-layer-rail",
   GROUP_FOLDED: "foliplus-layer-group-folded",
   LAYER_LABEL: "foliplus-layer-label",
+  /** Folder row container (a user-created group inside a role). */
+  FOLDER_ROW: "foliplus-layer-item-folder",
+  /** Folder row name label. */
+  FOLDER_LABEL: "foliplus-layer-label-folder",
+  /** Role (section) row container — the overlay/base group header. */
+  ROLE_ROW: "foliplus-layer-role",
+  /** Tree-line node inside a folder member's rail (static state). */
+  FOLD_TREE: "foliplus-fold-tree",
+  /** Tree-line connector: mid-folder member (├). */
+  FOLD_TREE_MID: "foliplus-fold-tree-mid",
+  /** Tree-line connector: last folder member (└). */
+  FOLD_TREE_LAST: "foliplus-fold-tree-last",
+  /** Role row's divider line, placed before the count column. */
+  ROLE_DIVIDER: "foliplus-role-divider",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
@@ -334,6 +351,12 @@ const DATA = {
   LAYER_ID: "data-layer-id",
   COUNT: "data-item-count",
   TITLE: "data-item-title",
+  /** The role (overlay/base) a row belongs to. */
+  ROLE: "data-role",
+  /** The normalized folder key a row belongs to (folder rows and their members). */
+  FOLDER_KEY: "data-folder-key",
+  /** The folder's display name (folder rows only). */
+  FOLDER_NAME: "data-folder-name",
 };
 
 /** Overflow-menu action values (data-action). */
@@ -349,6 +372,14 @@ const ACTION = {
   DELETE_LAYER: "delete-layer",
   /** Explicitly delete the folder block a row belongs to. The row's layer keeps its folder until this fires; then every member is promoted to root and the folder key is removed. data-action value only — the menu renders the entry when the row's layer has a folder. */
   DELETE_FOLDER: "delete-folder",
+  /** Role menu: create a new folder inside this role. */
+  NEW_FOLDER: "new-folder",
+  /** Role menu: expand every folder in this role. */
+  EXPAND_ALL: "expand-all",
+  /** Role menu: collapse every folder in this role. */
+  COLLAPSE_ALL: "collapse-all",
+  /** Folder menu: rename the folder. */
+  RENAME_FOLDER: "rename-folder",
 };
 
 /** The `data-role` value the toggle-all checkbox writes on itself. A
@@ -360,6 +391,16 @@ const TOGGLE_ALL_ROLE = "toggle-all";
 /** DOM selectors. */
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
+  /** Folder row (a user-created group). */
+  FOLDER_ROW: ".foliplus-layer-item-folder",
+  /** Role (section) row. */
+  ROLE_ROW: ".foliplus-layer-role",
+  /** A leaf layer row — a data row that owns exactly one layer. Folder rows and
+   *  role rows carry LAYER_ITEM too (they share the cell chrome), so any
+   *  selector that means "the layers of a role" must exclude both; using
+   *  LAYER_ITEM there counts a group row as a layer. */
+  LEAF_ITEM: ".foliplus-layer-item:not(.foliplus-layer-item-folder):not(.foliplus-layer-toggle-all)",
+  FOLD_TREE: ".foliplus-fold-tree",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   /** The toggle-all header row, resolved by its stable identity key.
    *  `data-role` is written on the row when it is built and never changes for

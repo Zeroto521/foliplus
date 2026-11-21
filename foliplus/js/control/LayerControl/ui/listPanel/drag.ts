@@ -1,7 +1,9 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
+import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
+import { normalizeFolderName } from "#core/layer/index.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -15,6 +17,40 @@ const toggleFold = (ui: LayerUI, role: string): void => {
   rebuildList(ui);
   saveFoldState(ui);
 };
+
+/** Build the persisted folder-fold key: `role::normalizedFolderName` — the
+ *  folder's identity is its role plus its normalized name (a rename is a new
+ *  folder, matching the layout model). Single source, so the folder row, the
+ *  keyboard branch and the persistence all agree. */
+/** The key separator between the role and the normalized folder name. */
+const FOLDER_KEY_SEP = "::";
+
+const folderFoldKey = (role: string, name: string): string =>
+  role + FOLDER_KEY_SEP + normalizeFolderName(name);
+
+/** Fold or unfold one folder. The single entry for the pointer (row click /
+ *  chevron) and the keyboard (Enter / Space), exactly as toggleFold is for a
+ *  role — no second fold implementation. */
+const toggleFolderFold = (ui: LayerUI, role: string, name: string): void => {
+  const key = folderFoldKey(role, name);
+  if (ui.listPanel.foldedFolders.has(key)) ui.listPanel.foldedFolders.delete(key);
+  else ui.listPanel.foldedFolders.add(key);
+  rebuildList(ui);
+  saveFoldState(ui);
+};
+
+/** Whether a folder is currently folded, honoring the priority chain
+ *  built-in (expanded) < author default < user override. The author default
+ *  (ui.listPanel.authorFoldedFolders) sits below the user override, so a
+ *  user's manual fold always wins; Reset clears the user override and the
+ *  folder falls back to the author default. */
+const isFolderFolded = (ui: LayerUI, role: string, name: string): boolean =>
+  effectiveFolderFolded(
+    ui.listPanel.authorFoldedFolders,
+    ui.listPanel.foldedFolders,
+    role,
+    name,
+  );
 
 /** Translate a row's data-layer-id into its registry index. The row carries
  *  the identity in data-layer-id while reorder takes registry indices — not
@@ -192,6 +228,9 @@ const handleDragEnd = (ui: LayerUI) => {
 
 export {
   toggleFold,
+  toggleFolderFold,
+  folderFoldKey,
+  isFolderFolded,
   handleDragStart,
   showReorderBlockedHint,
   handleDragOver,

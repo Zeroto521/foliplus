@@ -256,12 +256,12 @@ class TestLayerControlRendering:
     def test_layer_item_6_column_grid(self, base_map: folium.Map):
         """Layer item uses 6-column grid-template-areas with all six slots."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert '"drag check label count icon more"' in css
+        assert '"rail check label count icon more"' in css
 
     def test_layer_item_grid_column_classes_rendered(self, base_map: folium.Map):
         """All 6 grid-column CSS classes appear in the rendered output."""
         html = render_control(LayerControl())
-        assert "foliplus-drag-cell" in html
+        assert "foliplus-layer-rail" in html
         assert "foliplus-layer-count" in html
         assert "foliplus-layer-more-btn" in html
         assert "foliplus-type-icon-col" in html
@@ -280,9 +280,9 @@ class TestLayerControlRendering:
         assert "grid-area: more" in css
 
     def test_drag_cell_grid_area(self):
-        """Drag cell is placed in the 'drag' grid area."""
+        """Rail cell is placed in the 'rail' grid area (v3.8: drag-cell renamed)."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert "grid-area: drag" in css
+        assert "grid-area: rail" in css
 
     def test_count_column_min_max_and_funnel_token(self):
         """The count column is a min/max track: the funnel token plus the
@@ -554,19 +554,28 @@ class TestLayerControlRendering:
         )
 
     def test_toggle_all_grid_uses_named_slots_for_three_items(self):
-        """Toggle-all row names only drag/check/label slots; divider is
-        anonymous (dual-declaration trap removed)."""
+        """Toggle-all (role) row names rail/check/label/count/icon/more.
+
+        Spec v3.6 §1.2: the role row now carries count/icon/more, so it uses
+        the same six named areas as folder/layer rows. Before that, the row
+        had three named slots plus three anonymous dots (the divider was
+        positioned by grid-column). The six-area template places count/icon/
+        more into distinct columns so they never overlap the divider.
+        """
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        # The toggle-all container's template-areas carries exactly the
-        # three named slots (drag/check/label) plus three anonymous dots.
-        lines = [l.strip() for l in css.splitlines() if "grid-template-areas" in l]
-        toggle_all_areas = [
-            l for l in lines if ". . ." in l and "count icon more" not in l
-        ]
-        assert len(toggle_all_areas) == 1, (
-            f"expected exactly one toggle-all template-areas line, got {toggle_all_areas}"
+        # The toggle-all (role) row block carries the six named areas.
+        idx = css.find(".foliplus-layer-sep.foliplus-layer-toggle-all")
+        assert idx != -1, "toggle-all block not found"
+        block = css[idx : idx + 700]
+        assert '"rail check label count icon more"' in block, (
+            "toggle-all template-areas must use the six named slots "
+            "(spec v3.6 §1.2: role row carries count/icon/more)"
         )
-        assert "drag check label . . ." in toggle_all_areas[0]
+        # No template-areas line references 'divider' as a named area —
+        # the dual-declaration coupling (container slot + item grid-area)
+        # only ever applied to divider and is now avoided.
+        lines = [l.strip() for l in css.splitlines() if "grid-template-areas" in l]
+        assert not any("divider" in l for l in lines)
         # No template-areas line references 'divider' as a named area —
         # the dual-declaration coupling (container slot + item grid-area)
         # only ever applied to divider and is now avoided.
