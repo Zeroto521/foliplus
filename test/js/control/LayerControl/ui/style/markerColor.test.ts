@@ -780,6 +780,33 @@ describe("markerColor declaration channel", () => {
     expect(input.value).toBe("#d252b9");
   });
 
+  it("a declared hex shows in the row when the author chassis is absent", () => {
+    const layer = makeMarkerGroup(
+      makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" })),
+    );
+    layer.options = { foliplus: { marker_color: "#00A6A6" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    const row = buildMarkerColorRow(uDecl, "overlay1")!;
+    const input = row.querySelector("input[type=color]") as HTMLInputElement;
+    expect(input.value).toBe("#00a6a6");
+  });
+
+  it("replayDeclaredMarkerColor paints a declared hex on attach (no author chassis)", () => {
+    const marker = makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "" }));
+    const layer = makeMarkerGroup(marker);
+    layer.options = { foliplus: { marker_color: "#ff9900" } };
+    const { ui: uDecl } = initFixture({
+      data: [{ id: "overlay1", name: "CM", role: "overlay", layer }, BASE_LAYER],
+    });
+    replayDeclaredMarkerColor(uDecl, "overlay1");
+    const div = marker.options.icon.createIcon();
+    expect(div.querySelector(".foliplus-marker-chassis")).not.toBeNull();
+    const span = div.querySelector(".foliplus-marker-chassis") as HTMLElement;
+    expect(span.style.backgroundColor).toBe("rgb(255, 153, 0)");
+  });
+
   it("an author chassis wins over the declaration in the row", () => {
     const layer = makeMarkerGroup(
       makeMarker({ type: "school" }, makeAuthorIcon({ markerColor: "green" })),
