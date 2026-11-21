@@ -88,6 +88,12 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     # border.ts — FOLLOW_FILL resolves through STYLE_MODE_KEY.FOLLOW_FILL
     # (ui/styleModeKey.ts), so the literal scanner cannot see the key.
     "LayerControl.style_border_follow_fill",
+    # menu.ts — deleteLabelKeys() returns the idle/confirm pair per entry kind
+    # as a table, so the confirming labels are reached through a lookup rather
+    # than a T("...") literal.
+    "LayerControl.delete_layer_confirm",
+    "LayerControl.delete_folder_confirm",
+    "LayerControl.clear_data_confirm",
 }
 
 
