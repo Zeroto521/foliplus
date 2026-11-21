@@ -64,9 +64,9 @@ const makeUi = (
   }
   return {
     uiContainer,
-    foldedRoles: new Set<string>(),
+    foldedRoles: {},
     listPanel: {
-      foldedRoles: new Set<string>(),
+      foldedRoles: {},
       checkedCount: {},
       dragEntry: null,
       lastDragHintAt: 0,
@@ -676,7 +676,7 @@ describe("showReorderBlockedHint", () => {
         lastDragHintAt: 0,
         dragEntry: null,
         lastDragOverItem: null,
-        foldedRoles: new Set<string>(),
+        foldedRoles: {},
         checkedCount: {},
       },
     } as unknown as LayerUI;
