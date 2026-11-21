@@ -173,9 +173,9 @@
 }
 
 /* The in-row content wrapper: the actual flex container. The row is a
-   <button>, whose user-agent stylesheet does not reliably honour display:
-   flex, so the row itself only paints the selection bar and the wrapper is
-   the layout box that puts the leading slot and the label on one line.
+   <button>, so the wrapper is an inline element by default; making the
+   wrapper itself the flex container is what lays the leading slot and the
+   label out on one line, while the row only paints the selection bar.
    Without this the label wraps under the slot and the row grows to two
    visual lines (the #1224 layout bug). */
 .foliplus-dropdown-row-content {

@@ -44,6 +44,7 @@ const CLS = {
   list: "foliplus-dropdown-list",
   option: "foliplus-dropdown-option",
   optionLabel: "foliplus-dropdown-option-label",
+  rowContent: "foliplus-dropdown-row-content",
   check: "foliplus-dropdown-check",
   placeholder: "foliplus-dropdown-placeholder",
 } as const;
@@ -705,6 +706,63 @@ describe("dropdown: multiple selections", () => {
     // Toggling a row repaints its box in place (paintRow multiple branch).
     optionEls(dropdown)[1].click();
     expect(boxes()).toEqual([true, true, true]);
+  });
+  it("keeps the leading slot and label on one line: the row content wrapper carries ROW_CONTENT (regression guard)", () => {
+    // The #1224 layout bug: the row returned a bare <span>, so the label
+    // wrapped under the leading slot and the row doubled in height. The
+    // fix is the wrapper carrying DROPDOWN_CLASS.ROW_CONTENT. No test locked
+    // the wrapper's class, so reverting the wrapper to a bare span would
+    // regress silently (the 94 existing tests assert children by structure,
+    // not by class). This guard pins the invariant: the single-mode row, the
+    // multiple-mode row and the select-all row must all wrap their content in
+    // the ROW_CONTENT element.
+    const single = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      value: "a",
+    });
+    cleanup.push(() => single.destroy());
+    document.body.appendChild(single.element);
+    single.open();
+    const singleRow = optionEls(single)[0];
+    expect(
+      singleRow.querySelector(`:scope > .${CLS.rowContent}`),
+      "single-mode row must wrap its content in the ROW_CONTENT element",
+    ).not.toBeNull();
+    single.destroy();
+
+    const multi = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+    });
+    cleanup.push(() => multi.destroy());
+    document.body.appendChild(multi.element);
+    multi.open();
+    const multiRow = optionEls(multi)[0];
+    expect(
+      multiRow.querySelector(`:scope > .${CLS.rowContent}`),
+      "multiple-mode row must wrap its content in the ROW_CONTENT element",
+    ).not.toBeNull();
+    multi.destroy();
+
+    const selectAll = createDropdown({
+      overlay: mockOverlay().overlay,
+      items,
+      multiple: true,
+    });
+    cleanup.push(() => selectAll.destroy());
+    document.body.appendChild(selectAll.element);
+    selectAll.open();
+    const selectAllRow = selectAll
+      .getList()
+      ?.querySelector<HTMLElement>(".foliplus-dropdown-select-all");
+    expect(selectAllRow, "select-all row must render").not.toBeNull();
+    expect(
+      selectAllRow?.querySelector(`:scope > .${CLS.rowContent}`),
+      "select-all row must wrap its content in the ROW_CONTENT element",
+    ).not.toBeNull();
+    selectAll.destroy();
   });
 
   it("the select-all action stays inert after destroy (destroyed guards)", () => {
