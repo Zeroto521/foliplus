@@ -741,6 +741,47 @@ describe("ui/list folder rows", () => {
     expect(member4.checked).toBe(true);
   });
 
+  it("wakes the role and folder icons when their group is on (issue 3)", () => {
+    // The type icon is muted at rest and wakes to black when the row is
+    // active. Layer rows got that state; role and folder rows never did, so a
+    // checked group header kept a muted icon beside black layer icons.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads 1",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Roads 2",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = () =>
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.ROLE_ROW}`)!;
+    const folderRow = () =>
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`)!;
+
+    expect(roleRow().classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+    expect(folderRow().classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+
+    // One member left on: the group is still on.
+    applyVisibility(ui, "rd1", false);
+    expect(folderRow().classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+
+    // Nothing on: the group is off, so the icons recede.
+    applyVisibility(ui, "rd2", false);
+    expect(folderRow().classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+    expect(roleRow().classList.contains(CONST.CLASSES.ACTIVE)).toBe(false);
+  });
+
   it("paints the role divider with the shared section-divider recipe (issue 4)", () => {
     // The two role sections used to be separated by a hand-rolled flat line
     // while main used the soft gradient recipe, so the divider read as a

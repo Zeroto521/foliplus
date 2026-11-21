@@ -812,7 +812,9 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       // layer or folder row. Without it the role row is the only row type
       // outside that shared block, and its count/icon/more silently fall back
       // to unstyled defaults — the misalignment this class fixes at the root.
-      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}`,
+      // ACTIVE is the icon wake: a group row whose members are on reads as
+      // active exactly like a checked layer row (issue 3).
+      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
       tabindex: "0",
       "data-role": role,
       title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
@@ -873,7 +875,7 @@ const renderFolderRow = (
       // GROUP_FOLDED means "hidden because my group is folded" and belongs to
       // the members only — putting it here hid the header itself, which is the
       // only way back to the members (issue 10).
-      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.FOLDED}` : ""}`,
+      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
       tabindex: "0",
       [CONST.DATA.ROLE]: role,
       [CONST.DATA.FOLDER_KEY]: folderKey,

@@ -147,6 +147,7 @@ const syncFolderRows = (ui: LayerUI, role: string): void => {
     const vis = folderVisibility(ui, role, folderKey);
     const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
     if (box) writeTriState(box, vis.total, vis.on);
+    row.classList.toggle(CONST.CLASSES.ACTIVE, vis.on > 0);
     writeRoleCount(row, vis.total, vis.on);
   }
 };
@@ -224,6 +225,8 @@ const writeToggleAllCheckbox = (
   // the same cadence as the checkbox.
   const row =
     allCb.closest(CONST.SEL.TOGGLE_ALL_ROW) ?? allCb.closest(CONST.SEL.TOGGLE_ALL);
+  // The icon wake follows the same aggregate as the checkbox and the count.
+  row?.classList.toggle(CONST.CLASSES.ACTIVE, c.on > 0);
   if (row) {
     writeRoleCount(
       row,
