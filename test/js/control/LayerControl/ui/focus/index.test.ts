@@ -2586,6 +2586,44 @@ describe("LayerUI focus", () => {
         false,
       );
     });
+
+    it("swallows a getLayerPanes failure instead of crashing the focus", () => {
+      const childA = { options: {}, visible: true };
+      const container = makeContainer([childA]);
+      manager.registerLayer({
+        id: "grp",
+        name: "Group",
+        role: "overlay",
+        layer: container,
+      });
+      const layerInfo = manager.layerRegistry.get("grp")!;
+      const surface = manager.surfaceFor(layerInfo);
+      vi.spyOn(manager, "surfaceFor").mockReturnValue({
+        ...surface,
+        panes: [
+          {
+            name: "foliplus-pane-2",
+            role: "base",
+            element: document.createElement("div"),
+          },
+        ],
+        paneNames: ["foliplus-pane-2"],
+        setZOverride: () => true,
+        restoreZ: vi.fn(),
+      } as never);
+      vi.spyOn(manager, "getLayerPanes").mockImplementation(() => {
+        throw new Error("pane discovery exploded");
+      });
+      const lifted: Record<string, HTMLElement> = {};
+      vi.spyOn(manager.map, "getPane").mockImplementation(((name: string) => {
+        const el = document.createElement("div");
+        lifted[name] = el;
+        return el;
+      }) as any);
+      expect(() => bringFocusedLayerToFront(ui, layerInfo)).not.toThrow();
+      const restores = ui.focusController.focusedPaneRestores;
+      expect(restores.some(([label]) => label.startsWith("lift:pane:"))).toBe(false);
+    });
   });
 });
 

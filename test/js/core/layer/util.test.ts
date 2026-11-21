@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   countFeatureGeometry,
+  countVisibleChildLayers,
   findLayer,
   getGeometryType,
   isContainerLayer,
@@ -707,5 +708,56 @@ describe("core/layer util: isContainerLayer", () => {
       (window as any).L.FeatureGroup = prevFG;
       (window as any).L.GeoJSON = prevGJ;
     }
+  });
+});
+
+describe("core/layer util: countVisibleChildLayers", () => {
+  const makeMap = (owned: Set<unknown>) =>
+    ({
+      hasLayer: (child: unknown) => owned.has(child),
+    }) as unknown as L.Map;
+
+  it("counts only children the map still owns (eachLayer path)", () => {
+    const a = { options: {} };
+    const b = { options: {} };
+    const c = { options: {} };
+    const layer = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => {
+        fn(a);
+        fn(b);
+        fn(c);
+      },
+    } as unknown as L.Layer;
+    const map = makeMap(new Set([a, b]));
+    expect(countVisibleChildLayers(layer, map)).toBe(2);
+  });
+
+  it("falls back to the internal registry when there is no eachLayer", () => {
+    const a = { options: {} };
+    const b = { options: {} };
+    const layer = {
+      options: {},
+      _layers: { "1": a, "2": b },
+    } as unknown as L.Layer;
+    const map = makeMap(new Set([b]));
+    expect(countVisibleChildLayers(layer, map)).toBe(1);
+  });
+
+  it("returns 0 when the child enumeration throws", () => {
+    const layer = {
+      options: {},
+      eachLayer: () => {
+        throw new Error("boom");
+      },
+    } as unknown as L.Layer;
+    const map = makeMap(new Set());
+    expect(countVisibleChildLayers(layer, map)).toBe(0);
+  });
+
+  it("returns 0 when the layer has no children at all", () => {
+    const layer = { options: {} } as unknown as L.Layer;
+    const map = makeMap(new Set());
+    expect(countVisibleChildLayers(layer, map)).toBe(0);
   });
 });
