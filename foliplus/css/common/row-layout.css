@@ -54,6 +54,14 @@
 .foliplus-row-content {
   flex: 1 1 auto;
   min-width: 0;
+  /* The content cell is a flex container: a labeled child (the option label)
+     regains flex-item status, so its own overflow:hidden + text-overflow
+     ellipsis recipe applies (an inline child is never clipped, which made the
+     ellipsis dead code after the row migration). A two-line content (the
+     search result stack) overrides flex-direction:column on its own cell. */
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
 
 /* Trailing cell: optional (count / type / more). Not centred against the

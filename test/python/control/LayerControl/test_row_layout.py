@@ -13,9 +13,12 @@ panel) and a reference .foliplus-row built by ui/rowLayout.ts.
 from __future__ import annotations
 
 import folium
-from conftest import _js, snippet
+from conftest import _js, load_geojson, snippet
 
 from ._browser_base import LayerControlBrowserBase
+from .helper import _geo_mixed
+
+_geo_point = load_geojson("LayerControl", "point_pair_offset")
 
 _GEOMETRY = _js("RowLayout/read_row_layout_geometry")
 
@@ -27,14 +30,7 @@ class TestRowLayoutPrimitiveBrowser(LayerControlBrowserBase):
 
     def test_option_row_matches_the_primitive(self, browser, tmp_path):
         fg = folium.FeatureGroup(name="Row primitive", overlay=True, show=True)
-        folium.GeoJson(
-            {
-                "type": "Feature",
-                "properties": {"name": "demo", "kind": "point"},
-                "geometry": {"type": "Point", "coordinates": [119.30, 26.08]},
-            },
-            name="Geo demo",
-        ).add_to(fg)
+        folium.GeoJson(_geo_point, name="Geo demo").add_to(fg)
         page, errors = self._make_page(browser, tmp_path, fg)
         try:
             assert page.evaluate(_OPEN_FILTER_DROPDOWN), (
@@ -50,5 +46,42 @@ class TestRowLayoutPrimitiveBrowser(LayerControlBrowserBase):
                     got["refVals"][prop],
                 )
             assert abs(got["optionContentX"] - got["refContentX"]) < 0.5, got
+        finally:
+            page.close()
+
+
+_ELLIPSIS = _js("RowLayout/read_option_label_ellipsis")
+
+
+class TestRowLayoutEllipsisBrowser(LayerControlBrowserBase):
+    """A long option label ellipsizes instead of overflowing the popup (P2-1).
+
+    After the option row migrated into the shared row primitive, the label
+    became a child of .foliplus-row-content (not a flex item of the option
+    button). An inline element's overflow:hidden is ignored, so the label's
+    text-overflow:ellipsis was dead code and a long label overflowed the
+    popup. The fix makes .foliplus-row-content a flex container
+    (display:flex; align-items:center; overflow:hidden), which blockifies the
+    label back into a flex item with a definite width, so its own
+    overflow:hidden + text-overflow:ellipsis recipe applies and the ellipsis
+    condition (scrollWidth > clientWidth) is established.
+    """
+
+    def test_option_label_ellipsizes(self, browser, tmp_path):
+        fg = folium.FeatureGroup(name="Row ellipsis", overlay=True, show=True)
+        folium.GeoJson(_geo_mixed, name="Geo demo").add_to(fg)
+        page, errors = self._make_page(browser, tmp_path, fg)
+        try:
+            got = page.evaluate(_ELLIPSIS)
+            assert got is not None, "the ellipsis probe did not run"
+            assert got.get("ok"), got
+            # The label is clipped by the content cell: overflow establishes
+            # the ellipsis condition, so a long label reports content that
+            # overflows its box (scrollWidth > clientWidth).
+            assert got["overflows"], got
+            assert got["labelDisplay"] == "block", got
+            assert got["contentOverflow"] == "hidden", got
+            # The clipped label never escapes the option button.
+            assert got["labelInsideRow"] is True, got
         finally:
             page.close()
