@@ -6,6 +6,7 @@ import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
 import * as Icons from "#platform/icon.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
+import * as SVGs from "#control/LayerControl/icon.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { clearIntent, getIntent, setIntent } from "#control/LayerControl/ui/intent.js";
 import {
@@ -872,9 +873,11 @@ describe("container layer row", () => {
     ui = r.ui;
     const info = manager.layerRegistry.get("grp");
     const cell = buildRowCell(ui, info);
-    // Container type: two-square group icon + type_container label.
-    expect(cell.typeSvg).toContain("<rect");
-    expect(cell.typeSvg).not.toContain("<polygon");
+    // Container type: the container glyph + type_container label. The glyph is
+    // pinned off its single-sourced constant, not its markup — a two-square
+    // group icon drawn from <rect> would still be the container glyph, so the
+    // user contract is "which glyph", not "which shapes".
+    expect(cell.typeSvg).toBe(SVGs.ICON_CONTAINER);
     expect(cell.typeLabel).toBe("LayerControl.type_container");
     // Child count in the count column.
     expect(cell.countText).toBe("2");
