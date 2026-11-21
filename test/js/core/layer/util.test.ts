@@ -5,6 +5,7 @@ import {
   findLayer,
   getGeometryType,
   isContainerLayer,
+  isContainerRow,
   isLayerInPanes,
   paintsAtZoom,
   setInteractive,
@@ -708,6 +709,42 @@ describe("core/layer util: isContainerLayer", () => {
       (window as any).L.FeatureGroup = prevFG;
       (window as any).L.GeoJSON = prevGJ;
     }
+  });
+});
+
+describe("core/layer util: isContainerRow", () => {
+  const makeGroup = () => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => []),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn();
+    return c;
+  };
+  const info = (extra: Record<string, unknown> = {}) =>
+    ({ id: "L1", name: "L1", role: "overlay", ...extra }) as any;
+
+  it("is a container row only when the entry declares no featureCountProvider", () => {
+    const group = makeGroup();
+    expect(isContainerRow(info(), group)).toBe(true);
+    // MeasureControl and HeatmapControl register a group with a provider: the
+    // count is provider-driven, so the row is data, not a sub-layer container.
+    expect(isContainerRow(info({ featureCountProvider: () => 3 }), group)).toBe(
+      false,
+    );
+  });
+
+  it("is never a container row without an entry or a layer", () => {
+    const group = makeGroup();
+    expect(isContainerRow(null, group)).toBe(false);
+    expect(isContainerRow(undefined, group)).toBe(false);
+    expect(isContainerRow(info(), null)).toBe(false);
+    expect(isContainerRow(info(), undefined)).toBe(false);
   });
 });
 

@@ -114,6 +114,48 @@ describe("LayerUI menu", () => {
       expect(focusEntry.getAttribute("aria-disabled")).toBe("false");
       ui.closeMoreMenu(false);
     });
+    it("keeps Style and Filter enabled for a provider-backed group", () => {
+      // MeasureControl and HeatmapControl register an L.layerGroup with a
+      // featureCountProvider: the group is the layer's representation, not a
+      // folder of sub-layers, so its style and filter panels stay available.
+      // The container answer must come from the entry, not the Leaflet class.
+      const group: any = {
+        options: {},
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(() => ({ isValid: () => true })),
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => []),
+        _layers: {},
+      };
+      group.eachLayer = vi.fn();
+      manager.registerLayer({
+        id: "provider1",
+        name: "Provider",
+        role: "overlay",
+        layer: group,
+        featureCountProvider: () => 7,
+      });
+      const item = findItem(ui, "provider1");
+      ui.openMoreMenu(item);
+
+      const styleEntry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      ) as HTMLElement;
+      const filterEntry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+
+      expect(styleEntry).not.toBeNull();
+      expect(styleEntry.getAttribute("title")).not.toBe(
+        ui.T("container_no_style_filter"),
+      );
+      expect(filterEntry).not.toBeNull();
+      expect(filterEntry.getAttribute("title")).not.toBe(
+        ui.T("container_no_style_filter"),
+      );
+      ui.closeMoreMenu(false);
+    });
     it("outside click closes the open menu through the overlay registry", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);

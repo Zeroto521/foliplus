@@ -1,6 +1,11 @@
 // core layer-traversal utilities — pure functions, no DOM / CONFIG.
 import * as CONST from "./const.js";
-import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
+import type {
+  LabelAwareLayer,
+  LayerCapabilities,
+  LayerInfo,
+  LayerKind,
+} from "./type.js";
 import { countChildLayers, walkLeaf } from "./walkLeaf.js";
 import {
   internalLayers,
@@ -243,6 +248,28 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
   return true;
 };
 
+/** Whether a registry entry renders as a container ROW.
+ *
+ *  Row semantics — the type glyph, the count column, and whether the style and
+ *  filter panels are available — belong to the entry, not to the Leaflet class
+ *  alone. A logical layer can be backed by a group and still be data:
+ *  MeasureControl and HeatmapControl both register an L.layerGroup with a
+ *  `featureCountProvider`, and their count is provider-driven rather than a
+ *  sub-layer census. `isContainerLayer` answers the geometry question (is this
+ *  a group?); this answers the row question, so the provider exception lives
+ *  here once instead of being re-derived at every call site.
+ *
+ *  @param {LayerInfo|null|undefined} layerInfo - Registry entry behind the row.
+ *  @param {L.Layer|null|undefined} layer - Leaflet layer behind the entry.
+ *  @returns {boolean} Whether the row is a container row. */
+const isContainerRow = (
+  layerInfo: LayerInfo | null | undefined,
+  layer: L.Layer | null | undefined,
+): boolean =>
+  Boolean(
+    layer && layerInfo && !layerInfo.featureCountProvider && isContainerLayer(layer),
+  );
+
 /** Count a container's DIRECT children (its own sub-layers, not deep leaves).
  *  @param {L.Layer} layer - Leaflet container.
  *  @returns {number} Number of direct children. */
@@ -440,6 +467,7 @@ export {
   getGeometryType,
   countFeatureGeometry,
   isContainerLayer,
+  isContainerRow,
   countChildLayersOf,
   countVisibleChildLayers,
 };

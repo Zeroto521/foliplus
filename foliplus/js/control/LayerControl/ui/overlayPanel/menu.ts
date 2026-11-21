@@ -5,7 +5,7 @@ import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { EVENTS } from "#core/event/index.js";
-import { isContainerLayer } from "#core/layer/index.js";
+import { isContainerRow } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -152,8 +152,13 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-  const layer = ui.c.findLayer(layerId);
-  const isContainer = layer ? isContainerLayer(layer) : false;
+  // Row semantics come from the entry, not the Leaflet class: a logical layer
+  // backed by a group with a featureCountProvider (MeasureControl, Heatmap) is
+  // data, so its style and filter panels stay available.
+  const isContainer = isContainerRow(
+    ui.c.layerRegistry.get(layerId),
+    ui.c.findLayer(layerId),
+  );
   const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries

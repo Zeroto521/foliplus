@@ -19,7 +19,7 @@ import {
   ROLE,
   countChildLayersOf,
   countVisibleChildLayers,
-  isContainerLayer,
+  isContainerRow,
 } from "#core/layer/index.js";
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
@@ -160,7 +160,7 @@ const rowType = (
   // logical layer can also be backed by a group (an L.layerGroup()) but expose
   // a featureCountProvider — that layer's count is provider-driven, so it is
   // not a sub-layer container.
-  if (layer && !layerInfo.featureCountProvider && isContainerLayer(layer)) {
+  if (isContainerRow(layerInfo, layer)) {
     // Materialize the surface before the container answer: a container whose
     // leaves expose labelable properties still needs its label pane, and the
     // surface is what declares it (withLabelSpec runs inside surfaceFor).
@@ -209,8 +209,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // deep feature census — the row says "3 layers", not "12 features". A logical
   // layer backed by a group with a featureCountProvider keeps the provider
   // count (the group is its representation, not a folder of sub-layers).
-  const isContainer =
-    layer && !layerInfo.featureCountProvider && isContainerLayer(layer);
+  const isContainer = isContainerRow(layerInfo, layer);
   const totalChildren = isContainer ? countChildLayersOf(layer!) : null;
   const visibleChildren =
     isContainer && layer ? countVisibleChildLayers(layer, ui.c.map) : null;
