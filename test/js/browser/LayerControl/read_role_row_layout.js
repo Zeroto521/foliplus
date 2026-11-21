@@ -22,7 +22,11 @@
       count: pick(".foliplus-layer-count"),
       icon: pick(".foliplus-type-icon-col"),
       more: pick(".foliplus-layer-more-btn"),
-      sectionDividerCount: row.querySelectorAll(".foliplus-section-divider").length,
+      // The role's own divider carries .foliplus-section-divider on purpose
+      // (it reuses that paint recipe), so the leftover count excludes it.
+      sectionDividerCount: row.querySelectorAll(
+        ".foliplus-section-divider:not(.foliplus-role-divider)",
+      ).length,
     };
   });
 };

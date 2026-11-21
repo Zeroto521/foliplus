@@ -732,6 +732,12 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       "button",
       {
         class: CONST.CLASSES.FOLD_BTN,
+        // Same contract as the folder row's chevron: the state is
+        // aria-expanded and the accessible name is the row's own label, so a
+        // screen reader announces "数据图层, collapsed, button" instead of an
+        // unnamed button.
+        "aria-expanded": isFolded ? "false" : "true",
+        "aria-label": ui.T(labelKey),
       },
       { html: SVGs.ICON_FOLD },
     ),

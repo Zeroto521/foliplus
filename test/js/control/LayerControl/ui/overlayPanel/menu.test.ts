@@ -8,8 +8,10 @@ import { ensureModes } from "#core/lifecycle/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
+import { handleMoreClick } from "#control/LayerControl/interaction.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { seedIntentMap } from "#control/LayerControl/ui/intent.js";
+import { isFolderFolded } from "#control/LayerControl/ui/listPanel/drag.js";
 import { rebuildList } from "#control/LayerControl/ui/listPanel/index.js";
 import { activateDeleteItem } from "#control/LayerControl/ui/overlayPanel/index.js";
 import {
@@ -1676,5 +1678,633 @@ describe("disabled menu entries", () => {
       /:is\(\.foliplus-search-result-item, \.foliplus-layer-more-menu button\):hover/,
     );
     expect(sharedMenuCss).not.toMatch(/\.foliplus-layer-more-menu li\[disabled\]/);
+  });
+});
+
+describe("ui/list folder rows (menu)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  it("role menu new-folder creates a folder row and opens an inline rename", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: roleRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
+    runMenuAction(ui, mi);
+    // The default "New Folder" is created in the layout (key is normalized);
+    // the action routes through createFolder + rebuildList (the coverage this
+    // branch needs). An empty folder renders as the clean-button state, not a
+    // row, so the assertion is on the layout, not the DOM row.
+    const keys = ui.c.folderLayoutView.folders.map(f => f.key);
+    expect(keys).toContain("new folder");
+    expect(ui.c.folderLayoutView.order.overlay).toContain("new folder");
+  });
+
+  it("role menu expand-all/collapse-all folds or unfolds every folder in the role", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "w1",
+          name: "Water",
+          role: "overlay",
+          folder: "water",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: roleRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.COLLAPSE_ALL);
+    runMenuAction(ui, mi);
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(true);
+    expect(isFolderFolded(ui, "overlay", "water")).toBe(true);
+    // The first action closes the menu, so re-arm the state for the second.
+    const roleRow2 = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: roleRow2,
+      menu: document.createElement("div"),
+      role: "overlay",
+    };
+    const mi2 = document.createElement("button");
+    mi2.setAttribute("data-action", CONST.ACTION.EXPAND_ALL);
+    runMenuAction(ui, mi2);
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(false);
+    expect(isFolderFolded(ui, "overlay", "water")).toBe(false);
+  });
+
+  it("folder menu rename-folder opens an inline rename on the folder row", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    // The inline rename input opens on the folder row's label.
+    expect(
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`),
+    ).not.toBeNull();
+  });
+
+  it("openMoreMenu on a folder row opens the folder menu (rename/delete only)", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    ui.openMoreMenu(folderRow);
+    const menu = ui.overlayPanel.activeMenu?.menu;
+    expect(menu).toBeTruthy();
+    const actions = [...menu!.querySelectorAll<HTMLElement>("[data-action]")].map(
+      b => b.dataset.action,
+    );
+    expect(actions).toContain(CONST.ACTION.RENAME_FOLDER);
+    expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
+    // Show/hide is the row checkbox's job; a menu entry for it duplicated the
+    // control the user already has (issue 13).
+    expect(actions).not.toContain("show-folder");
+    expect(actions).not.toContain("hide-folder");
+  });
+
+  it("openMoreMenu on a role row opens the role menu (new-folder/expand/collapse)", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    ui.openRoleMenu(roleRow);
+    const menu = ui.overlayPanel.activeMenu?.menu;
+    expect(menu).toBeTruthy();
+    const actions = [...menu!.querySelectorAll<HTMLElement>("[data-action]")].map(
+      b => b.dataset.action,
+    );
+    expect(actions).toContain(CONST.ACTION.NEW_FOLDER);
+    expect(actions).toContain(CONST.ACTION.EXPAND_ALL);
+    expect(actions).toContain(CONST.ACTION.COLLAPSE_ALL);
+    // The role checkbox already shows/hides the whole role (issue 13).
+    expect(actions).not.toContain("show-all");
+    expect(actions).not.toContain("hide-all");
+  });
+
+  it("flags the folder row as renaming, exactly like a layer row (issue 16)", () => {
+    // The RENAMING class is what stretches the inline input across the
+    // label+count area. The layer rename set it; the folder rename did not, so
+    // the two inputs rendered at different widths from the same component.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    expect(folderRow.classList.contains(CONST.CLASSES.RENAMING)).toBe(true);
+    expect(folderRow.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`)).not.toBeNull();
+  });
+
+  it("folder rename commit renames the folder in the layout", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    const input = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.RENAME_INPUT}`,
+    ) as HTMLInputElement;
+    input.value = "roads-renamed";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    // A rename rewrites the DISPLAY name, not the identity key (the key is
+    // stable; folderLayout.renameFolder updates only the directory entry name).
+    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    expect(folder?.name).toBe("roads-renamed");
+  });
+
+  it("folder rename cancel (Escape) leaves the folder name unchanged", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    const input = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.RENAME_INPUT}`,
+    ) as HTMLInputElement;
+    input.value = "roads-renamed";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    // Escape cancels: the folder keeps its original name.
+    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    expect(folder?.name).toBe("roads");
+  });
+
+  it("menu actions no-op when the role or folder key is missing", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    (ui.overlayPanel as any).activeMenu = {
+      item: document.createElement("div"),
+      menu: document.createElement("div"),
+      role: "",
+    };
+    for (const action of [CONST.ACTION.EXPAND_ALL, CONST.ACTION.COLLAPSE_ALL]) {
+      const mi = document.createElement("button");
+      mi.setAttribute("data-action", action);
+      expect(() => runMenuAction(ui, mi)).not.toThrow();
+    }
+    (ui.overlayPanel as any).activeMenu = {
+      item: document.createElement("div"),
+      menu: document.createElement("div"),
+      folderKey: undefined,
+      role: "overlay",
+    };
+    for (const action of [CONST.ACTION.RENAME_FOLDER]) {
+      const mi = document.createElement("button");
+      mi.setAttribute("data-action", action);
+      expect(() => runMenuAction(ui, mi)).not.toThrow();
+    }
+  });
+
+  it("role actions fall through when activeMenu has no role", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const item = document.createElement("div");
+    (ui.overlayPanel as any).activeMenu = {
+      item,
+      menu: document.createElement("div"),
+    };
+    for (const action of [
+      CONST.ACTION.NEW_FOLDER,
+      CONST.ACTION.EXPAND_ALL,
+      CONST.ACTION.COLLAPSE_ALL,
+      CONST.ACTION.RENAME_FOLDER,
+    ]) {
+      const mi = document.createElement("button");
+      mi.setAttribute("data-action", action);
+      expect(() => runMenuAction(ui, mi)).not.toThrow();
+    }
+  });
+
+  it("new-folder handles a duplicate name and a not-yet-rendered row", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    // Duplicate name ("roads" already exists) → createFolder returns
+    // { ok: false } → startNewFolder returns early.
+    (ui.overlayPanel as any).activeMenu = {
+      item: roleRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
+    mi.setAttribute("data-folder-name", "roads");
+    // NEW_FOLDER creates "New Folder" (hardcoded), so we cannot make a
+    // duplicate via the action's default name. Instead assert the action
+    // creates a new empty folder that has no rendered row (silent no-op).
+    runMenuAction(ui, mi);
+    // A fresh empty folder is created but renders no row: the inline rename
+    // start must no-op (label null) rather than throw.
+    expect(() => runMenuAction(ui, mi)).not.toThrow();
+    // The layout now has an extra folder entry (the new empty one).
+    const keys = ui.c.folderLayoutView.folders.map(f => f.key);
+    expect(keys).toContain("new folder");
+  });
+
+  it("more-click on a row-less button is ignored", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const btn = document.createElement("button");
+    btn.className = CONST.CLASSES.MORE_BTN;
+    ui.uiContainer!.appendChild(btn);
+    // A row-less more button: handleMoreClick must ignore it (no closest row).
+    const ev = {
+      target: btn,
+      stopPropagation: () => {},
+      preventDefault: () => {},
+    } as unknown as Event;
+    expect(() => handleMoreClick(ui, ev)).not.toThrow();
+  });
+
+  it("folderKeysOfRole skips a root layer in the role", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "root1",
+          name: "Root",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: roleRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.COLLAPSE_ALL);
+    expect(() => runMenuAction(ui, mi)).not.toThrow();
+  });
+
+  it("rename-folder no-ops when the folder row is not found", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const stub = document.createElement("div");
+    stub.setAttribute(CONST.DATA.FOLDER_KEY, "missing");
+    stub.setAttribute(CONST.DATA.ROLE, "overlay");
+    stub.setAttribute(CONST.DATA.FOLDER_NAME, "Missing");
+    (ui.overlayPanel as any).activeMenu = {
+      item: stub,
+      menu: document.createElement("div"),
+      folderKey: "missing",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    expect(() => runMenuAction(ui, mi)).not.toThrow();
+  });
+
+  it("rename-folder commit with the same name is a no-op", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `[data-folder-key="roads"]`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    const input = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.RENAME_INPUT}`,
+    ) as HTMLInputElement;
+    input.value = "roads";
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    expect(folder?.name).toBe("roads");
+  });
+
+  it("open-role-menu with a row-less item still opens", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const bare = document.createElement("div");
+    ui.uiContainer!.appendChild(bare);
+    expect(() => ui.openRoleMenu(bare)).not.toThrow();
+  });
+
+  it("open-folder-menu with a key but no folder-name still opens", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const bare = document.createElement("div");
+    bare.setAttribute(CONST.DATA.FOLDER_KEY, "roads");
+    // No data-folder-name: the menu's name fallback (?? "") is exercised.
+    ui.uiContainer!.appendChild(bare);
+    expect(() => ui.openMoreMenu(bare)).not.toThrow();
+  });
+
+  it("new-folder with an existing default name is a duplicate no-op", () => {
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "new folder", name: "New Folder" }],
+        order: { overlay: ["new folder", "roads"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: roleRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
+    // "New Folder" already exists in the order → createFolder returns a
+    // duplicate error → startNewFolder returns early.
+    expect(() => runMenuAction(ui, mi)).not.toThrow();
+  });
+
+  it("folder menu focusout outside the menu closes it", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const row = ui.uiContainer!.querySelector(
+      `[data-folder-key="roads"]`,
+    ) as HTMLElement;
+    ui.openMoreMenu(row);
+    const menu = (ui.overlayPanel.activeMenu as any)?.menu as HTMLElement;
+    expect(menu).toBeTruthy();
+    const outside = document.createElement("div");
+    document.body.appendChild(outside);
+    menu.dispatchEvent(
+      new FocusEvent("focusout", { bubbles: true, relatedTarget: outside }),
+    );
+    expect(ui.overlayPanel.activeMenu).toBeNull();
+    outside.remove();
   });
 });

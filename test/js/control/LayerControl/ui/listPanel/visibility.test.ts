@@ -1309,3 +1309,278 @@ it("a bulk toggle-all does not announce a layer a subscriber unregistered", () =
   expect(ui.c.layerRegistry.has("beta")).toBe(false);
   expect(intentVisibleOf(ui, "gamma")).toBe(false);
 });
+
+describe("ui/list folder rows (visibility)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  it("repaints the folder count and tri-state when a member is toggled (issue 6)", () => {
+    // The folder row is a group row: its count and its checkbox are one
+    // aggregate over its members. Both used to be written once at render, so a
+    // member toggled afterwards left the header claiming "2" beside one
+    // visible layer.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads 1",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Roads 2",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = () =>
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`)!;
+    const count = () =>
+      folderRow().querySelector(`.${CONST.CLASSES.COUNT_COL}`)!.textContent;
+    const box = () =>
+      folderRow().querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    expect(count()).toBe("2");
+    expect(box().checked).toBe(true);
+
+    applyVisibility(ui, "rd1", false);
+    expect(count()).toBe("1/2");
+    expect(box().checked).toBe(false);
+    expect(box().indeterminate).toBe(true);
+
+    applyVisibility(ui, "rd2", false);
+    expect(count()).toBe("0/2");
+    expect(box().checked).toBe(false);
+    expect(box().indeterminate).toBe(false);
+  });
+
+  it("folder checkbox toggles only the folder's members", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "water",
+          name: "Water",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+      folderKey: "roads",
+    };
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    // The bulk toggle rebuilds the list, so read the fresh row.
+    const freshCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    expect(freshCb.getAttribute("aria-checked")).toBe("false");
+    const rootCb = ui.uiContainer!.querySelector(
+      '[data-layer-id="water"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(rootCb.checked).toBe(true);
+  });
+
+  it("folder checkbox restores the folder's members", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // Hide the folder's members first so show-folder has something to restore.
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+    };
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    const memberCb = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(memberCb.checked).toBe(false);
+    // The same checkbox restores the members' visibility.
+    const folderCb2 = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb2.checked = true;
+    folderCb2.dispatchEvent(new Event("change", { bubbles: true }));
+    const memberCb2 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(memberCb2.checked).toBe(true);
+  });
+
+  it("folder row checkbox change hides/shows every member through handleChange", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Parks",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    ui.handleChange({ target: folderCb } as unknown as Event);
+    const member1 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    const member2 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd2"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(member1.checked).toBe(false);
+    expect(member2.checked).toBe(false);
+    // Toggle back on: the folder row's checkbox flips the group visible.
+    const folderCb2 = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb2.checked = true;
+    ui.handleChange({ target: folderCb2 } as unknown as Event);
+    const member3 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    const member4 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd2"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(member3.checked).toBe(true);
+    expect(member4.checked).toBe(true);
+  });
+
+  it("checkbox change on a folder row without a key no-ops", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.FOLDER_ROW;
+    row.appendChild(cb);
+    ui.uiContainer!.appendChild(row);
+    expect(() =>
+      cb.dispatchEvent(new Event("change", { bubbles: true })),
+    ).not.toThrow();
+  });
+
+  it("folder visibility counts only the folder's own members", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "wt1",
+          name: "Water",
+          role: "overlay",
+          folder: "water",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      '[data-folder-key="roads"]',
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    const waterCb = ui.uiContainer!.querySelector(
+      '[data-layer-id="wt1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(waterCb.checked).toBe(true);
+  });
+});

@@ -4,12 +4,16 @@
 // handlers re-resolve positions at each use; the real-fixture matrix covers
 // what can happen between dragstart and drop.
 import { attachedPanel, initFixture } from "../fixture.js";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import {
+  isFolderFolded,
+  toggleFolderFold,
+} from "#control/LayerControl/ui/listPanel/drag.js";
 import {
   handleDragEnd,
   handleDragLeave,
@@ -19,6 +23,7 @@ import {
   showReorderBlockedHint,
   toggleFold,
 } from "#control/LayerControl/ui/listPanel/index.js";
+import { handleKeyDown } from "#control/LayerControl/ui/listPanel/keyboard.js";
 
 const dragEvent = (target: HTMLElement, dataTransfer = {}, clientY = 0): DragEvent =>
   ({
@@ -765,5 +770,208 @@ describe("showReorderBlockedHint", () => {
     // A second attempt inside the cooldown window stays silent.
     showReorderBlockedHint(ui);
     expect(showHint).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("ui/list folder rows (fold)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  it("toggleFolderFold hides members and persists foldedFolders", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(false);
+    toggleFolderFold(ui, "overlay", "roads");
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(true);
+    const memberRow = ui.uiContainer!.querySelector(`[data-layer-id="rd1"]`);
+    expect(memberRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    // The in-memory fold set is the single source (persistence schedules it).
+    expect(ui.listPanel.foldedFolders.has("overlay::roads")).toBe(true);
+  });
+
+  it("keeps the folded folder row visible and hides only its members (issue 10)", () => {
+    // The header is the only way back to the members, so folding must never
+    // hide it. Two classes carry two different meanings: FOLDED is the row's
+    // own state (chevron direction, accent rail), GROUP_FOLDED is "hidden
+    // because my group is folded" and belongs to the members alone. Putting
+    // GROUP_FOLDED on the header hid the whole folder from the panel.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    toggleFolderFold(ui, "overlay", "roads");
+    const folderRow = ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`)!;
+    expect(folderRow.classList.contains(CONST.CLASSES.FOLDED)).toBe(true);
+    expect(folderRow.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+    const memberRow = ui.uiContainer!.querySelector('[data-layer-id="rd1"]')!;
+    expect(memberRow.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+  });
+
+  it("persists foldedFolders when the save debounce flushes", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // initFixture ends with real timers; take fake timers AFTER the fixture
+    // so the save debounce can be flushed deterministically.
+    vi.useFakeTimers();
+    try {
+      toggleFolderFold(ui, "overlay", "roads");
+      // Flush the persistence debounce so the foldedFolders writer runs
+      // (state.ts:38) and the record hits storage.
+      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
+      const rec = ui.c.persistence.load();
+      expect(rec.foldedFolders).toContain("overlay::roads");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keyboard Enter on a folder chevron folds the folder, not the role", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const foldBtn = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} .${CONST.CLASSES.FOLD_BTN}`,
+    ) as HTMLButtonElement;
+    foldBtn.focus();
+    const event = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true,
+    });
+    handleKeyDown(ui, event);
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(true);
+    expect(ui.listPanel.foldedRoles.has("overlay")).toBe(false);
+  });
+
+  it("whole-row click on a folder row folds the folder", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    folderRow.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(true);
+  });
+
+  it("toggleFolderFold folds then unfolds a folder", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    toggleFolderFold(ui, "overlay", "roads");
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(true);
+    toggleFolderFold(ui, "overlay", "roads");
+    expect(isFolderFolded(ui, "overlay", "roads")).toBe(false);
+  });
+
+  it("applies the author-declared default fold to the folder row (TDD, issue 10)", () => {
+    window.CONFIG.folders = {
+      overlay: [{ name: "roads", folded: true }],
+      base: [],
+    };
+    try {
+      const { ui } = initFixture({
+        seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+        data: [
+          {
+            id: "rd1",
+            name: "Roads",
+            role: "overlay",
+            folder: "roads",
+            layer: polygonLayer(),
+          },
+        ],
+      });
+      const folderRow = ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`);
+      expect(folderRow).not.toBeNull();
+      expect(folderRow!.getAttribute("aria-expanded")).toBe("false");
+      // The header carries its own fold state, never the members' hidden flag.
+      expect(folderRow!.classList.contains(CONST.CLASSES.FOLDED)).toBe(true);
+      expect(folderRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+      // The member row is folded too.
+      const member = ui.uiContainer!.querySelector('[data-layer-id="rd1"]');
+      expect(member!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    } finally {
+      delete window.CONFIG.folders;
+    }
   });
 });
