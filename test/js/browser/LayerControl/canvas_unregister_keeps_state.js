@@ -33,7 +33,7 @@ async () => {
   // A plain GeoJSON leaf is user-owned and still gets the Layer section's
   // opacity row (its surface capability is "pane", not "none"). It must be a
   // leaf, not a group: a group is a container row, and a container's style
-  // panel is disabled by design (task-124).
+  // panel is disabled by design.
   const makeOverlay = () =>
     api.registerLayer({ id, name: "Delete Probe", layer: L.geoJSON() });
   makeOverlay();
