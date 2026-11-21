@@ -28,6 +28,11 @@ LayerRole = Literal["base", "overlay"]
 LAYER_ROLES: tuple[LayerRole, ...] = get_args(LayerRole)
 
 
+#: The entry keys v1 understands. Anything else rejects the whole entry (warn
+#: once) — a future key is its own card, never silently dropped.
+ROLE_DEFAULT_KEYS = ("folded",)
+
+
 def layer_role(layer: object) -> LayerRole:
     """The foliplus role of a folium layer.
 
@@ -43,11 +48,6 @@ def layer_role(layer: object) -> LayerRole:
         ``"overlay"`` when ``layer.overlay`` is true, else ``"base"``.
     """
     return "overlay" if getattr(layer, "overlay", False) else "base"
-
-
-#: The entry keys v1 understands. Anything else rejects the whole entry (warn
-#: once) — a future key is its own card, never silently dropped.
-ROLE_DEFAULT_KEYS = ("folded",)
 
 
 def normalise_role_defaults(
