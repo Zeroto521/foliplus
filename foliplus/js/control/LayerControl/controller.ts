@@ -1482,9 +1482,6 @@ class LayerController implements LayerAPI {
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
       operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id }, { kind: "programmatic", via: "refresh" });
-      // Re-apply a committed filter's hidden class onto the refreshed layer's
-      // fresh DOM elements (recreated when the layer is re-attached).
-      this.replayFilter(opts.id);
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: layerInfo.role,
       }, { kind: "system", via: "teardown" });
