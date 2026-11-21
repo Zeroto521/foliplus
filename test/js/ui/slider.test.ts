@@ -1632,6 +1632,57 @@ describe("Slider width-adaptive end numbers", () => {
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
+
+  it("counts a wide glyph (a CJK bound) as two columns", () => {
+    // The display-width rule counts a CJK / full-width glyph as two digit
+    // columns: a single "一" is a wide label, so it clamps to the track's end
+    // (it would overhang a dot-centred one-column slot), and a Chinese text
+    // bound clamps the same way a long number does.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "一", max: "中文" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("counts every wide-glyph range as two columns", () => {
+    // One character from each wide-glyph block (Hangul Jamo, Hangul
+    // syllables, CJK compatibility, CJK compatibility forms, full-width
+    // forms and full-width ASCII) is a two-column label, so each clamps.
+    const ranges = [
+      "\u1100", // Hangul Jamo
+      "\uAC00", // Hangul syllables
+      "\uF900", // CJK compatibility ideographs
+      "\uFE30", // CJK compatibility forms
+      "\uFF10", // full-width digits
+      "\uFFE0", // full-width forms (full-width cent)
+    ];
+    for (const glyph of ranges) {
+      const { host } = make({
+        min: 0,
+        max: 100,
+        value: 40,
+        label: "x",
+        values: { min: glyph, max: glyph },
+      });
+      stubRow(host, 160);
+      const [minEl, maxEl] = endNumbers(host);
+      stubLabel(minEl, 10);
+      stubLabel(maxEl, 10);
+      measure(sliderOf(host)!);
+      expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+      expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    }
+  });
 });
 
 describe("Slider bubbles retire when the window loses the pointer", () => {

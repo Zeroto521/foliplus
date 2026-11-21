@@ -50,7 +50,10 @@ const clamp = (value: number, lo: number, hi: number): number =>
 const displayWidth = (s: string): number => {
   let w = 0;
   for (const ch of s) {
-    const cp = ch.codePointAt(0) ?? 0;
+    // A for..of yields whole code points (a lone surrogate is one char), so
+    // index 0 is always in range and codePointAt never returns undefined; the
+    // cast keeps the branch out of the hot path.
+    const cp = ch.codePointAt(0) as number;
     const wide =
       (cp >= 0x1100 && cp <= 0x115f) ||
       (cp >= 0x2e80 && cp <= 0xa4cf) ||
