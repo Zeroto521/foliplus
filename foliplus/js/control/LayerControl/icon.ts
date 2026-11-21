@@ -6,6 +6,17 @@ const ICON_LAYERS = `
     <polygon points="2 16 12 21 22 16"/>
   </svg>`;
 
+/** Container group glyph — two overlapping rounded squares (the design's
+ *  container-row icon). The front square is surface-filled so it masks the
+ *  back square's overlap. Stroke and weight are inherited from the type-icon
+ *  family rule (currentColor, --foliplus-stroke-icon) so the glyph reads at
+ *  the same weight as the point/line/polygon icons. */
+const ICON_CONTAINER = `
+  <svg viewBox="0 0 24 24">
+    <rect x="5" y="5" width="10" height="10" rx="2" fill="none"/>
+    <rect x="9" y="9" width="10" height="10" rx="2" fill="var(--foliplus-surface)"/>
+  </svg>`;
+
 const ICON_DRAG_HANDLE = `
   <svg viewBox="0 0 16 16" class="drag-handle">
     <circle cx="4.5" cy="3" r="1.75" fill="currentColor"/>
@@ -90,6 +101,7 @@ const ICON_FILTER = `
 
 export {
   ICON_COLOR,
+  ICON_CONTAINER,
   ICON_DRAG_HANDLE,
   ICON_EMPTY,
   ICON_FILTER,

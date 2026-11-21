@@ -1,9 +1,10 @@
 // core layer-traversal utilities — pure functions, no DOM / CONFIG.
 import * as CONST from "./const.js";
 import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
-import { walkLeaf } from "./walkLeaf.js";
+import { countChildLayers, walkLeaf } from "./walkLeaf.js";
 import {
   internalLayers,
+  isGroupLike,
   layerElements,
   layerIcon,
   layerMap,
@@ -149,6 +150,82 @@ const getGeometryType = (layer: L.Layer): string => {
       ? CONST.GEOM_TYPE.LINE
       : CONST.GEOM_TYPE.POINT;
 };
+
+/** The structural shape a container exposes: a child registry (Leaflet's
+ *  `_layers` object, read through the adapter's own `internalLayers`) or the
+ *  add/remove pair a group owns. */
+type ContainerLike = L.Layer & {
+  addLayer?: (layer: L.Layer) => unknown;
+  getLayers?: () => L.Layer[];
+  eachLayer?: (fn: (layer: L.Layer) => void) => void;
+};
+
+/** Whether a layer is a container of other layers.
+ *
+ *  A container is a group-like node that OWNS a child registry — a real
+ *  Leaflet LayerGroup / FeatureGroup (or a folium FeatureGroup), recognised by
+ *  its `_layers` object or add/remove pair. A leaf stand-in that happens to
+ *  carry `eachLayer` (a Polygon stand-in, a marker with a stray method) is not
+ *  a container.
+ *
+ *  One deliberate exclusion keeps the probe honest: L.GeoJSON extends
+ *  L.FeatureGroup extends L.LayerGroup, so a naive `eachLayer` probe would
+ *  mislabel EVERY GeoJSON row as a container — a GeoJSON layer is data, not a
+ *  folder of sub-layers. The exclusion prefers `instanceof L.GeoJSON` (the
+ *  canonical check) and falls back to the GeoJSON shape (every direct child
+ *  carries a `feature` envelope) when the class identity is unavailable.
+ *
+ *  @param {L.Layer} layer - Leaflet layer (container or leaf).
+ *  @returns {boolean} Whether the layer is a user-facing container. */
+const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
+  if (!isGroupLike(layer)) return false;
+  // A real container enumerates children through Leaflet's child registry
+  // (the _layers object) or the add/remove pair. A leaf stand-in that happens
+  // to carry eachLayer (a Polygon stand-in in tests, a marker with a stray
+  // method) is NOT a container — it has no child registry to own.
+  const c = layer as Partial<ContainerLike>;
+  // The child-registry read is the adapter's own reach (internalLayers), so
+  // this module never touches a Leaflet private field directly.
+  const hasChildRegistry =
+    internalLayers(layer) !== undefined ||
+    typeof c.addLayer === "function" ||
+    typeof c.getLayers === "function";
+  if (!hasChildRegistry) return false;
+  // GeoJSON is a data layer with a group shape (FeatureGroup -> LayerGroup); it
+  // owns no sub-layers, so a naive eachLayer probe would mislabel EVERY
+  // GeoJSON row as a container. instanceof L.GeoJSON is the canonical check;
+  // the guard keeps a jsdom mock L (no GeoJSON class) from throwing.
+  if (
+    typeof L.GeoJSON === "function" &&
+    layer instanceof (L.GeoJSON as new () => L.Layer)
+  ) {
+    return false;
+  }
+  // A GeoJSON layer whose class identity is unavailable (foreign bundle,
+  // jsdom mock) is recognised by its shape: every direct child carries a
+  // GeoJSON feature envelope. A user FeatureGroup children (plain markers /
+  // paths) carry none, so the two cannot be confused.
+  let featureChildCount = 0;
+  let childCount = 0;
+  const each = c.eachLayer;
+  if (each) {
+    try {
+      each.call(layer, (child: L.Layer) => {
+        childCount++;
+        if (child && "feature" in child) featureChildCount++;
+      });
+    } catch {
+      /* hostile getter — treat as non-GeoJSON, the walk will decide */
+    }
+  }
+  if (childCount > 0 && featureChildCount === childCount) return false;
+  return true;
+};
+
+/** Count a container's DIRECT children (its own sub-layers, not deep leaves).
+ *  @param {L.Layer} layer - Leaflet container.
+ *  @returns {number} Number of direct children. */
+const countChildLayersOf = (layer: L.Layer): number => countChildLayers(layer);
 
 /** Count geometric features in a layer tree.
  *  Counts geometry-producing leaves (Polygon / Polyline / CircleMarker / Marker).
@@ -302,4 +379,6 @@ export {
   suspendMapInteractions,
   getGeometryType,
   countFeatureGeometry,
+  isContainerLayer,
+  countChildLayersOf,
 };
