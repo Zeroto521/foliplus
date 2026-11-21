@@ -217,16 +217,19 @@
    displayWidth in slider.ts): a label that fits one digit column is
    dot-centred — its centre sits on the parked thumb's centre, which is a
    half thumb in from the control's edge — and anything wider is an axis
-   label that clamps to the track's two ends (class is-clamp). A clamped
-   label is a half thumb in from the control's edge (the track's own edge,
-   the thumb's centre), clipping its text toward the inside so it never
-   paints past the track or overlaps its sibling. */
+   label that clamps to the slider's two visible ends (class is-clamp).
+
+   The clamp pins to the CONTROL's edges, not the track element's: the track
+   is inset half a thumb so a parked thumb's outer edge lands on the
+   control's edge, which means the painted bar (rail + the two parked
+   thumbs) spans the full control width. Pinning the label to the track
+   element instead leaves it half a thumb inside the bar's visible end —
+   the misalignment this rule exists to prevent. */
 .foliplus-slider-value-min.is-clamp {
   flex: 0 1 auto;
   text-align: start;
-  /* Pin to the track's left edge: the track is inset half a thumb from the
-     row, so the label's outer edge sits on the rail (the dot's centre). */
-  margin-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
+  /* Pin to the control's left edge — the painted bar's left end. */
+  margin-inline-start: 0;
 
   /* When the opposite end label is out of flow (no longer possible, but the
      rule is kept as the flex fallback) an auto end margin pushes this label
@@ -236,9 +239,9 @@
 .foliplus-slider-value-max.is-clamp {
   flex: 0 1 auto;
   text-align: end;
-  /* Mirror of the min rule: the max label's outer edge sits on the track's
-     right edge (the max dot's centre). */
-  margin-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
+  /* Mirror of the min rule: the max label's outer edge sits on the
+     control's right edge — the painted bar's right end. */
+  margin-inline-end: 0;
 
   /* Mirror of the min rule: a lone clamped max must pin to its own edge,
      not collapse to the row start when the min is out of flow. */

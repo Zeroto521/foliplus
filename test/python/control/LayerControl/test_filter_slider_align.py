@@ -3,10 +3,14 @@
 The filter panel's range body is the one slider row whose end labels align by
 display width: a one-column label (a bare digit) stays dot-centred — its
 centre sits on the parked dot's centre, half a thumb in from the control
-edge — and a label two columns or wider clamps to the track's end (its outer
-edge on the track edge). Before the fix the labels were pinned to the
-control's two edges, so a one-column label read as the row's edge rather
-than the value at its dot.
+edge — and a label two columns or wider clamps to the slider's painted ends.
+
+The clamp reference is the CONTROL edge, not the track element's edge. The
+track is inset half a thumb so a parked thumb's outer edge lands on the
+control's edge, which means the painted bar (rail plus the two parked
+thumbs) spans the full control width. Pinning a clamped label to the track
+element instead leaves it half a thumb inside the bar's visible end — the
+misalignment this test exists to catch.
 """
 
 from __future__ import annotations
@@ -47,16 +51,24 @@ class TestFilterRangeSliderLabelAlignment(LayerControlBrowserBase):
                 min_label, max_label = group["min"], group["max"]
                 assert min_label is not None and max_label is not None, group
                 track = group["track"]
-                # The alignment rule keys on display width (a CJK glyph counts
-                # 2 columns, everything else 1): a one-column label (a bare
-                # digit) stays dot-centred — its centre sits on the parked
-                # dot's centre, the track edge; a label two columns or wider
-                # clamps to the track's end (its outer edge on the track edge).
-                # The reference is the track edge (the dot's centre), never the
-                # control edge (the track is inset half a thumb).
-                for label, dot, edge in (
-                    (min_label, track["left"], "left"),
-                    (max_label, track["right"], "right"),
+                values = group["values"]
+                # A hidden panel measures every box as zero, and a zero-vs-
+                # zero comparison passes every alignment assertion below —
+                # the vacuous green this guard exists to prevent.
+                assert values["width"] > 0, f"{name}: slider row has no width: {values}"
+                assert track["width"] > 0, f"{name}: track has no width: {track}"
+                # Two references, one per state. A one-column label centres
+                # on its dot, and a parked dot's centre IS the track edge, so
+                # the dot-centred check reads the track. A clamped label is an
+                # axis label and pins to the slider's painted ends: the track
+                # is inset half a thumb, so the painted bar (rail plus the two
+                # parked thumbs) spans the full control width — the row box.
+                # Pinning to the track edge instead leaves the label half a
+                # thumb inside the bar's visible end, which is the
+                # misalignment this test exists to catch.
+                for label, dot, edge, control_edge in (
+                    (min_label, track["left"], "left", values["left"]),
+                    (max_label, track["right"], "right", values["right"]),
                 ):
                     if len(label["text"]) == 1:
                         assert not label["clamp"], (
@@ -71,8 +83,9 @@ class TestFilterRangeSliderLabelAlignment(LayerControlBrowserBase):
                         assert label["clamp"], (
                             f"{name} {label['text']!r} not clamped: {label}"
                         )
-                        assert abs(label[edge] - dot) <= 1.0, (
-                            f"{name} {label['text']!r} not flush the track end "
-                            f"({edge}): {label} vs track {dot:.2f}px"
+                        assert abs(label[edge] - control_edge) <= 1.0, (
+                            f"{name} {label['text']!r} not flush the slider's "
+                            f"painted {edge} end: {label} vs control "
+                            f"{control_edge:.2f}px"
                         )
             assert not errors, f"JS errors: {errors}"
