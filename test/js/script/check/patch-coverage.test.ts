@@ -9,8 +9,8 @@ import {
   isPythonFile,
   main,
   parseAddedLines,
-  parseCobertura,
   parseArgs,
+  parseCobertura,
   parseIstanbul,
   parseLcov,
   runCli,
@@ -577,7 +577,10 @@ describe("parseCobertura", () => {
   };
 
   it("maps a Cobertura class to a repo-relative path and records line hits", () => {
-    const xml = xmlFor(REPO, "foliplus/control/LayerControl/_folder.py", { "1": 1, "2": 0 });
+    const xml = xmlFor(REPO, "foliplus/control/LayerControl/_folder.py", {
+      "1": 1,
+      "2": 0,
+    });
     const covByRel = parseCobertura(xml, REPO);
     const fc = covByRel.get("foliplus/control/LayerControl/_folder.py");
     expect(fc).toBeDefined();
@@ -661,6 +664,154 @@ describe("parseCobertura", () => {
     ].join("\n");
     const covByRel = parseCobertura(xml, REPO, () => true);
     expect(covByRel.get("src.py").partials).toEqual([]);
+  });
+
+  it("resolves a relative filename against the first source that exists on disk", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}/foliplus</source>`,
+      `<source>${REPO}/script</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="changelog_check.py" filename="check/changelog_check.py">',
+      "<lines>",
+      '<line number="1" hits="1"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, p => p.includes("script"));
+    const fc = covByRel.get("script/check/changelog_check.py");
+    expect(fc).toBeDefined();
+    expect(fc.lines.get(1)).toBe("covered");
+  });
+
+  it("falls back to the first source join when no source resolves on disk", () => {
+    const xml = xmlFor(REPO, "src.py", { "1": 1 });
+    const covByRel = parseCobertura(xml, REPO, () => false);
+    const fc = covByRel.get("src.py");
+    expect(fc).toBeDefined();
+    expect(fc.lines.get(1)).toBe("covered");
+  });
+
+  it("reports a branch partial from condition-coverage", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="3" hits="1" branch="true" condition-coverage="50% (1/2)"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    const fc = covByRel.get("src.py");
+    expect(fc.partials).toEqual([{ line: 3, untaken: 1, total: 2 }]);
+  });
+
+  it("does not report a partial when the branch is fully taken", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="4" hits="1" branch="true" condition-coverage="100% (2/2)"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    expect(covByRel.get("src.py").partials).toEqual([]);
+  });
+  it("ignores a line without a branch attribute (no partial)", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="5" hits="1"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    const fc = covByRel.get("src.py");
+    expect(fc.lines.get(5)).toBe("covered");
+    expect(fc.partials).toEqual([]);
+  });
+
+  it("falls back to the raw filename when there are no sources", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="1" hits="1"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    // No <sources> block: the defensive fallback keeps the raw filename.
+    const fc = covByRel.get("src.py");
+    expect(fc).toBeDefined();
+    expect(fc.lines.get(1)).toBe("covered");
+  });
+
+  it("treats a multi-hit line as covered and a zero-hit line as uncovered", () => {
+    const xml = [
+      '<?xml version="1.0" ?>',
+      "<coverage>",
+      "<sources>",
+      `<source>${REPO}</source>`,
+      "</sources>",
+      '<package name=".">',
+      "<classes>",
+      '<class name="src.py" filename="src.py">',
+      "<lines>",
+      '<line number="1" hits="3"/>',
+      '<line number="2" hits="0"/>',
+      "</lines>",
+      "</class>",
+      "</classes>",
+      "</package>",
+      "</coverage>",
+    ].join("\n");
+    const covByRel = parseCobertura(xml, REPO, () => true);
+    const fc = covByRel.get("src.py");
+    expect(fc.lines.get(1)).toBe("covered");
+    expect(fc.lines.get(2)).toBe("uncovered");
   });
 });
 
