@@ -650,14 +650,18 @@ const startFolderRename = (
     `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
   );
   const label = item?.querySelector("label") as HTMLLabelElement | null;
-  if (!label) return;
+  if (!item || !label) return;
   closeOverlays(ui);
+  // Same row flag the layer rename sets: it is what stretches the input across
+  // the label+count area, so both rename kinds render identically (issue 16).
+  ui.overlayPanel.activeRenameRow = item;
+  item.classList.add(CONST.CLASSES.RENAMING);
   createInlineEditInput({
     label,
     initialValue: folderName,
     className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
     ariaLabel: ui.T("rename_folder_hint"),
-    isActive: () => true,
+    isActive: () => ui.overlayPanel.activeRenameRow === item,
     onCommit: trimmed => {
       const next = trimmed.trim();
       if (next && next !== folderName) {

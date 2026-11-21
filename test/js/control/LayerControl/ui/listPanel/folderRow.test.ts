@@ -739,6 +739,38 @@ describe("ui/list folder rows", () => {
     expect(member4.checked).toBe(true);
   });
 
+  it("flags the folder row as renaming, exactly like a layer row (issue 16)", () => {
+    // The RENAMING class is what stretches the inline input across the
+    // label+count area. The layer rename set it; the folder rename did not, so
+    // the two inputs rendered at different widths from the same component.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    expect(folderRow.classList.contains(CONST.CLASSES.RENAMING)).toBe(true);
+    expect(folderRow.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`)).not.toBeNull();
+  });
+
   it("folder rename commit renames the folder in the layout", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
