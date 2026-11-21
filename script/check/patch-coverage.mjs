@@ -69,9 +69,10 @@ const toRel = (absPath, cwd) => {
 const isJsFile = rel => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(slash(rel));
 
 /**
- * A Python-scope file is excluded from the patch and reported as skipped.
- * Python is covered by pytest (`--cov=foliplus --cov=script`), not by the
- * vitest report this mirror reads, so a Python-only change must not fail here.
+ * A Python-scope file is scored against the pytest Cobertura report
+ * (`coverage.xml`), not skipped — see parseCobertura. It is no longer
+ * excluded from the patch; an uncovered added line in a Python file FAILs
+ * the check, mirroring codecov's patch gate for Python.
  * The rule covers foliplus/*.py and below, test/python/* and below, and
  * script/*.py — any .py file, plus any path under test/python/ (defensive
  * for future non-.py files).

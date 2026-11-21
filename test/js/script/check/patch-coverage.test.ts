@@ -1331,6 +1331,38 @@ describe("scope CLI tests (Python scored, JS counted, mixed)", () => {
       log.mockRestore();
     }
   }, 30000);
+  it("fails on a mixed change when the Python side is uncovered, listing Python lines", () => {
+    if (!baseRef) return;
+    // Commit a mixed change where JS is fully covered but Python is not.
+    writeFileSync(join(repo, "src.ts"), "const a = 1;\nconst b = 2;\n");
+    writeFileSync(join(repo, "src.py"), "def f():\n    return 3\n");
+    git(["add", "-A"]);
+    git(["commit", "-q", "-m", "mixed-python-fail"]);
+    const covPath = join(repo, "coverage", "coverage-final.json");
+    mkdirSync(join(repo, "coverage"), { recursive: true });
+    writeJsCov(covPath, true);
+    writePyCov(join(repo, "coverage.xml"), false);
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      const code = main(
+        parseArgs([
+          `--cwd=${repo}`,
+          `--base=${baseRef}`,
+          "--threshold=0.95",
+          "--coverage=coverage/coverage-final.json",
+          "--py-coverage=coverage.xml",
+        ]),
+      );
+      expect(code).toBe(1);
+      const out = log.mock.calls.map(a => a.join(" ")).join("\n");
+      expect(out).toContain("src.py: uncovered added lines 2");
+      expect(out).toContain("Python FAIL");
+      // The JS side is fine, so it must not be reported as failing.
+      expect(out).not.toContain("JS FAIL");
+    } finally {
+      log.mockRestore();
+    }
+  }, 30000);
 
   it("skips a non-JS non-Python file with the generic message", () => {
     if (!baseRef) return;
