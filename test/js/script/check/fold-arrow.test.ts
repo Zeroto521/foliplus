@@ -1,10 +1,4 @@
-import {
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -37,7 +31,8 @@ type Chevron = { pts: Pt[]; dir: Dir };
 // The raw polyline points list, and the build-compressed d='m18 15-6-6-6 6'
 // form (deltas applied to the first point). Both spell the same chevron.
 const POINT_ATTR = /points=["']([^"']+)["']/;
-const PATH_ATTR = /d=["']m\s*(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)["']/;
+const PATH_ATTR =
+  /d=["']m\s*(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)["']/;
 
 // Scope the parse to the ICON_FOLD definition. icon.ts holds several chevron
 // glyphs (other controls draw up- or down-pointing ones), so a bare match on
@@ -45,7 +40,7 @@ const PATH_ATTR = /d=["']m\s*(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]+)\s+(-?[0-9.]
 // direction as the fold arrow's.
 const foldIconSource = (iconSrc: string): string => {
   const rows = iconSrc.split("\n");
-  const first = rows.findIndex((r) => r.includes("const ICON_FOLD"));
+  const first = rows.findIndex(r => r.includes("const ICON_FOLD"));
   if (first < 0) return "";
   const block: string[] = [rows[first]];
   for (let i = first + 1; i < rows.length; i++) {
@@ -59,7 +54,11 @@ const foldChevron = (iconSrc: string): Chevron | null => {
   const pl = iconSrc.match(POINT_ATTR);
   let nums: number[] | null = null;
   if (pl) {
-    nums = pl[1].trim().split(/[^0-9.\-]+/).filter(Boolean).map(Number);
+    nums = pl[1]
+      .trim()
+      .split(/[^0-9.\-]+/)
+      .filter(Boolean)
+      .map(Number);
   } else {
     const d = iconSrc.match(PATH_ATTR);
     if (d) {
@@ -108,17 +107,17 @@ const foldArrowFindings = (root: string): Finding[] => {
   const tokens = read(TOKEN_REL);
   // Exactly two angles exist, and they are the two poses. A third one - or a
   // 180deg - is the popup-style inversion this guard exists to hold back.
-  const rest =
-    /--foliplus-fold-rot-rest\s*:\s*([^;\n]+)/.exec(tokens)?.[1]?.trim();
-  const expanded =
-    /--foliplus-fold-rot-expanded\s*:\s*([^;\n]+)/.exec(tokens)?.[1]?.trim();
+  const rest = /--foliplus-fold-rot-rest\s*:\s*([^;\n]+)/.exec(tokens)?.[1]?.trim();
+  const expanded = /--foliplus-fold-rot-expanded\s*:\s*([^;\n]+)/
+    .exec(tokens)?.[1]
+    ?.trim();
   if (rest !== "0deg" || expanded !== "90deg") {
     out.push({
       path: TOKEN_REL,
       message:
         `the fold angles are ${rest} (rest) and ${expanded} (expanded) - they` +
-          ` must be 0deg (rest) and 90deg (expanded). A 180deg is the` +
-          " popup-style inversion the guard exists to hold back.",
+        ` must be 0deg (rest) and 90deg (expanded). A 180deg is the` +
+        " popup-style inversion the guard exists to hold back.",
     });
   }
   // row.css may only READ those tokens. Naming a fold angle here would be a
@@ -151,10 +150,11 @@ const foldArrowFindings = (root: string): Finding[] => {
   }
 
   // half 3: list.ts feeds aria-expanded from the same state.
-  const rowBody =
-    read(LIST_REL).split("const renderToggleAllRow").slice(1, 2)[0] ?? "";
+  const rowBody = read(LIST_REL).split("const renderToggleAllRow").slice(1, 2)[0] ?? "";
   const ariaFromState =
-    /aria-expanded["']?\s*:*\s*isFolded\s*\?\s*["']false["']\s*:*\s*["']true["']/.test(rowBody);
+    /aria-expanded["']?\s*:*\s*isFolded\s*\?\s*["']false["']\s*:*\s*["']true["']/.test(
+      rowBody,
+    );
   if (!ariaFromState) {
     out.push({
       path: LIST_REL,
@@ -195,9 +195,9 @@ describe("fold arrow direction is one mechanism", () => {
     const css = readFileSync(resolve(REPO_ROOT, CSS_REL), "utf-8");
     const tokens = readFileSync(resolve(REPO_ROOT, TOKEN_REL), "utf-8");
     const rest = /--foliplus-fold-rot-rest\s*:\s*([^;\n]+)/.exec(tokens)?.[1]?.trim();
-    const expanded = /--foliplus-fold-rot-expanded\s*:\s*([^;\n]+)/.exec(
-      tokens,
-    )?.[1]?.trim();
+    const expanded = /--foliplus-fold-rot-expanded\s*:\s*([^;\n]+)/
+      .exec(tokens)?.[1]
+      ?.trim();
     expect([rest, expanded]).toEqual(["0deg", "90deg"]);
     expect(css).toMatch(/\[aria-expanded=["']true["']\]/);
     expect(css).not.toMatch(/rotate\(\s*-?180deg\s*\)/);
@@ -205,7 +205,7 @@ describe("fold arrow direction is one mechanism", () => {
 
   it.each(["role", "folder", "container"])(
     "turns every row kind (${k}) through the shared aria-expanded rule",
-    (k) => {
+    k => {
       // The row kind is the parameter here: today only role rows are rendered,
       // but folder rows and container rows (#1276) reuse this same button, so
       // the invariant is stated per kind - each one must turn through the shared
@@ -215,7 +215,7 @@ describe("fold arrow direction is one mechanism", () => {
       // no nesting is a literal angle written beside it, which is exactly what
       // would let a row kind grow its own direction.
       const literals = (css.match(/rotate\([^)]*\)/g) ?? []).filter(
-        (t) => !t.includes("var("),
+        t => !t.includes("var("),
       );
       expect(
         literals,
@@ -229,7 +229,15 @@ describe("fold arrow direction is one mechanism", () => {
     const iconDir = join(dir, "foliplus", "js", "control", "LayerControl");
     const cssDir = join(dir, "foliplus", "css", "control", "LayerControl");
     const commonDir = join(dir, "foliplus", "css", "common");
-    const listDir = join(dir, "foliplus", "js", "control", "LayerControl", "ui", "listPanel");
+    const listDir = join(
+      dir,
+      "foliplus",
+      "js",
+      "control",
+      "LayerControl",
+      "ui",
+      "listPanel",
+    );
     mkdirSync(iconDir, { recursive: true });
     mkdirSync(cssDir, { recursive: true });
     mkdirSync(commonDir, { recursive: true });
@@ -257,11 +265,13 @@ describe("fold arrow direction is one mechanism", () => {
     );
     const hits = foldArrowFindings(dir);
     rmSync(dir, { recursive: true, force: true });
-    const where = (part: string) => hits.filter((h) => h.path.includes(part));
+    const where = (part: string) => hits.filter(h => h.path.includes(part));
     expect(where(ICON_REL)[0]?.message).toContain("up-pointing");
-    expect(where(CSS_REL).some((h) => h.message.includes("rotate(180deg)"))).toBe(true);
-    expect(where(TOKEN_REL).some((h) => h.message.includes("the fold angles are"))).toBe(true);
-    expect(where(CSS_REL).some((h) => h.message.includes("aria-expanded"))).toBe(true);
+    expect(where(CSS_REL).some(h => h.message.includes("rotate(180deg)"))).toBe(true);
+    expect(where(TOKEN_REL).some(h => h.message.includes("the fold angles are"))).toBe(
+      true,
+    );
+    expect(where(CSS_REL).some(h => h.message.includes("aria-expanded"))).toBe(true);
     expect(where(LIST_REL)[0]?.message).toContain("aria-expanded");
     expect(hits.length).toBeGreaterThanOrEqual(4);
   });

@@ -631,12 +631,12 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       "button",
       {
         class: CONST.CLASSES.FOLD_BTN,
-      // The arrow's direction is driven by this attribute alone: row.css turns
-      // the svg on [aria-expanded="true"], reading the angle out of token.css, so
-      // a folder row or a container row (#1276) that reuses this button gets the
-      // same turn. Same isFolded that picks the FOLDED class and the title
-      // above - one state, three projections.
-      "aria-expanded": isFolded ? "false" : "true",
+        // The arrow's direction is driven by this attribute alone: row.css turns
+        // the svg on [aria-expanded="true"], reading the angle out of token.css, so
+        // a folder row or a container row (#1276) that reuses this button gets the
+        // same turn. Same isFolded that picks the FOLDED class and the title
+        // above - one state, three projections.
+        "aria-expanded": isFolded ? "false" : "true",
       },
       { html: SVGs.ICON_FOLD },
     ),
