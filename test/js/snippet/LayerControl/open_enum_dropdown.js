@@ -21,7 +21,9 @@ async () => {
   api.registerLayer({
     id: ID,
     name: "Touch scroll",
-    layer: L.layerGroup(),
+    // A leaf layer, not a group: a group is a container row now, and a
+    // container has no filter entry to open.
+    layer: L.circleMarker([0, 0]),
     filterProvider: model,
     filterSetter: next => {
       filter = next;

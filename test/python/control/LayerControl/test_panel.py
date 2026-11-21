@@ -2761,21 +2761,13 @@ class TestPanelBrowser(LayerControlBrowserBase):
         plain point row must be a leaf layer.
         """
         layers = []
-        for i, name in enumerate(["Alpha", "Beta", "Gamma", "Delta"]):
+        for name in ["Alpha", "Beta", "Gamma", "Delta"]:
             # A leaf GeoJson point layer is a leaf (not a container), so the
             # container semantics now treat a FeatureGroup as a container
             # (Style/Filter disabled, 三态 count); a single-feature GeoJson
             # keeps this a plain point-feature overlay row.
-            point = {
-                "type": "Feature",
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [119.30 + i * 0.01, 26.08 + i * 0.01],
-                },
-                "properties": {},
-            }
             layer = folium.GeoJson(
-                json.dumps(feature_collection(point)),
+                json.dumps(load_geojson("LayerControl", "point_11934_2611")),
                 overlay=True,
                 show=True,
             )
@@ -3102,23 +3094,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
         corner — the regression this test pins.
         """
         layer = folium.GeoJson(
-            json.dumps(
-                feature_collection(
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [[
-                                [119.29, 26.078],
-                                [119.31, 26.082],
-                                [119.31, 26.075],
-                                [119.29, 26.078],
-                            ]],
-                        },
-                        "properties": {},
-                    },
-                )
-            ),
+            json.dumps(load_geojson("LayerControl", "polygon_focus_box")),
             overlay=True,
             show=True,
         )
