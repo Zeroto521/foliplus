@@ -63,6 +63,7 @@ export {
   createFolder,
   renameFolder,
   deleteFolder,
+  moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
   dropLayer,

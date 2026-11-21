@@ -60,6 +60,7 @@ import {
   buildFilterFeatures,
   countFeatureGeometry,
   createFolder,
+  moveFolder,
   deleteFolder,
   dropLayer,
   ensureFilterStore,
@@ -2135,6 +2136,28 @@ class LayerController implements LayerAPI {
     }
     if (this.ui) this.ui.reindexAfterMove();
     return { ok: true };
+  }
+
+  /** Move one folder block within its role's block order. The whole block
+   *  travels — the folder row and every member — because the panel renders
+   *  blocks in `layout.order[role]` order, so the order IS the block order.
+   *  A key or target the role does not list is a no-op, so a drag that outlived
+   *  a rename or a delete cannot corrupt the order.
+   *  @returns true when the order changed. */
+  reorderFolder(
+    role: LayerRole,
+    key: string,
+    targetKey: string,
+    after: boolean,
+  ): boolean {
+    const layout = this.folderLayout.layout;
+    const next = moveFolder(layout, role, key, targetKey, after);
+    if (next === layout) return false;
+    this.folderLayout.set(next);
+    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
+    this.folderLayout.flush();
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
   }
 
   /** Rename one folder block in one role.

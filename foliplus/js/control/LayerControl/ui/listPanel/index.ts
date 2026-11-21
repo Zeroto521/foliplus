@@ -104,6 +104,14 @@ class ListPanel {
    *  re-resolved through the registry at every use, which also retires the
    *  session when the entry is unregistered or replaced under its id. */
   dragEntry: LayerInfo | null = null;
+  /** The folder block the in-flight drag armed with, or null. A folder drag
+   *  moves the whole block (row + members), so it carries the block identity
+   *  (role + normalized key) instead of a registry entry. */
+  dragFolder: { role: string; key: string } | null = null;
+  /** Whether the dragged folder was already folded when the gesture began, so
+   *  dragend restores the pre-drag state instead of unfolding a folder the
+   *  user had folded themselves. */
+  dragFolderWasFolded: boolean = false;
   /** Wall-clock timestamp of the last drag hint shown; used to enforce the
    *  hint cooldown so a fast drag does not spam the tooltip. */
   lastDragHintAt: number = 0;

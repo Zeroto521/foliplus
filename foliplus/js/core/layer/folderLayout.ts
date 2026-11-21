@@ -403,6 +403,27 @@ const deleteFolder = (
   };
 };
 
+/** Move one folder block to a new position in its role's block order. The
+ *  target is another folder key of the same role; `after` places the moved
+ *  block after the target, otherwise before it. A key or target the role does
+ *  not list is a no-op (returns the same layout), so a drag that outlived a
+ *  rename or a delete cannot corrupt the order. Pure: returns a new layout. */
+const moveFolder = (
+  layout: FolderLayout,
+  role: LayerRole,
+  key: string,
+  targetKey: string,
+  after: boolean,
+): FolderLayout => {
+  if (key === targetKey) return layout;
+  const listed = layout.order[role] ?? [];
+  if (!listed.includes(key) || !listed.includes(targetKey)) return layout;
+  const rest = listed.filter(k => k !== key);
+  const at = rest.indexOf(targetKey);
+  rest.splice(after ? at + 1 : at, 0, key);
+  return { ...layout, order: { ...layout.order, [role]: rest } };
+};
+
 /** Assign a layer to a folder. When the target folder has no block order key
  *  yet, it is materialised (appended to the role's block tail) so the
  *  moved layer lands in a visible block. */
@@ -571,6 +592,7 @@ export {
   createFolder,
   renameFolder,
   deleteFolder,
+  moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
   dropLayer,

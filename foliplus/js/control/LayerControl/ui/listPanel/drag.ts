@@ -3,7 +3,7 @@ import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
-import { normalizeFolderName } from "#core/layer/index.js";
+import { type LayerRole, normalizeFolderName } from "#core/layer/index.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -92,6 +92,36 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (!item) return;
+
+  // A folder row drags its whole block. The block identity is role + key, not
+  // a registry entry: the folder row owns no layer, and the block order lives
+  // in the layout, so the gesture carries the key the layout knows.
+  const folderKey = item.getAttribute(CONST.DATA.FOLDER_KEY);
+  if (folderKey) {
+    const role = item.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (!role) return;
+    ui.listPanel.dragFolder = { role, key: folderKey };
+    // Auto-fold so the block reads as one unit while it travels. The fold is
+    // temporary: it is not persisted, and dragend restores the pre-drag state
+    // (a folder the user had folded themselves stays folded).
+    const foldKey = folderFoldKey(role, folderKey);
+    ui.listPanel.dragFolderWasFolded = ui.listPanel.foldedFolders.has(foldKey);
+    if (!ui.listPanel.dragFolderWasFolded) {
+      ui.listPanel.foldedFolders.add(foldKey);
+      // The rebuild replaces the row element, so the drag chrome is applied to
+      // the fresh row, not the detached one.
+      rebuildList(ui);
+      const fresh = ui.uiContainer?.querySelector(
+        `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
+      ) as HTMLElement | null;
+      fresh?.classList.add(CONST.CLASSES.DRAGGING);
+    } else {
+      item.classList.add(CONST.CLASSES.DRAGGING);
+    }
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+    return;
+  }
+
   const id = item.getAttribute(CONST.DATA.LAYER_ID);
   const entry = id ? ui.c.layerRegistry.get(id) : undefined;
   if (!entry) return;
@@ -111,7 +141,58 @@ const showReorderBlockedHint = (ui: LayerUI) => {
   );
 };
 
+/** Whether the pointer sits in the bottom half of a row, i.e. the drop lands
+ *  after it. The block order is a list, so the half decides before/after. */
+const dropsAfter = (event: DragEvent, row: HTMLElement): boolean => {
+  const rect = row.getBoundingClientRect();
+  return event.clientY > rect.top + rect.height / 2;
+};
+
+/** The folder row a folder drag may land on: a folder row of the same role,
+ *  other than the one being dragged. Returns null for anything else, so a
+ *  folder cannot be dropped onto a layer row or into the other role. */
+const folderDropTarget = (
+  ui: LayerUI,
+  event: DragEvent,
+): HTMLElement | null => {
+  const armed = ui.listPanel.dragFolder;
+  if (!armed) return null;
+  const row = (event.target as HTMLElement).closest(
+    CONST.SEL.FOLDER_ROW,
+  ) as HTMLElement | null;
+  if (!row) return null;
+  if (row.getAttribute(CONST.DATA.ROLE) !== armed.role) return null;
+  const key = row.getAttribute(CONST.DATA.FOLDER_KEY);
+  if (!key || key === armed.key) return null;
+  return row;
+};
+
 const handleDragOver = (ui: LayerUI, event: DragEvent) => {
+  // A folder drag only ever reorders blocks: it never enters the layer-index
+  // path below, which would resolve a folder row to no registry entry.
+  if (ui.listPanel.dragFolder) {
+    const row = folderDropTarget(ui, event);
+    const prev = ui.listPanel.lastDragOverItem;
+    if (prev && prev !== row) {
+      prev.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
+    }
+    if (!row) {
+      ui.listPanel.lastDragOverItem = null;
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+      return;
+    }
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    row.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
+    row.classList.add(
+      dropsAfter(event, row)
+        ? CONST.CLASSES.DRAG_OVER_BOTTOM
+        : CONST.CLASSES.DRAG_OVER_TOP,
+    );
+    ui.listPanel.lastDragOverItem = row;
+    return;
+  }
+
   const armed = ui.listPanel.dragEntry ? dragIdx(ui, ui.listPanel.dragEntry) : -1;
   if (armed < 0) {
     // The armed entry retired mid-gesture (an unregister or a same-id
@@ -158,6 +239,28 @@ const handleDragLeave = (event: DragEvent) => {
 
 const handleDrop = (ui: LayerUI, event: DragEvent) => {
   event.preventDefault();
+
+  // Folder block reorder: the whole block travels, so the commit is the
+  // layout's block order, not a registry move.
+  const armedFolder = ui.listPanel.dragFolder;
+  if (armedFolder) {
+    const row = folderDropTarget(ui, event);
+    const targetKey = row?.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
+    try {
+      if (row && targetKey) {
+        ui.c.reorderFolder(
+          armedFolder.role as LayerRole,
+          armedFolder.key,
+          targetKey,
+          dropsAfter(event, row),
+        );
+      }
+    } finally {
+      clearDragState(ui);
+    }
+    return;
+  }
+
   const target = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
@@ -210,8 +313,19 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
  *  native dragend and the unbind boundary share it; it clears the pure
  *  session state even when the panel itself is already gone. */
 const clearDragState = (ui: LayerUI): void => {
+  const folder = ui.listPanel.dragFolder;
+  const wasFolded = ui.listPanel.dragFolderWasFolded;
   ui.listPanel.dragEntry = null;
+  ui.listPanel.dragFolder = null;
+  ui.listPanel.dragFolderWasFolded = false;
   ui.listPanel.lastDragOverItem = null;
+  // Restore the pre-drag fold state: the auto-fold was a gesture aid, never a
+  // user decision, so it must not survive the gesture (and must not be
+  // persisted — this path never calls saveFoldState).
+  if (folder && !wasFolded) {
+    const foldKey = folderFoldKey(folder.role, folder.key);
+    if (ui.listPanel.foldedFolders.delete(foldKey)) rebuildList(ui);
+  }
   const allItems = ui.uiContainer?.querySelectorAll(CONST.SEL.LAYER_ITEM);
   allItems?.forEach((i: Element) =>
     i.classList.remove(

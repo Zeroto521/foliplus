@@ -20,9 +20,14 @@ import {
   toggleFold,
 } from "#control/LayerControl/ui/listPanel/index.js";
 
-const dragEvent = (target: HTMLElement, dataTransfer = {}): DragEvent =>
+const dragEvent = (
+  target: HTMLElement,
+  dataTransfer = {},
+  clientY = 0,
+): DragEvent =>
   ({
     target,
+    clientY,
     preventDefault: vi.fn(),
     stopPropagation: vi.fn(),
     dataTransfer,
@@ -100,7 +105,81 @@ const makeUi = (
   } as unknown as LayerUI;
 };
 
+/** A layout document with the given overlay folder keys in block order. */
+const folderLayoutDoc = (keys: string[]) => ({
+  version: 2,
+  folders: keys.map(k => ({ key: k, name: k })),
+  order: { overlay: keys },
+  members: {},
+});
+
+const folderFixture = (keys: string[]) =>
+  initFixture({
+    seedLayout: folderLayoutDoc(keys),
+    data: keys.map(k => ({
+      id: `${k}1`,
+      name: `${k}1`,
+      role: "overlay" as const,
+      folder: k,
+      layer: { options: {}, eachLayer: vi.fn() },
+    })),
+  });
+
+const folderRowOf = (ui: LayerUI, key: string): HTMLElement =>
+  attachedPanel(ui).querySelector(
+    `[${CONST.DATA.FOLDER_KEY}="${key}"]`,
+  ) as HTMLElement;
+
 describe("ui/drag", () => {
+  describe("folder block drag (issue 9)", () => {
+    it("arms a folder row with the block identity and auto-folds it", () => {
+      // A folder row owns no registry entry, so the gesture carries the block
+      // identity (role + key) the layout knows. The auto-fold makes the block
+      // read as one unit while it travels.
+      const { ui } = folderFixture(["a", "b"]);
+      const row = folderRowOf(ui, "a");
+      handleDragStart(ui, dragEvent(row, { effectAllowed: "" }));
+      expect(ui.listPanel.dragFolder).toEqual({ role: "overlay", key: "a" });
+      expect(ui.listPanel.foldedFolders.has("overlay::a")).toBe(true);
+      // The fold is a gesture aid, never a user decision: nothing persisted.
+      const saved = window.localStorage.getItem(CONST.STORAGE.KEY) ?? "";
+      expect(saved).not.toContain("overlay::a");
+    });
+
+    it("drops a folder block after another folder and restores the fold", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      const target = folderRowOf(ui, "b");
+      // jsdom rects are all zero, so any positive clientY is the bottom half.
+      handleDrop(ui, dragEvent(target, {}, 10));
+      expect(ui.c.folderLayoutView.order.overlay).toEqual(["b", "a"]);
+      // The gesture is over: the temporary fold is gone.
+      expect(ui.listPanel.foldedFolders.has("overlay::a")).toBe(false);
+      expect(ui.listPanel.dragFolder).toBeNull();
+    });
+
+    it("leaves a folder the user had already folded folded", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      ui.listPanel.foldedFolders.add("overlay::a");
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      expect(ui.listPanel.dragFolderWasFolded).toBe(true);
+      handleDragEnd(ui);
+      expect(ui.listPanel.foldedFolders.has("overlay::a")).toBe(true);
+    });
+
+    it("refuses a drop onto a layer row or the other role", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      const before = [...(ui.c.folderLayoutView.order.overlay ?? [])];
+      // A layer row is not a block target.
+      const layerRow = attachedPanel(ui).querySelector(
+        `[${CONST.DATA.LAYER_ID}="b1"]`,
+      ) as HTMLElement;
+      handleDrop(ui, dragEvent(layerRow));
+      expect(ui.c.folderLayoutView.order.overlay).toEqual(before);
+    });
+  });
+
   describe("arming — the gesture keys the entry, not the position", () => {
     it("handleDragStart arms with the registry entry behind the row", () => {
       const ui = makeUi({ containers: ["a", "b"] });
