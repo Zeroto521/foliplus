@@ -55,6 +55,8 @@ export {
 export { clamp, computePlacement, intersect, isDegenerate } from "./placement.js";
 export { applyPlacement, placeSurface, viewportBounds } from "./placementAdapter.js";
 export { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
+export { ROW_CLASS } from "./rowLayoutClassName.js";
+export { buildRow } from "./rowLayout.js";
 export { createSchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";

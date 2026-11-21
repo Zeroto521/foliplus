@@ -24,6 +24,7 @@
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
+import { ROW_CLASS } from "./rowLayoutClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
 import { applyOptionRowA11y } from "./optionRow.js";
@@ -293,10 +294,16 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       selectedClass: DROPDOWN_CLASS.SELECTED,
       disabledAttr: "disabled",
       activedescendant: "none",
+      // The option label is the row-primitive content cell, so a dropdown
+      // option and a scheme/search row share the same [leading][content] track.
+      renderRow: (item) => {
+        const label = dom.el("span", { class: DROPDOWN_CLASS.OPTION_LABEL }, item.label);
+        return dom.el("span", { class: ROW_CLASS.CONTENT }, label);
+      },
     },
     classes: {
       list: DROPDOWN_CLASS.LIST,
-      row: DROPDOWN_CLASS.OPTION,
+      row: [DROPDOWN_CLASS.OPTION, ROW_CLASS.ROW].join(" "),
       rowLabel: DROPDOWN_CLASS.OPTION_LABEL,
       portal: DROPDOWN_CLASS.PORTAL,
       up: DROPDOWN_CLASS.UP,

@@ -1334,3 +1334,25 @@ describe("disabled option affordance", () => {
     );
   });
 });
+
+// ── Row-primitive migration (TDD, the row-primitive PR) ─────────────────────────
+// The dropdown option row must adopt the shared row primitive (.foliplus-row)
+// so its geometry (height / padding / gap / font-size / reserved bar) comes
+// from the one row vocabulary every pickable row surface shares. This is the
+// RED-to-GREEN test: on origin/main the option row is a bare
+// .foliplus-dropdown-option (no primitive class), so this fails; after the
+// migration the option row carries the primitive class and passes.
+describe("dropdown option row adopts the row primitive", () => {
+  it("marks each option row with the shared row-primitive class", () => {
+    const { dropdown } = bridged("a", [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Beta" },
+    ]);
+    dropdown.open();
+    const rows = optionEls(dropdown);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.classList.contains("foliplus-row")).toBe(true);
+    }
+  });
+});

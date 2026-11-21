@@ -127,22 +127,20 @@
    removed (the trigger already says "N selected"), so every row is a plain
    label and the two modes cannot drift apart. */
 .foliplus-dropdown-option {
-  display: flex;
-  align-items: center;
-  gap: var(--foliplus-space-sm);
+  /* Geometry comes from the shared row primitive (.foliplus-row): min-height,
+     padding, gap, font-size and the reserved 2px selection bar are the row
+     vocabulary every pickable row surface shares. This rule keeps only the
+     painting the primitive deliberately does not own: the button reset, the
+     full-width track and the ink/transition. */
   width: 100%;
-  min-height: var(--foliplus-menu-row-h);
-  padding: var(--foliplus-space-xs) var(--foliplus-space-md);
   border: 0;
   border-radius: 0;
   background: transparent;
   color: var(--foliplus-text-primary);
   font-family: inherit;
-  font-size: var(--foliplus-font-size-md);
   line-height: 1.5;
   text-align: left;
   cursor: pointer;
-  box-sizing: border-box;
   transition: background-color var(--foliplus-transition-fast);
 }
 .foliplus-dropdown-option:hover:not([disabled]) {
@@ -163,14 +161,14 @@
    the label. The hover rule above still answers on top of it. */
 .foliplus-dropdown-option[aria-selected="true"] {
   background: var(--foliplus-menu-row-selected-bg);
-  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
-    var(--foliplus-menu-row-selected-bar);
+  /* The reserved 2px bar (border-left from the row primitive) is painted by the
+     selection ink, so the bar's x matches the other row surfaces by construction. */
+  border-left-color: var(--foliplus-menu-row-selected-bar);
 }
 .foliplus-dropdown-option:focus-visible {
   outline: none;
-  box-shadow:
-    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
-    var(--foliplus-focus-ring);
+  border-left-color: var(--foliplus-menu-row-selected-bar);
+  box-shadow: var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
 }
 .foliplus-dropdown-option-label {

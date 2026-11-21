@@ -427,6 +427,29 @@
      Inline control geometry. */
   --foliplus-heatmap-inline-height: var(--foliplus-icon-size-md);
 
+  /* ── Row primitive (shared pickable row) ──
+     One geometry for every row surface: the dropdown option, the scheme
+     picker item, the search result item and the layer row's flexed
+     siblings. The row SHAPE is `[leading][content][trailing]` (see
+     ui/rowLayout.ts + css/common/row-layout.css); these tokens are the
+     single source for the metrics a row must share so the leading cell's
+     x, the row height and the label's font-size land on one line across
+     every surface. font-size-md (14px) and border-thick (2px) already exist
+     and are listed here as the row primitive's own spellings so a row never
+     redeclares them.
+
+     Note: --foliplus-menu-row-h (30px) and --foliplus-grid-layer-gap (3px)
+     resolve to the same numbers today. They stay separate tokens because the
+     menu shell and the layer grid are component-level decisions; the row
+     primitive is the shared vocabulary both converge on. Do not merge them. */
+  --foliplus-row-height: 30px;
+  --foliplus-row-pad-x: 7px;
+  /* Vertical inset only: the row's height comes from --foliplus-row-height, so
+     the pad is what centres a short content in it (the search row's two-line
+     content grows past the min-height instead — see row-layout.css). */
+  --foliplus-row-pad-y: var(--foliplus-space-xs);
+  --foliplus-row-leading-width: var(--foliplus-space-xl);
+  --foliplus-row-gap: 3px;
   /* ── Dropdown / menu shell ──
      One recipe for every dropdown surface (common/menu.css,
      common/dropdown.css, common/scheme-picker.css): the gap under the

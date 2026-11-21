@@ -1,0 +1,72 @@
+@import "token.css";
+
+/* ══════════════════════════════════════════════════════════════════════
+  Row primitive (ui/rowLayout.ts)
+
+  The shared pickable-row shape `[leading][content][trailing]`. A row is a flex
+  box; the leading cell is fixed at --foliplus-row-leading-width so the
+  indicator (checkbox / ✓ / icon) starts at the same x in every row surface;
+  content flexes and ellipsizes; trailing is optional (count / type / more).
+
+  This file owns ONLY the row geometry: the flex box, the three cell slots and
+  the reserved selection bar. It does NOT paint a row state (hover / selected
+  wash / focus) — each surface keeps its own state recipe (menu-row hover
+  wash, layer-row white+glow, search wash) and recolours the bar the row
+  already reserves when it is selected. It also does not set the row's own
+  background.
+
+  The reserved bar is what makes the leading cell's x the same on every
+  surface: each row carries a real --foliplus-border-thick left border
+  (transparent in the base), so no row can sit 2px left of another when its
+  selected state changes. The layer row already carries that bar; a menu row
+  joining this primitive gains it, and the two land on the same x.
+
+  Consumers apply .foliplus-row to the row element and read the tokens; the
+  leading/content/trailing slots are the cells buildRow() constructs.
+  ══════════════════════════════════════════════════════════════════════ */
+
+.foliplus-row {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--foliplus-row-height);
+  padding: var(--foliplus-row-pad-y) var(--foliplus-row-pad-x);
+  gap: var(--foliplus-row-gap);
+  border-left: var(--foliplus-border-thick) solid transparent;
+  /* The label size is a row metric: every row surface must land on the same
+     font-size so a row's label reads the same everywhere. */
+  font-size: var(--foliplus-font-size-md);
+}
+
+/* Leading cell: fixed width, the indicator is centred in it. The width is
+   the single source for the leading-cell x — a change here moves every row
+   surface's indicator at once. */
+.foliplus-row-leading {
+  flex: 0 0 var(--foliplus-row-leading-width);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Content cell: fills the remaining track, ellipsizes a single line. A row
+   whose content may run to two lines (the search result) overrides
+   align-items on the row and stacks the content here as a column instead. */
+.foliplus-row-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* The content cell is a flex container: a labeled child (the option label)
+     regains flex-item status, so its own overflow:hidden + text-overflow
+     ellipsis recipe applies (an inline child is never clipped, which made the
+     ellipsis dead code after the row migration). A two-line content (the
+     search result stack) overrides flex-direction:column on its own cell. */
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Trailing cell: optional (count / type / more). Not centred against the
+   leading cell — it hugs the content's baseline so a two-line content does
+   not push it down. */
+.foliplus-row-trailing {
+  flex: 0 0 auto;
+}
