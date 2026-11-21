@@ -3117,6 +3117,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 # the track edge (the parked thumb's centre): a dot-centred
                 # label's centre sits on it, a clamped label's outer edge sits
                 # on it. The dot already encodes the mirror.
+                # A clamped label pins to the slider's PAINTED end, which is
+                # the control edge (the values row's edge), not the track
+                # element's edge: the track is inset half a thumb so a parked
+                # thumb's outer edge lands on the control edge, and the painted
+                # bar (rail plus the two parked thumbs) therefore spans the
+                # full control width. Pinning to the track edge instead leaves
+                # the label half a thumb inside the bar's visible end.
                 for label, dot, side in (
                     (min_label, min_dot, "min"),
                     (max_label, max_dot, "max"),
@@ -3132,6 +3139,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                     else:
                         flush_edge = "left" if (side == "min") != mirrored else "right"
                         label_edge = label["box"][flush_edge]
+                        dot = row["values"][flush_edge]
                         assert abs(label_edge - dot) <= 1.0, (
                             f"{name} {side} axis label is not flush the track end ({flush_edge}): "
                             f"{label['box']} vs dot {dot:.2f}px"
