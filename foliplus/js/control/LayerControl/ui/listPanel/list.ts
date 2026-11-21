@@ -538,7 +538,8 @@ const renderInitialList = (ui: LayerUI) => {
           role,
           block.key,
         );
-        if (folderFolded) row.classList.add(CONST.CLASSES.FOLDED);
+        // The row paints its own fold state (renderFolderRow); only the
+        // members are hidden here.
         frag.appendChild(row);
         for (const member of block.block.members) {
           const item = renderLayerItem(ui, member);
@@ -866,7 +867,11 @@ const renderFolderRow = (
   return dom.el(
     "div",
     {
-      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.GROUP_FOLDED}` : ""}`,
+      // FOLDED is the row's own state (chevron direction, accent rail);
+      // GROUP_FOLDED means "hidden because my group is folded" and belongs to
+      // the members only — putting it here hid the header itself, which is the
+      // only way back to the members (issue 10).
+      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.FOLDED}` : ""}`,
       tabindex: "0",
       [CONST.DATA.ROLE]: role,
       [CONST.DATA.FOLDER_KEY]: folderKey,

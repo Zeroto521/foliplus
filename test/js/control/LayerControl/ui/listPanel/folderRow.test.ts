@@ -146,6 +146,34 @@ describe("ui/list folder rows", () => {
     expect(ui.listPanel.foldedFolders.has("overlay::roads")).toBe(true);
   });
 
+  it("keeps the folded folder row visible and hides only its members (issue 10)", () => {
+    // The header is the only way back to the members, so folding must never
+    // hide it. Two classes carry two different meanings: FOLDED is the row's
+    // own state (chevron direction, accent rail), GROUP_FOLDED is "hidden
+    // because my group is folded" and belongs to the members alone. Putting
+    // GROUP_FOLDED on the header hid the whole folder from the panel.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    toggleFolderFold(ui, "overlay", "roads");
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    )!;
+    expect(folderRow.classList.contains(CONST.CLASSES.FOLDED)).toBe(true);
+    expect(folderRow.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+    const memberRow = ui.uiContainer!.querySelector('[data-layer-id="rd1"]')!;
+    expect(memberRow.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+  });
+
   it("persists foldedFolders when the save debounce flushes", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
@@ -1288,7 +1316,9 @@ describe("ui/list folder rows", () => {
       const folderRow = ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`);
       expect(folderRow).not.toBeNull();
       expect(folderRow!.getAttribute("aria-expanded")).toBe("false");
-      expect(folderRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+      // The header carries its own fold state, never the members' hidden flag.
+      expect(folderRow!.classList.contains(CONST.CLASSES.FOLDED)).toBe(true);
+      expect(folderRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
       // The member row is folded too.
       const member = ui.uiContainer!.querySelector('[data-layer-id="rd1"]');
       expect(member!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
