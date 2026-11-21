@@ -48,7 +48,12 @@ type LayerPersistedRecord = {
    *  nothing downstream consults it, because a deleted id is simply never
    *  registered and so never reaches them. */
   removed: string[];
-  foldedRoles: string[];
+  /** Per-role user fold opinion. Key = role ("base" | "overlay"), value =
+   *  true (fold) or false (explicit expand). Absent key = no user opinion,
+   *  so the role follows the author default then the built-in expanded
+   *  default. Recording both directions is what lets a user expand an
+   *  author-folded role and keep it expanded across a reload. */
+  foldedRoles: Record<string, boolean>;
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
   /** Layer id → the user's per-layer intent. Empty means the user changed

@@ -1086,7 +1086,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedRoles: new Set<string>(),
+        foldedRoles: {},
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
@@ -1116,7 +1116,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedRoles: new Set<string>(),
+        foldedRoles: {},
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
@@ -1157,7 +1157,7 @@ describe("unit helpers", () => {
         runtimeStore: new LayerRuntimeStore(),
         focusController: { focusingLayerId: null },
         T: (k: string) => k,
-        listPanel: { checkedCount: {}, foldedRoles: new Set<string>() },
+        listPanel: { checkedCount: {}, foldedRoles: {} },
       } as unknown as LayerUI;
       return { ui, container };
     };
@@ -1209,7 +1209,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedRoles: new Set<string>(),
+        foldedRoles: {},
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
@@ -1229,7 +1229,7 @@ describe("unit helpers", () => {
       T: (k: string) => k,
       listPanel: {
         checkedCount: {},
-        foldedRoles: new Set<string>(),
+        foldedRoles: {},
         T: (k: string) => k,
       },
     } as unknown as LayerUI;

@@ -4,12 +4,19 @@ import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 
 /** Fold or unfold one role. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
 const toggleFold = (ui: LayerUI, role: string): void => {
-  if (ui.listPanel.foldedRoles.has(role)) ui.listPanel.foldedRoles.delete(role);
-  else ui.listPanel.foldedRoles.add(role);
+  // Flip the EFFECTIVE state and write it as an explicit user opinion (both
+  // directions — a manual expand of an author-folded role records false).
+  const current = effectiveRoleFolded(
+    ui.listPanel.foldedRoles,
+    ui.listPanel.authorDefaultFoldedRoles,
+    role,
+  );
+  ui.listPanel.foldedRoles[role] = !current;
   // Same rebuild the reorder APIs use: repaint, settle the counts and the
   // readiness flag, then announce the round the replay produced.
   rebuildList(ui);

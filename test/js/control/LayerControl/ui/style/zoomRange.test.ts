@@ -55,7 +55,7 @@ const mockUI: LayerUI = {
   uiContainer: { querySelector: () => null } as any,
   intentStore: new LayerIntentStore(),
   runtimeStore: new LayerRuntimeStore(),
-  foldedRoles: new Set(),
+  foldedRoles: {},
   stylePanelLayerId: null,
   focusController: { focusingLayerId: null },
   styleUnsubscribe: null,
