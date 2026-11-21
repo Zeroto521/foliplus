@@ -67,6 +67,7 @@
   "ui/glyphClassName",
   "ui/labelClassName",
   "ui/listbox",
+  "ui/menuRowClassName",
   "ui/optionRow",
   "ui/panelChrome",
   "ui/panelClassName",

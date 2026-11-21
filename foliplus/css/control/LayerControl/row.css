@@ -569,6 +569,7 @@
            The icon ships its own fill, so CSS `color` alone never reaches it;
            fill: currentColor is what makes the token apply (and keeps it
            visible on a dark theme, where the default black would vanish). */
+        color: var(--foliplus-text-primary);
 
         svg {
           fill: currentColor;

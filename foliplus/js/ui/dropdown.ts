@@ -26,9 +26,9 @@
 import { buildCheckboxSlot, buildLeadSlot } from "./checkSlot.js";
 import { CHECK_SLOT_CLASS } from "./checkSlotClassName.js";
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
-import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
+import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import { applyOptionRowA11y } from "./optionRow.js";
 import { selectAllAction, selectAllStateOf } from "./selectAllState.js";
 import type { Dropdown, DropdownSurface } from "./type.js";

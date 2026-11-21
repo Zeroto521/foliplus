@@ -37,7 +37,7 @@ import {
   roleBlocks,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
-import { finishSlidersIn, MENU_ROW_CLASS, sectionDivider } from "#ui/index.js";
+import { MENU_ROW_CLASS, finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
