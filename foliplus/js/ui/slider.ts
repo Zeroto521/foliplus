@@ -689,13 +689,15 @@ class Slider {
     // decide once the row is in the document.
     if (rowWidth === 0) return;
     // The rule: one display column = dot-centred (a bare digit like "0" or
-    // "A" centres on its dot); two or more = clamp to the track's ends.
-    const fit = (el: HTMLElement) =>
-      displayWidth(el.textContent ?? "") < 2
+    // "A" centres on its dot); two or more = clamp to the track's ends. The
+    // fit keys on the rendered label text (opts.values), which is the same
+    // string renderValues wrote into the span, so no null text path exists.
+    const fit = (el: HTMLElement, text: string) =>
+      displayWidth(text) < 2
         ? el.classList.remove(SLIDER_CLASS.VALUE_CLAMP)
         : el.classList.add(SLIDER_CLASS.VALUE_CLAMP);
-    fit(this.minEl);
-    fit(this.maxEl);
+    fit(this.minEl, this.opts.values.min);
+    fit(this.maxEl, this.opts.values.max);
     // The deferred fit measure runs after the first layout, so the current
     // label can finally read its dot's real centre (the constructor's own
     // sync saw zero-width boxes and deferred).
