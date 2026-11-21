@@ -129,7 +129,12 @@ class LayerControl(BaseControl):
         are ``{"name": ..., "folded": ...}``; only ``name`` is required (a
         non-empty string), ``folded`` is an optional bool (default expanded).
         A name may be declared even with no members yet. A user manual
-        fold/unfold always wins over the author default.
+        fold always wins over the author default; an explicit expand over an
+        author-folded folder is not yet supported, because the user override is
+        a set of folded keys and cannot record "the user re-expanded this".
+        Declarations of the same name (NFC → whitespace-fold → trim →
+        lower-case) merge within one section: the display name keeps the first
+        spelling, ``folded`` is last-wins.
 
     Examples
     --------
@@ -368,7 +373,9 @@ class LayerControl(BaseControl):
                     "Central folder-defaults config: author-declared default "
                     "folded state per folder, keyed by role. Entries are "
                     "{name, folded}; a name may be declared even with no "
-                    "members yet. A user manual fold/unfold always wins.",
+                    "members yet. A user manual fold always wins over the "
+                    "author default; same-name declarations merge (first "
+                    "spelling, folded last-wins).",
                 ),
             ),
         ] = None,

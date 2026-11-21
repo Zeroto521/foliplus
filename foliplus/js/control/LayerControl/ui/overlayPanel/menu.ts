@@ -384,7 +384,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // anchored layer must not leave the menu (and its activeMenu / reposition /
   // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
   // Naming NOTE: subscribeLayerTearDown listens to both LAYER_REMOVED and
-  // LAYER_CLEARED, so the "Removed" in this name is historical. The whole
+  // LAYER_DELETED, so the "Removed" in this name is historical. The whole
   // *RemovedUnsub family (attrs/rename/style) shares the stale suffix; renaming
   // the family is deferred to the naming-unification pass.
   ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {

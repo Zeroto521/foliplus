@@ -9,8 +9,8 @@
 //
 // The priority chain is frozen at .foliplus/design/folder-final-design.md §2.2:
 //   built-in (expanded) < author default (this module) < user override
-// (the persisted foldedRoles set). A user's manual fold/unfold always wins
-// and then stops the author default from affecting that folder; Reset clears
+// (the persisted foldedRoles set). A user's manual FOLD always wins and
+// then stops the author default from affecting that folder; Reset clears
 // the user override and falls back to the author default.
 //
 // NOTE on the "user expands an author-folded folder" edge: with the Set-based
