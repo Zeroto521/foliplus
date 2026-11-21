@@ -424,5 +424,4 @@ export {
   syncNoBasemap,
   applyVisibility,
   handleChange,
-  setFolderVisible,
 };

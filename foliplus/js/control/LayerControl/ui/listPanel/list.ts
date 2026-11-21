@@ -807,14 +807,14 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   return dom.el(
     "div",
     {
-      // The role row carries LAYER_ITEM so the shared cell styles (count,
-      // type icon, more button, label) apply to it exactly as they do to a
-      // layer or folder row. Without it the role row is the only row type
-      // outside that shared block, and its count/icon/more silently fall back
-      // to unstyled defaults — the misalignment this class fixes at the root.
+      // The role row deliberately does NOT carry LAYER_ITEM: that class means
+      // "a layer row" to the panel's own selectors and to the browser tests,
+      // and a role header matching it made every leaf-row lookup resolve to
+      // the header. The shared cell paint reaches it by selector instead (see
+      // the "Shared row cells" block in row.css).
       // ACTIVE is the icon wake: a group row whose members are on reads as
       // active exactly like a checked layer row (issue 3).
-      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
+      class: `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
       tabindex: "0",
       "data-role": role,
       title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
@@ -882,18 +882,14 @@ const renderFolderRow = (
       [CONST.DATA.FOLDER_NAME]: folderName,
       "aria-expanded": folded ? "false" : "true",
       draggable: "true",
-      title: ui
-        .T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip")
-        .replace("{name}", folderName),
     },
     dom.el(
       "button",
       {
         class: CONST.CLASSES.FOLD_BTN,
         "aria-expanded": folded ? "false" : "true",
-        "aria-label": ui
-          .T(folded ? "folder_unfold_tooltip" : "folder_fold_tooltip")
-          .replace("{name}", folderName),
+        // The folder name is the accessible name; the state is aria-expanded.
+        "aria-label": folderName,
       },
       { html: SVGs.ICON_FOLD },
     ),
@@ -904,7 +900,7 @@ const renderFolderRow = (
         const input = dom.el("input", {
           type: "checkbox",
           checked: "",
-          "aria-label": ui.T("folder_toggle_checkbox").replace("{name}", folderName),
+          "aria-label": folderName,
         }) as HTMLInputElement;
         writeTriState(input, vis.total, vis.on);
         return input;

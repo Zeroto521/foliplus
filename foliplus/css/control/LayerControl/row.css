@@ -446,6 +446,51 @@
        (fold click -> renderInitialList), so a transition on either would
        cause .foliplus-active rows (checked layers) to flash on each rebuild. */
 
+    &[draggable="true"] {
+      cursor: move;
+    }
+    /* .foliplus-active surface/border live with the Row-cursor recipe above so the
+       interaction white (later, equal specificity) can out-rank the wash.
+       The hover icon wake lives INSIDE the Row-cursor recipe — this block only
+       carries the checked-row (active) wake. The old bare :hover branch was
+       removed: on a row-panel hover the recipe is carved out, so a stray
+       :hover here would still wake the type icon to black. */
+    &.foliplus-layer-dragging {
+      background: var(--foliplus-accent-light);
+      opacity: var(--foliplus-alpha-70);
+      cursor: grabbing;
+    }
+    &.foliplus-layer-drag-over-top {
+      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: var(--foliplus-drag-top-shadow);
+      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
+        var(--foliplus-drag-pulse-count);
+    }
+    &.foliplus-layer-drag-over-bottom {
+      border-bottom: var(--foliplus-drag-border-width) solid
+        var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: var(--foliplus-drag-bottom-shadow);
+      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
+        var(--foliplus-drag-pulse-count);
+    }
+  }
+
+  /* ── Shared row cells (layer / folder / role header) ──
+     Every row type places the same cells in the same grid areas, so the paint
+     lives here once and reaches all three by selector. The role header is NOT
+     a .foliplus-layer-item — that class means "a layer row" to the panel's own
+     selectors and to the browser tests, and a header matching it made every
+     leaf-row lookup resolve to the header. */
+  :is(.foliplus-layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all) {
+    /* Identity: gray at rest, wakes to black when the row is active. Accent
+       stays reserved for actions (more) and status (border), so the type icon
+       reads as focus, not as a call-to-action. The hover wake lives in the
+       Row-cursor recipe; this is the checked-row wake. */
+    &.foliplus-active .foliplus-type-icon-col {
+      color: var(--foliplus-text-primary);
+    }
     .foliplus-layer-label {
       min-width: 0;
       cursor: inherit;
@@ -504,42 +549,6 @@
         }
       }
     }
-
-    &[draggable="true"] {
-      cursor: move;
-    }
-    /* .foliplus-active surface/border live with the Row-cursor recipe above so the
-       interaction white (later, equal specificity) can out-rank the wash.
-       The hover icon wake lives INSIDE the Row-cursor recipe — this block only
-       carries the checked-row (active) wake. The old bare :hover branch was
-       removed: on a row-panel hover the recipe is carved out, so a stray
-       :hover here would still wake the type icon to black. */
-    /* Identity: gray at rest, wakes to black on hover and when the row is
-       active. Accent stays reserved for actions (more) and status (border),
-       so the type icon reads as focus, not as a call-to-action. */
-    &.foliplus-active .foliplus-type-icon-col {
-      color: var(--foliplus-text-primary);
-    }
-    &.foliplus-layer-dragging {
-      background: var(--foliplus-accent-light);
-      opacity: var(--foliplus-alpha-70);
-      cursor: grabbing;
-    }
-    &.foliplus-layer-drag-over-top {
-      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: var(--foliplus-drag-top-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
-        var(--foliplus-drag-pulse-count);
-    }
-    &.foliplus-layer-drag-over-bottom {
-      border-bottom: var(--foliplus-drag-border-width) solid
-        var(--foliplus-accent-primary);
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: var(--foliplus-drag-bottom-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
-        var(--foliplus-drag-pulse-count);
-    }
   }
 
   /* ── Folder row (a group header inside a role) ── */
@@ -596,8 +605,9 @@
   /* ── Fold-tree guides for folder members (rail column) ──
      The vertical stem sits on the rail's centre line, so it lines up with the
      fold chevron of the folder header above it (issue 5). Two shapes, not one:
-     --mid is a branch that continues below this row (├), --last is the elbow
-     that ends the branch (└), so the stem stops at the horizontal stub. */
+     the mid variant is a branch that continues below this row (├), the last
+     variant is the elbow that ends the branch (└), so its stem stops at the
+     horizontal stub. */
   .foliplus-fold-tree {
     position: absolute;
     inset: 0;
