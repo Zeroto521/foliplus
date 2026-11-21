@@ -55,6 +55,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line",
     "LayerControl.type_polygon",
     "LayerControl.type_empty",
+    "LayerControl.type_container",
     # labelKey / titleKey passed as function parameters.
     "LayerControl.data_layer_label",
     "LocateControl.popup_title_geo",
@@ -76,6 +77,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line_short",
     "LayerControl.type_polygon_short",
     "LayerControl.type_empty_short",
+    "LayerControl.type_container_short",
     # Filter panel dynamic labels (filter.ts) — the result readout composes
     # its sentence from the {kept} / {total} template literals.
     # styleModeKey.ts — STYLE_MODE keys are object literals, not T() calls;

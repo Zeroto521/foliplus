@@ -128,31 +128,32 @@ describe("Slider primitive", () => {
     expect(sliderOf(host)!.value).toBe(100);
   });
 
-  it("refreshes the opt-in end readouts on a value change", () => {
+  it("keeps the end labels on the rail's own range when the thumbs move", () => {
+    // The end labels are the rail's extent (0 / 100), not a readout of the
+    // thumbs: a thumb parked in the middle would otherwise make them lie about
+    // where the rail's ends are. The moving value belongs to the bubble.
     const { host } = make({
       min: 0,
       max: 100,
       value: [20, 80],
       label: "x",
       values: { min: "0", max: "100" },
-      alwaysVisible: true,
     });
     const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
     const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
-    expect(minEl.textContent).toBe("20");
-    expect(maxEl.textContent).toBe("80");
     press(thumb(host, 0), "ArrowRight");
-    expect(minEl.textContent).toBe("21");
     press(thumb(host, 1), "ArrowLeft");
-    expect(maxEl.textContent).toBe("79");
+    expect(minEl.textContent).toBe("0");
+    expect(maxEl.textContent).toBe("100");
+    expect(sliderOf(host)!.value).toEqual([21, 79]);
   });
 
-  it("falls back to the plain value when the caller opts out of a formatter", () => {
+  it("falls back to the plain value in the bubble when the caller opts out of a formatter", () => {
     // An explicit `format: undefined` overrides the constructor default the
-    // way it does for the thumb aria-valuetext and the bubble, so the end
-    // readout must take the same fallback. The difference is only visible on
-    // a fractional step: the default rounds to the nearest integer, the
-    // fallback reports the value it holds.
+    // way it does for the thumb's aria-valuetext, so the bubble must take the
+    // same fallback. The difference is only visible on a fractional step: the
+    // default rounds to the nearest integer, the fallback reports the value it
+    // holds.
     const { host } = make({
       min: 0,
       max: 100,
@@ -161,14 +162,12 @@ describe("Slider primitive", () => {
       label: "x",
       values: { min: "0", max: "100" },
       format: undefined,
-      alwaysVisible: true,
     });
-    const minEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement;
-    const maxEl = host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement;
-    expect(minEl.textContent).toBe("20.5");
-    expect(maxEl.textContent).toBe("21");
+    // The bubble is a drag/focus affordance now (no standing readout): a key
+    // move shows it, and it reports the plain (unrounded) value.
     press(thumb(host, 0), "ArrowRight");
-    expect(minEl.textContent).toBe("21");
+    const bubble = document.querySelector(`.${SLIDER_CLASS.BUBBLE}`) as HTMLElement;
+    expect(bubble.textContent).toBe("21");
   });
 
   it("slides a collapsed pair together instead of dead-locking", () => {
@@ -554,6 +553,19 @@ describe("Slider primitive", () => {
     (slider as unknown as { bubbleAnchors: Set<HTMLElement> }).bubbleAnchors.add(
       document.createElement("div"),
     );
+    expect(() =>
+      (slider as unknown as { updateBubbles: () => void }).updateBubbles(),
+    ).not.toThrow();
+  });
+
+  it("skips a bubble whose thumb left the slider's pool", () => {
+    const { slider } = make({ min: 0, max: 100, value: 40, label: "x" });
+    // A bubble is live on a real thumb; drop that thumb from the slider's pool
+    // (e.g. a row rebuild) and refresh. The anchor stays in the bubble map but
+    // no longer has a thumb, so the text refresh must skip it without crashing.
+    (slider as unknown as { showBubble: (i: number) => void }).showBubble(0);
+    const thumbs = (slider as unknown as { thumbs: HTMLElement[] }).thumbs;
+    thumbs.splice(0, 1);
     expect(() =>
       (slider as unknown as { updateBubbles: () => void }).updateBubbles(),
     ).not.toThrow();

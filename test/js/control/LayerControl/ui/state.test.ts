@@ -2076,3 +2076,80 @@ it("a full replay announces after the direct style writes have landed", () => {
 
   expect(borderAtDelivery).toEqual(["#abcdef"]);
 });
+
+describe("authorFoldedFolders derivation from CONF.folders", () => {
+  it("derives the author default folded set on loadPersistedState", () => {
+    window.CONFIG.folders = {
+      overlay: [
+        { name: "业务数据", folded: true },
+        { name: "边界", folded: false },
+      ],
+      base: [{ name: "底图", folded: true }],
+    };
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayerWithStyle(
+            { color: "#111111", fillColor: "#222222" },
+            vi.fn(),
+          ),
+        },
+      ],
+    });
+    ui.loadPersistedState();
+    expect(ui.listPanel.authorFoldedFolders).toEqual(
+      new Set(["overlay::业务数据", "base::底图"]),
+    );
+  });
+
+  it("derives an empty set when CONF.folders is absent", () => {
+    delete window.CONFIG.folders;
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayerWithStyle(
+            { color: "#111111", fillColor: "#222222" },
+            vi.fn(),
+          ),
+        },
+      ],
+    });
+    ui.loadPersistedState();
+    expect(ui.listPanel.authorFoldedFolders).toEqual(new Set());
+  });
+
+  it("keeps author defaults separate from the user foldedRoles", () => {
+    window.CONFIG.folders = {
+      overlay: [{ name: "业务数据", folded: true }],
+      base: [],
+    };
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ foldedRoles: ["overlay"] }),
+    );
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "overlay1",
+          name: "Polygons",
+          role: "overlay",
+          layer: polygonLayerWithStyle(
+            { color: "#111111", fillColor: "#222222" },
+            vi.fn(),
+          ),
+        },
+      ],
+    });
+    ui.loadPersistedState();
+    // foldedRoles (user) is separate from authorFoldedFolders (author default):
+    // they are two layers, never one set.
+    expect(ui.listPanel.foldedRoles).toEqual(new Set(["overlay"]));
+    expect(ui.listPanel.authorFoldedFolders).toEqual(new Set(["overlay::业务数据"]));
+  });
+});

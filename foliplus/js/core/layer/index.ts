@@ -90,6 +90,8 @@ export {
   suspendMapInteractions,
   getGeometryType,
   countFeatureGeometry,
+  isContainerLayer,
+  countChildLayersOf,
 } from "./util.js";
 export {
   drawAlpha,
@@ -105,6 +107,7 @@ export {
   walkTree,
   findLeaf,
   findNode,
+  countChildLayers,
 } from "./walkLeaf.js";
 // `isArealStyleLeaf` is the fill walker's leaf predicate. The build's registry
 // scan folds any `#core/layer/<file>.js` import into this barrel, so a name

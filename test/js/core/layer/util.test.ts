@@ -3,6 +3,7 @@ import {
   countFeatureGeometry,
   findLayer,
   getGeometryType,
+  isContainerLayer,
   isLayerInPanes,
   paintsAtZoom,
   setInteractive,
@@ -584,5 +585,58 @@ describe("core/layer util", () => {
       const match = isLayerInPanes([]);
       expect(match(leafWithPane("overlayPane"))).toBe(false);
     });
+  });
+});
+
+describe("core/layer util: isContainerLayer", () => {
+  // A minimal container stub: group-like with a child registry + fixed list.
+  const makeContainer = (children: unknown[] = []) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  it("isContainerLayer: group-like true, plain polygon false, GeoJSON shape false", () => {
+    const poly: any = { options: {} };
+    Object.setPrototypeOf(poly, new (window as any).L.Polygon());
+    const container = makeContainer([poly]);
+    const geoShape = makeContainer([
+      { feature: { type: "Feature" } },
+      { feature: { type: "Feature" } },
+    ]);
+    expect(isContainerLayer(container)).toBe(true);
+    expect(isContainerLayer(poly)).toBe(false);
+    // GeoJSON shape: every child carries a feature envelope.
+    expect(isContainerLayer(geoShape)).toBe(false);
+  });
+
+  it("isContainerLayer: excludes a real L.GeoJSON instance", () => {
+    // jsdom has no L.GeoJSON; the predicate guards the instanceof check, so
+    // stub the class to exercise the GeoJSON exclusion branch.
+    class GeoJSONStub {
+      _layers: Record<string, unknown> = {};
+      eachLayer(fn: (c: unknown) => void): void {
+        for (const c of Object.values(this._layers)) fn(c);
+      }
+    }
+    const prev = (window as any).L.GeoJSON;
+    (window as any).L.GeoJSON = GeoJSONStub;
+    try {
+      const geo = new GeoJSONStub();
+      geo._layers["1"] = { feature: { type: "Feature" } };
+      expect(isContainerLayer(geo as unknown as L.Layer)).toBe(false);
+    } finally {
+      (window as any).L.GeoJSON = prev;
+    }
   });
 });
