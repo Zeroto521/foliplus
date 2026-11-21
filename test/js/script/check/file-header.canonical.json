@@ -72,6 +72,8 @@
   "ui/panelReset",
   "ui/placement",
   "ui/placementAdapter",
+  "ui/rowLayout",
+  "ui/rowLayoutClassName",
   "ui/scaleClassName",
   "ui/schemePicker",
   "ui/schemePickerClassName",
