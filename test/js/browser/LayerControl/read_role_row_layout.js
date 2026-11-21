@@ -24,7 +24,7 @@
       more: pick(".foliplus-layer-more-btn"),
       // The role's own divider carries .foliplus-section-divider on purpose
       // (it reuses that paint recipe), so the leftover count excludes it.
-      sectionDividerCount: row.querySelectorAll(
+      leftoverDividerCount: row.querySelectorAll(
         ".foliplus-section-divider:not(.foliplus-role-divider)",
       ).length,
     };

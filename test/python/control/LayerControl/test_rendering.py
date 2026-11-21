@@ -307,7 +307,11 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/control/LayerControl/row.css")
         idx = css.find(".foliplus-layer-count-funnel")
         assert idx != -1
-        block = css[idx : css.index('&[draggable="true"]', idx)]
+        # The funnel rule lives in the shared row-cell block (":is(.foliplus-
+        # layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all)"), which
+        # closes at two-space indentation. Slice to that close so the scan
+        # cannot leak into the next top-level rule.
+        block = css[idx : css.index("\n  }\n", idx)]
         assert "color: var(--foliplus-text-primary)" in block
         assert "fill: currentColor" in block
         assert "var(--foliplus-accent-primary)" not in block
@@ -478,19 +482,28 @@ class TestLayerControlRendering:
         assert "transition: transform" in html
         # A checked row carries .foliplus-active — a persistent checkbox state, not a
         # cursor — and the cursor-only type-icon tint comes from the recipe.
-        assert ".foliplus-layer-item.foliplus-active .foliplus-type-icon-col" in html
-        act_type = [
-            html[i : html.index("}", i)]
-            for i in range(len(html))
-            if "layer-item.foliplus-active .foliplus-type-icon-col"
-            in html[max(0, i - 60) : i + 60]
-        ]
-        assert any("color: var(--foliplus-text-primary)" in b for b in act_type), (
+        # The rule lives in the shared row-cell block, so its selector is the
+        # :is() pair (layer row + role header) rather than a bare class.
+        assert (
+            ".foliplus-active:is(.foliplus-layer-item, "
+            ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
+            in html
+        )
+        # Read the rule body directly from its selector: the shared row-cell
+        # block emits one rule for both row kinds, so the selector is the
+        # :is() pair and the body is the next {...} after it.
+        act_sel = (
+            ".foliplus-active:is(.foliplus-layer-item, "
+            ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
+        )
+        act_idx = html.index(act_sel)
+        act_type = html[act_idx : html.index("}", act_idx)]
+        assert "color: var(--foliplus-text-primary)" in act_type, (
             "type icon on active row must be black, not accent"
         )
-        assert not any(
-            "color: var(--foliplus-accent-primary)" in b for b in act_type
-        ), "type icon must never tint accent"
+        assert "color: var(--foliplus-accent-primary)" not in act_type, (
+            "type icon must never tint accent"
+        )
         # Regression guard: no scale transform may be reintroduced on the icon
         assert "foliplus-layer-item:hover .foliplus-type-icon-col svg" not in html
 
@@ -586,9 +599,11 @@ class TestLayerControlRendering:
         grid-area or grid-column: span — so it never overflows to a new row
         when anonymous slots change count."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        # Find the .foliplus-section-divider rule nested under toggle-all.
-        idx = css.find(".foliplus-section-divider {")
-        assert idx != -1, "no .foliplus-section-divider { rule found"
+        # Find the .foliplus-section-divider rule nested under toggle-all. The
+        # role row's own divider carries .foliplus-role-divider and is narrowed
+        # to the label column, so the leftover rule excludes it by :not().
+        idx = css.find(".foliplus-section-divider:not(.foliplus-role-divider) {")
+        assert idx != -1, "no .foliplus-section-divider:not(...) { rule found"
         block = css[idx : css.index("}", idx) + 1]
         assert "grid-column: 4 / -1" in block
         assert "grid-area" not in block, (

@@ -78,8 +78,8 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
                     f"count left={count['left']}"
                 )
                 # No leftover section-divider inside the role row.
-                assert row["sectionDividerCount"] == 0, (
-                    f"role row has {row['sectionDividerCount']} leftover section-divider"
+                assert row["leftoverDividerCount"] == 0, (
+                    f"role row has {row['leftoverDividerCount']} leftover section-divider"
                 )
                 # count/icon/more must be distinct columns (no mutual overlap).
                 assert icon is not None, "role row lacks icon column"

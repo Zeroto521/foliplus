@@ -418,6 +418,10 @@
   .foliplus-layer-item[data-layer-type="base"]:is(:hover, .foliplus-is-focused-row) {
     box-shadow: none;
     background: transparent;
+    /* A basemap is a stack slot, not a data layer: it carries draggable=true
+       like every row, but reordering it is not the gesture the cursor should
+       advertise, so it keeps the default arrow. Data rows get grab below. */
+    cursor: default;
   }
   .foliplus-layer-item[data-layer-type="base"].foliplus-active:is(
       :hover,
