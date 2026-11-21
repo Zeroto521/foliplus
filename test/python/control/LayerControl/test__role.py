@@ -13,7 +13,6 @@ from __future__ import annotations
 from typing import get_args
 
 import pytest
-
 from foliplus import LayerControl
 from foliplus._config_schema import FieldSpec
 from foliplus.control.LayerControl._role import (
@@ -129,19 +128,14 @@ class TestLayerControlRolesConfig:
     """LayerControl(roles=...) serialises the normalised config."""
 
     def test_default_roles_is_none(self) -> None:
-        from foliplus import LayerControl
 
         assert LayerControl().roles is None
 
     def test_roles_is_a_config_field(self) -> None:
-        from foliplus import LayerControl
 
         assert "roles" in LayerControl._config_fields
 
     def test_roles_serialises_into_config(self) -> None:
-        import folium
-
-        from foliplus import LayerControl
 
         ctrl = LayerControl(roles={"overlay": {"folded": True}})
         cfg = ctrl._build_config()
@@ -151,9 +145,6 @@ class TestLayerControlRolesConfig:
         }
 
     def test_invalid_roles_serialises_as_none(self) -> None:
-        import folium
-
-        from foliplus import LayerControl
 
         ctrl = LayerControl(roles="bad")
         assert ctrl._build_config()["roles"] is None
