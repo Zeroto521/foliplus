@@ -677,4 +677,35 @@ describe("core/layer util: isContainerLayer", () => {
       (window as any).L.GeoJSON = prev;
     }
   });
+  it("isContainerLayer: a GeoJSON is not a container even when it is also a FeatureGroup", () => {
+    // Real Leaflet: L.GeoJSON extends L.FeatureGroup, so a GeoJson layer is
+    // instanceof L.GeoJSON AND instanceof L.FeatureGroup. The canonical
+    // L.FeatureGroup branch must not claim a GeoJSON data layer as a container.
+    class GeoJSONStub {
+      _layers: Record<string, unknown> = {};
+      eachLayer(fn: (c: unknown) => void): void {
+        for (const c of Object.values(this._layers)) fn(c);
+      }
+    }
+    const prevFG = (window as any).L.FeatureGroup;
+    const prevGJ = (window as any).L.GeoJSON;
+    (window as any).L.FeatureGroup = GeoJSONStub;
+    (window as any).L.GeoJSON = GeoJSONStub;
+    try {
+      const geo = new GeoJSONStub();
+      Object.assign(geo, {
+        options: {},
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => Object.values((geo as any)._layers)),
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(),
+      });
+      geo._layers["1"] = { feature: { type: "Feature" } };
+      expect(isContainerLayer(geo as unknown as L.Layer)).toBe(false);
+    } finally {
+      (window as any).L.FeatureGroup = prevFG;
+      (window as any).L.GeoJSON = prevGJ;
+    }
+  });
 });

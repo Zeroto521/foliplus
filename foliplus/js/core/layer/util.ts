@@ -208,7 +208,11 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
   // class (layerGroup is a factory there).
   if (
     typeof L.FeatureGroup === "function" &&
-    layer instanceof (L.FeatureGroup as new () => L.Layer)
+    layer instanceof (L.FeatureGroup as new () => L.Layer) &&
+    !(
+      typeof L.GeoJSON === "function" &&
+      layer instanceof (L.GeoJSON as new () => L.Layer)
+    )
   ) {
     return true;
   }
