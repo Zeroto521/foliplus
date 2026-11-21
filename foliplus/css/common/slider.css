@@ -214,51 +214,36 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The end numbers default to dot-centred: each is anchored a half thumb in
-   from the row edge (the parked dot's centre) and shifted back half its own
-   width, so the label's centre sits on the dot. The flex direction follows
-   the document direction, so in RTL the logical anchors mirror the row. */
-.foliplus-slider-value-min:not(.is-clamp) {
-  position: absolute;
-  inset-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
-  transform: translateX(-50%);
-}
-.foliplus-slider-value-max:not(.is-clamp) {
-  position: absolute;
-  inset-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
-  transform: translateX(50%);
-}
-:dir(rtl) .foliplus-slider-value-min:not(.is-clamp) {
-  transform: translateX(50%);
-}
-:dir(rtl) .foliplus-slider-value-max:not(.is-clamp) {
-  transform: translateX(-50%);
-}
-/* The clamp state returns the label to the flex row: it pins to the row's
-   edge (space-between) and clips its text toward the inside so the long
-   content truncates instead of overflowing the container. */
+/* The end labels always clamp to the control's two edges: the flex row's
+   space-between pins the min to the row start and the max to the row end, and
+   each clips its text toward the inside (overflow hidden + ellipsis from the
+   > span rule) so a long bound truncates instead of overflowing the control.
+   There is no dot-centred mode: a label centred on the parked dot (anchored
+   half a thumb in, shifted back half its width) overhangs the control edge as
+   soon as it is wider than the thumb, and the user's rule is that the left
+   label's left edge sits on the control's left edge (the left dot's outer
+   edge) and the right label's right edge on the control's right edge. */
 .foliplus-slider-value-min.is-clamp {
   flex: 0 1 auto;
   text-align: start;
-  /* A clamped label pins to the track's end, not the row's edge: the track
-     is inset half a thumb from the row on each side, so the label is pushed
-     in by that inset to sit flush with the rail (the thumb's outer edge).
-     margin-inline-start/end are logical, so the mirror is automatic. */
-  margin-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
+  /* Pin to the control / row edge (margin 0), not the track edge (the track
+     is inset half a thumb from the row, so a track-end pin would leave the
+     label half a thumb in from the control edge and break the left-alignment
+     the user asked for). */
+  margin-inline-start: 0;
 
-  /* When the opposite end label is dot-centred it is taken out of flow, so
-     this label would be the only flex child and space-between would pin it
-     to the row start. An auto end margin pushes it back to its own edge
-     (and the mirroring rule on the max does the same on the other side). */
+  /* When the opposite end label is out of flow (no longer possible, but the
+     rule is kept as the flex fallback) an auto end margin pushes this label
+     back to its own edge instead of collapsing to the row start. */
   margin-inline-end: auto;
 }
 .foliplus-slider-value-max.is-clamp {
   flex: 0 1 auto;
   text-align: end;
-  margin-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
+  margin-inline-end: 0;
 
   /* Mirror of the min rule: a lone clamped max must pin to its own edge,
-     not collapse to the row start when the min is dot-centred. */
+     not collapse to the row start when the min is out of flow. */
   margin-inline-start: auto;
 }
 .foliplus-slider-values > span.foliplus-slider-value-current {

@@ -168,18 +168,6 @@ interface SliderOptions {
   marks?: SliderMark[];
   /** The two fixed numbers under the rail's ends. */
   values?: { min: string; max: string };
-  /** How the end labels align to their dots.
-   *  - `"dot"` — both stay centred on their own dot (numeric semantics:
-   *    the label reads "the value at this point").
-   *  - `"edges"` — both pinned to the row's two edges (text semantics:
-   *    the label is a wide token like a date or a category name, so a
-   *    dot-centred label overhangs inward and crowds its sibling).
-   *  - `"auto"` (default) — `"dot"` when both labels are numeric-shaped
-   *    (digits, decimal point, thousands separators, percent, currency,
-   *    minus), `"edges"` when either carries letter / CJK / date content.
-   *    The width-fit clamp still applies on top of this — a numeric label
-   *    that overflows its half still clamps to its edge. */
-  valuesAlign?: "auto" | "dot" | "edges";
   /** The moving readout under the rail, if this row has one. */
   current?: SliderCurrent | null;
   /** Live value while dragging / arrowing. */

@@ -57,7 +57,7 @@ export { applyPlacement, placeSurface, viewportBounds } from "./placementAdapter
 export { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
 export { createSchemePicker } from "./schemePicker.js";
 export { readOnlyValue } from "./panelField.js";
-export { Slider, finishSlidersIn, isNumericShaped, sliderOf } from "./slider.js";
+export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export { SLIDER_CLASS } from "./sliderClassName.js";
 export { LABEL_CLASS } from "./labelClassName.js";
 export { ensureActiveVisible } from "./scrollIntoView.js";

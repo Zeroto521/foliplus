@@ -51,32 +51,6 @@ const clamp = (value: number, lo: number, hi: number): number =>
 // the pool holds up to two live entries per slider — and an owner switch (a
 // second slider takes over) hides the first slider's bubbles outright, so the
 // live set never mixes two owners on one surface.
-/** True when a slider end label is numeric-shaped (digits, decimal point,
- *  thousands separators, percent sign, currency symbol, minus sign, or a
- *  compact-number suffix like K / M). Used by the `valuesAlign` auto
- *  heuristic: a numeric label reads as "the value at this point" and stays
- *  dot-centred, while a text label (letter / CJK / date separator) crowds
- *  its sibling and wants the row's two edges instead. */
-const isNumericShaped = (text: string): boolean => {
-  const t = text.trim();
-  if (t === "") return true;
-  // A date / range shape (two or more digit runs joined by - or /, e.g.
-  // "2024-01-01", "1/2") reads as a text token, not a numeric value — the
-  // chars are all in the numeric vocabulary, but the separators carry date
-  // semantics (a slider bound is an ISO date, so the label is an edge).
-  if (/^\d+(?:[-/]\d+)+$/.test(t)) return false;
-  // Reject on any letter or CJK character — those are the text signals.
-  // A single trailing compact-number suffix (K / M / B) is part of the
-  // number, so it is peeled before the letter check (the accept regex then
-  // allows it as an optional suffix).
-  const core = t.replace(/[KMB]$/i, "");
-  if (/[\p{L}\p{Script=Han}]/u.test(core)) return false;
-  // Accept if every remaining char is in the numeric vocabulary: digits,
-  // decimal point, comma (thousands), percent, minus / en-dash, whitespace,
-  // and an optional common compact-number suffix K / M / B (case-insensitive).
-  return /^[\d.,%\-\u2212\s]+[KMB]?$/i.test(t);
-};
-
 interface BubbleEntry {
   el: HTMLElement;
   owner: HTMLElement;
@@ -252,9 +226,6 @@ const placeBubble = (anchor: DOMRect, bubble: HTMLElement): void => {
 class Slider {
   readonly root: HTMLElement;
   private readonly opts: SliderOptions;
-  /** Resolved end-label alignment: numeric labels stay dot-centred, text
-   *  labels pin to the row's edges. See `valuesAlign` in SliderOptions. */
-  private readonly valuesAlignMode: "dot" | "edges";
   private readonly range: boolean;
   private readonly values: number[];
   private readonly track: HTMLElement;
@@ -306,18 +277,6 @@ class Slider {
       format: (value: number) => String(Math.round(value)),
       ...options,
     };
-    // Resolve end-label alignment once: numeric vs text content does not
-    // change after construction (values are fixed at build time). "auto"
-    // inspects both labels; explicit "dot" / "edges" wins.
-    const declaredAlign = options.valuesAlign ?? "auto";
-    this.valuesAlignMode =
-      declaredAlign === "auto"
-        ? options.values &&
-          isNumericShaped(options.values.min) &&
-          isNumericShaped(options.values.max)
-          ? "dot"
-          : "edges"
-        : declaredAlign;
     this.disabled = options.disabled ?? false;
     // A row may be built already mounted (a re-render into a live panel) or
     // detached and appended a moment later; either way the truth is known here.
@@ -689,12 +648,14 @@ class Slider {
     this.valuesRow.appendChild(label);
   }
 
-  /** Width-adaptive end labels: a label that fits on its half stays
-   *  dot-centred (its centre on the parked dot's centre); a label too wide
-   *  to fit centred without crossing the row's middle switches to the clamp
-   *  state (class is-clamp), which pins it to the row's edge and clips its
-   *  text inward. Measured on render / open / resize — never on a drag
-   *  frame, so a pointermove cannot churn the layout. */
+  /** Width-adaptive end labels: both always pin to the control's two edges
+   *  (class is-clamp), so a label's outer edge sits on the control's edge and
+   *  a long bound clips inward (ellipsis). There is no dot-centred state —
+   *  the user's rule is that the left label's left edge sits on the left
+   *  dot's outer edge (the control's left edge) and the right label's right
+   *  edge on the right dot's outer edge (the control's right edge). Measured
+   *  on render / open / resize — never on a drag frame, so a pointermove
+   *  cannot churn the layout. */
   private measureValuesFit(): void {
     if (!this.minEl || !this.maxEl || !this.opts.values) return;
     const rowWidth = this.valuesRow.clientWidth;
@@ -702,30 +663,15 @@ class Slider {
     // laid-out width; skip and let the deferred measure or the resize observer
     // decide once the row is in the document.
     if (rowWidth === 0) return;
-    const thumb =
-      parseFloat(
-        getComputedStyle(this.root).getPropertyValue("--foliplus-slider-thumb-size"),
-      ) || 14;
-    // A dot-centred label is anchored a half-thumb in from the row edge and
-    // shifted back half its own width (translateX(-50%)), so its outer edge
-    // sits at thumb/2 - w/2: it overhangs the row edge as soon as it is
-    // wider than the thumb itself. Only a label no wider than the thumb
-    // (a bare digit) centres on its dot at all; everything wider — a
-    // percent bound (~28px), a long number like 5860 (~30px) — is an axis
-    // label that pins to the row's end, so it clamps regardless of how wide
-    // the row is.
-    const fits = (el: HTMLElement) => el.scrollWidth <= thumb + 1;
-    // Alignment mode owns the clamp decision for text labels: "edges" means
-    // the label is a wide token (date, category, unit string) whose semantics
-    // are the row's ends, not "the value at this dot" — it clamps regardless
-    // of width so the row reads as left/right edge labels. "dot" keeps the
-    // width-fit rule (a numeric label that overhangs the row edge still clamps,
-    // but a digit no wider than the thumb stays centred on its dot).
-    const edgesMode = this.valuesAlignMode === "edges";
-    const minClamp = edgesMode || !fits(this.minEl);
-    const maxClamp = edgesMode || !fits(this.maxEl);
-    this.minEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, minClamp);
-    this.maxEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, maxClamp);
+    // The end labels always pin to the control's two edges (class is-clamp):
+    // the user's rule is "left content aligns with the left dot, right with
+    // the right", and a dot-centred label (anchored half a thumb in, shifted
+    // back half its width) overhangs the control edge as soon as it is wider
+    // than the thumb — a percent bound (~28px) and a long number like 5860
+    // (~30px) both overhang. There is no dot-centred mode anymore; every end
+    // label reads as the row's edge, never "the value at this dot".
+    this.minEl.classList.add(SLIDER_CLASS.VALUE_CLAMP);
+    this.maxEl.classList.add(SLIDER_CLASS.VALUE_CLAMP);
     // The deferred fit measure runs after the first layout, so the current
     // label can finally read its dot's real centre (the constructor's own
     // sync saw zero-width boxes and deferred).
@@ -748,17 +694,14 @@ class Slider {
     if (centre === null) return;
     const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
     // The end numbers own the row's two edges; the current number may use
-    // the space strictly between their inner edges. A dot-centred end label
-    // overhangs inward, so its box edge is the real boundary.
+    // the space strictly between their inner edges. A clamped end label is
+    // pinned to the edge, so its box edge is the real boundary.
     const minBox = this.minEl?.getBoundingClientRect();
     const maxBox = this.maxEl?.getBoundingClientRect();
     const leftBound = minBox ? minBox.right - row.left + gap : gap;
     const rightBound = maxBox ? maxBox.left - row.left - gap : row.width - gap;
-    // A dot-centred label may grow room/2 on either side of the dot (the
-    // dot sits at the centre of the label), so the cap is twice the nearer
-    // distance to an end label's inner edge.
-    // A dot-centred label may grow room/2 on either side of the dot (the
-    // dot sits at the centre of the label), so the cap is twice the nearer
+    // The current number may grow room/2 on either side of the dot (the dot
+    // sits at the centre of the label), so the cap is twice the nearer
     // distance to an end label's inner edge.
     const room = Math.min(centre - leftBound, rightBound - centre) * 2;
     if (this.currentEl.scrollWidth <= room + 1) return;
@@ -1299,4 +1242,4 @@ class Slider {
   }
 }
 
-export { Slider, finishSlidersIn, isNumericShaped, sliderOf };
+export { Slider, finishSlidersIn, sliderOf };

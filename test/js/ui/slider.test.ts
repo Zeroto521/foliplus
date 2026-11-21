@@ -5,7 +5,6 @@ import {
   Slider,
   type SliderOptions,
   finishSlidersIn,
-  isNumericShaped,
   sliderOf,
 } from "#ui/index.js";
 
@@ -1499,7 +1498,11 @@ describe("Slider width-adaptive end numbers", () => {
   const measure = (slider: Slider): void =>
     (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
 
-  it("keeps an end number that fits on its half out of the clamp state", () => {
+  it("clamps an end number even when it fits on its half", () => {
+    // The end labels always pin to the control's two edges (user rule: the
+    // left label's left edge sits on the control's left edge and the right
+    // label's right edge on the control's right edge) — a fitting number is
+    // no exception, so a bare "0" / "100" clamps too.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1512,37 +1515,34 @@ describe("Slider width-adaptive end numbers", () => {
     stubLabel(minEl, 10);
     stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("clamps the end number that no longer fits on its half", () => {
+  it("clamps both end numbers regardless of width", () => {
+    // The end labels always pin to the control's two edges, so a wide bound
+    // clamps to its edge (truncating inward) and a short bound clamps too.
     const { host } = make({
       min: 0,
       max: 100,
       value: 40,
       label: "x",
       values: { min: "0", max: "a very long upper bound" },
-      // Text-shaped max would trigger the align-mode edge rule; pin "dot"
-      // so this test exercises the width-fit path (which is what it means
-      // to test) and not the align path.
-      valuesAlign: "dot",
     });
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
     stubLabel(maxEl, 90);
     measure(sliderOf(host)!);
-    // The same width that fit the short half does not fit the long one,
-    // so the two halves are measured independently.
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("keeps a dot-centred label centred regardless of the row's width", () => {
-    // A dot-centred label is anchored by the thumb (w <= thumb stays inside
-    // the row), not by the row's half — so a short numeric label never
-    // clamps, no matter how narrow the row gets.
+  it("clamps the end labels regardless of the row's width", () => {
+    // The end labels always pin to the control's two edges, so the row's
+    // width never decides the clamp state — a narrow and a wide row clamp
+    // the same way (the label truncates inward instead of centring on a dot
+    // that would overhang the control edge).
     const { host } = make({
       min: 0,
       max: 100,
@@ -1555,42 +1555,21 @@ describe("Slider width-adaptive end numbers", () => {
     stubLabel(minEl, 10);
     stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     stubRow(host, 40);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     stubRow(host, 240);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("auto-aligns numeric labels to dot (fitting label stays out of clamp)", () => {
-    // Numeric-shaped labels read as "the value at this point" and stay
-    // dot-centred unless they overhang the thumb (and so the row edge).
-    const { host } = make({
-      min: 0,
-      max: 100,
-      value: 40,
-      label: "x",
-      values: { min: "0", max: "100" },
-    });
-    stubRow(host, 160);
-    const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
-    stubLabel(maxEl, 12);
-    measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-  });
-
-  it("auto-aligns text labels to edges even when they fit on their half", () => {
-    // A wide date / category token reads as the row's edge, not the dot's
-    // value, so it clamps regardless of width. This is the death test the
-    // user's report asks for: the old width-only rule used to leave a
-    // fitting text label dot-centred, crowding its sibling.
+  it("clamps a text bound to its edge even when it fits on its half", () => {
+    // A date / category token reads as the row's edge, not the dot's value,
+    // so it clamps regardless of width — the same edge pin a number gets.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1603,37 +1582,13 @@ describe("Slider width-adaptive end numbers", () => {
     stubLabel(minEl, 10);
     stubLabel(maxEl, 20);
     measure(sliderOf(host)!);
-    // Both edges clamp even though both labels would fit on their halves.
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it('explicit valuesAlign: "dot" keeps a text label dot-centred while it fits the dot anchor', () => {
-    // A caller that pins valuesAlign: "dot" opts out of the text-edge rule
-    // — the width-fit rule alone decides. This is the escape hatch a
-    // future numeric-looking token (like a currency string) may need.
-    const { host } = make({
-      min: 0,
-      max: 100,
-      value: 40,
-      label: "x",
-      values: { min: "Jan 1, 2020", max: "Dec 31, 2024" },
-      valuesAlign: "dot",
-    });
-    stubRow(host, 160);
-    const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
-    stubLabel(maxEl, 12);
-    measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-  });
-
-  it("pins a percent bound to the edge when it is wider than the thumb", () => {
-    // A percent bound (0% / 100%, ~17 / ~28px) is wider than the thumb (14px),
-    // so it is an axis label and pins to the row's edge even in dot mode. This
-    // is the user's report: the scale's end labels are axis labels, not values
-    // at the dots, so they read flush with the row's two ends.
+  it("clamps a percent bound to its edge", () => {
+    // The user's report: a percent bound (0% / 100%) reads flush with the
+    // control's two ends, not centred on the dots.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1650,11 +1605,8 @@ describe("Slider width-adaptive end numbers", () => {
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
   it("clamps a long numeric label (like 5860 / 28654) to its edge", () => {
-    // A numeric label wider than the thumb (a 4-5 digit number) overhangs the
-    // row edge when dot-centred (anchor thumb/2, shift -w/2 -> outer edge
-    // thumb/2 - w/2 < 0), so it clamps to the edge even though its mode is
-    // "dot". This is the user's report: 5860 / 28654 must read as the row's
-    // two ends, not centred on the dots.
+    // The user's report: 5860 / 28654 must read as the control's two ends,
+    // not centred on the dots (which overhang the control edge).
     const { host } = make({
       min: 0,
       max: 100,
@@ -1666,140 +1618,6 @@ describe("Slider width-adaptive end numbers", () => {
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 40);
     stubLabel(maxEl, 60);
-    measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
-  });
-});
-
-describe("isNumericShaped end-label shape", () => {
-  it("treats empty and plain numeric shapes as numeric", () => {
-    expect(isNumericShaped("")).toBe(true);
-    expect(isNumericShaped("0")).toBe(true);
-    expect(isNumericShaped("100")).toBe(true);
-    expect(isNumericShaped("1,000")).toBe(true);
-    expect(isNumericShaped("-5")).toBe(true);
-    expect(isNumericShaped("100%")).toBe(true);
-  });
-
-  it("treats a compact-number suffix as numeric (case-insensitive)", () => {
-    // P3-2: the suffix vocabulary is a single set with /i, not a mixed-case
-    // duplicate — 1.2K / 1.2k both read as the same compact number.
-    expect(isNumericShaped("1.2K")).toBe(true);
-    expect(isNumericShaped("1.2k")).toBe(true);
-    expect(isNumericShaped("1K")).toBe(true);
-    expect(isNumericShaped("2M")).toBe(true);
-    expect(isNumericShaped("3B")).toBe(true);
-  });
-
-  it("rejects a bare suffix letter as text", () => {
-    // K / M / B is a suffix, not a token by itself: a lone letter is text.
-    expect(isNumericShaped("K")).toBe(false);
-    expect(isNumericShaped("MB")).toBe(false);
-  });
-
-  it("rejects letter / CJK content as text", () => {
-    expect(isNumericShaped("abc")).toBe(false);
-    expect(isNumericShaped("2024年")).toBe(false);
-    expect(isNumericShaped("Jan 1, 2020")).toBe(false);
-    expect(isNumericShaped("Dec 31, 2024")).toBe(false);
-  });
-
-  it("rejects a date / range shape as text (P3-1)", () => {
-    // P3-1: an ISO date is all numeric vocabulary but the separators carry
-    // date semantics — a slider bound that is a date is an edge, not a value.
-    expect(isNumericShaped("2024-01-01")).toBe(false);
-    expect(isNumericShaped("2024/1/1")).toBe(false);
-    expect(isNumericShaped("1/2")).toBe(false);
-    expect(isNumericShaped("1-2")).toBe(false);
-  });
-
-  it("still treats a negative number as numeric (not a date)", () => {
-    // A leading minus is a sign, not a separator: -5 is numeric.
-    expect(isNumericShaped("-5")).toBe(true);
-    expect(isNumericShaped("-2024")).toBe(true);
-  });
-});
-
-describe("Slider valuesAlign mode resolution", () => {
-  const stubRow = (host: HTMLElement, width: number): HTMLElement => {
-    const row = host.querySelector(`.${SLIDER_CLASS.VALUES}`) as HTMLElement;
-    Object.defineProperty(row, "clientWidth", { value: width, configurable: true });
-    return row;
-  };
-  const stubLabel = (el: HTMLElement, intrinsic: number): void => {
-    Object.defineProperty(el, "scrollWidth", { value: intrinsic, configurable: true });
-  };
-  const endNumbers = (host: HTMLElement): [HTMLElement, HTMLElement] => [
-    host.querySelector(`.${SLIDER_CLASS.VALUE_MIN}`) as HTMLElement,
-    host.querySelector(`.${SLIDER_CLASS.VALUE_MAX}`) as HTMLElement,
-  ];
-  const measure = (slider: Slider): void =>
-    (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
-
-  it("auto with both numeric labels resolves dot (existing behavior)", () => {
-    const { host } = make({
-      min: 0,
-      max: 100,
-      value: 40,
-      label: "x",
-      values: { min: "0", max: "100" },
-    });
-    stubRow(host, 160);
-    const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
-    stubLabel(maxEl, 12);
-    measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-  });
-
-  it("auto with a date-shaped bound resolves edges (P3-1 regression)", () => {
-    // P3-1: 2024-01-01 is no longer numeric-shaped, so auto must resolve
-    // edges — the old code left it dot-centred.
-    const { host } = make({
-      min: 0,
-      max: 100,
-      value: 40,
-      label: "x",
-      values: { min: "2024-01-01", max: "2024-12-31" },
-    });
-    stubRow(host, 160);
-    const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
-    measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
-  });
-
-  it("auto with no values resolves edges (values undefined)", () => {
-    // P2-1 branch coverage: options.values undefined → edges. There are no
-    // end-number elements to render, so assert the resolved mode directly.
-    const { slider } = make({
-      min: 0,
-      max: 100,
-      value: 40,
-      label: "x",
-    });
-    const mode = (slider as unknown as { valuesAlignMode: string }).valuesAlignMode;
-    expect(mode).toBe("edges");
-  });
-
-  it("auto with mixed numeric / date shapes resolves edges (short-circuit)", () => {
-    // P2-1 branch coverage: isNumericShaped(min) true, isNumericShaped(max)
-    // false → the && short-circuits to edges.
-    const { host } = make({
-      min: 0,
-      max: 100,
-      value: 40,
-      label: "x",
-      values: { min: "0", max: "2024-12-31" },
-    });
-    stubRow(host, 160);
-    const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);

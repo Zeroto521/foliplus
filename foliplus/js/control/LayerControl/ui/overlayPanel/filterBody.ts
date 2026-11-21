@@ -180,9 +180,8 @@ const renderRangeBody = (
     value: rangeValueOf(dim, model.filter),
     label: conditionLabel,
     labels: [deps.T("filter_range_min"), deps.T("filter_range_max")],
-    // End labels may be numeric or text (date / category) depending on the
-    // dimension; valuesAlign defaults to "auto", which dot-centres numeric
-    // labels and pins text labels to the row edges.
+    // End labels always pin to the control's two edges (the slider's clamp
+    // state), so a numeric and a text bound read the same way.
     values: {
       min: deps.formatValue(dim.range[0]),
       max: deps.formatValue(dim.range[1]),

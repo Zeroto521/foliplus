@@ -1,0 +1,131 @@
+<!doctype html>
+<!-- Acceptance map for the slider end-label alignment (PR #1249 / task: fix/slider-value-align).
+
+  User rule: "左边内容与左边圆点左对齐，右边与右边的右对齐" — the left label's
+  left edge sits on the control's left edge (the left dot's outer edge) and the
+  right label's right edge on the control's right edge. This page renders the
+  three real slider rows (opacity / zoomRange / filter range) with the real
+  built CSS and prints the measured geometry, so the alignment can be verified
+  in a real browser without a server.
+
+  Open in a browser (or load via Playwright page.goto("file://...")), then read
+  the "GEOMETRY" panel below the sliders: each row reports host / track /
+  min / max boxes; the acceptance criterion is
+    min.left  == host.left  (within 1px)
+    max.right == host.right (within 1px)
+  for every slider. The host box IS the control box (the values row spans the
+  control width), so the min/max edges must match the host edges, not the track
+  edges (the track is inset half a thumb).
+-->
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <title>foliplus slider end-label alignment — acceptance</title>
+  <!-- The real built CSS (common bundle carries the slider rules + design tokens). -->
+  <link rel="stylesheet" href="../../../../foliplus/dist/foliplus-common.min.css" />
+  <style>
+    body { margin: 24px; font-family: system-ui, sans-serif; }
+    h1 { font-size: 16px; }
+    .wrap { width: 202px; }        /* the lead's measured control width */
+    .row { margin-bottom: 20px; }
+    .row > label { display: block; font-size: 12px; margin-bottom: 4px; }
+    #out { white-space: pre; font-family: ui-monospace, monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>foliplus slider end-label alignment (acceptance)</h1>
+  <p>
+    User rule: left label's left edge == control's left edge (left dot's outer
+    edge); right label's right edge == control's right edge. Each slider below
+    renders the exact DOM the built <code>slider.ts</code> produces (root +
+    track + rail/fill + two thumbs + values row), with both end labels carrying
+    <code>is-clamp</code> (the align fix always clamps).
+  </p>
+  <div class="wrap">
+    <div class="row">
+      <label>opacity — values 0% / 100%</label>
+      <div class="slider-host" data-case="opacity" data-min="0%" data-max="100%"></div>
+    </div>
+    <div class="row">
+      <label>zoomRange — values 0 / 19</label>
+      <div class="slider-host" data-case="zoom" data-min="0" data-max="19"></div>
+    </div>
+    <div class="row">
+      <label>filter range — values 5860 / 28654 (the user's report)</label>
+      <div class="slider-host" data-case="filter" data-min="5860" data-max="28654"></div>
+    </div>
+  </div>
+  <h1>GEOMETRY</h1>
+  <pre id="out">measuring…</pre>
+
+  <script>
+    function buildSlider(host, minLabel, maxLabel, valuePct) {
+      host.classList.add("foliplus-slider");
+      host.dataset.mode = "range";
+      host.setAttribute("role", "group");
+
+      const track = document.createElement("div");
+      track.className = "foliplus-slider-track";
+      const rail = document.createElement("div");
+      rail.className = "foliplus-slider-rail";
+      const fill = document.createElement("div");
+      fill.className = "foliplus-slider-fill";
+      rail.appendChild(fill);
+      const marks = document.createElement("div");
+      marks.className = "foliplus-slider-marks";
+      track.append(rail, marks);
+
+      for (let i = 0; i < 2; i++) {
+        const thumb = document.createElement("div");
+        thumb.className = "foliplus-slider-thumb";
+        thumb.setAttribute("role", "slider");
+        thumb.setAttribute("tabindex", "0");
+        thumb.setAttribute("data-index", String(i));
+        thumb.style.left = (i === 0 ? valuePct : 100 - valuePct) + "%";
+        track.appendChild(thumb);
+      }
+
+      const values = document.createElement("div");
+      values.className = "foliplus-slider-values";
+      const min = document.createElement("span");
+      min.className = "foliplus-slider-value-min is-clamp";
+      min.textContent = minLabel;
+      const max = document.createElement("span");
+      max.className = "foliplus-slider-value-max is-clamp";
+      max.textContent = maxLabel;
+      values.append(min, max);
+
+      host.append(track, values);
+      return { min, max };
+    }
+
+    const box = el => {
+      const r = el.getBoundingClientRect();
+      return { left: +r.left.toFixed(2), right: +r.right.toFixed(2), width: +r.width.toFixed(2) };
+    };
+
+    const rows = document.querySelectorAll(".slider-host");
+    const lines = [];
+    for (const host of rows) {
+      const { min, max } = buildSlider(host, host.dataset.min, host.dataset.max, 40);
+      const h = box(host);
+      const track = box(host.querySelector(".foliplus-slider-track"));
+      const minB = box(min);
+      const maxB = box(max);
+      const okMin = Math.abs(minB.left - h.left) <= 1;
+      const okMax = Math.abs(maxB.right - h.right) <= 1;
+      lines.push(
+        host.dataset.case + " (" + host.dataset.min + " … " + host.dataset.max + ")",
+        "  host : left=" + h.left + " right=" + h.right + " width=" + h.width,
+        "  track: left=" + track.left + " right=" + track.right + " width=" + track.width,
+        "  min  : left=" + minB.left + " right=" + minB.right + " width=" + minB.width +
+          "   " + (okMin ? "OK" : "FAIL (must equal host.left " + h.left + ")"),
+        "  max  : left=" + maxB.left + " right=" + maxB.right + " width=" + maxB.width +
+          "   " + (okMax ? "OK" : "FAIL (must equal host.right " + h.right + ")"),
+        "",
+      );
+    }
+    document.getElementById("out").textContent = lines.join("\n");
+  </script>
+</body>
+</html>
