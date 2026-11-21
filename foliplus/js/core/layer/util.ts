@@ -168,6 +168,11 @@ type ContainerLike = L.Layer & {
  *  carry `eachLayer` (a Polygon stand-in, a marker with a stray method) is not
  *  a container.
  *
+ *  A real L.FeatureGroup (L.featureGroup / a folium FeatureGroup) is always
+ *  a container — even when its direct children carry `.feature` envelopes
+ *  (feature leaves), the GeoJSON shape fallback below would wrongly exclude
+ *  such a group, so the canonical class branch wins first.
+ *
  *  One deliberate exclusion keeps the probe honest: L.GeoJSON extends
  *  L.FeatureGroup extends L.LayerGroup, so a naive `eachLayer` probe would
  *  mislabel EVERY GeoJSON row as a container — a GeoJSON layer is data, not a
@@ -195,6 +200,18 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
   // owns no sub-layers, so a naive eachLayer probe would mislabel EVERY
   // GeoJSON row as a container. instanceof L.GeoJSON is the canonical check;
   // the guard keeps a jsdom mock L (no GeoJSON class) from throwing.
+  // A real L.FeatureGroup (not a GeoJSON data layer) is always a user-facing
+  // container — a folium FeatureGroup groups sub-layers even when its direct
+  // children carry .feature envelopes (feature leaves). The GeoJSON shape
+  // fallback below would wrongly exclude such a group, so the canonical class
+  // branch wins first. Guarded because jsdom mocks L without the FeatureGroup
+  // class (layerGroup is a factory there).
+  if (
+    typeof L.FeatureGroup === "function" &&
+    layer instanceof (L.FeatureGroup as new () => L.Layer)
+  ) {
+    return true;
+  }
   if (
     typeof L.GeoJSON === "function" &&
     layer instanceof (L.GeoJSON as new () => L.Layer)
@@ -226,6 +243,45 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
  *  @param {L.Layer} layer - Leaflet container.
  *  @returns {number} Number of direct children. */
 const countChildLayersOf = (layer: L.Layer): number => countChildLayers(layer);
+/** Count a container's DIRECT children currently added to the map (visible
+ *  sub-layers). A direct child is counted only when the map still owns it
+ *  (map.hasLayer(child)); a child removed from the map is not a visible
+ *  sub-layer even though it remains in the container's registry.
+ *  @param {L.Layer} layer - Leaflet container.
+ *  @param {L.Map} map - Leaflet map (owner of the membership fact).
+ *  @returns {number} Number of direct children on the map. */
+const countVisibleChildLayers = (layer: L.Layer, map: L.Map): number => {
+  // Direct children: eachLayer wins (Leaflet containers), else the internal
+  // registry. Same priority as walkLeaf.childrenOf — kept local to avoid
+  // widening walkLeaf's public surface for one caller.
+  let children: L.Layer[] = [];
+  // Structural access to the group interface only for eachLayer / _layers;
+  // L.LayerGroup is not assignable from L.Layer without a double cast, which
+  // the source-pin guard forbids, so narrow to the fields we actually read.
+  const group = layer as {
+    eachLayer?: (fn: (child: L.Layer) => void) => void;
+    _layers?: Record<string, L.Layer>;
+  };
+  try {
+    if (typeof group.eachLayer === "function") {
+      const out: L.Layer[] = [];
+      group.eachLayer((child: L.Layer) => out.push(child));
+      children = out;
+    } else {
+      const reg = internalLayers(
+        layer as L.Layer & { _layers?: Record<string, L.Layer> },
+      );
+      children = reg ? Object.values(reg) : [];
+    }
+  } catch {
+    children = [];
+  }
+  let visible = 0;
+  for (const child of children) {
+    if (typeof map.hasLayer === "function" && map.hasLayer(child)) visible++;
+  }
+  return visible;
+};
 
 /** Count geometric features in a layer tree.
  *  Counts geometry-producing leaves (Polygon / Polyline / CircleMarker / Marker).
@@ -381,4 +437,5 @@ export {
   countFeatureGeometry,
   isContainerLayer,
   countChildLayersOf,
+  countVisibleChildLayers,
 };

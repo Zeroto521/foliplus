@@ -924,4 +924,53 @@ describe("container layer row", () => {
     expect(() => manager.deleteLayer("grp")).not.toThrow();
     expect(container.clearLayers).toHaveBeenCalled();
   });
+
+  it("container count column shows the 三态 visible/total with a tooltip", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const info = manager.layerRegistry.get("grp")!;
+    const cell = buildRowCell(ui, info);
+    expect(cell.countText).toBe("2/3");
+    // The fixture translator is a key-echo (T(key) = "LayerControl.<key>"), so the
+    // row's contract is that it picks the container_count_tooltip key. The
+    // {visible}/{total} substitution happens against the real locale table.
+    expect(cell.containerTooltip).toBe("LayerControl.container_count_tooltip");
+  });
+
+  it("container count column collapses to the bare total when all children are visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const container = makeContainer([childA, childB]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe("2");
+  });
+
+  it("container count column shows 0/3 when no child is on the map", () => {
+    const childA = { options: {}, visible: false };
+    const childB = { options: {}, visible: false };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe("0/3");
+  });
 });

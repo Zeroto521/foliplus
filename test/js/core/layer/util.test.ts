@@ -620,6 +620,44 @@ describe("core/layer util: isContainerLayer", () => {
     expect(isContainerLayer(geoShape)).toBe(false);
   });
 
+  it("isContainerLayer: a real L.FeatureGroup (not GeoJSON) with feature-leaf children is a container", () => {
+    // Real-runtime class hierarchy: L.GeoJSON extends L.FeatureGroup extends L.LayerGroup.
+    // A folium FeatureGroup is instanceof L.FeatureGroup but NOT instanceof L.GeoJSON. Its
+    // direct children may carry .feature (feature leaves) — the GeoJSON SHAPE fallback would
+    // wrongly exclude such a group. The canonical L.FeatureGroup branch must win.
+    class FeatureGroupStub {
+      _layers: Record<string, unknown> = {};
+      eachLayer(fn: (c: unknown) => void): void {
+        for (const c of Object.values(this._layers)) fn(c);
+      }
+    }
+
+    class GeoJSONStub extends FeatureGroupStub {}
+
+    const prevFG = (window as any).L.FeatureGroup;
+    const prevGJ = (window as any).L.GeoJSON;
+    (window as any).L.FeatureGroup = FeatureGroupStub;
+    (window as any).L.GeoJSON = GeoJSONStub;
+    try {
+      const fg = new FeatureGroupStub();
+      // Direct children are feature leaves (each carries a .feature envelope).
+      fg._layers["1"] = { feature: { type: "Feature" } };
+      fg._layers["2"] = { feature: { type: "Feature" } };
+      // A folium FeatureGroup: group-like + child registry + instanceof FeatureGroup, not GeoJSON.
+      Object.assign(fg, {
+        options: {},
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => Object.values(fg._layers)),
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(),
+      });
+      expect(isContainerLayer(fg as unknown as L.Layer)).toBe(true);
+    } finally {
+      (window as any).L.FeatureGroup = prevFG;
+      (window as any).L.GeoJSON = prevGJ;
+    }
+  });
   it("isContainerLayer: excludes a real L.GeoJSON instance", () => {
     // jsdom has no L.GeoJSON; the predicate guards the instanceof check, so
     // stub the class to exercise the GeoJSON exclusion branch.

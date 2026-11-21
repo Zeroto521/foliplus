@@ -15,7 +15,12 @@
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
-import { ROLE, countChildLayersOf, isContainerLayer } from "#core/layer/index.js";
+import {
+  ROLE,
+  countChildLayersOf,
+  countVisibleChildLayers,
+  isContainerLayer,
+} from "#core/layer/index.js";
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
@@ -49,6 +54,8 @@ interface RowCell {
   filtered?: boolean;
   /** Hover title used while filtered: kept / total filtered · type. */
   filterTitle?: string;
+  /** Hover title for a container row: N visible / M sub-layers. */
+  containerTooltip?: string;
 }
 
 /** What one row element should look like. */
@@ -97,11 +104,13 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   typeLabel: cell.typeLabel,
   filtered: Boolean(cell.filtered),
   countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
-  title: cell.filtered
-    ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
-    : cell.countText
-      ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
-      : (cell.titleTypeLabel ?? cell.typeLabel),
+  title: cell.containerTooltip
+    ? cell.containerTooltip
+    : cell.filtered
+      ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
+      : cell.countText
+        ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
+        : (cell.titleTypeLabel ?? cell.typeLabel),
 });
 
 /**
@@ -193,17 +202,41 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // deep feature census — the row says "3 layers", not "12 features". A logical
   // layer backed by a group with a featureCountProvider keeps the provider
   // count (the group is its representation, not a folder of sub-layers).
+  const isContainer =
+    layer && !layerInfo.featureCountProvider && isContainerLayer(layer);
+  const totalChildren = isContainer ? countChildLayersOf(layer!) : null;
+  const visibleChildren =
+    isContainer && layer ? countVisibleChildLayers(layer, ui.c.map) : null;
+  // 三态 count for a container row: all children visible → the bare total
+  // ("3"), some → "visible/total" ("2/3"), none → "0/3". The tooltip spells
+  // it out with the same pair. A container's count is a display string, NOT a
+  // number through formatNumber.
   const containerCount =
-    layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
-      ? countChildLayersOf(layer)
+    totalChildren != null && visibleChildren != null
+      ? visibleChildren === totalChildren
+        ? String(totalChildren)
+        : `${visibleChildren}/${totalChildren}`
       : null;
+  const containerTooltip =
+    isContainer && totalChildren != null && visibleChildren != null
+      ? ui
+          .T("container_count_tooltip")
+          .replace("{visible}", String(visibleChildren))
+          .replace("{total}", String(totalChildren))
+      : "";
   const rawCount = filtered
     ? filterModel!.kept
     : containerCount != null
       ? containerCount
       : ui.c.getFeatureCount(layerInfo.id);
   const countText =
-    rawCount != null ? formatNumber(rawCount, "auto", ui.config.locale_code) : "";
+    // A container's count is already the display string ("2/3"); pass it
+    // through verbatim. Numeric counts keep the auto format.
+    typeof containerCount === "string"
+      ? containerCount
+      : rawCount != null
+        ? formatNumber(rawCount as number, "auto", ui.config.locale_code)
+        : "";
   const filterTitle = filtered
     ? ui
         .T("filter_row_title")
@@ -223,6 +256,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     checked,
     filtered,
     filterTitle,
+    containerTooltip,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is

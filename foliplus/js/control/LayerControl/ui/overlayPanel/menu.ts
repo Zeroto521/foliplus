@@ -5,6 +5,7 @@ import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { EVENTS } from "#core/event/index.js";
+import { isContainerLayer } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -151,6 +152,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+  const layer = ui.c.findLayer(layerId);
+  const isContainer = layer ? isContainerLayer(layer) : false;
   const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries
@@ -172,7 +175,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // filter action (the panel would target an invisible layer), so the entry
   // is disabled for the same reason style is. Tooltip priority mirrors
   // style: the hidden reason first, then the no-fields reason.
-  const filterDisabled = focusReason === "hidden" || !filterHasFields;
+  const filterDisabled = isContainer || focusReason === "hidden" || !filterHasFields;
   if (filterInfo) {
     menu.appendChild(
       dom.el(
@@ -181,8 +184,9 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           type: "button",
           "data-action": CONST.ACTION.FILTER_LAYER,
           role: "menuitem",
-          title:
-            focusReason === "hidden"
+          title: isContainer
+            ? ui.T("container_no_style_filter")
+            : focusReason === "hidden"
               ? ui.T(focusDisabledLocaleKey("hidden"))
               : filterHasFields
                 ? ui.T("filter_layer_tooltip")
@@ -218,7 +222,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // (or vice versa) — and it cannot drift from the panel's dimension list.
   const cap = styleCapability(ui, layerId);
   const canConfigure = Object.values(cap.dims).some(Boolean) || cap.styleDelegation;
-  const styleDisabled = focusReason === "hidden" || !canConfigure;
+  const styleDisabled = isContainer || focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
     dom.el(
@@ -227,9 +231,11 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
-        title: styleDisabled
-          ? ui.T("style_label_no_data")
-          : ui.T("style_layer_tooltip"),
+        title: isContainer
+          ? ui.T("container_no_style_filter")
+          : styleDisabled
+            ? ui.T("style_label_no_data")
+            : ui.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
       { html: SVGs.ICON_STYLE },

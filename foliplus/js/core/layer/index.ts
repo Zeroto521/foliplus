@@ -92,6 +92,7 @@ export {
   countFeatureGeometry,
   isContainerLayer,
   countChildLayersOf,
+  countVisibleChildLayers,
 } from "./util.js";
 export {
   drawAlpha,
