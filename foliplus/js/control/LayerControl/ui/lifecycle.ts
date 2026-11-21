@@ -272,7 +272,16 @@ const bindLayerEvents = (ui: LayerUI): void => {
     const toggleAllEl =
       (el.closest(CONST.SEL.TOGGLE_ALL_ROW) as HTMLElement | null) ??
       (el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null);
-    if (!toggleAllEl || el.closest(`[data-role="${CONST.TOGGLE_ALL_ROLE}"]`)) {
+    // The checkbox is the onChange path, and the ⋮ button owns its own click
+    // handler (it opens the overflow menu). Both bubble here, so both must be
+    // excluded — the folder-row branch above already excludes the same pair.
+    // Without the ⋮ exclusion the menu opens and the role folds in one
+    // gesture, and the rebuild tears the menu down before it can be used.
+    if (
+      !toggleAllEl ||
+      el.closest(`[data-role="${CONST.TOGGLE_ALL_ROLE}"]`) ||
+      el.closest(`.${CONST.CLASSES.MORE_BTN}`)
+    ) {
       return;
     }
     toggleFold(ui, toggleAllEl.dataset.role ?? "");

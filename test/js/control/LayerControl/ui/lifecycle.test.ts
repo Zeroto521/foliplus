@@ -134,6 +134,36 @@ describe("LayerUI lifecycle — defensive rails", () => {
       expect(toggleFoldSpy).toHaveBeenCalledWith(ui, "");
     });
 
+    it("onClick: the role row's ⋮ button opens the menu without folding the role", () => {
+      // The ⋮ button owns its own click handler (it opens the overflow menu).
+      // Its click still bubbles to the list's delegated handler, so the fold
+      // branch must exclude it the same way the folder-row branch already
+      // excludes CHECKBOX and MORE_BTN — otherwise the menu opens and the
+      // role folds in the same gesture, and the rebuild tears the menu down.
+      //
+      // The role row only renders its count/type/⋮ cells when the panel has a
+      // folder (withFolders), so this case needs a folder-layout seed.
+      ({ manager, ui, map } = initFixture({
+        seedLayout: {
+          version: 2,
+          folders: [{ key: "roads", name: "Roads" }],
+          order: { [ROLE.OVERLAY]: ["roads"] },
+          members: {},
+        },
+      }));
+      const toggleFoldSpy = vi.mocked(toggleFold);
+      toggleFoldSpy.mockClear();
+
+      const row = attachedPanel(ui).querySelector(
+        `${CONST.SEL.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
+      ) as HTMLElement;
+      const moreBtn = row.querySelector(`.${CONST.CLASSES.MORE_BTN}`) as HTMLElement;
+      expect(moreBtn).toBeTruthy();
+      moreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+      expect(toggleFoldSpy).not.toHaveBeenCalled();
+    });
+
     it("onClick: the color row's body no longer triggers showSolidBasemap", () => {
       // #494: row-body clicks used to call showSolidBasemap directly; the
       // checkbox's change event is the only legitimate path
