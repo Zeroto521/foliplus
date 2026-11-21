@@ -1583,4 +1583,32 @@ describe("ui/list folder rows (visibility)", () => {
     ) as HTMLInputElement;
     expect(waterCb.checked).toBe(true);
   });
+
+  it("syncFolderRows skips a folder row that carries no key", () => {
+    // The folder row's key is its block identity; a row without one cannot be
+    // reconciled, so the pass skips it instead of throwing.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "roads", name: "Roads" }],
+        order: { overlay: ["roads"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "roads",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    expect(folderRow).not.toBeNull();
+    folderRow.removeAttribute(CONST.DATA.FOLDER_KEY);
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
 });

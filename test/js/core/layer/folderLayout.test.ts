@@ -21,6 +21,7 @@ import {
   fullDisplayOrder,
   groupByFolder,
   isFolderLayout,
+  moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
   normalizeFolderName,
@@ -725,5 +726,37 @@ describe("seed merge manager edges", () => {
     const next = deleteFolder(layout, "overlay", "Roads");
     expect(next.members.a).toEqual({ role: "overlay", folder: "" });
     expect(next.order.overlay ?? []).toEqual([]);
+  });
+});
+
+describe("moveFolder — no-op guards", () => {
+  const layout: FolderLayout = {
+    ...emptyFolderLayout(),
+    folders: [
+      { key: "roads", name: "Roads" },
+      { key: "water", name: "Water" },
+    ],
+    order: { overlay: ["roads", "water"] },
+    members: {},
+  };
+
+  it("returns the same layout when the key is its own target", () => {
+    // A drag that outlived a re-render can arm and target the same block.
+    expect(moveFolder(layout, "overlay", "roads", "roads", true)).toBe(layout);
+  });
+
+  it("returns the same layout when a key is not listed in the role", () => {
+    // A drag that outlived a rename or a delete cannot corrupt the order.
+    expect(moveFolder(layout, "overlay", "ghost", "roads", true)).toBe(layout);
+    expect(moveFolder(layout, "overlay", "roads", "ghost", true)).toBe(layout);
+  });
+
+  it("moves a listed block before or after its target", () => {
+    expect(
+      moveFolder(layout, "overlay", "water", "roads", false).order.overlay,
+    ).toEqual(["water", "roads"]);
+    expect(moveFolder(layout, "overlay", "roads", "water", true).order.overlay).toEqual(
+      ["water", "roads"],
+    );
   });
 });

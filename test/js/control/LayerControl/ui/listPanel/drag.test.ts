@@ -179,6 +179,76 @@ describe("ui/drag", () => {
     });
   });
 
+  describe("folder block drag — hover chrome", () => {
+    it("marks the folder row under the pointer and clears the previous one", () => {
+      const { ui } = folderFixture(["a", "b", "c"]);
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      const b = folderRowOf(ui, "b");
+      const c = folderRowOf(ui, "c");
+      const overB = dragEvent(b, { dropEffect: "" }, 10);
+      handleDragOver(ui, overB);
+      expect(overB.preventDefault).toHaveBeenCalled();
+      expect(overB.dataTransfer!.dropEffect).toBe("move");
+      // jsdom rects are all zero, so a positive clientY is the bottom half.
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+      expect(ui.listPanel.lastDragOverItem).toBe(b);
+      // Moving to another block takes the chrome off the previous one.
+      handleDragOver(ui, dragEvent(c, { dropEffect: "" }, 10));
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(c.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+      expect(ui.listPanel.lastDragOverItem).toBe(c);
+    });
+
+    it("marks the top half as a before-target", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      const b = folderRowOf(ui, "b");
+      handleDragOver(ui, dragEvent(b, { dropEffect: "" }, 0));
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+    });
+
+    it("clears the chrome when the pointer leaves the folder rows", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      const b = folderRowOf(ui, "b");
+      handleDragOver(ui, dragEvent(b, { dropEffect: "" }, 10));
+      const layerRow = attachedPanel(ui).querySelector(
+        `[${CONST.DATA.LAYER_ID}="b1"]`,
+      ) as HTMLElement;
+      const away = dragEvent(layerRow, { dropEffect: "" }, 10);
+      handleDragOver(ui, away);
+      expect(away.preventDefault).not.toHaveBeenCalled();
+      expect(away.dataTransfer!.dropEffect).toBe("none");
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+    });
+
+    it("refuses the dragged folder's own row and a row of the other role", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      const own = dragEvent(folderRowOf(ui, "a"), { dropEffect: "" }, 10);
+      handleDragOver(ui, own);
+      expect(own.dataTransfer!.dropEffect).toBe("none");
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      // A folder row of the other role is not a block target either.
+      const b = folderRowOf(ui, "b");
+      b.setAttribute(CONST.DATA.ROLE, "base");
+      const otherRole = dragEvent(b, { dropEffect: "" }, 10);
+      handleDragOver(ui, otherRole);
+      expect(otherRole.dataTransfer!.dropEffect).toBe("none");
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+    });
+
+    it("ignores a folder row that carries no role", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      const row = folderRowOf(ui, "a");
+      row.removeAttribute(CONST.DATA.ROLE);
+      handleDragStart(ui, dragEvent(row, { effectAllowed: "" }));
+      expect(ui.listPanel.dragFolder).toBeNull();
+    });
+  });
+
   describe("arming — the gesture keys the entry, not the position", () => {
     it("handleDragStart arms with the registry entry behind the row", () => {
       const ui = makeUi({ containers: ["a", "b"] });
