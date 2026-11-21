@@ -449,11 +449,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         not touch the record at all.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
-            json.dumps(feature_collection(point_feature(119.30, 26.08, {"val": 26.08})))
-        ).add_to(fg)
-        fg.add_to(m)
+            json.dumps(
+                feature_collection(point_feature(119.30, 26.08, {"val": 26.08}))
+            ),
+            name="Points",
+            show=True,
+        ).add_to(m)
         LayerControl().add_to(m)
         HeatmapControl().add_to(m)
         _expand_panel(m)
@@ -563,6 +565,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             load_geojson("LayerControl", "polygon_hangzhou_triangle")["features"][0],
             overlay=True,
             show=True,
+            style_function=lambda f: {"color": "#0000ff", "weight": 2},
         )
         layer.layer_name = "Test Region"
         layer.add_to(m)
@@ -658,11 +661,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         # The heatmap only earns a panel row once it has a point layer to
         # aggregate, so give it one — its id is the stable component id.
-        fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
-            json.dumps(feature_collection(point_feature(119.30, 26.08, {"val": 26.08})))
-        ).add_to(fg)
-        fg.add_to(m)
+            json.dumps(
+                feature_collection(point_feature(119.30, 26.08, {"val": 26.08}))
+            ),
+            name="Points",
+            show=True,
+        ).add_to(m)
         # The border row label is read in English, so pin the page locale.
         LayerControl(locale="en").add_to(m)
         HeatmapControl().add_to(m)
@@ -919,16 +924,17 @@ class TestStyleBrowser(LayerControlBrowserBase):
         map does with it.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Region", overlay=True, show=True)
         folium.GeoJson(
             json.dumps(load_geojson("LayerControl", "face_polygon_line_hangzhou")),
+            name="Region",
+            overlay=True,
+            show=True,
             style_function=lambda f: (
                 {"color": "gray", "weight": 1.5}
                 if f["properties"]["kind"] == "face"
                 else {"color": "#e74c3c", "weight": 6}
             ),
-        ).add_to(fg)
-        fg.add_to(m)
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -968,16 +974,20 @@ class TestStyleBrowser(LayerControlBrowserBase):
         the focus contract is "inside the panel", not "on the (now disabled)
         trigger": a disabled button cannot take focus."""
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        fg.add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(120.0, 30.0))),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [30.0, 120.0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+            ),
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1044,17 +1054,21 @@ class TestStyleBrowser(LayerControlBrowserBase):
         author's ``stroke: False`` back so the border disappears again.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-            stroke=False,
-        ).add_to(fg)
-        fg.add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(120.0, 30.0))),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [30.0, 120.0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+                stroke=False,
+            ),
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1120,33 +1134,41 @@ class TestStyleBrowser(LayerControlBrowserBase):
         panel must not render the row at all.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        folium.CircleMarker(
-            [30.02, 120.02],
-            radius=9,
-            color="#e74c3c",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        fg.add_to(m)
-        region = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
-        folium.Polygon(
-            leaflet_path("LayerControl", "polygon_hangzhou_square"),
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.2,
-        ).add_to(region)
-        region.add_to(m)
+        folium.GeoJson(
+            json.dumps(
+                feature_collection(
+                    point_feature(120.0, 30.0, {"radius": 5, "color": "#3388ff"}),
+                    point_feature(120.02, 30.02, {"radius": 9, "color": "#e74c3c"}),
+                )
+            ),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [0, 0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+            ),
+            style_function=lambda f: {
+                "radius": f["properties"]["radius"],
+                "color": f["properties"]["color"],
+            },
+        ).add_to(m)
+        folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_hangzhou_square")),
+            name="Test Region",
+            overlay=True,
+            show=True,
+            style_function=lambda f: {
+                "color": "#3388ff",
+                "weight": 2,
+                "fill": True,
+                "fillOpacity": 0.2,
+            },
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1245,24 +1267,20 @@ class TestStyleBrowser(LayerControlBrowserBase):
         width, size radius) and % (fill opacity, icon/marker opacity).
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        folium.CircleMarker(
-            [30.02, 120.02],
-            radius=9,
-            color="#e74c3c",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        fg.add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(120.0, 30.0))),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [30.0, 120.0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+            ),
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1356,7 +1374,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
-        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay A",
+            overlay=True,
+            show=True,
+        ).add_to(m)
         _expand_panel(m)
 
         html_path = tmp_path / "test_unregister_keeps_opacity.html"
@@ -1647,7 +1670,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         actually stepped, and the row cursor did not follow the keypress.
         Synthetic ``dispatchEvent`` cannot prove either.
         """
-        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay A",
+            overlay=True,
+            show=True,
+        )
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
             panel_ready(page)
             page.evaluate(_js("LayerControl/open_panel"))
@@ -2847,7 +2875,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         unconditionally added a layer the author left off the map, while the
         checkbox stayed unchecked. The one-way gate must leave it alone.
         """
-        fg = folium.FeatureGroup(name="ZROffProbe", overlay=True, show=False)
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="ZROffProbe",
+            overlay=True,
+            show=False,
+        )
         with use_page(self._make_page, browser, tmp_path, fg, slug="zr_off") as (
             page,
             errors,
@@ -2892,7 +2925,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
             attr="© OpenStreetMap",
             max_zoom=19,
         ).add_to(m)
-        folium.FeatureGroup(name="ZROffReload", overlay=True, show=False).add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="ZROffReload",
+            overlay=True,
+            show=False,
+        ).add_to(m)
         _expand_panel(m)
 
         html_path = tmp_path / "test_zr_off_reload.html"
@@ -2954,7 +2992,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
         ``!li.canvas`` early return stood in for that distinction.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
             json.dumps(
                 feature_collection(
@@ -2963,9 +3000,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         for i in range(3)
                     ]
                 )
-            )
-        ).add_to(fg)
-        fg.add_to(m)
+            ),
+            name="Points",
+            show=True,
+        ).add_to(m)
         LayerControl().add_to(m)
         HeatmapControl().add_to(m)
         _expand_panel(m)
@@ -3046,7 +3084,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         row's own box. The dual zoom-range row also owns the current-level
         number, which the centred layout keeps over the track.
         """
-        overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
+        overlay = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay",
+            overlay=True,
+            show=True,
+        )
         with use_page(
             self._make_page, browser, tmp_path, overlay, slug="slider_label_center"
         ) as (page, errors):
@@ -3255,7 +3298,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         as a bare slider appended into the live style panel so the clip
         ancestor is the real panel content, not a synthetic wrapper.
         """
-        overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
+        overlay = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay",
+            overlay=True,
+            show=True,
+        )
         with use_page(
             self._make_page, browser, tmp_path, overlay, slug="slider_label_center"
         ) as (page, errors):
@@ -3344,12 +3392,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         natural folium render order, so the JS global genuinely lands
         after the control's script. No test-only reordering.
         """
-        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
-        folium.Polygon(
-            locations=leaflet_path("LayerControl", "polygon_focus_box"),
-            fill_color="#ffa500",
-            fill=True,
-        ).add_to(fg)
+        fg = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_focus_box")),
+            name="Zone",
+            overlay=True,
+            show=True,
+            style_function=lambda f: {"fillColor": "#ffa500", "fill": True},
+        )
         with use_page(
             self._make_page,
             browser,
@@ -3576,9 +3625,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         non-empty background after the write, and Reset must restore the
         author icon.
         """
-        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
-        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
-            fg
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Points",
+            overlay=True,
+            show=True,
+            marker=folium.Marker([26.08, 119.30], icon=folium.Icon(color="red")),
         )
 
         with use_page(
@@ -3644,9 +3696,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         setIcon is called once for the glyph write and ZERO additional times
         for the colour write. A glyph write still rebuilds (one setIcon).
         """
-        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
-        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
-            fg
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Points",
+            overlay=True,
+            show=True,
+            marker=folium.Marker([26.08, 119.30], icon=folium.Icon(color="red")),
         )
 
         with use_page(
@@ -3693,9 +3748,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
             sprite as mask-image) + flat background-color, glyph opaque
             (acceptance ②).
         """
-        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
-        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
-            fg
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Points",
+            overlay=True,
+            show=True,
+            marker=folium.Marker([26.08, 119.30], icon=folium.Icon(color="red")),
         )
 
         with use_page(
