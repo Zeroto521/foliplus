@@ -11,6 +11,7 @@
 // unchanged.
 import * as CONST from "../const.js";
 import { authorFoldedKeys } from "../declaredFolder.js";
+import { authorDefaultRoleFolds } from "../declaredRole.js";
 import type { LayerOverride } from "../type.js";
 import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
@@ -20,12 +21,14 @@ import type { LayerUI } from "./surface.js";
 /** Load every persisted dimension in one call. */
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.c.persistence.load();
-  ui.listPanel.foldedRoles = new Set(state.foldedRoles);
+  ui.listPanel.foldedRoles = { ...state.foldedRoles };
   // The author's declared default fold state is NOT persisted: it is author
-  // config baked into the page (CONF.folders), so it is re-derived on every
-  // load and stays fresh if the author changes the declaration. The user
-  // override (foldedRoles) is checked first and falls back to this.
+  // config baked into the page (CONF.folders / CONF.roles), so it is
+  // re-derived on every load and stays fresh if the author changes the
+  // declaration. The user override (foldedRoles) is checked first and falls
+  // back to this.
   ui.listPanel.authorFoldedFolders = authorFoldedKeys(ui.config?.folders);
+  ui.listPanel.authorDefaultFoldedRoles = authorDefaultRoleFolds(ui.config?.roles);
   // Intent values + provenance sink into the store. The label config is read
   // from `layers[id].label` only — the legacy top-level `annotations`
   // segment was dropped.
@@ -39,7 +42,7 @@ const loadPersistedState = (ui: LayerUI) => {
 
 const saveFoldState = (ui: LayerUI) => {
   ui.c.persistence.schedule({
-    foldedRoles: () => [...ui.listPanel.foldedRoles],
+    foldedRoles: () => ({ ...ui.listPanel.foldedRoles }),
   });
 };
 

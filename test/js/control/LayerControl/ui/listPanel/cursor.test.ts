@@ -38,7 +38,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -293,7 +293,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
   describe("restoreCursor", () => {
     it("re-homes a folded group row onto its toggle-all row", () => {
       attachWithGroup(ui);
-      ui.listPanel.foldedRoles = new Set([ROLE.OVERLAY]);
+      ui.listPanel.foldedRoles = { [ROLE.OVERLAY]: true };
       attachedPanel(ui)
         .querySelectorAll<HTMLElement>(
           `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,

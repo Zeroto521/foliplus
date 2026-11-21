@@ -22,6 +22,7 @@ from ._layer_declaration import (
     declared_zoom_range,
 )
 from ._role import LayerRole, layer_role
+from ._role_default import normalise_role_defaults
 
 
 class LayerControl(BaseControl):
@@ -306,6 +307,24 @@ class LayerControl(BaseControl):
                 ),
             ),
         ] = None,
+        roles: Annotated[
+            dict[str, Any] | None,
+            FieldSpec(
+                ts="RoleDefaults",
+                name="RoleDefaults",
+                shape={
+                    "overlay": {"folded": ("bool", "?")},
+                    "base": {"folded": ("bool", "?")},
+                },
+                config_key="roles",
+                note=(
+                    "Central role-defaults config: author-declared default "
+                    "folded state per role. Entries are {folded}; an absent "
+                    "role keeps the built-in expanded default. A user manual "
+                    "fold or expand always wins over the author default.",
+                ),
+            ),
+        ] = None,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
@@ -317,6 +336,11 @@ class LayerControl(BaseControl):
         # `folders` key. Invalid declarations warn once and stay None (every
         # folder keeps the built-in expanded default).
         self.folders = normalise_folders(folders)
+        # The author writes roles={"overlay": {"folded": True}, ...}; CONF
+        # carries the normalised {folded} mappings under the shared `roles`
+        # key. Invalid declarations warn once and stay None (every role keeps
+        # the built-in expanded default).
+        self.roles = normalise_role_defaults(roles)
 
     def _extra_config(self) -> dict[str, object]:
         """Collect layers from the parent map at render time.

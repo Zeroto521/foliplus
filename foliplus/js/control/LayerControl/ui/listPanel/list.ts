@@ -1,4 +1,5 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
+import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
@@ -429,7 +430,13 @@ const renderInitialList = (ui: LayerUI) => {
       );
     }
     const item = renderLayerItem(ui, layerInfo);
-    if (ui.listPanel.foldedRoles.has(role)) {
+    if (
+      effectiveRoleFolded(
+        ui.listPanel.foldedRoles,
+        ui.listPanel.authorDefaultFoldedRoles,
+        role,
+      )
+    ) {
       item.classList.add(CONST.CLASSES.GROUP_FOLDED);
     }
     frag.appendChild(item);
@@ -524,7 +531,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     );
   }
   const item = renderLayerItem(ui, layerInfo);
-  if (ui.listPanel.foldedRoles.has(role)) {
+  if (
+    effectiveRoleFolded(
+      ui.listPanel.foldedRoles,
+      ui.listPanel.authorDefaultFoldedRoles,
+      role,
+    )
+  ) {
     item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
   frag.appendChild(item);
@@ -601,7 +614,11 @@ const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
 };
 
 const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
-  const isFolded = ui.listPanel.foldedRoles.has(role);
+  const isFolded = effectiveRoleFolded(
+    ui.listPanel.foldedRoles,
+    ui.listPanel.authorDefaultFoldedRoles,
+    role,
+  );
   return dom.el(
     "div",
     {
