@@ -3032,19 +3032,19 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_slider_scale_ends_centered_on_their_thumbs(self, browser, tmp_path):
-        """The end numbers of a slider scale centre on the dots they name.
+        """The end numbers align by display width: one column centres, wider clamps.
 
-        A label that fits on its half stays centred on the dot (the thumb
-        parked at the rail's end): its centre sits on the thumb's centre, so
-        a short number (0/100, 0/19) reads as aligned with its dot. The
-        values row spans the control's width (no half-thumb inset), so the
-        dot-centre anchor is a half thumb in from the row edge on each side.
-        A label too wide to fit centred would switch to the clamp state (see
-        the ellipsis test); the live panel's numbers are short, so this pass
-        asserts the centred invariant. The row must not be widened by the
-        labels, the two numbers must not overlap, and each label stays inside
-        the row's own box. The dual zoom-range row also owns the
-        current-level number, which the centred layout keeps over the track.
+        The alignment rule keys on display width (a CJK glyph counts 2
+        columns, everything else 1): a one-column label (a bare digit like
+        "0") centres on the dot it names (its centre sits on the parked
+        thumb's centre, a half thumb in from the control edge); a label two
+        columns or wider is an axis label that pins to the slider's painted
+        end (its outer edge sits on the control edge, where the parked
+        thumb's outer edge lands). The values row spans the control's width
+        (no half-thumb inset). The row must not be widened by the labels,
+        the two numbers must not overlap, and each label stays inside the
+        row's own box. The dual zoom-range row also owns the current-level
+        number, which the centred layout keeps over the track.
         """
         overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
         with use_page(
@@ -3090,8 +3090,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         f"{max_label['box']}"
                     )
 
-                # The min names the first thumb, the max the last. Each label
-                # centre sits on its thumb's centre (dot-centred, <= 1px).
+                # The min names the first thumb, the max the last. The width rule
+                # decides the label's alignment: a label no wider than the thumb
+                # (a bare digit) centres on its dot (<= 1px); anything wider is
+                # an axis label and pins to the row's edge (its outer box sits
+                # on the values row's edge).
                 def centre(box):
                     return (box["left"] + box["right"]) / 2
 
@@ -3106,19 +3109,42 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 else:
                     min_dot = row["track"]["right"]
                     max_dot = row["track"]["left"]
-                min_drift = abs(centre(min_label["box"]) - min_dot)
-                max_drift = abs(centre(max_label["box"]) - max_dot)
-                assert min_drift <= 1.0, (
-                    f"{name} min number is not centred on its dot: "
-                    f"{centre(min_label['box']):.2f}px vs "
-                    f"{min_dot:.2f}px (drift {min_drift:.2f}px)"
-                )
-                assert max_drift <= 1.0, (
-                    f"{name} max number is not centred on its dot: "
-                    f"{centre(max_label['box']):.2f}px vs "
-                    f"{max_dot:.2f}px (drift {max_drift:.2f}px)"
-                )
-                # A dot-centred label may overhang the values row by half its
+                thumb_width = row["thumbs"][0]["box"]["width"]
+                # The alignment rule keys on display width (a CJK glyph counts
+                # 2 columns, everything else 1): a one-column label (a bare
+                # digit like "0") centres on its dot; anything wider is an axis
+                # label and pins to the slider's painted end. The two states
+                # read different references: a dot-centred label's centre sits
+                # on the track edge (the parked thumb's centre), while a pinned
+                # label's outer edge sits on the control edge (where the parked
+                # thumb's outer edge lands). The dot already encodes the mirror.
+                # A clamped label pins to the slider's PAINTED end, which is
+                # the control edge (the values row's edge), not the track
+                # element's edge: the track is inset half a thumb so a parked
+                # thumb's outer edge lands on the control edge, and the painted
+                # bar (rail plus the two parked thumbs) therefore spans the
+                # full control width. Pinning to the track edge instead leaves
+                # the label half a thumb inside the bar's visible end.
+                for label, dot, side in (
+                    (min_label, min_dot, "min"),
+                    (max_label, max_dot, "max"),
+                ):
+                    text = label["text"]
+                    if len(text) == 1:
+                        drift = abs(centre(label["box"]) - dot)
+                        assert drift <= 1.0, (
+                            f"{name} {side} number is not centred on its dot: "
+                            f"{centre(label['box']):.2f}px vs "
+                            f"{dot:.2f}px (drift {drift:.2f}px)"
+                        )
+                    else:
+                        flush_edge = "left" if (side == "min") != mirrored else "right"
+                        label_edge = label["box"][flush_edge]
+                        dot = row["values"][flush_edge]
+                        assert abs(label_edge - dot) <= 1.0, (
+                            f"{name} {side} axis label is not flush the track end ({flush_edge}): "
+                            f"{label['box']} vs dot {dot:.2f}px"
+                        )
                 # own width (that is the layout's design: the anchor is a half
                 # thumb in from the row edge). The panel's clip box is the real
                 # boundary; the live panel's numbers are short, so each label
@@ -3143,7 +3169,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 # inset on each side, and the values row spans the control's
                 # width (it no longer takes the inset).
                 slider, track = row["slider"], row["track"]
-                thumb_width = row["thumbs"][0]["box"]["width"]
                 assert abs(slider["width"] - (track["width"] + thumb_width)) <= 1.0, (
                     f"the {name} slider was widened: {slider} vs track {track}"
                 )
@@ -3218,15 +3243,17 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_slider_end_labels_ellipsize_not_overflow(self, browser, tmp_path):
-        """A long value label truncates, a short one does not.
+        """A long value label truncates, a short one keeps its text.
 
-        The end numbers are a flex row pinned to the values row's edges, so a
-        label's content must not paint past the row's own box: a long value
-        ellipsizes (its intrinsic scroll width exceeds the box it is given)
-        while a short value keeps its full text. Both end labels stay inside
-        the values row's box and never overlap each other. The labels are
-        built as a bare slider appended into the live style panel so the
-        clip ancestor is the real panel content, not a synthetic wrapper.
+        The end numbers align by display width: a one-column label (a bare
+        digit) stays dot-centred; a two-column-or-wider label clamps to the
+        track's end (class is-clamp). A clamped label's content must not
+        paint past the track's box: a long value ellipsizes (its intrinsic
+        scroll width exceeds the box it is given) while a short value keeps
+        its full text (it fits its box). Both end labels stay inside the
+        values row's box and never overlap each other. The labels are built
+        as a bare slider appended into the live style panel so the clip
+        ancestor is the real panel content, not a synthetic wrapper.
         """
         overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
         with use_page(
@@ -3282,15 +3309,19 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"long max did not ellipsize: scrollWidth {long_max['scrollWidth']} "
                 f"<= clientWidth {long_max['clientWidth']}"
             )
-            for name in ("short",):
-                for side in ("min", "max"):
-                    label = result["result"][name][side]
-                    assert not label["clamp"], f"{name} {side} clamped: {label}"
-                    assert label["scrollWidth"] == label["clientWidth"], (
-                        f"{name} {side} was truncated: scrollWidth "
-                        f"{label['scrollWidth']} != clientWidth "
-                        f"{label['clientWidth']}"
-                    )
+            # The short pair is a one-column min ("1", dot-centred) and a
+            # two-column max ("18", clamped): each keeps its full text because
+            # it fits the box it is given.
+            short_min = result["result"]["short"]["min"]
+            short_max = result["result"]["short"]["max"]
+            assert not short_min["clamp"], f"short min clamped: {short_min}"
+            assert short_max["clamp"], f"short max did not clamp: {short_max}"
+            for side, label in (("min", short_min), ("max", short_max)):
+                assert label["scrollWidth"] == label["clientWidth"], (
+                    f"short {side} was truncated: scrollWidth "
+                    f"{label['scrollWidth']} != clientWidth "
+                    f"{label['clientWidth']}"
+                )
             assert not errors, f"JS errors: {errors}"
 
     # ── Row lookup by data-layer-id, not by registry / DOM position ──

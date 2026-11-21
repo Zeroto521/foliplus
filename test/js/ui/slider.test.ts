@@ -1510,7 +1510,10 @@ describe("Slider width-adaptive end numbers", () => {
   const measure = (slider: Slider): void =>
     (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
 
-  it("keeps an end number that fits on its half out of the clamp state", () => {
+  it("centres a one-column number and clamps a wider one", () => {
+    // The alignment rule keys on display width: a one-column label ("0") stays
+    // dot-centred (its centre on the parked dot's centre); a two-column-or-
+    // wider label ("100") clamps to the track's end.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1521,13 +1524,15 @@ describe("Slider width-adaptive end numbers", () => {
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 20);
+    stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("clamps the end number that no longer fits on its half", () => {
+  it("centres a one-column min and clamps a long max", () => {
+    // A one-column label ("0") stays dot-centred; a long bound clamps to its
+    // track end (truncating inward).
     const { host } = make({
       min: 0,
       max: 100,
@@ -1540,13 +1545,14 @@ describe("Slider width-adaptive end numbers", () => {
     stubLabel(minEl, 10);
     stubLabel(maxEl, 90);
     measure(sliderOf(host)!);
-    // The same width that fit the short half does not fit the long one,
-    // so the two halves are measured independently.
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("re-measures when the row's width changes, both ways", () => {
+  it("keeps a one-column label centred whatever the row's width", () => {
+    // The row's width never decides a one-column label's alignment: a bare
+    // digit stays dot-centred on a narrow and a wide row alike, while a
+    // two-column-or-wider label ("100") clamps the same way.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1557,17 +1563,125 @@ describe("Slider width-adaptive end numbers", () => {
     stubRow(host, 160);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 60);
+    stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     stubRow(host, 40);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     stubRow(host, 240);
     measure(sliderOf(host)!);
-    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("clamps a text bound to its edge even when it fits on its half", () => {
+    // A date / category token reads as the row's edge, not the dot's value,
+    // so it clamps regardless of width — the same edge pin a number gets.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "Jan 1, 2020", max: "Dec 31, 2024" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("clamps a percent bound to its edge", () => {
+    // The user's report: a percent bound (0% / 100%) reads flush with the
+    // control's two ends, not centred on the dots.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0%", max: "100%" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 17);
+    stubLabel(maxEl, 28);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+  it("clamps a long numeric label (like 5860 / 28654) to its edge", () => {
+    // The user's report: 5860 / 28654 must read as the control's two ends,
+    // not centred on the dots (which overhang the control edge).
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "5860", max: "28654" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 40);
+    stubLabel(maxEl, 60);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("counts a wide glyph (a CJK bound) as two columns", () => {
+    // The display-width rule counts a CJK / full-width glyph as two digit
+    // columns: a single "一" is a wide label, so it clamps to the track's end
+    // (it would overhang a dot-centred one-column slot), and a Chinese text
+    // bound clamps the same way a long number does.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "一", max: "中文" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    stubLabel(minEl, 10);
+    stubLabel(maxEl, 20);
+    measure(sliderOf(host)!);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+  });
+
+  it("counts every wide-glyph range as two columns", () => {
+    // One character from each wide-glyph block (Hangul Jamo, Hangul
+    // syllables, CJK compatibility, CJK compatibility forms, full-width
+    // forms and full-width ASCII) is a two-column label, so each clamps.
+    const ranges = [
+      "\u1100", // Hangul Jamo
+      "\uAC00", // Hangul syllables
+      "\uF900", // CJK compatibility ideographs
+      "\uFE30", // CJK compatibility forms
+      "\uFF10", // full-width digits
+      "\uFFE0", // full-width forms (full-width cent)
+    ];
+    for (const glyph of ranges) {
+      const { host } = make({
+        min: 0,
+        max: 100,
+        value: 40,
+        label: "x",
+        values: { min: glyph, max: glyph },
+      });
+      stubRow(host, 160);
+      const [minEl, maxEl] = endNumbers(host);
+      stubLabel(minEl, 10);
+      stubLabel(maxEl, 10);
+      measure(sliderOf(host)!);
+      expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+      expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    }
   });
 });
 
