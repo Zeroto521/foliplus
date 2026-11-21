@@ -1,10 +1,10 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
-import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 
 /** Fold or unfold one role. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */

@@ -1,5 +1,4 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
-import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
@@ -19,6 +18,7 @@ import { ROLE, folderOf, normalizeFolderName } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
