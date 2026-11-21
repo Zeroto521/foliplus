@@ -324,6 +324,12 @@ const renderEnumBody = (
     onChange: (_value, values) => deps.write(enumFilterOf(dim, new Set(values))),
     ...deps.surface,
     overlay: deps.overlay,
+    // The dropdown paints the select-all row itself (multiple mode); the
+    // filter body only supplies its locale labels, so no language is hardcoded
+    // in either layer. Pressing the row selects every option, and again when
+    // everything is picked it clears them.
+    selectAllLabel: deps.T("filter_enum_select_all"),
+    selectAllDeselectLabel: deps.T("filter_enum_deselect_all"),
   });
   // The owner declared no options: nothing to select, and an empty popup would
   // read as a broken control.

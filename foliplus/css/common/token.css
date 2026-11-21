@@ -431,14 +431,17 @@
      One recipe for every dropdown surface (common/menu.css,
      common/dropdown.css, common/scheme-picker.css): the gap under the
      trigger, the row height, and the two row states. Components override
-     only their own geometry (strip inset, scrollbar lane), never these. */
+     only their own geometry (strip inset, scrollbar lane), never these.
+     The selected-row bar is not a token here: every row carries a real
+     `border-left` of --foliplus-border-thick (transparent in the base row,
+     --foliplus-accent-primary when selected), so the dropdown, the scheme
+     picker and the LayerControl row all measure the bar off the same 2px
+     border instead of a 3px inset box-shadow. */
   --foliplus-menu-gap: var(--foliplus-size-4);
   --foliplus-menu-row-h: var(--foliplus-ctrl-size);
   --foliplus-menu-row-hover-bg: var(--foliplus-accent-light);
   --foliplus-menu-row-hover-ink: var(--foliplus-accent-primary);
   --foliplus-menu-row-selected-bg: var(--foliplus-accent-soft-bg);
-  --foliplus-menu-row-selected-bar: var(--foliplus-accent-primary);
-  --foliplus-menu-row-bar-width: 3px;
   --foliplus-menu-max-width: 320px;
   /* Max height of a menu/panel that needs to scroll (search results). The
      scheme picker and the dropdown keep their own geometry and do not use

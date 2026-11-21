@@ -69,6 +69,17 @@ type ListboxRowShape = {
     item: ListboxItem,
     ctx: { selected: boolean; index: number },
   ) => HTMLElement;
+  /** Repaint a row's own indicator when its selected state changes without
+   *  rebuilding the row. A consumer whose renderRow draws a checkbox or a ✓
+   *  lead (ui/dropdown, ui/schemePicker) repaints it here; the engine calls
+   *  it from the row-toggle path and refreshHead, so the indicator never
+   *  goes stale between a state change and the next full render.
+   */
+  paintRow?: (
+    row: HTMLElement,
+    item: ListboxItem,
+    ctx: { selected: boolean; index: number },
+  ) => void;
 };
 
 /** The popup-host contract: where an open popup mounts and how it hears that
@@ -164,6 +175,15 @@ interface ListboxSpec {
   /** Focus a row on open. The picker lands on the selected row (fallback row
    *  0); the dropdown focuses nothing (its rows are reached by keyboard). */
   focusOnOpen?: "first" | "last" | "selected";
+  /** Optional head element rendered BEFORE the rows (a multiple-mode
+   *  select-all row, or the search field once one is added). Called on every
+   *  renderRows — the list is cleared first, so the head is re-appended and
+   *  re-reads its state each time. Return null to render nothing.
+   *
+   *  Deliberately outside `rowEls`: it is an action row, not an option, so it
+   *  must not join the keyboard walk or the aria-selected bookkeeping, both of
+   *  which index into items(). */
+  head?: () => HTMLElement | null;
   /** Called after every position pass (portal) or after the inline mount —
    *  the consumer publishes a measured lane (scrollbar width) here. */
   onPosition?: () => void;
@@ -196,6 +216,12 @@ interface Listbox {
   toggle(): void;
   /** Re-render rows from a fresh items()/selected() read; re-pins while open. */
   refresh(): void;
+  /** Re-build the head (a select-all row) from a fresh state read, leaving the
+   *  rows and the open state alone. A set action that mutates the value model
+   *  must refresh the head this way: refresh() would rebuild the rows and drop
+   *  focus off the row a keyboard user is walking, which is exactly when a
+   *  select-all press needs the label and the box to answer the new selection. */
+  refreshHead(): void;
   destroy(): void;
 }
 
@@ -342,6 +368,10 @@ const buildRow = (
 const renderRows = (state: InternalState): void => {
   const items = state.spec.items();
   state.list.textContent = "";
+  // The head (a select-all row, or a search field once one exists) sits above
+  // the options: render it first so it is the first child of the list.
+  const head = state.spec.head?.();
+  if (head) state.list.append(head);
   state.rowEls = items.map((item, index) => {
     const row = buildRow(state, item, index);
     row.addEventListener("click", () => {
@@ -352,6 +382,12 @@ const renderRows = (state: InternalState): void => {
         const selectedNow = state.spec.selected().includes(item.value);
         row.setAttribute("aria-selected", selectedNow ? "true" : "false");
         row.classList.toggle(state.spec.shape.selectedClass, selectedNow);
+        // Repaint the row's own indicator (checkbox / ✓ lead).
+        state.spec.shape.paintRow?.(row, item, { selected: selectedNow, index });
+        // The head (the select-all row) answers the same counts, so it re-reads
+        // them on every pick: picking one option moves the box to
+        // indeterminate, clearing the last one moves it back to none.
+        refreshHead(state);
       } else {
         close(state, { restoreFocus: true });
       }
@@ -359,6 +395,28 @@ const renderRows = (state: InternalState): void => {
     return row;
   });
   state.list.append(...state.rowEls);
+};
+
+/** Re-build the head from a fresh read, keeping the rows and the open state. */
+const refreshHead = (state: InternalState): void => {
+  if (state.destroyed) return;
+  const head = state.list.firstElementChild;
+  if (head) state.list.removeChild(head);
+  const next = state.spec.head?.();
+  if (next) state.list.insertBefore(next, state.list.firstElementChild);
+  // Re-read each row's picked state without recreating it: the row nodes are
+  // kept, so the focused select-all box does not lose focus the way a full
+  // renderRows rebuild would. Set actions and row toggles both land here.
+  const selected = state.spec.selected();
+  const items = state.spec.items();
+  state.rowEls.forEach((row, index) => {
+    const item = items[index];
+    if (!item) return;
+    const on = selected.includes(item.value);
+    row.setAttribute("aria-selected", on ? "true" : "false");
+    row.classList.toggle(state.spec.shape.selectedClass, on);
+    state.spec.shape.paintRow?.(row, item, { selected: on, index });
+  });
 };
 
 /** Pin the popup to the trigger in viewport coordinates. The flip verdict,
@@ -611,6 +669,10 @@ const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
             state.spec.shape.selectedClass,
             selectedNow,
           );
+          state.spec.shape.paintRow?.(state.rowEls[index]!, item, {
+            selected: selectedNow,
+            index,
+          });
         } else {
           close(state, { restoreFocus: true });
         }
@@ -744,6 +806,10 @@ const createListbox = (spec: ListboxSpec): Listbox => {
         renderRows(state);
         positionList(state);
       }
+    },
+    refreshHead() {
+      if (state.destroyed || !state.isOpen) return;
+      refreshHead(state);
     },
     destroy() {
       if (state.destroyed) return;
