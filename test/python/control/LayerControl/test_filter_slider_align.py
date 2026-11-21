@@ -37,7 +37,9 @@ class TestFilterRangeSliderLabelAlignment(LayerControlBrowserBase):
         label stays dot-centred, every two-column-or-wider label clamps to the
         track's end.
         """
-        layer = folium.GeoJson(json.dumps(load_geojson("LayerControl", "mixed")), name="Filter align")
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "mixed")), name="Filter align"
+        )
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
