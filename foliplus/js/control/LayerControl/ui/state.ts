@@ -10,6 +10,7 @@
 // exported names stay as thin delegates so callers and test spies are
 // unchanged.
 import * as CONST from "../const.js";
+import { authorFoldedKeys } from "../declaredFolder.js";
 import type { LayerOverride } from "../type.js";
 import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
@@ -20,7 +21,12 @@ import type { LayerUI } from "./surface.js";
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.c.persistence.load();
   ui.listPanel.foldedRoles = new Set(state.foldedRoles);
+  // User override (persisted) and author default (CONF.folders) are two
+  // layers; effectiveFold = foldedFolders.has(key) ? foldedFolders.has(key)
+  // : authorFoldedFolders.has(key). The author default is re-derived on
+  // every load so it stays fresh if the author changes the declaration.
   ui.listPanel.foldedFolders = new Set(state.foldedFolders);
+  ui.listPanel.authorFoldedFolders = authorFoldedKeys(ui.config?.folders);
   // Intent values + provenance sink into the store. The label config is read
   // from `layers[id].label` only — the legacy top-level `annotations`
   // segment was dropped.

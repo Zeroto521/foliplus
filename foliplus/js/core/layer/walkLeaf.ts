@@ -52,9 +52,11 @@ const safeGroupLike = (node: TreeNode): boolean => {
   }
 };
 
-/** Enumerate a node's children. `eachLayer` wins (Leaflet containers); the
- *  layer registry is a fallback for window globals and ad-hoc wrappers that
- *  don't implement eachLayer. */
+/** A node's DIRECT children — no recursion, so the read is O(children) and a
+ *  container's own children read the same whether they are leaves or nested
+ *  containers. `eachLayer` wins (Leaflet containers); the layer registry is a
+ *  fallback for window globals and ad-hoc wrappers that don't implement
+ *  eachLayer. */
 const childrenOf = (node: UnknownLayer): L.Layer[] => {
   try {
     if (isContainerNode(node)) {
@@ -68,6 +70,17 @@ const childrenOf = (node: UnknownLayer): L.Layer[] => {
     return [];
   }
 };
+
+/** How many DIRECT children a node holds.
+ *
+ *  Shallow on purpose: the row's "how many sub-layers" figure is the
+ *  container's own unit, not a deep feature census. A group holding two
+ *  groups reads 2, not the leaves buried inside them — that count belongs to
+ *  those children. O(children), so a hostile getter costs one caught read
+ *  and nothing more (`childrenOf` never throws).
+ */
+const countChildLayers = (layer: UnknownLayer): number =>
+  layer ? childrenOf(layer).length : 0;
 
 /** Exhaustive walk over every leaf. A node that declares a child registry
  *  (even when empty) is never visited as a leaf. */
@@ -160,4 +173,12 @@ const someLeaf = (
   return pred(layer as L.Layer);
 };
 
-export { isContainerNode, someLeaf, walkLeaf, walkTree, findLeaf, findNode };
+export {
+  countChildLayers,
+  findLeaf,
+  findNode,
+  isContainerNode,
+  someLeaf,
+  walkLeaf,
+  walkTree,
+};

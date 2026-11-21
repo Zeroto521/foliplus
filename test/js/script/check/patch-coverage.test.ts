@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
-  __entryUrl,
   computePatch,
   isJsFile,
   isPythonFile,
@@ -990,9 +989,14 @@ describe("main CLI error paths", () => {
     try {
       runCli(
         [`--cwd=${repo}`, "--base=HEAD", "--coverage=coverage/coverage-final.json"],
-        __entryUrl,
+        resolve("script/check/patch-coverage.mjs"),
+        resolve("script/check/patch-coverage.mjs"),
       );
-      runCli([`--cwd=${repo}`, "--base=HEAD"], "/some/other/entry.mjs");
+      runCli(
+        [`--cwd=${repo}`, "--base=HEAD"],
+        "/some/other/entry.mjs",
+        resolve("script/check/patch-coverage.mjs"),
+      );
       expect(log).toHaveBeenCalled();
     } finally {
       log.mockRestore();

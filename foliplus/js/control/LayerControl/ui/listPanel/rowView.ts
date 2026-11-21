@@ -15,7 +15,7 @@
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
-import { ROLE } from "#core/layer/index.js";
+import { ROLE, countChildLayersOf, isContainerLayer } from "#core/layer/index.js";
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
@@ -144,6 +144,20 @@ const rowType = (
   if (layerInfo.iconSvg) {
     return { svg: layerInfo.iconSvg, key: "type_custom" };
   }
+  // A container layer (folium FeatureGroup / LayerGroup) is its own row: it is
+  // not a vector face, so its type icon is the group glyph and its type word
+  // is the container label — never the geometry of its buried leaves.
+  // A container row is a group of sub-layers shown as one row. A registered
+  // logical layer can also be backed by a group (an L.layerGroup()) but expose
+  // a featureCountProvider — that layer's count is provider-driven, so it is
+  // not a sub-layer container.
+  if (layer && !layerInfo.featureCountProvider && isContainerLayer(layer)) {
+    // Materialize the surface before the container answer: a container whose
+    // leaves expose labelable properties still needs its label pane, and the
+    // surface is what declares it (withLabelSpec runs inside surfaceFor).
+    ui.c.surfaceFor(layerInfo);
+    return { svg: SVGs.ICON_CONTAINER, key: "type_container" };
+  }
   if (layer) {
     const gtype = ui.c.surfaceFor(layerInfo).geometryType();
     return { svg: Util.getTypeSVG(gtype), key: `type_${gtype}` };
@@ -175,7 +189,19 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const filterModel =
     typeof layerInfo.filterProvider === "function" ? layerInfo.filterProvider() : null;
   const filtered = Boolean(filterModel?.filter);
-  const rawCount = filtered ? filterModel!.kept : ui.c.getFeatureCount(layerInfo.id);
+  // A container's count column is its DIRECT child count (sub-layers), not a
+  // deep feature census — the row says "3 layers", not "12 features". A logical
+  // layer backed by a group with a featureCountProvider keeps the provider
+  // count (the group is its representation, not a folder of sub-layers).
+  const containerCount =
+    layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
+      ? countChildLayersOf(layer)
+      : null;
+  const rawCount = filtered
+    ? filterModel!.kept
+    : containerCount != null
+      ? containerCount
+      : ui.c.getFeatureCount(layerInfo.id);
   const countText =
     rawCount != null ? formatNumber(rawCount, "auto", ui.config.locale_code) : "";
   const filterTitle = filtered

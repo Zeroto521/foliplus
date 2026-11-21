@@ -15,7 +15,8 @@ Root causes fixed in this change:
 
 Guard: a 5-item menu (a tile basemap has Style / Focus / Rename / Attributes /
 Delete — no filter row) must fit its scrollport on both axes after opening, and
-the shared thin + stable-gutter scrollbar recipe must have applied.
+the shared thin-lane scrollbar recipe must have applied (the menu is
+deliberately excluded from the stable-gutter list: its items are fixed).
 """
 
 from __future__ import annotations
@@ -60,8 +61,8 @@ class TestMoreMenuScrollBrowser:
             assert result["scrollbarWidth"] == "thin", (
                 f"scrollbar-width not thin: {result['scrollbarWidth']}"
             )
-            assert result["scrollbarGutter"] == "stable", (
-                f"scrollbar-gutter not stable: {result['scrollbarGutter']}"
+            assert result["scrollbarGutter"] == "auto", (
+                f"menu should not reserve a gutter: {result['scrollbarGutter']}"
             )
             # The menu is at least as wide as its content (no horizontal clip).
             assert result["menuWidth"] >= result["scrollWidth"], (

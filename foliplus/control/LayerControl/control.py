@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, Literal, get_args
+from typing import Annotated, Any, Literal, get_args
 
 from branca.element import Element
 from folium.map import Layer
@@ -12,6 +12,7 @@ from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
+from ._folder import normalise_folders
 from ._layer_declaration import (
     declared_border,
     declared_filter,
@@ -120,6 +121,21 @@ class LayerControl(BaseControl):
         Language code ("en", "zh") or a LocaleConfig instance.
         Defaults to auto-detection, falling back to English.
 
+    folders : dict, optional
+        Central folder-defaults config: author-declared default folded state
+        per folder, keyed by role (multiple folders per role — hence the
+        plural ``folders``, unlike the per-layer ``foliplus={"folder": ...}``
+        which is singular because one layer belongs to one folder). Entries
+        are ``{"name": ..., "folded": ...}``; only ``name`` is required (a
+        non-empty string), ``folded`` is an optional bool (default expanded).
+        A name may be declared even with no members yet. A user manual
+        fold always wins over the author default; an explicit expand over an
+        author-folded folder is not yet supported, because the user override is
+        a set of folded keys and cannot record "the user re-expanded this".
+        Declarations of the same name (NFC → whitespace-fold → trim →
+        lower-case) merge within one section: the display name keeps the first
+        spelling, ``folded`` is last-wins.
+
     Examples
     --------
     Mount the panel on a map:
@@ -159,11 +175,11 @@ class LayerControl(BaseControl):
     +----------------+------+------------------------------------------------------------------+
     | ``zoom_range`` | dict | The layer's visible zoom range (see the zoom range table below). |
     +----------------+------+------------------------------------------------------------------+
-    | ``folder``     | str  | The layer's folder (role group) name; see the note below.        |
+    | ``folder``     | str  | The layer's folder (role) name; see the note below.              |
     +----------------+------+------------------------------------------------------------------+
 
-    Two layers declaring the same ``folder`` name in the same role and
-    role (for example ``foliplus={"folder": "底图"}``) are grouped into one
+    Two layers declaring the same ``folder`` name in the same role (for
+    example ``foliplus={"folder": "底图"}``) are grouped into one
     folder — a grouping intent, not a conflict, and it never warns.
 
     Folder names group case-insensitively after whitespace folding, so
@@ -343,12 +359,37 @@ class LayerControl(BaseControl):
         label_collide: bool = True,
         collapse_on_outside: bool = False,
         icon_prefix: Literal["fa-solid", "fa-regular"] = "fa-solid",
+        folders: Annotated[
+            dict[str, Any] | None,
+            FieldSpec(
+                ts="FolderDefaults",
+                name="FolderDefaults",
+                shape={
+                    "overlay": [{"name": "string", "folded": ("bool", "?")}],
+                    "base": [{"name": "string", "folded": ("bool", "?")}],
+                },
+                config_key="folders",
+                note=(
+                    "Central folder-defaults config: author-declared default "
+                    "folded state per folder, keyed by role. Entries are "
+                    "{name, folded}; a name may be declared even with no "
+                    "members yet. A user manual fold always wins over the "
+                    "author default; same-name declarations merge (first "
+                    "spelling, folded last-wins).",
+                ),
+            ),
+        ] = None,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.label_collide = label_collide
         self.collapse_on_outside = collapse_on_outside
         self.icon_prefix = icon_prefix
+        # The author writes folders={"overlay": [...], "base": [...]}; CONF
+        # carries the normalised {name, folded} lists under the shared
+        # `folders` key. Invalid declarations warn once and stay None (every
+        # folder keeps the built-in expanded default).
+        self.folders = normalise_folders(folders)
 
     def _extra_config(self) -> dict[str, object]:
         """Collect layers from the parent map at render time.
@@ -428,7 +469,7 @@ class LayerControl(BaseControl):
 
         # A folder name shared by several layers is a grouping intent, not a
         # conflict: the JS side merges same-name declarations of the same role
-        # into one authorFolderId (folder = role group name, one group may
+        # into one authorFolderId (folder = role name, one role may
         # hold many member rows). Each declaring layer simply emits the name.
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).

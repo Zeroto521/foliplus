@@ -102,20 +102,12 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
     const layerInfo = ui.c.pendingRegistrations.shift();
     if (layerInfo) insertLayerItem(ui, layerInfo);
   }
-  // Last in the attach sequence: applyUserState() runs the full sweep
-  // needed for rows rendered from the initial registry. Hidden ids are
-  // loaded above but only applied here, so a row can never render visible
-  // and get removed afterwards. The UI-shell method (not the state.ts
-  // function) so the border and fill dimensions are replayed too — the
-  // initial layers never go through registerLayer, which is where the
-  // id-specified path replays them for late registrations.
-  const moved = ui.applyUserState();
-  // Initial layers never pass through layeradd or registerLayer, so the filter
-  // replay those paths perform must run here too: a reload restores the
-  // committed filter into the store, and without this pass the map keeps
-  // painting the full data (#1181). Runs after applyUserState so the runtime
-  // store and the rows exist.
-  ui.c.replayAllFilters();
+  // Last in the attach sequence: the single replay entry replays every
+  // stored dimension for every registered layer — the A path for layers
+  // seeded at construction, which never pass through registerLayer or
+  // layeradd (the B path). One call site per path (replay convergence); a new dimension
+  // is added to replayStoredState once and reaches both.
+  const moved = ui.c.replayStoredStateAll();
   // Re-apply ARIA/roving after insertLayerItem / applyUserState may have
   // rebuilt rows.
   syncListCursor(ui);
