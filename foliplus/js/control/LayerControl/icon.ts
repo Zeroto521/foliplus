@@ -8,12 +8,13 @@ const ICON_LAYERS = `
 
 /** Container group glyph — two overlapping rounded squares (the design's
  *  container-row icon). The front square is surface-filled so it masks the
- *  back square's overlap; stroke is currentColor so it inherits the type-icon
- *  muted tint. */
+ *  back square's overlap. Stroke and weight are inherited from the type-icon
+ *  family rule (currentColor, --foliplus-stroke-icon) so the glyph reads at
+ *  the same weight as the point/line/polygon icons. */
 const ICON_CONTAINER = `
   <svg viewBox="0 0 24 24">
-    <rect x="6" y="6" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/>
-    <rect x="9" y="9" width="9" height="9" rx="1.5" fill="var(--foliplus-surface)" stroke="currentColor" stroke-width="1.2"/>
+    <rect x="5" y="5" width="10" height="10" rx="2" fill="none"/>
+    <rect x="9" y="9" width="10" height="10" rx="2" fill="var(--foliplus-surface)"/>
   </svg>`;
 
 const ICON_DRAG_HANDLE = `
