@@ -131,6 +131,12 @@
   /* The ✓ lead overlays the row's left edge (position:absolute), so the row
      must be the lead's containing block. */
   position: relative;
+  /* The row keeps the shared menu-row height (content-driven rows grew the
+     strip and pushed the later items out of the clamped list's scroll port,
+     clipping the first rows above the visible top). The strip stays aligned
+     because ROW_CONTENT flex:1 fills the fixed row and the bar is centred. */
+  height: var(--foliplus-menu-row-h);
+  box-sizing: border-box;
   cursor: pointer;
   transition:
     background-color var(--foliplus-transition-fast),

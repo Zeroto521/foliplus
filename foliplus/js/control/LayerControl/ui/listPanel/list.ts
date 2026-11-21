@@ -16,7 +16,7 @@ import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 import { ROLE, folderOf, normalizeFolderName } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
-import { finishSlidersIn, MENU_ROW_CLASS, sectionDivider } from "#ui/index.js";
+import { MENU_ROW_CLASS, finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 

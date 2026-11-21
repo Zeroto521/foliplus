@@ -44,7 +44,11 @@
   color: var(--foliplus-text-primary);
   font-family: inherit;
   font-size: var(--foliplus-font-size-md);
-  min-height: var(--foliplus-layer-row-min-height);
+  /* No min-height here: the shared class owns the selection bar + typography,
+     each surface owns its own row height (dropdown option 30px, scheme item
+     30px, layer item its padding+content). A shared min-height inflated the
+     menu/scheme rows to the layer row height and pushed the scheme list's
+     later items out of the clamped scroll port (clipping the first rows). */
 }
 
 /* Selected: the accent bar on the border the base row already reserves.

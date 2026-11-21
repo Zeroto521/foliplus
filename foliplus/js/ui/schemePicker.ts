@@ -10,9 +10,9 @@
 // Does NOT import any Heatmap or LayerControl module.
 import { buildLeadSlot } from "./checkSlot.js";
 import { createListbox } from "./listbox.js";
+import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import { PANEL_CLASS } from "./panelClassName.js";
 import { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
-import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import type { SchemePicker } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
