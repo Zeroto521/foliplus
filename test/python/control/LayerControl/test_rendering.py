@@ -63,7 +63,12 @@ class TestLayerControlRendering:
         html = render_control(LayerControl())
         assert "FOLD" in html
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert "rotate(180deg)" in css
+        # The turned pose is the aria-expanded override, reading the angle out
+        # of token.css. 180deg would be the old popup-style inversion
+        # (up-when-expanded) and is exactly what this rule holds back.
+        assert 'foliplus-layer-fold-btn[aria-expanded="true"] svg {' in css
+        assert "rotate(var(--foliplus-fold-rot-expanded))" in css
+        assert "rotate(180deg)" not in css
 
     def test_locale_zh(self):
         html = render_control(LayerControl(locale="zh"))
@@ -380,8 +385,10 @@ class TestLayerControlRendering:
         icon must NOT scale."""
         html = render_control(LayerControl())
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        # Fold toggle button SVG
-        assert "foliplus-layer-fold-btn:hover svg" in html
+        # Fold toggle button: hover and press wake the BUTTON, not its svg -
+        # the arrow keeps its own transform on the svg so the wake cannot
+        # overwrite which way it points.
+        assert "foliplus-layer-fold-btn:hover" in html
         assert "foliplus-layer-fold-btn:active" in html
 
         # ── The unified Row-cursor recipe, read from the source CSS ──

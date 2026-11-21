@@ -195,13 +195,21 @@
       stroke-linecap: round;
       stroke-linejoin: round;
       transition: transform var(--foliplus-transition-fast);
+      /* The arrow's angle is its only transform, and it stays on the svg while
+         every scale below lives on the button: two different elements, so the
+         hover / press scale cannot overwrite the turn and the turn cannot
+         compete with it. An earlier version put both in one transform through a
+         custom property; the hover scale then had the same
+         specificity as the rotation rule and an expanded row's arrow would snap
+         back to the collapsed pointing for the duration of a hover. */
+      transform: rotate(var(--foliplus-fold-rot-rest));
     }
+    /* The scale previews hover and press on the BUTTON, not the svg: the arrow
+       keeps turning while the button wakes. */
     &:hover {
       color: var(--foliplus-accent-primary);
 
-      svg {
-        transform: scale(var(--foliplus-scale-hover));
-      }
+      transform: scale(var(--foliplus-scale-hover));
     }
     /* Same wake as hover: fold-btn is a 20px icon button inside the row, so it
        can't take the row cursor's border/glow without looking oversized. The
@@ -215,10 +223,6 @@
     }
     &:active {
       transform: scale(var(--foliplus-scale-press));
-
-      svg {
-        transform: scale(var(--foliplus-scale-press));
-      }
     }
   }
   /* ── Fold button interaction: bidirectional state preview ──
@@ -228,8 +232,16 @@
     same way the row does. Tab focus is not a CSS trigger: the focusin
     delegate maps `:focus-visible` onto the row's JS class, which is already
     in this selector. */
-  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn svg {
-    transform: rotate(180deg);
+  /* The one and only place the fold arrow's expanded angle is applied. Driven
+     by aria-expanded - the same attribute JS sets from the row's fold state -
+     so every row kind that carries the button (role header today; folder rows
+     and container rows once #1276 lands) turns identically without writing its
+     own rotate. Both angles are named in token.css; the icon rests right-pointing
+     (collapsed) and turns down (expanded), the tree-list convention (VS Code
+     file explorer, GitHub file tree, Ant Design Tree). A 180deg spin would be
+     the popup-style inversion: up-when-expanded, down-when-collapsed. */
+  .foliplus-layer-fold-btn[aria-expanded="true"] svg {
+    transform: rotate(var(--foliplus-fold-rot-expanded));
   }
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
     color: var(--foliplus-accent-primary);
