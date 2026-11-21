@@ -805,6 +805,25 @@ describe("ui/list folder rows", () => {
     expect(divider!.classList.contains("foliplus-section-divider")).toBe(true);
   });
 
+  it("keeps the role label chip on the row's own surface (issue 3)", () => {
+    // The label paints a chip so the role divider's hairline does not cross
+    // the text. A hard-coded surface colour punched a white hole in the
+    // checked-row wash once the group rows started carrying it; inheriting the
+    // row's background keeps the gap in both states.
+    const row = readFileSync(
+      repoPath("foliplus/css/control/LayerControl/row.css"),
+      "utf8",
+    );
+    const block = row.slice(
+      row.indexOf(".foliplus-layer-sep-label {"),
+      row.indexOf("/* ── Shared grid placements"),
+    );
+    expect(block).toContain("background-color: inherit");
+    expect(block).not.toContain("background: var(--foliplus-surface)");
+    // The chip hugs the text so the hairline shows in the rest of the column.
+    expect(block).toContain("justify-self: start");
+  });
+
   it("draws two distinct fold-tree shapes, centred on the rail (issue 5)", () => {
     // --mid is a branch that continues below (├), --last is the elbow that ends
     // it (└). Both used to render the same full-height stem, so the tree had

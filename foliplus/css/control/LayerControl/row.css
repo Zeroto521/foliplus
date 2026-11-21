@@ -93,8 +93,13 @@
     white-space: nowrap;
     /* The role row's divider fills the label column behind this label; the
        surface paint creates the text gap so the hairline does not cross the
-       label (spec v3.6: divider ends before the count column). */
-    background: var(--foliplus-surface);
+       label (spec v3.6: divider ends before the count column). The paint
+       inherits the row's own background, so the gap follows the row between
+       its resting surface and the checked-row wash instead of punching a
+       white hole in the wash. The chip hugs the text, so the hairline shows
+       in the rest of the label column. */
+    justify-self: start;
+    background-color: inherit;
   }
 
   /* ── Shared grid placements (each row is an independent grid container,
