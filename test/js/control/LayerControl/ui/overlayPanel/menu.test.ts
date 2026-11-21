@@ -16,6 +16,7 @@ import {
   handleMenuClick,
   runMenuAction,
 } from "#control/LayerControl/ui/overlayPanel/menu.js";
+import { rebuildList } from "#control/LayerControl/ui/listPanel/index.js";
 import { styleCapability } from "#control/LayerControl/ui/style/index.js";
 
 describe("LayerUI menu", () => {
@@ -928,9 +929,27 @@ describe("LayerUI menu", () => {
     });
 
     describe("delete-folder menu item", () => {
-      it("dispatches deleteFolder(role, folder) from the folder entry", () => {
+      // A folder row only materialises once the layout owns the folder key, so
+      // create the folder before registering its member.
+      const seedFolder = (name: string) => {
+        manager.createFolder("overlay", name);
+      };
+      const openFolderRowMenu = () => {
+        // A full rebuild is what materialises the folder row: createFolder
+        // records the key and registerLayer inserts the member row, but the
+        // folder block itself is a render-pass product.
+        rebuildList(ui);
+        const folderRow = attachedPanel(ui).querySelector(
+          `.${CONST.CLASSES.FOLDER_ROW}`,
+        ) as HTMLElement;
+        ui.openMoreMenu(folderRow);
+        return folderRow;
+      };
+
+      it("dispatches deleteFolder(role, folder) from the folder row's entry", () => {
         const folderSpy = vi.fn();
         ui.c.deleteFolder = folderSpy;
+        seedFolder("My Folder");
         manager.registerLayer({
           id: "folder1",
           name: "Roads",
@@ -938,34 +957,38 @@ describe("LayerUI menu", () => {
           folder: "My Folder",
           layer: { options: {}, eachLayer: vi.fn() },
         } as never);
-        const item = attachedPanel(ui).querySelector(
-          `[data-layer-id="folder1"]`,
-        ) as HTMLElement;
-        ui.openMoreMenu(item);
-        const folderLi = item.querySelector(
+        const folderRow = openFolderRowMenu();
+        const folderLi = folderRow.querySelector(
           `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
         ) as HTMLLIElement;
         expect(folderLi).not.toBeNull();
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });
         Object.defineProperty(event, "target", { value: folderLi });
+        // First activation only arms the entry (issue 11: every delete is a
+        // two-step confirm, folders included).
+        handleMenuClick(ui, event);
+        expect(folderSpy).not.toHaveBeenCalled();
+        expect(folderLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(
+          true,
+        );
         handleMenuClick(ui, event);
         expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
       });
 
-      it("uses the member assignment role over the layer role when they diverge", () => {
+      it("takes the role from the folder row, not from a member's stale assignment", () => {
         const folderSpy = vi.fn();
         ui.c.deleteFolder = folderSpy;
+        seedFolder("Green Space");
         manager.registerLayer({
           id: "folder2",
           name: "Parks",
           role: "overlay",
+          folder: "Green Space",
           layer: { options: {}, eachLayer: vi.fn() },
         } as never);
-        // The directory entry exists (created by the user), then a stale member
-        // assignment pins folder2 to a DIFFERENT section than its role. The
-        // member is the single source: dispatch must use the member's section,
-        // not fall back to the layer role.
-        manager.createFolder("overlay", "Green Space");
+        // A stale member assignment pins folder2 to a DIFFERENT section than
+        // the folder row it renders under. The row is the identity the user
+        // acted on, so its own role is what dispatch must use.
         (
           ui.c.folderLayoutView.members as Record<
             string,
@@ -975,23 +998,23 @@ describe("LayerUI menu", () => {
           role: "base",
           folder: "green space",
         };
-        const item = attachedPanel(ui).querySelector(
-          `[data-layer-id="folder2"]`,
-        ) as HTMLElement;
-        ui.openMoreMenu(item);
-        const folderLi = item.querySelector(
+        const folderRow = openFolderRowMenu();
+        const folderLi = folderRow.querySelector(
           `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
         ) as HTMLLIElement;
         expect(folderLi).not.toBeNull();
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });
         Object.defineProperty(event, "target", { value: folderLi });
+        // Arm, then confirm.
         handleMenuClick(ui, event);
-        expect(folderSpy).toHaveBeenCalledWith("base", "Green Space");
+        handleMenuClick(ui, event);
+        expect(folderSpy).toHaveBeenCalledWith("overlay", "Green Space");
       });
 
-      it("does not dispatch deleteFolder when the layer has lost its folder", () => {
+      it("does not dispatch deleteFolder when the row has lost its folder name", () => {
         const folderSpy = vi.fn();
         ui.c.deleteFolder = folderSpy;
+        seedFolder("My Folder");
         manager.registerLayer({
           id: "folder1",
           name: "Roads",
@@ -999,20 +1022,19 @@ describe("LayerUI menu", () => {
           folder: "My Folder",
           layer: { options: {}, eachLayer: vi.fn() },
         } as never);
-        const item = attachedPanel(ui).querySelector(
-          `[data-layer-id="folder1"]`,
-        ) as HTMLElement;
-        ui.openMoreMenu(item);
-        const folderLi = item.querySelector(
+        const folderRow = openFolderRowMenu();
+        const folderLi = folderRow.querySelector(
           `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
         ) as HTMLLIElement;
         expect(folderLi).not.toBeNull();
-        // The menu renders the entry while the layer had a folder; by dispatch
-        // time the layer lost it (folderInfo?.folder is falsy) — the action
-        // must be a no-op rather than deleting with an undefined name.
-        (manager.layerRegistry.get("folder1") as any).folder = null;
+        // The menu rendered while the row still carried its name; by dispatch
+        // time it is gone — the confirm must be a no-op rather than deleting
+        // with an undefined name.
+        folderRow.removeAttribute(CONST.DATA.FOLDER_NAME);
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });
         Object.defineProperty(event, "target", { value: folderLi });
+        // Arm, then confirm: the confirm is the no-op, not the arm.
+        handleMenuClick(ui, event);
         handleMenuClick(ui, event);
         expect(folderSpy).not.toHaveBeenCalled();
       });
@@ -1556,22 +1578,29 @@ describe("LayerUI menu", () => {
         b => (b as HTMLElement).dataset.action,
       );
 
-    it("renders the delete-folder entry last for a row whose layer has a folder", () => {
+    it("keeps the delete-folder entry out of a layer row's menu", () => {
+      // Deleting the folder is the folder row's own operation: a layer menu
+      // carrying both it and the layer's own delete would show two entries
+      // labelled "Delete" (issue 11).
       registerLayer("folder1", "Roads", "overlay", "My Folder");
       const item = findItem(ui, "folder1");
       ui.openMoreMenu(item);
-      const actions = actionsFor(item);
-      expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
-      // The folder entry sits before the destructive delete-layer divider.
-      expect(actions.indexOf(CONST.ACTION.DELETE_FOLDER)).toBeLessThan(
-        actions.indexOf(CONST.ACTION.DELETE_LAYER),
-      );
+      expect(actionsFor(item)).not.toContain(CONST.ACTION.DELETE_FOLDER);
+      expect(actionsFor(item)).toContain(CONST.ACTION.DELETE_LAYER);
     });
 
-    it("does not render the delete-folder entry for a root layer", () => {
-      const item = findItem(ui, "overlay1");
-      ui.openMoreMenu(item);
-      expect(actionsFor(item)).not.toContain(CONST.ACTION.DELETE_FOLDER);
+    it("renders the delete-folder entry last in the folder row's menu", () => {
+      manager.createFolder("overlay", "My Folder");
+      registerLayer("folder1", "Roads", "overlay", "My Folder");
+      rebuildList(ui);
+      const folderRow = attachedPanel(ui).querySelector(
+        `.${CONST.CLASSES.FOLDER_ROW}`,
+      ) as HTMLElement;
+      ui.openMoreMenu(folderRow);
+      const actions = actionsFor(folderRow);
+      expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
+      // Delete is the last entry of the folder menu.
+      expect(actions[actions.length - 1]).toBe(CONST.ACTION.DELETE_FOLDER);
     });
   });
 });

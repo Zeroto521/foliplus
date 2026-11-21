@@ -294,30 +294,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       ui.T("attributes_layer"),
     ),
   );
-  // A row whose layer belongs to a folder block gets an explicit
-  // "delete folder" entry. The user-facing counterpart of the #911 auto-retain:
-  // freeze keeps an emptied folder key around; this entry removes it. Deleting a
-  // non-empty folder promotes every member to section root (folder = null,
-  // order preserved); the layers themselves are never touched.
-  // The folder is read from the layout's member assignment (the single
-  // source), not from the author declaration on the registry entry — a
-  // rename keeps the member, and a user move to root drops it.
-  const folderName = ui.c.folderNameOf(layerId);
-  if (folderName) {
-    menu.appendChild(
-      dom.el(
-        "button",
-        {
-          type: "button",
-          "data-action": CONST.ACTION.DELETE_FOLDER,
-          role: "menuitem",
-          title: ui.T("delete_folder_tooltip"),
-        },
-        { html: Icons.ICON_DELETE },
-        ui.T("delete_folder").replace("{name}", folderName),
-      ),
-    );
-  }
+  // Deleting the folder a layer belongs to is the folder row's own operation,
+  // not the layer's: each row type owns its entry set, and a layer menu with
+  // two entries both labelled "Delete" would make the user guess which one
+  // they are confirming (issue 11).
 
   // Delete goes behind a divider: everything above it is reversible (view,
   // configure, rename, inspect), and this is the only entry that is not. Three
@@ -436,7 +416,10 @@ let armedDelete: {
   ui: LayerUI;
   label: HTMLElement;
   menuItem: HTMLElement;
-  isClear: boolean;
+  /** Locale key the entry shows when idle. */
+  idleKey: string;
+  /** Locale key the entry shows while armed. */
+  confirmKey: string;
   originalTitle: string;
 } | null = null;
 let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
@@ -509,6 +492,19 @@ const buildDeleteItem = (
   return item;
 };
 
+/** The idle and confirming locale keys for a delete entry. One table for every
+ *  kind of delete entry — a layer, a component's data, a folder — so the
+ *  two-step confirm reads the same wherever it appears. */
+const deleteLabelKeys = (menuItem: HTMLElement): { idleKey: string; confirmKey: string } => {
+  if (menuItem.dataset.action === CONST.ACTION.DELETE_FOLDER) {
+    return { idleKey: "delete_folder", confirmKey: "delete_folder_confirm" };
+  }
+  if (menuItem.dataset.mode === "clear") {
+    return { idleKey: "clear_data", confirmKey: "clear_data_confirm" };
+  }
+  return { idleKey: "delete_layer", confirmKey: "delete_layer_confirm" };
+};
+
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
  *  without borrowing the accent color (which already means hover and focus). */
@@ -518,17 +514,14 @@ const armDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
   );
   if (!label) return;
   disarmDelete();
-  const isClear = menuItem.dataset.mode === "clear";
-  // The title attribute is set by buildDeleteItem at entry construction, so
-  // there is no null to fall back to.
+  const { idleKey, confirmKey } = deleteLabelKeys(menuItem);
+  // The title attribute is set by the entry builder at construction, so there
+  // is no null to fall back to.
   const originalTitle = menuItem.getAttribute("title")!;
-  armedDelete = { ui, label, menuItem, isClear, originalTitle };
-  label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
+  armedDelete = { ui, label, menuItem, idleKey, confirmKey, originalTitle };
+  label.textContent = ui.T(confirmKey);
   menuItem.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
-  menuItem.setAttribute(
-    "title",
-    ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"),
-  );
+  menuItem.setAttribute("title", ui.T(confirmKey));
   armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
 };
 
@@ -539,7 +532,7 @@ const disarmDelete = (): void => {
   armedDeleteTimer = undefined;
   const armed = armedDelete;
   if (!armed) return;
-  armed.label.textContent = armed.ui.T(armed.isClear ? "clear_data" : "delete_layer");
+  armed.label.textContent = armed.ui.T(armed.idleKey);
   armed.menuItem.setAttribute("title", armed.originalTitle);
   armed.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
   armedDelete = null;
@@ -554,8 +547,24 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
     armDelete(ui, menuItem);
     return false;
   }
-  const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";
+  const action = menuItem.dataset.action;
   disarmDelete();
+  if (action === CONST.ACTION.DELETE_FOLDER) {
+    // The folder row owns the identity: it carries no data-layer-id, so the
+    // menu record's folderKey / role / folder name are the handles. The menu
+    // closes first (hard constraint 4a) — the action rerenders the list, and
+    // the menu anchors to the row being rebuilt.
+    const open = ui.overlayPanel.activeMenu;
+    const role =
+      open?.role ?? open?.item.getAttribute(CONST.DATA.ROLE) ?? "";
+    const folderName = open?.item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
+    if (role && folderName) {
+      ui.closeMoreMenu(true);
+      ui.c.deleteFolder(role as LayerRole, folderName);
+    }
+    return true;
+  }
+  const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";
   ui.c.deleteLayer(layerId);
   return true;
 };
@@ -706,18 +715,11 @@ const MENU_ACTIONS: Record<
     }
     return { closeMenu: false, restoreRowFocus: false };
   },
-  [CONST.ACTION.DELETE_FOLDER]: ui => {
-    // The row's layer is the only handle: the menu does not carry the folder
-    // name, so resolve it from the registry at dispatch time. The menu closes
-    // first (hard constraint 4a) — the action rerenders the list, and the menu
-    // anchors to the row being rebuilt.
-    const layerId = menuLayerId(ui);
-    const member = ui.c.folderLayoutView.members[layerId];
-    const layerInfo = ui.c.layerRegistry.get(layerId);
-    const folderName = ui.c.folderNameOf(layerId);
-    if (layerInfo && folderName) {
-      ui.closeMoreMenu(true);
-      ui.c.deleteFolder(member ? member.role : layerInfo.role, folderName);
+  [CONST.ACTION.DELETE_FOLDER]: (ui, menuItem) => {
+    // Same two-step confirm as a layer delete: the first activation only arms,
+    // so the menu stays open and the confirming label is visible.
+    if (activateDeleteItem(ui, menuItem)) {
+      return { closeMenu: true, restoreRowFocus: true };
     }
     return { closeMenu: false, restoreRowFocus: false };
   },
@@ -838,7 +840,6 @@ const attachRowMenu = (
 const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
   closeOverlays(ui);
   const folderKey = item.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
-  const folderName = item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
   const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
   menu.appendChild(
     dom.el(
@@ -870,7 +871,7 @@ const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
         title: ui.T("delete_folder_tooltip"),
       },
       { html: Icons.ICON_DELETE },
-      ui.T("delete_folder").replace("{name}", folderName),
+      dom.el("span", { class: CONST.CLASSES.MENU_DELETE_LABEL }, ui.T("delete_folder")),
     ),
   );
   attachRowMenu(ui, item, menu, { folderKey });
