@@ -84,7 +84,7 @@ class ModeManager {
     publish(this.bus, EVENTS.MODE_CHANGE, {
       component,
       mode,
-    } satisfies ModeChangePayload);
+    } satisfies ModeChangePayload, { kind: "user", via: "panel" });
   }
 
   /**

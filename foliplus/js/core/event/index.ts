@@ -30,9 +30,6 @@ export type {
   EventPayloadMap,
   EventOrigin,
   EventMeta,
-  UserVia,
-  ProgrammaticVia,
-  SystemVia,
 } from "./type.js";
 export { EventBus, SettledOperation, publish } from "./EventBus.js";
 export type { DispatchFailure, EventHandler } from "./EventBus.js";

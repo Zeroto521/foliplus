@@ -440,7 +440,7 @@ class LayerController implements LayerAPI {
         // would be a dead branch (no id on `items` can miss the id map).
         layerInfo.filter = declared;
         this.applyFilterClass(layerInfo.id, declared);
-        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: layerInfo.id });
+        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: layerInfo.id }, { kind: "programmatic", via: "init" });
       }
     }
 
@@ -943,7 +943,7 @@ class LayerController implements LayerAPI {
     if (this.layerRegistry.get(id)?.role === ROLE.BASE) return;
     // Settled: one consumer throwing must not keep the other count listeners
     // (the row repaint, the fill ramp) from seeing the final geometry.
-    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id });
+    publish(this.events, EVENTS.LAYER_ITEM_COUNT_CHANGE, { id }, { kind: "programmatic", via: "refresh" });
   }
 
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
@@ -1009,7 +1009,7 @@ class LayerController implements LayerAPI {
     kind: LayerKind,
     operation: SettledOperation,
   ): void {
-    operation.emitSuperseding(EVENTS.LAYER_CHANGE, id, { id, kind });
+    operation.emitSuperseding(EVENTS.LAYER_CHANGE, id, { id, kind }, { kind: "system", via: "teardown" });
   }
 
   /** Start one settled fan-out for a lifecycle operation. Queue every event the
@@ -1150,11 +1150,11 @@ class LayerController implements LayerAPI {
         // stored-state projection is left to the single applyUserState below,
         // so the registration entry holds the delta and can announce it after
         // the row, the count and the order are all settled.
-        operation.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id });
+        operation.emit(EVENTS.LAYER_ITEM_ADDED, { id: opts.id }, { kind: "programmatic", via: "init" });
       } else {
         // Re-registration is how the API says "this layer's content changed",
         // so the row's cached field list and resolved field are both stale.
-        operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id });
+        operation.emit(EVENTS.LAYER_ITEM_UPDATED, { id: opts.id }, { kind: "programmatic", via: "refresh" });
       }
       // The row insert/update above is this registration's first fan-out: a
       // throw there dooms it, so stop before projecting state or announcing a
@@ -1170,13 +1170,13 @@ class LayerController implements LayerAPI {
       // re-scanning every row (initTypesAndVisibility is a full pass used on
       // attach/fold). Fires after applyUserState so the row reflects the fresh
       // map state.
-      operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id });
+      operation.emit(EVENTS.LAYER_ITEM_REFRESHED, { id: opts.id }, { kind: "programmatic", via: "refresh" });
       // Re-apply a committed filter's hidden class onto the refreshed layer's
       // fresh DOM elements (recreated when the layer is re-attached).
       this.replayFilter(opts.id);
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: layerInfo.role,
-      });
+      }, { kind: "system", via: "teardown" });
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
       // REFRESHED / GROUP_COUNT consumers can also throw: those failures are
@@ -1276,7 +1276,7 @@ class LayerController implements LayerAPI {
     if (commit.failures.length > 0) {
       const operation = this.beginOperation();
       if (this.uiContainer && this.ui) {
-        operation.emit(EVENTS.LAYER_LIST_REBUILD);
+        operation.emit(EVENTS.LAYER_LIST_REBUILD, { kind: "system", via: "teardown" });
       }
       try {
         operation.throwIfFailed();
@@ -1289,7 +1289,7 @@ class LayerController implements LayerAPI {
     }
     const operation = this.beginOperation();
     if (this.uiContainer && this.ui) {
-      operation.emit(EVENTS.LAYER_LIST_REBUILD);
+      operation.emit(EVENTS.LAYER_LIST_REBUILD, { kind: "system", via: "teardown" });
     }
     // The panel sync above is this operation's own side effect, so it lands
     // before the notify: a subscriber reading the row order out of the panel
@@ -1593,17 +1593,17 @@ class LayerController implements LayerAPI {
       // No gate before the first event: retireEntry just removed the entry and
       // nothing has had a chance to re-register it yet. Every subsequent event
       // is gated.
-      operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id });
+      operation.emit(EVENTS.LAYER_ITEM_REMOVED, { id }, { kind: "system", via: "teardown" });
       if (!gate()) return false;
       // The row was just removed: rescan the role's count so the toggle-all
       // checkbox reflects the removal in the same frame.
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: layerInfo.role,
-      });
+      }, { kind: "system", via: "teardown" });
       if (!gate()) return false;
       this.emitLayerChange(id, layerInfo.kind, operation);
       if (!gate()) return false;
-      operation.emit(EVENTS.LAYER_REMOVED, { id });
+      operation.emit(EVENTS.LAYER_REMOVED, { id }, { kind: "system", via: "teardown" });
       return true;
     } finally {
       offAdded();
@@ -1669,7 +1669,7 @@ class LayerController implements LayerAPI {
       // of a clear must erase, or the next draw inherits the half nobody
       // pruned. The operation collects the handler failures, so the cleanup
       // still runs even when an earlier consumer throws.
-      operation.emit(EVENTS.LAYER_DELETED, { id });
+      operation.emit(EVENTS.LAYER_DELETED, { id }, { kind: "system", via: "teardown" });
       const { orderDropped, intentDropped } = this.domain.deleteEntry(id);
       if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
       this.persistence.flushAll();
@@ -1690,8 +1690,8 @@ class LayerController implements LayerAPI {
         this.ui.resetSolidBasemap();
         operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
           role: ROLE.BASE,
-        });
-        operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
+        }, { kind: "system", via: "teardown" });
+        operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, { kind: "system", via: "teardown" });
       }
       this.persistence.flushAll();
       if (retired.error) throw retired.error;
@@ -1760,8 +1760,8 @@ class LayerController implements LayerAPI {
     if (this.ui && announced) {
       operation.emit(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
         role: retired.layerInfo.role,
-      });
-      operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED);
+      }, { kind: "system", via: "teardown" });
+      operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, { kind: "system", via: "teardown" });
     }
     if (retired.error) throw retired.error;
     operation.throwIfFailed();
@@ -2169,7 +2169,7 @@ class LayerController implements LayerAPI {
     this.filterStore.registerHost(id, FILTER_SOURCE.GENERIC, {
       normalize: (filter: LayerFilter) => filter,
       apply: (filter: LayerFilter) => this.applyFilterClass(id, filter),
-      publish: () => publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id }),
+      publish: () => publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id }, { kind: "programmatic", via: "self" }),
       // Tier1: cheap presence probe — O(K) bounded scan, first hit stops.
       hasFields: () => this.hasGenericFields(id),
       // Tier2: full model — built once on first call, cached until
@@ -2456,7 +2456,7 @@ class LayerController implements LayerAPI {
     }
     this.capabilitySnapshot = next;
     for (const id of changed) {
-      publish(this.events, EVENTS.LAYER_CAPABILITY_CHANGED, { id });
+      publish(this.events, EVENTS.LAYER_CAPABILITY_CHANGED, { id }, { kind: "programmatic", via: "self" });
     }
   }
 

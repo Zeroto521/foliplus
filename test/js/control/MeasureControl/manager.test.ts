@@ -86,7 +86,7 @@ describe("MeasureManager — persistence", () => {
     bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
     // Direct call (after constructor already emitted once).
     manager.restoreMeasurements();
-    expect(handler).toHaveBeenCalledWith({ id: manager.layerId });
+    expect(handler).toHaveBeenCalledWith({ id: manager.layerId }, { origin: { kind: "programmatic", via: "refresh" } });
   });
 
   it("nextMeasurementId increments counter and includes type", () => {
@@ -1475,7 +1475,7 @@ describe("MeasureManager — registerLabel lifecycle", () => {
 
     expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
       id: manager.layerId,
-    });
+    }, { kind: "user", via: "panel" });
   });
 
   it("style broadcast is settled — a thrower does not starve later consumers", () => {

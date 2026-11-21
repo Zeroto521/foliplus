@@ -43,7 +43,7 @@ const BUS_CALLS = new Set([
  *  a `kind` property (our discriminated union) — `{ kind: "user", via: ... }`.
  *  The origin is the LAST argument that is such an object (or a reference to
  *  an origin-shaped constant), after the payload. */
-function isOriginArg(node) {
+const isOriginArg = (node) => {
   if (!node) return false;
   if (ts.isObjectLiteralExpression(node)) {
     return node.properties.some(
@@ -58,7 +58,7 @@ function isOriginArg(node) {
 /** Recognise `EVENTS.X` as the event name. Semantic events are spelled
  *  as the dictionary constant, never a bare string — a bare string is a DOM
  *  or module-local event (e.g. slider's own `emit("input")`), not a bus call. */
-function eventNameOf(arg) {
+const eventNameOf = (arg) => {
   if (!arg) return null;
   if (ts.isPropertyAccessExpression(arg)) {
     const text = arg.getText();
@@ -68,7 +68,7 @@ function eventNameOf(arg) {
 }
 
 /** Collect every origin violation in one file's source. */
-export function findOriginDrift(source, fileRel) {
+const findOriginDrift = (source, fileRel) => {
   const violations = [];
   const sf = ts.createSourceFile(
     fileRel,
@@ -88,12 +88,21 @@ export function findOriginDrift(source, fileRel) {
           : "";
       if (BUS_CALLS.has(calleeText)) {
         const args = node.arguments;
-        // Find the event name: first arg EVENTS.X or string.
-        const evName = eventNameOf(args[0]);
+        // Find the event name. Method form (bus.emit(EVENTS.X, ...),
+        // operation.emit(EVENTS.X, ...)) puts EVENTS.X at args[0]; the
+        // free-function facade publish(bus, EVENTS.X, ...) puts it at
+        // args[1] (args[0] is the bus). Check both, preferring the method
+        // form first.
+        const evName = eventNameOf(args[0]) ?? eventNameOf(args[1]);
         if (evName !== null) {
-          // Origin is the last arg that looks like an origin literal.
+          // Which arg holds the event name? Method form: args[0].
+          // Free-function publish(bus, EVENTS.X, ...): args[1].
+          const eventIndex = eventNameOf(args[0]) !== null ? 0 : 1;
+          // Origin is the last arg after the event name that looks like an
+          // origin literal (or an origin-shaped reference). Start after the
+          // event arg so EVENTS.X itself is never mistaken for an origin.
           let originArg = undefined;
-          for (let i = args.length - 1; i >= 1; i--) {
+          for (let i = args.length - 1; i > eventIndex; i--) {
             if (isOriginArg(args[i])) {
               originArg = args[i];
               break;
@@ -123,7 +132,7 @@ export function findOriginDrift(source, fileRel) {
 }
 
 /** Scan every production .ts under foliplus/js and report violations. */
-export function scan(root = process.cwd()) {
+const scan = (root = process.cwd()) => {
   const base = path.join(root, JS_ROOT);
   const files = [];
   const walk = dir => {
@@ -144,7 +153,7 @@ export function scan(root = process.cwd()) {
 }
 
 /** CLI entry: scan, print, exit 1 on any violation. */
-export function runCli(argv = process.argv.slice(2)) {
+const runCli = (argv = process.argv.slice(2)) => {
   const root = argv[0] || process.cwd();
   const violations = scan(root);
   if (violations.length === 0) {
@@ -157,6 +166,8 @@ export function runCli(argv = process.argv.slice(2)) {
   console.log(`event-origin: ${violations.length} violation(s)`);
   return 1;
 }
+
+export { findOriginDrift, scan, runCli };
 
 if (
   process.argv[1] &&

@@ -111,7 +111,7 @@ class MeasureStore {
     const events = ensureEvents(this.map);
     publish(events, EVENTS.LAYER_ITEM_COUNT_CHANGE, {
       id: this.layerId,
-    });
+    }, { kind: "programmatic", via: "refresh" });
   }
 
   // ── Id generation ──────────────────────────────────────────────────

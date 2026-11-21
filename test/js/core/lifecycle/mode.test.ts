@@ -58,7 +58,7 @@ describe("ModeManager", () => {
     expect(bus.publish).toHaveBeenCalledWith("foliplus:mode:change", {
       component: "SearchControl",
       mode: "addr",
-    });
+    }, { kind: "user", via: "panel" });
   });
 
   it("a throwing MODE_CHANGE consumer is recorded, not raised, and the lock stays applied", () => {

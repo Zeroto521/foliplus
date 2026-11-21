@@ -63,6 +63,8 @@ const closeOverlays = (ui: LayerUI): void => {
   // sees "I'm not open yet" and is a no-op.
   // Settled: every overlay owner gets the close signal, then the first
   // consumer failure surfaces — one broken panel must not leave another open.
+  // origin-exempt: a close signal, not a source-announcing change — no
+  // subscriber decides "should I react" from who cleared the overlays.
   publish(ui.events, EVENTS.OVERLAY_CLEAR);
 };
 

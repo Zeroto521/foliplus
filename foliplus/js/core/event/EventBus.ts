@@ -2,7 +2,7 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
-import { EVENT_POLICY, EVENT_POLICY_KIND, type EventPolicy } from "./const.js";
+import { EVENT_POLICY, EVENT_POLICY_KIND, isVoidEvent, type EventPolicy } from "./const.js";
 import type { EventMeta, EventOrigin, EventPayloadMap } from "./type.js";
 import { createLogger } from "#platform/log.js";
 
@@ -246,8 +246,12 @@ class EventBus {
   ): void;
   emit(event: string, ...args: unknown[]): void {
     this.assertPublishable(event);
-    const payload = args.length > 0 ? [args[0]] : [];
-    const origin = args.length > 1 ? (args[1] as EventOrigin | undefined) : undefined;
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = isVoidEvent(event)
+      ? (args[0] as EventOrigin | undefined)
+      : args.length > 1
+        ? (args[1] as EventOrigin | undefined)
+        : undefined;
     this.dispatch(
       event,
       payload,
@@ -281,8 +285,12 @@ class EventBus {
   ): void;
   emitSuperseding(event: string, supersedeKey: string, ...args: unknown[]): void {
     this.assertPublishable(event);
-    const payload = args.length > 0 ? [args[0]] : [];
-    const origin = args.length > 1 ? (args[1] as EventOrigin | undefined) : undefined;
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = isVoidEvent(event)
+      ? (args[0] as EventOrigin | undefined)
+      : args.length > 1
+        ? (args[1] as EventOrigin | undefined)
+        : undefined;
     this.dispatch(
       event,
       payload,
@@ -312,8 +320,12 @@ class EventBus {
       : [unknown?, origin?: EventOrigin]
   ): DispatchFailure | undefined;
   emitSettled(event: string, ...args: unknown[]): DispatchFailure | undefined {
-    const payload = args.length > 0 ? [args[0]] : [];
-    const origin = args.length > 1 ? (args[1] as EventOrigin | undefined) : undefined;
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = isVoidEvent(event)
+      ? (args[0] as EventOrigin | undefined)
+      : args.length > 1
+        ? (args[1] as EventOrigin | undefined)
+        : undefined;
     return this.dispatch(
       event,
       payload,
@@ -346,8 +358,12 @@ class EventBus {
     supersedeKey: string,
     ...args: unknown[]
   ): DispatchFailure | undefined {
-    const payload = args.length > 0 ? [args[0]] : [];
-    const origin = args.length > 1 ? (args[1] as EventOrigin | undefined) : undefined;
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = isVoidEvent(event)
+      ? (args[0] as EventOrigin | undefined)
+      : args.length > 1
+        ? (args[1] as EventOrigin | undefined)
+        : undefined;
     return this.dispatch(
       event,
       payload,
@@ -370,8 +386,12 @@ class EventBus {
       : [unknown?, origin?: EventOrigin]
   ): void;
   publish(event: string, ...args: unknown[]): void {
-    const payload = args.length > 0 ? [args[0]] : [];
-    const origin = args.length > 1 ? (args[1] as EventOrigin | undefined) : undefined;
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = isVoidEvent(event)
+      ? (args[0] as EventOrigin | undefined)
+      : args.length > 1
+        ? (args[1] as EventOrigin | undefined)
+        : undefined;
     const failure = this.dispatch(
       event,
       payload,
@@ -464,8 +484,7 @@ class SettledOperation {
     // Dispatch first, then keep the first failure: `??=` on the call would
     // skip every event queued after the first failure, which is the very
     // truncation this operation exists to prevent.
-    const [p, o] = args;
-    const observed = this.bus.emitSettled(event, p, o as EventOrigin | undefined);
+    const observed = this.bus.emitSettled(event, ...args);
     this.failure ??= this.bus.consumeByPolicy(event, observed);
     return this;
   }
@@ -480,13 +499,7 @@ class SettledOperation {
       : [unknown?, origin?: EventOrigin]
   ): this;
   emitSuperseding(event: string, supersedeKey: string, ...args: unknown[]): this {
-    const [p, o] = args;
-    const observed = this.bus.emitSupersedingSettled(
-      event,
-      supersedeKey,
-      p,
-      o as EventOrigin | undefined,
-    );
+    const observed = this.bus.emitSupersedingSettled(event, supersedeKey, ...args);
     this.failure ??= this.bus.consumeByPolicy(event, observed);
     return this;
   }

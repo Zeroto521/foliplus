@@ -52,4 +52,21 @@ describe("event-origin: bus calls must carry an origin", () => {
     );
     expect(v).toHaveLength(1);
   });
+
+  it("flags a free-function publish with no origin", () => {
+    const v = check(
+      "const bus = new EventBus();\n" +
+        'publish(bus, EVENTS.LAYER_CHANGE, { id: "a" });\n',
+    );
+    expect(v).toHaveLength(1);
+    expect(v[0].message).toContain("LAYER_CHANGE");
+  });
+
+  it("accepts a free-function publish with an origin literal", () => {
+    const v = check(
+      "const bus = new EventBus();\n" +
+        'publish(bus, EVENTS.LAYER_CHANGE, { id: "a" }, { kind: "programmatic", via: "init" });\n',
+    );
+    expect(v).toHaveLength(0);
+  });
 });

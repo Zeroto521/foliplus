@@ -293,7 +293,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
     publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
       id: ctrl.mgr.layerId,
-    });
+    }, { kind: "user", via: "panel" });
   };
 
   // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
@@ -314,10 +314,10 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     persist(ctrl);
     publish(ctrl.mgr.events, EVENTS.LAYER_STYLE_CHANGE, {
       id: ctrl.mgr.layerId,
-    });
+    }, { kind: "user", via: "panel" });
     publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
       id: ctrl.mgr.layerId,
-    });
+    }, { kind: "user", via: "panel" });
   };
 
   // listener-exempt: heatmap control-DOM select handler on a control-owned element (removed with the control)
@@ -507,7 +507,7 @@ const buildLayerListItems = (ctrl: HeatmapControlUI, sel: HTMLSelectElement) => 
     // an open filter panel re-reads it through this notification.
     publish(ctrl.mgr.events, EVENTS.LAYER_FILTER_CHANGE, {
       id: ctrl.mgr.layerId,
-    });
+    }, { kind: "user", via: "panel" });
     persist(ctrl);
   };
 

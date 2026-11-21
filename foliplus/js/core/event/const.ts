@@ -181,5 +181,19 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.LAYER_FILTER_CHANGE]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
 };
 
-export { EVENTS, EVENT_POLICY, EVENT_POLICY_KIND };
+
+/** Runtime set of events whose payload is void (see EventPayloadMap). The
+ *  type map declares these as `void`, so an emit carries only an origin —
+ *  the runtime split of `(payload, origin)` must not reclassify the origin
+ *  as a payload. */
+const VOID_EVENTS: ReadonlySet<string> = new Set([
+  EVENTS.LAYER_LIST_REBUILD,
+  EVENTS.LAYER_NO_BASEMAP_CHANGED,
+  EVENTS.OVERLAY_CLEAR,
+]);
+
+/** Whether an event's payload contract is void. */
+const isVoidEvent = (event: string): boolean => VOID_EVENTS.has(event);
+
+export { EVENTS, EVENT_POLICY, EVENT_POLICY_KIND, isVoidEvent };
 export type { EventPolicy };

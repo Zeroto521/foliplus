@@ -228,7 +228,7 @@ class MeasureManager {
       normalize: filter => this.normalizeMeasureFilter(filter),
       apply: () => this.applyFilterVisibility(),
       publish: () =>
-        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId }),
+        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId }, { kind: "programmatic", via: "self" }),
       dimensions: () => [this.filterDimension()],
       counts: () => this.filterCounts(),
     });
@@ -868,14 +868,14 @@ class MeasureManager {
       if (chip) chip.style.visibility = visible ? "" : "hidden";
     }
     if (visible) this.scheduleLabelPlan();
-    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId }, { kind: "user", via: "panel" });
   };
 
   /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
   setLabelCollide = (on: boolean): void => {
     this.labelCollide = on;
     this.scheduleLabelPlan();
-    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId }, { kind: "user", via: "panel" });
   };
 
   /**

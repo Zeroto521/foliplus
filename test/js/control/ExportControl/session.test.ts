@@ -101,7 +101,7 @@ describe("sessionMethods — export events", () => {
     manager.doExport();
     expect(events.publish).toHaveBeenCalledWith("foliplus:export:before", {
       component: "ExportControl",
-    });
+    }, { kind: "user", via: "panel" });
   });
 
   it("records a BEFORE_EXPORT consumer failure and the export start continues", () => {
@@ -206,7 +206,7 @@ describe("sessionMethods — export events", () => {
     HTMLCanvasElement.prototype.toBlob = origToBlob;
     expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
-    });
+    }, { kind: "user", via: "panel" });
   });
 
   it("onRenderError emits after:export event", () => {
@@ -216,7 +216,7 @@ describe("sessionMethods — export events", () => {
     manager.onRenderError(new Error("render fail"), hideEls);
     expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
       component: "ExportControl",
-    });
+    }, { kind: "user", via: "panel" });
   });
 });
 

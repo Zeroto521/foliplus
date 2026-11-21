@@ -85,7 +85,4 @@ export type {
   EventPayloadMap,
   EventOrigin,
   EventMeta,
-  UserVia,
-  ProgrammaticVia,
-  SystemVia,
 };
