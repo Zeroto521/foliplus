@@ -175,15 +175,17 @@ describe("LayerUI shell — delegates", () => {
     vi.useRealTimers();
   });
 
-  it("saveFoldState persists the folded-group set", () => {
+  it("saveFoldState persists the folded-role opinion map", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.listPanel.foldedRoles = new Set(["overlays"]);
+    ui.listPanel.foldedRoles = { overlays: true };
 
     ui.saveFoldState();
 
     expect(save).toHaveBeenCalled();
-    const fields = save.mock.calls[0][0] as { foldedRoles: () => string[] };
-    expect(fields.foldedRoles()).toEqual(["overlays"]);
+    const fields = save.mock.calls[0][0] as {
+      foldedRoles: () => Record<string, boolean>;
+    };
+    expect(fields.foldedRoles()).toEqual({ overlays: true });
   });
 
   it("saveNamesState persists the rename map", () => {

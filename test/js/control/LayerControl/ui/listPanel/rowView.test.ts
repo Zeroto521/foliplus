@@ -424,7 +424,7 @@ describe("applyRowView (the single DOM write point)", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       focusController: { focusingLayerId: null },
-      listPanel: { checkedCount: {}, foldedRoles: new Set<string>() },
+      listPanel: { checkedCount: {}, foldedRoles: {} },
       T: (k: string) => k,
       config: { locale_code: "en" },
     } as unknown as LayerUI;

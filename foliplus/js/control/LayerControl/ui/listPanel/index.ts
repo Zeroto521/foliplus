@@ -77,8 +77,12 @@ import type { LayerInfo } from "#core/layer/index.js";
  *  persist across page reloads except what `state.ts` writes through the
  *  `ui.c.persistence` channel. */
 class ListPanel {
-  /** Per-role fold state. Persisted through `ui.c.persistence` on change. */
-  foldedRoles: Set<string> = new Set();
+  /** Per-role user fold opinion. Record<role, boolean>: key = role, value =
+   *  true (fold) / false (explicit expand); absent key = no user opinion.
+   *  Persisted through `ui.c.persistence` on change. The tri-state (not a
+   *  Set) is what lets a user expand an author-folded role and keep it
+   *  expanded across a reload. */
+  foldedRoles: Record<string, boolean> = {};
   /** Per-folder fold state: `role::normalizedFolderName` keys the user
    *  collapsed. A user override — author defaults sit below it,
    *  built-in "all expanded" below that. Persisted through the same channel. */
@@ -89,6 +93,12 @@ class ListPanel {
    *  the fold state: the user override (foldedFolders) is checked
    *  first and this falls back under it. See control/LayerControl/declaredFolder.ts. */
   authorFoldedFolders: Set<string> = new Set();
+  /** The author's declared default folded role map, derived from
+   *  `CONF.roles` (never persisted — it is author config baked into the
+   *  page, so a reload always re-derives it). The user override
+   *  (foldedRoles) is checked first and this falls back under it. See
+   *  control/LayerControl/declaredRole.ts. */
+  authorDefaultFoldedRoles: Record<string, boolean> = {};
   /** Per-role tri-state checkbox counts. Rebuilt by the full-scan
    *  `syncToggleAll` at reconcile points; kept in sync by
    *  `bumpCheckedCount` on each single-row toggle. */

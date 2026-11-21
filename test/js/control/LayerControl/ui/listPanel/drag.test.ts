@@ -70,9 +70,9 @@ const makeUi = (
   }
   return {
     uiContainer,
-    foldedRoles: new Set<string>(),
+    foldedRoles: {},
     listPanel: {
-      foldedRoles: new Set<string>(),
+      foldedRoles: {},
       checkedCount: {},
       dragEntry: null,
       lastDragHintAt: 0,
@@ -754,7 +754,7 @@ describe("showReorderBlockedHint", () => {
         lastDragHintAt: 0,
         dragEntry: null,
         lastDragOverItem: null,
-        foldedRoles: new Set<string>(),
+        foldedRoles: {},
         checkedCount: {},
       },
     } as unknown as LayerUI;
@@ -901,7 +901,7 @@ describe("ui/list folder rows (fold)", () => {
     });
     handleKeyDown(ui, event);
     expect(isFolderFolded(ui, "overlay", "roads")).toBe(true);
-    expect(ui.listPanel.foldedRoles.has("overlay")).toBe(false);
+    expect(ui.listPanel.foldedRoles.overlay).toBeUndefined();
   });
 
   it("whole-row click on a folder row folds the folder", () => {

@@ -185,6 +185,19 @@ class TestRowTooltipVocabulary:
         assert en["LayerControl.filter_layer_tooltip"] == "Filter this layer's data"
         assert zh["LayerControl.filter_layer_tooltip"] == "筛选该图层的数据"
 
+    def test_container_says_group_not_container(self):
+        """The container type is user language, not the jargon "容器".
+
+        folium's API is LayerGroup/FeatureGroup; the user mental model is
+        "组" (group), and "图层组" maps directly to LayerGroup. The short
+        word stays distinct from the folder (user-dragged) vocabulary.
+        """
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        assert en["LayerControl.type_container"] == "Layer Group"
+        assert zh["LayerControl.type_container"] == "图层组"
+        assert en["LayerControl.type_container_short"] == "Group"
+        assert zh["LayerControl.type_container_short"] == "组"
+
 
 class TestLocaleConfig:
     def test_default_locale_is_english(self):

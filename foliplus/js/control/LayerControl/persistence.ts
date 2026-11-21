@@ -30,7 +30,7 @@ import { BORDER_WEIGHT } from "#ui/index.js";
 type LiveState = {
   order?: () => string[];
   removed?: () => string[];
-  foldedRoles?: () => string[];
+  foldedRoles?: () => Record<string, boolean>;
   /** User-folded folder identities (`role::name`). */
   foldedFolders?: () => string[];
   renamedNames?: () => Record<string, string>;
@@ -76,18 +76,24 @@ type LiveState = {
  *  record still loads but its label config is dropped, and the next write
  *  stamps v5.
  *
- *  5 → 6: `foldedFolders` was added (the user's folded-folder
- *  overrides). This one is additive: an old v5 record reads the field as
- *  absent (empty set = "everything expanded"), which is the same behavior
- *  the record had before the field existed, so there is no compatibility
- *  read to ship — the next write stamps v6. */
-const RECORD_VERSION = 6;
+ *  5 → 6: `foldedRoles` changed from a Set-shaped array (folded keys only)
+ *  to a Record<role, boolean> (per-role user opinion, both directions). There
+ *  is deliberately no compatibility read: the shape change is a breaking
+ *  change accepted for this release, so an old v5 record still loads but its
+ *  fold state is dropped (read as `{}`), and the next write stamps v6.
+ *
+ *  6 → 7: `foldedFolders` was added (the user's folded-folder overrides).
+ *  This one is additive: an old v6 record reads the field as absent (empty
+ *  set = "everything expanded"), which is the same behavior the record had
+ *  before the field existed, so there is no compatibility read to ship — the
+ *  next write stamps v7. */
+const RECORD_VERSION = 7;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
-  foldedRoles: [],
+  foldedRoles: {},
   foldedFolders: [],
   renamedNames: {},
   layers: {},
@@ -357,11 +363,20 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
   if (Array.isArray(data.removed) && data.removed.every(id => typeof id === "string")) {
     record.removed = data.removed as string[];
   }
-  if (
-    Array.isArray(data.foldedRoles) &&
-    data.foldedRoles.every(role => typeof role === "string")
-  ) {
-    record.foldedRoles = data.foldedRoles as string[];
+  // foldedRoles is now a Record<role, boolean> (v7+). A legacy array
+  // (v5 and earlier) is deliberately dropped — read as {} — so a stale
+  // record cannot mis-shape the fold state; the next write re-stamps v7.
+  if (Array.isArray(data.foldedRoles)) {
+    // Legacy array: no per-role opinion recorded, read as {}.
+  } else {
+    const roleMap = asObject(data.foldedRoles);
+    if (roleMap) {
+      const parsed: Record<string, boolean> = {};
+      for (const [role, value] of Object.entries(roleMap)) {
+        if (typeof value === "boolean") parsed[role] = value;
+      }
+      record.foldedRoles = parsed;
+    }
   }
   if (
     Array.isArray(data.foldedFolders) &&

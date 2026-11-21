@@ -12,7 +12,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
-  foldedRoles: [],
+  foldedRoles: {},
   foldedFolders: [],
   renamedNames: {},
   layers: {},
@@ -53,7 +53,7 @@ describe("LayerPersistence", () => {
       seedStorage({
         version: RECORD_VERSION,
         order: ["a", "b"],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -61,7 +61,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -78,7 +78,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ids,
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: {
@@ -127,7 +127,7 @@ describe("LayerPersistence", () => {
       expect(rec.version).toBe(RECORD_VERSION);
       expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
-      expect(rec.foldedRoles).toEqual([]);
+      expect(rec.foldedRoles).toEqual({});
 
       vi.useFakeTimers();
       const save = spySave();
@@ -136,9 +136,37 @@ describe("LayerPersistence", () => {
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
       expect(lastRecord(save).version).toBe(RECORD_VERSION);
-      expect(lastRecord(save).foldedRoles).toEqual([]);
+      expect(lastRecord(save).foldedRoles).toEqual({});
       save.mockRestore();
       vi.useRealTimers();
+    });
+
+    it("drops a v5 array foldedRoles and reads it as {} (v7 shape change)", () => {
+      // RECORD_VERSION 6 → 7 changed foldedRoles from a Set-shaped array to a
+      // Record<role, boolean>. There is deliberately no compatibility read:
+      // the old array is dropped (fold state lost) while every other field
+      // survives, and the next write stamps the current version.
+      seedStorage({
+        version: 5,
+        order: ["a"],
+        foldedRoles: ["OVERLAYS"],
+        renamedNames: { a: "A2" },
+      });
+
+      const rec = makePersistence().load();
+      expect(rec.version).toBe(RECORD_VERSION);
+      expect(rec.order).toEqual(["a"]);
+      expect(rec.renamedNames).toEqual({ a: "A2" });
+      expect(rec.foldedRoles).toEqual({});
+    });
+
+    it("parses a v7 Record<role, boolean> foldedRoles with only boolean values", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        foldedRoles: { OVERLAYS: true, base: false },
+      });
+      const rec = makePersistence().load();
+      expect(rec.foldedRoles).toEqual({ OVERLAYS: true, base: false });
     });
 
     it("keeps the current key and drops the legacy segment (dual-key removal)", () => {
@@ -194,10 +222,13 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("reads a v5 record without foldedFolders as an empty set (v5 → v6)", () => {
-      // RECORD_VERSION 5 → 6 added `foldedFolders`. A v5 record has no such
-      // key; the read must default it to an empty array (additive, not a
-      // rename), and every other field survives. The next write stamps v6.
+    it("drops a v5 record's array-shaped fold state (v5 → v6)", () => {
+      // RECORD_VERSION 5 → 6 changed `foldedRoles` from a Set-shaped array
+      // (folded keys only) to a Record<role, boolean> (both directions). The
+      // shape change is a breaking change accepted for this release, so the
+      // old array is dropped rather than migrated: the record still loads,
+      // its fold state reads as "no user opinion", and every other field
+      // survives. The next write stamps v6.
       seedStorage({
         version: 5,
         order: ["a"],
@@ -209,7 +240,7 @@ describe("LayerPersistence", () => {
       expect(rec.version).toBe(RECORD_VERSION);
       expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
-      expect(rec.foldedRoles).toEqual(["overlay"]);
+      expect(rec.foldedRoles).toEqual({});
       expect(rec.foldedFolders).toEqual([]);
     });
 
@@ -220,7 +251,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: [],
         renamedNames: {},
-        foldedRoles: [],
+        foldedRoles: {},
         foldedFolders: ["overlay::roads"],
         layers: {},
       });
@@ -297,15 +328,15 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load().order).toEqual(null);
     });
 
-    it("drops non-string values from names and bad role ids from fold state", () => {
+    it("drops non-string values from names and non-boolean role opinions from fold state", () => {
       seedStorage({
         renamedNames: { a: "A2", b: 123, c: null },
-        foldedRoles: ["OVERLAYS", 7],
+        foldedRoles: { OVERLAYS: true, base: "yes", bogus: 7 },
       });
       const p = makePersistence();
 
       expect(p.load().renamedNames).toEqual({ a: "A2" });
-      expect(p.load().foldedRoles).toEqual([]);
+      expect(p.load().foldedRoles).toEqual({ OVERLAYS: true });
     });
 
     it("keeps removed ids in the order they were deleted", () => {
@@ -838,7 +869,8 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        // Legacy array foldedRoles is dropped as {} (v7 shape change, no compat read).
+        foldedRoles: {},
         foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -906,7 +938,8 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["b", "a"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        // Legacy array foldedRoles reads as {} and stays {} through the write.
+        foldedRoles: {},
         foldedFolders: [],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1484,7 +1517,7 @@ describe("LayerPersistence", () => {
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
       });
-      p.schedule({ foldedRoles: () => ["OVERLAYS"] });
+      p.schedule({ foldedRoles: () => ({ OVERLAYS: true }) });
       p.schedule({ renamedNames: () => ({ a: "A" }) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
@@ -1497,7 +1530,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        foldedRoles: { OVERLAYS: true },
         foldedFolders: [],
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1527,7 +1560,8 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["b", "a"],
         removed: [],
-        foldedRoles: ["OVERLAYS"],
+        // Legacy array foldedRoles reads as {} and the write leaves it alone.
+        foldedRoles: {},
         foldedFolders: [],
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1643,7 +1677,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        foldedRoles: [],
+        foldedRoles: {},
         foldedFolders: [],
         renamedNames: {},
         layers: { a: { visible: false, overrides: ["visible"] } },

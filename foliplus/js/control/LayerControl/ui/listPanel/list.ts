@@ -33,6 +33,7 @@ import { ICON_GLOBE } from "#platform/icon.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
+import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
@@ -528,7 +529,11 @@ const renderInitialList = (ui: LayerUI) => {
     if (headerSeen.has(role) || !rolesWithHeader(ui, role)) return;
     headerSeen.add(role);
     frag.appendChild(renderToggleAllRow(ui, role, roleLabel(role)));
-    const roleFolded = ui.listPanel.foldedRoles.has(role);
+    const roleFolded = effectiveRoleFolded(
+      ui.listPanel.foldedRoles,
+      ui.listPanel.authorDefaultFoldedRoles,
+      role,
+    );
     for (const block of displayBlocks(ui, role)) {
       if (block.kind === "folder") {
         const row = renderFolderRow(ui, role, block.key, block.name);
@@ -644,7 +649,13 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     );
   }
   const item = renderLayerItem(ui, layerInfo);
-  if (ui.listPanel.foldedRoles.has(role)) {
+  if (
+    effectiveRoleFolded(
+      ui.listPanel.foldedRoles,
+      ui.listPanel.authorDefaultFoldedRoles,
+      role,
+    )
+  ) {
     item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
   frag.appendChild(item);
@@ -721,7 +732,11 @@ const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
 };
 
 const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
-  const isFolded = ui.listPanel.foldedRoles.has(role);
+  const isFolded = effectiveRoleFolded(
+    ui.listPanel.foldedRoles,
+    ui.listPanel.authorDefaultFoldedRoles,
+    role,
+  );
   const withFolders = hasAnyFolder(ui);
   // Role-level count: aggregated with the same source as the checkbox
   // (spec §2.8 — role count and checkbox state come from one aggregator).

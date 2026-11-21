@@ -259,7 +259,7 @@ describe("ui/list row placement", () => {
     const { manager, ui } = initFixture({
       data: [{ id: "O1", name: "O1", role: "overlay" }],
     });
-    ui.listPanel.foldedRoles.add(ROLE.BASE);
+    ui.listPanel.foldedRoles[ROLE.BASE] = true;
 
     manager.registerLayer({
       id: "B1",
@@ -305,7 +305,7 @@ describe("ui/list row placement", () => {
     const { ui } = initFixture({
       data: [{ id: "B1", name: "B1", role: "base" }],
     });
-    ui.listPanel.foldedRoles.add(ROLE.BASE);
+    ui.listPanel.foldedRoles[ROLE.BASE] = true;
 
     renderInitialList(ui);
 
@@ -1517,7 +1517,7 @@ describe("clean-empty-folders button and role header order", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
@@ -1700,7 +1700,7 @@ describe("role header identity key", () => {
   beforeEach(() => {
     window.localStorage.clear();
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
