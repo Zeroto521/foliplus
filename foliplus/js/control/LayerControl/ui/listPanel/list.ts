@@ -755,7 +755,14 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
     // v3.6: role row gains the divider (before count), the layer-count
     // (role layer count, not feature count), the role-level type icon and a
     // row-level ⋮ (independent of the panel-header ⋮).
-    children.push(dom.el("div", { class: CONST.CLASSES.ROLE_DIVIDER }));
+    // Same paint recipe as the shared section divider (soft gradient at both
+    // ends); only the span differs, because the role row now owns the count /
+    // icon / more cells that the pre-folder divider used to run through. A
+    // second hand-rolled line here is what made the two role sections look
+    // different from main (issue 4).
+    const roleDivider = sectionDivider("div");
+    roleDivider.classList.add(CONST.CLASSES.ROLE_DIVIDER);
+    children.push(roleDivider);
     children.push(
       dom.el(
         "span",

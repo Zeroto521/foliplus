@@ -1,4 +1,6 @@
+import { repoPath } from "#test/path.js";
 import { initFixture } from "../fixture.js";
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import { handleMoreClick } from "#control/LayerControl/interaction.js";
@@ -737,6 +739,55 @@ describe("ui/list folder rows", () => {
     ) as HTMLInputElement;
     expect(member3.checked).toBe(true);
     expect(member4.checked).toBe(true);
+  });
+
+  it("paints the role divider with the shared section-divider recipe (issue 4)", () => {
+    // The two role sections used to be separated by a hand-rolled flat line
+    // while main used the soft gradient recipe, so the divider read as a
+    // different element. One paint recipe, two spans.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const divider = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_DIVIDER}`,
+    );
+    expect(divider).not.toBeNull();
+    expect(divider!.classList.contains("foliplus-section-divider")).toBe(true);
+  });
+
+  it("draws two distinct fold-tree shapes, centred on the rail (issue 5)", () => {
+    // --mid is a branch that continues below (├), --last is the elbow that ends
+    // it (└). Both used to render the same full-height stem, so the tree had
+    // one shape where it needed two. The stem also sat off-centre, so it did
+    // not line up with the folder header's fold chevron.
+    const row = readFileSync(
+      repoPath("foliplus/css/control/LayerControl/row.css"),
+      "utf8",
+    );
+    const stem = row.slice(
+      row.indexOf(".foliplus-fold-tree {"),
+      row.indexOf(".foliplus-fold-tree-last::before"),
+    );
+    // Centred on the rail, not offset by a fixed width.
+    expect(stem).toContain("left: 50%");
+    expect(stem).toContain("transform: translateX(-50%)");
+    // The elbow stops the stem at the horizontal stub.
+    const elbow = row.slice(
+      row.indexOf(".foliplus-fold-tree-last::before"),
+      row.indexOf(".foliplus-fold-tree-mid::after"),
+    );
+    expect(elbow).toContain("bottom: 50%");
+    // The continuing branch keeps the full-height stem.
+    expect(stem).not.toContain("bottom: 50%");
   });
 
   it("flags the folder row as renaming, exactly like a layer row (issue 16)", () => {

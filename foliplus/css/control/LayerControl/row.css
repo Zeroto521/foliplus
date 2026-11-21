@@ -574,43 +574,50 @@
     }
   }
 
-  /* ── Role divider: thin neutral rule before the count column ──
-     Occupies the label column only (grid-column: 3), right-aligned so it ends
-     where the count column begins — it never passes through the icon column
-     (spec v3.6 §1.2 / v3.6 修订 2). */
+  /* ── Role divider: the shared section-divider paint, label column only ──
+     The element carries .foliplus-section-divider too, so the paint (soft
+     gradient at both ends) is the one recipe main has always used; this rule
+     only narrows the span to the label column, because the role row now owns
+     the count / icon / more cells the pre-folder divider ran through. */
   .foliplus-role-divider {
     grid-column: 3;
     justify-self: stretch;
     align-self: center;
-    height: var(--foliplus-border-thin);
-    background: var(--foliplus-divider-color);
-    opacity: 0.6;
   }
 
-  /* ── Fold-tree guides for folder members (rail column) ── */
+  /* ── Fold-tree guides for folder members (rail column) ──
+     The vertical stem sits on the rail's centre line, so it lines up with the
+     fold chevron of the folder header above it (issue 5). Two shapes, not one:
+     --mid is a branch that continues below this row (├), --last is the elbow
+     that ends the branch (└), so the stem stops at the horizontal stub. */
   .foliplus-fold-tree {
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: center;
     pointer-events: none;
-    color: var(--foliplus-input-border);
+    color: var(--foliplus-tree-line-color);
 
     &::before {
       content: "";
-      display: block;
-      width: var(--foliplus-space-sm);
-      height: 100%;
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 0;
       border-left: var(--foliplus-border-thin) solid currentColor;
+      transform: translateX(-50%);
     }
+  }
+  /* └ — the branch ends here: the stem stops at the elbow. */
+  .foliplus-fold-tree-last::before {
+    bottom: 50%;
   }
   .foliplus-fold-tree-mid::after,
   .foliplus-fold-tree-last::after {
     content: "";
     position: absolute;
-    left: var(--foliplus-space-sm);
+    left: 50%;
+    right: 0;
     top: 50%;
-    width: calc(var(--foliplus-space-md) - var(--foliplus-space-sm));
     height: 0;
     border-bottom: var(--foliplus-border-thin) solid currentColor;
     transform: translateY(-50%);
