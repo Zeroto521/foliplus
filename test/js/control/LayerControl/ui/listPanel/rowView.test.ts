@@ -837,3 +837,88 @@ describe("pattern anchors", () => {
     expect(matched("input.title = `x ${value}`", re)).toEqual([]);
   });
 });
+
+describe("container layer row", () => {
+  let manager: any;
+  let ui: any;
+  afterEach(() => {
+    manager?.destroy?.();
+    ui?.uiContainer?.remove();
+  });
+
+  const makeContainer = (children: unknown[] = []) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  it("row shows the container type icon and the child count", () => {
+    const leaf: any = { options: {} };
+    const container = makeContainer([leaf, leaf]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    const info = manager.layerRegistry.get("grp");
+    const cell = buildRowCell(ui, info);
+    // Container type: two-square group icon + type_container label.
+    expect(cell.typeSvg).toContain("<rect");
+    expect(cell.typeSvg).not.toContain("<polygon");
+    expect(cell.typeLabel).toBe("LayerControl.type_container");
+    // Child count in the count column.
+    expect(cell.countText).toBe("2");
+  });
+
+  it("a logical layer backed by a group with a featureCountProvider is NOT a container", () => {
+    // Regression: the browser filter test registers a layer backed by an empty
+    // L.layerGroup() with a provider-driven count. isContainerLayer(empty group)
+    // is true (group-like + child registry), so the row misclassified it as a
+    // container and showed the child count (0) instead of the provider count.
+    // The group is the layer's Leaflet REPRESENTATION, not a folder of
+    // sub-layers — a provider-carrying layer keeps its provider count.
+    const group = makeContainer([]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: group }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    // Re-register with a provider (the CONFIG path supplies featureCountProvider
+    // for layers whose count is provider-authoritative).
+    const info = manager.registerLayer({
+      id: "grp",
+      name: "Group",
+      role: "overlay",
+      layer: group,
+      featureCountProvider: () => 8,
+    });
+    expect(info).not.toBeNull();
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    // Provider count wins over the child count.
+    expect(cell.countText).toBe("8");
+    // Not a container row: no group icon, no type_container label.
+    expect(cell.typeLabel).not.toBe("LayerControl.type_container");
+  });
+
+  it("container delete and teardown are safe", () => {
+    const container = makeContainer([{ options: {} }]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    // Delete the layer; the container's clearLayers should be called and no throw.
+    expect(() => manager.deleteLayer("grp")).not.toThrow();
+    expect(container.clearLayers).toHaveBeenCalled();
+  });
+});

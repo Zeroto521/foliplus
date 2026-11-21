@@ -156,7 +156,7 @@ const rowType = (
     // leaves expose labelable properties still needs its label pane, and the
     // surface is what declares it (withLabelSpec runs inside surfaceFor).
     ui.c.surfaceFor(layerInfo);
-    return { svg: SVGs.ICON_LAYERS, key: "type_container" };
+    return { svg: SVGs.ICON_CONTAINER, key: "type_container" };
   }
   if (layer) {
     const gtype = ui.c.surfaceFor(layerInfo).geometryType();
