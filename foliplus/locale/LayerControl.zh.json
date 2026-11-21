@@ -127,5 +127,8 @@
   "LayerControl.style_border_mode": "边框模式",
   "LayerControl.style_border_follow_fill": "跟随填充",
   "LayerControl.style_marker_color": "标记颜色",
-  "LayerControl.style_marker_color_opacity": "标记透明度"
+  "LayerControl.style_marker_color_opacity": "标记透明度",
+  "LayerControl.restore_author_layout": "恢复作者布局",
+  "LayerControl.restore_author_layout_tooltip": "恢复作者声明的图层分组布局，无法撤销",
+  "LayerControl.restore_author_layout_disabled": "当前已是作者布局，无需恢复"
 }

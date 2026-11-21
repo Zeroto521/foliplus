@@ -12,6 +12,7 @@ import {
   restoreCursor,
   syncListCursor,
 } from "./cursor.js";
+import { buildFooter } from "./footer.js";
 import { applyRowView, buildRowCell, displayName } from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 import { ROLE, folderOf, normalizeFolderName } from "#core/layer/index.js";
@@ -464,6 +465,10 @@ const renderInitialList = (ui: LayerUI) => {
   closeAttrsPanel(ui, false);
   container.innerHTML = "";
   container.appendChild(frag);
+  // The panel footer (restore-author-layout button) sits below the rows,
+  // separated by the shared section divider. Rebuilt with the list so the
+  // disabled state re-evaluates on every rebuild.
+  container.appendChild(buildFooter(ui));
 
   // ARIA + roving tabindex on the rebuilt rows. setIndex follows activeIdx
   // without painting the cursor class — restoreCursor() owns that visual.

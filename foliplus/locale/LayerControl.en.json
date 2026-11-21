@@ -127,5 +127,8 @@
   "LayerControl.style_border_mode": "Border Mode",
   "LayerControl.style_border_follow_fill": "Follow Fill",
   "LayerControl.style_marker_color": "Marker Color",
-  "LayerControl.style_marker_color_opacity": "Marker Opacity"
+  "LayerControl.style_marker_color_opacity": "Marker Opacity",
+  "LayerControl.restore_author_layout": "Restore Author Layout",
+  "LayerControl.restore_author_layout_tooltip": "Restore the author's declared layer grouping — cannot be undone",
+  "LayerControl.restore_author_layout_disabled": "Already on the author layout — nothing to restore"
 }

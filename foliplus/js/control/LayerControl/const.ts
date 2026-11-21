@@ -322,6 +322,8 @@ const CLASSES = {
   FILTER_RESULT: "foliplus-filter-result",
   /** Clear-filter footer button. */
   FILTER_CLEAR: "foliplus-filter-clear",
+  /** Footer button that restores the author's declared folder layout. */
+  RESTORE_AUTHOR_LAYOUT_BTN: "foliplus-restore-author-layout-btn",
   /** Enum filter body: the cell that hosts the shared multiple dropdown. */
   FILTER_ENUM: "foliplus-filter-enum",
   /** Truncation hint under the enum dropdown (large discrete domain). */

@@ -246,6 +246,20 @@ const bindLayerEvents = (ui: LayerUI): void => {
       return;
     }
 
+    // The restore-author-layout footer button is a panel-level action (like
+    // the clean button), so it is dispatched here, not bound per-button. The
+    // action rerenders the list (and the footer), so it must not reach the
+    // row / map below (hard constraint 4).
+    const restoreBtn = el.closest<HTMLElement>(
+      `.${CONST.CLASSES.RESTORE_AUTHOR_LAYOUT_BTN}`,
+    );
+    if (restoreBtn) {
+      event.stopPropagation();
+      event.preventDefault();
+      ui.c.restoreAuthorLayout();
+      return;
+    }
+
     // The fold branch climbs on the header row's identity key, never on the
     // row class (see SEL.TOGGLE_ALL_ROW), and the click landing on the row's own
     // toggle-all checkbox is the onChange path, not a fold.
