@@ -1,4 +1,5 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
+import { effectiveFolderFolded } from "../../declaredFolder.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
@@ -525,8 +526,11 @@ const renderInitialList = (ui: LayerUI) => {
     for (const block of displayBlocks(ui, role)) {
       if (block.kind === "folder") {
         const row = renderFolderRow(ui, role, block.key, block.name);
-        const folderFolded = ui.listPanel.foldedFolders.has(
-          `${role}::${normalizeFolderName(block.key)}`,
+        const folderFolded = effectiveFolderFolded(
+          ui.listPanel.authorFoldedFolders,
+          ui.listPanel.foldedFolders,
+          role,
+          block.key,
         );
         if (folderFolded) row.classList.add(CONST.CLASSES.FOLDED);
         frag.appendChild(row);
@@ -845,8 +849,11 @@ const renderFolderRow = (
   folderKey: string,
   folderName: string,
 ) => {
-  const folded = ui.listPanel.foldedFolders.has(
-    `${role}::${normalizeFolderName(folderKey)}`,
+  const folded = effectiveFolderFolded(
+    ui.listPanel.authorFoldedFolders,
+    ui.listPanel.foldedFolders,
+    role,
+    folderKey,
   );
   const vis = folderVisibility(ui, role, folderKey);
   const countText =

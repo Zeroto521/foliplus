@@ -1266,4 +1266,35 @@ describe("ui/list folder rows", () => {
     expect(ui.overlayPanel.activeMenu).toBeNull();
     outside.remove();
   });
+
+  it("applies the author-declared default fold to the folder row (TDD, issue 10)", () => {
+    window.CONFIG.folders = {
+      overlay: [{ name: "roads", folded: true }],
+      base: [],
+    };
+    try {
+      const { ui } = initFixture({
+        seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+        data: [
+          {
+            id: "rd1",
+            name: "Roads",
+            role: "overlay",
+            folder: "roads",
+            layer: polygonLayer(),
+          },
+        ],
+      });
+      const folderRow = ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`);
+      expect(folderRow).not.toBeNull();
+      expect(folderRow!.getAttribute("aria-expanded")).toBe("false");
+      expect(folderRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+      // The member row is folded too.
+      const member = ui.uiContainer!.querySelector('[data-layer-id="rd1"]');
+      expect(member!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    } finally {
+      delete window.CONFIG.folders;
+    }
+  });
+
 });

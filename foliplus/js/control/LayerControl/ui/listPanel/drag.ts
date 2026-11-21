@@ -1,4 +1,5 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
+import { effectiveFolderFolded } from "../../declaredFolder.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
@@ -39,11 +40,17 @@ const toggleFolderFold = (ui: LayerUI, role: string, name: string): void => {
 };
 
 /** Whether a folder is currently folded, honoring the priority chain
- *  built-in (expanded) < author default < user override. The
- *  author default is not on this branch yet — it lands with the author-defaults card — so the
- *  user override is checked first, then expanded. */
+ *  built-in (expanded) < author default < user override. The author default
+ *  (ui.listPanel.authorFoldedFolders) sits below the user override, so a
+ *  user's manual fold always wins; Reset clears the user override and the
+ *  folder falls back to the author default. */
 const isFolderFolded = (ui: LayerUI, role: string, name: string): boolean =>
-  ui.listPanel.foldedFolders.has(folderFoldKey(role, name));
+  effectiveFolderFolded(
+    ui.listPanel.authorFoldedFolders,
+    ui.listPanel.foldedFolders,
+    role,
+    name,
+  );
 
 /** Translate a row's data-layer-id into its registry index. The row carries
  *  the identity in data-layer-id while reorder takes registry indices — not
