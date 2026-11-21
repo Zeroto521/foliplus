@@ -6,7 +6,7 @@
   const rows = Array.from(document.querySelectorAll(".foliplus-layer-role"));
   return rows.map(row => {
     const rect = row.getBoundingClientRect();
-    const pick = (sel) => {
+    const pick = sel => {
       const el = row.querySelector(sel);
       if (!el) return null;
       const r = el.getBoundingClientRect();
