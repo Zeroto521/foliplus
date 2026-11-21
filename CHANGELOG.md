@@ -42,6 +42,7 @@
 - `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
+- `LayerControl`: the fold chevron rests right-pointing and turns down when expanded — the tree-list convention — instead of pointing up when expanded, and a hover no longer snaps an expanded arrow back to the collapsed pose ([#1279](https://github.com/Zeroto521/foliplus/pull/1279))
 
 ### Removed
 
