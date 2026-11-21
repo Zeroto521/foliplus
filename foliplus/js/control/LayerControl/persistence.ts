@@ -82,7 +82,7 @@ type LiveState = {
  *  is deliberately no compatibility read: the shape change is a breaking
  *  change accepted for this release, so an old v5 record still loads but its
  *  fold state is dropped (read as `{}`), and the next write stamps v7. */
-const RECORD_VERSION = 7;
+const RECORD_VERSION = 6;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
