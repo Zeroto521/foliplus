@@ -200,12 +200,13 @@ def declared_border(item: Layer, layer_name: str) -> dict[str, str] | None:
 
 
 def declared_marker_color(item: Layer, layer_name: str) -> str | None:
-    """Normalise one layer ``foliplus={"marker_color": "<preset>"}``.
+    """Normalise one layer ``foliplus={"marker_color": "<preset>"}`` or
+    ``{"marker_color": "#rrggbb"}``.
 
-    Returns the preset name when the declaration is usable, else ``None``:
-    "not declared" and "declared but invalid" are the same state downstream -
-    the marker keeps its derived chassis colour rather than painting a name
-    the author never saw validated.
+    Returns the preset name (or the lowered hex) when the declaration is
+    usable, else ``None``: "not declared" and "declared but invalid" are the
+    same state downstream - the marker keeps its derived chassis colour rather
+    than painting a name the author never saw validated.
 
     Mirrors :func:`declared_border`: the same namespace read, the same
     unknown-key warning family, and the same single read point that owns the

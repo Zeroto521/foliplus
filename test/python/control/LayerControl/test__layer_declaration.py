@@ -545,6 +545,16 @@ def test_declared_marker_color_is_read():
     assert declared_marker_color(layer, "Declared") == "darkred"
 
 
+def test_declared_marker_color_accepts_a_css_hex():
+    layer = _geo(foliplus={"marker_color": "#00A6A6"})
+    assert declared_marker_color(layer, "Declared") == "#00a6a6"
+
+
+def test_declared_marker_color_accepts_a_short_hex():
+    layer = _geo(foliplus={"marker_color": "#abc"})
+    assert declared_marker_color(layer, "Declared") == "#abc"
+
+
 def test_undeclared_marker_color_is_none_without_a_warning():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")

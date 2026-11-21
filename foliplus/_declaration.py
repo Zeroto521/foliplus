@@ -97,6 +97,13 @@ BORDER_KEY = "border"
 #: (different hex values), so this chassis vocabulary is not expressible via
 #: folium kwargs - that is why it is a foliplus declaration.
 MARKER_COLOR_KEY = "marker_color"
+#: The CSS hex shapes a declared marker chassis colour may take (#rgb or
+#: #rrggbb). The JS reader normalises #rgb to #rrggbb at paint; here
+#: the shape is validated so a malformed hex warns at collection time.
+#: Mirrors isHexColor / normalizeHexColor in foliplus/js/platform/color.ts:
+#: the two sides must agree on the shape, or a hex the JS reader paints is
+#: rejected at collection time (or a malformed hex survives and warns later).
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
 #: The per-layer marker icon pixel-size declaration key: a whole-number pixel
 #: size for the marker icon. folium's Icon carries a fixed pixel size and
 #: exposes no scaling channel, so this too is a foliplus-only declaration.
@@ -678,24 +685,28 @@ def normalise_marker_color(
 ) -> str | None:
     """Normalise one declared marker chassis preset name.
 
-    Returns the stripped preset name when the declaration is a non-empty
-    string, else ``None``: "not declared" and "declared but invalid" are the
-    same state downstream - the marker keeps its derived chassis colour
-    rather than painting a name the author never saw validated.
+    Returns the stripped preset name, or the hex lowered to lowercase when the
+    declaration is a CSS hex (#rgb / #rrggbb), else ``None``: "not declared"
+    and "declared but invalid" are the same state downstream - the marker
+    keeps its derived chassis colour rather than painting a name the author
+    never saw validated.
 
-    Only the *shape* is gated here (a non-empty string). Whether the name is
-    one of the runtime's chassis presets is the JS reader's verdict: the
-    preset vocabulary lives in markerColorPreset.ts, and duplicating the
-    19-name closed set here would be a second list to keep in step with the
-    runtime's - the same split the enum filter uses (shape here, vocabulary
-    at the consumer). An unknown name therefore survives this reader and is
-    warned once by the JS panel, which owns the preset table.
+    The *shape* is gated here (a non-empty string in the preset vocabulary OR
+    a CSS hex). Whether a preset name is one of the runtime's chassis presets
+    is the JS reader's verdict: the preset vocabulary lives in
+    markerColorPreset.ts, and duplicating the 19-name closed set here would be
+    a second list to keep in step with the runtime's - the same split the enum
+    filter uses (shape here, vocabulary at the consumer). An unknown preset
+    name therefore survives this reader and is warned once by the JS panel,
+    which owns the preset table. A hex shape is validated here (the JS reader
+    normalises and paints it), so a malformed hex warns at collection time.
 
     ``owner`` names the control and ``subject`` the specific subject (a layer
     name), so every message and de-duplication note is attributable.
     ``source`` is how the caller wrote it (the layer's
     ``foliplus['marker_color']``), so the warning points at the entry point
-    they used. A non-string or blank value warns once and is ignored.
+    they used. A non-string, blank or malformed-hex value warns once and is
+    ignored.
     """
     if raw is None:
         return None
@@ -717,6 +728,11 @@ def normalise_marker_color(
     if not name:
         reject("as an empty or whitespace-only string; expected a non-empty string")
         return None
+    # A hex shape must be a valid CSS hex (3 or 6 digits); anything else is a
+    # shape defect and warns at collection time (a malformed hex is not a
+    # preset the JS reader owns).
+    if _HEX_COLOR_RE.match(name):
+        return name.lower()
     return name
 
 
