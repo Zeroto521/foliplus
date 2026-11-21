@@ -21,8 +21,7 @@ from ._layer_declaration import (
     declared_marker_color,
     declared_zoom_range,
 )
-from ._role import LayerRole, layer_role
-from ._role import normalise_role_defaults
+from ._role import LayerRole, layer_role, normalise_role_defaults
 
 
 class LayerControl(BaseControl):

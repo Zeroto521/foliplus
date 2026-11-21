@@ -44,6 +44,7 @@ def layer_role(layer: object) -> LayerRole:
     """
     return "overlay" if getattr(layer, "overlay", False) else "base"
 
+
 #: The entry keys v1 understands. Anything else rejects the whole entry (warn
 #: once) — a future key is its own card, never silently dropped.
 ROLE_DEFAULT_KEYS = ("folded",)
