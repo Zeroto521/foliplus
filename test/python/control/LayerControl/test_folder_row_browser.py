@@ -50,3 +50,44 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             folded = page.evaluate(_js("LayerControl/count_row_folded"))
             assert folded >= 1, f"expected at least one folded member row, got {folded}"
             assert not errors, f"console errors: {errors}"
+
+    def test_role_row_divider_stops_before_count(self, browser, tmp_path):
+        """The role-row divider ends before the count column (spec v3.6: the
+        divider is collected before count, it does not pass through the icon
+        column). The count/icon/more must not be overlapped by any divider.
+
+        Death test: must RED before the CSS fix, GREEN after.
+        """
+        with use_page(self._page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(400)
+            rows = page.evaluate(_js("LayerControl/read_role_row_layout"))
+            assert rows, "no role rows rendered"
+            for row in rows:
+                divider, count, icon, more = (
+                    row["divider"],
+                    row["count"],
+                    row["icon"],
+                    row["more"],
+                )
+                assert divider is not None, "role row lacks divider"
+                assert count is not None, "role row lacks count"
+                # Divider must end strictly before the count column starts.
+                assert divider["right"] <= count["left"], (
+                    f"divider overlaps count column: divider right={divider['right']} "
+                    f"count left={count['left']}"
+                )
+                # No leftover section-divider inside the role row.
+                assert row["sectionDividerCount"] == 0, (
+                    f"role row has {row['sectionDividerCount']} leftover section-divider"
+                )
+                # count/icon/more must be distinct columns (no mutual overlap).
+                assert icon is not None, "role row lacks icon column"
+                assert more is not None, "role row lacks more button"
+                assert count["right"] <= icon["left"], (
+                    f"count overlaps icon: count right={count['right']} icon left={icon['left']}"
+                )
+                assert icon["right"] <= more["left"], (
+                    f"icon overlaps more: icon right={icon['right']} more left={more['left']}"
+                )
+            assert not errors, f"console errors: {errors}"

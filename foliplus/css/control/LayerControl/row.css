@@ -84,11 +84,17 @@
   /* ── Section label (rendered only inside toggle-all rows) ── */
   .foliplus-layer-sep-label {
     grid-area: label;
+    position: relative;
+    z-index: 1;
     font-size: var(--foliplus-font-size-xs);
     color: var(--foliplus-text-muted);
     text-transform: uppercase;
     letter-spacing: var(--foliplus-letter-spacing-tight);
     white-space: nowrap;
+    /* The role row's divider fills the label column behind this label; the
+       surface paint creates the text gap so the hairline does not cross the
+       label (spec v3.6: divider ends before the count column). */
+    background: var(--foliplus-surface);
   }
 
   /* ── Shared grid placements (each row is an independent grid container,
@@ -121,12 +127,13 @@
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     display: grid;
     grid-template-columns: var(--foliplus-grid-layer-cols);
-    /* Drag/check/label are named slots (placed via item-level grid-area
-       shared with layer-item rows). Divider is 3 anonymous slots —
-       positioned by grid-column: 4 / -1 on the item, not a named area.
-       This avoids the dual-declaration coupling (template-areas + item
-       grid-area) that only the divider originally had. */
-    grid-template-areas: "rail check label . . .";
+    /* Rail/check/label/count/icon/more are named slots (placed via
+       item-level grid-area shared with layer-item rows). The role row now
+       carries count/icon/more (spec v3.6 §1.2), so it uses the same six
+       named areas as folder/layer rows — otherwise those grid-area names
+       would auto-place into one implicit cell and overlap. The role divider
+       is placed by grid-column: 3 (label column only), not a named area. */
+    grid-template-areas: "rail check label count icon more";
     column-gap: var(--foliplus-grid-layer-gap);
     align-items: center;
     /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
@@ -567,12 +574,16 @@
     }
   }
 
-  /* ── Role divider: thin neutral rule before the count column ── */
+  /* ── Role divider: thin neutral rule before the count column ──
+     Occupies the label column only (grid-column: 3), right-aligned so it ends
+     where the count column begins — it never passes through the icon column
+     (spec v3.6 §1.2 / v3.6 修订 2). */
   .foliplus-role-divider {
-    grid-column: 4 / -1;
+    grid-column: 3;
+    justify-self: stretch;
     align-self: center;
     height: var(--foliplus-border-thin);
-    background: var(--foliplus-input-border);
+    background: var(--foliplus-divider-color);
     opacity: 0.6;
   }
 

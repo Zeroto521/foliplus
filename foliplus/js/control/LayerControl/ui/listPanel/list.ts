@@ -784,7 +784,12 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       ),
     );
   }
-  children.push(sectionDivider("div"));
+  // spec v3.6 §1.2: when the role has folders, the role row carries its own
+  // .foliplus-role-divider (before the count); the shared panel
+  // section-divider is the pre-folder leftover and must not render (it would
+  // overlap count/icon/more). A plain role row (no folders) keeps the shared
+  // divider, exactly as before folders existed.
+  if (!withFolders) children.push(sectionDivider("div"));
   children.push(...cleanFolderButton(ui, role));
   return dom.el(
     "div",
