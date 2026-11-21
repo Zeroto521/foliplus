@@ -20,6 +20,11 @@ const DROPDOWN_CLASS = {
   LEAD: "foliplus-dropdown-lead",
   /** The per-row checkbox a multiple-mode dropdown paints on every option.
    *  It reuses the shared check-slot box skin (css/common/check-slot.css). */
+  /** The in-row content wrapper: the flex child that lays the leading slot
+   *  and the label out on one line. The row is a <button> whose user-agent
+   *  stylesheet may not honour display: flex, so the wrapper is the actual
+   *  flex container and the row only paints the selection bar. */
+  ROW_CONTENT: "foliplus-dropdown-row-content",
   ROW_CHECKBOX: "foliplus-dropdown-checkbox",
   /** The built-in select-all row a multiple-mode dropdown paints above its
    *  options. Not an option: it acts on every item, so it sits in the listbox

@@ -334,7 +334,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     if (!st.multiple) {
       const lead = buildLeadSlot(DROPDOWN_CLASS.LEAD);
       lead.paint(ctx.selected);
-      return dom.el("span", null, lead.slot, label);
+      return dom.el("span", { class: DROPDOWN_CLASS.ROW_CONTENT }, lead.slot, label);
     }
     const box = dom.el("input", {
       type: "checkbox",
@@ -346,7 +346,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     }) as HTMLInputElement;
     box.checked = ctx.selected;
     const slot = dom.el("span", { class: CHECK_SLOT_CLASS.SLOT }, box);
-    return dom.el("span", null, slot, label);
+    return dom.el("span", { class: DROPDOWN_CLASS.ROW_CONTENT }, slot, label);
   };
 
   /** Repaint one row's indicator in place (no rebuild). The row button is
@@ -386,7 +386,8 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       "aria-pressed": String(verdict.allChecked),
       class: DROPDOWN_CLASS.SELECT_ALL_ROW,
     });
-    row.append(slot, label);
+    const content = dom.el("span", { class: DROPDOWN_CLASS.ROW_CONTENT }, slot, label);
+    row.append(content);
     // Pressing the row moves the whole set: everything picked clears it, anything
     // less selects it all (selectAllAction — the layer toggle-all shares this).
     // The action answers the CURRENT state read at press time, not at build time:

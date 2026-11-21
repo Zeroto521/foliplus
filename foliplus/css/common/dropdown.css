@@ -172,6 +172,20 @@
   white-space: nowrap;
 }
 
+/* The in-row content wrapper: the actual flex container. The row is a
+   <button>, whose user-agent stylesheet does not reliably honour display:
+   flex, so the row itself only paints the selection bar and the wrapper is
+   the layout box that puts the leading slot and the label on one line.
+   Without this the label wraps under the slot and the row grows to two
+   visual lines (the #1224 layout bug). */
+.foliplus-dropdown-row-content {
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-sm);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* ── Select-all row (multiple mode) ──
    Rendered above the options by ui/dropdown.ts. It keeps the option row's
    height / padding / left bar / hover / focus so it reads as one of the rows
