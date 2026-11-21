@@ -559,13 +559,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
         # The polygon rides inside a named, visible FeatureGroup: that is how a
         # data layer earns a panel row (a bare vector has no control of its own).
-        fg = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
-        folium.Polygon(
-            leaflet_path("LayerControl", "polygon_hangzhou_triangle"),
-            color="#0000ff",
-            weight=2,
-        ).add_to(fg)
-        fg.add_to(m)
+        layer = folium.GeoJson(
+            load_geojson("LayerControl", "polygon_hangzhou_triangle")["features"][0],
+            overlay=True,
+            show=True,
+        )
+        layer.layer_name = "Test Region"
+        layer.add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 

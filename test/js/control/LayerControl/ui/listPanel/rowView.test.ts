@@ -13,6 +13,7 @@ import {
   type RowCell,
   applyRowView,
   buildRowCell,
+  roleCountText,
   rowView,
   syncNoBasemap,
   syncToggleAll,
@@ -972,5 +973,51 @@ describe("container layer row", () => {
     ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
     const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
     expect(cell.countText).toBe("0/3");
+  });
+  it("container count equals roleCountText(total, on) — all children visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: true };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+
+    expect(cell.countText).toBe(roleCountText(3, 3));
+    expect(roleCountText(3, 3)).toBe("3");
+  });
+  it("container count equals roleCountText(total, on) — partial visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe(roleCountText(3, 2));
+    expect(roleCountText(3, 2)).toBe("2/3");
+  });
+  it("container count equals roleCountText(total, on) — none visible", () => {
+    const childA = { options: {}, visible: false };
+    const childB = { options: {}, visible: false };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe(roleCountText(3, 0));
+    expect(roleCountText(3, 0)).toBe("0/3");
   });
 });

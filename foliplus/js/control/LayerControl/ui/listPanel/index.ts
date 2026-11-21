@@ -56,6 +56,7 @@ import {
   buildRowCell,
   displayName,
   inZoomRange,
+  roleCountText,
   rowView,
 } from "./rowView.js";
 import {
@@ -135,7 +136,7 @@ export {
   initLayerItem,
 };
 export { ListPanel };
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export { applyRowView, buildRowCell, displayName, inZoomRange, roleCountText, rowView };
 export type { RowCell, RowLabels, RowView };
 export {
   toggleFold,

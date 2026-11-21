@@ -180,6 +180,13 @@ const rowType = (
  *  Everything the row shows is read here and nothing is written, so the row
  *  cannot read a stale decoration and looking at a layer cannot move the map.
  */
+/** The count column's text rule: one number when the whole group agrees, a
+ *  kept-of-total pair otherwise. Shared by role rows, folder rows and
+ *  container rows so the three can never drift — the count column's fixed
+ *  track was sized against this one shape. */
+const roleCountText = (total: number, on: number): string =>
+  on === total ? String(total) : on === 0 ? `0/${total}` : `${on}/${total}`;
+
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.c.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);
@@ -213,9 +220,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // number through formatNumber.
   const containerCount =
     totalChildren != null && visibleChildren != null
-      ? visibleChildren === totalChildren
-        ? String(totalChildren)
-        : `${visibleChildren}/${totalChildren}`
+      ? roleCountText(totalChildren, visibleChildren)
       : null;
   const containerTooltip =
     isContainer && totalChildren != null && visibleChildren != null
@@ -330,6 +335,5 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.setAttribute(CONST.DATA.TITLE, view.typeLabel);
   item.title = view.title;
 };
-
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export { applyRowView, buildRowCell, displayName, inZoomRange, roleCountText, rowView };
 export type { RowCell, RowLabels, RowView };
