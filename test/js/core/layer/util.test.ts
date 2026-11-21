@@ -734,9 +734,7 @@ describe("core/layer util: isContainerRow", () => {
     expect(isContainerRow(info(), group)).toBe(true);
     // MeasureControl and HeatmapControl register a group with a provider: the
     // count is provider-driven, so the row is data, not a sub-layer container.
-    expect(isContainerRow(info({ featureCountProvider: () => 3 }), group)).toBe(
-      false,
-    );
+    expect(isContainerRow(info({ featureCountProvider: () => 3 }), group)).toBe(false);
   });
 
   it("is never a container row without an entry or a layer", () => {
