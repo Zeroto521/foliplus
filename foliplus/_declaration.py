@@ -698,15 +698,17 @@ def normalise_marker_color(
     a second list to keep in step with the runtime's - the same split the enum
     filter uses (shape here, vocabulary at the consumer). An unknown preset
     name therefore survives this reader and is warned once by the JS panel,
-    which owns the preset table. A hex shape is validated here (the JS reader
-    normalises and paints it), so a malformed hex warns at collection time.
+    which owns the preset table. A CSS hex shape is recognised here and
+    lowered (#rgb is expanded to #rrggbb by the JS reader, which normalises
+    and paints it); a malformed hex is not a preset either and also survives
+    this reader, so the JS panel warns once for it - the hex vocabulary is the
+    JS reader's, not this module's.
 
     ``owner`` names the control and ``subject`` the specific subject (a layer
     name), so every message and de-duplication note is attributable.
     ``source`` is how the caller wrote it (the layer's
     ``foliplus['marker_color']``), so the warning points at the entry point
-    they used. A non-string, blank or malformed-hex value warns once and is
-    ignored.
+    they used. A non-string or blank value warns once and is ignored.
     """
     if raw is None:
         return None

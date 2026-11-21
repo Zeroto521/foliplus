@@ -260,23 +260,32 @@ reuses the same schema as ``fill`` (``field`` plus optional ``method`` /
 
 ## ``marker_color`` — marker chassis colour
 
-Declares the marker chassis preset name (the awesome-markers sprite palette).
+Declares the marker chassis colour: either one of the 19 awesome-markers sprite
+preset names, or a CSS hex.
 
 ```python
 gdf.explore(foliplus={"marker_color": "red"})
+gdf.explore(foliplus={"marker_color": "#00A6A6"})
 ```
 
-**Shape**: a non-empty string naming one of the 19 preset chassis colours:
-``red``, ``darkred``, ``lightred``, ``orange``, ``beige``, ``green``,
+**Shape**: a non-empty string naming one of the 19 preset chassis colours
+(``red``, ``darkred``, ``lightred``, ``orange``, ``beige``, ``green``,
 ``darkgreen``, ``lightgreen``, ``blue``, ``darkblue``, ``lightblue``,
 ``purple``, ``darkpurple``, ``pink``, ``cadetblue``, ``white``, ``gray``,
-``lightgray``, ``black``.
+``lightgray``, ``black``), or a CSS hex (`#rgb` / `#rrggbb`).
 
-**Behaviour**: the marker chassis paints in the preset colour. A non-string or
-blank name warns once and is ignored. Whether the name is one of the runtime's
-presets is the JavaScript reader's verdict — an unknown preset name warns once
-and degrades to the derived default (the panel's built-in blue), never an
-unvalidated colour.
+**Behaviour**: the marker chassis paints in the preset colour, or directly in a
+declared hex (`#rgb` is expanded to `#rrggbb` and lowercased). A non-string or
+blank name warns once and is ignored. Whether a name is one of the runtime's
+presets (or a valid hex) is the JavaScript reader's verdict — an unknown preset
+name or a malformed hex warns once and degrades to the derived default (the
+panel's built-in blue), never an unvalidated colour.
+
+A hex is distinct from the folium `Icon(color='#00A6A6')` kwarg: that paints
+the author's icon directly, while `marker_color` is the `foliplus={}`
+declaration read-time default a panel pick and Reset return to. When both are
+present the author's painted colour wins (the declaration is the lower-priority
+default).
 
 :::{note}
 

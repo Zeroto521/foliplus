@@ -843,7 +843,11 @@ def test_normalise_marker_color_accepts_a_css_hex(raw, expected):
 
 
 @pytest.mark.parametrize("raw", ["#12", "#12345", "#1234567", "red", "#GGGGGG"])
-def test_normalise_marker_color_rejects_a_malformed_hex(raw):
+def test_normalise_marker_color_passes_a_non_preset_through(raw):
+    # The Python reader does not own the preset/hex vocabulary (that is the JS
+    # reader's verdict, which warns once) — it only gates the shape (a
+    # non-empty string), so a malformed hex or an unknown preset name survives
+    # unchanged for the JS reader to warn about.
     _declaration.foliplus_reports.clear()
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")

@@ -210,10 +210,13 @@ def declared_marker_color(item: Layer, layer_name: str) -> str | None:
 
     Mirrors :func:`declared_border`: the same namespace read, the same
     unknown-key warning family, and the same single read point that owns the
-    warning for layers. Python gates the string shape and reports a malformed
-    declaration at collection time; whether the name is one of the runtime's
-    chassis presets is the JS reader's verdict (the preset vocabulary lives
-    in markerColorPreset.ts, and the JS panel owns that closed set).
+    warning for layers. Python gates the string shape (a non-empty string, or
+    a valid CSS hex which it lowers) and reports a non-string or blank value at
+    collection time; whether a name is one of the runtime's chassis presets, or
+    a hex is well-formed, is the JS reader's verdict (the preset and hex
+    vocabulary lives in markerColorPreset.ts / color.ts, and the JS panel owns
+    that closed set - a malformed hex or unknown preset survives this reader
+    and warns once there).
     """
     namespace = foliplus_namespace(item, layer_name)
     if namespace is None:
