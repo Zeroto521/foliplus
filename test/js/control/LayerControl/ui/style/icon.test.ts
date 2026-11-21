@@ -22,6 +22,7 @@ import {
   commitGlyph,
   layerCanIcon,
   resetLayerIcon,
+  syncColorRowVisibility,
 } from "#control/LayerControl/ui/style/icon.js";
 import {
   getDimension,
@@ -1512,5 +1513,46 @@ describe("declared url / divicon trigger + URL-mode color-row sync", () => {
     applyIconToLayer(ui2, "overlay1");
     flushIcon("overlay1");
     expect(marker.setIcon).toHaveBeenCalled();
+  });
+
+  it("keeps two LayerControls color-row sync independent (P3 #1228)", () => {
+    // The URL-mode sync that recovers its panel root without a panelRoot arg
+    // (applyIconToLayer / glyph-commit path) must reach THIS ui own panel.
+    // A single module-level row slot would hand the last-built row to any
+    // caller, so A url sync would hide B (glyph, must stay visible) rows.
+    const markerA = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { ui: uiA } = fixtureWithMarkers([markerA]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(uiA, "overlay1", [
+      [INTENT.ICON, { kind: "url", value: "https://example.com/pin.png" }],
+    ]);
+    const markerB = makeMarker({ type: "school" }, makeAuthorIcon());
+    const { ui: uiB } = fixtureWithMarkers([markerB]);
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+    writeIntentKeys(uiB, "overlay1", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
+    // Build A FIRST, then B: a module-level slot (if any) now points at B,
+    // so A no-panelRoot sync would leak onto B and hide its color rows.
+    const rowA = buildIconRow(uiA, "overlay1")!;
+    const rowB = buildIconRow(uiB, "overlay1")!;
+    const mount = (row: HTMLElement) => {
+      const panel = document.createElement("div");
+      panel.className = CONST.CLASSES.STYLE_PANEL;
+      panel.appendChild(row);
+      const colorRow = document.createElement("div");
+      colorRow.dataset.styleDim = "iconColor";
+      panel.appendChild(colorRow);
+      document.body.appendChild(panel);
+      return panel;
+    };
+    const panelA = mount(rowA);
+    const panelB = mount(rowB);
+    const hidden = (panel: HTMLElement) =>
+      (panel.querySelector(`[data-style-dim="iconColor"]`) as HTMLElement).hidden;
+    // The no-panelRoot sync for A must resolve to A panel, never leak to B.
+    // (Build-time sync runs before the row is mounted, so it is a no-op;
+    // the leak would show on the post-mount sync below.)
+    syncColorRowVisibility(uiA, "overlay1");
+    expect(hidden(panelA)).toBe(true);
+    expect(hidden(panelB)).toBe(false);
   });
 });

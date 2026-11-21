@@ -9,9 +9,15 @@
 # ternary or the literal tuple.
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
 LayerRole = Literal["base", "overlay"]
+
+#: The two role words, in a deterministic order. The single vocabulary for
+#: "which roles exist": a caller that needs to iterate them (the central
+#: folders config) reads this tuple instead of hand-rolling ("base", "overlay"),
+#: so the source cannot drift from :data:`LayerRole`.
+LAYER_ROLES: tuple[LayerRole, ...] = get_args(LayerRole)
 
 
 def layer_role(layer: object) -> LayerRole:

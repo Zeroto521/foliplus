@@ -79,6 +79,12 @@ import type { LayerInfo } from "#core/layer/index.js";
 class ListPanel {
   /** Per-role fold state. Persisted through `ui.c.persistence` on change. */
   foldedRoles: Set<string> = new Set();
+  /** The author's declared default folded-folder key set, derived from
+   *  `CONF.folders` (never persisted — it is author config baked into the
+   *  page, so a reload always re-derives it). This is the "default" layer of
+   *  the fold state: the user override (foldedRoles) is checked
+   *  first and this falls back under it. See control/LayerControl/declaredFolder.ts. */
+  authorFoldedFolders: Set<string> = new Set();
   /** Per-role tri-state checkbox counts. Rebuilt by the full-scan
    *  `syncToggleAll` at reconcile points; kept in sync by
    *  `bumpCheckedCount` on each single-row toggle. */
