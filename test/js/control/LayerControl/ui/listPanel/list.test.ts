@@ -77,7 +77,7 @@ describe("ui/list row placement", () => {
 
     const registryIds = manager.layers.map(l => l.id);
     const rowIds = Array.from(
-      attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+      attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LEAF_ITEM),
     ).map(el => el.dataset.layerId ?? "");
 
     expect(rowIds).toEqual(registryIds);

@@ -315,5 +315,35 @@ const writeTriState = (input: HTMLInputElement, total: number, on: number): void
   );
 };
 
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView, writeTriState };
+/** The role row's count text: one number when the whole role agrees, a
+ *  kept-of-total pair otherwise. Shared by the initial render and every later
+ *  reconcile so the two can never drift. */
+const roleCountText = (total: number, on: number): string =>
+  on === total ? String(total) : on === 0 ? `0/${total}` : `${on}/${total}`;
+
+/** Write the role row's count cell — text and tooltip — from the same
+ *  `{ total, on }` aggregate the tri-state checkbox paints. A row visual
+ *  write, so it lives in the single row-view writer alongside writeTriState. */
+const writeRoleCount = (
+  row: Element,
+  total: number,
+  on: number,
+  tooltip: string,
+): void => {
+  const countEl = row.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
+  if (!countEl) return;
+  countEl.textContent = roleCountText(total, on);
+  countEl.setAttribute("title", tooltip);
+};
+
+export {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  inZoomRange,
+  roleCountText,
+  rowView,
+  writeRoleCount,
+  writeTriState,
+};
 export type { RowCell, RowLabels, RowView };

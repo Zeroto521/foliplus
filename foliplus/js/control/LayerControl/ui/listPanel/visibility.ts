@@ -10,7 +10,7 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { applyRowView, buildRowCell } from "./rowView.js";
+import { applyRowView, buildRowCell, writeRoleCount } from "./rowView.js";
 import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -24,12 +24,11 @@ const getLayerItems = (ui: LayerUI, role: string): Element[] => {
     role === ROLE.BASE
       ? `[data-layer-type="${ROLE.BASE}"]`
       : `:not([data-layer-type="${ROLE.BASE}"])`;
-  // Folder rows carry .foliplus-layer-item too (per spec §1.2) but are group
-  // rows, not leaf layers — exclude them so a role count never counts a
-  // folder as a layer.
-  const notFolder = `:not(${CONST.SEL.FOLDER_ROW})`;
+  // Folder rows and role rows carry .foliplus-layer-item too (per spec §1.2)
+  // but are group rows, not leaf layers — LEAF_ITEM excludes both so a role
+  // count never counts a group as a layer.
   return Array.from(
-    container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}${notFolder}`),
+    container.querySelectorAll(`${CONST.SEL.LEAF_ITEM}${inGroup}`),
   );
 };
 
@@ -190,6 +189,25 @@ const writeToggleAllCheckbox = (
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
   );
+  // The count column is the row's other half of the same aggregate. It used
+  // to be written once by the initial render and never again, so a layer
+  // registered after that render (the solid basemap registers in the
+  // initTypesAndVisibility pass, one tick later) left the count stale —
+  // "3" beside four rows. Writing it here keeps it on the same source and
+  // the same cadence as the checkbox.
+  const row =
+    allCb.closest(CONST.SEL.TOGGLE_ALL_ROW) ?? allCb.closest(CONST.SEL.TOGGLE_ALL);
+  if (row) {
+    writeRoleCount(
+      row,
+      c.total,
+      c.on,
+      ui
+        .T("role_count_tooltip")
+        .replace("{on}", String(c.on))
+        .replace("{total}", String(c.total)),
+    );
+  }
 };
 
 /** Incrementally update the role's `checkedCount.on` by `delta` (typically

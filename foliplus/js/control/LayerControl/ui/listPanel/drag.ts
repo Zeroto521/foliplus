@@ -1,5 +1,5 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
-import { effectiveFolderFolded } from "../../declaredFolder.js";
+import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";

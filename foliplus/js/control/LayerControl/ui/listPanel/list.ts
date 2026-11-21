@@ -1,5 +1,5 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
-import { effectiveFolderFolded } from "../../declaredFolder.js";
+import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
@@ -14,7 +14,13 @@ import {
   restoreCursor,
   syncListCursor,
 } from "./cursor.js";
-import { applyRowView, buildRowCell, displayName, writeTriState } from "./rowView.js";
+import {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  roleCountText,
+  writeTriState,
+} from "./rowView.js";
 import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 import {
   type LayerRole,
@@ -619,8 +625,8 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // insertion anchor, so the header stays adjacent to its rows.
   const firstRowSel =
     role === ROLE.BASE
-      ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`
-      : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
+      ? `${CONST.SEL.LEAF_ITEM}[data-layer-type="${ROLE.BASE}"]`
+      : `${CONST.SEL.LEAF_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
   const firstOfGroup = container.querySelector(firstRowSel);
   const header = container.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
@@ -719,12 +725,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   // Role-level count: aggregated with the same source as the checkbox
   // (spec §2.8 — role count and checkbox state come from one aggregator).
   const vis = roleVisibility(ui, role);
-  const countText =
-    vis.on === vis.total
-      ? String(vis.total)
-      : vis.on === 0
-        ? `0/${vis.total}`
-        : `${vis.on}/${vis.total}`;
+  const countText = roleCountText(vis.total, vis.on);
   const children: HTMLElement[] = [
     dom.el(
       "button",

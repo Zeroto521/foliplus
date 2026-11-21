@@ -2545,7 +2545,7 @@ describe("LayerController", () => {
     // lands before the error surfaces.
     expect(
       Array.from(
-        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LEAF_ITEM),
       ).map(el => el.dataset.layerId),
     ).toEqual(manager.layers.map(l => l.id));
     // The operation still never opened: no announcement for a half-committed move.
@@ -2573,7 +2573,7 @@ describe("LayerController", () => {
     expect(manager.layers[0].id).toBe("B");
     expect(
       Array.from(
-        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LEAF_ITEM),
       ).map(el => el.dataset.layerId),
     ).toEqual(manager.layers.map(l => l.id));
     expect(changes).toEqual([]);
@@ -2604,7 +2604,7 @@ describe("LayerController", () => {
     );
     expect(
       Array.from(
-        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LEAF_ITEM),
       ).map(el => el.dataset.layerId),
     ).toEqual(manager.layers.map(l => l.id));
     warn.mockRestore();

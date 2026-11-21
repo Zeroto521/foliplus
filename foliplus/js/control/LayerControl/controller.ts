@@ -1777,8 +1777,8 @@ class LayerController implements LayerAPI {
     const role = layerInfo.role;
     const anchorSel =
       role === ROLE.BASE
-        ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
-        : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
+        ? `${CONST.SEL.LEAF_ITEM}[data-layer-type="${ROLE.BASE}"]:not([${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"])`
+        : `${CONST.SEL.LEAF_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
     // Keep the header while the role still owns a folder key: the
     // empty-folder cleanup button must stay reachable after the last layer
     // goes (hard constraint 1 / builder-4 ④).
