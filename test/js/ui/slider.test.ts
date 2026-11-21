@@ -1498,11 +1498,10 @@ describe("Slider width-adaptive end numbers", () => {
   const measure = (slider: Slider): void =>
     (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
 
-  it("clamps an end number even when it fits on its half", () => {
-    // The end labels always pin to the control's two edges (user rule: the
-    // left label's left edge sits on the control's left edge and the right
-    // label's right edge on the control's right edge) — a fitting number is
-    // no exception, so a bare "0" / "100" clamps too.
+  it("centres a one-column number and clamps a wider one", () => {
+    // The alignment rule keys on display width: a one-column label ("0") stays
+    // dot-centred (its centre on the parked dot's centre); a two-column-or-
+    // wider label ("100") clamps to the track's end.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1515,13 +1514,13 @@ describe("Slider width-adaptive end numbers", () => {
     stubLabel(minEl, 10);
     stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("clamps both end numbers regardless of width", () => {
-    // The end labels always pin to the control's two edges, so a wide bound
-    // clamps to its edge (truncating inward) and a short bound clamps too.
+  it("centres a one-column min and clamps a long max", () => {
+    // A one-column label ("0") stays dot-centred; a long bound clamps to its
+    // track end (truncating inward).
     const { host } = make({
       min: 0,
       max: 100,
@@ -1534,15 +1533,14 @@ describe("Slider width-adaptive end numbers", () => {
     stubLabel(minEl, 10);
     stubLabel(maxEl, 90);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("clamps the end labels regardless of the row's width", () => {
-    // The end labels always pin to the control's two edges, so the row's
-    // width never decides the clamp state — a narrow and a wide row clamp
-    // the same way (the label truncates inward instead of centring on a dot
-    // that would overhang the control edge).
+  it("keeps a one-column label centred whatever the row's width", () => {
+    // The row's width never decides a one-column label's alignment: a bare
+    // digit stays dot-centred on a narrow and a wide row alike, while a
+    // two-column-or-wider label ("100") clamps the same way.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1555,15 +1553,15 @@ describe("Slider width-adaptive end numbers", () => {
     stubLabel(minEl, 10);
     stubLabel(maxEl, 12);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     stubRow(host, 40);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     stubRow(host, 240);
     measure(sliderOf(host)!);
-    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 

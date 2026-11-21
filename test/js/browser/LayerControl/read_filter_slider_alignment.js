@@ -1,9 +1,9 @@
 // Geometry probe for the filter panel's range slider. Registers two range
-// owners — one with a short min / long max and one with both ends long —
-// and measures the end labels against the control's edges (the values row
-// spans the control width), so a regression test can assert the left label's
-// left edge sits flush with the control's left edge and the right label's
-// right edge with the control's right edge (the user's end-alignment rule).
+// owners — one with a one-column min / long max and one with both ends long —
+// and measures the end labels against the track's edges (a one-column label
+// centres on the parked dot's centre = the track edge; a two-column-or-wider
+// label clamps to the track's end), so a regression test can assert the
+// display-width alignment rule.
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;

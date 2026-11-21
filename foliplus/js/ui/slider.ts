@@ -43,6 +43,27 @@ const finishSlidersIn = (root: ParentNode): void => {
 const clamp = (value: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, value));
 
+/** Display width of one label in "digit columns": a CJK / full-width glyph
+ *  counts 2, everything else 1. The end-label alignment rule keys on this
+ *  width, not on a pixel measurement, so a Chinese value and a number with
+ *  the same visual span get the same alignment. */
+const displayWidth = (s: string): number => {
+  let w = 0;
+  for (const ch of s) {
+    const cp = ch.codePointAt(0) ?? 0;
+    const wide =
+      (cp >= 0x1100 && cp <= 0x115f) ||
+      (cp >= 0x2e80 && cp <= 0xa4cf) ||
+      (cp >= 0xac00 && cp <= 0xd7a3) ||
+      (cp >= 0xf900 && cp <= 0xfaff) ||
+      (cp >= 0xfe30 && cp <= 0xfe6f) ||
+      (cp >= 0xff00 && cp <= 0xff60) ||
+      (cp >= 0xffe0 && cp <= 0xffe6);
+    w += wide ? 2 : 1;
+  }
+  return w;
+};
+
 // ── The value bubble ──────────────────────────────────────────────
 // Bubbles are page-level and keyed by anchor (the thumb element): a row that
 // owns one changes, the node does not. Keeping them out of every panel's
@@ -648,14 +669,15 @@ class Slider {
     this.valuesRow.appendChild(label);
   }
 
-  /** Width-adaptive end labels: both always pin to the control's two edges
-   *  (class is-clamp), so a label's outer edge sits on the control's edge and
-   *  a long bound clips inward (ellipsis). There is no dot-centred state —
-   *  the user's rule is that the left label's left edge sits on the left
-   *  dot's outer edge (the control's left edge) and the right label's right
-   *  edge on the right dot's outer edge (the control's right edge). Measured
-   *  on render / open / resize — never on a drag frame, so a pointermove
-   *  cannot churn the layout. */
+  /** Width-adaptive end labels: the alignment rule keys on the label's
+   *  display width in digit columns (see displayWidth). A label that fits a
+   *  single digit column is dot-centred (its centre sits on the parked
+   *  thumb's centre, a half thumb in from the control edge); anything wider
+   *  is an axis label and clamps to the track's two ends (class is-clamp,
+   *  a half thumb in from the control edge — the track's own edge), clipping
+   *  its text toward the inside. The switch is decided per label on render /
+   *  open / resize — never on a drag frame, so a pointermove cannot churn the
+   *  layout. */
   private measureValuesFit(): void {
     if (!this.minEl || !this.maxEl || !this.opts.values) return;
     const rowWidth = this.valuesRow.clientWidth;
@@ -663,15 +685,14 @@ class Slider {
     // laid-out width; skip and let the deferred measure or the resize observer
     // decide once the row is in the document.
     if (rowWidth === 0) return;
-    // The end labels always pin to the control's two edges (class is-clamp):
-    // the user's rule is "left content aligns with the left dot, right with
-    // the right", and a dot-centred label (anchored half a thumb in, shifted
-    // back half its width) overhangs the control edge as soon as it is wider
-    // than the thumb — a percent bound (~28px) and a long number like 5860
-    // (~30px) both overhang. There is no dot-centred mode anymore; every end
-    // label reads as the row's edge, never "the value at this dot".
-    this.minEl.classList.add(SLIDER_CLASS.VALUE_CLAMP);
-    this.maxEl.classList.add(SLIDER_CLASS.VALUE_CLAMP);
+    // The rule: one display column = dot-centred (a bare digit like "0" or
+    // "A" centres on its dot); two or more = clamp to the track's ends.
+    const fit = (el: HTMLElement) =>
+      displayWidth(el.textContent ?? "") < 2
+        ? el.classList.remove(SLIDER_CLASS.VALUE_CLAMP)
+        : el.classList.add(SLIDER_CLASS.VALUE_CLAMP);
+    fit(this.minEl);
+    fit(this.maxEl);
     // The deferred fit measure runs after the first layout, so the current
     // label can finally read its dot's real centre (the constructor's own
     // sync saw zero-width boxes and deferred).
