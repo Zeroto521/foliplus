@@ -858,12 +858,7 @@ const renderFolderRow = (
     folderKey,
   );
   const vis = folderVisibility(ui, role, folderKey);
-  const countText =
-    vis.on === vis.total
-      ? String(vis.total)
-      : vis.on === 0
-        ? `0/${vis.total}`
-        : `${vis.on}/${vis.total}`;
+  const countText = roleCountText(vis.total, vis.on);
   return dom.el(
     "div",
     {

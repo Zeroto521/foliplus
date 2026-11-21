@@ -328,12 +328,14 @@ const writeRoleCount = (
   row: Element,
   total: number,
   on: number,
-  tooltip: string,
+  tooltip?: string,
 ): void => {
   const countEl = row.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
   if (!countEl) return;
   countEl.textContent = roleCountText(total, on);
-  countEl.setAttribute("title", tooltip);
+  // A group row that carries no tooltip keeps none: writing an empty title
+  // would suppress the row's own tooltip bubbling.
+  if (tooltip !== undefined) countEl.setAttribute("title", tooltip);
 };
 
 export {

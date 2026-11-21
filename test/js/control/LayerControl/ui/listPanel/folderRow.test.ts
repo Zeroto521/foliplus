@@ -7,6 +7,7 @@ import {
   toggleFolderFold,
 } from "#control/LayerControl/ui/listPanel/drag.js";
 import { handleKeyDown } from "#control/LayerControl/ui/listPanel/keyboard.js";
+import { applyVisibility } from "#control/LayerControl/ui/listPanel/visibility.js";
 import { runMenuAction } from "#control/LayerControl/ui/overlayPanel/menu.js";
 
 const layoutFromRoles = (
@@ -144,6 +145,51 @@ describe("ui/list folder rows", () => {
     expect(memberRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
     // The in-memory fold set is the single source (persistence schedules it).
     expect(ui.listPanel.foldedFolders.has("overlay::roads")).toBe(true);
+  });
+
+  it("repaints the folder count and tri-state when a member is toggled (issue 6)", () => {
+    // The folder row is a group row: its count and its checkbox are one
+    // aggregate over its members. Both used to be written once at render, so a
+    // member toggled afterwards left the header claiming "2" beside one
+    // visible layer.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads 1",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Roads 2",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = () =>
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`)!;
+    const count = () =>
+      folderRow().querySelector(`.${CONST.CLASSES.COUNT_COL}`)!.textContent;
+    const box = () =>
+      folderRow().querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    expect(count()).toBe("2");
+    expect(box().checked).toBe(true);
+
+    applyVisibility(ui, "rd1", false);
+    expect(count()).toBe("1/2");
+    expect(box().checked).toBe(false);
+    expect(box().indeterminate).toBe(true);
+
+    applyVisibility(ui, "rd2", false);
+    expect(count()).toBe("0/2");
+    expect(box().checked).toBe(false);
+    expect(box().indeterminate).toBe(false);
   });
 
   it("keeps the folded folder row visible and hides only its members (issue 10)", () => {

@@ -10,7 +10,12 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { applyRowView, buildRowCell, writeRoleCount } from "./rowView.js";
+import {
+  applyRowView,
+  buildRowCell,
+  writeRoleCount,
+  writeTriState,
+} from "./rowView.js";
 import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -125,9 +130,32 @@ const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
   notifyDeltas(ui, announced);
 };
 
-/** Full rescan that populates `ui.listPanel.checkedCount[role]` from the DOM + intent,
- *  then writes the toggle-all checkbox off the fresh count. Called only at
- *  reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
+/** Repaint each folder header of one role from its own aggregate: the
+ *  tri-state checkbox and the count cell. The folder row is a group row like
+ *  the role header, so it reconciles on the same cadence — a member toggled
+ *  from anywhere (its own checkbox, the folder checkbox, the role checkbox, a
+ *  host `setVisible`) leaves both group rows agreeing with the members. */
+const syncFolderRows = (ui: LayerUI, role: string): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  const rows = container.querySelectorAll(
+    `${CONST.SEL.FOLDER_ROW}[data-role="${role}"]`,
+  );
+  for (const row of Array.from(rows)) {
+    const folderKey = row.getAttribute(CONST.DATA.FOLDER_KEY);
+    if (!folderKey) continue;
+    const vis = folderVisibility(ui, role, folderKey);
+    const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (box) writeTriState(box, vis.total, vis.on);
+    writeRoleCount(row, vis.total, vis.on);
+  }
+};
+
+/** Repaint every group row of one role — the role header and each folder
+ *  header — from its own visibility aggregate. One pass, one source: a group
+ *  row's checkbox and its count always come from the same aggregate, and a
+ *  reconcile point never has to remember which group rows exist. Called only
+ *  at reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
  *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
  *  to keep the update O(1). */
 const syncToggleAll = (ui: LayerUI, role: string) => {
@@ -208,6 +236,10 @@ const writeToggleAllCheckbox = (
         .replace("{total}", String(c.total)),
     );
   }
+  // Every group row of the role repaints on the same cadence: both the O(1)
+  // click path and the full rescan funnel through here, so a folder header can
+  // never lag the role header it sits under.
+  syncFolderRows(ui, role);
 };
 
 /** Incrementally update the role's `checkedCount.on` by `delta` (typically
