@@ -3038,13 +3038,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         columns, everything else 1): a one-column label (a bare digit like
         "0") centres on the dot it names (its centre sits on the parked
         thumb's centre, a half thumb in from the control edge); a label two
-        columns or wider is an axis label that clamps to the track's end
-        (its outer edge sits on the track edge, the dot's centre). The
-        values row spans the control's width (no half-thumb inset). The row
-        must not be widened by the labels, the two numbers must not overlap,
-        and each label stays inside the row's own box. The dual zoom-range
-        row also owns the current-level number, which the centred layout
-        keeps over the track.
+        columns or wider is an axis label that pins to the slider's painted
+        end (its outer edge sits on the control edge, where the parked
+        thumb's outer edge lands). The values row spans the control's width
+        (no half-thumb inset). The row must not be widened by the labels,
+        the two numbers must not overlap, and each label stays inside the
+        row's own box. The dual zoom-range row also owns the current-level
+        number, which the centred layout keeps over the track.
         """
         overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
         with use_page(
@@ -3113,10 +3113,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 # The alignment rule keys on display width (a CJK glyph counts
                 # 2 columns, everything else 1): a one-column label (a bare
                 # digit like "0") centres on its dot; anything wider is an axis
-                # label and clamps to the track's end. Both anchors resolve to
-                # the track edge (the parked thumb's centre): a dot-centred
-                # label's centre sits on it, a clamped label's outer edge sits
-                # on it. The dot already encodes the mirror.
+                # label and pins to the slider's painted end. The two states
+                # read different references: a dot-centred label's centre sits
+                # on the track edge (the parked thumb's centre), while a pinned
+                # label's outer edge sits on the control edge (where the parked
+                # thumb's outer edge lands). The dot already encodes the mirror.
                 # A clamped label pins to the slider's PAINTED end, which is
                 # the control edge (the values row's edge), not the track
                 # element's edge: the track is inset half a thumb so a parked

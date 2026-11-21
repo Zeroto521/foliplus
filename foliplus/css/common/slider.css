@@ -217,14 +217,14 @@
    displayWidth in slider.ts): a label that fits one digit column is
    dot-centred — its centre sits on the parked thumb's centre, which is a
    half thumb in from the control's edge — and anything wider is an axis
-   label that clamps to the slider's two visible ends (class is-clamp).
+   label that pins to the slider's two painted ends (class is-clamp).
 
-   The clamp pins to the CONTROL's edges, not the track element's: the track
-   is inset half a thumb so a parked thumb's outer edge lands on the
-   control's edge, which means the painted bar (rail + the two parked
-   thumbs) spans the full control width. Pinning the label to the track
-   element instead leaves it half a thumb inside the bar's visible end —
-   the misalignment this rule exists to prevent. */
+   The pin is the CONTROL's edge, not the track element's: the track is
+   inset half a thumb so a parked thumb's outer edge lands on the control's
+   edge, which means the painted bar (rail + the two parked thumbs) spans
+   the full control width. Pinning the label to the track element instead
+   leaves it half a thumb inside the bar's visible end — the misalignment
+   this rule exists to prevent. */
 .foliplus-slider-value-min.is-clamp {
   flex: 0 1 auto;
   text-align: start;

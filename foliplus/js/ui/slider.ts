@@ -676,11 +676,11 @@ class Slider {
    *  display width in digit columns (see displayWidth). A label that fits a
    *  single digit column is dot-centred (its centre sits on the parked
    *  thumb's centre, a half thumb in from the control edge); anything wider
-   *  is an axis label and clamps to the track's two ends (class is-clamp,
-   *  a half thumb in from the control edge — the track's own edge), clipping
-   *  its text toward the inside. The switch is decided per label on render /
-   *  open / resize — never on a drag frame, so a pointermove cannot churn the
-   *  layout. */
+   *  is an axis label and pins to the slider's painted ends (class is-clamp,
+   *  the control's two edges — where the parked thumbs' outer edges land),
+   *  clipping its text toward the inside. The switch is decided per label on
+   *  render / open / resize — never on a drag frame, so a pointermove cannot
+   *  churn the layout. */
   private measureValuesFit(): void {
     if (!this.minEl || !this.maxEl || !this.opts.values) return;
     const rowWidth = this.valuesRow.clientWidth;
