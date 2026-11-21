@@ -16,7 +16,7 @@ from conftest import (
 from foliplus import LayerControl
 
 from ._browser_base import LayerControlBrowserBase
-from .helper import _geo_mixed
+from .helper import _geo_zone
 
 
 class TestFilterBrowser(LayerControlBrowserBase):
@@ -31,7 +31,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         fill: currentColor; otherwise `color` never reaches the glyph and the
         default black would vanish on a dark theme.
         """
-        layer = folium.GeoJson(json.dumps(_geo_mixed), name="Funnel row")
+        layer = folium.GeoJson(json.dumps(_geo_zone), name="Funnel row")
         with use_page(self._make_page, browser, tmp_path, layer, slug="funnel") as (
             page,
             errors,
@@ -68,7 +68,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         is exact grouped integers (2,500 / 6,000) — the panel is the detail
         view and never repeats the compact column value.
         """
-        layer = folium.GeoJson(json.dumps(_geo_mixed), name="Attrs pair")
+        layer = folium.GeoJson(json.dumps(_geo_zone), name="Attrs pair")
         with use_page(self._make_page, browser, tmp_path, layer, slug="attr_pair") as (
             page,
             errors,
@@ -94,7 +94,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         popup, a second press adds another, and Clear returns the row and the
         readout to the unfiltered state.
         """
-        layer = folium.GeoJson(json.dumps(_geo_mixed), name="Enum filter")
+        layer = folium.GeoJson(json.dumps(_geo_zone), name="Enum filter")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -181,7 +181,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         not by a shared class (the FILTER_FIELD class also names the field
         row, so a class-only query is ambiguous).
         """
-        layer = folium.GeoJson(json.dumps(_geo_mixed), name="Field picker")
+        layer = folium.GeoJson(json.dumps(_geo_zone), name="Field picker")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -258,7 +258,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         """The dropdown keeps real keyboard focus: ArrowDown enters the list,
         Space toggles without closing it, one Escape closes the popup and the
         next closes the panel; a press on the map also closes it."""
-        layer = folium.GeoJson(json.dumps(_geo_mixed), name="Enum keyboard")
+        layer = folium.GeoJson(json.dumps(_geo_zone), name="Enum keyboard")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -332,7 +332,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         multi-select ARIA state, and a long option list is height-capped with an
         internal scrollbar instead of running past the viewport.
         """
-        layer = folium.GeoJson(json.dumps(_geo_mixed), name="Enum dropdown")
+        layer = folium.GeoJson(json.dumps(_geo_zone), name="Enum dropdown")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -383,7 +383,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         scrollWheelZoom fires. The list keeps its own overflow-y scroll because
         only propagation is stopped, not the default.
         """
-        layer = folium.GeoJson(json.dumps(_geo_mixed), name="Wheel zoom")
+        layer = folium.GeoJson(json.dumps(_geo_zone), name="Wheel zoom")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
@@ -426,7 +426,7 @@ class TestFilterBrowser(LayerControlBrowserBase):
         three empty-folder cleanup probes are referenced here so the browser-probe inventory
         sees them as reachable, not orphaned.
         """
-        layer = folium.GeoJson(_geo_mixed, name="Roads")
+        layer = folium.GeoJson(_geo_zone, name="Roads")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             panel_ready(page)
 

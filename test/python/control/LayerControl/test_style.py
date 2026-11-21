@@ -40,7 +40,7 @@ def _method_labels() -> tuple[str, str]:
 
 
 from ._browser_base import LayerControlBrowserBase
-from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
+from .helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
 
 class TestStyleBrowser(LayerControlBrowserBase):
@@ -380,7 +380,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         untouched checkbox is the evidence. Both color inputs are covered: a
         data layer's Fill Color row and the solid-color basemap's fill row.
         """
-        geo = folium.GeoJson(_geo_mixed, name="Point layer")
+        geo = folium.GeoJson(_geo_zone, name="Point layer")
         with use_page(
             self._make_page, browser, tmp_path, geo, slug="fill_color_keys"
         ) as (page, errors):
