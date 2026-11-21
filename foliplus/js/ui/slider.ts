@@ -105,8 +105,6 @@ const bindFullscreen = (): void => {
       const host = fullscreenSurface(bubbleScope(pending.owner));
       if (pending.el.parentElement !== host) host.appendChild(pending.el);
     }
-    // A row with a permanent readout needs it back on the new surface. The
-    // pool is empty now (the hide above cleared it), so this is the snapshot.
   });
 };
 
@@ -132,10 +130,7 @@ const showAnchor = (anchor: HTMLElement, owner: HTMLElement): BubbleEntry => {
     window.addEventListener(
       "scroll",
       () => {
-        // Snapshot: hideAnchor empties the pool as it goes, and the standing
-        // readouts have to come back in the same pass.
-        const live = [...bubbles.entries()];
-        for (const [a] of live) hideAnchor(a);
+        for (const [a] of bubbles) hideAnchor(a);
       },
       true,
     );
@@ -143,9 +138,7 @@ const showAnchor = (anchor: HTMLElement, owner: HTMLElement): BubbleEntry => {
   // Owner switch: another slider wants the surface, so this slider's live
   // bubbles go away immediately (their anchors no longer belong to it).
   for (const [otherAnchor, other] of bubbles) {
-    if (other.owner !== owner) {
-      hideAnchor(otherAnchor, true);
-    }
+    if (other.owner !== owner) hideAnchor(otherAnchor, true);
   }
   const live = bubbles.get(anchor);
   if (live) {
@@ -364,9 +357,7 @@ class Slider {
       this.fitObserver.observe(this.valuesRow);
     }
     requestAnimationFrame(() => {
-      if (this.root.isConnected) {
-        this.measureValuesFit();
-      }
+      if (this.root.isConnected) this.measureValuesFit();
     });
   }
 
@@ -448,7 +439,7 @@ class Slider {
       // A disabled control must not keep applying a live drag: commit what the
       // pointer already produced, then drop the session so no move lands.
       this.endSession(true);
-      this.hideBubble(undefined, false, true);
+      this.hideBubble();
     }
     this.applyAria();
   }
@@ -473,17 +464,14 @@ class Slider {
   }
 
   /** Finish a live drag as a commit. Safe when nothing is in flight: the
-   *  session only emits when the pointer actually moved. The row is going away
-   *  with the panel, so a standing readout goes with it (a bubble is portaled
-   *  to the map's surface, and must not outlive its slider). */
+   *  session only emits when the pointer actually moved. */
   finish(): void {
     this.endSession(true);
-    this.hideBubble(undefined, true, true);
   }
 
   /** Drop the bubbles if this slider owns them (teardown path). */
   dismissBubble(): void {
-    this.hideBubble(undefined, false, true);
+    this.hideBubble();
   }
 
   /** Mirror the ARIA state onto the thumbs and the group. */
@@ -522,7 +510,7 @@ class Slider {
         [
           "hide-bubble",
           () => {
-            this.hideBubble(undefined, true, true);
+            this.hideBubble(undefined, true);
           },
         ],
         [
@@ -775,6 +763,18 @@ class Slider {
       dot.classList.toggle(SLIDER_CLASS.DOT_COVERED, at >= lo && at <= hi);
     }
 
+    // Opt-in end readouts: report the current thumbs, not the static extent,
+    // and refresh on every value change (drag, key, pan). Opacity/zoom-range
+    // keep the static extent readout. No layout churn: the text swap only
+    // reflows the two end spans.
+    if (this.opts.alwaysVisible && this.minEl && this.maxEl) {
+      // The caller may explicitly opt out of a formatter (`format: undefined`)
+      // the way it does for the thumb's aria-valuetext and the bubble; the
+      // readout follows that same fallback.
+      const format = this.opts.format ?? ((value: number) => String(value));
+      this.minEl.textContent = format(this.values[0]);
+      this.maxEl.textContent = format(this.values[this.values.length - 1]);
+    }
     if (this.currentEl && this.opts.current) {
       const current = this.opts.current;
       // Centre the label on the dot it names: the dot rides the track (inset by
@@ -1190,17 +1190,10 @@ class Slider {
     if (!thumb) return;
     const entry = showAnchor(thumb, this.root);
     this.bubbleAnchors.add(thumb);
-    this.setBubbleText(entry.el, index);
+    entry.el.textContent =
+      this.opts.format?.(this.values[index]) ?? String(this.values[index]);
     entry.el.classList.add("is-on");
     placeBubble(thumb.getBoundingClientRect(), entry.el);
-  }
-
-  /** The bubble's text for *index*: the row's formatter, or the raw value when
-   *  the caller opted out of one. One place so the standing readout and the
-   *  drag/focus readout can never spell the same value two ways. */
-  private setBubbleText(el: HTMLElement, index: number): void {
-    el.textContent =
-      this.opts.format?.(this.values[index]) ?? String(this.values[index]);
   }
 
   /** Refresh every bubble this slider owns. Text is updated synchronously so
@@ -1213,7 +1206,10 @@ class Slider {
       const entry = bubbles.get(anchor);
       if (entry) {
         const index = this.thumbs.indexOf(anchor);
-        if (index >= 0) this.setBubbleText(entry.el, index);
+        if (index >= 0) {
+          entry.el.textContent =
+            this.opts.format?.(this.values[index]) ?? String(this.values[index]);
+        }
       }
     }
     if (this.bubbleFrame) return;
@@ -1226,7 +1222,7 @@ class Slider {
     });
   }
 
-  private hideBubble(index?: number, immediate = false, _forced = false): void {
+  private hideBubble(index?: number, immediate = false): void {
     const anchors =
       index === undefined
         ? [...this.bubbleAnchors, ...this.thumbs.filter(t => pendingHide.has(t))]
