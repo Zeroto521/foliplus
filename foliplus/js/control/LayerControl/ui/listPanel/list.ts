@@ -794,7 +794,12 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   return dom.el(
     "div",
     {
-      class: `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}`,
+      // The role row carries LAYER_ITEM so the shared cell styles (count,
+      // type icon, more button, label) apply to it exactly as they do to a
+      // layer or folder row. Without it the role row is the only row type
+      // outside that shared block, and its count/icon/more silently fall back
+      // to unstyled defaults — the misalignment this class fixes at the root.
+      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}`,
       tabindex: "0",
       "data-role": role,
       title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
