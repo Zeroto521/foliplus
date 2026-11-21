@@ -42,10 +42,30 @@ The panel lists every layer on the map as a row, split into two role sections:
   layers).
 
 Each row shows the layer's geometry icon, its display name, a visibility
-checkbox, a drag handle, and a `⋮` (more) button that opens the row menu.
+checkbox, a drag handle, and a `⋮` (more) button that opens the row menu. The
+row also shows a feature count, and the count gains a filter glyph when the
+layer is filtered. The geometry icon carries a small type badge (Point, Line,
+Polygon, Tile, Custom, or the group glyph for a folder).
 
 The panel is collapsed by default. Click the button again (or the collapse
 arrow) to close it.
+
+**Control-level options.** `LayerControl` accepts a few options that shape
+the whole panel:
+
+- `position` — which map corner the panel attaches to (`"topleft"`,
+  `"topright"`, `"bottomleft"`, `"bottomright"`; default `"topleft"`).
+- `folders=` — declare folders at the control level (the equivalent of the
+  per-layer {ref}`declaration <folder>` key, applied to every layer).
+- `label_collide` — page-wide default for a layer's "avoid overlap" label
+  setting (default `True`).
+- `icon_prefix` — the FontAwesome family class prefix the panel uses for
+  glyph icons (`"fa-solid"` or `"fa-regular"`; default `"fa-solid"`).
+- `collapse_on_outside` — whether a press outside the panel collapses it
+  (default `False`; the panel is a working surface read at the same time as
+  the map).
+
+See the API reference for the full signatures.
 
 ## Showing and hiding layers
 
@@ -116,45 +136,74 @@ dragged to the top draws above the layers below it.
 drag a Base Map into the Data Layers section (or vice-versa); the panel shows a
 small "reordering is only allowed within the same group" message if you try.
 
+## Row actions
+
+The `⋮` menu on a row opens the actions for that layer.
+
+### Zoom to a layer
+
+Double-click a row, choose **Focus** from its `⋮` menu, or press
+Alt + Enter (Cmd + Enter on macOS) — the three are equivalent. The map zooms
+to the layer's extent, drawing a dashed rectangle around it. A hidden layer
+shows a hint instead of zooming, and a component that currently holds the map
+(measuring, exporting, searching, locating) blocks the zoom with a hint.
+
+### Rename a layer
+
+Choose **Rename** from the row's `⋮` menu. The label turns into an inline
+input; press Enter (or click away) to commit a non-empty name, Escape to
+cancel.
+
+### Attributes panel
+
+Choose **Attributes** from the row's `⋮` menu. The panel shows read-only
+details about the layer — its source, type, feature count and timestamps. This
+is the only row action that never writes state.
+
+### Delete a layer / Clear Data
+
+The last `⋮` entry deletes the layer, with a two-step confirmation: the
+first click turns the entry into a confirm label (**Delete layer** →
+**Confirm Delete**), and the second click within three seconds actually
+deletes it. For a layer owned by a foliplus component (a Measure or Heatmap
+result) the entry reads **Clear Data** instead — it clears the component's
+data without retiring the layer.
+
 ## Grouping layers into folders
 
-### Create a folder
+A folder is a grouping _intent_ declared by the author, not something a user
+creates at runtime. The map author decides which layers belong to a folder and
+what it is called; the panel only lets you fold, rename and delete it.
+
+### Where folders come from
+
+A layer declares its folder up front, on the layer itself:
 
 ```python
-import folium
 import geopandas as gpd
-from foliplus import LayerControl
 
-roads = gpd.read_file("roads.geojson").explore()
-rails = gpd.read_file("rails.geojson").explore()
-m = folium.Map().add_child(roads).add_child(rails)
-LayerControl().add_to(m)
-m.save("map.html")
+gdf = gpd.read_file("districts.geojson")
+gdf.explore(foliplus={"folder": "底图"})
 ```
 
-**What you see.** Open the `⋮` menu on a layer row and choose **Move to
-folder → New folder**. Type a name (for example `"Transport"`) and press
-Enter. The row moves inside the new folder, and the folder appears as a group
-row with a collapse chevron and its own count.
+Two layers declaring the same folder name in the same role are grouped into
+one folder. Folder names group case-insensitively after whitespace folding, so
+`"Basemap"` and `"basemap"` land in one folder. See the
+{ref}`declaration <folder>` page for the full rule.
 
-### Rename a folder
-
-Right-click the folder row (or open its `⋮` menu) and choose **Rename**.
-Type the new name and press Enter.
-
-### Move a layer into an existing folder
-
-Open the row's `⋮` menu and choose **Move to folder**, then pick the folder.
-The row jumps under that folder's group.
-
-A layer can also be dropped onto a folder row by dragging, which moves it into
-that folder.
+Alternatively, the author declares folders at the control level with
+`LayerControl(folders=...)`; the two forms are equivalent for the panel.
 
 ### Fold and unfold
 
 Click the folder's collapse chevron. A folded folder hides its member rows and
 shows the member count on the group row. The fold state is remembered — see
 {ref}`persistence`.
+
+### Rename a folder
+
+Open the folder's `⋮` menu and choose **Rename**. Type the new name and press
+Enter (or Escape to cancel).
 
 ### Delete a folder
 
@@ -169,22 +218,6 @@ A folder is a grouping _intent_, not a data container: deleting a folder never
 touches the layers or the underlying data.
 
 :::
-
-### Author-declared folders
-
-A layer can declare its folder up front, on the layer itself:
-
-```python
-import geopandas as gpd
-
-gdf = gpd.read_file("districts.geojson")
-gdf.explore(foliplus={"folder": "底图"})
-```
-
-Two layers declaring the same folder name in the same role are grouped into
-one folder. Folder names group case-insensitively after whitespace folding, so
-`"Basemap"` and `"basemap"` land in one folder. See the
-{ref}`declaration <folder>` page for the full rule.
 
 ## Styling a layer
 
@@ -229,9 +262,11 @@ Set **Fill** to **Original**. The layer returns to its own per-feature paint
 
 ### Border
 
-Use the **Border** row to set a stroke colour and weight. **Border Mode**
-controls whether the border follows the fill (`Follow Fill`) or uses a
-separate colour.
+Use the **Border** row to set a stroke colour and weight. The border mode is
+not a separate control: it follows the fill mode. When **Fill** is **Solid**
+or **Original** the border uses its own colour; when **Fill** is **By value**
+the border is derived from the fill (the border colour you set is a modifier
+on the per-feature fill colour).
 
 ### Opacity and zoom range
 
@@ -351,7 +386,7 @@ opened:
 | ---------------- | -------- | ----------------------------------------------- |
 | Layer order      | ✅       | the row order you dragged to                    |
 | Layer visibility | ✅       | checked / unchecked per layer                   |
-| Folder folds     | ✅       | which folders are collapsed                     |
+| Folder folds     | ✅       | which role / author-folder blocks are collapsed  |
 | Folder names     | ✅       | a renamed folder keeps its name                 |
 | Layer names      | ✅       | a renamed layer keeps its name                  |
 | Styles           | ✅       | fill, border, icon, opacity, zoom range, labels |
@@ -376,18 +411,21 @@ When the panel is open and a layer row has focus, the row supports a keyboard
 model. The arrows move focus between rows; the actions below operate on the
 focused row.
 
-| Key         | Action                                                    |
-| ----------- | --------------------------------------------------------- |
-| ↑ / ↓       | move row focus up / down                                  |
-| ← / →       | move focus between the row controls (checkbox → drag → ⋮) |
-| Space       | toggle the row's visibility checkbox                      |
-| Enter       | open the focused control (checkbox, drag, or ⋮ menu)      |
-| Alt + Enter | open the focused row's ⋮ menu directly                    |
-| Delete      | delete the focused layer (with confirmation)              |
-| Home / End  | jump to the first / last row                              |
-| Escape      | close an open panel or menu                               |
+| Key            | Action                                                                        |
+| -------------- | ----------------------------------------------------------------------------- |
+| ↑ / ↓          | move row focus up / down                                                      |
+| ← / →          | toggle the focused layer's visibility (← deselect, → select)                  |
+| Space          | toggle the focused layer's visibility                                         |
+| Enter          | toggle the focused layer's visibility                                         |
+| Ctrl + ↑ / ↓   | move the focused layer one position up / down in its role                     |
+| Alt + Enter    | zoom the map to the focused layer's extent (same as double-click)             |
+| Escape         | close the open rename, menu, attributes, filter or style panel                |
+| Double-click   | zoom the map to that layer's extent (dashed rectangle)                        |
 
 **What you see.** A focused row shows a focus outline. The arrow keys move the
 focus without activating anything; the action keys trigger the focused
 control. Pressing Escape closes the style or filter drawer and returns focus
 to the row.
+
+On macOS, Cmd acts as the modifier key instead of Ctrl (Cmd + ↑ / ↓, Cmd +
+Enter).
