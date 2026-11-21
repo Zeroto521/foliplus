@@ -208,12 +208,11 @@ const writeToggleAllCheckbox = (
   role: string,
 ): void => {
   const c = ui.listPanel.checkedCount?.[role] ?? { total: 0, on: 0 };
-  const allChecked = c.total > 0 && c.on === c.total;
-  const noneChecked = c.on === 0;
-  allCb.checked = allChecked;
-  allCb.indeterminate = !allChecked && !noneChecked;
+  // One tri-state writer for every group row: the role header and the folder
+  // headers paint checked / indeterminate / aria-checked from the same rule.
+  writeTriState(allCb, c.total, c.on);
   allCb.title = ui.T(
-    allChecked || allCb.indeterminate
+    allCb.checked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"
       : "toggle_all_select_tooltip",
   );

@@ -248,7 +248,7 @@ describe("ui/list folder rows", () => {
     }
   });
 
-  it("role menu show-all/hide-all toggles every layer in the role", () => {
+  it("role checkbox toggles every layer in the role", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -269,16 +269,15 @@ describe("ui/list folder rows", () => {
       menu: document.createElement("div"),
       role: "overlay",
     };
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.HIDE_ALL);
-    runMenuAction(ui, mi);
     const cb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;
+    cb.checked = false;
+    cb.dispatchEvent(new Event("change", { bubbles: true }));
     expect(cb.getAttribute("aria-checked")).toBe("false");
   });
 
-  it("folder menu hide-folder toggles only the folder's members", () => {
+  it("folder checkbox toggles only the folder's members", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -307,13 +306,16 @@ describe("ui/list folder rows", () => {
       role: "overlay",
       folderKey: "roads",
     };
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.HIDE_FOLDER);
-    runMenuAction(ui, mi);
     const folderCb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;
-    expect(folderCb.getAttribute("aria-checked")).toBe("false");
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    // The bulk toggle rebuilds the list, so read the fresh row.
+    const freshCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    expect(freshCb.getAttribute("aria-checked")).toBe("false");
     const rootCb = ui.uiContainer!.querySelector(
       '[data-layer-id="water"] input[type=checkbox]',
     ) as HTMLInputElement;
@@ -514,7 +516,7 @@ describe("ui/list folder rows", () => {
     expect(isFolderFolded(ui, "overlay", "water")).toBe(false);
   });
 
-  it("folder menu show-folder shows the folder's members", () => {
+  it("folder checkbox restores the folder's members", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -536,32 +538,28 @@ describe("ui/list folder rows", () => {
       menu: document.createElement("div"),
       folderKey: "roads",
     };
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.HIDE_FOLDER);
-    runMenuAction(ui, mi);
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
     const memberCb = ui.uiContainer!.querySelector(
       '[data-layer-id="rd1"] input[type=checkbox]',
     ) as HTMLInputElement;
     expect(memberCb.checked).toBe(false);
-    // show-folder restores the members' visibility.
-    const folderRow2 = ui.uiContainer!.querySelector(
-      `.${CONST.CLASSES.FOLDER_ROW}`,
-    ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
-      item: folderRow2,
-      menu: document.createElement("div"),
-      folderKey: "roads",
-    };
-    const mi2 = document.createElement("button");
-    mi2.setAttribute("data-action", CONST.ACTION.SHOW_FOLDER);
-    runMenuAction(ui, mi2);
+    // The same checkbox restores the members' visibility.
+    const folderCb2 = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb2.checked = true;
+    folderCb2.dispatchEvent(new Event("change", { bubbles: true }));
     const memberCb2 = ui.uiContainer!.querySelector(
       '[data-layer-id="rd1"] input[type=checkbox]',
     ) as HTMLInputElement;
     expect(memberCb2.checked).toBe(true);
   });
 
-  it("role menu show-all shows every layer in the role", () => {
+  it("role checkbox shows every layer in the role", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -587,13 +585,18 @@ describe("ui/list folder rows", () => {
       `.${CONST.CLASSES.ROLE_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;
     cb.checked = false;
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.SHOW_ALL);
-    runMenuAction(ui, mi);
+    cb.dispatchEvent(new Event("change", { bubbles: true }));
     const memberCb = ui.uiContainer!.querySelector(
       '[data-layer-id="rd1"] input[type=checkbox]',
     ) as HTMLInputElement;
-    expect(memberCb.checked).toBe(true);
+    expect(memberCb.checked).toBe(false);
+    // The role checkbox shows them again.
+    cb.checked = true;
+    cb.dispatchEvent(new Event("change", { bubbles: true }));
+    const memberCb2 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(memberCb2.checked).toBe(true);
   });
 
   it("folder menu rename-folder opens an inline rename on the folder row", () => {
@@ -627,7 +630,7 @@ describe("ui/list folder rows", () => {
     ).not.toBeNull();
   });
 
-  it("openMoreMenu on a folder row opens the folder menu (rename/show/hide/delete)", () => {
+  it("openMoreMenu on a folder row opens the folder menu (rename/delete only)", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -650,12 +653,14 @@ describe("ui/list folder rows", () => {
       b => b.dataset.action,
     );
     expect(actions).toContain(CONST.ACTION.RENAME_FOLDER);
-    expect(actions).toContain(CONST.ACTION.SHOW_FOLDER);
-    expect(actions).toContain(CONST.ACTION.HIDE_FOLDER);
     expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
+    // Show/hide is the row checkbox's job; a menu entry for it duplicated the
+    // control the user already has (issue 13).
+    expect(actions).not.toContain("show-folder");
+    expect(actions).not.toContain("hide-folder");
   });
 
-  it("openMoreMenu on a role row opens the role menu (new-folder/expand/collapse/show/hide)", () => {
+  it("openMoreMenu on a role row opens the role menu (new-folder/expand/collapse)", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -680,8 +685,9 @@ describe("ui/list folder rows", () => {
     expect(actions).toContain(CONST.ACTION.NEW_FOLDER);
     expect(actions).toContain(CONST.ACTION.EXPAND_ALL);
     expect(actions).toContain(CONST.ACTION.COLLAPSE_ALL);
-    expect(actions).toContain(CONST.ACTION.SHOW_ALL);
-    expect(actions).toContain(CONST.ACTION.HIDE_ALL);
+    // The role checkbox already shows/hides the whole role (issue 13).
+    expect(actions).not.toContain("show-all");
+    expect(actions).not.toContain("hide-all");
   });
 
   it("folder row checkbox change hides/shows every member through handleChange", () => {
@@ -847,8 +853,6 @@ describe("ui/list folder rows", () => {
     for (const action of [
       CONST.ACTION.EXPAND_ALL,
       CONST.ACTION.COLLAPSE_ALL,
-      CONST.ACTION.SHOW_ALL,
-      CONST.ACTION.HIDE_ALL,
     ]) {
       const mi = document.createElement("button");
       mi.setAttribute("data-action", action);
@@ -860,11 +864,7 @@ describe("ui/list folder rows", () => {
       folderKey: undefined,
       role: "overlay",
     };
-    for (const action of [
-      CONST.ACTION.RENAME_FOLDER,
-      CONST.ACTION.SHOW_FOLDER,
-      CONST.ACTION.HIDE_FOLDER,
-    ]) {
+    for (const action of [CONST.ACTION.RENAME_FOLDER]) {
       const mi = document.createElement("button");
       mi.setAttribute("data-action", action);
       expect(() => runMenuAction(ui, mi)).not.toThrow();
@@ -924,9 +924,11 @@ describe("ui/list folder rows", () => {
       folderKey: "roads",
       role: "overlay",
     };
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.HIDE_FOLDER);
-    runMenuAction(ui, mi);
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
     const waterCb = ui.uiContainer!.querySelector(
       '[data-layer-id="wt1"] input[type=checkbox]',
     ) as HTMLInputElement;
@@ -955,8 +957,6 @@ describe("ui/list folder rows", () => {
       CONST.ACTION.NEW_FOLDER,
       CONST.ACTION.EXPAND_ALL,
       CONST.ACTION.COLLAPSE_ALL,
-      CONST.ACTION.SHOW_ALL,
-      CONST.ACTION.HIDE_ALL,
       CONST.ACTION.RENAME_FOLDER,
     ]) {
       const mi = document.createElement("button");
@@ -1091,10 +1091,12 @@ describe("ui/list folder rows", () => {
       folderKey: "roads",
       role: "overlay",
     };
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.HIDE_FOLDER);
-    runMenuAction(ui, mi);
-    // The menu action rebuilds the list, so re-query the fresh folder row.
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    // The bulk toggle rebuilds the list, so re-query the fresh folder row.
     const freshRow = ui.uiContainer!.querySelector(
       `[data-folder-key="roads"]`,
     ) as HTMLElement;
@@ -1301,9 +1303,11 @@ describe("ui/list folder rows", () => {
       folderKey: "roads",
       role: "overlay",
     };
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.HIDE_FOLDER);
-    runMenuAction(ui, mi);
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
     const fresh = ui.uiContainer!.querySelector(
       `[data-folder-key="roads"]`,
     ) as HTMLElement;

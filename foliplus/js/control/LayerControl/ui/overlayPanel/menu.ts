@@ -2,8 +2,7 @@
 import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
 import { folderFoldKey } from "../listPanel/drag.js";
 import { rebuildList } from "../listPanel/list.js";
-import { setFolderVisible } from "../listPanel/visibility.js";
-import { saveState, setVisibleIntent } from "../state.js";
+import { saveState } from "../state.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
@@ -609,14 +608,6 @@ const menuLayerId = (ui: LayerUI): string => ui.overlayPanel.activeMenu?.layerId
  *  (keyboard knew three of the six actions and sent the rest to focus-layer).
  *  The `Record<MenuAction, …>` shape makes a new CONST.ACTION value fail
  *  typecheck until its branch exists here. */
-const setRoleVisible = (ui: LayerUI, role: string, visible: boolean) => {
-  for (const info of ui.c.layerRegistry.items) {
-    if (info.role === role) setVisibleIntent(ui, info.id, visible, false);
-  }
-  saveState(ui);
-  rebuildList(ui);
-};
-
 const folderKeysOfRole = (ui: LayerUI, role: string): string[] => {
   const layout = ui.c.folderLayoutView;
   const keys = new Set<string>();
@@ -742,18 +733,6 @@ const MENU_ACTIONS: Record<
     if (fk && role && name) startFolderRename(ui, role, fk, name);
     return { closeMenu: false, restoreRowFocus: false };
   },
-  [CONST.ACTION.SHOW_FOLDER]: ui => {
-    const fk = ui.overlayPanel.activeMenu?.folderKey;
-    const role = ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ?? "";
-    if (fk && role) setFolderVisible(ui, role, fk, true);
-    return { closeMenu: true, restoreRowFocus: true };
-  },
-  [CONST.ACTION.HIDE_FOLDER]: ui => {
-    const fk = ui.overlayPanel.activeMenu?.folderKey;
-    const role = ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ?? "";
-    if (fk && role) setFolderVisible(ui, role, fk, false);
-    return { closeMenu: true, restoreRowFocus: true };
-  },
   [CONST.ACTION.NEW_FOLDER]: ui => {
     const role = ui.overlayPanel.activeMenu?.role ?? "";
     ui.closeMoreMenu(false);
@@ -768,16 +747,6 @@ const MENU_ACTIONS: Record<
   [CONST.ACTION.COLLAPSE_ALL]: ui => {
     const role = ui.overlayPanel.activeMenu?.role ?? "";
     if (role) setAllFoldersFolded(ui, role, true);
-    return { closeMenu: true, restoreRowFocus: true };
-  },
-  [CONST.ACTION.SHOW_ALL]: ui => {
-    const role = ui.overlayPanel.activeMenu?.role ?? "";
-    if (role) setRoleVisible(ui, role, true);
-    return { closeMenu: true, restoreRowFocus: true };
-  },
-  [CONST.ACTION.HIDE_ALL]: ui => {
-    const role = ui.overlayPanel.activeMenu?.role ?? "";
-    if (role) setRoleVisible(ui, role, false);
     return { closeMenu: true, restoreRowFocus: true };
   },
 };
@@ -885,32 +854,6 @@ const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
     ),
   );
   menu.appendChild(
-    dom.el(
-      "button",
-      {
-        type: "button",
-        "data-action": CONST.ACTION.SHOW_FOLDER,
-        role: "menuitem",
-        title: ui.T("show_folder_tooltip"),
-      },
-      { html: SVGs.ICON_FOLD },
-      ui.T("show_folder"),
-    ),
-  );
-  menu.appendChild(
-    dom.el(
-      "button",
-      {
-        type: "button",
-        "data-action": CONST.ACTION.HIDE_FOLDER,
-        role: "menuitem",
-        title: ui.T("hide_folder_tooltip"),
-      },
-      { html: SVGs.ICON_FOLD },
-      ui.T("hide_folder"),
-    ),
-  );
-  menu.appendChild(
     dom.el("li", {
       class: `.${CONST.CLASSES.MENU_DIVIDER} .${PANEL_CLASS.SECTION_DIVIDER}`,
       role: "separator",
@@ -983,32 +926,6 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
       role: "separator",
       "aria-hidden": "true",
     }),
-  );
-  menu.appendChild(
-    dom.el(
-      "button",
-      {
-        type: "button",
-        "data-action": CONST.ACTION.SHOW_ALL,
-        role: "menuitem",
-        title: ui.T("show_all_tooltip"),
-      },
-      { html: SVGs.ICON_LAYERS },
-      ui.T("show_all"),
-    ),
-  );
-  menu.appendChild(
-    dom.el(
-      "button",
-      {
-        type: "button",
-        "data-action": CONST.ACTION.HIDE_ALL,
-        role: "menuitem",
-        title: ui.T("hide_all_tooltip"),
-      },
-      { html: SVGs.ICON_LAYERS },
-      ui.T("hide_all"),
-    ),
   );
   attachRowMenu(ui, item, menu, { role });
 };

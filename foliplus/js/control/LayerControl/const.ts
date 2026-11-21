@@ -378,16 +378,8 @@ const ACTION = {
   EXPAND_ALL: "expand-all",
   /** Role menu: collapse every folder in this role. */
   COLLAPSE_ALL: "collapse-all",
-  /** Role menu: show every layer in this role (incl. folder members). */
-  SHOW_ALL: "show-all",
-  /** Role menu: hide every layer in this role (incl. folder members). */
-  HIDE_ALL: "hide-all",
   /** Folder menu: rename the folder. */
   RENAME_FOLDER: "rename-folder",
-  /** Folder menu: show every member of this folder. */
-  SHOW_FOLDER: "show-folder",
-  /** Folder menu: hide every member of this folder. */
-  HIDE_FOLDER: "hide-folder",
 };
 
 /** The `data-role` value the toggle-all checkbox writes on itself. A
