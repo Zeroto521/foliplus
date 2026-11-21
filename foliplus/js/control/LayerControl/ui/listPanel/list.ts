@@ -1,5 +1,4 @@
 // LayerControl UI — Layer row structure / list layout / insert / reindex.
-import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
@@ -33,6 +32,7 @@ import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —

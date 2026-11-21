@@ -32,9 +32,7 @@ const getLayerItems = (ui: LayerUI, role: string): Element[] => {
   // Folder rows and role rows carry .foliplus-layer-item too (per spec §1.2)
   // but are group rows, not leaf layers — LEAF_ITEM excludes both so a role
   // count never counts a group as a layer.
-  return Array.from(
-    container.querySelectorAll(`${CONST.SEL.LEAF_ITEM}${inGroup}`),
-  );
+  return Array.from(container.querySelectorAll(`${CONST.SEL.LEAF_ITEM}${inGroup}`));
 };
 
 /** Whether a base layer actually paints right now: on the map, inside its own

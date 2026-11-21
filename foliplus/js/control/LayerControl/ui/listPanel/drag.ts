@@ -1,11 +1,11 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
-import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
 import { type LayerRole, normalizeFolderName } from "#core/layer/index.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 
 /** Fold or unfold one role. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
@@ -151,10 +151,7 @@ const dropsAfter = (event: DragEvent, row: HTMLElement): boolean => {
 /** The folder row a folder drag may land on: a folder row of the same role,
  *  other than the one being dragged. Returns null for anything else, so a
  *  folder cannot be dropped onto a layer row or into the other role. */
-const folderDropTarget = (
-  ui: LayerUI,
-  event: DragEvent,
-): HTMLElement | null => {
+const folderDropTarget = (ui: LayerUI, event: DragEvent): HTMLElement | null => {
   const armed = ui.listPanel.dragFolder;
   if (!armed) return null;
   const row = (event.target as HTMLElement).closest(
@@ -174,7 +171,10 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     const row = folderDropTarget(ui, event);
     const prev = ui.listPanel.lastDragOverItem;
     if (prev && prev !== row) {
-      prev.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
+      prev.classList.remove(
+        CONST.CLASSES.DRAG_OVER_TOP,
+        CONST.CLASSES.DRAG_OVER_BOTTOM,
+      );
     }
     if (!row) {
       ui.listPanel.lastDragOverItem = null;

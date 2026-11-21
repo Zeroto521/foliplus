@@ -213,9 +213,7 @@ describe("ui/list folder rows", () => {
       ],
     });
     toggleFolderFold(ui, "overlay", "roads");
-    const folderRow = ui.uiContainer!.querySelector(
-      `.${CONST.CLASSES.FOLDER_ROW}`,
-    )!;
+    const folderRow = ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`)!;
     expect(folderRow.classList.contains(CONST.CLASSES.FOLDED)).toBe(true);
     expect(folderRow.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
     const memberRow = ui.uiContainer!.querySelector('[data-layer-id="rd1"]')!;
@@ -764,8 +762,7 @@ describe("ui/list folder rows", () => {
         },
       ],
     });
-    const roleRow = () =>
-      ui.uiContainer!.querySelector(`.${CONST.CLASSES.ROLE_ROW}`)!;
+    const roleRow = () => ui.uiContainer!.querySelector(`.${CONST.CLASSES.ROLE_ROW}`)!;
     const folderRow = () =>
       ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`)!;
 
@@ -798,9 +795,7 @@ describe("ui/list folder rows", () => {
         },
       ],
     });
-    const divider = ui.uiContainer!.querySelector(
-      `.${CONST.CLASSES.ROLE_DIVIDER}`,
-    );
+    const divider = ui.uiContainer!.querySelector(`.${CONST.CLASSES.ROLE_DIVIDER}`);
     expect(divider).not.toBeNull();
     expect(divider!.classList.contains("foliplus-section-divider")).toBe(true);
   });
@@ -1011,10 +1006,7 @@ describe("ui/list folder rows", () => {
       menu: document.createElement("div"),
       role: "",
     };
-    for (const action of [
-      CONST.ACTION.EXPAND_ALL,
-      CONST.ACTION.COLLAPSE_ALL,
-    ]) {
+    for (const action of [CONST.ACTION.EXPAND_ALL, CONST.ACTION.COLLAPSE_ALL]) {
       const mi = document.createElement("button");
       mi.setAttribute("data-action", action);
       expect(() => runMenuAction(ui, mi)).not.toThrow();
@@ -1537,5 +1529,4 @@ describe("ui/list folder rows", () => {
       delete window.CONFIG.folders;
     }
   });
-
 });

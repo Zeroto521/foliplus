@@ -20,11 +20,7 @@ import {
   toggleFold,
 } from "#control/LayerControl/ui/listPanel/index.js";
 
-const dragEvent = (
-  target: HTMLElement,
-  dataTransfer = {},
-  clientY = 0,
-): DragEvent =>
+const dragEvent = (target: HTMLElement, dataTransfer = {}, clientY = 0): DragEvent =>
   ({
     target,
     clientY,
@@ -126,9 +122,7 @@ const folderFixture = (keys: string[]) =>
   });
 
 const folderRowOf = (ui: LayerUI, key: string): HTMLElement =>
-  attachedPanel(ui).querySelector(
-    `[${CONST.DATA.FOLDER_KEY}="${key}"]`,
-  ) as HTMLElement;
+  attachedPanel(ui).querySelector(`[${CONST.DATA.FOLDER_KEY}="${key}"]`) as HTMLElement;
 
 describe("ui/drag", () => {
   describe("folder block drag (issue 9)", () => {

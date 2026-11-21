@@ -10,13 +10,13 @@ import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { seedIntentMap } from "#control/LayerControl/ui/intent.js";
+import { rebuildList } from "#control/LayerControl/ui/listPanel/index.js";
 import { activateDeleteItem } from "#control/LayerControl/ui/overlayPanel/index.js";
 import {
   MENU_ACTIONS,
   handleMenuClick,
   runMenuAction,
 } from "#control/LayerControl/ui/overlayPanel/menu.js";
-import { rebuildList } from "#control/LayerControl/ui/listPanel/index.js";
 import { styleCapability } from "#control/LayerControl/ui/style/index.js";
 
 describe("LayerUI menu", () => {
@@ -968,9 +968,7 @@ describe("LayerUI menu", () => {
         // two-step confirm, folders included).
         handleMenuClick(ui, event);
         expect(folderSpy).not.toHaveBeenCalled();
-        expect(folderLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(
-          true,
-        );
+        expect(folderLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
         handleMenuClick(ui, event);
         expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
       });

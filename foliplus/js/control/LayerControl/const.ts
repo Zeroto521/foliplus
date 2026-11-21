@@ -399,7 +399,8 @@ const SEL = {
    *  role rows carry LAYER_ITEM too (they share the cell chrome), so any
    *  selector that means "the layers of a role" must exclude both; using
    *  LAYER_ITEM there counts a group row as a layer. */
-  LEAF_ITEM: ".foliplus-layer-item:not(.foliplus-layer-item-folder):not(.foliplus-layer-toggle-all)",
+  LEAF_ITEM:
+    ".foliplus-layer-item:not(.foliplus-layer-item-folder):not(.foliplus-layer-toggle-all)",
   FOLD_TREE: ".foliplus-fold-tree",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   /** The toggle-all header row, resolved by its stable identity key.

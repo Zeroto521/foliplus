@@ -495,7 +495,9 @@ const buildDeleteItem = (
 /** The idle and confirming locale keys for a delete entry. One table for every
  *  kind of delete entry — a layer, a component's data, a folder — so the
  *  two-step confirm reads the same wherever it appears. */
-const deleteLabelKeys = (menuItem: HTMLElement): { idleKey: string; confirmKey: string } => {
+const deleteLabelKeys = (
+  menuItem: HTMLElement,
+): { idleKey: string; confirmKey: string } => {
   if (menuItem.dataset.action === CONST.ACTION.DELETE_FOLDER) {
     return { idleKey: "delete_folder", confirmKey: "delete_folder_confirm" };
   }
@@ -555,8 +557,7 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
     // closes first (hard constraint 4a) — the action rerenders the list, and
     // the menu anchors to the row being rebuilt.
     const open = ui.overlayPanel.activeMenu;
-    const role =
-      open?.role ?? open?.item.getAttribute(CONST.DATA.ROLE) ?? "";
+    const role = open?.role ?? open?.item.getAttribute(CONST.DATA.ROLE) ?? "";
     const folderName = open?.item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
     if (role && folderName) {
       ui.closeMoreMenu(true);
