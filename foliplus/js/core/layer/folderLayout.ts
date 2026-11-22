@@ -257,6 +257,9 @@ const nextFolderDefaultName = (
     const candidate = `${stem}${suffix}`;
     if (!taken.has(normalizeFolderName(candidate))) return candidate;
   }
+  // unreachable: the range holds `taken.size + 1` distinct candidates while
+  // `taken` holds `taken.size` keys, so one candidate is always free.
+  /* v8 ignore next */
   return base;
 };
 

@@ -31,6 +31,7 @@ import {
   moveLayerToFolder,
   moveLayerToRoot,
   moveLayerToRootAt,
+  nextFolderDefaultName,
   normalizeFolderName,
   readFolderLayout,
   renameFolder,
@@ -939,4 +940,73 @@ describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
     const rootEntries = [entry("b", "overlay", null, 0)] as LayerInfo[];
     expect(seedBlockOrder(rootLayout, "overlay", rootEntries)).toEqual(["layer:b"]);
   });
+  it("renameFolder accepts a member-only folder key (hasOld via members)", () => {
+    // hasOld reads the member map when the key is neither in the directory
+    // nor listed in any role order: a live member reference is still a
+    // real folder. The members arm is the third hasOld source.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const next = renameFolder(layout, "overlay", "roads", "Streets");
+    expect(next).not.toBe(layout);
+    expect(next.folders).toEqual([{ key: "roads", name: "Streets" }]);
+  });
+
+  it("nextFolderDefaultName finds the first free candidate past a dense run", () => {
+    // The loop bound is taken.size+2, so there are taken.size+1 candidates
+    // but only taken.size taken values: at least one is ALWAYS free. The
+    // @260 `return base` fallback is therefore unreachable by construction.
+    // This pins the free-candidate arm: with {new folder..new folder 5}
+    // taken, the loop (n=2..7) skips 2..5 and lands on 6.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [
+        { key: "new folder", name: "new folder" },
+        { key: "new folder 2", name: "new folder 2" },
+        { key: "new folder 3", name: "new folder 3" },
+        { key: "new folder 4", name: "new folder 4" },
+        { key: "new folder 5", name: "new folder 5" },
+      ],
+      order: { overlay: ["new folder", "new folder 2", "new folder 3", "new folder 4", "new folder 5"] },
+      members: {},
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 6");
+  });
+  it("nextFolderDefaultName picks the first free candidate when the base is taken", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "new folder", name: "new folder" }],
+      order: { overlay: ["new folder"] },
+      members: {},
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 2");
+  });
+
+  it("nextFolderDefaultName returns the base untouched when it is not taken", () => {
+    // The early-out: base is free, so no suffix search runs (@246 true arm).
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "other", name: "Other" }],
+      order: { overlay: ["other"] },
+      members: {},
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder");
+  });
+
+  it("nextFolderDefaultName counts a member-only folder in the taken set", () => {
+    // The @233 members arm: a folder referenced only by a live member (not in
+    // the directory or any role order) is still a taken key, so a base that
+    // matches it gets a suffix.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "roads")).toBe("roads 2");
+  });
+
 });
