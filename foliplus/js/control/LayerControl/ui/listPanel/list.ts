@@ -22,7 +22,12 @@ import {
   roleCountText,
   writeTriState,
 } from "./rowView.js";
-import { roleAggregates, syncNoBasemap, syncToggleAll } from "./visibility.js";
+import {
+  type RoleAggregates,
+  roleAggregates,
+  syncNoBasemap,
+  syncToggleAll,
+} from "./visibility.js";
 import {
   type LayerRole,
   ROLE,
@@ -550,15 +555,16 @@ const renderInitialList = (ui: LayerUI) => {
   const emitRole = (role: string) => {
     if (headerSeen.has(role) || !rolesWithHeader(ui, role)) return;
     headerSeen.add(role);
-    frag.appendChild(renderToggleAllRow(ui, role, roleLabel(role)));
+    // One aggregate pass per role, shared by the role header and every folder
+    // row of the role: the header used to compute its own copy, so a single
+    // render walked the registry twice per role.
+    const aggregates = roleAggregates(ui, role);
+    frag.appendChild(renderToggleAllRow(ui, role, roleLabel(role), aggregates));
     const roleFolded = effectiveRoleFolded(
       ui.listPanel.foldedRoles,
       ui.listPanel.authorDefaultFoldedRoles,
       role,
     );
-    // One aggregate pass per role: every folder row of the role reads its own
-    // entry instead of rescanning the registry.
-    const aggregates = roleAggregates(ui, role);
     for (const block of displayBlocks(ui, role)) {
       if (block.kind === "folder") {
         const row = renderFolderRow(
@@ -767,15 +773,22 @@ const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
   );
 };
 
-const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
+const renderToggleAllRow = (
+  ui: LayerUI,
+  role: string,
+  labelKey: string,
+  aggregates?: RoleAggregates,
+) => {
   const isFolded = effectiveRoleFolded(
     ui.listPanel.foldedRoles,
     ui.listPanel.authorDefaultFoldedRoles,
     role,
   );
   // Role-level count: aggregated with the same source as the checkbox
-  // (role count and checkbox state come from one aggregator).
-  const vis = roleAggregates(ui, role);
+  // (role count and checkbox state come from one aggregator). A caller that
+  // already holds the role's table passes it in; the insert path (a late
+  // registration) has none and computes one.
+  const vis = aggregates ?? roleAggregates(ui, role);
   const countText = roleCountText(vis.total, vis.on);
   const children: HTMLElement[] = [
     dom.el(

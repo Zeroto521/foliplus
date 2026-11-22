@@ -145,18 +145,22 @@ const announceMoved = (ui: LayerUI, moved: Map<string, ProjectionDelta>): void =
  *  the role header, so it reconciles on the same cadence — a member toggled
  *  from anywhere (its own checkbox, the folder checkbox, the role checkbox, a
  *  host `setVisible`) leaves both group rows agreeing with the members. */
-const syncFolderRows = (ui: LayerUI, role: string): void => {
+const syncFolderRows = (
+  ui: LayerUI,
+  role: string,
+  aggregates?: RoleAggregates,
+): void => {
   const container = ui.uiContainer;
   if (!container) return;
   const rows = container.querySelectorAll(
     `${CONST.SEL.FOLDER_ROW}[data-role="${role}"]`,
   );
   if (rows.length === 0) return;
-  const aggregates = roleAggregates(ui, role);
+  const agg = aggregates ?? roleAggregates(ui, role);
   for (const row of Array.from(rows)) {
     const folderKey = row.getAttribute(CONST.DATA.FOLDER_KEY);
     if (!folderKey) continue;
-    const vis = aggregates.folders.get(folderKey) ?? { total: 0, on: 0 };
+    const vis = agg.folders.get(folderKey) ?? { total: 0, on: 0 };
     const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
     if (box) writeTriState(box, vis.total, vis.on);
     row.classList.toggle(CONST.CLASSES.ACTIVE, vis.on > 0);
@@ -180,30 +184,31 @@ const syncToggleAll = (ui: LayerUI, role: string) => {
     `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  const items = getLayerItems(ui, role);
-  let total = 0;
-  let on = 0;
-  // Count intent, not the painted box: a row whose checkbox is painted from
-  // a stale state must not skew the role state it is about to set.
-  for (const item of Array.from(items)) {
-    total++;
-    const id = item.getAttribute(CONST.DATA.LAYER_ID);
-    if (!id) continue;
-    const layerInfo = ui.c.layerRegistry.get(id);
-    if (!layerInfo) continue;
-    if (intentVisibleOf(ui, id)) on++;
-  }
+  // One source for the role's (total, on): the registry aggregate, the same
+  // table every folder row reads. This used to walk the DOM rows and look each
+  // id back up in the registry, which is a second definition of the same
+  // number — and the two disagree exactly when the DOM lags a late
+  // registration. Counting intent (not the painted box) is preserved: the
+  // aggregate reads intent too.
+  const aggregates = roleAggregates(ui, role);
   // Tolerate a caller that constructs a thin LayerUI stub without
   // initializing the counter map (tests, late-attached panels).
   ui.listPanel.checkedCount ??= {};
-  ui.listPanel.checkedCount[role] = { total, on };
-  writeToggleAllCheckbox(ui, allCb, role);
+  ui.listPanel.checkedCount[role] = {
+    total: aggregates.total,
+    on: aggregates.on,
+  };
+  writeToggleAllCheckbox(ui, allCb, role, aggregates);
 };
 
 /** Write the toggle-all checkbox straight from the cached `checkedCount`.
  *  O(1) — no querySelectorAll scan. Called by `bumpCheckedCount` on the
  *  single-row click path so the tri-state is fresh in the same frame. */
-const syncToggleAllFromCount = (ui: LayerUI, role: string): void => {
+const syncToggleAllFromCount = (
+  ui: LayerUI,
+  role: string,
+  aggregates?: RoleAggregates,
+): void => {
   const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
   );
@@ -212,13 +217,14 @@ const syncToggleAllFromCount = (ui: LayerUI, role: string): void => {
     `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  writeToggleAllCheckbox(ui, allCb, role);
+  writeToggleAllCheckbox(ui, allCb, role, aggregates);
 };
 
 const writeToggleAllCheckbox = (
   ui: LayerUI,
   allCb: HTMLInputElement,
   role: string,
+  aggregates?: RoleAggregates,
 ): void => {
   const c = ui.listPanel.checkedCount?.[role] ?? { total: 0, on: 0 };
   // One tri-state writer for every group row: the role header and the folder
@@ -250,7 +256,7 @@ const writeToggleAllCheckbox = (
   // Every group row of the role repaints on the same cadence: both the O(1)
   // click path and the full rescan funnel through here, so a folder header can
   // never lag the role header it sits under.
-  syncFolderRows(ui, role);
+  syncFolderRows(ui, role, aggregates);
 };
 
 /** Incrementally update the role's `checkedCount.on` by `delta` (typically
@@ -360,20 +366,23 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   return true;
 };
 
+/** One role's visibility aggregates: the role total plus a per-folder map.
+ *  Produced once per reconcile point and threaded down to every consumer
+ *  (role header, folder rows, the cached `checkedCount`) so a single click
+ *  never recomputes the same table. */
+type RoleAggregates = {
+  total: number;
+  on: number;
+  folders: Map<string, { total: number; on: number }>;
+};
+
 /** One role's visibility aggregates in a single pass: the role total plus a
  *  per-folder map. Every group row of the role — the header and each folder
  *  header — reads this one table, so a click repaints F rows for O(L) work
  *  instead of F scans of L layers. The folder row's checkbox and count come
  *  from the same entry, so a role count and a folder count can never disagree
  *  about a member. */
-const roleAggregates = (
-  ui: LayerUI,
-  role: string,
-): {
-  total: number;
-  on: number;
-  folders: Map<string, { total: number; on: number }>;
-} => {
+const roleAggregates = (ui: LayerUI, role: string): RoleAggregates => {
   const layout = ui.c.folderLayoutView;
   const folders = new Map<string, { total: number; on: number }>();
   let total = 0;
@@ -419,8 +428,16 @@ const setFolderVisible = (
     if (row) applyRowView(ui, row, buildRowCell(ui, info));
   }
   saveState(ui);
-  syncFolderRows(ui, role);
-  syncToggleAll(ui, role);
+  // One aggregate pass for the whole tail: the role header and every folder
+  // row repaint from this table, and the cached `checkedCount` is written from
+  // it too, so the O(1) writer below does not recompute anything.
+  const aggregates = roleAggregates(ui, role);
+  ui.listPanel.checkedCount ??= {};
+  ui.listPanel.checkedCount[role] = {
+    total: aggregates.total,
+    on: aggregates.on,
+  };
+  syncToggleAllFromCount(ui, role, aggregates);
   syncNoBasemap(ui);
   ui.c.debouncedEnforce();
   announceMoved(ui, moved);
@@ -452,6 +469,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
   applyVisibility(ui, id, target.checked);
 };
 
+export type { RoleAggregates };
 export {
   getLayerItems,
   roleAggregates,
