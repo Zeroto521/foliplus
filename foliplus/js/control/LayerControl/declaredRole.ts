@@ -7,7 +7,7 @@
 // with. The derivation is pure (DOM-free, storage-free) so it is unit-testable
 // in isolation.
 //
-// The priority chain is the role analog of folder-final-design.md §2.2:
+// The priority chain is the role analog of the folder design:
 //   built-in (expanded) < author default (this module) < user override
 // (the persisted foldedRoles Record). A user's manual FOLD or EXPAND always
 // wins and then stops the author default from affecting that role; Reset

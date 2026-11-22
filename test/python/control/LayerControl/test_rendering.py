@@ -569,7 +569,7 @@ class TestLayerControlRendering:
     def test_toggle_all_grid_uses_named_slots_for_three_items(self):
         """Toggle-all (role) row names rail/check/label/count/icon/more.
 
-        Spec v3.6 §1.2: the role row now carries count/icon/more, so it uses
+        The role row carries count/icon/more, so it uses
         the same six named areas as folder/layer rows. Before that, the row
         had three named slots plus three anonymous dots (the divider was
         positioned by grid-column). The six-area template places count/icon/
@@ -582,7 +582,7 @@ class TestLayerControlRendering:
         block = css[idx : idx + 700]
         assert '"rail check label count icon more"' in block, (
             "toggle-all template-areas must use the six named slots "
-            "(spec v3.6 §1.2: role row carries count/icon/more)"
+            "(role row carries count/icon/more)"
         )
         # No template-areas line references 'divider' as a named area —
         # the dual-declaration coupling (container slot + item grid-area)

@@ -2337,6 +2337,19 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     const iParks = keys.indexOf("parks");
     expect(iWater).toBeGreaterThan(iRoads);
     expect(iWater).toBeLessThan(iParks);
+    // A second sync pass walks the folder rows it mounted (the data-folder-key
+    // branch) and the folder/layer block branches; the order must be stable.
+    syncRowOrder(ui);
+    const keys2 = Array.from(
+      ui.uiContainer!.querySelectorAll(
+        `[${CONST.DATA.LAYER_ID}], .${CONST.CLASSES.FOLDER_ROW}`,
+      ),
+    ).map(
+      el =>
+        el.getAttribute(CONST.DATA.FOLDER_KEY) ?? el.getAttribute(CONST.DATA.LAYER_ID),
+    );
+    expect(keys2.indexOf("water")).toBeGreaterThan(keys2.indexOf("roads"));
+    expect(keys2.indexOf("water")).toBeLessThan(keys2.indexOf("parks"));
   });
 
   it("folding a role hides its folder rows and members (GROUP_FOLDED), then unfolding restores them", () => {

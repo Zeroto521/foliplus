@@ -20,7 +20,7 @@ Re-record the baseline:
       -m browser
 
 The harness self-check (a deliberate drift must turn red) is a separate,
-temporary mutation the builder performs once — see s6-parity-harness-design.md §5
+temporary mutation the builder performs once — see s6-parity-harness-design.md
 "判死自检". This test file only verifies the baseline is green.
 """
 

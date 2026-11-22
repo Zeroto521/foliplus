@@ -235,7 +235,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // The fold branch climbs on the header row's identity key, never on the
     // row class (see SEL.TOGGLE_ALL_ROW), and the click landing on the row's own
     // toggle-all checkbox is the onChange path, not a fold.
-    // A folder row's whole row folds its folder (spec §4.8), reusing the
+    // A folder row's whole row folds its folder, reusing the
     // role handler path: the click on the row body (not the checkbox or the
     // ⋮ button, which stopPropagation in their own handlers) toggles the
     // folder. A drag does not fold (didDrag guard lives in handleDragStart).

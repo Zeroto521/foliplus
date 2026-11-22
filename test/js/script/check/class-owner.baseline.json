@@ -5,6 +5,6 @@
   },
   "foliplus-opt": {
     "permanent": true,
-    "reason": "Element-id prefix passed to nextId() in listCursor.ts, not a CSS class (css-class-audit.md §4b: 'NOT a class — an element-id prefix')."
+    "reason": "Element-id prefix passed to nextId() in listCursor.ts, not a CSS class (css-class-audit.md: 'NOT a class — an element-id prefix')."
   }
 }

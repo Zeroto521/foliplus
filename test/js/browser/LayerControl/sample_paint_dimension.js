@@ -3,7 +3,7 @@
 // browser test (CI) both call this same function. Returns a JSON snapshot keyed
 // by {dim}.{mode} of the requested layer.
 //
-// Sampled per s6-parity-harness-design.md §2:
+// Sampled per s6-parity-harness-design.md:
 //   - DOM structure: row root tagName + className (class stack ORDER), children
 //     2 levels (tag + class stack + role + data-action), detail slot children
 //   - class stack order (S6 abstraction can drift it)
