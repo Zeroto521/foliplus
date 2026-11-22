@@ -440,15 +440,34 @@ const syncRowOrder = (ui: LayerUI): void => {
 const refreshTreeConnectors = (ui: LayerUI): void => {
   const container = ui.uiContainer;
   if (!container) return;
+  const layout = ui.c.folderLayoutView;
+  // One block map per role, built once. memberInfo() rebuilds the whole role's
+  // block map per row, which made every reorder O(rows × registry) — the one
+  // path that runs on every drag, not just on a full rebuild.
+  const blocksByRole = new Map<string, ReturnType<typeof groupByFolder>>();
+  const blocksFor = (role: string) => {
+    let blocks = blocksByRole.get(role);
+    if (!blocks) {
+      blocks = groupByFolder(ui.c.layers, role as LayerRole, layout);
+      blocksByRole.set(role, blocks);
+    }
+    return blocks;
+  };
   for (const row of container.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM)) {
     const tree = row.querySelector<HTMLElement>(CONST.SEL.FOLD_TREE);
     if (!tree) continue;
     const id = row.getAttribute(CONST.DATA.LAYER_ID);
     const info = id ? ui.c.layerRegistry.get(id) : undefined;
     if (!info) continue;
-    const mem = memberInfo(ui, info);
-    tree.classList.toggle(CONST.CLASSES.FOLD_TREE_LAST, mem.isLast);
-    tree.classList.toggle(CONST.CLASSES.FOLD_TREE_MID, !mem.isLast);
+    const folderKey = folderOf(layout, info);
+    const block = folderKey ? blocksFor(info.role).get(folderKey) : undefined;
+    // Only a member row carries a tree guide, so a missing block means "not a
+    // member" and the connector is irrelevant.
+    const isLast = block
+      ? block.members[block.members.length - 1]?.id === info.id
+      : false;
+    tree.classList.toggle(CONST.CLASSES.FOLD_TREE_LAST, isLast);
+    tree.classList.toggle(CONST.CLASSES.FOLD_TREE_MID, !isLast);
   }
 };
 
