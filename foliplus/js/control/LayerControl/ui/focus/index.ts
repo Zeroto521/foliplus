@@ -17,10 +17,19 @@ import {
   hideOtherLayers,
   restoreHiddenLayers,
 } from "./pane.js";
+import { isContainerRow } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { type FinalizeStep, finalize } from "#platform/finalize.js";
 import * as CONST from "#control/LayerControl/const.js";
+
+/** Which noun a focus sentence uses for this row: a layer group reads as a
+ *  group, everything else as a layer. A folder row never reaches this path
+ *  today (folder focus is its own feature); when it does, it passes "folder". */
+const rowNoun = (
+  layerInfo: Parameters<typeof isContainerRow>[0],
+  layer: Parameters<typeof isContainerRow>[1],
+): "layer" | "group" => (isContainerRow(layerInfo, layer) ? "group" : "layer");
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {
@@ -75,7 +84,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
   if (checkbox && !checkbox.checked) {
-    showFocusDisabledHint(ui, "hidden");
+    showFocusDisabledHint(ui, "hidden", rowNoun(layerInfo, layer));
     return;
   }
 
@@ -111,7 +120,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // no announce) behind.
   if (!bounds?.isValid()) {
     if (rejoinedLayer) ui.c.map.removeLayer(rejoinedLayer);
-    showFocusDisabledHint(ui, "no_bounds");
+    showFocusDisabledHint(ui, "no_bounds", rowNoun(layerInfo, layer));
     return;
   }
 
@@ -376,6 +385,7 @@ export {
 export {
   focusDisabledLocaleKey,
   focusDisabledReason,
+  focusDisabledText,
   showFocusDisabledHint,
 } from "./hint.js";
 export { bringFocusedLayerToFront } from "./pane.js";

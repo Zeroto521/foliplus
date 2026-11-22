@@ -40,10 +40,18 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     # the component prefix for shared modules.
     "ExportControl.no_layercontrol",
     "MeasureControl.no_layercontrol",
-    # focusDisabledLocaleKey map (focus.ts) — reason → key lookup.
-    "LayerControl.focus_layer_base",
-    "LayerControl.focus_layer_hidden",
-    "LayerControl.focus_layer_no_bounds",
+    # focusDisabledLocaleKey map (focus/hint.ts) — reason → key lookup.
+    "LayerControl.focus_base",
+    "LayerControl.focus_hidden",
+    "LayerControl.focus_no_bounds",
+    # withNoun(ui, key, noun) in ui/noun.ts — the sentence key is a parameter,
+    # and the noun itself is built as `noun_${noun}`.
+    "LayerControl.focus_tooltip",
+    "LayerControl.rename_tooltip",
+    "LayerControl.rename_placeholder",
+    "LayerControl.noun_layer",
+    "LayerControl.noun_folder",
+    "LayerControl.noun_group",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
     "LayerControl.type_tile_map",
     "LayerControl.type_color_map",
@@ -94,8 +102,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     # menu.ts — deleteLabelKeys() returns the idle/confirm pair per entry kind
     # as a table, so the confirming labels are reached through a lookup rather
     # than a T("...") literal.
-    "LayerControl.delete_layer_confirm",
-    "LayerControl.delete_folder_confirm",
+    "LayerControl.delete_confirm",
     "LayerControl.clear_data_confirm",
 }
 

@@ -330,7 +330,7 @@ describe("LayerUI menu", () => {
       ) as HTMLElement | null;
       expect(entry).not.toBeNull();
       expect(entry?.getAttribute("aria-disabled")).toBe("true");
-      expect(entry?.getAttribute("title")).toBe(ui.T("focus_layer_hidden"));
+      expect(entry?.getAttribute("title")).toBe(ui.T("focus_hidden"));
     });
 
     it("Filter entry stays enabled when layer is visible and has fields", () => {
@@ -655,7 +655,7 @@ describe("LayerUI menu", () => {
       expect(focusSpy).not.toHaveBeenCalled();
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
-        "LayerControl.focus_layer_hidden",
+        "LayerControl.focus_hidden",
         expect.any(Number),
       );
       // Menu stays open — user sees why focus is unavailable.
@@ -842,7 +842,7 @@ describe("LayerUI menu", () => {
       click(deleteLi);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
       expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
-        "LayerControl.delete_layer_confirm",
+        "LayerControl.delete_confirm",
       );
       expect(deleteSpy).not.toHaveBeenCalled();
       // Menu stays open so the user sees the arming.
@@ -863,9 +863,9 @@ describe("LayerUI menu", () => {
       click(deleteLi);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
       expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
-        "LayerControl.delete_layer_confirm",
+        "LayerControl.delete_confirm",
       );
-      expect(deleteLi.title).toBe("LayerControl.delete_layer_confirm");
+      expect(deleteLi.title).toBe("LayerControl.delete_confirm");
       expect(deleteSpy).not.toHaveBeenCalled();
 
       click(deleteLi);
@@ -939,7 +939,7 @@ describe("LayerUI menu", () => {
           false,
         );
         expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
-          "LayerControl.delete_layer",
+          "LayerControl.delete",
         );
         expect(deleteLi.title).toBe("LayerControl.delete_layer_tooltip");
 
@@ -1148,7 +1148,7 @@ describe("LayerUI menu", () => {
         ".foliplus-layer-more-menu button[data-action='focus-layer']",
       ) as HTMLElement;
       expect(focusLi.getAttribute("aria-disabled")).toBe("true");
-      expect(focusLi.getAttribute("title")).toBe("LayerControl.focus_layer_no_bounds");
+      expect(focusLi.getAttribute("title")).toBe("LayerControl.focus_no_bounds");
 
       const styleLi = item.querySelector(
         ".foliplus-layer-more-menu button[data-action='style-layer']",

@@ -504,7 +504,7 @@ describe("LayerUI focus", () => {
 
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
-        "LayerControl.focus_layer_hidden",
+        "LayerControl.focus_hidden",
         expect.any(Number),
       );
       expect(map.fitBounds).not.toHaveBeenCalled();
@@ -1673,7 +1673,7 @@ describe("LayerUI focus", () => {
       expect(focusSpy).not.toHaveBeenCalled();
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
-        "LayerControl.focus_layer_base",
+        "LayerControl.focus_base",
         expect.any(Number),
       );
       focusSpy.mockRestore();
@@ -2159,9 +2159,9 @@ describe("LayerUI focus", () => {
     });
 
     it("maps each reason to the locale key its tooltip and hint read", () => {
-      expect(focusDisabledLocaleKey("base")).toBe("focus_layer_base");
-      expect(focusDisabledLocaleKey("hidden")).toBe("focus_layer_hidden");
-      expect(focusDisabledLocaleKey("no_bounds")).toBe("focus_layer_no_bounds");
+      expect(focusDisabledLocaleKey("base")).toBe("focus_base");
+      expect(focusDisabledLocaleKey("hidden")).toBe("focus_hidden");
+      expect(focusDisabledLocaleKey("no_bounds")).toBe("focus_no_bounds");
     });
 
     it("shows the localized hint for each disabled reason", () => {
@@ -2171,21 +2171,21 @@ describe("LayerUI focus", () => {
       showFocusDisabledHint(ui, "base");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
-        "LayerControl.focus_layer_base",
+        "LayerControl.focus_base",
         expect.any(Number),
       );
 
       showFocusDisabledHint(ui, "hidden");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
-        "LayerControl.focus_layer_hidden",
+        "LayerControl.focus_hidden",
         expect.any(Number),
       );
 
       showFocusDisabledHint(ui, "no_bounds");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
-        "LayerControl.focus_layer_no_bounds",
+        "LayerControl.focus_no_bounds",
         expect.any(Number),
       );
     });

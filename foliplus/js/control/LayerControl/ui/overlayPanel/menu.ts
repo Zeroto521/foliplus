@@ -1,5 +1,6 @@
 // LayerControl UI — Overflow (⋮) menu.
-import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
+import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
+import { type RowNoun, withNoun } from "../noun.js";
 import { folderFoldKey } from "../listPanel/drag.js";
 import { rebuildList } from "../listPanel/list.js";
 import { saveState } from "../state.js";
@@ -175,10 +176,13 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
   const focusReason = focusDisabledReason(ui, item);
   const focusDisabled = focusReason !== undefined;
+  // A container row is a layer group, so its sentences say "layer group"
+  // rather than "layer"; every other row is a plain layer.
+  const focusNoun: RowNoun = isContainer ? "group" : "layer";
   const focusDisabledTitle =
     focusReason !== undefined
-      ? ui.T(focusDisabledLocaleKey(focusReason))
-      : ui.T("focus_layer_tooltip");
+      ? focusDisabledText(ui, focusReason, focusNoun)
+      : withNoun(ui, "focus_tooltip", focusNoun);
 
   // Capability gate: only rows that declare the filter capability render the
   // entry. A capable row with no filterable field stays visible but disabled
@@ -202,7 +206,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           title: isContainer
             ? ui.T("container_no_style_filter")
             : focusReason === "hidden"
-              ? ui.T(focusDisabledLocaleKey("hidden"))
+              ? focusDisabledText(ui, "hidden", focusNoun)
               : filterHasFields
                 ? ui.T("filter_layer_tooltip")
                 : ui.T("filter_empty"),
@@ -265,12 +269,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     type: "button",
     "data-action": "focus-layer",
     role: "menuitem",
-    title: focusDisabled ? focusDisabledTitle : ui.T("focus_layer_tooltip"),
+    title: focusDisabledTitle,
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
   menu.appendChild(
-    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
+    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus")),
   );
 
   // Rename writes to the layer itself, so it sits above the display-only
@@ -282,10 +286,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.RENAME_LAYER,
         role: "menuitem",
-        title: ui.T("rename_layer_tooltip"),
+        title: withNoun(ui, "rename_tooltip", focusNoun),
       },
       { html: Icons.ICON_EDIT },
-      ui.T("rename_layer"),
+      ui.T("rename"),
     ),
   );
 
@@ -484,7 +488,7 @@ const buildDeleteItem = (
   const label = dom.el(
     "span",
     { class: CONST.CLASSES.MENU_DELETE_LABEL },
-    ui.T(isClear ? "clear_data" : "delete_layer"),
+    ui.T(isClear ? "clear_data" : "delete"),
   );
   const tooltip = ui.T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
   const item = dom.el(
@@ -508,13 +512,12 @@ const buildDeleteItem = (
 const deleteLabelKeys = (
   menuItem: HTMLElement,
 ): { idleKey: string; confirmKey: string } => {
-  if (menuItem.dataset.action === CONST.ACTION.DELETE_FOLDER) {
-    return { idleKey: "delete_folder", confirmKey: "delete_folder_confirm" };
-  }
   if (menuItem.dataset.mode === "clear") {
     return { idleKey: "clear_data", confirmKey: "clear_data_confirm" };
   }
-  return { idleKey: "delete_layer", confirmKey: "delete_layer_confirm" };
+  // A layer and a folder share the verb: the noun lives on the row, not in the
+  // label, so one pair covers both.
+  return { idleKey: "delete", confirmKey: "delete_confirm" };
 };
 
 /** Turn the delete entry into its confirming state: the label swaps to the
@@ -671,7 +674,7 @@ const startFolderRename = (
     label,
     initialValue: folderName,
     className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
-    ariaLabel: ui.T("rename_folder_hint"),
+    ariaLabel: withNoun(ui, "rename_placeholder", "folder"),
     isActive: () => ui.overlayPanel.activeRenameRow === item,
     onCommit: trimmed => {
       const next = trimmed.trim();
@@ -863,10 +866,10 @@ const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.RENAME_FOLDER,
         role: "menuitem",
-        title: ui.T("rename_folder_tooltip"),
+        title: withNoun(ui, "rename_tooltip", "folder"),
       },
       { html: Icons.ICON_EDIT },
-      ui.T("rename_folder"),
+      ui.T("rename"),
     ),
   );
   menu.appendChild(
@@ -886,7 +889,7 @@ const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
         title: ui.T("delete_folder_tooltip"),
       },
       { html: Icons.ICON_DELETE },
-      dom.el("span", { class: CONST.CLASSES.MENU_DELETE_LABEL }, ui.T("delete_folder")),
+      dom.el("span", { class: CONST.CLASSES.MENU_DELETE_LABEL }, ui.T("delete")),
     ),
   );
   attachRowMenu(ui, item, menu, { folderKey });
