@@ -177,22 +177,22 @@
      uses as a surface and read as a foreign element.
      Every rule that touches the icon also carries the `:hover` leg:
      common/menu.css's `button:not([aria-disabled="true"]):hover svg` is (0,4,2) and would
-     otherwise outrank a plain `…delete-armed svg` (0,3,2) and paint a
+     otherwise outrank a plain `…delete-pending svg` (0,3,2) and paint a
      near-black stroke over this fill — that is what made the armed trash
      glyph unreadable. `stroke` is set here too rather than trusting
      `currentColor`, so a later `color` rule cannot desync the glyph. */
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed,
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:hover {
     background: var(--foliplus-accent-primary);
     color: var(--foliplus-on-accent);
   }
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:active,
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover:active {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:active,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:hover:active {
     background: var(--foliplus-accent-hover);
     color: var(--foliplus-on-accent);
   }
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed svg,
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover svg {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending svg,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:hover svg {
     color: var(--foliplus-on-accent);
     stroke: var(--foliplus-on-accent);
   }
