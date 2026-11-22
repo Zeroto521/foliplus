@@ -151,10 +151,12 @@ const syncFolderRows = (ui: LayerUI, role: string): void => {
   const rows = container.querySelectorAll(
     `${CONST.SEL.FOLDER_ROW}[data-role="${role}"]`,
   );
+  if (rows.length === 0) return;
+  const aggregates = roleAggregates(ui, role);
   for (const row of Array.from(rows)) {
     const folderKey = row.getAttribute(CONST.DATA.FOLDER_KEY);
     if (!folderKey) continue;
-    const vis = folderVisibility(ui, role, folderKey);
+    const vis = aggregates.folders.get(folderKey) ?? { total: 0, on: 0 };
     const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
     if (box) writeTriState(box, vis.total, vis.on);
     row.classList.toggle(CONST.CLASSES.ACTIVE, vis.on > 0);
@@ -358,25 +360,37 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   return true;
 };
 
-/** The visibility aggregate of one folder: `{ total, on }` across its live
- *  members in `role`. The folder row's checkbox and count are both driven by
- *  this single aggregate, so a role count and a folder
- *  count can never disagree about a member. */
-const folderVisibility = (
+/** One role's visibility aggregates in a single pass: the role total plus a
+ *  per-folder map. Every group row of the role — the header and each folder
+ *  header — reads this one table, so a click repaints F rows for O(L) work
+ *  instead of F scans of L layers. The folder row's checkbox and count come
+ *  from the same entry, so a role count and a folder count can never disagree
+ *  about a member. */
+const roleAggregates = (
   ui: LayerUI,
   role: string,
-  folderKey: string,
-): { total: number; on: number } => {
+): {
+  total: number;
+  on: number;
+  folders: Map<string, { total: number; on: number }>;
+} => {
   const layout = ui.c.folderLayoutView;
+  const folders = new Map<string, { total: number; on: number }>();
   let total = 0;
   let on = 0;
   for (const info of ui.c.layerRegistry.items) {
     if (info.role !== role) continue;
-    if (folderOf(layout, info) !== folderKey) continue;
     total += 1;
-    if (intentVisibleOf(ui, info.id)) on += 1;
+    const visible = intentVisibleOf(ui, info.id);
+    if (visible) on += 1;
+    const key = folderOf(layout, info);
+    if (!key) continue;
+    const agg = folders.get(key) ?? { total: 0, on: 0 };
+    agg.total += 1;
+    if (visible) agg.on += 1;
+    folders.set(key, agg);
   }
-  return { total, on };
+  return { total, on, folders };
 };
 
 /** Set every live member of one folder visible/hidden. The same incremental
@@ -423,7 +437,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
     const fk = folderRow.getAttribute(CONST.DATA.FOLDER_KEY);
     const role = folderRow.getAttribute(CONST.DATA.ROLE) ?? "";
     if (fk && role) {
-      const vis = folderVisibility(ui, role, fk);
+      const vis = roleAggregates(ui, role).folders.get(fk) ?? { total: 0, on: 0 };
       setFolderVisible(ui, role, fk, toggleTarget(vis.on));
     }
     return;
@@ -440,6 +454,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
 
 export {
   getLayerItems,
+  roleAggregates,
   toggleTarget,
   toggleAll,
   syncToggleAll,

@@ -3,7 +3,6 @@ import { type ProjectionBatch, notifyDeltas } from "../apply.js";
 import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import { closeAttrsPanel } from "../overlayPanel/attr.js";
-import { intentVisibleOf } from "../projection.js";
 import { ROW_NOUN, withNoun } from "../rowNoun.js";
 import { closeStylePanel } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
@@ -23,14 +22,13 @@ import {
   roleCountText,
   writeTriState,
 } from "./rowView.js";
-import { syncNoBasemap, syncToggleAll } from "./visibility.js";
+import { roleAggregates, syncNoBasemap, syncToggleAll } from "./visibility.js";
 import {
   type LayerRole,
   ROLE,
   folderEntries,
   folderOf,
   groupByFolder,
-  normalizeFolderName,
   roleBlocks,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
@@ -504,43 +502,6 @@ const hasAnyFolder = (ui: LayerUI): boolean => {
   );
 };
 
-/** Role-level visibility aggregate: { total, on } across every layer of the
- *  role (folder members + root), read from the registry + intent — the same
- *  aggregator the toggle-all checkbox and the role count share. */
-const roleVisibility = (ui: LayerUI, role: string): { total: number; on: number } => {
-  let total = 0;
-  let on = 0;
-  for (const li of ui.c.layers) {
-    if (li.role !== role) continue;
-    total++;
-    if (intentVisibleOf(ui, li.id)) on++;
-  }
-  return { total, on };
-};
-
-/** Folder-level visibility aggregate for one folder key. */
-const folderVisibility = (
-  ui: LayerUI,
-  role: string,
-  key: string,
-): { total: number; on: number } => {
-  let total = 0;
-  let on = 0;
-  for (const li of ui.c.layers) {
-    if (li.role !== role) continue;
-    const f = folderOf(ui.c.folderLayoutView, li);
-    if (!f || normalizeFolderName(f) !== key) continue;
-    total++;
-    if (intentVisibleOf(ui, li.id)) on++;
-  }
-  return { total, on };
-};
-
-/** The role's display blocks in exact `roleOrder` order, but with folder rows
- *  preserved: `{ kind: "folder", key, name, block }` for each folder block and
- *  `{ kind: "layer", layer }` for each root layer. Mirrors `roleOrder` — a
- *  folder block's members are emitted contiguously, then the role's root
- *  layers. */
 /** The panel's row sequence for one role: the shared block sequence, projected
  *  into the shape the renderer walks. The ORDER lives in `roleBlocks` — the
  *  same function the stacking order uses — so a row can never paint in one
@@ -595,9 +556,18 @@ const renderInitialList = (ui: LayerUI) => {
       ui.listPanel.authorDefaultFoldedRoles,
       role,
     );
+    // One aggregate pass per role: every folder row of the role reads its own
+    // entry instead of rescanning the registry.
+    const aggregates = roleAggregates(ui, role);
     for (const block of displayBlocks(ui, role)) {
       if (block.kind === "folder") {
-        const row = renderFolderRow(ui, role, block.key, block.name);
+        const row = renderFolderRow(
+          ui,
+          role,
+          block.key,
+          block.name,
+          aggregates.folders.get(block.key) ?? { total: 0, on: 0 },
+        );
         const folderFolded = effectiveFolderFolded(
           ui.listPanel.authorFoldedFolders,
           ui.listPanel.foldedFolders,
@@ -805,7 +775,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   );
   // Role-level count: aggregated with the same source as the checkbox
   // (role count and checkbox state come from one aggregator).
-  const vis = roleVisibility(ui, role);
+  const vis = roleAggregates(ui, role);
   const countText = roleCountText(vis.total, vis.on);
   const children: HTMLElement[] = [
     dom.el(
@@ -925,6 +895,7 @@ const renderFolderRow = (
   role: string,
   folderKey: string,
   folderName: string,
+  vis: { total: number; on: number },
 ) => {
   const folded = effectiveFolderFolded(
     ui.listPanel.authorFoldedFolders,
@@ -932,7 +903,6 @@ const renderFolderRow = (
     role,
     folderKey,
   );
-  const vis = folderVisibility(ui, role, folderKey);
   const countText = roleCountText(vis.total, vis.on);
   return dom.el(
     "div",

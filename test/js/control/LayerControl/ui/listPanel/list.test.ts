@@ -1509,7 +1509,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     // Remove the always-registered solid basemap so the base role is empty.
     manager.unregisterLayer(CONST.SOLID_BASEMAP_ID);
     manager.createFolder("base", "Ghost");
-    manager.ui?.reindexAfterMove?.();
+    manager.ui?.rebuildAfterLayoutChange?.();
     const baseHeader = attachedPanel(ui).querySelector(
       `.${CONST.CLASSES.TOGGLE_ALL}[data-role="${ROLE.BASE}"]`,
     ) as HTMLElement | null;
@@ -1555,7 +1555,7 @@ describe("clean-empty-folders button and role header order", () => {
     // A folder created from the role menu owns a row immediately: it is the
     // only handle for renaming or deleting it until a layer moves in.
     manager.createFolder("overlay", "empty-1");
-    manager.ui?.reindexAfterMove?.();
+    manager.ui?.rebuildAfterLayoutChange?.();
     const row = attachedPanel(ui).querySelector(
       `[data-folder-key="${normalizeFolderName("empty-1")}"]`,
     ) as HTMLElement | null;
@@ -1603,7 +1603,7 @@ describe("clean-empty-folders button and role header order", () => {
     manager.unregisterLayer("overlay1");
     manager.unregisterLayer("overlay2");
     manager.createFolder("overlay", "empty-1");
-    manager.ui?.reindexAfterMove?.();
+    manager.ui?.rebuildAfterLayoutChange?.();
     const container = attachedPanel(ui);
     const kinds = Array.from(container.children)
       .filter(el => !el.getAttribute(CONST.DATA.LAYER_ID)?.startsWith("foliplus_"))
@@ -2481,5 +2481,77 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     const name = colorLayerName(ui);
     expect(typeof name).toBe("string");
     expect(name.length).toBeGreaterThan(0);
+  });
+
+  it("emptyFolderKeys returns [] when the role has no folder entries", () => {
+    // The zero-key guard: no folder entries in the role order means no
+    // candidates, so the scan returns immediately instead of filtering.
+    const layout = {
+      version: 2,
+      folders: [],
+      order: { overlay: [], base: [] },
+      members: {},
+    };
+    const ui = {
+      c: {
+        folderLayoutView: layout,
+        layers: [],
+        layerRegistry: { get: () => undefined },
+      },
+    } as unknown as LayerUI;
+    expect(emptyFolderKeys(ui, "overlay")).toEqual([]);
+  });
+
+  it("folder row paints the folded state (FOLDED class, collapsed chevron, unfold tooltip)", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // A user fold overrides the author default: the folder row re-renders with
+    // FOLDED, the chevron collapses and the tooltip flips to unfold.
+    ui.listPanel.foldedFolders["overlay::roads"] = true;
+    rebuildList(ui);
+    const row = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}[${CONST.DATA.FOLDER_KEY}="roads"]`,
+    ) as HTMLElement;
+    expect(row.classList.contains(CONST.CLASSES.FOLDED)).toBe(true);
+    const foldBtn = row.querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
+    expect(foldBtn.getAttribute("aria-expanded")).toBe("false");
+    expect(foldBtn.getAttribute("title")).toBe(ui.T("unfold_tooltip"));
+  });
+
+  it("folder row reads active when a member is visible (ACTIVE class)", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const row = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}[${CONST.DATA.FOLDER_KEY}="roads"]`,
+    ) as HTMLElement;
+    // At least one member is visible by default, so the folder row is active.
+    expect(row.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
   });
 });

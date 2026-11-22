@@ -1612,3 +1612,149 @@ describe("ui/list folder rows (visibility)", () => {
     expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
   });
 });
+
+describe("visibility coverage edges", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  it("handleChange on a folder checkbox with a torn-down panel bails at the container guard", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.FOLDER_ROW;
+    row.setAttribute(CONST.DATA.FOLDER_KEY, "roads");
+    row.setAttribute(CONST.DATA.ROLE, "overlay");
+    row.appendChild(cb);
+    document.body.appendChild(row);
+    (ui as unknown as { c: { uiContainer: HTMLElement | null } }).c.uiContainer = null;
+    expect(() => ui.handleChange({ target: cb } as unknown as Event)).not.toThrow();
+  });
+
+  it("syncFolderRows skips a folder row that carries no checkbox", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const bare = document.createElement("div");
+    bare.className = CONST.CLASSES.FOLDER_ROW;
+    bare.setAttribute(CONST.DATA.FOLDER_KEY, "water");
+    bare.setAttribute(CONST.DATA.ROLE, "overlay");
+    ui.uiContainer!.appendChild(bare);
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
+
+  it("setFolderVisible records no delta for a member already in the target state", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Parks",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    applyVisibility(ui, "rd2", false);
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    ui.handleChange({ target: folderCb } as unknown as Event);
+    const rd1 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(rd1.checked).toBe(false);
+  });
+
+  it("handleChange bails on a non-checkbox target", () => {
+    const { ui } = initFixture({});
+    expect(() =>
+      ui.handleChange({ target: { tagName: "select", type: "" } } as unknown as Event),
+    ).not.toThrow();
+    expect(() =>
+      ui.handleChange({
+        target: { tagName: "input", type: "radio" },
+      } as unknown as Event),
+    ).not.toThrow();
+  });
+
+  it("handleChange on a folder checkbox whose key has no members falls back to an empty aggregate", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // A folder row for a key that has no registered members: the aggregate
+    // map has no entry for it, so handleChange reads the ?? fallback.
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = false;
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.FOLDER_ROW;
+    row.setAttribute(CONST.DATA.FOLDER_KEY, "ghost");
+    row.setAttribute(CONST.DATA.ROLE, "overlay");
+    row.appendChild(cb);
+    ui.uiContainer!.appendChild(row);
+    expect(() => ui.handleChange({ target: cb } as unknown as Event)).not.toThrow();
+  });
+});
