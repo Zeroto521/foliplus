@@ -10,7 +10,7 @@
 // Pure string constants, no foliplus runtime import. This module is the
 // locale-key vocabulary for the style mode, in the *Key family (the locale
 // key constants) — distinct from the *ClassName family, which owns CSS class
-// lists (see AGENTS.md directory notes).
+// lists.
 
 const STYLE_MODE_KEY = {
   ORIGINAL: "style_mode_original",

@@ -52,9 +52,9 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             assert not errors, f"console errors: {errors}"
 
     def test_role_row_divider_stops_before_count(self, browser, tmp_path):
-        """The role-row divider ends before the count column (spec v3.6: the
-        divider is collected before count, it does not pass through the icon
-        column). The count/icon/more must not be overlapped by any divider.
+        """The role-row divider ends before the count column: the divider is
+        collected before count, it does not pass through the icon column. The
+        count/icon/more must not be overlapped by any divider.
 
         Death test: must RED before the CSS fix, GREEN after.
         """
