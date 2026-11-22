@@ -606,14 +606,25 @@
      gradient at both ends) is the one recipe main has always used; this rule
      only narrows the span to the label column, because the role row now owns
      the count / icon / more cells the pre-folder divider ran through. */
-  .foliplus-role-divider {
-    /* Row 1 explicitly: the label already owns row 1 / column 3, so an
-       auto-placed divider lands in an implicit second row and paints below
-       the row content instead of through its middle. */
+  /* The role row's label + divider pair. One flex cell in the label column:
+     the divider starts right after the name and takes the rest of the column,
+     so its left fade begins at the name's edge instead of under it. */
+  .foliplus-role-head {
     grid-row: 1;
     grid-column: 3;
-    justify-self: stretch;
+    display: flex;
+    align-items: center;
+    gap: var(--foliplus-space-sm);
+    min-width: 0;
+  }
+  .foliplus-role-head .foliplus-role-divider {
+    flex: 1;
+    min-width: 0;
     align-self: center;
+    /* The shared divider carries the panel's horizontal inset as a margin;
+       inside the head the flex gap is the only spacing, so the line starts
+       right at the name instead of 12px after it. */
+    margin: 0;
   }
 
   /* ── Fold-tree guides for folder members (rail column) ──

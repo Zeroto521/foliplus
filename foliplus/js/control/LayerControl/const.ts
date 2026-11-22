@@ -116,6 +116,8 @@ const CLASSES = {
   FOLD_TREE_LAST: "foliplus-fold-tree-last",
   /** Role row's divider line, placed before the count column. */
   ROLE_DIVIDER: "foliplus-role-divider",
+  /** The role row's label + divider pair, laid out as one flex cell. */
+  ROLE_HEAD: "foliplus-role-head",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */

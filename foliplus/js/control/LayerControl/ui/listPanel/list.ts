@@ -422,6 +422,31 @@ const syncRowOrder = (ui: LayerUI): void => {
   ) {
     active.focus();
   }
+  // The rows moved, so the ├/└ connectors they carry may no longer match the
+  // block they sit in.
+  refreshTreeConnectors(ui);
+};
+
+/** Re-derive each member row's tree connector (├ vs └) from the layout.
+ *
+ *  The class is written at render time, but syncRowOrder moves rows without
+ *  re-rendering them: a member that became its block's last kept its ├ and the
+ *  stem ran past the block, and one that stopped being last kept its └ and
+ *  broke the line. Repeated drags accumulated both. One pass over the rows is
+ *  cheap and self-healing. */
+const refreshTreeConnectors = (ui: LayerUI): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  for (const row of container.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM)) {
+    const tree = row.querySelector<HTMLElement>(CONST.SEL.FOLD_TREE);
+    if (!tree) continue;
+    const id = row.getAttribute(CONST.DATA.LAYER_ID);
+    const info = id ? ui.c.layerRegistry.get(id) : undefined;
+    if (!info) continue;
+    const mem = memberInfo(ui, info);
+    tree.classList.toggle(CONST.CLASSES.FOLD_TREE_LAST, mem.isLast);
+    tree.classList.toggle(CONST.CLASSES.FOLD_TREE_MID, !mem.isLast);
+  }
 };
 
 /** Whether the given role should render its toggle-all header row.
@@ -828,7 +853,19 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
         return input;
       })(),
     ),
-    dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
+    // The label and the divider share one flex cell: as two grid items in the
+    // same column they overlapped, and the divider's left fade started under
+    // the name instead of after it.
+    dom.el(
+      "span",
+      { class: CONST.CLASSES.ROLE_HEAD },
+      dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
+      (() => {
+        const divider = sectionDivider("div");
+        divider.classList.add(CONST.CLASSES.ROLE_DIVIDER);
+        return divider;
+      })(),
+    ),
   ];
   // The role row always carries the divider (before count), the layer-count
   // (role layer count, not feature count), the role-level type icon and a
@@ -841,9 +878,6 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   // more cells the pre-folder divider used to run through. A second hand-rolled
   // line here is what made the two role sections look different from main
   // (issue 4).
-  const roleDivider = sectionDivider("div");
-  roleDivider.classList.add(CONST.CLASSES.ROLE_DIVIDER);
-  children.push(roleDivider);
   children.push(
     dom.el(
       "span",
