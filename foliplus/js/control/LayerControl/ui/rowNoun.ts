@@ -8,6 +8,11 @@ import type { LayerUI } from "./surface.js";
  *  carry a `{noun}` placeholder instead of being duplicated per kind, so a
  *  translation cannot drift into two formats for the same action.
  *
+ *  The role header is not a row the user acts on, but its overflow button names
+ *  its own object too ("{noun} options"), so it borrows the same vocabulary —
+ *  its noun is `role`, never `section` (the vocabulary guard forbids a section
+ *  middle-layer; the grouping is a role).
+ *
  *  The vocabulary is a constant for the same reason `ROLE` is: a hand-rolled
  *  "group" at a call site would silently resolve to a missing locale key. */
 const ROW_NOUN = {
