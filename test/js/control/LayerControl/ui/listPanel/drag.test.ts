@@ -2169,3 +2169,207 @@ describe("ui/list folder rows (fold)", () => {
     }
   });
 });
+
+describe("folder drag — beside-placement and refusal arms (round 4)", () => {
+  /** A drag event with no dataTransfer: the pointer affordance is optional. */
+  const noTransfer = (target: HTMLElement, clientY = 0): DragEvent =>
+    ({
+      target,
+      clientY,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      dataTransfer: null,
+    }) as unknown as DragEvent;
+
+  /** Pin a row's box so the drop zone is deterministic (jsdom rects are 0). */
+  const pinRect = (row: HTMLElement, top: number, height: number): void => {
+    row.getBoundingClientRect = () =>
+      ({
+        top,
+        height,
+        bottom: top + height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  it("a folder drag over a same-role layer row with no transfer paints the beside marker", () => {
+    // A member row belongs to the folder block above it: hovering folder b's
+    // member resolves to folder b's block, which is a legal beside-placement
+    // target for a folder drag. The pointer affordance is optional, so the
+    // marker must paint without it.
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const row = rowOf(ui, "b1");
+    pinRect(row, 100, 36);
+
+    handleDragOver(ui, noTransfer(row, 104));
+
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+  });
+
+  it("a folder drag over its own member row is a no-op", () => {
+    // A member row belongs to the folder block above it. Hovering the dragged
+    // folder's own members resolves to the dragged block, which is a no-op:
+    // the folder cannot be placed beside itself.
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const member = rowOf(ui, "a1");
+    pinRect(member, 100, 36);
+    const over = dragEvent(member, { dropEffect: "" }, 130);
+
+    handleDragOver(ui, over);
+
+    expect(over.preventDefault).not.toHaveBeenCalled();
+    expect(member.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+    expect(member.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("a folder drag over a cross-role layer row names same_role_only", () => {
+    // A layer row of the other role is not a block target: the folder can only
+    // reorder blocks inside its own section, so the refusal is named.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["a"], base: ["b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "base",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const member = rowOf(ui, "b1");
+    pinRect(member, 100, 36);
+    const over = dragEvent(member, { dropEffect: "" }, 130);
+
+    handleDragOver(ui, over);
+
+    expect(showHint).toHaveBeenCalledWith(
+      ui.config.name,
+      ui.T("same_role_only"),
+      expect.anything(),
+    );
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("a folder dragged into a folder's middle zone without a transfer still draws the refusal", () => {
+    // The "into" refusal does not depend on the pointer affordance: the dashed
+    // blocked chrome and the no_nest sentence must appear without it.
+    const { ui } = folderFixture(["a", "b"]);
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const b = folderRowOf(ui, "b");
+    pinRect(b, 100, 36);
+
+    handleDragOver(ui, noTransfer(b, 118));
+
+    expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BLOCKED)).toBe(true);
+    expect(ui.listPanel.lastDragOverItem).toBe(b);
+    expect(showHint).toHaveBeenCalled();
+  });
+
+  it("a container on another container's middle zone without a transfer refuses by name", () => {
+    // Two layer groups never nest; the refusal is named whether or not the
+    // browser supplied a dataTransfer.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    manager.registerLayer({
+      id: "G2",
+      name: "G2",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const row = rowOf(ui, "G2");
+    pinRect(row, 100, 36);
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, noTransfer(row, 118));
+
+    expect(showHint).toHaveBeenCalled();
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("a folder dropped on a row of the other role commits nothing", () => {
+    // The else-if block-order resolution refuses a cross-role target: the drop
+    // must not move the folder into the other section.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["a"], base: ["b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "base",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const before = [...(ui.c.folderLayoutView.order.overlay ?? [])];
+
+    handleDrop(ui, dragEvent(rowOf(ui, "b1"), {}, 130));
+
+    expect(ui.c.folderLayoutView.order.overlay).toEqual(before);
+    expect(ui.listPanel.dragFolder).toBeNull();
+  });
+
+  it("a folder dropped on a member of its own folder commits nothing", () => {
+    // A member row belongs to the folder block above it; dropping a folder on
+    // a member of ITS OWN block resolves to the dragged block, which is a
+    // no-op rather than a reorder against itself.
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const before = [...(ui.c.folderLayoutView.order.overlay ?? [])];
+
+    handleDrop(ui, dragEvent(rowOf(ui, "a1"), {}, 130));
+
+    expect(ui.c.folderLayoutView.order.overlay).toEqual(before);
+    expect(ui.listPanel.dragFolder).toBeNull();
+  });
+});

@@ -5,6 +5,7 @@ import {
   createInlineEditInput,
   dom,
   removeInlineEditInput,
+  setLabelTitle,
   stopEvent,
   updateItemLabel,
 } from "#platform/dom.js";
@@ -606,5 +607,46 @@ describe("createInlineEditInput", () => {
     // Arrow keys must not commit or cancel — only Enter/Escape do.
     expect(onCommit).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled();
+  });
+});
+
+describe("setLabelTitle", () => {
+  it("is a no-op for a null label", () => {
+    // The row rebuild calls this with the label it just looked up, which can be
+    // null when the row carries no label element. A null must not throw.
+    expect(() => setLabelTitle(null, "Roads")).not.toThrow();
+    expect(() => setLabelTitle(null, "")).not.toThrow();
+  });
+
+  it("sets the title when a name is given and clears it on an empty name", () => {
+    const label = dom.el("label");
+    setLabelTitle(label as HTMLLabelElement, "Roads");
+    expect(label.title).toBe("Roads");
+    setLabelTitle(label as HTMLLabelElement, "");
+    expect(label.hasAttribute("title")).toBe(false);
+  });
+});
+
+describe("createInlineEditInput — repeated open", () => {
+  it("keeps the FIRST captured text when opened twice without a remove", () => {
+    // A second open must not overwrite the recorded original with the empty
+    // string the first open left in the label: the teardown restores that
+    // original, so overwriting it would blank the label on cancel.
+    const label = dom.el("label", null, "Roads");
+    const opts = {
+      label: label as HTMLLabelElement,
+      initialValue: "Roads",
+      className: "edit",
+      ariaLabel: "Rename",
+      onCommit: vi.fn(),
+      onCancel: vi.fn(),
+    };
+    createInlineEditInput(opts);
+    expect(label.textContent).toBe("");
+    // Second open, no intervening removeInlineEditInput.
+    createInlineEditInput(opts);
+
+    removeInlineEditInput(label as HTMLLabelElement);
+    expect(label.textContent).toBe("Roads");
   });
 });

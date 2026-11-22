@@ -2702,4 +2702,28 @@ describe("ui/list row-order and tree-connector guards", () => {
     // The rail has no tree guide: the orphan is not a member of any block.
     expect(row!.querySelector(`.${CONST.CLASSES.FOLD_TREE}`)).toBeNull();
   });
+
+  it("renderLayerItem leaves the type-icon column empty for a layer with no iconSvg", () => {
+    // Direct branch: `if (layerInfo.iconSvg)` takes the falsy path when the
+    // layer carries no custom icon (the registry only fills iconSvg from an
+    // explicit opts.iconSvg). The column must stay empty, not hold a stale
+    // or placeholder glyph.
+    const { ui } = initFixture({ data: [] });
+    const bare: LayerInfo = {
+      id: "bare",
+      name: "Bare",
+      role: "overlay",
+      folder: "",
+      iconSvg: null,
+      layer: polygonLayer(),
+    } as LayerInfo;
+    let row: HTMLElement | null = null;
+    expect(() => {
+      row = renderLayerItem(ui, bare);
+    }).not.toThrow();
+    expect(row).not.toBeNull();
+    const icon = row!.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`);
+    expect(icon).not.toBeNull();
+    expect(icon!.innerHTML).toBe("");
+  });
 });
