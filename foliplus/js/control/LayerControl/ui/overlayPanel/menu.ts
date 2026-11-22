@@ -1,8 +1,8 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
-import { type RowNoun, withNoun } from "../noun.js";
 import { folderFoldKey } from "../listPanel/drag.js";
 import { rebuildList } from "../listPanel/list.js";
+import { type RowNoun, withNoun } from "../noun.js";
 import { saveState } from "../state.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";

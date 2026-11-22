@@ -1,5 +1,4 @@
 // LayerControl UI — the row noun vocabulary and the one {noun} substitution.
-
 import type { LayerUI } from "./surface.js";
 
 /** What a row's sentences call the thing they act on.

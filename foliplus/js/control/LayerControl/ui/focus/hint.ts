@@ -1,8 +1,8 @@
 // Focus-layer disabled-state metadata: the reason codes, their locale keys,
 // and the shared hint shown when a keyboard / double-click / overflow path
 // tries to focus a row the surface cannot focus.
-import type { LayerUI } from "../surface.js";
 import { type RowNoun, withNoun } from "../noun.js";
+import type { LayerUI } from "../surface.js";
 import { ROLE } from "#core/layer/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
