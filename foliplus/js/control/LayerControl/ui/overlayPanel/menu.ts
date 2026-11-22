@@ -117,6 +117,15 @@ const placeMoreMenu = (ui: LayerUI): void => {
   const open = ui.overlayPanel.activeMenu;
   if (!open) return;
   const { item, menu } = open;
+  // Pin the width on the first placement. The menu sizes to its widest item
+  // (`width: max-content`), and arming a destructive item swaps a long label
+  // for a short one ("清理空文件夹" → "确认删除") — without a pin the whole menu
+  // narrows mid-gesture, which reads as the panel jumping under the pointer.
+  // The element is rebuilt per open, so an empty inline width means "first
+  // placement"; later re-places keep the pinned value.
+  if (menu.style.width === "") {
+    menu.style.width = `${menu.getBoundingClientRect().width}px`;
+  }
   const btn = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`);
   const anchor = (btn ?? item).getBoundingClientRect();
   const clip = item.closest<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
