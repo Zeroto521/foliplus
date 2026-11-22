@@ -34,6 +34,24 @@ const dragEvent = (target: HTMLElement, dataTransfer = {}, clientY = 0): DragEve
     dataTransfer,
   }) as unknown as DragEvent;
 
+/** Pin a row's box. jsdom reports a zero-height rect for every element, and a
+ *  zero-height row is the "into" zone — the before/after edges only exist once
+ *  the row has a height. */
+const pinRect = (row: HTMLElement, top: number, height: number): void => {
+  row.getBoundingClientRect = () =>
+    ({
+      top,
+      height,
+      bottom: top + height,
+      left: 0,
+      right: 0,
+      width: 0,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    }) as DOMRect;
+};
+
 /** Overlay rows for a real fixture: n data layers, ids `L<i>`. */
 const overlays = (n: number) =>
   Array.from({ length: n }, (_, i) => ({
@@ -194,15 +212,16 @@ describe("ui/drag", () => {
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
       const b = folderRowOf(ui, "b");
       const c = folderRowOf(ui, "c");
-      const overB = dragEvent(b, { dropEffect: "" }, 10);
+      pinRect(b, 100, 36);
+      pinRect(c, 140, 36);
+      const overB = dragEvent(b, { dropEffect: "" }, 130);
       handleDragOver(ui, overB);
       expect(overB.preventDefault).toHaveBeenCalled();
       expect(overB.dataTransfer!.dropEffect).toBe("move");
-      // jsdom rects are all zero, so a positive clientY is the bottom half.
       expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
       expect(ui.listPanel.lastDragOverItem).toBe(b);
       // Moving to another block takes the chrome off the previous one.
-      handleDragOver(ui, dragEvent(c, { dropEffect: "" }, 10));
+      handleDragOver(ui, dragEvent(c, { dropEffect: "" }, 170));
       expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
       expect(c.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
       expect(ui.listPanel.lastDragOverItem).toBe(c);
@@ -212,9 +231,30 @@ describe("ui/drag", () => {
       const { ui } = folderFixture(["a", "b"]);
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
       const b = folderRowOf(ui, "b");
-      handleDragOver(ui, dragEvent(b, { dropEffect: "" }, 0));
+      pinRect(b, 100, 36);
+      handleDragOver(ui, dragEvent(b, { dropEffect: "" }, 104));
       expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
       expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+    });
+
+    it("refuses a folder dropped into another folder", () => {
+      const { ui } = folderFixture(["a", "b"]);
+      const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      const b = folderRowOf(ui, "b");
+      pinRect(b, 100, 36);
+      // The middle third is the "into" gesture: a folder never nests.
+      const over = dragEvent(b, { dropEffect: "" }, 118);
+      handleDragOver(ui, over);
+      expect(over.dataTransfer!.dropEffect).toBe("none");
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      expect(showHint).toHaveBeenCalledWith(
+        ui.config.name,
+        ui.T("no_nest"),
+        expect.anything(),
+      );
     });
 
     it("clears the chrome when the pointer leaves the folder rows", () => {
@@ -942,7 +982,7 @@ describe("showReorderBlockedHint", () => {
     expect(showHint).toHaveBeenCalledTimes(1);
     expect(showHint).toHaveBeenCalledWith(
       "LayerControl",
-      "reorder_group_only",
+      "same_role_only",
       HINT_DURATION.SHORT,
     );
 
@@ -1043,6 +1083,38 @@ describe("layer drop on a folder row — hover chrome", () => {
 
     expect(showHint).toHaveBeenCalled();
     expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("refuses a container on another container's middle zone", () => {
+    // Two layer groups never nest: the middle zone is the "into" gesture and
+    // it is refused by name, while the edges still reorder the group.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    manager.registerLayer({
+      id: "G2",
+      name: "G2",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const row = rowOf(ui, "G2");
+    withRect(row, 100, 36);
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(row, {}, 118));
+
+    expect(showHint).toHaveBeenCalledWith(
+      ui.config.name,
+      ui.T("no_nest"),
+      expect.anything(),
+    );
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
   });
 
   it("refuses a folder drag over a container row and names the reason", () => {
@@ -1401,8 +1473,9 @@ describe("drag — the dataTransfer is always optional", () => {
     const { ui } = folderFixture(["a", "b"]);
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
     const row = folderRowOf(ui, "b");
+    pinRect(row, 100, 36);
 
-    handleDragOver(ui, noTransfer(row));
+    handleDragOver(ui, noTransfer(row, 104));
 
     expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
     expect(ui.listPanel.lastDragOverItem).toBe(row);

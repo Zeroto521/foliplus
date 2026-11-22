@@ -54,9 +54,8 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     # withNoun(ui, "more_tooltip", noun) — the sentence key is a parameter.
     "LayerControl.more_tooltip",
     # showDragHint(ui, key) in ui/listPanel/drag.ts — the key is a parameter.
-    "LayerControl.reorder_group_only",
-    "LayerControl.group_no_folder",
-    "LayerControl.folder_no_container",
+    "LayerControl.same_role_only",
+    "LayerControl.no_nest",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
     "LayerControl.type_tile_map",
     "LayerControl.type_color_map",

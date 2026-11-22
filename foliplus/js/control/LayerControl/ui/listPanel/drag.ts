@@ -130,7 +130,7 @@ const showDragHint = (ui: LayerUI, key: string) => {
 };
 
 const showReorderBlockedHint = (ui: LayerUI) => {
-  showDragHint(ui, "reorder_group_only");
+  showDragHint(ui, "same_role_only");
 };
 
 /** Whether the pointer sits in the bottom half of a row, i.e. the drop lands
@@ -249,8 +249,24 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       ) as HTMLElement | null;
       const overId = over?.getAttribute(CONST.DATA.LAYER_ID);
       if (overId && isContainerDrag(ui, overId)) {
-        showDragHint(ui, "folder_no_container");
+        showDragHint(ui, "no_nest");
+      } else if (over?.getAttribute(CONST.DATA.FOLDER_KEY)) {
+        // A folder row of the OTHER role: blocks belong to one section.
+        showDragHint(ui, "same_role_only");
       }
+      return;
+    }
+    // A folder never nests inside another folder. The middle of the row is the
+    // "into" gesture; the edges still reorder the block, so the refusal is
+    // named rather than silently ignored.
+    if (folderDropZone(row, event.clientY) === "into") {
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+      row.classList.remove(
+        CONST.CLASSES.DRAG_OVER_TOP,
+        CONST.CLASSES.DRAG_OVER_BOTTOM,
+      );
+      ui.listPanel.lastDragOverItem = null;
+      showDragHint(ui, "no_nest");
       return;
     }
     event.preventDefault();
@@ -305,7 +321,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         CONST.CLASSES.DRAG_OVER_INTO,
       );
       ui.listPanel.lastDragOverItem = null;
-      showDragHint(ui, "reorder_group_only");
+      showDragHint(ui, "same_role_only");
       return;
     }
     const zone = folderDropZone(item, event.clientY);
@@ -317,7 +333,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         CONST.CLASSES.DRAG_OVER_INTO,
       );
       ui.listPanel.lastDragOverItem = null;
-      showDragHint(ui, "group_no_folder");
+      showDragHint(ui, "no_nest");
       return;
     }
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
@@ -358,6 +374,25 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // must answer the same way instead of falling through to the reorder path
   // (which allows the hover and then silently drops the move).
   const targetId = item.getAttribute(CONST.DATA.LAYER_ID);
+  // A layer group never nests inside another layer group. The middle of the
+  // row is the "into" gesture; the edges still reorder the group, so the
+  // refusal is named rather than silently ignored.
+  if (
+    targetId &&
+    isContainerDrag(ui, ui.listPanel.dragEntry!.id) &&
+    isContainerDrag(ui, targetId) &&
+    folderDropZone(item, event.clientY) === "into"
+  ) {
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+    item.classList.remove(
+      CONST.CLASSES.DRAG_OVER_TOP,
+      CONST.CLASSES.DRAG_OVER_BOTTOM,
+      CONST.CLASSES.DRAG_OVER_INTO,
+    );
+    ui.listPanel.lastDragOverItem = null;
+    showDragHint(ui, "no_nest");
+    return;
+  }
   if (
     targetId &&
     isContainerDrag(ui, ui.listPanel.dragEntry!.id) &&
@@ -367,7 +402,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     // A refusal is not a hover: drop the pointer so the next move does not
     // treat this row as the highlighted target.
     ui.listPanel.lastDragOverItem = null;
-    showDragHint(ui, "group_no_folder");
+    showDragHint(ui, "no_nest");
     return;
   }
 
