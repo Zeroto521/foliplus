@@ -85,10 +85,11 @@ class ListPanel {
    *  Set) is what lets a user expand an author-folded role and keep it
    *  expanded across a reload. */
   foldedRoles: Record<string, boolean> = {};
-  /** Per-folder fold state: `role::normalizedFolderName` keys the user
-   *  collapsed. A user override — author defaults sit below it,
+  /** Per-folder fold state: `role::normalizedFolderName` → folded. A
+   *  tri-state user opinion (absent = never touched), so an explicit EXPAND
+   *  over an author default fold survives. Author defaults sit below it,
    *  built-in "all expanded" below that. Persisted through the same channel. */
-  foldedFolders: Set<string> = new Set();
+  foldedFolders: Record<string, boolean> = {};
   /** The author's declared default folded-folder key set, derived from
    *  `CONF.folders` (never persisted — it is author config baked into the
    *  page, so a reload always re-derives it). This is the "default" layer of

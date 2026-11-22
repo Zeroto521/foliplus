@@ -682,9 +682,9 @@ const nextFolderDefaultName = (ui: LayerUI, role: string): string => {
 
 const setAllFoldersFolded = (ui: LayerUI, role: string, folded: boolean) => {
   for (const key of folderKeysOfRole(ui, role)) {
-    const fk = folderFoldKey(role, key);
-    if (folded) ui.listPanel.foldedFolders.add(fk);
-    else ui.listPanel.foldedFolders.delete(fk);
+    // An explicit opinion in both directions, so expand-all opens an
+    // author-folded folder instead of leaving it folded.
+    ui.listPanel.foldedFolders[folderFoldKey(role, key)] = folded;
   }
   rebuildList(ui);
   saveState(ui);

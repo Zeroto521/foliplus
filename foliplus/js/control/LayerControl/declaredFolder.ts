@@ -13,13 +13,10 @@
 // then stops the author default from affecting that folder; Reset clears
 // the user override and falls back to the author default.
 //
-// NOTE on the "user expands an author-folded folder" edge: with the Set-based
-// user override (foldedRoles = folded keys only), a user's explicit EXPAND
-// over an author default fold cannot be distinguished from "never touched".
-// The Set model therefore resolves effective = userFold || authorFold, which
-// keeps the author default until the user re-folds. Upgrading the override to
-// a tri-state map (absent | true | false) is the fix if that edge becomes
-// real; it is recorded here so the resolution is single-sourced.
+// The user override is a tri-state map (absent | true | false), the same shape
+// the role fold uses: an explicit EXPAND over an author default fold has to be
+// distinguishable from "never touched", or an author-folded folder can never
+// be opened by hand.
 import { normalizeFolderName } from "#core/layer/index.js";
 import type { FolderDefaults } from "#foliplus/config-schema.js";
 
@@ -69,25 +66,27 @@ const authorFoldedKeys = (folders: FolderDefaults | null | undefined): Set<strin
 
 /** Resolve the effective fold state a folder row renders with.
  *
- *  Priority: user override (folded) > author default (folded) > expanded.
- *  The user override is the persisted foldedRoles set, written by the
- *  panel's own toggle; the author default is {@link authorFoldedKeys}. See
- *  the NOTE above for the Set-based "user expands over author fold" edge.
+ *  Priority: user opinion (either direction) > author default > expanded.
+ *  The user opinion is the persisted `foldedFolders` map, written by the
+ *  panel's own toggle and by expand-all/collapse-all; the author default is
+ *  {@link authorFoldedKeys}. A user's explicit EXPAND therefore wins over an
+ *  author default fold — without that, an author-folded folder could never be
+ *  opened by hand.
  *
  *  @param {ReadonlySet<string>} authorKeys - The author default folded keys.
- *  @param {ReadonlySet<string>} userKeys - The user override folded keys.
+ *  @param {Readonly<Record<string, boolean>>} userOpinion - The user override.
  *  @param {string} role - A LayerRole ("base" | "overlay").
  *  @param {string} name - The folder display name.
  *  @returns {boolean} True when the folder renders folded.
  */
 const effectiveFolderFolded = (
   authorKeys: ReadonlySet<string>,
-  userKeys: ReadonlySet<string>,
+  userOpinion: Readonly<Record<string, boolean>>,
   role: string,
   name: string,
 ): boolean => {
   const key = folderFoldKey(role, name);
-  return userKeys.has(key) || authorKeys.has(key);
+  return userOpinion[key] ?? authorKeys.has(key);
 };
 
 export { folderFoldKey, authorFoldedKeys, effectiveFolderFolded };

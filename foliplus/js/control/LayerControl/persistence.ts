@@ -32,7 +32,7 @@ type LiveState = {
   removed?: () => string[];
   foldedRoles?: () => Record<string, boolean>;
   /** User-folded folder identities (`role::name`). */
-  foldedFolders?: () => string[];
+  foldedFolders?: () => Record<string, boolean>;
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
@@ -86,15 +86,22 @@ type LiveState = {
  *  This one is additive: an old v6 record reads the field as absent (empty
  *  set = "everything expanded"), which is the same behavior the record had
  *  before the field existed, so there is no compatibility read to ship — the
- *  next write stamps v7. */
-const RECORD_VERSION = 7;
+ *  next write stamps v7.
+ *
+ *  7 → 8: `foldedFolders` changed from a Set-shaped array (folded keys only)
+ *  to a Record<key, boolean> (per-folder user opinion, both directions). The
+ *  array shape could not express "the user expanded an author-folded folder",
+ *  so such a folder could never be opened by hand. A v7 array is read as
+ *  `{key: true}` for each entry — the same effective state it had — and the
+ *  next write stamps v8. */
+const RECORD_VERSION = 8;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
   order: null,
   removed: [],
   foldedRoles: {},
-  foldedFolders: [],
+  foldedFolders: {},
   renamedNames: {},
   layers: {},
 });
@@ -378,11 +385,22 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
       record.foldedRoles = parsed;
     }
   }
-  if (
-    Array.isArray(data.foldedFolders) &&
-    data.foldedFolders.every(key => typeof key === "string")
-  ) {
-    record.foldedFolders = data.foldedFolders as string[];
+  if (Array.isArray(data.foldedFolders)) {
+    // v7 shape: folded keys only, no per-folder opinion recorded.
+    const parsed: Record<string, boolean> = {};
+    for (const key of data.foldedFolders) {
+      if (typeof key === "string") parsed[key] = true;
+    }
+    record.foldedFolders = parsed;
+  } else {
+    const folderMap = asObject(data.foldedFolders);
+    if (folderMap) {
+      const parsed: Record<string, boolean> = {};
+      for (const [key, value] of Object.entries(folderMap)) {
+        if (typeof value === "boolean") parsed[key] = value;
+      }
+      record.foldedFolders = parsed;
+    }
   }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;

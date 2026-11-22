@@ -13,7 +13,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   order: null,
   removed: [],
   foldedRoles: {},
-  foldedFolders: [],
+  foldedFolders: {},
   renamedNames: {},
   layers: {},
 });
@@ -62,7 +62,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: { OVERLAYS: true },
-        foldedFolders: [],
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -79,7 +79,7 @@ describe("LayerPersistence", () => {
         order: ids,
         removed: [],
         foldedRoles: { OVERLAYS: true },
-        foldedFolders: [],
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: {
           a: {
@@ -241,22 +241,40 @@ describe("LayerPersistence", () => {
       expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
       expect(rec.foldedRoles).toEqual({});
-      expect(rec.foldedFolders).toEqual([]);
+      expect(rec.foldedFolders).toEqual({});
     });
 
-    it("reads a v6 record's foldedFolders as a validated string array", () => {
-      // The v6 read validates each key is a string; a non-array or a mixed
-      // array falls back to empty (the validation gate at persistence.ts:368).
+    it("reads a v7 record's foldedFolders array as folded opinions", () => {
+      // v7 stored folded keys only. The v8 read keeps the same effective state
+      // by mapping each key to `true`; a non-string entry is dropped.
+      seedStorage({
+        version: 7,
+        order: [],
+        renamedNames: {},
+        foldedRoles: {},
+        foldedFolders: ["overlay::roads", 42],
+        layers: {},
+      });
+      const rec = makePersistence().load();
+      expect(rec.foldedFolders).toEqual({ "overlay::roads": true });
+    });
+
+    it("reads a v8 record's foldedFolders map as per-folder opinions", () => {
       seedStorage({
         version: RECORD_VERSION,
         order: [],
         renamedNames: {},
         foldedRoles: {},
-        foldedFolders: ["overlay::roads"],
+        foldedFolders: { "overlay::roads": false, "overlay::water": true },
         layers: {},
       });
       const rec = makePersistence().load();
-      expect(rec.foldedFolders).toEqual(["overlay::roads"]);
+      // An explicit EXPAND (false) survives the read: that is what lets a user
+      // open an author-folded folder.
+      expect(rec.foldedFolders).toEqual({
+        "overlay::roads": false,
+        "overlay::water": true,
+      });
     });
 
     it("prunes a deleted id from the label segment on read", () => {
@@ -871,7 +889,7 @@ describe("LayerPersistence", () => {
         removed: [],
         // Legacy array foldedRoles is dropped as {} (v7 shape change, no compat read).
         foldedRoles: {},
-        foldedFolders: [],
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -940,7 +958,7 @@ describe("LayerPersistence", () => {
         removed: [],
         // Legacy array foldedRoles reads as {} and stays {} through the write.
         foldedRoles: {},
-        foldedFolders: [],
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1531,7 +1549,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: { OVERLAYS: true },
-        foldedFolders: [],
+        foldedFolders: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1562,7 +1580,7 @@ describe("LayerPersistence", () => {
         removed: [],
         // Legacy array foldedRoles reads as {} and the write leaves it alone.
         foldedRoles: {},
-        foldedFolders: [],
+        foldedFolders: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1678,7 +1696,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: {},
-        foldedFolders: [],
+        foldedFolders: {},
         renamedNames: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });

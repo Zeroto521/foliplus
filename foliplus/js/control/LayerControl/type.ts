@@ -58,7 +58,7 @@ type LayerPersistedRecord = {
    *  (the same two-part key the folder row writes on itself). A user override —
    *  author defaults fall below it, built-in "all expanded" below
    *  that. */
-  foldedFolders: string[];
+  foldedFolders: Record<string, boolean>;
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
   /** Layer id → the user's per-layer intent. Empty means the user changed
