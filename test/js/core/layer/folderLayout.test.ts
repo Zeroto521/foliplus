@@ -5,13 +5,15 @@
 // thread: layout.members[layerId] is the ONLY assignment a layer carries once
 // a layout exists, and the order keys are the ONLY block priority.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+// Module-internal vocabulary: the `layer:<id>` block-entry encoding is an
+// implementation detail of the layout, not part of the layer API surface.
+import { ROOT_LAYER_PREFIX, isRootLayerEntry } from "#core/layer/folderLayout.js";
 import {
   FOLDER_NAME_MAX,
   type FolderLayout,
   LAYOUT_DOC_KEY,
   type LayerInfo,
   type LayerRole,
-  ROOT_LAYER_PREFIX,
   createFolder,
   createFolderLayoutManager,
   deleteFolder,
@@ -26,7 +28,7 @@ import {
   fullDisplayOrder,
   groupByFolder,
   isFolderLayout,
-  isRootLayerEntry,
+  mergeDeclaredFolders,
   moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
@@ -39,9 +41,14 @@ import {
   roleOrder,
   rootLayerEntry,
   seedBlockOrder,
-  seedFolderLayout,
   writeFolderLayout,
 } from "#core/layer/index.js";
+
+/** The production merge applied to an empty layout — the "first seed" case.
+ *  The tests below drive `mergeDeclaredFolders`, the same function the
+ *  manager's `seed()` calls, so a green here is a green about production. */
+const seedFolderLayout = (entries: readonly LayerInfo[]): FolderLayout =>
+  mergeDeclaredFolders(emptyFolderLayout(), entries);
 
 const entry = (
   id: string,
@@ -1015,6 +1022,25 @@ describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
       members: { a: { role: "overlay", folder: "roads" } },
     };
     expect(nextFolderDefaultName(layout, "overlay", "roads")).toBe("roads 2");
+  });
+
+  it("nextFolderDefaultName truncates the stem so the suffix still fits the cap", () => {
+    // A base already at the length cap cannot take a " 2" suffix verbatim: the
+    // candidate would be rejected by createFolder as too-long, and the new
+    // folder would silently never appear. The stem is cut to leave room for
+    // the suffix, so the returned name is always a legal folder name.
+    const base = "a".repeat(FOLDER_NAME_MAX);
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: base, name: base }],
+      order: { overlay: [base] },
+      members: {},
+    };
+    const next = nextFolderDefaultName(layout, "overlay", base);
+    expect(next).not.toBe(base);
+    expect(folderNameLength(next)).toBeLessThanOrEqual(FOLDER_NAME_MAX);
+    expect(folderNameTooLong(next)).toBe(false);
+    expect(next.endsWith(" 2")).toBe(true);
   });
 
   it("nextFolderDefaultName ignores members of a different role", () => {

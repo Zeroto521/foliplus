@@ -445,26 +445,41 @@ const freezeRoleOrder = (
   return { ...layout, order: { ...layout.order, [role]: [...frozen, ...roots] } };
 };
 
-/** Seed a layout from the current registry: folder directory from the author
- *  declarations (first-seen spelling wins, keyed by normalize), members from
- *  each registered layer's declared folder. Used when no layout exists yet —
- *  the first user action materialises the author's declared grouping as the
- *  persisted layout. */
-const seedFolderLayout = (registryEntries: readonly LayerInfo[]): FolderLayout => {
-  const layout = emptyFolderLayout();
+/** Merge the author's declared grouping into a layout: folder directory from
+ *  the declarations (first-seen spelling wins, keyed by normalize), members
+ *  from each registered layer's declared folder.
+ *
+ *  Only layers WITHOUT an assignment get one — a user pin (root or a different
+ *  folder) wins — and only new folder keys get a directory entry. The block
+ *  order is untouched: declarations do not force an order, freeze/create
+ *  materialises it.
+ *
+ *  Pure: returns the same layout when nothing changed, so the manager can skip
+ *  the write. This is the ONE seeding rule; the manager's `seed()` is a thin
+ *  wrapper over it, so a test that drives this function drives production. */
+const mergeDeclaredFolders = (
+  layout: FolderLayout,
+  registryEntries: readonly LayerInfo[],
+): FolderLayout => {
   const byKey = new Map<string, FolderEntry>();
+  for (const f of layout.folders) byKey.set(f.key, f);
+  const members = { ...layout.members };
+  let folders = layout.folders;
+  let changed = false;
   for (const entry of registryEntries) {
     const folder = entry.folder;
     if (!folder) continue;
     const key = normalizeFolderName(folder);
+    if (members[entry.id]) continue; // user pin or existing assignment wins
     if (!byKey.has(key)) {
       const name = folderDisplayName(folder);
       byKey.set(key, { key, name });
-      layout.folders.push({ key, name });
+      folders = [...folders, { key, name }];
     }
-    layout.members[entry.id] = { role: entry.role, folder: key };
+    members[entry.id] = { role: entry.role, folder: key };
+    changed = true;
   }
-  return layout;
+  return changed ? { ...layout, folders, members } : layout;
 };
 
 /** Create a folder: append the new key to the role's block order and add
@@ -727,30 +742,11 @@ const createFolderLayoutManager = (): FolderLayoutManager => {
       return current;
     },
     seed(registryEntries: readonly LayerInfo[]): void {
-      // Merge the author's declared grouping into the current layout: only
-      // layers WITHOUT an assignment yet get one (a user pin — root or a
-      // different folder — wins), and only new folder keys get a directory
-      // entry. The block order is untouched (declarations do not force an
-      // order; freeze/create materialises it). This is safe to call every
-      // init, even when a persisted layout already exists.
-      const byKey = new Map<string, FolderEntry>();
-      for (const f of current.folders) byKey.set(f.key, f);
-      const members = { ...current.members };
-      let folders = current.folders;
-      let changed = false;
-      for (const entry of registryEntries) {
-        const folder = entry.folder;
-        if (!folder) continue;
-        const key = normalizeFolderName(folder);
-        if (members[entry.id]) continue; // user pin or existing assignment wins
-        if (!byKey.has(key)) {
-          byKey.set(key, { key, name: folderDisplayName(folder) });
-          folders = [...folders, { key, name: folderDisplayName(folder) }];
-        }
-        members[entry.id] = { role: entry.role, folder: key };
-        changed = true;
-      }
-      if (changed) current = { ...current, folders, members };
+      // Safe to call every init, even when a persisted layout already exists:
+      // the merge rule lives in `mergeDeclaredFolders` and returns the same
+      // layout when nothing changed, so an unchanged seed schedules no write.
+      const next = mergeDeclaredFolders(current, registryEntries);
+      if (next !== current) current = next;
     },
     isEmpty(): boolean {
       return (
@@ -784,7 +780,7 @@ export {
   readFolderLayout,
   writeFolderLayout,
   isFolderLayout,
-  seedFolderLayout,
+  mergeDeclaredFolders,
   folderOf,
   folderDisplayNameOf,
   folderKeysOfRole,
