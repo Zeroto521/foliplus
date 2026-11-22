@@ -5,9 +5,6 @@
 // thread: layout.members[layerId] is the ONLY assignment a layer carries once
 // a layout exists, and the order keys are the ONLY block priority.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-// Module-internal vocabulary: the `layer:<id>` block-entry encoding is an
-// implementation detail of the layout, not part of the layer API surface.
-import { ROOT_LAYER_PREFIX, isRootLayerEntry } from "#core/layer/folderLayout.js";
 import {
   FOLDER_NAME_MAX,
   type FolderLayout,
@@ -856,12 +853,13 @@ describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
     expect(folderNameTooLong(`${atMax}b`)).toBe(true);
   });
 
-  it("rootLayerEntry / isRootLayerEntry / ROOT_LAYER_PREFIX / folderEntries", () => {
-    expect(ROOT_LAYER_PREFIX).toBe("layer:");
-    expect(rootLayerEntry("a")).toBe("layer:a");
-    expect(isRootLayerEntry("layer:a")).toBe(true);
-    expect(isRootLayerEntry("roads")).toBe(false);
-    expect(folderEntries(["roads", "layer:a", "water"])).toEqual(["roads", "water"]);
+  it("a root layer's block entry never collides with a folder key", () => {
+    // The encoding itself is internal; what the API promises is that a root
+    // layer's entry is distinguishable from a folder key, and that the folder
+    // view filters it out.
+    const rootEntry = rootLayerEntry("a");
+    expect(rootEntry).not.toBe("a");
+    expect(folderEntries(["roads", rootEntry, "water"])).toEqual(["roads", "water"]);
     expect(folderEntries([])).toEqual([]);
   });
 

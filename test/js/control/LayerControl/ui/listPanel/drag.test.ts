@@ -249,7 +249,10 @@ describe("ui/drag", () => {
       expect(over.dataTransfer!.dropEffect).toBe("none");
       expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
       expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
-      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      // The refused zone draws a dashed outline: without it the middle half of
+      // the row is a strip that neither lights up nor accepts.
+      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BLOCKED)).toBe(true);
+      expect(ui.listPanel.lastDragOverItem).toBe(b);
       expect(showHint).toHaveBeenCalledWith(
         ui.config.name,
         ui.T("no_nest"),
@@ -262,10 +265,11 @@ describe("ui/drag", () => {
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
       const b = folderRowOf(ui, "b");
       handleDragOver(ui, dragEvent(b, { dropEffect: "" }, 10));
-      const layerRow = attachedPanel(ui).querySelector(
-        `[${CONST.DATA.LAYER_ID}="b1"]`,
+      // A role header is not a block target: the chrome must clear.
+      const roleRow = attachedPanel(ui).querySelector(
+        `${CONST.SEL.TOGGLE_ALL}[data-role="${ROLE.OVERLAY}"]`,
       ) as HTMLElement;
-      const away = dragEvent(layerRow, { dropEffect: "" }, 10);
+      const away = dragEvent(roleRow, { dropEffect: "" }, 10);
       handleDragOver(ui, away);
       expect(away.preventDefault).not.toHaveBeenCalled();
       expect(away.dataTransfer!.dropEffect).toBe("none");
@@ -1732,18 +1736,23 @@ describe("drag — block resolution at the role edges", () => {
       }) as DOMRect;
   };
 
-  it("drops a folder drag onto a layer row and names no target", () => {
-    // A folder block only lands on a folder row: a layer row is not a block,
-    // so the drag must refuse it instead of resolving to a neighbouring one.
+  it("drops a folder beside the block a member row belongs to", () => {
+    // A member row is not a block of its own: it belongs to the folder block
+    // above it, so dropping a folder on it places the folder beside THAT block
+    // instead of refusing a zone the user reads as a valid target.
     const { ui } = folderFixture(["a", "b"]);
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
-    const layerRow = rowOf(ui, "b1");
+    const memberRow = rowOf(ui, "b1");
+    pinRect(memberRow, 100, 36);
     const dataTransfer = { dropEffect: "" };
 
-    handleDragOver(ui, dragEvent(layerRow, dataTransfer, 0));
+    handleDragOver(ui, dragEvent(memberRow, dataTransfer, 130));
 
-    expect(dataTransfer.dropEffect).toBe("none");
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(dataTransfer.dropEffect).toBe("move");
+    expect(memberRow.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+
+    handleDrop(ui, dragEvent(memberRow, { dropEffect: "" }, 130));
+    expect(ui.c.folderLayoutView.order.overlay).toEqual(["b", "a"]);
   });
 
   it("places a layer after a folder block that precedes a root layer", () => {

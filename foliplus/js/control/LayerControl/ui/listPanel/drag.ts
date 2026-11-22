@@ -62,8 +62,8 @@ const isFolderFolded = (ui: LayerUI, role: string, name: string): boolean =>
 const registryIdx = (ui: LayerUI, id: string | null): number =>
   id ? ui.c.layerRegistry.indexOfId(id) : -1;
 
-/** Current registry index of the armed drag's entry, or -1 when the session
- *  went stale. The gesture is armed with the entry itself, not its position:
+/** Current registry index of the dragged drag's entry, or -1 when the session
+ *  went stale. The gesture is dragged with the entry itself, not its position:
  *  an HTML5 drag spans events and timers, and any reorder in between would
  *  silently re-point a saved index at a neighbor. Resolving through the
  *  entry also retires the session on identity loss — an unregister or a
@@ -74,7 +74,7 @@ const dragIdx = (ui: LayerUI, entry: LayerInfo): number => {
   const registry = ui.c.layerRegistry;
   const idx = registry.indexOfId(entry.id);
   // The id alone is not the lease: a same-id replacement makes the id
-  // resolve while the entry the gesture armed with is gone, and moving the
+  // resolve while the entry the gesture dragged with is gone, and moving the
   // successor would move a layer the user never grabbed.
   return idx !== -1 && registry.at(idx) === entry ? idx : -1;
 };
@@ -144,15 +144,15 @@ const dropsAfter = (event: DragEvent, row: HTMLElement): boolean => {
  *  other than the one being dragged. Returns null for anything else, so a
  *  folder cannot be dropped onto a layer row or into the other role. */
 const folderDropTarget = (ui: LayerUI, event: DragEvent): HTMLElement | null => {
-  const armed = ui.listPanel.dragFolder;
-  if (!armed) return null;
+  const dragged = ui.listPanel.dragFolder;
+  if (!dragged) return null;
   const row = (event.target as HTMLElement).closest(
     CONST.SEL.FOLDER_ROW,
   ) as HTMLElement | null;
   if (!row) return null;
-  if (row.getAttribute(CONST.DATA.ROLE) !== armed.role) return null;
+  if (row.getAttribute(CONST.DATA.ROLE) !== dragged.role) return null;
   const key = row.getAttribute(CONST.DATA.FOLDER_KEY);
-  if (!key || key === armed.key) return null;
+  if (!key || key === dragged.key) return null;
   return row;
 };
 
@@ -230,7 +230,8 @@ const blockEntryBefore = (ui: LayerUI, clientY: number): string | null => {
 const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // A folder drag only ever reorders blocks: it never enters the layer-index
   // path below, which would resolve a folder row to no registry entry.
-  if (ui.listPanel.dragFolder) {
+  const draggedFolder = ui.listPanel.dragFolder;
+  if (draggedFolder) {
     const row = folderDropTarget(ui, event);
     const prev = ui.listPanel.lastDragOverItem;
     if (prev && prev !== row) {
@@ -253,6 +254,26 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       } else if (over?.getAttribute(CONST.DATA.FOLDER_KEY)) {
         // A folder row of the OTHER role: blocks belong to one section.
         showDragHint(ui, "same_role_only");
+      } else if (overId && over) {
+        // A layer row: a root layer is a block of its own, and a member row
+        // belongs to the folder block above it — either way the folder can be
+        // placed beside that block, but only inside the same role. A row of
+        // another role used to be silent.
+        const entry = blockEntryOfRow(over);
+        const overRole = ui.c.layerRegistry.get(overId)?.role;
+        if (entry === draggedFolder.key) return; // its own block: no-op
+        if (overRole !== draggedFolder.role || !entry) {
+          showDragHint(ui, "same_role_only");
+        } else {
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+          over.classList.add(
+            dropsAfter(event, over)
+              ? CONST.CLASSES.DRAG_OVER_BOTTOM
+              : CONST.CLASSES.DRAG_OVER_TOP,
+          );
+          ui.listPanel.lastDragOverItem = over;
+        }
       }
       return;
     }
@@ -262,7 +283,11 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     if (folderDropZone(row, event.clientY) === "into") {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
       row.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
-      ui.listPanel.lastDragOverItem = null;
+      // Draw the refusal: without it the middle half of the row is a strip
+      // that neither lights up nor accepts, and the user cannot tell whether
+      // the pointer is over a droppable zone.
+      row.classList.add(CONST.CLASSES.DRAG_OVER_BLOCKED);
+      ui.listPanel.lastDragOverItem = row;
       showDragHint(ui, "no_nest");
       return;
     }
@@ -278,9 +303,9 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     return;
   }
 
-  const armed = ui.listPanel.dragEntry ? dragIdx(ui, ui.listPanel.dragEntry) : -1;
-  if (armed < 0) {
-    // The armed entry retired mid-gesture (an unregister or a same-id
+  const dragged = ui.listPanel.dragEntry ? dragIdx(ui, ui.listPanel.dragEntry) : -1;
+  if (dragged < 0) {
+    // The dragged entry retired mid-gesture (an unregister or a same-id
     // replacement): the session is over now. The source row may already be
     // gone, so a later native dragend cannot be counted on to reach this
     // container — the hover chrome comes down here.
@@ -297,6 +322,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       CONST.CLASSES.DRAG_OVER_TOP,
       CONST.CLASSES.DRAG_OVER_BOTTOM,
       CONST.CLASSES.DRAG_OVER_INTO,
+      CONST.CLASSES.DRAG_OVER_BLOCKED,
     );
   }
   // A folder row is a drop target: the layer joins that folder. A container
@@ -316,6 +342,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
         CONST.CLASSES.DRAG_OVER_INTO,
+        CONST.CLASSES.DRAG_OVER_BLOCKED,
       );
       ui.listPanel.lastDragOverItem = null;
       showDragHint(ui, "same_role_only");
@@ -328,6 +355,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         CONST.CLASSES.DRAG_OVER_TOP,
         CONST.CLASSES.DRAG_OVER_BOTTOM,
         CONST.CLASSES.DRAG_OVER_INTO,
+        CONST.CLASSES.DRAG_OVER_BLOCKED,
       );
       ui.listPanel.lastDragOverItem = null;
       showDragHint(ui, "no_nest");
@@ -338,6 +366,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       CONST.CLASSES.DRAG_OVER_TOP,
       CONST.CLASSES.DRAG_OVER_BOTTOM,
       CONST.CLASSES.DRAG_OVER_INTO,
+      CONST.CLASSES.DRAG_OVER_BLOCKED,
     );
     item.classList.add(
       zone === "before"
@@ -345,6 +374,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         : zone === "after"
           ? CONST.CLASSES.DRAG_OVER_BOTTOM
           : CONST.CLASSES.DRAG_OVER_INTO,
+      CONST.CLASSES.DRAG_OVER_BLOCKED,
     );
     ui.listPanel.lastDragOverItem = item;
     return;
@@ -362,6 +392,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     CONST.CLASSES.DRAG_OVER_TOP,
     CONST.CLASSES.DRAG_OVER_BOTTOM,
     CONST.CLASSES.DRAG_OVER_INTO,
+    CONST.CLASSES.DRAG_OVER_BLOCKED,
   );
   ui.listPanel.lastDragOverItem = item;
 
@@ -385,6 +416,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       CONST.CLASSES.DRAG_OVER_TOP,
       CONST.CLASSES.DRAG_OVER_BOTTOM,
       CONST.CLASSES.DRAG_OVER_INTO,
+      CONST.CLASSES.DRAG_OVER_BLOCKED,
     );
     ui.listPanel.lastDragOverItem = null;
     showDragHint(ui, "no_nest");
@@ -403,7 +435,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     return;
   }
 
-  if (!ui.c.canReorderBetween(armed, targetIdx)) {
+  if (!ui.c.canReorderBetween(dragged, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
     ui.listPanel.lastDragOverItem = null;
     showReorderBlockedHint(ui);
@@ -411,8 +443,8 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   }
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 
-  if (targetIdx < armed) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
-  else if (targetIdx > armed) item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+  if (targetIdx < dragged) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+  else if (targetIdx > dragged) item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
 };
 
 const handleDragLeave = (event: DragEvent) => {
@@ -424,6 +456,7 @@ const handleDragLeave = (event: DragEvent) => {
       CONST.CLASSES.DRAG_OVER_TOP,
       CONST.CLASSES.DRAG_OVER_BOTTOM,
       CONST.CLASSES.DRAG_OVER_INTO,
+      CONST.CLASSES.DRAG_OVER_BLOCKED,
     );
   }
 };
@@ -433,18 +466,45 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
 
   // Folder block reorder: the whole block travels, so the commit is the
   // layout's block order, not a registry move.
-  const armedFolder = ui.listPanel.dragFolder;
-  if (armedFolder) {
+  const draggedFolder = ui.listPanel.dragFolder;
+  if (draggedFolder) {
     const row = folderDropTarget(ui, event);
     const targetKey = row?.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
+    // No folder row under the pointer: a root layer row is a block of its own,
+    // so the folder can be placed beside it. Anything else (another role, a
+    // container) was refused during dragover and commits nothing.
+    const overRow = row
+      ? null
+      : ((event.target as HTMLElement | null)?.closest(
+          CONST.SEL.LAYER_ITEM,
+        ) as HTMLElement | null);
+    const overId = overRow?.getAttribute(CONST.DATA.LAYER_ID) ?? null;
+    const overRole = overId ? ui.c.layerRegistry.get(overId)?.role : undefined;
     try {
       if (row && targetKey) {
         ui.c.reorderFolder(
-          armedFolder.role as LayerRole,
-          armedFolder.key,
+          draggedFolder.role as LayerRole,
+          draggedFolder.key,
           targetKey,
           dropsAfter(event, row),
         );
+      } else if (
+        overRow &&
+        overId &&
+        overRole === draggedFolder.role &&
+        !isContainerDrag(ui, overId)
+      ) {
+        // A member row belongs to the folder block above it; a root layer row
+        // is a block of its own. `blockEntryOfRow` resolves both.
+        const entry = blockEntryOfRow(overRow);
+        if (entry && entry !== draggedFolder.key) {
+          ui.c.reorderFolder(
+            draggedFolder.role as LayerRole,
+            draggedFolder.key,
+            entry,
+            dropsAfter(event, overRow),
+          );
+        }
       }
     } finally {
       clearDragState(ui);
@@ -455,8 +515,8 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   const target = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
-  const armedEntry = ui.listPanel.dragEntry;
-  if (!armedEntry) return;
+  const draggedEntry = ui.listPanel.dragEntry;
+  if (!draggedEntry) return;
 
   // A folder row takes the layer into that folder — unless the layer is a
   // container, whose children are its own sub-layers.
@@ -465,14 +525,14 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     try {
       const zone = folderDropZone(target, event.clientY);
       if (zone === "into") {
-        if (!isContainerDrag(ui, armedEntry.id)) {
-          ui.c.moveLayerToFolder(armedEntry.id, folderKey);
+        if (!isContainerDrag(ui, draggedEntry.id)) {
+          ui.c.moveLayerToFolder(draggedEntry.id, folderKey);
         }
       } else if (zone === "before") {
-        ui.c.moveLayerToRootAt(armedEntry.id, folderKey);
+        ui.c.moveLayerToRootAt(draggedEntry.id, folderKey);
       } else {
         const role = target.getAttribute(CONST.DATA.ROLE) ?? "";
-        ui.c.moveLayerToRootAt(armedEntry.id, blockEntryAfter(ui, role, folderKey));
+        ui.c.moveLayerToRootAt(draggedEntry.id, blockEntryAfter(ui, role, folderKey));
       }
     } finally {
       clearDragState(ui);
@@ -485,7 +545,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   if (!target) {
     const before = blockEntryBefore(ui, event.clientY);
     try {
-      ui.c.moveLayerToRootAt(armedEntry.id, before);
+      ui.c.moveLayerToRootAt(draggedEntry.id, before);
     } finally {
       clearDragState(ui);
     }
@@ -493,12 +553,12 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   }
 
   // The session is validated at every use, not just at the end: the entry
-  // the gesture armed with must still be the one the registry holds. An
+  // the gesture dragged with must still be the one the registry holds. An
   // unregister, or a replacement under the same id, retires the whole
   // session here — entry, hover chrome and all — instead of moving
   // whatever now sits at the old position.
-  const armed = dragIdx(ui, armedEntry);
-  if (armed < 0) {
+  const dragged = dragIdx(ui, draggedEntry);
+  if (dragged < 0) {
     clearDragState(ui);
     return;
   }
@@ -515,18 +575,18 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // not display names: a renamed folder's name no longer normalises to its key,
   // so a name-keyed move would materialise a second folder under the new name.
   const targetFolder = ui.c.folderKeyOf(targetId!) ?? "";
-  const sourceFolder = ui.c.folderKeyOf(armedEntry.id) ?? "";
-  if (targetFolder !== sourceFolder && !isContainerDrag(ui, armedEntry.id)) {
-    ui.c.moveLayerToFolder(armedEntry.id, targetFolder);
+  const sourceFolder = ui.c.folderKeyOf(draggedEntry.id) ?? "";
+  if (targetFolder !== sourceFolder && !isContainerDrag(ui, draggedEntry.id)) {
+    ui.c.moveLayerToFolder(draggedEntry.id, targetFolder);
   }
-  if (armed === targetIdx) {
-    // A drop on the armed row finishes the gesture: a programmatic drop never
+  if (dragged === targetIdx) {
+    // A drop on the dragged row finishes the gesture: a programmatic drop never
     // sends the native dragend the browser would, so the session comes down
-    // here instead of staying armed with no commit behind it.
+    // here instead of staying dragged with no commit behind it.
     clearDragState(ui);
     return;
   }
-  if (!ui.c.canReorderBetween(armed, targetIdx)) {
+  if (!ui.c.canReorderBetween(dragged, targetIdx)) {
     // A programmatic drop never receives the native dragend, so the session
     // has to be closed here — same reason as the no-op branch above.
     showReorderBlockedHint(ui);
@@ -541,13 +601,13 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // can throw out of it after the commit landed; the gesture state comes
   // down regardless, or the panel would keep claiming a drag in flight.
   try {
-    ui.c.reorderLayer(armedEntry.id, targetId!);
+    ui.c.reorderLayer(draggedEntry.id, targetId!);
   } finally {
     clearDragState(ui);
   }
 };
 
-/** Idempotent gesture teardown: the armed session, the hover marker and the
+/** Idempotent gesture teardown: the dragged session, the hover marker and the
  *  drag chrome all go — whether the drop committed, was refused, threw, or
  *  the control unmounted mid-gesture. The drop's commit boundary, the
  *  native dragend and the unbind boundary share it; it clears the pure
@@ -563,6 +623,7 @@ const clearDragState = (ui: LayerUI): void => {
       CONST.CLASSES.DRAG_OVER_TOP,
       CONST.CLASSES.DRAG_OVER_BOTTOM,
       CONST.CLASSES.DRAG_OVER_INTO,
+      CONST.CLASSES.DRAG_OVER_BLOCKED,
     ),
   );
 };

@@ -792,8 +792,6 @@ export {
   fullDisplayOrder,
   freezeRoleOrder,
   createFolder,
-  ROOT_LAYER_PREFIX,
-  isRootLayerEntry,
   moveLayerToRootAt,
   rootLayerEntry,
   seedBlockOrder,

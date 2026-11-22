@@ -105,13 +105,13 @@ class ListPanel {
   activeIdx: number | null = null;
   /** Shared ARIA roving-tabindex controller on the panel's row set. */
   listCursor: ListCursor | null = null;
-  /** The registry entry the in-flight drag armed with, or null. Identity,
+  /** The registry entry the in-flight drag started with, or null. Identity,
    *  not position: the gesture spans events and timers, and reordering in
    *  between would re-point a saved index at a neighbor — the entry is
    *  re-resolved through the registry at every use, which also retires the
    *  session when the entry is unregistered or replaced under its id. */
   dragEntry: LayerInfo | null = null;
-  /** The folder block the in-flight drag armed with, or null. A folder drag
+  /** The folder block the in-flight drag started with, or null. A folder drag
    *  moves the whole block (row + members), so it carries the block identity
    *  (role + normalized key) instead of a registry entry. */
   dragFolder: { role: string; key: string } | null = null;

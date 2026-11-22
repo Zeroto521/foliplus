@@ -1658,7 +1658,7 @@ class LayerController implements LayerAPI {
    * of the move APIs, funneled through the same commit path so a drag
    * publishes the same panel-order signal and layer CHANGE a keyboard or API
    * move does. Both ids are resolved at commit time, not when the gesture
-   * started: the armed drag keeps the layer's identity, and the registry is
+   * started: the dragged layer keeps its identity, and the registry is
    * re-read here so an intervening reorder moves what the user actually
    * grabbed.
    * @param {string} id - The dragged layer's ID.
@@ -1837,7 +1837,7 @@ class LayerController implements LayerAPI {
     let cursor: CursorRef = null;
     const failed = finalize(
       [
-        // A drag armed with the retiring entry has no future: the source row
+        // A drag started with the retiring entry has no future: the source row
         // is about to leave the panel, and a native dragend off a detached
         // source cannot be relied on to bubble back. It is a throwable DOM
         // step like every other one, so it runs inside the pass — a failure

@@ -102,7 +102,10 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 ".foliplus-hint-LayerControl", state="attached", timeout=5000
             )
             hint_text = page.evaluate(_js("LayerControl/read_hint_text"))
-            assert ("same group" in hint_text.lower()) or ("同分组" in hint_text)
+            # The refusal is named by its reason: a block belongs to one role,
+            # so a cross-role drag answers "same section" (the user-facing word
+            # for a role) rather than naming the two roles.
+            assert ("same section" in hint_text.lower()) or ("同分组" in hint_text)
 
     def test_remove_readd_restores_layer_api(self, browser, tmp_path):
         """Re-add after removeControl upgrades LayerAPI back to full and re-attaches panel."""

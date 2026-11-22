@@ -477,6 +477,12 @@
       box-shadow: inset 0 0 0 var(--foliplus-drag-border-width)
         var(--foliplus-accent-primary);
     }
+    /* A refused drop: dashed outline, no fill — visibly "not here" instead of
+       the solid edge or full-row fill an accepted drop draws. */
+    &.foliplus-layer-drag-over-blocked {
+      outline: var(--foliplus-drag-border-width) dashed var(--foliplus-accent-primary);
+      outline-offset: calc(-1 * var(--foliplus-drag-border-width));
+    }
     &.foliplus-layer-drag-over-bottom {
       border-bottom: var(--foliplus-drag-border-width) solid
         var(--foliplus-accent-primary);
