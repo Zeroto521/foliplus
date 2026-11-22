@@ -141,8 +141,8 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("drops a v5 array foldedRoles and reads it as {} (v7 shape change)", () => {
-      // RECORD_VERSION 6 → 7 changed foldedRoles from a Set-shaped array to a
+    it("drops a v5 array foldedRoles and reads it as {} (v6 shape change)", () => {
+      // RECORD_VERSION 5 → 6 changed foldedRoles from a Set-shaped array to a
       // Record<role, boolean>. There is deliberately no compatibility read:
       // the old array is dropped (fold state lost) while every other field
       // survives, and the next write stamps the current version.
@@ -160,7 +160,7 @@ describe("LayerPersistence", () => {
       expect(rec.foldedRoles).toEqual({});
     });
 
-    it("parses a v7 Record<role, boolean> foldedRoles with only boolean values", () => {
+    it("parses a Record<role, boolean> foldedRoles with only boolean values", () => {
       seedStorage({
         version: RECORD_VERSION,
         foldedRoles: { OVERLAYS: true, base: false },
@@ -244,22 +244,7 @@ describe("LayerPersistence", () => {
       expect(rec.foldedFolders).toEqual({});
     });
 
-    it("reads a v7 record's foldedFolders array as folded opinions", () => {
-      // v7 stored folded keys only. The v8 read keeps the same effective state
-      // by mapping each key to `true`; a non-string entry is dropped.
-      seedStorage({
-        version: 7,
-        order: [],
-        renamedNames: {},
-        foldedRoles: {},
-        foldedFolders: ["overlay::roads", 42],
-        layers: {},
-      });
-      const rec = makePersistence().load();
-      expect(rec.foldedFolders).toEqual({ "overlay::roads": true });
-    });
-
-    it("reads a v8 record's foldedFolders map as per-folder opinions", () => {
+    it("reads a foldedFolders map as per-folder opinions", () => {
       seedStorage({
         version: RECORD_VERSION,
         order: [],
@@ -887,7 +872,7 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        // Legacy array foldedRoles is dropped as {} (v7 shape change, no compat read).
+        // Legacy array foldedRoles is dropped as {} (v6 shape change, no compat read).
         foldedRoles: {},
         foldedFolders: {},
         renamedNames: { a: "A2" },
