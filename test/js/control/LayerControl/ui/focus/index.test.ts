@@ -2826,3 +2826,52 @@ describe("dismissFocus finalization", () => {
     expect(ui.focusController.focusingLayerId).toBeNull();
   });
 });
+
+describe("rowNoun group branch (focusLayer hidden path)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = trackFixture(initFixture()));
+    // A container layer (group row): eachLayer + _layers registry, no
+    // featureCountProvider, not a GeoJSON shape. isGroupRow() is true.
+    const groupLayer = {
+      options: {},
+      eachLayer: vi.fn(),
+      _layers: {},
+      getBounds: () => ({ isValid: () => true }),
+    };
+    manager.registerLayer({
+      id: "grp1",
+      name: "Grouped",
+      role: "overlay",
+      layer: groupLayer as never,
+    });
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("uses the group noun in the hidden hint for a container row", () => {
+    const hintSpy = vi.fn();
+    map.foliplus.showHint = hintSpy;
+    const checkbox = findItem(ui, "grp1").querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    if (checkbox) checkbox.checked = false;
+
+    ui.focusLayer("grp1");
+
+    const expected = "LayerControl.focus_hidden".replace(
+      "{noun}",
+      "LayerControl.noun_group",
+    );
+    expect(hintSpy).toHaveBeenCalledWith("LayerControl", expected, expect.any(Number));
+  });
+});

@@ -1968,4 +1968,51 @@ describe("styleMode key migration (step 3 acceptance)", () => {
     });
     expect(makePersistence().load().layers).toEqual({});
   });
+
+  describe("persistence coverage edges", () => {
+    it("keeps a category kind on a category fill value", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillValue: { kind: "category", field: "cls", scheme: "Reds" },
+            overrides: ["fillValue"],
+          },
+        },
+      });
+      const loaded = makePersistence().load().layers.a;
+      expect(loaded?.fillValue?.kind).toBe("category");
+      expect(loaded?.overrides).toEqual(["fillValue"]);
+    });
+
+    it("keeps a whitelisted divicon-class icon", () => {
+      seedStorage({
+        layers: {
+          a: { icon: { kind: "divicon-class", value: "pin" }, overrides: ["icon"] },
+        },
+      });
+      const loaded = makePersistence().load().layers.a;
+      expect(loaded?.icon?.kind).toBe("divicon-class");
+      expect(typeof loaded?.icon?.value).toBe("string");
+      expect((loaded?.icon?.value as string).length).toBeGreaterThan(0);
+    });
+
+    it("drops non-boolean foldedFolders values but keeps boolean ones", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        foldedFolders: { a: true, b: 5, c: "x", d: null, e: false },
+      });
+      const record = makePersistence().load();
+      expect(record?.foldedFolders).toEqual({ a: true, e: false });
+    });
+
+    it("writes scheduled foldedFolders through mergeFields", () => {
+      const save = spySave();
+      const persistence = makePersistence();
+      persistence.schedule({ foldedFolders: () => ({ x: true }) } as never);
+      persistence.flushAll();
+      const record = lastRecord(save);
+      expect(record.foldedFolders).toEqual({ x: true });
+    });
+  });
 });

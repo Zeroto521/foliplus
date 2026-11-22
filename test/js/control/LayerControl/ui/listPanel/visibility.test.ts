@@ -1203,7 +1203,7 @@ describe("unit helpers", () => {
     `;
     const ui = {
       uiContainer,
-      c: { layerRegistry: { get: () => ({ id: "x" }) } },
+      c: { layerRegistry: { get: () => ({ id: "x" }), items: [] } },
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
