@@ -174,7 +174,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     let layout = emptyFolderLayout();
     layout = createFolder(layout, "overlay", "Roads");
     layout = createFolder(layout, "overlay", "Water");
-    layout = renameFolder(layout, "overlay", "Roads", "Streets");
+    layout = renameFolder(layout, "overlay", "roads", "Streets");
     expect(layout.folders).toEqual([
       { key: "roads", name: "Streets" },
       { key: "water", name: "Water" },
@@ -185,7 +185,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
   it("renameFolder leaves member keys untouched (the block stays put)", () => {
     let layout = seedFolderLayout([entry("a", "overlay", "Roads", 0)]);
     layout = createFolder(layout, "overlay", "Roads");
-    layout = renameFolder(layout, "overlay", "Roads", "Streets");
+    layout = renameFolder(layout, "overlay", "roads", "Streets");
     expect(layout.members.a).toEqual({ role: "overlay", folder: "roads" });
   });
 
@@ -196,7 +196,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     };
     // "roads" is listed (a live block) but has no directory entry: the rename
     // must materialise it rather than dropping the rename.
-    const next = renameFolder(layout, "overlay", "Roads", "Streets");
+    const next = renameFolder(layout, "overlay", "roads", "Streets");
     expect(next.folders).toEqual([{ key: "roads", name: "Streets" }]);
     expect(next.order.overlay).toEqual(["roads"]);
   });
@@ -204,7 +204,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
   it("deleteFolder promotes members to root and removes the key", () => {
     let layout = seedFolderLayout([entry("a", "overlay", "Roads", 0)]);
     layout = createFolder(layout, "overlay", "Roads");
-    layout = deleteFolder(layout, "overlay", "Roads");
+    layout = deleteFolder(layout, "overlay", "roads");
     expect(layout.members.a).toEqual({ role: "overlay", folder: "" });
     expect(layout.folders).toEqual([]);
     expect(layout.order.overlay).toEqual([]);
@@ -220,7 +220,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
         b: { role: "base", folder: "roads" },
       },
     };
-    const next = deleteFolder(layout, "overlay", "Roads");
+    const next = deleteFolder(layout, "overlay", "roads");
     // The base member keeps its assignment; the overlay one is pinned to root.
     expect(next.members.a).toEqual({ role: "overlay", folder: "" });
     expect(next.members.b).toEqual({ role: "base", folder: "roads" });
@@ -550,15 +550,27 @@ describe("pure helper coverage", () => {
     expect(layout.members.b).toEqual({ role: "overlay", folder: "roads" });
   });
 
-  it("renameFolder is a no-op on blank, normalisation-only, or missing", () => {
+  it("renameFolder is a no-op on a blank name or a missing key", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],
       order: { overlay: ["roads"] },
     };
-    expect(renameFolder(layout, "overlay", "Roads", "  ")).toBe(layout);
-    expect(renameFolder(layout, "overlay", "Roads", "roads")).toBe(layout);
-    expect(renameFolder(layout, "overlay", "Missing", "X")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "roads", "  ")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "missing", "X")).toBe(layout);
+  });
+
+  it("renameFolder to the folder's own normalised name rewrites the display name", () => {
+    // The key is the identity, so "Roads" -> "roads" is a display-only change,
+    // not a no-op: the user asked for that spelling.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+    };
+    const next = renameFolder(layout, "overlay", "roads", "roads");
+    expect(next.folders).toEqual([{ key: "roads", name: "roads" }]);
+    expect(next.order.overlay).toEqual(["roads"]);
   });
 
   it("moveLayerToFolder and moveLayerToRoot update the assignment", () => {
@@ -699,7 +711,7 @@ describe("coverage edges", () => {
       ],
       order: { overlay: ["roads"] },
     };
-    expect(renameFolder(layout, "overlay", "Roads", "water")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "roads", "water")).toBe(layout);
   });
 
   it("moveLayerToFolder is a no-op on a blank folder key", () => {
@@ -776,7 +788,7 @@ describe("seed merge manager edges", () => {
       folders: [],
       order: {},
     };
-    expect(renameFolder(layout, "overlay", "Missing", "X")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "missing", "X")).toBe(layout);
   });
 
   it("deleteFolder reads the role order through a missing role order", () => {
@@ -786,7 +798,7 @@ describe("seed merge manager edges", () => {
       order: {},
       members: { a: { role: "overlay", folder: "roads" } },
     };
-    const next = deleteFolder(layout, "overlay", "Roads");
+    const next = deleteFolder(layout, "overlay", "roads");
     expect(next.members.a).toEqual({ role: "overlay", folder: "" });
     expect(next.order.overlay ?? []).toEqual([]);
   });
