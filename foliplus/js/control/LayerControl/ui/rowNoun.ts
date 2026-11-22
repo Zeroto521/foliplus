@@ -14,6 +14,9 @@ const ROW_NOUN = {
   LAYER: "layer",
   FOLDER: "folder",
   GROUP: "group",
+  /** The role header — the overlay/base grouping. Not "section": the repo's
+   *  vocabulary guard forbids a section middle-layer, the grouping is a role. */
+  ROLE: "role",
 } as const;
 
 /** A row noun — derived from `ROW_NOUN` so the runtime vocabulary stays a

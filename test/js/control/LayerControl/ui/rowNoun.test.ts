@@ -10,6 +10,7 @@ const ui = {
       noun_layer: "layer",
       noun_folder: "folder",
       noun_group: "layer group",
+      noun_role: "section",
     })[key] ?? key,
 } as never;
 

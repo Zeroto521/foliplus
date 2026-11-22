@@ -13,7 +13,7 @@ const ICON_LAYERS = `
  *  inherited from the type-icon family rule (currentColor,
  *  --foliplus-stroke-icon) so the glyph reads at the same weight as the
  *  point/line/polygon icons. */
-const ICON_CONTAINER = `
+const ICON_GROUP = `
   <svg viewBox="0 0 24 24">
     <path d="M15 9 V7 A2 2 0 0 0 13 5 H7 A2 2 0 0 0 5 7 V13 A2 2 0 0 0 7 15 H9"/>
     <rect x="9" y="9" width="10" height="10" rx="2"/>
@@ -132,7 +132,7 @@ const ICON_FOLDER = `
 export {
   ICON_COLLAPSE_ALL,
   ICON_COLOR,
-  ICON_CONTAINER,
+  ICON_GROUP,
   ICON_EXPAND_ALL,
   ICON_DRAG_HANDLE,
   ICON_EMPTY,

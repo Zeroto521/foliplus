@@ -4,6 +4,7 @@ import { getColorSurface } from "../color.js";
 import { seedAuthorVisible } from "../intent.js";
 import { closeAttrsPanel } from "../overlayPanel/attr.js";
 import { intentVisibleOf } from "../projection.js";
+import { ROW_NOUN, withNoun } from "../rowNoun.js";
 import { closeStylePanel } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import {
@@ -16,6 +17,7 @@ import {
 import {
   applyRowView,
   buildRowCell,
+  countTooltip,
   displayName,
   roleCountText,
   writeTriState,
@@ -895,7 +897,12 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   children.push(
     dom.el(
       "div",
-      { class: CONST.CLASSES.TYPE_ICON_COL },
+      {
+        class: CONST.CLASSES.TYPE_ICON_COL,
+        // Same sentence shape as a layer row's type cell: the count, then the
+        // word for what the row is.
+        title: `${countText} · ${ui.T(labelKey)}`,
+      },
       { html: role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS },
     ),
   );
@@ -905,8 +912,8 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       {
         class: CONST.CLASSES.MORE_BTN,
         type: "button",
-        title: ui.T("role_more_tooltip"),
-        "aria-label": ui.T("role_more_tooltip"),
+        title: withNoun(ui, "more_tooltip", ROW_NOUN.ROLE),
+        "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.ROLE),
       },
       { html: SVGs.ICON_MORE },
     ),
@@ -972,6 +979,7 @@ const renderFolderRow = (
         "aria-expanded": folded ? "false" : "true",
         // The folder name is the accessible name; the state is aria-expanded.
         "aria-label": folderName,
+        title: ui.T(folded ? "unfold_tooltip" : "fold_tooltip"),
       },
       { html: SVGs.ICON_FOLD },
     ),
@@ -983,6 +991,7 @@ const renderFolderRow = (
           type: "checkbox",
           checked: "",
           "aria-label": folderName,
+          title: ui.T(vis.on > 0 ? "deselect_tooltip" : "select_tooltip"),
         }) as HTMLInputElement;
         writeTriState(input, vis.total, vis.on);
         return input;
@@ -990,7 +999,11 @@ const renderFolderRow = (
     ),
     dom.el(
       "label",
-      { class: `${CONST.CLASSES.LAYER_LABEL} ${CONST.CLASSES.FOLDER_LABEL}` },
+      {
+        class: `${CONST.CLASSES.LAYER_LABEL} ${CONST.CLASSES.FOLDER_LABEL}`,
+        // The full name, like a layer row's label: the cell clips long names.
+        title: folderName,
+      },
       folderName,
     ),
     dom.el(
@@ -998,17 +1011,25 @@ const renderFolderRow = (
       {
         class: CONST.CLASSES.COUNT_COL,
         [CONST.DATA.FOLDER_KEY]: folderKey,
+        title: countTooltip(ui, "folder_count_tooltip", vis.on, vis.total),
       },
       countText,
     ),
-    dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }, { html: SVGs.ICON_FOLDER }),
+    dom.el(
+      "div",
+      {
+        class: CONST.CLASSES.TYPE_ICON_COL,
+        title: `${countText} · ${ui.T("noun_folder")}`,
+      },
+      { html: SVGs.ICON_FOLDER },
+    ),
     dom.el(
       "button",
       {
         class: CONST.CLASSES.MORE_BTN,
         type: "button",
-        title: ui.T("folder_more_tooltip"),
-        "aria-label": ui.T("folder_more_tooltip"),
+        title: withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER),
+        "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER),
       },
       { html: SVGs.ICON_MORE },
     ),
@@ -1049,8 +1070,10 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     {
       class: CONST.CLASSES.MORE_BTN,
       type: "button",
-      title: ui.T("more_tooltip"),
-      "aria-label": ui.T("more_tooltip"),
+      // A container row is corrected to the group noun by applyRowView, which
+      // is the first point that knows the layer resolved to a group.
+      title: withNoun(ui, "more_tooltip", ROW_NOUN.LAYER),
+      "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.LAYER),
     },
     { html: SVGs.ICON_MORE },
   );

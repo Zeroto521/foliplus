@@ -18,7 +18,7 @@ import {
   hideOtherLayers,
   restoreHiddenLayers,
 } from "./pane.js";
-import { isContainerRow } from "#core/layer/index.js";
+import { isGroupRow } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { type FinalizeStep, finalize } from "#platform/finalize.js";
@@ -29,9 +29,9 @@ import * as CONST from "#control/LayerControl/const.js";
  *  today (folder focus is its own feature); when it does, it passes
  *  `ROW_NOUN.FOLDER`. */
 const rowNoun = (
-  layerInfo: Parameters<typeof isContainerRow>[0],
-  layer: Parameters<typeof isContainerRow>[1],
-): RowNoun => (isContainerRow(layerInfo, layer) ? ROW_NOUN.GROUP : ROW_NOUN.LAYER);
+  layerInfo: Parameters<typeof isGroupRow>[0],
+  layer: Parameters<typeof isGroupRow>[1],
+): RowNoun => (isGroupRow(layerInfo, layer) ? ROW_NOUN.GROUP : ROW_NOUN.LAYER);
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {

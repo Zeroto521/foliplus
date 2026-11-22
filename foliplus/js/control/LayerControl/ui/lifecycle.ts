@@ -43,11 +43,11 @@ import {
 import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
 import {
   getLayerItems,
-  groupToggleTarget,
   handleChange,
   syncNoBasemap,
   syncToggleAll,
   toggleAll,
+  toggleTarget,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeFilterPanel } from "./overlayPanel/filter.js";
@@ -197,7 +197,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
         ) as HTMLInputElement | null;
         return c?.checked;
       }).length;
-      toggleAll(ui, role, groupToggleTarget(on));
+      toggleAll(ui, role, toggleTarget(on));
       return;
     }
     handleChange(ui, event);

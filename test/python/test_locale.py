@@ -52,6 +52,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.noun_layer",
     "LayerControl.noun_folder",
     "LayerControl.noun_group",
+    "LayerControl.noun_role",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
     "LayerControl.type_tile_map",
     "LayerControl.type_color_map",
@@ -63,10 +64,11 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line",
     "LayerControl.type_polygon",
     "LayerControl.type_empty",
-    "LayerControl.type_container",
-    # groupCountTooltip(ui, key, on, total) in rowView.ts — the locale key is a
+    "LayerControl.type_group",
+    # countTooltip(ui, key, on, total) in rowView.ts — the locale key is a
     # parameter, so the scanner cannot see the T() call behind it.
-    "LayerControl.container_count_tooltip",
+    "LayerControl.group_count_tooltip",
+    "LayerControl.folder_count_tooltip",
     # labelKey / titleKey passed as function parameters.
     "LayerControl.data_layer_label",
     "LocateControl.popup_title_geo",
@@ -88,7 +90,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line_short",
     "LayerControl.type_polygon_short",
     "LayerControl.type_empty_short",
-    "LayerControl.type_container_short",
+    "LayerControl.type_group_short",
     # Filter panel dynamic labels (filter.ts) — the result readout composes
     # its sentence from the {kept} / {total} template literals.
     # styleModeKey.ts — STYLE_MODE keys are object literals, not T() calls;
@@ -203,10 +205,10 @@ class TestRowTooltipVocabulary:
         word stays distinct from the folder (user-dragged) vocabulary.
         """
         en, zh = _TABLES["en"], _TABLES["zh"]
-        assert en["LayerControl.type_container"] == "Layer Group"
-        assert zh["LayerControl.type_container"] == "图层组"
-        assert en["LayerControl.type_container_short"] == "Group"
-        assert zh["LayerControl.type_container_short"] == "组"
+        assert en["LayerControl.type_group"] == "Layer Group"
+        assert zh["LayerControl.type_group"] == "图层组"
+        assert en["LayerControl.type_group_short"] == "Group"
+        assert zh["LayerControl.type_group_short"] == "组"
 
 
 class TestLocaleConfig:

@@ -992,7 +992,7 @@ describe("container layer attrs", () => {
     // The type row names the container, the count row names the child count.
     const typeRow = rows.find(([label]) => label === "LayerControl.attr_type");
     const countRow = rows.find(([label]) => label === "LayerControl.attr_child_count");
-    expect(typeRow?.[1]).toBe("LayerControl.type_container");
+    expect(typeRow?.[1]).toBe("LayerControl.type_group");
     expect(countRow?.[1]).toBe("2");
   });
 

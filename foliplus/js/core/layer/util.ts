@@ -252,7 +252,7 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
  *  @param {LayerInfo|null|undefined} layerInfo - Registry entry behind the row.
  *  @param {L.Layer|null|undefined} layer - Leaflet layer behind the entry.
  *  @returns {boolean} Whether the row is a container row. */
-const isContainerRow = (
+const isGroupRow = (
   layerInfo: LayerInfo | null | undefined,
   layer: L.Layer | null | undefined,
 ): boolean =>
@@ -436,7 +436,7 @@ export {
   getGeometryType,
   countFeatureGeometry,
   isContainerLayer,
-  isContainerRow,
+  isGroupRow,
   countChildLayersOf,
   countVisibleChildLayers,
 };

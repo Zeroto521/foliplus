@@ -10,11 +10,7 @@ import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
-import {
-  type LayerRole,
-  isContainerRow,
-  normalizeFolderName,
-} from "#core/layer/index.js";
+import { type LayerRole, isGroupRow, normalizeFolderName } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -170,7 +166,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Row semantics come from the entry, not the Leaflet class: a logical layer
   // backed by a group with a featureCountProvider (MeasureControl, Heatmap) is
   // data, so its style and filter panels stay available.
-  const isContainer = isContainerRow(
+  const isContainer = isGroupRow(
     ui.c.layerRegistry.get(layerId),
     ui.c.findLayer(layerId),
   );

@@ -4,7 +4,7 @@ import type { LayerUI } from "../surface.js";
 import { displayBlocks, rebuildList } from "./list.js";
 import {
   type LayerRole,
-  isContainerRow,
+  isGroupRow,
   normalizeFolderName,
   rootLayerEntry,
 } from "#core/layer/index.js";
@@ -172,7 +172,7 @@ const folderDropTarget = (ui: LayerUI, event: DragEvent): HTMLElement | null => 
  *  sub-layers, and a folder groups registry rows. Dropping one on a folder row
  *  is refused rather than silently accepted. */
 const isContainerDrag = (ui: LayerUI, layerId: string): boolean =>
-  isContainerRow(ui.c.layerRegistry.get(layerId), ui.c.findLayer(layerId));
+  isGroupRow(ui.c.layerRegistry.get(layerId), ui.c.findLayer(layerId));
 
 /** The block-order entry a row belongs to: a folder row's key, a root layer
  *  row's `layer:<id>`, or — for a member row — the folder block above it. */
@@ -312,7 +312,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         CONST.CLASSES.DRAG_OVER_INTO,
       );
       ui.listPanel.lastDragOverItem = null;
-      showDragHint(ui, "container_no_folder");
+      showDragHint(ui, "group_no_folder");
       return;
     }
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";

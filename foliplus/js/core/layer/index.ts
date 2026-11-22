@@ -98,7 +98,7 @@ export {
   getGeometryType,
   countFeatureGeometry,
   isContainerLayer,
-  isContainerRow,
+  isGroupRow,
   countChildLayersOf,
   countVisibleChildLayers,
 } from "./util.js";

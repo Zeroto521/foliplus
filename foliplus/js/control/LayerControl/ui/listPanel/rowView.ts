@@ -14,12 +14,13 @@
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
+import { ROW_NOUN, withNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
 import {
   ROLE,
   countChildLayersOf,
   countVisibleChildLayers,
-  isContainerRow,
+  isGroupRow,
 } from "#core/layer/index.js";
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
@@ -55,7 +56,10 @@ interface RowCell {
   /** Hover title used while filtered: kept / total filtered · type. */
   filterTitle?: string;
   /** Hover title for a container row: N visible / M sub-layers. */
-  containerTooltip?: string;
+  groupTooltip?: string;
+  /** True when the row is a layer group shown as one row (drives the noun its
+   *  sentences use and the grouping weight of its name). */
+  container?: boolean;
 }
 
 /** What one row element should look like. */
@@ -104,8 +108,8 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   typeLabel: cell.typeLabel,
   filtered: Boolean(cell.filtered),
   countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
-  title: cell.containerTooltip
-    ? cell.containerTooltip
+  title: cell.groupTooltip
+    ? cell.groupTooltip
     : cell.filtered
       ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
       : cell.countText
@@ -160,12 +164,12 @@ const rowType = (
   // logical layer can also be backed by a group (an L.layerGroup()) but expose
   // a featureCountProvider — that layer's count is provider-driven, so it is
   // not a sub-layer container.
-  if (isContainerRow(layerInfo, layer)) {
+  if (isGroupRow(layerInfo, layer)) {
     // Materialize the surface before the container answer: a container whose
     // leaves expose labelable properties still needs its label pane, and the
     // surface is what declares it (withLabelSpec runs inside surfaceFor).
     ui.c.surfaceFor(layerInfo);
-    return { svg: SVGs.ICON_CONTAINER, key: "type_container" };
+    return { svg: SVGs.ICON_GROUP, key: "type_group" };
   }
   if (layer) {
     const gtype = ui.c.surfaceFor(layerInfo).geometryType();
@@ -194,12 +198,8 @@ const roleCountText = (total: number, on: number): string =>
  *  @param {number} on - Visible count.
  *  @param {number} total - Total count.
  *  @returns {string} The resolved tooltip. */
-const groupCountTooltip = (
-  ui: LayerUI,
-  key: string,
-  on: number,
-  total: number,
-): string => ui.T(key).replace("{on}", String(on)).replace("{total}", String(total));
+const countTooltip = (ui: LayerUI, key: string, on: number, total: number): string =>
+  ui.T(key).replace("{on}", String(on)).replace("{total}", String(total));
 
 /**
  * One layer's inputs to the row visual: the projection input builder.
@@ -229,7 +229,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // deep feature census — the row says "3 layers", not "12 features". A logical
   // layer backed by a group with a featureCountProvider keeps the provider
   // count (the group is its representation, not a folder of sub-layers).
-  const isContainer = isContainerRow(layerInfo, layer);
+  const isContainer = isGroupRow(layerInfo, layer);
   const totalChildren = isContainer ? countChildLayersOf(layer!) : null;
   const visibleChildren =
     isContainer && layer ? countVisibleChildLayers(layer, ui.c.map) : null;
@@ -241,9 +241,9 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     totalChildren != null && visibleChildren != null
       ? roleCountText(totalChildren, visibleChildren)
       : null;
-  const containerTooltip =
+  const groupTooltip =
     isContainer && totalChildren != null && visibleChildren != null
-      ? groupCountTooltip(ui, "container_count_tooltip", visibleChildren, totalChildren)
+      ? countTooltip(ui, "group_count_tooltip", visibleChildren, totalChildren)
       : "";
   const rawCount = filtered
     ? filterModel!.kept
@@ -277,7 +277,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     checked,
     filtered,
     filterTitle,
-    containerTooltip,
+    groupTooltip,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is
@@ -288,6 +288,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     typeSvg: type.svg,
     typeLabel,
     titleTypeLabel,
+    container: isContainer,
   };
 };
 
@@ -315,6 +316,15 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     input.setAttribute("aria-label", cell.name);
   }
   item.classList.toggle(CONST.CLASSES.ACTIVE, view.active);
+  // A container row is a grouping, not an item: its name reads one weight
+  // heavier than a leaf's, and its sentences call it a layer group.
+  item.classList.toggle(CONST.CLASSES.GROUP_ROW, Boolean(cell.container));
+  const moreBtn = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`);
+  if (moreBtn && cell.container) {
+    const label = withNoun(ui, "more_tooltip", ROW_NOUN.GROUP);
+    moreBtn.title = label;
+    moreBtn.setAttribute("aria-label", label);
+  }
 
   const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
   if (countCol) {
@@ -391,7 +401,7 @@ export {
   applyRowView,
   buildRowCell,
   displayName,
-  groupCountTooltip,
+  countTooltip,
   inZoomRange,
   roleCountText,
   rowView,

@@ -510,6 +510,15 @@
       margin: 0;
       font-weight: var(--foliplus-font-weight-normal);
     }
+    /* A folder and a layer group are groupings, not items: their names read one
+       weight heavier than a leaf's, so the hierarchy is role > grouping > item
+       without changing any size. Nested here, not beside the folder block: the
+       shared rule above is (0,4,0) through :is(), so a sibling rule at (0,3,0)
+       lost to it and the folder name stayed at 400. */
+    &.foliplus-layer-item-folder .foliplus-layer-label,
+    &.foliplus-layer-item-container .foliplus-layer-label {
+      font-weight: var(--foliplus-font-weight-medium);
+    }
     /* ── Feature count column ──
       Right-aligned. The value is ALWAYS the compact form
       (formatNumber("auto"): 137, 6K, 2.5K, 1.2万) so the min/max track

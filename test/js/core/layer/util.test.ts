@@ -5,7 +5,7 @@ import {
   findLayer,
   getGeometryType,
   isContainerLayer,
-  isContainerRow,
+  isGroupRow,
   isLayerInPanes,
   paintsAtZoom,
   setInteractive,
@@ -712,7 +712,7 @@ describe("core/layer util: isContainerLayer", () => {
   });
 });
 
-describe("core/layer util: isContainerRow", () => {
+describe("core/layer util: isGroupRow", () => {
   const makeGroup = () => {
     const c: any = {
       options: {},
@@ -731,18 +731,18 @@ describe("core/layer util: isContainerRow", () => {
 
   it("is a container row only when the entry declares no featureCountProvider", () => {
     const group = makeGroup();
-    expect(isContainerRow(info(), group)).toBe(true);
+    expect(isGroupRow(info(), group)).toBe(true);
     // MeasureControl and HeatmapControl register a group with a provider: the
     // count is provider-driven, so the row is data, not a sub-layer container.
-    expect(isContainerRow(info({ featureCountProvider: () => 3 }), group)).toBe(false);
+    expect(isGroupRow(info({ featureCountProvider: () => 3 }), group)).toBe(false);
   });
 
   it("is never a container row without an entry or a layer", () => {
     const group = makeGroup();
-    expect(isContainerRow(null, group)).toBe(false);
-    expect(isContainerRow(undefined, group)).toBe(false);
-    expect(isContainerRow(info(), null)).toBe(false);
-    expect(isContainerRow(info(), undefined)).toBe(false);
+    expect(isGroupRow(null, group)).toBe(false);
+    expect(isGroupRow(undefined, group)).toBe(false);
+    expect(isGroupRow(info(), null)).toBe(false);
+    expect(isGroupRow(info(), undefined)).toBe(false);
   });
 });
 
