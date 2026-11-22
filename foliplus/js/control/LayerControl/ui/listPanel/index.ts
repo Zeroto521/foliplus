@@ -55,6 +55,7 @@ import {
   applyRowView,
   buildRowCell,
   displayName,
+  groupCountTooltip,
   inZoomRange,
   roleCountText,
   rowView,
@@ -136,7 +137,15 @@ export {
   initLayerItem,
 };
 export { ListPanel };
-export { applyRowView, buildRowCell, displayName, inZoomRange, roleCountText, rowView };
+export {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  groupCountTooltip,
+  inZoomRange,
+  roleCountText,
+  rowView,
+};
 export type { RowCell, RowLabels, RowView };
 export {
   toggleFold,

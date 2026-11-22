@@ -187,6 +187,26 @@ const rowType = (
 const roleCountText = (total: number, on: number): string =>
   on === total ? String(total) : on === 0 ? `0/${total}` : `${on}/${total}`;
 
+/** The count column's tooltip rule: one sentence, one placeholder vocabulary.
+ *
+ *  Every group row that shows a visible-of-total count spells it out through
+ *  this builder, so the role header, a folder header and a container row can
+ *  never drift into two formats or two names for the same number. Only the
+ *  unit noun differs, and it is the caller's key: a folder counts registered
+ *  layers, a container counts its unregistered Leaflet sub-layers.
+ *
+ *  @param {LayerUI} ui - Layer UI (owns the translator).
+ *  @param {string} key - Locale key carrying the sentence.
+ *  @param {number} on - Visible count.
+ *  @param {number} total - Total count.
+ *  @returns {string} The resolved tooltip. */
+const groupCountTooltip = (
+  ui: LayerUI,
+  key: string,
+  on: number,
+  total: number,
+): string => ui.T(key).replace("{on}", String(on)).replace("{total}", String(total));
+
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.c.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);
@@ -223,10 +243,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
       : null;
   const containerTooltip =
     isContainer && totalChildren != null && visibleChildren != null
-      ? ui
-          .T("container_count_tooltip")
-          .replace("{visible}", String(visibleChildren))
-          .replace("{total}", String(totalChildren))
+      ? groupCountTooltip(ui, "container_count_tooltip", visibleChildren, totalChildren)
       : "";
   const rawCount = filtered
     ? filterModel!.kept
@@ -334,5 +351,13 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.setAttribute(CONST.DATA.TITLE, view.typeLabel);
   item.title = view.title;
 };
-export { applyRowView, buildRowCell, displayName, inZoomRange, roleCountText, rowView };
+export {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  groupCountTooltip,
+  inZoomRange,
+  roleCountText,
+  rowView,
+};
 export type { RowCell, RowLabels, RowView };

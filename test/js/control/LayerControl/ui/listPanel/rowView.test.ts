@@ -941,9 +941,32 @@ describe("container layer row", () => {
     const cell = buildRowCell(ui, info);
     expect(cell.countText).toBe("2/3");
     // The fixture translator is a key-echo (T(key) = "LayerControl.<key>"), so the
-    // row's contract is that it picks the container_count_tooltip key. The
-    // {visible}/{total} substitution happens against the real locale table.
+    // row's contract is that it picks the container_count_tooltip key.
     expect(cell.containerTooltip).toBe("LayerControl.container_count_tooltip");
+  });
+
+  it("container count tooltip speaks the shared {on}/{total} vocabulary", () => {
+    // Every group row spells its count out through groupCountTooltip, so the
+    // placeholder names are one vocabulary: {on} and {total}. A second name for
+    // the same number ({visible}) is the drift this pins down.
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    // Resolve the real sentence instead of the fixture's key echo.
+    const realT = ui.T.bind(ui);
+    ui.T = ((key: string) =>
+      key === "container_count_tooltip"
+        ? "{on} of {total} sub-layers visible"
+        : realT(key)) as typeof ui.T;
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.containerTooltip).toBe("2 of 3 sub-layers visible");
   });
 
   it("container count column collapses to the bare total when all children are visible", () => {
