@@ -444,6 +444,11 @@
   --foliplus-menu-row-selected-bar: var(--foliplus-accent-primary);
   --foliplus-menu-row-bar-width: 3px;
   --foliplus-menu-max-width: 320px;
+  /* Floor width for an overflow menu. Every LayerControl ⋮ menu (role /
+   *  folder / layer group / layer) reads as the same surface instead of sizing
+   *  to its own widest label; a genuinely longer label still grows past it
+   *  because the menu keeps width: max-content. */
+  --foliplus-menu-min-width: 132px;
   /* Max height of a menu/panel that needs to scroll (search results). The
      scheme picker and the dropdown keep their own geometry and do not use
      this default — see common/scheme-picker.css and ui/listbox.ts. */

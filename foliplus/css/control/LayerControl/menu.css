@@ -64,12 +64,14 @@
        the owner row straight into its menu, so the owner stays lit the whole
        way: the menu is its descendant. */
     margin: 0;
-    /* Width: the menu sizes to its widest item (max-content) instead of a
-       fixed min-width, so a long label ("Confirm Delete") widens the menu
-       rather than clipping; max-width caps it at the shared menu cap. The
-       placement engine writes the frame cap as inline maxWidth, so a menu
-       near the viewport edge still fits. */
+    /* Width: the menu sizes to its widest item (max-content) so a long label
+       ("Confirm Delete") widens the menu rather than clipping, but never
+       narrower than the shared floor — the role, folder, layer-group and layer
+       menus then read as one surface instead of four widths. max-width caps it
+       at the shared menu cap; the placement engine writes the frame cap as
+       inline maxWidth, so a menu near the viewport edge still fits. */
     width: max-content;
+    min-width: var(--foliplus-menu-min-width);
     max-width: var(--foliplus-menu-max-width);
     padding: var(--foliplus-space-xs) 0;
     display: none;
