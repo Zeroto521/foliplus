@@ -346,7 +346,15 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   }
   if (view.typeSvg) {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
-    if (typeCol) typeCol.innerHTML = view.typeSvg;
+    if (typeCol) {
+      typeCol.innerHTML = view.typeSvg;
+      // A container row's icon names the row the way a folder's and a role's
+      // do (count · what it is). A leaf row needs no icon title: its row title
+      // already carries the same sentence and bubbles to the icon.
+      if (cell.container) {
+        typeCol.title = `${cell.countText} · ${ui.T("noun_group")}`;
+      }
+    }
   }
   // The label always carries the full layer name: long names are clipped
   // visually and styles can shorten the text, so the title is the one place
