@@ -139,29 +139,29 @@ describe("ui/drag", () => {
       const row = folderRowOf(ui, "a");
       handleDragStart(ui, dragEvent(row, { effectAllowed: "" }));
       expect(ui.listPanel.dragFolder).toEqual({ role: "overlay", key: "a" });
-      expect(ui.listPanel.foldedFolders.has("overlay::a")).toBe(true);
-      // The fold is a gesture aid, never a user decision: nothing persisted.
+      // The row is the drag source: it must stay in the DOM and carry the
+      // dragging chrome. A rebuild here cancels the native drag.
+      expect(row.isConnected).toBe(true);
+      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+      // The gesture is not a fold decision: nothing persisted.
       const saved = window.localStorage.getItem(CONST.STORAGE.KEY) ?? "";
       expect(saved).not.toContain("overlay::a");
     });
 
-    it("drops a folder block after another folder and restores the fold", () => {
+    it("drops a folder block after another folder", () => {
       const { ui } = folderFixture(["a", "b"]);
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
       const target = folderRowOf(ui, "b");
       // jsdom rects are all zero, so any positive clientY is the bottom half.
       handleDrop(ui, dragEvent(target, {}, 10));
       expect(ui.c.folderLayoutView.order.overlay).toEqual(["b", "a"]);
-      // The gesture is over: the temporary fold is gone.
-      expect(ui.listPanel.foldedFolders.has("overlay::a")).toBe(false);
       expect(ui.listPanel.dragFolder).toBeNull();
     });
 
-    it("leaves a folder the user had already folded folded", () => {
+    it("leaves the fold state alone across a folder drag", () => {
       const { ui } = folderFixture(["a", "b"]);
       ui.listPanel.foldedFolders.add("overlay::a");
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
-      expect(ui.listPanel.dragFolderWasFolded).toBe(true);
       handleDragEnd(ui);
       expect(ui.listPanel.foldedFolders.has("overlay::a")).toBe(true);
     });

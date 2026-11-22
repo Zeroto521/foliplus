@@ -108,23 +108,12 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     const role = item.getAttribute(CONST.DATA.ROLE) ?? "";
     if (!role) return;
     ui.listPanel.dragFolder = { role, key: folderKey };
-    // Auto-fold so the block reads as one unit while it travels. The fold is
-    // temporary: it is not persisted, and dragend restores the pre-drag state
-    // (a folder the user had folded themselves stays folded).
-    const foldKey = folderFoldKey(role, folderKey);
-    ui.listPanel.dragFolderWasFolded = ui.listPanel.foldedFolders.has(foldKey);
-    if (!ui.listPanel.dragFolderWasFolded) {
-      ui.listPanel.foldedFolders.add(foldKey);
-      // The rebuild replaces the row element, so the drag chrome is applied to
-      // the fresh row, not the detached one.
-      rebuildList(ui);
-      const fresh = ui.uiContainer?.querySelector(
-        `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
-      ) as HTMLElement | null;
-      fresh?.classList.add(CONST.CLASSES.DRAGGING);
-    } else {
-      item.classList.add(CONST.CLASSES.DRAGGING);
-    }
+    // No rebuild here. The row is the drag source, and replacing it mid-gesture
+    // cancels the native drag — the browser drops a source that left the DOM,
+    // which is why a folder could not be dragged at all. The block still
+    // travels as one unit: the drop commits the layout's block order, not the
+    // members' positions, so the members do not need to be folded away.
+    item.classList.add(CONST.CLASSES.DRAGGING);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
     return;
   }
@@ -320,19 +309,9 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
  *  native dragend and the unbind boundary share it; it clears the pure
  *  session state even when the panel itself is already gone. */
 const clearDragState = (ui: LayerUI): void => {
-  const folder = ui.listPanel.dragFolder;
-  const wasFolded = ui.listPanel.dragFolderWasFolded;
   ui.listPanel.dragEntry = null;
   ui.listPanel.dragFolder = null;
-  ui.listPanel.dragFolderWasFolded = false;
   ui.listPanel.lastDragOverItem = null;
-  // Restore the pre-drag fold state: the auto-fold was a gesture aid, never a
-  // user decision, so it must not survive the gesture (and must not be
-  // persisted — this path never calls saveFoldState).
-  if (folder && !wasFolded) {
-    const foldKey = folderFoldKey(folder.role, folder.key);
-    if (ui.listPanel.foldedFolders.delete(foldKey)) rebuildList(ui);
-  }
   const allItems = ui.uiContainer?.querySelectorAll(CONST.SEL.LAYER_ITEM);
   allItems?.forEach((i: Element) =>
     i.classList.remove(

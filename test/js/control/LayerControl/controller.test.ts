@@ -7517,6 +7517,44 @@ describe("createFolder", () => {
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 });
+
+describe("reorderFolder", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("reorders author-declared folders whose role order is still empty", () => {
+    // Author-declared folders live in `members`, not in `order`, so the role's
+    // order starts empty — and moveFolder refuses a move between keys it cannot
+    // find there. The reorder has to freeze the current block order first.
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "a1",
+          name: "A",
+          role: "overlay",
+          folder: "Alpha",
+          layer: polygonLayer(),
+        },
+        {
+          id: "b1",
+          name: "B",
+          role: "overlay",
+          folder: "Beta",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
+
+    const ok = manager.reorderFolder("overlay", "alpha", "beta", true);
+
+    expect(ok).toBe(true);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["beta", "alpha"]);
+  });
+});
+
 describe("renameFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();

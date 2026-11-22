@@ -2153,8 +2153,13 @@ class LayerController implements LayerAPI {
     after: boolean,
   ): boolean {
     const layout = this.folderLayout.layout;
-    const next = moveFolder(layout, role, key, targetKey, after);
-    if (next === layout) return false;
+    // Author-declared folders live in `members`, not in `order`, so a role
+    // whose folders are all author-declared has an empty order — and moveFolder
+    // refuses a move between keys it cannot find there. Freeze the current
+    // block order first, exactly as createFolder does.
+    const seeded = freezeRoleOrder(layout, role, this.layerRegistry.layers, key);
+    const next = moveFolder(seeded, role, key, targetKey, after);
+    if (next === seeded) return false;
     this.folderLayout.set(next);
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
     this.folderLayout.flush();
