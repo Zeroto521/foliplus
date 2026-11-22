@@ -77,17 +77,14 @@ type LiveState = {
  *  stamps v5.
  *
  *  5 → 6: `foldedRoles` changed from a Set-shaped array (folded keys only)
- *  to a Record<role, boolean> (per-role user opinion, both directions). There
- *  is deliberately no compatibility read: the shape change is a breaking
- *  change accepted for this release, so an old v5 record still loads but its
- *  fold state is dropped (read as `{}`), and the next write stamps v6.
- *
- *  6 → 7: `foldedFolders` was added as a Record<key, boolean> (per-folder
- *  user opinion, both directions). This one is additive: an old v6 record
- *  reads the field as absent (empty map = "everything expanded"), which is the
- *  same behavior the record had before the field existed, so there is no
- *  compatibility read to ship — the next write stamps v7. */
-const RECORD_VERSION = 7;
+ *  to a Record<role, boolean>, and `foldedFolders` landed as a
+ *  Record<key, boolean> — both per-item user opinions, both directions, so an
+ *  explicit EXPAND over an author default fold is distinguishable from "never
+ *  touched". There is deliberately no compatibility read: the shape change is
+ *  a breaking change accepted for this release, so an old v5 record still
+ *  loads but its fold state is dropped (read as `{}`), and the next write
+ *  stamps v6. */
+const RECORD_VERSION = 6;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
