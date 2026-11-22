@@ -22,6 +22,12 @@ import * as CONST from "#control/LayerControl/const.js";
 /** The rows of one role, in DOM order. A panel that is gone has none — the
  *  callers are all reconcile paths that run at least once against a torn-down
  *  control (a timer, a queued bulk toggle). */
+/** The one rule a group checkbox follows: a press selects every member only
+ *  when none is selected; any partial or full selection is cleared. The role
+ *  header and the folder header both read it, so an indeterminate box cannot
+ *  mean "complete the selection" on one row and "clear it" on the other. */
+const groupToggleTarget = (on: number): boolean => on === 0;
+
 const getLayerItems = (ui: LayerUI, role: string): Element[] => {
   const container = ui.uiContainer;
   if (!container) return [];
@@ -399,8 +405,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
     const role = folderRow.getAttribute(CONST.DATA.ROLE) ?? "";
     if (fk && role) {
       const vis = folderVisibility(ui, role, fk);
-      const toVisible = vis.on !== vis.total;
-      setFolderVisible(ui, role, fk, toVisible);
+      setFolderVisible(ui, role, fk, groupToggleTarget(vis.on));
     }
     return;
   }
@@ -416,6 +421,7 @@ const handleChange = (ui: LayerUI, event: Event) => {
 
 export {
   getLayerItems,
+  groupToggleTarget,
   toggleAll,
   syncToggleAll,
   syncToggleAllFromCount,

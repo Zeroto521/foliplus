@@ -43,6 +43,7 @@ import {
 import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
 import {
   getLayerItems,
+  groupToggleTarget,
   handleChange,
   syncNoBasemap,
   syncToggleAll,
@@ -190,13 +191,13 @@ const bindLayerEvents = (ui: LayerUI): void => {
       // event fires, making it impossible to detect the pre-click state.
       const role = row.dataset.role ?? "";
       const items = getLayerItems(ui, role);
-      const noneChecked = Array.from(items).every((item: Element) => {
+      const on = Array.from(items).filter((item: Element) => {
         const c = item.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement | null;
-        return !c?.checked;
-      });
-      toggleAll(ui, role, noneChecked);
+        return c?.checked;
+      }).length;
+      toggleAll(ui, role, groupToggleTarget(on));
       return;
     }
     handleChange(ui, event);
