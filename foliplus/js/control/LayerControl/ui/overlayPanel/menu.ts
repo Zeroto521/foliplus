@@ -217,7 +217,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           "aria-disabled": filterDisabled ? "true" : "false",
         },
         { html: SVGs.ICON_FILTER },
-        ui.T("filter_layer"),
+        menuLabel(ui.T("filter_layer")),
       ),
     );
   }
@@ -262,7 +262,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "aria-disabled": styleDisabled ? "true" : "false",
       },
       { html: SVGs.ICON_STYLE },
-      ui.T("style_layer"),
+      menuLabel(ui.T("style_layer")),
     ),
   );
 
@@ -278,7 +278,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   };
 
   menu.appendChild(
-    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus")),
+    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, menuLabel(ui.T("focus"))),
   );
 
   // Rename writes to the layer itself, so it sits above the display-only
@@ -293,7 +293,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         title: withNoun(ui, "rename_tooltip", focusNoun),
       },
       { html: Icons.ICON_EDIT },
-      ui.T("rename"),
+      menuLabel(ui.T("rename")),
     ),
   );
 
@@ -309,7 +309,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         title: ui.T("attributes_layer_tooltip"),
       },
       { html: Icons.ICON_INFO },
-      ui.T("attributes_layer"),
+      menuLabel(ui.T("attributes_layer")),
     ),
   );
   // Deleting the folder a layer belongs to is the folder row's own operation,
@@ -484,6 +484,13 @@ const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
   // (a capable owner with a null model is an empty layer — disabled).
   return ui.c.hasFilterableFields(layerId) || layer.filterProvider() !== null;
 };
+
+/** A menu entry's label. Every entry wraps its text in a span so the flex
+ *  layout (icon left, label right) is identical across the role, folder and
+ *  layer menus — a bare text node is an anonymous flex item and the three
+ *  menus ended up laying their labels out differently. */
+const menuLabel = (text: string, cls?: string): HTMLElement =>
+  dom.el("span", cls ? { class: cls } : {}, text);
 
 const buildDeleteItem = (
   ui: LayerUI,
@@ -910,12 +917,12 @@ const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
         title: withNoun(ui, "rename_tooltip", ROW_NOUN.FOLDER),
       },
       { html: Icons.ICON_EDIT },
-      ui.T("rename"),
+      menuLabel(ui.T("rename")),
     ),
   );
   menu.appendChild(
     dom.el("li", {
-      class: `.${CONST.CLASSES.MENU_DIVIDER} .${PANEL_CLASS.SECTION_DIVIDER}`,
+      class: `${CONST.CLASSES.MENU_DIVIDER} ${PANEL_CLASS.SECTION_DIVIDER}`,
       role: "separator",
       "aria-hidden": "true",
     }),
@@ -951,7 +958,7 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
         title: ui.T("new_folder_tooltip"),
       },
       { html: SVGs.ICON_FOLDER },
-      ui.T("new_folder"),
+      menuLabel(ui.T("new_folder")),
     ),
   );
   menu.appendChild(
@@ -963,8 +970,8 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
         role: "menuitem",
         title: ui.T("expand_all_tooltip"),
       },
-      { html: SVGs.ICON_FOLD },
-      ui.T("expand_all"),
+      { html: SVGs.ICON_EXPAND_ALL },
+      menuLabel(ui.T("expand_all")),
     ),
   );
   menu.appendChild(
@@ -976,13 +983,13 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
         role: "menuitem",
         title: ui.T("collapse_all_tooltip"),
       },
-      { html: SVGs.ICON_FOLD },
-      ui.T("collapse_all"),
+      { html: SVGs.ICON_COLLAPSE_ALL },
+      menuLabel(ui.T("collapse_all")),
     ),
   );
   menu.appendChild(
     dom.el("li", {
-      class: `.${CONST.CLASSES.MENU_DIVIDER} .${PANEL_CLASS.SECTION_DIVIDER}`,
+      class: `${CONST.CLASSES.MENU_DIVIDER} ${PANEL_CLASS.SECTION_DIVIDER}`,
       role: "separator",
       "aria-hidden": "true",
     }),

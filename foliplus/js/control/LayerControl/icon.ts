@@ -7,14 +7,16 @@ const ICON_LAYERS = `
   </svg>`;
 
 /** Container group glyph — two overlapping rounded squares (the design's
- *  container-row icon). The front square is surface-filled so it masks the
- *  back square's overlap. Stroke and weight are inherited from the type-icon
- *  family rule (currentColor, --foliplus-stroke-icon) so the glyph reads at
- *  the same weight as the point/line/polygon icons. */
+ *  container-row icon). The back square is drawn as the visible L only, so
+ *  nothing has to be masked: a surface-filled front square painted a white
+ *  patch that stayed white on a hovered or checked row. Stroke and weight are
+ *  inherited from the type-icon family rule (currentColor,
+ *  --foliplus-stroke-icon) so the glyph reads at the same weight as the
+ *  point/line/polygon icons. */
 const ICON_CONTAINER = `
   <svg viewBox="0 0 24 24">
-    <rect x="5" y="5" width="10" height="10" rx="2" fill="none"/>
-    <rect x="9" y="9" width="10" height="10" rx="2" fill="var(--foliplus-surface)"/>
+    <path d="M15 9 V7 A2 2 0 0 0 13 5 H7 A2 2 0 0 0 5 7 V13 A2 2 0 0 0 7 15 H9"/>
+    <rect x="9" y="9" width="10" height="10" rx="2"/>
   </svg>`;
 
 const ICON_DRAG_HANDLE = `
@@ -70,6 +72,22 @@ const ICON_FOLD = `
     <polyline points="18 15 12 9 6 15"/>
   </svg>`;
 
+/** "Expand all" glyph — two chevrons pointing down: the tree opens downward.
+ *  Distinct from ICON_FOLD (the single row chevron) so the two role-menu
+ *  entries cannot read as the same action. */
+const ICON_EXPAND_ALL = `
+  <svg viewBox="0 0 24 24">
+    <polyline points="7 5 12 10 17 5"/>
+    <polyline points="7 13 12 18 17 13"/>
+  </svg>`;
+
+/** "Collapse all" glyph — two chevrons pointing up: the tree closes upward. */
+const ICON_COLLAPSE_ALL = `
+  <svg viewBox="0 0 24 24">
+    <polyline points="7 11 12 6 17 11"/>
+    <polyline points="7 19 12 14 17 19"/>
+  </svg>`;
+
 /** Vertical three-dot "more" icon for the layer item overflow menu. */
 const ICON_MORE = `
   <svg viewBox="9 3 6 18">
@@ -99,16 +117,23 @@ const ICON_FILTER = `
     <path d="M3 5 H21 L14 13 V20 L10 18 V13 Z"/>
   </svg>`;
 
-/** Folder glyph — a closed folder with a tab. Fixed per folder row (does not
- *  change with the fold state; the fold arrow is the single source). */
+/** Folder glyph — a closed folder with a rounded tab. Fixed per folder row
+ *  (does not change with the fold state; the fold arrow is the single source).
+ *
+ *  Drawn in the same language as the container glyph: 2px corner radius, a
+ *  tab that curves into the body instead of meeting it at a sharp diagonal,
+ *  and the body inset from the 24-box edge so it reads at the same optical
+ *  weight as the point/line/polygon icons. */
 const ICON_FOLDER = `
   <svg viewBox="0 0 24 24">
-    <path d="M3 6 a2 2 0 0 1 2-2 h4 l2 2 h8 a2 2 0 0 1 2 2 v10 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z"/>
+    <path d="M3.5 8 A2.5 2.5 0 0 1 6 5.5 H9.3 A2 2 0 0 1 10.8 6.1 L12.1 7.5 H18 A2.5 2.5 0 0 1 20.5 10 V16 A2.5 2.5 0 0 1 18 18.5 H6 A2.5 2.5 0 0 1 3.5 16 Z"/>
   </svg>`;
 
 export {
+  ICON_COLLAPSE_ALL,
   ICON_COLOR,
   ICON_CONTAINER,
+  ICON_EXPAND_ALL,
   ICON_DRAG_HANDLE,
   ICON_EMPTY,
   ICON_FILTER,
