@@ -395,10 +395,12 @@
      sibling (z-index 1, later in DOM) paints over it (measured, not
      guessed). Lifting the owner row itself to the floating index carries
      the open overlay with it and settles every combination. */
-  &:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
-    .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
-      z-index: var(--foliplus-z-index-floating);
-    }
+  /* The role row is deliberately not a .foliplus-layer-item (that class means
+     "a layer row" to the panel's own selectors), so it needs its own leg:
+     without it the role ⋮ menu was painted over by the next row's hover. */
+  .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel),
+  .foliplus-layer-role:has(.foliplus-layer-more-menu.open) {
+    z-index: var(--foliplus-z-index-floating);
   }
 
   /* ── Base basemap rows stay quiet ──
@@ -597,6 +599,10 @@
      only narrows the span to the label column, because the role row now owns
      the count / icon / more cells the pre-folder divider ran through. */
   .foliplus-role-divider {
+    /* Row 1 explicitly: the label already owns row 1 / column 3, so an
+       auto-placed divider lands in an implicit second row and paints below
+       the row content instead of through its middle. */
+    grid-row: 1;
     grid-column: 3;
     justify-self: stretch;
     align-self: center;
@@ -618,8 +624,12 @@
       content: "";
       position: absolute;
       left: 50%;
-      top: 0;
-      bottom: 0;
+      /* The rail cell is the grid track (content height), not the row box: the
+         row's vertical padding sits outside it. Extending by that padding is
+         what makes the stem continuous from one row into the next instead of
+         breaking at every row boundary. */
+      top: calc(-1 * var(--foliplus-space-md));
+      bottom: calc(-1 * var(--foliplus-space-md));
       width: 0;
       border-left: var(--foliplus-border-thin) solid currentColor;
       transform: translateX(-50%);
@@ -647,6 +657,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Full row height: the tree guide is inset:0 inside this cell, so a
+       content-height rail left the stem 16px tall in a 36px row and the line
+       broke between rows. The flex centring keeps the grip on the row's
+       middle line. */
+    align-self: stretch;
   }
   /* When the rail has a tree guide, hide the grip until hover; on hover,
      show the grip and hide the guide. A member row shows a grip on hover
@@ -661,7 +676,7 @@
     opacity: 1;
     pointer-events: auto;
   }
-  .foliplus-layer-item:hover
+  .foliplus-layer-item:is(:hover, .foliplus-is-focused-row)
     .foliplus-layer-rail:has(.foliplus-fold-tree)
     .foliplus-fold-tree {
     opacity: 0;
