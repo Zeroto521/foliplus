@@ -159,14 +159,6 @@
        its folded state (border-left-color: var(--foliplus-accent-primary)) is re-applied
        on rebuild, so a transition on either would flash on each rebuild. */
 
-    /* The pre-folder leftover divider runs from the count column to the end.
-       The role row's own divider (with folders) carries .foliplus-role-divider
-       and is narrowed to the label column instead — without the :not() this
-       rule out-ranks it on specificity (3 classes vs 1) and the divider runs
-       straight through count/icon/more. */
-    .foliplus-section-divider:not(.foliplus-role-divider) {
-      grid-column: 4 / -1;
-    }
   }
   /* Section label: primary color + semibold so it reads as a real header */
   .foliplus-layer-toggle-all .foliplus-layer-sep-label {
