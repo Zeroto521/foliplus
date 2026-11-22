@@ -107,6 +107,27 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(layout.folders).toHaveLength(1);
   });
 
+  it("createFolder with the registry appends after the folders the author declared", () => {
+    // Author-declared folders live in `members`, not in `order`, so the role's
+    // order starts empty. Without the registry the new key would be the only
+    // listed block and would sort ahead of every existing folder.
+    const entries = [
+      entry("a", "overlay", "Roads", 0),
+      entry("b", "overlay", "Water", 1),
+    ];
+    const layout = seedFolderLayout(entries);
+    expect(layout.order.overlay).toBeUndefined();
+    const created = createFolder(layout, "overlay", "Facilities", entries);
+    expect(created.order.overlay).toEqual(["roads", "water", "facilities"]);
+  });
+
+  it("createFolder without the registry keeps the plain append", () => {
+    let layout = emptyFolderLayout();
+    layout = createFolder(layout, "overlay", "Roads");
+    layout = createFolder(layout, "overlay", "Water");
+    expect(layout.order.overlay).toEqual(["roads", "water"]);
+  });
+
   it("renameFolder rewrites only the display name, keeping the identity key and order in place", () => {
     let layout = emptyFolderLayout();
     layout = createFolder(layout, "overlay", "Roads");

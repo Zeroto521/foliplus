@@ -295,18 +295,30 @@ const fullDisplayOrder = (
  *  appended by anchor (min member global index); the frozen key is guaranteed
  *  present. The emptied folder's block then survives at its frozen position
  *  (the clean button can still reach it). Pure: returns a new layout. */
+const listedRoleOrder = (
+  layout: FolderLayout,
+  role: LayerRole,
+  registryEntries: readonly LayerInfo[],
+): string[] => {
+  const listed = layout.order[role] ?? [];
+  const folders = groupByFolder(registryEntries, role, layout);
+  const unlisted = [...folders.keys()]
+    .filter(k => !listed.includes(k))
+    .sort((a, b) => folders.get(a)!.anchor - folders.get(b)!.anchor);
+  return [...listed, ...unlisted];
+};
+
+/** The role's block order with every folder it holds listed, in anchor order.
+ *  Author-declared folders live in `members`, not in `order`, so a role whose
+ *  folders are all author-declared has an empty order; this is the one place
+ *  that turns "what the role holds" into "the order its blocks appear in". */
 const freezeRoleOrder = (
   layout: FolderLayout,
   role: LayerRole,
   registryEntries: readonly LayerInfo[],
   key: string,
 ): FolderLayout => {
-  const listed = layout.order[role] ?? [];
-  const folders = groupByFolder(registryEntries, role, layout);
-  const unlisted = [...folders.keys()]
-    .filter(k => !listed.includes(k))
-    .sort((a, b) => folders.get(a)!.anchor - folders.get(b)!.anchor);
-  const frozen = [...listed, ...unlisted];
+  const frozen = listedRoleOrder(layout, role, registryEntries);
   if (!frozen.includes(key)) frozen.push(key);
   return { ...layout, order: { ...layout.order, [role]: frozen } };
 };
@@ -335,15 +347,22 @@ const seedFolderLayout = (registryEntries: readonly LayerInfo[]): FolderLayout =
 
 /** Create a folder: append the new key to the role's block order and add
  *  it to the identity directory. Same-role duplicates (directory, order or
- *  live member) are refused. Pure: returns the same layout on a no-op. */
+ *  live member) are refused. Pure: returns the same layout on a no-op.
+ *
+ *  Pass `registryEntries` to append after the folders the role already holds:
+ *  an author-declared folder lives in `members`, not in `order`, so appending
+ *  to an empty order would sort the new folder ahead of every existing one. */
 const createFolder = (
   layout: FolderLayout,
   role: LayerRole,
   name: string,
+  registryEntries?: readonly LayerInfo[],
 ): FolderLayout => {
   const key = normalizeFolderName(name);
   if (key === "") return layout;
-  const order = layout.order[role] ?? [];
+  const order = registryEntries
+    ? listedRoleOrder(layout, role, registryEntries)
+    : (layout.order[role] ?? []);
   if (order.includes(key)) return layout; // same-role duplicate refused
   // A different role may already hold this key: base and overlay folders
   // with the same name are two different folders (role-scoped identity).

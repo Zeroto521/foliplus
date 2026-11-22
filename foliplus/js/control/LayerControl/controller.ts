@@ -2127,8 +2127,12 @@ class LayerController implements LayerAPI {
     if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the tail through the single source: the
     // manager's set schedules the debounced write; the registry re-derives the
-    // display order from the updated layout.
-    this.folderLayout.set(createFolder(layout, role, name));
+    // display order from the updated layout. The role's existing blocks are
+    // seeded into the order first, so "at the tail" means after the folders the
+    // author declared (they live in `members`, not in `order`).
+    this.folderLayout.set(
+      createFolder(layout, role, name, this.layerRegistry.layers),
+    );
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {
