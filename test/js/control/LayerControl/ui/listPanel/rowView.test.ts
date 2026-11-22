@@ -13,6 +13,7 @@ import {
   type RowCell,
   applyRowView,
   buildRowCell,
+  roleCountText,
   rowView,
   syncNoBasemap,
   syncToggleAll,
@@ -923,5 +924,123 @@ describe("container layer row", () => {
     // Delete the layer; the container's clearLayers should be called and no throw.
     expect(() => manager.deleteLayer("grp")).not.toThrow();
     expect(container.clearLayers).toHaveBeenCalled();
+  });
+
+  it("container count column shows the 三态 visible/total with a tooltip", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const info = manager.layerRegistry.get("grp")!;
+    const cell = buildRowCell(ui, info);
+    expect(cell.countText).toBe("2/3");
+    // The fixture translator is a key-echo (T(key) = "LayerControl.<key>"), so the
+    // row's contract is that it picks the container_count_tooltip key.
+    expect(cell.containerTooltip).toBe("LayerControl.container_count_tooltip");
+  });
+
+  it("container count tooltip speaks the shared {on}/{total} vocabulary", () => {
+    // Every group row spells its count out through groupCountTooltip, so the
+    // placeholder names are one vocabulary: {on} and {total}. A second name for
+    // the same number ({visible}) is the drift this pins down.
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    // Resolve the real sentence instead of the fixture's key echo.
+    const realT = ui.T.bind(ui);
+    ui.T = ((key: string) =>
+      key === "container_count_tooltip"
+        ? "{on} of {total} sub-layers visible"
+        : realT(key)) as typeof ui.T;
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.containerTooltip).toBe("2 of 3 sub-layers visible");
+  });
+
+  it("container count column collapses to the bare total when all children are visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const container = makeContainer([childA, childB]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe("2");
+  });
+
+  it("container count column shows 0/3 when no child is on the map", () => {
+    const childA = { options: {}, visible: false };
+    const childB = { options: {}, visible: false };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe("0/3");
+  });
+  it("container count equals roleCountText(total, on) — all children visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: true };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+
+    expect(cell.countText).toBe(roleCountText(3, 3));
+    expect(roleCountText(3, 3)).toBe("3");
+  });
+  it("container count equals roleCountText(total, on) — partial visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe(roleCountText(3, 2));
+    expect(roleCountText(3, 2)).toBe("2/3");
+  });
+  it("container count equals roleCountText(total, on) — none visible", () => {
+    const childA = { options: {}, visible: false };
+    const childB = { options: {}, visible: false };
+    const childC = { options: {}, visible: false };
+    const container = makeContainer([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe(roleCountText(3, 0));
+    expect(roleCountText(3, 0)).toBe("0/3");
   });
 });

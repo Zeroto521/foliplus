@@ -2748,19 +2748,31 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_plain_marker_layers_count_and_stay_stable(self, browser, tmp_path):
-        """A plain folium.Marker (no GeoJSON .feature) counts as a point feature.
+        """A leaf point layer counts as a point feature.
 
         Regression: countFeatureGeometry / getGeometryType gated on
         ``marker.feature``, so layers built from ``folium.Marker()`` reported a
         count of 0 and showed no type icon.  Counting must not require
         .feature (that only matters for extractPoints / Heatmap properties),
         and toggling an unrelated layer's checkbox must not reset the count.
+
+        The layers here are single-feature GeoJson points (leaf overlays): the
+        container semantics treat a folium.FeatureGroup as a container, so a
+        plain point row must be a leaf layer.
         """
         layers = []
-        for i, name in enumerate(["Alpha", "Beta", "Gamma", "Delta"]):
-            fg = folium.FeatureGroup(name=name, overlay=True, show=True)
-            folium.Marker([26.08 + i * 0.01, 119.30 + i * 0.01], popup=name).add_to(fg)
-            layers.append(fg)
+        for name in ["Alpha", "Beta", "Gamma", "Delta"]:
+            # A leaf GeoJson point layer is a leaf (not a container), so the
+            # container semantics now treat a FeatureGroup as a container
+            # (Style/Filter disabled, 三态 count); a single-feature GeoJson
+            # keeps this a plain point-feature overlay row.
+            layer = folium.GeoJson(
+                json.dumps(load_geojson("LayerControl", "point_11934_2611")),
+                overlay=True,
+                show=True,
+            )
+            layer.layer_name = name
+            layers.append(layer)
 
         with use_page(self._make_page, browser, tmp_path, *layers) as (page, _):
             page.evaluate(_js("LayerControl/open_panel"))
@@ -3081,7 +3093,12 @@ class TestPanelBrowser(LayerControlBrowserBase):
         therefore keep its plain behaviour instead of landing at the viewport
         corner — the regression this test pins.
         """
-        layer = folium.FeatureGroup(name="Row panel pin")
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_focus_box")),
+            overlay=True,
+            show=True,
+        )
+        layer.layer_name = "Row panel pin"
         with use_page(
             self._make_page, browser, tmp_path, layer, slug="row_panel_pin"
         ) as (page, errors):

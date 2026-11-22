@@ -69,6 +69,96 @@ describe("LayerUI menu", () => {
   // ─────────────────── focusLayer() ───────────────────
 
   describe("openMoreMenu() / closeMoreMenu()", () => {
+    it("disables Style and Filter for a container row and keeps Focus enabled", () => {
+      // A container (FeatureGroup-like) groups sub-layers. Style must be disabled
+      // (partial effect is misleading — mixed geometry, Marker has no setStyle),
+      // Filter disabled (the container has no own features), Focus stays enabled
+      // (union bounds). The tooltip tells the user to expand and act on children.
+      const childA = { options: {}, feature: { type: "Feature" } };
+      const childB = { options: {} };
+      const container: any = {
+        options: {},
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(() => ({ isValid: () => true })),
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => [childA, childB]),
+        _layers: { a: childA, b: childB },
+      };
+      container.eachLayer = vi.fn((fn: (c: unknown) => void) => {
+        for (const c of [childA, childB]) fn(c);
+      });
+      manager.registerLayer({
+        id: "container1",
+        name: "Container",
+        role: "overlay",
+        layer: container,
+      });
+      const item = findItem(ui, "container1");
+      ui.openMoreMenu(item);
+
+      const styleEntry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      ) as HTMLElement;
+      const filterEntry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+      const focusEntry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="focus-layer"]`,
+      ) as HTMLElement;
+
+      expect(styleEntry).not.toBeNull();
+      expect(styleEntry.getAttribute("aria-disabled")).toBe("true");
+      expect(styleEntry.getAttribute("title")).toBe(ui.T("container_no_style_filter"));
+      expect(filterEntry).not.toBeNull();
+      expect(filterEntry.getAttribute("aria-disabled")).toBe("true");
+      expect(filterEntry.getAttribute("title")).toBe(ui.T("container_no_style_filter"));
+      expect(focusEntry).not.toBeNull();
+      expect(focusEntry.getAttribute("aria-disabled")).toBe("false");
+      ui.closeMoreMenu(false);
+    });
+    it("keeps Style and Filter enabled for a provider-backed group", () => {
+      // MeasureControl and HeatmapControl register an L.layerGroup with a
+      // featureCountProvider: the group is the layer's representation, not a
+      // folder of sub-layers, so its style and filter panels stay available.
+      // The container answer must come from the entry, not the Leaflet class.
+      const group: any = {
+        options: {},
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(() => ({ isValid: () => true })),
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => []),
+        _layers: {},
+      };
+      group.eachLayer = vi.fn();
+      manager.registerLayer({
+        id: "provider1",
+        name: "Provider",
+        role: "overlay",
+        layer: group,
+        featureCountProvider: () => 7,
+      });
+      const item = findItem(ui, "provider1");
+      ui.openMoreMenu(item);
+
+      const styleEntry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+      ) as HTMLElement;
+      const filterEntry = item.querySelector(
+        `.foliplus-layer-more-menu button[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+      ) as HTMLElement;
+
+      expect(styleEntry).not.toBeNull();
+      expect(styleEntry.getAttribute("title")).not.toBe(
+        ui.T("container_no_style_filter"),
+      );
+      expect(filterEntry).not.toBeNull();
+      expect(filterEntry.getAttribute("title")).not.toBe(
+        ui.T("container_no_style_filter"),
+      );
+      ui.closeMoreMenu(false);
+    });
     it("outside click closes the open menu through the overlay registry", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
