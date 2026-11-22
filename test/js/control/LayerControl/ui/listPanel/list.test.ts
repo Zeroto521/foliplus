@@ -12,6 +12,7 @@ import { seedIntentMap } from "#control/LayerControl/ui/intent.js";
 import { isFolderFolded } from "#control/LayerControl/ui/listPanel/drag.js";
 import {
   applyVisibility,
+  colorLayerName,
   displayName,
   getNavigableItems,
   initLayerItem,
@@ -24,6 +25,7 @@ import {
   toggleFold,
   updateLayerItemLabel,
 } from "#control/LayerControl/ui/listPanel/index.js";
+import { emptyFolderKeys } from "#control/LayerControl/ui/listPanel/list.js";
 
 const makeUi = () =>
   ({
@@ -1681,7 +1683,7 @@ describe("role header identity key", () => {
     // rebuilds the rows, but the role a header owns cannot change with it.
     const before = headerKeys();
     manager.createFolder("overlay", "Extra");
-    expect(manager.renameFolder("overlay", "Extra", "More")).toEqual({ ok: true });
+    expect(manager.renameFolder("overlay", "extra", "More")).toEqual({ ok: true });
     expect(headerKeys(), "the folder layout carries no role identity").toEqual(before);
   });
 
@@ -2016,7 +2018,7 @@ describe("ui/list folder rows (render / row structure)", () => {
   });
 
   it("advertises the drag gesture with grab / grabbing cursors (issue 17)", () => {
-    // Spec v3.8 §1.3: every row is draggable, so the cursor says so. The rows
+    // Every row is draggable, so the cursor says so. The rows
     // used to sit on `default` and only switch to `move` mid-gesture.
     const row = readFileSync(
       repoPath("foliplus/css/control/LayerControl/row.css"),
@@ -2202,5 +2204,269 @@ describe("ui/list folder rows (render / row structure)", () => {
     // Both members hidden → on=0 → 0/N (the count cell already covers 0/N;
     // this test asserts the partial form by hiding a subset next).
     expect(count.textContent).toContain("0/");
+  });
+});
+
+describe("ui/list folder rows, tree connectors and role fold", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  const treeLine = (ui: any, id: string): HTMLElement | null =>
+    ui.uiContainer!.querySelector(
+      `[${CONST.DATA.LAYER_ID}="${id}"] .${CONST.CLASSES.FOLD_TREE}`,
+    ) as HTMLElement | null;
+
+  it("syncRowOrder re-derives a member's tree connector after a reorder (refreshTreeConnectors)", () => {
+    // Two members in one folder. The FIRST is `last` before any move (single
+    // member). Move the second member up so the first is no longer last and
+    // the second becomes last: the ├/└ connector must flip on BOTH rows.
+    const { manager, ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // Two members in one folder: rd1 is the FIRST (mid ├, a branch continues
+    // below it), rd2 is the LAST (elbow └) before any move.
+    expect(treeLine(ui, "rd1")!.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(
+      true,
+    );
+    expect(treeLine(ui, "rd1")!.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(
+      false,
+    );
+    expect(treeLine(ui, "rd2")!.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(
+      true,
+    );
+    // Move rd2 above rd1. Now rd2 is the FIRST (mid ├) and rd1 the LAST (└):
+    // refreshTreeConnectors re-derives both connectors after the reorder.
+    expect(manager.moveLayerUp("rd2")).toBe(true);
+    const rd1 = treeLine(ui, "rd1")!;
+    const rd2 = treeLine(ui, "rd2")!;
+    expect(rd1.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    expect(rd1.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(false);
+    expect(rd2.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(false);
+    expect(rd2.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(true);
+  });
+
+  it("syncRowOrder places a root layer between two folder blocks via a layer:<id> order entry", () => {
+    // order = [folder roads, root water, folder parks] → the root layer row must
+    // sit between the two folder rows, not after all folders.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "roads", name: "Roads" },
+          { key: "parks", name: "Parks" },
+        ],
+        order: { overlay: ["roads", "layer:water", "parks"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "water",
+          name: "Water",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+        {
+          id: "pk1",
+          name: "Parks",
+          role: "overlay",
+          folder: "parks",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const keys = Array.from(
+      ui.uiContainer!.querySelectorAll(
+        `[${CONST.DATA.LAYER_ID}], .${CONST.CLASSES.FOLDER_ROW}`,
+      ),
+    ).map(
+      el =>
+        el.getAttribute(CONST.DATA.FOLDER_KEY) ?? el.getAttribute(CONST.DATA.LAYER_ID),
+    );
+    const iRoads = keys.indexOf("roads");
+    const iWater = keys.indexOf("water");
+    const iParks = keys.indexOf("parks");
+    expect(iWater).toBeGreaterThan(iRoads);
+    expect(iWater).toBeLessThan(iParks);
+  });
+
+  it("folding a role hides its folder rows and members (GROUP_FOLDED), then unfolding restores them", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "water",
+          name: "Water",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = () =>
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`) as HTMLElement;
+    const memberRow = () =>
+      ui.uiContainer!.querySelector(`[${CONST.DATA.LAYER_ID}="rd1"]`) as HTMLElement;
+    // Initially unfolded.
+    expect(folderRow().classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+    expect(memberRow().classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+    // Fold the role.
+    toggleFold(ui, "overlay");
+    expect(folderRow().classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    expect(memberRow().classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    // Unfold restores.
+    toggleFold(ui, "overlay");
+    expect(folderRow().classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+    expect(memberRow().classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+  });
+
+  it("role head row paints the folded state (FOLDED class, aria-expanded, unfold tooltip)", () => {
+    const { ui } = initFixture({
+      data: [
+        { id: "o1", name: "O", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+    const roleRow = () =>
+      ui.uiContainer!.querySelector(
+        `.${CONST.CLASSES.ROLE_ROW}[${CONST.DATA.ROLE}="overlay"]`,
+      ) as HTMLElement;
+    const foldBtn = () =>
+      roleRow().querySelector(`.${CONST.CLASSES.FOLD_BTN}`) as HTMLElement;
+    // Unfolded: no FOLDED class, fold chevron expanded, fold tooltip.
+    expect(roleRow().classList.contains(CONST.CLASSES.FOLDED)).toBe(false);
+    expect(foldBtn().getAttribute("aria-expanded")).toBe("true");
+    expect(roleRow().getAttribute("title")).toBe(ui.T("fold_tooltip"));
+    // Fold the role: the row carries the FOLDED class, the chevron collapses
+    // and the tooltip flips to unfold.
+    toggleFold(ui, "overlay");
+    expect(roleRow().classList.contains(CONST.CLASSES.FOLDED)).toBe(true);
+    expect(foldBtn().getAttribute("aria-expanded")).toBe("false");
+    expect(roleRow().getAttribute("title")).toBe(ui.T("unfold_tooltip"));
+  });
+
+  it("emptyFolderKeys treats a layer whose registry entry is missing as not matching a key", () => {
+    // A layer id present in ui.c.layers but absent from the registry: the
+    // empty-folder scan must not treat the key as empty just because the info
+    // lookup returned null (it reads the layer's own folder assignment).
+    // emptyFolderKeys is a pure-ish reader over the layout + registry, so the
+    // missing-registry-entry case is staged directly (the fixture's layer list
+    // is a read-only proxy, so a ghost layer is injected through the registry
+    // stub rather than pushed).
+    const layout = {
+      version: 2,
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: {},
+    };
+    const ui = {
+      c: {
+        folderLayoutView: layout,
+        layers: [
+          { id: "rd1", role: "overlay" },
+          { id: "ghost", role: "overlay" },
+        ],
+        layerRegistry: {
+          get: (id: string) =>
+            id === "ghost"
+              ? undefined
+              : { id: "rd1", role: "overlay", folder: "roads" },
+        },
+      },
+    } as unknown as LayerUI;
+    // rd1 owns the "roads" key, so it is not empty even though the ghost layer
+    // misses its registry entry (the info-null branch returns false and does
+    // not erase the folder's live member).
+    expect(emptyFolderKeys(ui, "overlay")).toEqual([]);
+    // With rd1's registry entry gone too, "roads" has no live member left
+    // and is reported empty.
+    ui.c.layerRegistry.get = () => undefined;
+    expect(emptyFolderKeys(ui, "overlay")).toEqual(["roads"]);
+  });
+
+  it("updateLayerItemLabel refreshes a live row's label after a re-registration", () => {
+    // The bail path (row gone) is covered above; this covers the live-row path
+    // where the label is rewritten from the re-registered layer info.
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const row = ui.uiContainer!.querySelector(
+      `[${CONST.DATA.LAYER_ID}="rd1"]`,
+    ) as HTMLElement;
+    expect(row).not.toBeNull();
+    const info = ui.c.layerRegistry.get("rd1") as LayerInfo;
+    // No throw: the live row is found and its label refreshed.
+    expect(() => updateLayerItemLabel(ui, info)).not.toThrow();
+  });
+
+  it("colorLayerName returns the basemap's current display name", () => {
+    // The virtual solid-basemap row's label comes from displayName, which
+    // prefers a persisted rename and falls back to the locale label.
+    const { ui } = initFixture({ data: [] });
+    const name = colorLayerName(ui);
+    expect(typeof name).toBe("string");
+    expect(name.length).toBeGreaterThan(0);
   });
 });

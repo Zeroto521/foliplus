@@ -1,6 +1,5 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
-import { folderFoldKey } from "../listPanel/drag.js";
 import { emptyFolderKeys, rebuildList } from "../listPanel/list.js";
 import { ROW_NOUN, type RowNoun, withNoun } from "../rowNoun.js";
 import { saveState } from "../state.js";
@@ -23,6 +22,7 @@ import * as Icons from "#platform/icon.js";
 import { throttleRaf } from "#platform/throttle.js";
 import { FORM_CLASS, PANEL_CLASS, placeSurface } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { folderFoldKey } from "#control/LayerControl/declaredFolder.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /**
@@ -585,15 +585,18 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
   }
   if (action === CONST.ACTION.DELETE_FOLDER) {
     // The folder row owns the identity: it carries no data-layer-id, so the
-    // menu record's folderKey / role / folder name are the handles. The menu
-    // closes first (hard constraint 4a) — the action rerenders the list, and
-    // the menu anchors to the row being rebuilt.
+    // menu record's folderKey / role are the handles. The KEY, never the
+    // display name: after a rename the two diverge and a name-keyed delete
+    // silently misses the folder. The menu closes first (hard constraint 4a) —
+    // the action rerenders the list, and the menu anchors to the row being
+    // rebuilt.
     const open = ui.overlayPanel.activeMenu;
     const role = open?.role ?? open?.item.getAttribute(CONST.DATA.ROLE) ?? "";
-    const folderName = open?.item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
-    if (role && folderName) {
+    const folderKey =
+      open?.folderKey ?? open?.item.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
+    if (role && folderKey) {
       ui.closeMoreMenu(true);
-      ui.c.deleteFolder(role as LayerRole, folderName);
+      ui.c.deleteFolder(role as LayerRole, folderKey);
     }
     return true;
   }
@@ -689,7 +692,7 @@ const setAllFoldersFolded = (ui: LayerUI, role: string, folded: boolean) => {
 /** Start an inline rename on a folder row's label. The folder identity is the
  *  role + normalized key; the label shows the display name. Commit calls the
  *  controller so the block key, member spellings and persistence stay single-
- *  sourced. Escape/empty cancel silently (spec §4.1: empty name = no-op). */
+ *  sourced. Escape/empty cancel silently (empty name = no-op). */
 const startFolderRename = (
   ui: LayerUI,
   role: string,
@@ -715,7 +718,9 @@ const startFolderRename = (
     onCommit: trimmed => {
       const next = trimmed.trim();
       if (next && next !== folderName) {
-        ui.c.renameFolder(role as LayerRole, folderName, next);
+        // The key, not the display name: a rename moves the display name only,
+        // so the key is the one handle that survives repeated renames.
+        ui.c.renameFolder(role as LayerRole, folderKey, next);
       }
       finishRename(ui, true);
     },
@@ -726,8 +731,8 @@ const startFolderRename = (
 /** Start a new folder in a role: create it (controller), then open an inline
  *  rename on its row so the user names it immediately. The row exists even
  *  though the folder holds no layer yet, and the input opens focused with the
- *  default name selected. Blank/escape leaves the default name (spec §4.1:
- *  silent no-op on empty). */
+ *  default name selected. Blank/escape leaves the default name (a silent
+ *  no-op on empty). */
 const startNewFolder = (ui: LayerUI, role: string) => {
   const name = nextFolderDefaultName(ui, role);
   const result = ui.c.createFolder(role as LayerRole, name);

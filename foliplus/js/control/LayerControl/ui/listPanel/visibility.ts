@@ -36,7 +36,7 @@ const getLayerItems = (ui: LayerUI, role: string): Element[] => {
     role === ROLE.BASE
       ? `[data-layer-type="${ROLE.BASE}"]`
       : `:not([data-layer-type="${ROLE.BASE}"])`;
-  // Folder rows and role rows carry .foliplus-layer-item too (per spec §1.2)
+  // Folder rows and role rows carry .foliplus-layer-item too,
   // but are group rows, not leaf layers — LEAF_ITEM excludes both so a role
   // count never counts a group as a layer.
   return Array.from(container.querySelectorAll(`${CONST.SEL.LEAF_ITEM}${inGroup}`));
@@ -116,17 +116,22 @@ const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
   syncNoBasemap(ui);
   ui.c.debouncedEnforce();
 
-  // Announce last, in registry order: the loop above walked the DOM, which can
-  // diverge from the registry on a late registration, and a subscriber that
-  // re-enters during this notify must see the finished count and hatch.
-  //
-  // Order by walking the registry against the Map, not by sorting — a
-  // comparator needs an `indexOf` per call and that is a linear identity scan
-  // of the registry, so sorting pays a full scan for every comparison. The
-  // entry travels with the delta: `notifyDeltas` re-checks the live registry at
-  // delivery, so a layer a subscriber unregistered — or re-registered under the
-  // same id — inside an earlier delivery here is not announced on behalf of
-  // the entry that now holds that id.
+  announceMoved(ui, moved);
+};
+
+/** Announce a batch of projection deltas, in registry order: the caller's loop
+ *  may have walked the DOM, which can diverge from the registry on a late
+ *  registration, and a subscriber that re-enters during this notify must see
+ *  the finished count and hatch.
+ *
+ *  Order by walking the registry against the Map, not by sorting — a
+ *  comparator needs an `indexOf` per call and that is a linear identity scan
+ *  of the registry, so sorting pays a full scan for every comparison. The
+ *  entry travels with the delta: `notifyDeltas` re-checks the live registry at
+ *  delivery, so a layer a subscriber unregistered — or re-registered under the
+ *  same id — inside an earlier delivery here is not announced on behalf of
+ *  the entry that now holds that id. */
+const announceMoved = (ui: LayerUI, moved: Map<string, ProjectionDelta>): void => {
   const announced: ProjectionDeltaItem[] = [];
   for (const layerInfo of ui.c.layers) {
     const delta = moved.get(layerInfo.id);
@@ -355,7 +360,7 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
 
 /** The visibility aggregate of one folder: `{ total, on }` across its live
  *  members in `role`. The folder row's checkbox and count are both driven by
- *  this single aggregate (spec §1.2/§4.7), so a role count and a folder
+ *  this single aggregate, so a role count and a folder
  *  count can never disagree about a member. */
 const folderVisibility = (
   ui: LayerUI,
@@ -374,21 +379,37 @@ const folderVisibility = (
   return { total, on };
 };
 
-/** Set every live member of one folder visible/hidden. One write per layer
- *  (persist=false) then one save + rebuild, mirroring toggleAll's bulk path. */
+/** Set every live member of one folder visible/hidden. The same incremental
+ *  path as toggleAll — one intent write per layer (persist=false), one
+ *  projection apply, one row repaint — then one save and a reconcile of the
+ *  two group rows. A full list rebuild here would throw away the DOM the
+ *  gesture is anchored to and repaint every row of the role for a change that
+ *  touched one folder. */
 const setFolderVisible = (
   ui: LayerUI,
   role: string,
   folderKey: string,
   visible: boolean,
 ): void => {
+  const layout = ui.c.folderLayoutView;
+  const moved = new Map<string, ProjectionDelta>();
   for (const info of ui.c.layerRegistry.items) {
     if (info.role !== role) continue;
-    if (folderOf(ui.c.folderLayoutView, info) !== folderKey) continue;
+    if (folderOf(layout, info) !== folderKey) continue;
     setVisibleIntent(ui, info.id, visible, false);
+    const delta = applyProjection(ui, info.id);
+    if (delta.wroteVisible || delta.intentMoved) moved.set(info.id, delta);
+    const row = ui.uiContainer?.querySelector<HTMLElement>(
+      `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${info.id}"]`,
+    );
+    if (row) applyRowView(ui, row, buildRowCell(ui, info));
   }
   saveState(ui);
-  ui.reindexAfterMove();
+  syncFolderRows(ui, role);
+  syncToggleAll(ui, role);
+  syncNoBasemap(ui);
+  ui.c.debouncedEnforce();
+  announceMoved(ui, moved);
 };
 
 const handleChange = (ui: LayerUI, event: Event) => {

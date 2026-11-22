@@ -7,7 +7,7 @@
 // fold state a folder row renders with. The derivation is pure (DOM-free,
 // storage-free) so it is unit-testable in isolation.
 //
-// The priority chain is frozen at .foliplus/design/folder-final-design.md §2.2:
+// The priority chain (frozen by the folder design):
 //   built-in (expanded) < author default (this module) < user override
 // (the persisted foldedRoles set). A user's manual FOLD always wins and
 // then stops the author default from affecting that folder; Reset clears

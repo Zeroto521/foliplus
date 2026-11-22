@@ -129,6 +129,15 @@ const folderFixture = (keys: string[]) =>
 const folderRowOf = (ui: LayerUI, key: string): HTMLElement =>
   attachedPanel(ui).querySelector(`[${CONST.DATA.FOLDER_KEY}="${key}"]`) as HTMLElement;
 
+/** A layer group (container) layer stub, so isContainerDrag answers true. */
+const containerLayer = () => ({
+  options: {},
+  eachLayer: vi.fn(),
+  _layers: {},
+  addLayer: vi.fn(),
+  getLayers: vi.fn(() => []),
+});
+
 describe("ui/drag", () => {
   describe("folder block drag (issue 9)", () => {
     it("arms a folder row with the block identity and auto-folds it", () => {
@@ -603,8 +612,9 @@ describe("ui/drag", () => {
 
       // No row under the pointer: the layer becomes a root block at the tail
       // of the role's block order (jsdom rects are all zero, so no row is
-      // "before" the pointer).
-      expect(orderOf(manager)).toEqual(before);
+      // "before" the pointer), which the registry order follows.
+      expect(before).toEqual(["L0", "L1", "L2"]);
+      expect(orderOf(manager)).toEqual(["L0", "L2", "L1"]);
       expect(manager.folderLayoutView.order.overlay ?? []).toContain("layer:L1");
       expect(ui.listPanel.dragEntry).toBeNull();
     });
@@ -937,6 +947,412 @@ describe("showReorderBlockedHint", () => {
     // A second attempt inside the cooldown window stays silent.
     showReorderBlockedHint(ui);
     expect(showHint).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("layer drop on a folder row — hover chrome", () => {
+  /** Pin a row's box so the drop zone is deterministic (jsdom rects are 0). */
+  const withRect = (row: HTMLElement, top: number, height: number): void => {
+    row.getBoundingClientRect = () =>
+      ({
+        top,
+        height,
+        bottom: top + height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  /** A layer group (container) layer stub, so isContainerDrag answers true. */
+  const containerLayer = () => ({
+    options: {},
+    eachLayer: vi.fn(),
+    _layers: {},
+    addLayer: vi.fn(),
+    getLayers: vi.fn(() => []),
+  });
+
+  it("marks the middle zone of a folder row as a join target", () => {
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+    const dataTransfer = { dropEffect: "" };
+
+    handleDragOver(ui, dragEvent(row, dataTransfer, 118));
+
+    // The middle third joins the folder: the move is allowed and the row
+    // paints the INTO marker.
+    expect(dataTransfer.dropEffect).toBe("move");
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(true);
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+  });
+
+  it("marks the top third of a folder row as a before-target", () => {
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(row, {}, 102));
+
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+  });
+
+  it("marks the bottom third of a folder row as an after-target", () => {
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(row, {}, 134));
+
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+  });
+
+  it("refuses a container on a folder row's middle zone and names the reason", () => {
+    // A container's children are its own sub-layers; the middle zone would
+    // join the folder, so the hover refuses with the same sentence the drop
+    // uses, instead of painting a join marker the drop would then veto.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(row, {}, 118));
+
+    expect(showHint).toHaveBeenCalled();
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("refuses a folder drag over a container row and names the reason", () => {
+    // A folder block and a container row are different kinds of block; a
+    // folder cannot adopt a container, so the hover answers with the
+    // dedicated sentence instead of reading as a silent dead drop.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(rowOf(ui, "G1"), {}, 0));
+
+    expect(showHint).toHaveBeenCalled();
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+});
+
+describe("block-order gap drop", () => {
+  /** Pin a row's box so the gap scan is deterministic (jsdom rects are 0). */
+  const withRect = (row: HTMLElement, top: number, height: number): void => {
+    row.getBoundingClientRect = () =>
+      ({
+        top,
+        height,
+        bottom: top + height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  /** A drop outside every row resolves the position from the rows' boxes. */
+  const dropInGap = (ui: LayerUI, clientY: number): void => {
+    const shell = document.createElement("div");
+    attachedPanel(ui).appendChild(shell);
+    handleDrop(ui, dragEvent(shell, {}, clientY));
+  };
+
+  it("lands the layer before the first folder block", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    withRect(folderRowOf(ui, "a"), 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+
+    dropInGap(ui, 110);
+
+    // The gap before folder "a": the layer becomes a root block before it.
+    expect(move).toHaveBeenCalledWith("a1", "a");
+    expect(ui.listPanel.dragEntry).toBeNull();
+  });
+
+  it("resolves a member row to the folder block above it", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    withRect(rowOf(ui, "a1"), 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "b1"), { effectAllowed: "" }));
+
+    dropInGap(ui, 110);
+
+    // A drop in the middle of a folder's members lands before that folder.
+    expect(move).toHaveBeenCalledWith("b1", "a");
+    expect(ui.listPanel.dragEntry).toBeNull();
+  });
+
+  it("stops the walk at the role header and falls back to the root entry", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    const panel = attachedPanel(ui);
+    const rootItem = Array.from(
+      panel.querySelectorAll<HTMLElement>(".foliplus-layer-item[data-layer-id]"),
+    ).find(el => {
+      const id = el.getAttribute(CONST.DATA.LAYER_ID);
+      return id && id !== "a1" && id !== "b1";
+    })!;
+    withRect(rootItem, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+
+    dropInGap(ui, 110);
+
+    // A root row below its role header resolves to its own root entry, not a
+    // folder block the walk would have to fabricate.
+    expect(move).toHaveBeenCalledWith("a1", "layer:foliplus_color_map");
+  });
+
+  it("drops after the last block when the folder is the tail", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+
+    // The bottom third of the last folder: nothing follows, so the position
+    // is the tail (blockEntryAfter answers null).
+    handleDrop(ui, dragEvent(row, {}, 134));
+
+    expect(move).toHaveBeenCalledWith("a1", null);
+  });
+
+  it("tolerates a panel that is already gone", () => {
+    // The gap scan reads uiContainer through an optional chain; a teardown
+    // that nulls it must not throw, and the drop resolves to the tail.
+    const { ui } = folderFixture(["a", "b"]);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    // The getter reads c.uiContainer, so the teardown that nulls the panel
+    // is exercised through the controller field.
+    ui.c.uiContainer = null;
+
+    handleDrop(ui, dragEvent(document.createElement("div"), {}, 0));
+
+    expect(move).toHaveBeenCalledWith("a1", null);
+    expect(ui.listPanel.dragEntry).toBeNull();
+  });
+
+  it("walks through a member row to the folder block above its folder", () => {
+    // Two members share folder "a": a drop on the second member's row walks the
+    // sibling chain (member row → folder row) instead of reading its own row as
+    // a block. The position resolves to the shared folder.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "a", name: "a" }],
+        order: { overlay: ["a"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "a2",
+          name: "a2",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const a2 = rowOf(ui, "a2");
+    withRect(a2, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    const shell = document.createElement("div");
+    attachedPanel(ui).appendChild(shell);
+
+    handleDrop(ui, dragEvent(shell, {}, 110));
+
+    // a1 is dropped on a2's row: the target is the shared folder block "a".
+    expect(move).toHaveBeenCalledWith("a1", "a");
+  });
+
+  it("refuses a layer on the other role's folder row and names the reason", () => {
+    // Folders are per-role blocks: an overlay layer dragged onto a base folder
+    // row would materialise a same-named folder in the overlay role, reading as
+    // a duplicate. The guard clears the hover chrome and answers with the same
+    // sentence the folder-drag path uses.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["a"], base: ["b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "base",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "R1",
+          name: "R1",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const baseFolderB = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.FOLDER_KEY}="b"]`,
+    )!;
+    withRect(baseFolderB, 100, 36);
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(baseFolderB, { dropEffect: "" }, 118));
+
+    expect(showHint).toHaveBeenCalled();
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("throttles repeated refusals to one hint per gesture", () => {
+    // The same refusal twice inside the cooldown window shows one toast: a drag
+    // that keeps crossing a dead zone must not stack hints.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(row, {}, 118));
+    handleDragOver(ui, dragEvent(row, {}, 118));
+
+    expect(showHint).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers a hover over empty space with a move cursor", () => {
+    // A layer dragged across the gap between rows: the drop target is the block
+    // position, so the hover reports a valid move even with no row under it.
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    const shell = document.createElement("div");
+    attachedPanel(ui).appendChild(shell);
+
+    handleDragOver(ui, dragEvent(shell, { dropEffect: "" }, 0));
+
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("refuses a container over a folder member row with the folder sentence", () => {
+    // A container over a member row would join that member's folder, which a
+    // layer group cannot do — the inside path must answer like the folder row.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const member = rowOf(ui, "b1");
+    withRect(member, 100, 36);
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
+    const dataTransfer = { dropEffect: "" };
+
+    handleDragOver(ui, dragEvent(member, dataTransfer, 118));
+
+    expect(dataTransfer.dropEffect).toBe("none");
+    expect(showHint).toHaveBeenCalled();
+  });
+
+  it("lands the layer before a folder when dropped on its top zone", () => {
+    // Dropping a layer on a folder row's before-zone moves it to the folder's
+    // block position, not into the folder: the folder-key is the position.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(row, {}, 102));
+
+    expect(move).toHaveBeenCalledWith("R1", "b");
+  });
+});
+
+describe("drop adopts the target row's folder", () => {
+  it("moves a root layer onto a member row into that member's folder", () => {
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const member = rowOf(ui, "b1");
+    member.getBoundingClientRect = () =>
+      ({
+        top: 100,
+        height: 36,
+        bottom: 136,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: 100,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+    handleDrop(ui, dragEvent(member, {}, 118));
+
+    // The drop adopts the row's folder: R1 joins b, matching the tree guide
+    // a keyboard or API move would produce.
+    expect(manager.folderNameOf("R1")).toBe("b");
+    expect(ui.listPanel.dragEntry).toBeNull();
   });
 });
 

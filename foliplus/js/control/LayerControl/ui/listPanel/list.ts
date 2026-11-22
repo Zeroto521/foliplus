@@ -27,13 +27,11 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 import {
   type LayerRole,
   ROLE,
-  ROOT_LAYER_PREFIX,
-  folderDisplayNameOf,
+  folderEntries,
   folderOf,
   groupByFolder,
-  isRootLayerEntry,
   normalizeFolderName,
-  rootLayerEntry,
+  roleBlocks,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
@@ -543,66 +541,27 @@ const folderVisibility = (
  *  `{ kind: "layer", layer }` for each root layer. Mirrors `roleOrder` — a
  *  folder block's members are emitted contiguously, then the role's root
  *  layers. */
+/** The panel's row sequence for one role: the shared block sequence, projected
+ *  into the shape the renderer walks. The ORDER lives in `roleBlocks` — the
+ *  same function the stacking order uses — so a row can never paint in one
+ *  place and stack in another. */
 const displayBlocks = (
   ui: LayerUI,
   role: string,
 ): Array<
   | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
   | { kind: "layer"; layer: LayerInfo }
-> => {
-  const layout = ui.c.folderLayoutView;
-  const folders = groupByFolder(ui.c.layers, role as LayerRole, layout);
-  const listed = layout.order[role as keyof typeof layout.order] ?? [];
-  const listedKeys = new Set(listed);
-  const rootLayers = ui.c.layers.filter(
-    li => li.role === role && !folderOf(layout, li),
+> =>
+  roleBlocks(role as LayerRole, ui.c.layers, ui.c.folderLayoutView).map(block =>
+    block.kind === "folder"
+      ? {
+          kind: "folder" as const,
+          key: block.key,
+          name: block.displayName,
+          block: { members: block.members },
+        }
+      : { kind: "layer" as const, layer: block.info },
   );
-  const rootById = new Map(rootLayers.map(li => [li.id, li]));
-  const out: Array<
-    | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
-    | { kind: "layer"; layer: LayerInfo }
-  > = [];
-  // 1. The listed block order. An entry is a folder key or `layer:<id>`, so a
-  //    root layer can sit between two folder blocks instead of only after all
-  //    of them.
-  for (const entry of listed) {
-    if (isRootLayerEntry(entry)) {
-      const layer = rootById.get(entry.slice(ROOT_LAYER_PREFIX.length));
-      if (layer) out.push({ kind: "layer", layer });
-      continue;
-    }
-    const block = folders.get(entry);
-    // An empty folder (created but not yet holding a layer) has no members, so
-    // groupByFolder cannot see it. It still owns a row: the user names it right
-    // after creating it, and the row is the only handle for renaming/deleting
-    // it until a layer moves in.
-    out.push({
-      kind: "folder",
-      key: entry,
-      name: block?.displayName ?? folderDisplayNameOf(layout, entry),
-      block: block ?? {
-        key: entry,
-        displayName: folderDisplayNameOf(layout, entry),
-        anchor: Number.MAX_SAFE_INTEGER,
-        members: [],
-      },
-    });
-  }
-  // 2. Unlisted folders, by anchor.
-  const rest = [...folders.values()]
-    .filter(block => !listedKeys.has(block.key))
-    .sort((a, b) => a.anchor - b.anchor);
-  for (const block of rest) {
-    out.push({ kind: "folder", key: block.key, name: block.displayName, block });
-  }
-  // 3. Root layers the order does not name, in registry order.
-  for (const li of rootLayers) {
-    if (!listedKeys.has(rootLayerEntry(li.id))) {
-      out.push({ kind: "layer", layer: li });
-    }
-  }
-  return out;
-};
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -624,7 +583,7 @@ const renderInitialList = (ui: LayerUI) => {
   const headerSeen = new Set<string>();
   // Folder-aware row order: for each role with a header, emit the role row,
   // then each folder block (folder row + members) and the role's root layers
-  // in the exact `roleOrder` sequence (spec §1.1 / folderLayout.ts).
+  // in the exact `roleOrder` sequence (folderLayout.ts).
   const roleLabel = (role: string) =>
     role === ROLE.BASE ? "base_map_label" : "data_layer_label";
   const emitRole = (role: string) => {
@@ -824,15 +783,16 @@ const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
  *  Called on every render — never cached (hard constraint 3). */
 const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
   const layout = ui.c.folderLayoutView;
-  const keys = layout.order[role as keyof typeof layout.order] ?? [];
+  // Only folder keys are candidates: the block order also carries root-layer
+  // entries ("layer:<id>"), and a root layer has no folder, so treating those
+  // as folder keys would report every root layer as an empty folder.
+  const keys = folderEntries(layout.order[role as keyof typeof layout.order] ?? []);
   if (keys.length === 0) return [];
   return keys.filter(
     k =>
       !ui.c.layers.some(l => {
         const info = ui.c.layerRegistry.get(l.id);
-        if (!info) return false;
-        const f = folderOf(layout, info);
-        return f !== null && normalizeFolderName(f) === k;
+        return info !== undefined && folderOf(layout, info) === k;
       }),
   );
 };
@@ -844,7 +804,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
     role,
   );
   // Role-level count: aggregated with the same source as the checkbox
-  // (spec §2.8 — role count and checkbox state come from one aggregator).
+  // (role count and checkbox state come from one aggregator).
   const vis = roleVisibility(ui, role);
   const countText = roleCountText(vis.total, vis.on);
   const children: HTMLElement[] = [
@@ -955,7 +915,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
 };
 
 /** Render a folder row (a user-created group inside a role).
- *  Structure per spec §1.2:
+ *  Structure:
  *  [fold-btn][checkbox (tri-state)][label--folder][count(data-folder-key)]
  *  [type-icon-col (folder icon, fixed)][more-btn].
  *  The whole row is clickable (fold toggle, reusing the role handler path);

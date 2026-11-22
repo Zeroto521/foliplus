@@ -6435,7 +6435,7 @@ describe("deleteFolder", () => {
       ],
     });
 
-    const ok = manager.deleteFolder("overlay", "Roads");
+    const ok = manager.deleteFolder("overlay", "roads");
 
     expect(ok).toBe(true);
     expect(manager.layerRegistry.get("rd1")).toBeDefined();
@@ -6521,7 +6521,7 @@ describe("deleteFolder", () => {
         },
       ],
     });
-    manager.deleteFolder("overlay", "Roads");
+    manager.deleteFolder("overlay", "roads");
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
 
     // Water loses its last member -> freezeSectionOrder runs.
@@ -6546,7 +6546,7 @@ describe("deleteFolder", () => {
         },
       ],
     });
-    const ok = manager.deleteFolder("overlay", "Roads");
+    const ok = manager.deleteFolder("overlay", "roads");
     expect(ok).toBe(true);
     // The author declaration is untouched; the member pin moved to root.
     expect(manager.folderNameOf("rd1")).toBeNull();
@@ -7575,7 +7575,8 @@ describe("moveLayerToFolder / moveLayerToRootAt", () => {
       ],
     });
 
-    expect(manager.moveLayerToFolder("r1", "Alpha")).toBe(true);
+    // The move takes the folder KEY, not its display name.
+    expect(manager.moveLayerToFolder("r1", "alpha")).toBe(true);
     expect(manager.folderNameOf("r1")).toBe("Alpha");
 
     expect(manager.moveLayerToFolder("r1", "")).toBe(true);
@@ -7639,7 +7640,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Streets");
+    const ok = manager.renameFolder("overlay", "roads", "Streets");
 
     expect(ok).toEqual({ ok: true });
     // v2: the author declaration is untouched; the directory name is the display.
@@ -7659,7 +7660,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "  Streets  ");
+    const ok = manager.renameFolder("overlay", "roads", "  Streets  ");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
@@ -7674,7 +7675,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
@@ -7686,7 +7687,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "   ");
+    const ok = manager.renameFolder("overlay", "roads", "   ");
 
     expect(ok).toEqual({ ok: false, reason: "blank" });
   });
@@ -7740,23 +7741,26 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "streets");
+    const ok = manager.renameFolder("overlay", "roads", "streets");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("streets");
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
-  it("renameFolder is a no-op for a normalisation-only rename", () => {
+  it("renameFolder to the folder's own normalised name rewrites the display name", () => {
+    // The key is the identity, so this is a display-only change, not a no-op:
+    // the user asked for that spelling and the row must show it.
     const { manager } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "roads");
+    const ok = manager.renameFolder("overlay", "roads", "roads");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "roads" }]);
   });
 
   it("renameFolder renames an unlisted folder that has live members", () => {
@@ -7773,7 +7777,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Streets");
+    const ok = manager.renameFolder("overlay", "roads", "Streets");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("Streets");
@@ -7801,7 +7805,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderNameOf("rd1")).toBe("roads");
@@ -7815,7 +7819,7 @@ describe("renameFolder", () => {
     manager.ui = null;
     window.localStorage.removeItem(LAYOUT_DOC_KEY);
 
-    const ok = manager.renameFolder("overlay", "Roads", "Streets", { persist: false });
+    const ok = manager.renameFolder("overlay", "roads", "Streets", { persist: false });
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
@@ -7831,7 +7835,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     // P3-1 conclusion: the duplicate predicate stays GLOBAL across roles (a
     // name-keyed directory cannot hold two entries with the same name under
@@ -7854,7 +7858,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     // The duplicate predicate is global, so a live member of the OTHER role
     // makes the new name a duplicate even when the name-keyed directory has

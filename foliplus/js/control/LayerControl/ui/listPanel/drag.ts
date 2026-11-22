@@ -2,15 +2,13 @@
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { displayBlocks, rebuildList } from "./list.js";
-import {
-  type LayerRole,
-  isGroupRow,
-  normalizeFolderName,
-  rootLayerEntry,
-} from "#core/layer/index.js";
+import { type LayerRole, isGroupRow, rootLayerEntry } from "#core/layer/index.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
+import {
+  effectiveFolderFolded,
+  folderFoldKey,
+} from "#control/LayerControl/declaredFolder.js";
 import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 
 /** Fold or unfold one role. Shared by the pointer (row click) and the
@@ -29,16 +27,6 @@ const toggleFold = (ui: LayerUI, role: string): void => {
   rebuildList(ui);
   saveFoldState(ui);
 };
-
-/** Build the persisted folder-fold key: `role::normalizedFolderName` — the
- *  folder's identity is its role plus its normalized name (a rename is a new
- *  folder, matching the layout model). Single source, so the folder row, the
- *  keyboard branch and the persistence all agree. */
-/** The key separator between the role and the normalized folder name. */
-const FOLDER_KEY_SEP = "::";
-
-const folderFoldKey = (role: string, name: string): string =>
-  role + FOLDER_KEY_SEP + normalizeFolderName(name);
 
 /** Fold or unfold one folder. The single entry for the pointer (row click /
  *  chevron) and the keyboard (Enter / Space), exactly as toggleFold is for a
@@ -303,6 +291,23 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // folder.
   const folderKey = item?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
   if (item && folderKey) {
+    // A folder belongs to one role: dropping a layer on the OTHER role's folder
+    // row would materialise a same-named folder in the layer's own role (the
+    // directory is name-keyed and global), which reads as a duplicate. The
+    // folder-drag path already refuses a cross-role target; this is the same
+    // rule for a layer drag.
+    const targetRole = item.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (targetRole && targetRole !== ui.listPanel.dragEntry!.role) {
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+      item.classList.remove(
+        CONST.CLASSES.DRAG_OVER_TOP,
+        CONST.CLASSES.DRAG_OVER_BOTTOM,
+        CONST.CLASSES.DRAG_OVER_INTO,
+      );
+      ui.listPanel.lastDragOverItem = null;
+      showDragHint(ui, "reorder_group_only");
+      return;
+    }
     const zone = folderDropZone(item, event.clientY);
     if (zone === "into" && isContainerDrag(ui, ui.listPanel.dragEntry!.id)) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
@@ -359,12 +364,16 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     ui.c.folderNameOf(targetId)
   ) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+    // A refusal is not a hover: drop the pointer so the next move does not
+    // treat this row as the highlighted target.
+    ui.listPanel.lastDragOverItem = null;
     showDragHint(ui, "group_no_folder");
     return;
   }
 
   if (!ui.c.canReorderBetween(armed, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+    ui.listPanel.lastDragOverItem = null;
     showReorderBlockedHint(ui);
     return;
   }
@@ -470,9 +479,11 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   }
   // Dropping on a row adopts that row's folder: onto a root row the layer
   // leaves its folder, onto a member row it joins that member's folder. The
-  // tree guide follows from the assignment, so this is the whole move.
-  const targetFolder = ui.c.folderNameOf(targetId!) ?? "";
-  const sourceFolder = ui.c.folderNameOf(armedEntry.id) ?? "";
+  // tree guide follows from the assignment, so this is the whole move. Keys,
+  // not display names: a renamed folder's name no longer normalises to its key,
+  // so a name-keyed move would materialise a second folder under the new name.
+  const targetFolder = ui.c.folderKeyOf(targetId!) ?? "";
+  const sourceFolder = ui.c.folderKeyOf(armedEntry.id) ?? "";
   if (targetFolder !== sourceFolder && !isContainerDrag(ui, armedEntry.id)) {
     ui.c.moveLayerToFolder(armedEntry.id, targetFolder);
   }
@@ -528,7 +539,6 @@ const handleDragEnd = (ui: LayerUI) => {
 export {
   toggleFold,
   toggleFolderFold,
-  folderFoldKey,
   isFolderFolded,
   handleDragStart,
   showReorderBlockedHint,

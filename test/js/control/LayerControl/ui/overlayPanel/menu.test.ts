@@ -1063,7 +1063,13 @@ describe("LayerUI menu", () => {
         expect(folderSpy).not.toHaveBeenCalled();
         expect(folderLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
         handleMenuClick(ui, event);
-        expect(folderSpy).toHaveBeenCalledWith("overlay", "My Folder");
+        // The KEY, not the display name: after a rename the two diverge and a
+        // name-keyed delete would silently miss the folder. The row's key is
+        // the handle that survives that rename.
+        expect(folderSpy).toHaveBeenCalledWith(
+          "overlay",
+          normalizeFolderName("My Folder"),
+        );
       });
 
       it("takes the role from the folder row, not from a member's stale assignment", () => {
@@ -1099,10 +1105,15 @@ describe("LayerUI menu", () => {
         // Arm, then confirm.
         handleMenuClick(ui, event);
         handleMenuClick(ui, event);
-        expect(folderSpy).toHaveBeenCalledWith("overlay", "Green Space");
+        // Again the key: the member's assignment was overwritten above to the
+        // normalized "green space", and the dispatch must agree with it.
+        expect(folderSpy).toHaveBeenCalledWith(
+          "overlay",
+          normalizeFolderName("Green Space"),
+        );
       });
 
-      it("does not dispatch deleteFolder when the row has lost its folder name", () => {
+      it("loses its folder name by dispatch time but keeps the key: the delete still lands", () => {
         const folderSpy = vi.fn();
         ui.c.deleteFolder = folderSpy;
         seedFolder("My Folder");
@@ -1118,10 +1129,47 @@ describe("LayerUI menu", () => {
           `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
         ) as HTMLLIElement;
         expect(folderLi).not.toBeNull();
-        // The menu rendered while the row still carried its name; by dispatch
-        // time it is gone — the confirm must be a no-op rather than deleting
-        // with an undefined name.
+        // The display name is cosmetic: dropping it must not kill the delete.
+        // The key is the identity, and the row still carries it, so the confirm
+        // goes through.
         folderRow.removeAttribute(CONST.DATA.FOLDER_NAME);
+        const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+        Object.defineProperty(event, "target", { value: folderLi });
+        // Arm, then confirm.
+        handleMenuClick(ui, event);
+        handleMenuClick(ui, event);
+        expect(folderSpy).toHaveBeenCalledWith(
+          "overlay",
+          normalizeFolderName("My Folder"),
+        );
+      });
+
+      it("does not dispatch deleteFolder when the row has lost its folder key", () => {
+        const folderSpy = vi.fn();
+        ui.c.deleteFolder = folderSpy;
+        seedFolder("My Folder");
+        manager.registerLayer({
+          id: "folder1",
+          name: "Roads",
+          role: "overlay",
+          folder: "My Folder",
+          layer: { options: {}, eachLayer: vi.fn() },
+        } as never);
+        const folderRow = openFolderRowMenu();
+        const folderLi = folderRow.querySelector(
+          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+        ) as HTMLLIElement;
+        expect(folderLi).not.toBeNull();
+        // Without the key there is nothing to delete: the row has no identity to
+        // hand the controller, so the confirm must be a no-op rather than
+        // dispatching with an empty string.
+        folderRow.removeAttribute(CONST.DATA.FOLDER_KEY);
+        // The menu record agrees — it too carries no folderKey, which is the
+        // other half of the dispatch's key lookup.
+        (ui.overlayPanel as any).activeMenu = {
+          ...((ui.overlayPanel as any).activeMenu ?? {}),
+          folderKey: undefined,
+        };
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });
         Object.defineProperty(event, "target", { value: folderLi });
         // Arm, then confirm: the confirm is the no-op, not the arm.
