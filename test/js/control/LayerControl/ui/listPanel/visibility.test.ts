@@ -18,7 +18,6 @@ import {
   getLayerItems,
   syncNoBasemap,
   syncToggleAll,
-  syncToggleAllFromCount,
   toggleAll,
 } from "#control/LayerControl/ui/listPanel/index.js";
 import { intentVisibleOf } from "#control/LayerControl/ui/projection.js";
@@ -417,7 +416,7 @@ describe("applyVisibility", () => {
 
       applyVisibility(only.ui as LayerUI, "only", false);
       expect(all.checked).toBe(false);
-      // `checkedCount === 0` makes `noneChecked` true, so `!allChecked &&
+      // `on === 0` makes `noneChecked` true, so `!allChecked &&
       // !noneChecked` is false. Nothing checked is not a partial state. Pinned
       // so a change to the tri-state rule shows up here.
       expect(all.indeterminate).toBe(false);
@@ -425,78 +424,33 @@ describe("applyVisibility", () => {
       only.destroy();
     });
 
-    it("keeps checkedCount in sync with a full rescan across many clicks", () => {
-      // The incremental counter is the fast path; the full rescan is the
-      // reconcile path. This test pins that the two agree after a series of
-      // toggles, so an off-by-one in bumpCheckedCount (or a missed
-      // reconcile-point call) shows up here.
-      //
-      // The attach-time initTypesAndVisibility runs in setTimeout(0), so
-      // the synchronous test body bootstraps the counter itself before the
-      // first click.
+    it("keeps the role header in sync with the intent across many clicks", () => {
+      // The header is the only record of the aggregate: every click repaints
+      // it from the registry, so a missed repaint shows up here.
       syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 2,
-      });
+      expect(allToggle(ui).checked).toBe(true);
+      expect(allToggle(ui).indeterminate).toBe(false);
 
-      // Hide overlay1: on 2 → 1. Rescan agrees.
+      // Hide overlay1: 2 of 2 → 1 of 2.
       applyVisibility(ui, "overlay1", false);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 1,
-      });
-      syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 1,
-      });
+      expect(allToggle(ui).checked).toBe(false);
+      expect(allToggle(ui).indeterminate).toBe(true);
 
-      // Hide overlay2: on 1 → 0. Rescan agrees.
+      // Hide overlay2: 1 of 2 → 0 of 2.
       applyVisibility(ui, "overlay2", false);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 0,
-      });
-      syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 0,
-      });
+      expect(allToggle(ui).checked).toBe(false);
+      expect(allToggle(ui).indeterminate).toBe(false);
 
-      // Show both: on 0 → 2. Rescan agrees.
+      // Show both: 0 of 2 → 2 of 2.
       applyVisibility(ui, "overlay1", true);
       applyVisibility(ui, "overlay2", true);
-      syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 2,
-      });
+      expect(allToggle(ui).checked).toBe(true);
+      expect(allToggle(ui).indeterminate).toBe(false);
 
-      // Setting a value to the same value it already has is a no-op: the
-      // delta is zero and the count is unchanged.
+      // Setting a value to the value it already has is a no-op.
       applyVisibility(ui, "overlay1", true);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 2,
-      });
-    });
-
-    it("exposes syncToggleAllFromCount as a delegator on LayerUI", () => {
-      // The public method on LayerUI is the wrapper around the module-level
-      // function; a host page that holds the UI instance calls it through
-      // that slot. Pinned so the delegator stays reachable and writes the
-      // tri-state checkbox off the cached count.
-      syncToggleAll(ui, ROLE.OVERLAY);
-      applyVisibility(ui, "overlay1", false);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 1,
-      });
-      ui.syncToggleAllFromCount(ROLE.OVERLAY);
-      const all = allToggle(ui);
-      expect(all.checked).toBe(false);
-      expect(all.indeterminate).toBe(true);
+      expect(allToggle(ui).checked).toBe(true);
+      expect(allToggle(ui).indeterminate).toBe(false);
     });
 
     it("skips syncNoBasemap for overlay clicks but calls it for base clicks", () => {
@@ -1085,7 +1039,6 @@ describe("unit helpers", () => {
       c: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
       listPanel: {
-        checkedCount: {},
         foldedRoles: {},
         T: (k: string) => k,
       },
@@ -1115,7 +1068,6 @@ describe("unit helpers", () => {
       focusController: { focusingLayerId: null },
       T: (k: string) => k,
       listPanel: {
-        checkedCount: {},
         foldedRoles: {},
         T: (k: string) => k,
       },
@@ -1157,7 +1109,7 @@ describe("unit helpers", () => {
         runtimeStore: new LayerRuntimeStore(),
         focusController: { focusingLayerId: null },
         T: (k: string) => k,
-        listPanel: { checkedCount: {}, foldedRoles: {} },
+        listPanel: { foldedRoles: {} },
       } as unknown as LayerUI;
       return { ui, container };
     };
@@ -1208,73 +1160,12 @@ describe("unit helpers", () => {
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
       listPanel: {
-        checkedCount: {},
         foldedRoles: {},
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
 
     expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
-  });
-
-  it("syncToggleAllFromCount bails when the group header is absent", () => {
-    // The row that carries the group's toggle-all checkbox is not present in
-    // the panel — nothing to write to, so the sync must bail rather than null-
-    // deref. Pinned so the O(1) path fails open like the full-rescan path
-    // does.
-    const uiContainer = document.createElement("div");
-    const ui = {
-      uiContainer,
-      checkedCount: {},
-      T: (k: string) => k,
-      listPanel: {
-        checkedCount: {},
-        foldedRoles: {},
-        T: (k: string) => k,
-      },
-    } as unknown as LayerUI;
-
-    expect(() => syncToggleAllFromCount(ui, ROLE.OVERLAY)).not.toThrow();
-  });
-
-  it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
-    // The header row resolves but carries no [data-role="toggle-all"] input:
-    // there is nothing to paint, so the sync must bail rather than write into
-    // a null element — the same guard the full-rescan path already carries.
-    const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}"></div>`;
-    const ui = {
-      uiContainer,
-      checkedCount: {},
-      listPanel: { checkedCount: {}, T: (k: string) => k },
-      T: (k: string) => k,
-    } as unknown as LayerUI;
-
-    expect(() => syncToggleAllFromCount(ui, ROLE.OVERLAY)).not.toThrow();
-  });
-
-  it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
-    // A thin stub that skips the constructor leaves checkedCount empty; the
-    // write must still degrade to `checked=false, indeterminate=false` rather
-    // than crashing on the `?? { total: 0, on: 0 }` fallback. This also pins
-    // the empty-group tri-state semantics: `on === 0` means nothing checked,
-    // not a partial state.
-    const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
-    const ui = {
-      uiContainer,
-      checkedCount: {},
-      listPanel: { checkedCount: {}, T: (k: string) => k },
-      T: (k: string) => k,
-    } as unknown as LayerUI;
-
-    syncToggleAllFromCount(ui, ROLE.OVERLAY);
-
-    const all = uiContainer.querySelector<HTMLInputElement>(
-      '[data-role="toggle-all"]',
-    )!;
-    expect(all.checked).toBe(false);
-    expect(all.indeterminate).toBe(false);
   });
 });
 

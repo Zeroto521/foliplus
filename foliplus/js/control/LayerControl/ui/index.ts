@@ -43,7 +43,6 @@ import {
   handleChange,
   syncNoBasemap,
   syncToggleAll,
-  syncToggleAllFromCount,
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel, openAttrsPanel } from "./overlayPanel/attr.js";
@@ -385,9 +384,6 @@ class LayerUI implements LayerUISurface {
   }
   syncToggleAll(role: string) {
     return syncToggleAll(this, role);
-  }
-  syncToggleAllFromCount(role: string) {
-    return syncToggleAllFromCount(this, role);
   }
   syncNoBasemap() {
     return syncNoBasemap(this);

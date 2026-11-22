@@ -487,7 +487,11 @@ describe("the four readers agree on a half-broken record", () => {
     // The sync counters agree: the overlay row counts as on, the base row
     // keeps the no-basemap hatch off.
     syncToggleAll(ui, ROLE.OVERLAY);
-    expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({ total: 1, on: 1 });
+    const all = ui.uiContainer!.querySelector(
+      `.foliplus-layer-toggle-all[data-role="${ROLE.OVERLAY}"] [data-role="toggle-all"]`,
+    ) as HTMLInputElement;
+    expect(all.checked).toBe(true);
+    expect(all.indeterminate).toBe(false);
     syncNoBasemap(ui);
     expect(ui.c.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
       false,

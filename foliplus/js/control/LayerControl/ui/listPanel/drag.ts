@@ -261,10 +261,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     // named rather than silently ignored.
     if (folderDropZone(row, event.clientY) === "into") {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      row.classList.remove(
-        CONST.CLASSES.DRAG_OVER_TOP,
-        CONST.CLASSES.DRAG_OVER_BOTTOM,
-      );
+      row.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
       ui.listPanel.lastDragOverItem = null;
       showDragHint(ui, "no_nest");
       return;

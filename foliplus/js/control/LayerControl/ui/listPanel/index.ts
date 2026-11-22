@@ -62,12 +62,10 @@ import {
 } from "./rowView.js";
 import {
   applyVisibility,
-  bumpCheckedCount,
   getLayerItems,
   handleChange,
   syncNoBasemap,
   syncToggleAll,
-  syncToggleAllFromCount,
   toggleAll,
 } from "./visibility.js";
 import type { ListCursor } from "#core/interaction/index.js";
@@ -102,10 +100,6 @@ class ListPanel {
    *  (foldedRoles) is checked first and this falls back under it. See
    *  control/LayerControl/declaredRole.ts. */
   authorDefaultFoldedRoles: Record<string, boolean> = {};
-  /** Per-role tri-state checkbox counts. Rebuilt by the full-scan
-   *  `syncToggleAll` at reconcile points; kept in sync by
-   *  `bumpCheckedCount` on each single-row toggle. */
-  checkedCount: Record<string, { total: number; on: number }> = {};
   /** Index of the currently-navigable row the cursor is parked on, or null
    *  when the cursor is cleared (Escape, outside press). */
   activeIdx: number | null = null;
@@ -190,8 +184,6 @@ export {
   getLayerItems,
   toggleAll,
   syncToggleAll,
-  syncToggleAllFromCount,
-  bumpCheckedCount,
   syncNoBasemap,
   applyVisibility,
   handleChange,

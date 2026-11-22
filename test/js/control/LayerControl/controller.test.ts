@@ -5310,10 +5310,20 @@ it("a registration announces after the group count has settled", () => {
       },
     ],
   });
-  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-    total: 3,
-    on: 3,
-  });
+  // The header checkbox is the group count: 3 of 3 reads "all on".
+  const headerState = () => {
+    const row = ui.uiContainer!.querySelector(
+      `.foliplus-layer-toggle-all[data-role="${ROLE.OVERLAY}"]`,
+    );
+    const cb = row?.querySelector(
+      '[data-role="toggle-all"]',
+    ) as HTMLInputElement | null;
+    return {
+      checked: cb?.checked ?? null,
+      indeterminate: cb?.indeterminate ?? null,
+    };
+  };
+  expect(headerState()).toEqual({ checked: true, indeterminate: false });
 
   // The late layer arrives already hidden: a stored dimension is the only
   // state a late registration can carry, and it is the delta the entry
@@ -5321,10 +5331,13 @@ it("a registration announces after the group count has settled", () => {
   setIntent(ui, "fourth", "visible", false);
   ui.intentStore.seedProvenance("fourth", ["visible"]);
 
-  const countsAtDelivery: { total: number; on: number }[] = [];
+  const headersAtDelivery: {
+    checked: boolean | null;
+    indeterminate: boolean | null;
+  }[] = [];
   ui.events.on(EVENTS.LAYER_CHANGE, payload => {
     if (payload.id !== "fourth") return;
-    countsAtDelivery.push({ ...ui.listPanel.checkedCount[ROLE.OVERLAY] });
+    headersAtDelivery.push(headerState());
   });
 
   manager.registerLayer({
@@ -5334,8 +5347,13 @@ it("a registration announces after the group count has settled", () => {
     layer: polygonLayer(),
   });
 
-  expect(countsAtDelivery.length).toBeGreaterThan(0);
-  expect(countsAtDelivery[0]).toEqual({ total: 4, on: 3 });
+  expect(headersAtDelivery.length).toBeGreaterThan(0);
+  // 3 of 4 visible: the header is partial, not "all on" — the count settled
+  // before the announce.
+  expect(headersAtDelivery[0]).toEqual({
+    checked: false,
+    indeterminate: true,
+  });
 });
 
 it("a register whose notify destroys the control returns null", () => {
