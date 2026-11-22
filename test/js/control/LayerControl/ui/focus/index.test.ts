@@ -2646,8 +2646,9 @@ describe("LayerUI focus", () => {
         restoreZ: vi.fn(),
       } as never);
       vi.spyOn(manager, "getLayerPanes").mockReturnValue(["overlayPane"]);
-      const getPaneSpy = vi.spyOn(manager.map, "getPane").mockImplementation((() =>
-        document.createElement("div")) as any);
+      const getPaneSpy = vi
+        .spyOn(manager.map, "getPane")
+        .mockImplementation((() => document.createElement("div")) as any);
 
       bringFocusedLayerToFront(ui, layerInfo);
 
