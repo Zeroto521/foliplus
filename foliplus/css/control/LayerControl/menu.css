@@ -54,6 +54,11 @@
      this block owns position/size and the action-menu specifics. */
   .foliplus-layer-more-menu {
     position: fixed;
+    /* The menu is a descendant of the row that owns it, so it would inherit
+       that row's weight — the role row is semibold, the folder row medium and
+       the layer row normal, which made the three menus look different. The
+       menu is a floating panel, not part of the row: it states its own. */
+    font-weight: var(--foliplus-font-weight-normal);
     /* left/top are written by placeMoreMenu (the computePlacement engine).
        fixed escapes the panel's scroll box, so a bottom-row menu is no longer
        clipped by it; the engine caps maxHeight to the clip box instead. */
