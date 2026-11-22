@@ -10,6 +10,7 @@ import { ensureModes } from "#core/lifecycle/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
+import { folderFoldKey } from "#control/LayerControl/declaredFolder.js";
 import { handleMoreClick } from "#control/LayerControl/interaction.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { seedIntentMap } from "#control/LayerControl/ui/intent.js";
@@ -1949,6 +1950,65 @@ describe("ui/list folder rows (menu)", () => {
     expect(isFolderFolded(ui, "overlay", "water")).toBe(false);
   });
 
+  it("role menu disables expand/collapse entries for the reason they would do nothing", () => {
+    // The expand/collapse entries are disabled when the role owns no folder, or
+    // when every folder is already in the target state. An all-folded role
+    // disables only expand (collapse is the state they are in); a role with no
+    // folders disables both. The tooltip carries the reason, the same contract
+    // as the empty-folder cleanup.
+    const base = {
+      version: 2,
+      folders: [{ key: "roads", name: "roads" }],
+      order: { overlay: ["roads"] },
+      members: {},
+    };
+    const { ui } = initFixture({
+      seedLayout: { ...base },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const openRole = () => {
+      const roleRow = ui.uiContainer!.querySelector(
+        `.${CONST.CLASSES.ROLE_ROW}`,
+      ) as HTMLElement;
+      ui.openRoleMenu(roleRow);
+      return ui.overlayPanel.activeMenu!.menu!;
+    };
+    const entry = (menu: HTMLElement, action: string) =>
+      menu.querySelector<HTMLElement>(`button[data-action="${action}"]`)!;
+
+    // Every folder folded: expand has work to do, collapse is the state the
+    // role is already in.
+    ui.listPanel.foldedFolders[folderFoldKey("overlay", "roads")] = true;
+    {
+      const menu = openRole();
+      const expand = entry(menu, CONST.ACTION.EXPAND_ALL);
+      const collapse = entry(menu, CONST.ACTION.COLLAPSE_ALL);
+      expect(expand.getAttribute("aria-disabled")).toBe("false");
+      expect(expand.getAttribute("title")).toBe(ui.T("expand_all_tooltip"));
+      expect(collapse.getAttribute("aria-disabled")).toBe("true");
+      expect(collapse.getAttribute("title")).toBe(ui.T("collapse_all_none"));
+    }
+
+    // Every folder unfolded: the mirror image.
+    ui.listPanel.foldedFolders[folderFoldKey("overlay", "roads")] = false;
+    {
+      const menu = openRole();
+      const expand = entry(menu, CONST.ACTION.EXPAND_ALL);
+      const collapse = entry(menu, CONST.ACTION.COLLAPSE_ALL);
+      expect(expand.getAttribute("aria-disabled")).toBe("true");
+      expect(expand.getAttribute("title")).toBe(ui.T("expand_all_none"));
+      expect(collapse.getAttribute("aria-disabled")).toBe("false");
+      expect(collapse.getAttribute("title")).toBe(ui.T("collapse_all_tooltip"));
+    }
+  });
   it("folder menu rename-folder opens an inline rename on the folder row", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
