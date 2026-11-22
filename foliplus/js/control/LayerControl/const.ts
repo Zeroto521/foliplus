@@ -128,6 +128,10 @@ const CLASSES = {
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
   /** A folder row the dragged layer would join. */
   DRAG_OVER_INTO: "foliplus-layer-drag-over-into",
+  /** A drop the panel refuses (nesting a folder in a folder, a group in a
+   *  folder): the row draws a dashed outline so the zone reads as blocked
+   *  rather than as a dead strip that silently swallows the pointer. */
+  DRAG_OVER_BLOCKED: "foliplus-layer-drag-over-blocked",
   DRAGGING: "foliplus-layer-dragging",
   FOLD_BTN: "foliplus-layer-fold-btn",
   FOLDED: "foliplus-layer-folded",
@@ -189,11 +193,11 @@ const CLASSES = {
   /** Divider above the ⋮ menu's destructive entry — its own <li> so the
    *  keyboard order stays one slot per entry. */
   MENU_DIVIDER: "foliplus-layer-more-menu-divider",
-  /** The ⋮ menu's delete label, kept in its own element so the armed state
+  /** The ⋮ menu's delete label, kept in its own element so the pending state
    *  can swap the text without rebuilding the entry. */
   MENU_DELETE_LABEL: "foliplus-layer-more-menu-delete-label",
   /** The ⋮ menu's delete entry while it waits for its confirming click. */
-  MENU_DELETE_ARMED: "foliplus-layer-more-menu-delete-armed",
+  MENU_DELETE_PENDING: "foliplus-layer-more-menu-delete-pending",
   /** The style panel's controls. Each is named by the builder *and* looked up
    *  again by the change handlers that read the panel back, so the names live
    *  here instead of being typed twice and drifting. */

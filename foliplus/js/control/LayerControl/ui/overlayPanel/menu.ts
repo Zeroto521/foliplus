@@ -49,7 +49,7 @@ import * as SVGs from "#control/LayerControl/icon.js";
  *                   to a long-lived inline editor.
  *   5. Attributes — opens the read-only detail panel. Display-only, never
  *                   disabled, so it closes the quiet part of the list.
- *   6. Delete     — behind a divider, the one destructive entry. Armed in
+ *   6. Delete     — behind a divider, the one destructive entry. Pending in
  *                   place on the first click and executed on the second; it is
  *                   rendered for every layer. The label varies by semantics:
  *                   "Delete Layer" for user-owned data layers, "Clear Data"
@@ -79,7 +79,7 @@ import * as SVGs from "#control/LayerControl/icon.js";
  *  container (`_isClickDisabled`); a detached target has no control ancestor
  *  left to find the `_leaflet_disable_click` marker on, so the press would land
  *  on the map as a real click — e.g. it drops a marker while a MeasureControl
- *  mode is armed. Swallowing it here keeps the "a click inside the control is
+ *  mode is pending. Swallowing it here keeps the "a click inside the control is
  *  not a map click" guarantee that `disableClickPropagation` gave us while the
  *  menu sat in the document. */
 const handleMenuClick = (ui: LayerUI, event: Event): void => {
@@ -117,15 +117,8 @@ const placeMoreMenu = (ui: LayerUI): void => {
   const open = ui.overlayPanel.activeMenu;
   if (!open) return;
   const { item, menu } = open;
-  // Pin the width on the first placement. The menu sizes to its widest item
-  // (`width: max-content`), and arming a destructive item swaps a long label
-  // for a short one ("清理空文件夹" → "确认删除") — without a pin the whole menu
-  // narrows mid-gesture, which reads as the panel jumping under the pointer.
-  // The element is rebuilt per open, so an empty inline width means "first
-  // placement"; later re-places keep the pinned value.
-  if (menu.style.width === "") {
-    menu.style.width = `${menu.getBoundingClientRect().width}px`;
-  }
+  // The width is fixed by CSS (`--foliplus-menu-width`), so confirming an item
+  // cannot resize the menu and no inline pin is needed here.
   const btn = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`);
   const anchor = (btn ?? item).getBoundingClientRect();
   const clip = item.closest<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
@@ -436,26 +429,26 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
  *  not "disabled delete". */
 type DeleteMode = "clear" | "delete" | "absent";
 
-/** How long an armed delete entry waits for its confirming click. Anything
- *  that closes the menu disarms it anyway, so this only covers the case where
+/** How long an pending delete entry waits for its confirming click. Anything
+ *  that closes the menu disconfirms it anyway, so this only covers the case where
  *  the entry stays focused and forgotten. */
-const DELETE_ARMED_TIMEOUT_MS = 3000;
+const DELETE_CONFIRM_TIMEOUT_MS = 3000;
 
-/** The one armed delete entry, if any. Only one menu is open at a time, and
- *  armDelete disarms the previous entry before arming, so a module-level
+/** The one pending delete entry, if any. Only one menu is open at a time, and
+ *  confirmDelete disconfirms the previous entry before confirming, so a module-level
  *  pointer cannot refer to two rows at once. */
-let armedDelete: {
+let pendingDelete: {
   ui: LayerUI;
   label: HTMLElement;
   menuItem: HTMLElement;
-  /** The entry's idle label text, captured before arming so a label carrying a
+  /** The entry's idle label text, captured before confirming so a label carrying a
    *  placeholder (the empty-folder count) restores verbatim. */
   idleText: string;
-  /** Locale key the entry shows while armed. */
+  /** Locale key the entry shows while pending. */
   confirmKey: string;
   originalTitle: string;
 } | null = null;
-let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
+let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
@@ -543,17 +536,17 @@ const deleteConfirmKey = (menuItem: HTMLElement): string =>
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
  *  without borrowing the accent color (which already means hover and focus). */
-const armDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
+const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
   const label = menuItem.querySelector<HTMLElement>(
     `.${CONST.CLASSES.MENU_DELETE_LABEL}`,
   );
   if (!label) return;
-  disarmDelete();
+  disconfirmDelete();
   const confirmKey = deleteConfirmKey(menuItem);
   // The title attribute is set by the entry builder at construction, so there
   // is no null to fall back to.
   const originalTitle = menuItem.getAttribute("title")!;
-  armedDelete = {
+  pendingDelete = {
     ui,
     label,
     menuItem,
@@ -562,35 +555,35 @@ const armDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
     originalTitle,
   };
   label.textContent = ui.T(confirmKey);
-  menuItem.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
+  menuItem.classList.add(CONST.CLASSES.MENU_DELETE_PENDING);
   menuItem.setAttribute("title", ui.T(confirmKey));
-  armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
+  pendingDeleteTimer = setTimeout(disconfirmDelete, DELETE_CONFIRM_TIMEOUT_MS);
 };
 
 /** Back out of the confirming state. Idempotent, and called on every path that
- *  closes the menu so an abandoned attempt never leaves an armed entry behind. */
-const disarmDelete = (): void => {
-  if (armedDeleteTimer) clearTimeout(armedDeleteTimer);
-  armedDeleteTimer = undefined;
-  const armed = armedDelete;
-  if (!armed) return;
-  armed.label.textContent = armed.idleText;
-  armed.menuItem.setAttribute("title", armed.originalTitle);
-  armed.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
-  armedDelete = null;
+ *  closes the menu so an abandoned attempt never leaves an pending entry behind. */
+const disconfirmDelete = (): void => {
+  if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
+  pendingDeleteTimer = undefined;
+  const pending = pendingDelete;
+  if (!pending) return;
+  pending.label.textContent = pending.idleText;
+  pending.menuItem.setAttribute("title", pending.originalTitle);
+  pending.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_PENDING);
+  pendingDelete = null;
 };
 
 /** The two-step delete, shared by the click and the keyboard path. Returns
  *  true when the delete fired and the menu should close; false means the entry
- *  was only armed, so the menu stays open and the user sees what they are about
+ *  was only pending, so the menu stays open and the user sees what they are about
  *  to confirm. */
 const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
-  if (!menuItem.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
-    armDelete(ui, menuItem);
+  if (!menuItem.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)) {
+    confirmDelete(ui, menuItem);
     return false;
   }
   const action = menuItem.dataset.action;
-  disarmDelete();
+  disconfirmDelete();
   if (action === CONST.ACTION.CLEAN_EMPTY_FOLDERS) {
     // The role row owns the identity; the menu closes first because the action
     // rerenders the list the menu is anchored to.
@@ -639,7 +632,7 @@ const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
   ui.overlayPanel.activeMenu = null;
-  disarmDelete();
+  disconfirmDelete();
   menu.remove();
   if (setFocus) item.focus();
 };
@@ -771,7 +764,7 @@ const MENU_ACTIONS: Record<
     return { closeMenu: true, restoreRowFocus: true };
   },
   [CONST.ACTION.DELETE_LAYER]: (ui, menuItem) => {
-    // Armed in place: the first activation only arms, so the menu stays open
+    // Pending in place: the first activation only confirms, so the menu stays open
     // and the confirming label is visible; the second one deletes.
     if (activateDeleteItem(ui, menuItem)) {
       return { closeMenu: true, restoreRowFocus: true };
@@ -779,7 +772,7 @@ const MENU_ACTIONS: Record<
     return { closeMenu: false, restoreRowFocus: false };
   },
   [CONST.ACTION.DELETE_FOLDER]: (ui, menuItem) => {
-    // Same two-step confirm as a layer delete: the first activation only arms,
+    // Same two-step confirm as a layer delete: the first activation only confirms,
     // so the menu stays open and the confirming label is visible.
     if (activateDeleteItem(ui, menuItem)) {
       return { closeMenu: true, restoreRowFocus: true };
@@ -788,7 +781,7 @@ const MENU_ACTIONS: Record<
   },
   [CONST.ACTION.CLEAN_EMPTY_FOLDERS]: (ui, menuItem) => {
     // Same two-step confirm as every other delete entry: the first activation
-    // only arms, so the menu stays open and the confirming label is visible.
+    // only confirms, so the menu stays open and the confirming label is visible.
     if (activateDeleteItem(ui, menuItem)) {
       return { closeMenu: true, restoreRowFocus: true };
     }

@@ -687,7 +687,7 @@ describe("LayerUI menu", () => {
     });
   });
 
-  // ─────────────────── delete (armed two-click) ───────────────────
+  // ─────────────────── delete (pending two-click) ───────────────────
 
   describe("delete-layer menu item", () => {
     const deleteSpy = vi.fn();
@@ -722,7 +722,7 @@ describe("LayerUI menu", () => {
       expect(deleteBtn).not.toBeNull();
       // The divider is the item immediately before the destructive entry.
       expect(divider!.nextElementSibling).toBe(deleteBtn);
-      expect(deleteBtn!.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(
+      expect(deleteBtn!.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
         false,
       );
     });
@@ -836,18 +836,18 @@ describe("LayerUI menu", () => {
       expect(deleteLi.title).toBe("LayerControl.clear_data_tooltip");
     });
 
-    it("arms on the first click and deletes on the second, then closes", () => {
+    it("confirms on the first click and deletes on the second, then closes", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
 
       click(deleteLi);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
       expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
         "LayerControl.delete_confirm",
       );
       expect(deleteSpy).not.toHaveBeenCalled();
-      // Menu stays open so the user sees the arming.
+      // Menu stays open so the user sees the confirming.
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
 
       click(deleteLi);
@@ -855,7 +855,7 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("arms on the first click and deletes on the second for the color basemap", () => {
+    it("confirms on the first click and deletes on the second for the color basemap", () => {
       const item = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="${CONST.SOLID_BASEMAP_ID}"]`,
       ) as HTMLElement;
@@ -863,7 +863,7 @@ describe("LayerUI menu", () => {
       const deleteLi = deleteEntryOf(item);
 
       click(deleteLi);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
       expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
         "LayerControl.delete_confirm",
       );
@@ -875,28 +875,30 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("arms again rather than firing when the menu is reopened", () => {
+    it("confirms again rather than firing when the menu is reopened", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       let deleteLi = deleteEntryOf(item);
       click(deleteLi);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
 
       ui.closeMoreMenu(true);
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
 
-      // The armed state belongs to the open menu, not to the layer: a fresh
-      // menu must start unarmed instead of firing the delete on its first click.
+      // The pending state belongs to the open menu, not to the layer: a fresh
+      // menu must start unpending instead of firing the delete on its first click.
       ui.openMoreMenu(item);
       deleteLi = deleteEntryOf(item);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+        false,
+      );
       click(deleteLi);
       expect(deleteSpy).not.toHaveBeenCalled();
     });
 
-    it("arms on the first click and deletes on the second for a component layer's clear entry", () => {
+    it("confirms on the first click and deletes on the second for a component layer's clear entry", () => {
       // Component layers (Measure, Heatmap) render the clear branch of
-      // armDelete / disarmDelete: isClear=true flows through the confirm
+      // confirmDelete / disconfirmDelete: isClear=true flows through the confirm
       // label, the tooltip, and the disarm text. Exercising the delete-mode
       // path alone leaves those branches partial.
       manager.registerLayer({
@@ -914,7 +916,7 @@ describe("LayerUI menu", () => {
       expect(deleteLi.dataset.mode).toBe("clear");
 
       click(deleteLi);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
       expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
         "LayerControl.clear_data_confirm",
       );
@@ -926,7 +928,7 @@ describe("LayerUI menu", () => {
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(0);
     });
 
-    it("auto-disarms after the arm timeout", () => {
+    it("auto-disconfirms after the arm timeout", () => {
       vi.useFakeTimers();
       try {
         const item = findItem(ui, "overlay1");
@@ -934,10 +936,12 @@ describe("LayerUI menu", () => {
         const deleteLi = deleteEntryOf(item);
 
         click(deleteLi);
-        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+          true,
+        );
 
         vi.advanceTimersByTime(3000);
-        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(
+        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
           false,
         );
         expect(deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
@@ -945,16 +949,18 @@ describe("LayerUI menu", () => {
         );
         expect(deleteLi.title).toBe("LayerControl.delete_layer_tooltip");
 
-        // A click after the timeout re-arms rather than firing.
+        // A click after the timeout re-confirms rather than firing.
         click(deleteLi);
         expect(deleteSpy).not.toHaveBeenCalled();
-        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+        expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+          true,
+        );
       } finally {
         vi.useRealTimers();
       }
     });
 
-    it("activateDeleteItem arms on the first call and fires on the second", () => {
+    it("activateDeleteItem confirms on the first call and fires on the second", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
@@ -966,8 +972,8 @@ describe("LayerUI menu", () => {
     });
 
     it("activateDeleteItem no-ops on an entry it cannot arm", () => {
-      // armDelete needs the label span to swap its text. Without one it stops
-      // rather than arming a blank entry, and reports false so the caller
+      // confirmDelete needs the label span to swap its text. Without one it stops
+      // rather than confirming a blank entry, and reports false so the caller
       // leaves the menu open.
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -975,19 +981,21 @@ describe("LayerUI menu", () => {
       deleteLi.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.remove();
 
       expect(activateDeleteItem(ui, deleteLi)).toBe(false);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(false);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+        false,
+      );
       expect(deleteSpy).not.toHaveBeenCalled();
     });
 
-    it("an orphaned armed entry deletes nothing", () => {
+    it("an orphaned pending entry deletes nothing", () => {
       // The confirm path reads the layer id off activeMenu. If the entry is
-      // still armed after the menu it belonged to is gone, the id is empty and
+      // still pending after the menu it belonged to is gone, the id is empty and
       // no layer is touched rather than a wrong one.
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
       click(deleteLi);
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
 
       ui.overlayPanel.activeMenu = null;
 
@@ -995,7 +1003,7 @@ describe("LayerUI menu", () => {
       expect(deleteSpy).toHaveBeenCalledWith("");
     });
 
-    it("native activation (Enter -> click) arms then deletes the layer", () => {
+    it("native activation (Enter -> click) confirms then deletes the layer", () => {
       const item = findItem(ui, "overlay1");
       // Open the menu the way the keyboard does: Enter on the ⋮ button. This
       // also establishes the row cursor that handleKeyDown needs in place.
@@ -1015,7 +1023,7 @@ describe("LayerUI menu", () => {
 
       deleteLi.click();
       expect(deleteSpy).not.toHaveBeenCalled();
-      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
 
       deleteLi.click();
       expect(deleteSpy).toHaveBeenCalledWith("overlay1");
@@ -1058,11 +1066,13 @@ describe("LayerUI menu", () => {
         expect(folderLi).not.toBeNull();
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });
         Object.defineProperty(event, "target", { value: folderLi });
-        // First activation only arms the entry (issue 11: every delete is a
+        // First activation only confirms the entry (issue 11: every delete is a
         // two-step confirm, folders included).
         handleMenuClick(ui, event);
         expect(folderSpy).not.toHaveBeenCalled();
-        expect(folderLi.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+        expect(folderLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+          true,
+        );
         handleMenuClick(ui, event);
         // The KEY, not the display name: after a rename the two diverge and a
         // name-keyed delete would silently miss the folder. The row's key is
@@ -1306,7 +1316,7 @@ describe("LayerUI menu", () => {
       // `_leaflet_disable_click` marker (`_isClickDisabled`). An item action can
       // close the menu — and the panel under it — mid-dispatch, which detaches
       // the pressed <li>; the walk then finds no control ancestor and the press
-      // lands on the map (with a MeasureControl mode armed it drops a marker).
+      // lands on the map (with a MeasureControl mode pending it drops a marker).
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
       const focusSpy = vi.fn();
@@ -1598,7 +1608,7 @@ describe("LayerUI menu", () => {
       expect(spies.rename).toHaveBeenLastCalledWith("overlay1");
     });
 
-    it("runs the two-step delete on click (arms, then deletes)", () => {
+    it("runs the two-step delete on click (confirms, then deletes)", () => {
       const spies = spyUi();
       const item = findItem(ui, "overlay1");
       const menu = openMenuFor(item);
@@ -1606,7 +1616,7 @@ describe("LayerUI menu", () => {
 
       clickOn(li);
       expect(spies.del).not.toHaveBeenCalled();
-      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
       expect(menuGone(item)).toBe(false);
 
       clickOn(li);
@@ -1614,14 +1624,14 @@ describe("LayerUI menu", () => {
       expect(menuGone(item)).toBe(true);
     });
 
-    it("runs the two-step delete on Enter (arms, then deletes)", () => {
+    it("runs the two-step delete on Enter (confirms, then deletes)", () => {
       const spies = spyUi();
       const item = findItem(ui, "overlay1");
       const li = entryFor(openMenuFor(item), CONST.ACTION.DELETE_LAYER);
 
       pressKey(li);
       expect(spies.del).not.toHaveBeenCalled();
-      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+      expect(li.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
       expect(menuGone(item)).toBe(false);
 
       pressKey(li);
@@ -2453,7 +2463,7 @@ describe("ui/list folder rows (menu)", () => {
     expect(ui.overlayPanel.activeMenu).toBeNull();
     outside.remove();
   });
-  it("clean-empty-folders arms on the first click and fires on the second", () => {
+  it("clean-empty-folders confirms on the first click and fires on the second", () => {
     // An empty folder is a key in the role's block order with no member. A root
     // layer (folder: "") is not a member of any folder, so "empty" stays empty.
     const cleanSpy = vi.fn();
@@ -2483,14 +2493,14 @@ describe("ui/list folder rows (menu)", () => {
     expect(label.textContent).toBe(ui.T("clean_empty_folders"));
 
     // The menu-local click listener dispatches through handleMenuClick: the first
-    // activation only arms (label swaps to the confirm text, menu stays open).
+    // activation only confirms (label swaps to the confirm text, menu stays open).
     const clickOn = (el: HTMLElement) => {
       const event = new MouseEvent("click", { bubbles: true, cancelable: true });
       Object.defineProperty(event, "target", { value: el });
       menu.dispatchEvent(event);
     };
     clickOn(btn);
-    expect(btn.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+    expect(btn.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
     expect(label.textContent).toBe(ui.T("delete_confirm"));
     expect(cleanSpy).not.toHaveBeenCalled();
 

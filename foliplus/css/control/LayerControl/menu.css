@@ -69,14 +69,15 @@
        the owner row straight into its menu, so the owner stays lit the whole
        way: the menu is its descendant. */
     margin: 0;
-    /* Width: the menu sizes to its widest item (max-content) so a long label
-       ("Confirm Delete") widens the menu rather than clipping, but never
-       narrower than the shared floor — the role, folder, layer-group and layer
-       menus then read as one surface instead of four widths. max-width caps it
-       at the shared menu cap; the placement engine writes the frame cap as
-       inline maxWidth, so a menu near the viewport edge still fits. */
-    width: max-content;
-    min-width: var(--foliplus-menu-min-width);
+    /* Width: one fixed width for every overflow menu, so the role, folder,
+       layer-group and layer menus read as one surface instead of four widths.
+       Fixed rather than max-content because arming a destructive item swaps
+       the label ("Clean Empty" → "Confirm") and a content-sized menu
+       would jump mid-gesture; the token is wide enough for the widest label in
+       either language, so nothing clips. max-width still caps it at the shared
+       menu cap; the placement engine writes the frame cap as inline maxWidth,
+       so a menu near the viewport edge still fits. */
+    width: var(--foliplus-menu-width);
     max-width: var(--foliplus-menu-max-width);
     padding: var(--foliplus-space-xs) 0;
     display: none;

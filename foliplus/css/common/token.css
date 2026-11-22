@@ -448,7 +448,11 @@
    *  folder / layer group / layer) reads as the same surface instead of sizing
    *  to its own widest label; a genuinely longer label still grows past it
    *  because the menu keeps width: max-content. */
-  --foliplus-menu-min-width: 104px;
+  /* One width for every overflow menu (role / folder / layer group / layer):
+     the four surfaces read as one control instead of four widths. Sized to the
+     widest label in either language — "清理空文件夹" / "Clean Empty" — so the
+     armed destructive label ("确认" / "Confirm") fits without clipping. */
+  --foliplus-menu-width: 104px;
   /* Max height of a menu/panel that needs to scroll (search results). The
      scheme picker and the dropdown keep their own geometry and do not use
      this default — see common/scheme-picker.css and ui/listbox.ts. */
