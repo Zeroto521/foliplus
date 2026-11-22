@@ -8,6 +8,7 @@ import {
   applyProjectionAll,
   notifyDeltas,
 } from "../apply.js";
+import { ROW_NOUN, type RowNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { showFocusDisabledHint } from "./hint.js";
@@ -25,11 +26,12 @@ import * as CONST from "#control/LayerControl/const.js";
 
 /** Which noun a focus sentence uses for this row: a layer group reads as a
  *  group, everything else as a layer. A folder row never reaches this path
- *  today (folder focus is its own feature); when it does, it passes "folder". */
+ *  today (folder focus is its own feature); when it does, it passes
+ *  `ROW_NOUN.FOLDER`. */
 const rowNoun = (
   layerInfo: Parameters<typeof isContainerRow>[0],
   layer: Parameters<typeof isContainerRow>[1],
-): "layer" | "group" => (isContainerRow(layerInfo, layer) ? "group" : "layer");
+): RowNoun => (isContainerRow(layerInfo, layer) ? ROW_NOUN.GROUP : ROW_NOUN.LAYER);
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {

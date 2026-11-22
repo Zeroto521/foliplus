@@ -1,7 +1,7 @@
 // Focus-layer disabled-state metadata: the reason codes, their locale keys,
 // and the shared hint shown when a keyboard / double-click / overflow path
 // tries to focus a row the surface cannot focus.
-import { type RowNoun, withNoun } from "../rowNoun.js";
+import { ROW_NOUN, type RowNoun, withNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
 import { ROLE } from "#core/layer/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
@@ -35,7 +35,7 @@ const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
 const focusDisabledText = (
   ui: LayerUI,
   reason: FocusDisabled,
-  noun: RowNoun = "layer",
+  noun: RowNoun = ROW_NOUN.LAYER,
 ): string => withNoun(ui, focusDisabledLocaleKey(reason), noun);
 
 /** Why the ⋮ menu / keyboard / double-click path should not focus `item`.
@@ -67,7 +67,7 @@ const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReaso
 const showFocusDisabledHint = (
   ui: LayerUI,
   reason: FocusDisabled,
-  noun: RowNoun = "layer",
+  noun: RowNoun = ROW_NOUN.LAYER,
 ): void => {
   ui.c.map.foliplus!.showHint(
     ui.config.name,

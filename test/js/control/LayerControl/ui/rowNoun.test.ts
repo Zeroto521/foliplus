@@ -1,37 +1,39 @@
-// test/js/control/LayerControl/ui/noun.test.ts — the {noun} substitution.
+// LayerControl ui/rowNoun — the row noun vocabulary and the {noun} substitution.
 import { describe, expect, it } from "vitest";
-import { withNoun } from "#control/LayerControl/ui/rowNoun.js";
+import { ROW_NOUN, nounKey, withNoun } from "#control/LayerControl/ui/rowNoun.js";
 
-/** A translator that resolves from a table and echoes an unknown key. */
-const translator = (table: Record<string, string>) =>
-  ({ T: (key: string) => table[key] ?? key }) as never;
-
-describe("LayerControl ui: withNoun", () => {
-  it("fills the {noun} placeholder from the noun vocabulary", () => {
-    const ui = translator({
-      focus_tooltip: "Zoom to this {noun} and highlight it",
+const ui = {
+  T: (key: string) =>
+    ({
+      focus_tooltip: "Focus on this {noun}",
+      focus_base: "Base map cannot be focused",
       noun_layer: "layer",
       noun_folder: "folder",
       noun_group: "layer group",
-    });
+    })[key] ?? key,
+} as never;
 
-    expect(withNoun(ui, "focus_tooltip", "layer")).toBe(
-      "Zoom to this layer and highlight it",
-    );
-    expect(withNoun(ui, "focus_tooltip", "folder")).toBe(
-      "Zoom to this folder and highlight it",
-    );
-    expect(withNoun(ui, "focus_tooltip", "group")).toBe(
-      "Zoom to this layer group and highlight it",
+describe("LayerControl ui: withNoun", () => {
+  it("fills the placeholder with the noun's own locale key", () => {
+    expect(withNoun(ui, "focus_tooltip", ROW_NOUN.LAYER)).toBe("Focus on this layer");
+    expect(withNoun(ui, "focus_tooltip", ROW_NOUN.FOLDER)).toBe("Focus on this folder");
+    expect(withNoun(ui, "focus_tooltip", ROW_NOUN.GROUP)).toBe(
+      "Focus on this layer group",
     );
   });
 
   it("returns a sentence without a placeholder unchanged", () => {
-    const ui = translator({
-      focus_base: "Base map cannot be focused",
-      noun_layer: "layer",
-    });
+    expect(withNoun(ui, "focus_base", ROW_NOUN.LAYER)).toBe(
+      "Base map cannot be focused",
+    );
+  });
 
-    expect(withNoun(ui, "focus_base", "layer")).toBe("Base map cannot be focused");
+  it("names every noun's locale key from the one vocabulary", () => {
+    // A noun added to ROW_NOUN without a noun_<noun> locale entry would
+    // otherwise surface as the raw key inside a sentence.
+    for (const noun of Object.values(ROW_NOUN)) {
+      expect(nounKey(noun)).toBe(`noun_${noun}`);
+      expect(ui.T(nounKey(noun))).not.toBe(nounKey(noun));
+    }
   });
 });
