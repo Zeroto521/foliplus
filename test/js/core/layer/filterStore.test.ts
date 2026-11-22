@@ -381,7 +381,9 @@ describe("filterStore — invariants", () => {
     // (b) An unrelated save (the filter surface) must not write the
     // declaration into persistence — only user-set values persist.
     store.setFilter("L1", "filter", enumFilter("marker"));
-    const persisted = JSON.parse(window.localStorage.getItem(filterStoreKey(fakeMap()))!);
+    const persisted = JSON.parse(
+      window.localStorage.getItem(filterStoreKey(fakeMap()))!,
+    );
     expect(persisted.layers.L1.sources.measure).toBeUndefined();
     expect(persisted.layers.L1.sources.filter.value).toEqual(enumFilter("marker"));
   });

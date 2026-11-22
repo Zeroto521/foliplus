@@ -10,8 +10,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
 import {
   type LayerFilter,
-  filterStoreKey,
   extractMarkerFields,
+  filterStoreKey,
   getLayerAlpha,
   setLayerAlpha,
 } from "#core/layer/index.js";
@@ -3198,7 +3198,9 @@ describe("HeatmapManager — filter contract (range branch)", () => {
       // The user's choice persists under the shared store key.
       const saved = manager.loadSavedConfig();
       expect(saved?.filters).toBeUndefined();
-      const storeRecord = JSON.parse(window.localStorage.getItem(filterStoreKey(manager.map))!);
+      const storeRecord = JSON.parse(
+        window.localStorage.getItem(filterStoreKey(manager.map))!,
+      );
       expect(storeRecord.layers[manager.layerId].sources.pts).toEqual({
         touched: true,
         value: USER_RANGE,
@@ -4424,7 +4426,9 @@ describe("HeatmapManager — versioned persisted config", () => {
       // The filter half lives under the shared store key, not the old key:
       // the old component key keeps only style fields now.
       expect(stored.filters).toBeUndefined();
-      const storeRecord = JSON.parse(window.localStorage.getItem(filterStoreKey(m1.map))!);
+      const storeRecord = JSON.parse(
+        window.localStorage.getItem(filterStoreKey(m1.map))!,
+      );
       expect(storeRecord.layers[m1.layerId].sources.r1).toEqual({
         touched: true,
         value: { kind: "atom", field: "value", op: "between", range: [1, 2] },
@@ -4490,7 +4494,9 @@ describe("HeatmapManager — persisted per-source filters", () => {
     const stored = JSON.parse(window.localStorage.getItem(KEY)!);
     // The filter half lives under the shared store key.
     expect(stored.filters).toBeUndefined();
-    const storeRecord = JSON.parse(window.localStorage.getItem(filterStoreKey(m1.map))!);
+    const storeRecord = JSON.parse(
+      window.localStorage.getItem(filterStoreKey(m1.map))!,
+    );
     expect(Object.keys(storeRecord.layers[m1.layerId].sources)).toEqual([
       "layer_a",
       "layer_b",

@@ -15,11 +15,11 @@ import {
   FILTER_SOURCE,
   FOLDER_NAME_MAX,
   GEOM_TYPE,
-  folderLayoutKey,
   type LayerFilterModel,
   LayerRuntimeStore,
   ROLE,
   Z_INDEX,
+  folderLayoutKey,
   getLayerAlpha,
 } from "#core/layer/index.js";
 import * as coreLayer from "#core/layer/index.js";

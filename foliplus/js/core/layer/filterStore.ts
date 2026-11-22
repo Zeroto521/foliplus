@@ -27,11 +27,11 @@ import {
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { createLogger } from "#platform/log.js";
 import {
+  type MapLike,
   loadRecord,
   removeRecord,
   saveRecord,
   scopedStorageKey,
-  type MapLike,
 } from "#platform/storage.js";
 
 /** The per-map storage key for a layer's filter record, scoped to its map

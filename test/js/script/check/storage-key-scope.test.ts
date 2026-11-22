@@ -54,7 +54,7 @@ const parseImports = (src: string, filePath: string): Import[] => {
     if (!spec.startsWith(".")) continue;
     const path = resolveImportPath(filePath, spec);
     if (m[1]) imports.push({ ns: m[1], names: [], path });
-    else if (m[2])
+    else if (m[2]) {
       imports.push({
         ns: null,
         names: m[2]
@@ -68,6 +68,7 @@ const parseImports = (src: string, filePath: string): Import[] => {
           .filter(Boolean),
         path,
       });
+    }
   }
   return imports;
 };
@@ -88,8 +89,9 @@ const scopedChainsIn = (src: string): Set<string> => {
     const objRe = /\{\s*([A-Za-z_$][\w$]*)\s*:\s*([^}]+?)\s*[,}]/g;
     let om: RegExpExecArray | null;
     while ((om = objRe.exec(rhs)) !== null) {
-      if ((om[1] === "KEY" || om[1] === "STORAGE_KEY") && IS_SCOPED_RHS(om[2]))
+      if ((om[1] === "KEY" || om[1] === "STORAGE_KEY") && IS_SCOPED_RHS(om[2])) {
         chains.add(`${name}.${om[1]}`);
+      }
     }
     // Multi-line object literal: `const HISTORY = {` ... closing `}` on a later line.
     if (/^\s*(?:export\s+)?(?:const|let)\s+[A-Za-z_$][\w$]*\s*=\s*\{\s*$/.test(line)) {
@@ -138,8 +140,9 @@ const findStorageCalls = (src: string, filePath: string): Call[] => {
       /const\s+(?:loadRecord|saveRecord|loadVersioned|saveVersioned|removeRecord)\s*=/.test(
         prefix,
       )
-    )
+    ) {
       continue;
+    }
     const openIdx = src.indexOf("(", m.index);
     const keyArg = firstArg(src, openIdx);
     const line = src.slice(0, m.index).split("\n").length;
@@ -157,8 +160,9 @@ const isScopedArg = (
 ): boolean => {
   if (SCOPED_CALL.test(arg)) return true;
   if (arg.includes("getContainer().id")) return true;
-  if (arg.startsWith('"') || arg.startsWith("`"))
+  if (arg.startsWith('"') || arg.startsWith("`")) {
     return arg.includes("getContainer().id");
+  }
   const parts = arg.split(".").filter(Boolean);
   const chain = parts.join(".");
   if (chains.has(chain)) return true;
@@ -172,8 +176,9 @@ const isScopedArg = (
     if (parts.length >= 2 && imp.names.includes(parts[0])) {
       if (modChains.has(chain)) return true;
     }
-    if (parts.length === 1 && imp.names.includes(chain) && modChains.has(chain))
+    if (parts.length === 1 && imp.names.includes(chain) && modChains.has(chain)) {
       return true;
+    }
   }
   return false;
 };
@@ -182,8 +187,9 @@ describe("storage keys are scoped to the map container", () => {
   it("every storage call key derives from map.getContainer().id", () => {
     const files = walkTs(JS_ROOT);
     const chainByModule = new Map<string, Set<string>>();
-    for (const file of files)
+    for (const file of files) {
       chainByModule.set(file, scopedChainsIn(readFileSync(file, "utf-8")));
+    }
     const violations: string[] = [];
     for (const file of files) {
       const src = readFileSync(file, "utf-8");

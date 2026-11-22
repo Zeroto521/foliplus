@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type FolderLayout,
   type LayerInfo,
-  folderLayoutKey,
   type LayerRole,
   createFolder,
   createFolderLayoutManager,
@@ -16,6 +15,7 @@ import {
   dropLayer,
   emptyFolderLayout,
   ensureFolderLayout,
+  folderLayoutKey,
   folderOf,
   freezeRoleOrder,
   fullDisplayOrder,
@@ -265,7 +265,10 @@ describe("storage round-trip", () => {
   });
 
   it("reads a corrupt layout as empty", () => {
-    window.localStorage.setItem(folderLayoutKey(fakeMap()), JSON.stringify({ version: 1 }));
+    window.localStorage.setItem(
+      folderLayoutKey(fakeMap()),
+      JSON.stringify({ version: 1 }),
+    );
     expect(readFolderLayout(fakeMap())).toEqual(emptyFolderLayout());
   });
 });

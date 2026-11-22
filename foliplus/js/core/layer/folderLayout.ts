@@ -32,7 +32,12 @@ import type { LayerRole } from "./role.js";
 import type { LayerInfo } from "./type.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
-import { loadRecord, saveRecord, scopedStorageKey, type MapLike } from "#platform/storage.js";
+import {
+  type MapLike,
+  loadRecord,
+  saveRecord,
+  scopedStorageKey,
+} from "#platform/storage.js";
 
 /** The folder dimension: a folder is scoped to one role (role). Base and
  *  overlay folders with the same name are two different folders. */
