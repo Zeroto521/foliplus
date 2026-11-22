@@ -9,8 +9,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
 import {
-  FILTER_STORE_KEY,
   type LayerFilter,
+  filterStoreKey,
   extractMarkerFields,
   getLayerAlpha,
   setLayerAlpha,
@@ -2116,7 +2116,11 @@ describe("getBounds callback", () => {
 describe("NO_OP_ENV T fallback", () => {
   it("returns prefixed key when env is not provided", () => {
     const map = {
-      getContainer: vi.fn(),
+      getContainer: vi.fn(() => {
+        const c = document.createElement("div");
+        c.id = "heatmap-noop-map";
+        return c;
+      }),
       getBounds: vi.fn(),
       getZoom: vi.fn(),
       on: vi.fn(),
@@ -2959,7 +2963,7 @@ describe("HeatmapManager — declared filter guards", () => {
     // The old component key keeps only style fields — no filters, no flag.
     expect(manager.loadSavedConfig()?.filters).toBeUndefined();
     // The shared store key has no record either: nothing user-set.
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(manager.map))).toBeNull();
     manager.clearSavedConfig();
   });
 
@@ -3194,7 +3198,7 @@ describe("HeatmapManager — filter contract (range branch)", () => {
       // The user's choice persists under the shared store key.
       const saved = manager.loadSavedConfig();
       expect(saved?.filters).toBeUndefined();
-      const storeRecord = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+      const storeRecord = JSON.parse(window.localStorage.getItem(filterStoreKey(manager.map))!);
       expect(storeRecord.layers[manager.layerId].sources.pts).toEqual({
         touched: true,
         value: USER_RANGE,
@@ -4420,7 +4424,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       // The filter half lives under the shared store key, not the old key:
       // the old component key keeps only style fields now.
       expect(stored.filters).toBeUndefined();
-      const storeRecord = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+      const storeRecord = JSON.parse(window.localStorage.getItem(filterStoreKey(m1.map))!);
       expect(storeRecord.layers[m1.layerId].sources.r1).toEqual({
         touched: true,
         value: { kind: "atom", field: "value", op: "between", range: [1, 2] },
@@ -4486,7 +4490,7 @@ describe("HeatmapManager — persisted per-source filters", () => {
     const stored = JSON.parse(window.localStorage.getItem(KEY)!);
     // The filter half lives under the shared store key.
     expect(stored.filters).toBeUndefined();
-    const storeRecord = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+    const storeRecord = JSON.parse(window.localStorage.getItem(filterStoreKey(m1.map))!);
     expect(Object.keys(storeRecord.layers[m1.layerId].sources)).toEqual([
       "layer_a",
       "layer_b",

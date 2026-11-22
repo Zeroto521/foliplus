@@ -42,7 +42,7 @@ export {
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
-  LAYOUT_DOC_KEY,
+  folderLayoutKey,
   FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,
@@ -167,8 +167,8 @@ export type { IconKind } from "./intent.js";
 export {
   createFilterStore,
   ensureFilterStore,
+  filterStoreKey,
   FILTER_SOURCE,
-  FILTER_STORE_KEY,
 } from "./filterStore.js";
 export type { FilterSourceHost, FilterStore } from "./filterStore.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";

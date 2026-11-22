@@ -15,7 +15,7 @@ import {
   FILTER_SOURCE,
   FOLDER_NAME_MAX,
   GEOM_TYPE,
-  LAYOUT_DOC_KEY,
+  folderLayoutKey,
   type LayerFilterModel,
   LayerRuntimeStore,
   ROLE,
@@ -57,9 +57,9 @@ const layoutFromRoles = (
   };
 };
 
-/** Read the persisted folder-layout document (null when never written). */
-const readLayoutStorage = (): Record<string, unknown> | null =>
-  JSON.parse(window.localStorage.getItem(LAYOUT_DOC_KEY) ?? "null");
+/** Read the persisted folder-layout document for a map (null when never written). */
+const readLayoutStorage = (map: any): Record<string, unknown> | null =>
+  JSON.parse(window.localStorage.getItem(folderLayoutKey(map)) ?? "null");
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -6447,7 +6447,7 @@ describe("deleteFolder", () => {
       role: "overlay",
       folder: "",
     });
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("deleting an empty folder removes only the key", () => {
@@ -6460,7 +6460,7 @@ describe("deleteFolder", () => {
 
     expect(ok).toBe(true);
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("deleting a missing folder returns false and does not write the layout", () => {
@@ -6468,12 +6468,12 @@ describe("deleteFolder", () => {
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.deleteFolder("overlay", "never-existed");
 
     expect(ok).toBe(false);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
   it("deleting a base folder keeps an overlay folder of the same name", () => {
@@ -6560,13 +6560,13 @@ describe("deleteFolder", () => {
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.deleteFolder("overlay", "roads", { persist: false });
 
     expect(ok).toBe(true);
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
   it("[BR-2] deleteFolder: absent role key -> ?? [] empty-branch (no crash)", () => {
@@ -6613,13 +6613,13 @@ describe("cleanEmptyFolders", () => {
         },
       ],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const count = manager.cleanEmptyFolders("overlay");
 
     expect(count).toBe(2);
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["full"]);
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("[BR-4] cleanEmptyFolders: absent role key -> ?? [] empty-branch", () => {
@@ -6644,10 +6644,10 @@ describe("cleanEmptyFolders", () => {
         },
       ],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
     const count = manager.cleanEmptyFolders("overlay");
     expect(count).toBe(0);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
   it("[BR-6] cleanEmptyFolders: no ui -> reindexAfterMove not called", () => {
@@ -7379,14 +7379,14 @@ describe("createFolder", () => {
 
   it("creates an empty folder and materialises it at the role tail", () => {
     const { manager } = initFixture({ data: [] });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.createFolder("overlay", "Roads");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("creates an empty folder at the tail after an existing folder", () => {
@@ -7411,7 +7411,7 @@ describe("createFolder", () => {
 
   it("createFolder rejects a name over the cap and writes nothing", () => {
     const { manager } = initFixture({ data: [] });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
     const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
 
     const ok = manager.createFolder("overlay", "f".repeat(FOLDER_NAME_MAX + 1));
@@ -7419,7 +7419,7 @@ describe("createFolder", () => {
     expect(ok).toEqual({ ok: false, reason: "too-long" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
     expect(manager.folderLayoutView.folders).toEqual([]);
-    expect(readLayoutStorage()).toBeNull();
+    expect(readLayoutStorage(manager.map)).toBeNull();
     expect(warn).toHaveBeenCalledOnce();
     expect(String(warn.mock.calls[0][0])).toContain(
       `expected at most ${FOLDER_NAME_MAX}`,
@@ -7476,12 +7476,12 @@ describe("createFolder", () => {
 
   it("createFolder writes the layout and reindexes", () => {
     const { manager } = initFixture({ data: [] });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
     const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
 
     manager.createFolder("overlay", "Roads");
 
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
     expect(reindex).toHaveBeenCalledTimes(1);
   });
 
@@ -7508,13 +7508,13 @@ describe("createFolder", () => {
   it("createFolder honours persist:false and tolerates a detached UI", () => {
     const { manager } = initFixture({ data: [] });
     manager.ui = null;
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.createFolder("overlay", "Roads", { persist: false });
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 });
 describe("renameFolder", () => {
@@ -7718,7 +7718,7 @@ describe("renameFolder", () => {
       data: [],
     });
     manager.ui = null;
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.renameFolder("overlay", "Roads", "Streets", { persist: false });
 
@@ -7727,7 +7727,7 @@ describe("renameFolder", () => {
       key: "roads",
       name: "Streets",
     });
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
   it("renameFolder keeps the global duplicate predicate (P3-1): a cross-role name collision is refused", () => {

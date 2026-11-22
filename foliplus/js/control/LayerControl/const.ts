@@ -1,5 +1,6 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
+import { scopedStorageKey } from "#platform/storage.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_CLASS,
@@ -19,7 +20,7 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
  *  record rather than by introducing a new key. */
-const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
+const STORAGE = { KEY: scopedStorageKey(map, "layer_state") };
 
 /** Color map layer. */
 const SOLID_BASEMAP_ID = "foliplus_color_map";

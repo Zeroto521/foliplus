@@ -32,7 +32,7 @@ import type { LayerRole } from "./role.js";
 import type { LayerInfo } from "./type.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
-import { loadRecord, saveRecord } from "#platform/storage.js";
+import { loadRecord, saveRecord, scopedStorageKey, type MapLike } from "#platform/storage.js";
 
 /** The folder dimension: a folder is scoped to one role (role). Base and
  *  overlay folders with the same name are two different folders. */
@@ -82,10 +82,13 @@ interface FolderBlock {
   members: LayerInfo[];
 }
 
-/** The single storage key every map's folder layout lives under. One key,
- *  indexed by folder key / layer id inside the record — never a per-folder or
- *  per-layer key assembled at the call site (mirrors the filter-store key). */
-const LAYOUT_DOC_KEY = "foliplus_layer_layout";
+/** The per-map storage key for a map's folder layout, scoped to its map
+ *  container (multi-map pages keep layouts separate; a renamed declaration
+ *  then re-seeds instead of pinning an old assignment). The record is one key
+ *  indexed by folder key / layer id inside it — never a per-folder or per-layer
+ *  key assembled at the call site (mirrors the filter-store key).
+ *  Single-sourced from scopedStorageKey so the key shape cannot drift. */
+const folderLayoutKey = (map: MapLike): string => scopedStorageKey(map, "layer_layout");
 
 /** The longest folder name a declaration may carry, in Unicode code points.
  *  Mirrors FOLDER_NAME_MAX in Python's foliplus/_declaration.py: a folder
@@ -175,14 +178,14 @@ const isFolderLayout = (raw: unknown): raw is FolderLayout => {
  *  state, not a corrupt one. It is not a persistence channel and must never
  *  be trusted as one. Read has NO side effect: a bad record is left as-is,
  *  never repaired on read (mirrors the filter-store read path). */
-const readFolderLayout = (): FolderLayout => {
-  const loaded = loadRecord<unknown>(LAYOUT_DOC_KEY);
+const readFolderLayout = (map: MapLike): FolderLayout => {
+  const loaded = loadRecord<unknown>(folderLayoutKey(map));
   return isFolderLayout(loaded) ? loaded : emptyFolderLayout();
 };
 
 /** Write the layout record, always stamping version 2. */
-const writeFolderLayout = (layout: FolderLayout): void => {
-  saveRecord(LAYOUT_DOC_KEY, { ...layout, version: 2 });
+const writeFolderLayout = (layout: FolderLayout, map: MapLike): void => {
+  saveRecord(folderLayoutKey(map), { ...layout, version: 2 });
 };
 
 /** Resolve a layer's effective folder assignment from the layout. A persisted
@@ -481,11 +484,11 @@ interface FolderLayoutManager {
  *  write goes through the one debounced timer (100 ms, mirrors the layer-state
  *  save debounce) so a batch of user actions coalesces into one storage write
  *  of the final state. */
-const createFolderLayoutManager = (): FolderLayoutManager => {
-  let current: FolderLayout = readFolderLayout();
+const createFolderLayoutManager = (map: MapLike): FolderLayoutManager => {
+  let current: FolderLayout = readFolderLayout(map);
   let timer: Debounced | null = null;
   const write = (): void => {
-    writeFolderLayout(current);
+    writeFolderLayout(current, map);
   };
   return {
     get layout() {
@@ -501,7 +504,7 @@ const createFolderLayoutManager = (): FolderLayoutManager => {
       timer = null;
     },
     reload(): FolderLayout {
-      current = readFolderLayout();
+      current = readFolderLayout(map);
       return current;
     },
     seed(registryEntries: readonly LayerInfo[]): void {
@@ -545,12 +548,12 @@ const createFolderLayoutManager = (): FolderLayoutManager => {
  *  this instance, so the layout is single-sourced across controls. */
 const ensureFolderLayout = (map: L.Map): FolderLayoutManager => {
   const api = ensureMapFoliplus(map);
-  api.folderLayout ??= createFolderLayoutManager();
+  api.folderLayout ??= createFolderLayoutManager(map);
   return api.folderLayout;
 };
 
 export {
-  LAYOUT_DOC_KEY,
+  folderLayoutKey,
   FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,

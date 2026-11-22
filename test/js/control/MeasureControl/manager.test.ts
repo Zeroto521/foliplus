@@ -2,7 +2,7 @@ import { makeControlEnv } from "../fixture.js";
 import { makeManager, mockLayerAPI, resetMeasureControlState } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
-import { FILTER_SOURCE, FILTER_STORE_KEY } from "#core/layer/index.js";
+import { FILTER_SOURCE, filterStoreKey } from "#core/layer/index.js";
 import { PANEL_CLASS } from "#ui/index.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import { MeasureManager } from "#control/MeasureControl/manager.js";
@@ -62,9 +62,9 @@ const filter = (values: string[]): any => ({
   values,
 });
 
-/** Read the shared filter store record. */
-const readStoreRecord = (): any => {
-  const raw = window.localStorage.getItem(FILTER_STORE_KEY);
+/** Read the shared filter store record for a manager's map. */
+const readStoreRecord = (manager: any): any => {
+  const raw = window.localStorage.getItem(filterStoreKey(manager.map));
   return raw ? JSON.parse(raw) : null;
 };
 
@@ -72,11 +72,9 @@ const readStoreRecord = (): any => {
 const measureSourceOf = (record: any, layerId: string): any =>
   record?.layers?.[layerId]?.sources?.[FILTER_SOURCE.MEASURE];
 
-/** The per-surface storage key is gone: the store record is read by layerId. */
-const filterStorageKey = (manager: any): string => {
-  void manager;
-  return FILTER_STORE_KEY;
-};
+/** The per-surface storage key is gone: the store record is read by layerId,
+ *  and the record itself is scoped to the manager's map container. */
+const filterStorageKey = (manager: any): string => filterStoreKey(manager.map);
 
 describe("MeasureManager — persistence", () => {
   it("restoreMeasurements emits LAYER_ITEM_COUNT_CHANGE so LayerControl refreshes count on load", () => {
@@ -2009,7 +2007,7 @@ describe("MeasureManager — type filter", () => {
     const opts = createLayersOpts(map);
     opts.filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
 
-    const record = readStoreRecord();
+    const record = readStoreRecord(manager);
     const source = measureSourceOf(record, manager.layerId);
     expect(source.touched).toBe(true);
     expect(source.value).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
@@ -2517,18 +2515,18 @@ describe("MeasureManager — type filter", () => {
     createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect((manager as any).filtersTouched).toBe(true);
     // The first write persisted a record; the declaration is replaced.
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).not.toBeNull();
+    expect(window.localStorage.getItem(filterStorageKey(manager))).not.toBeNull();
     expect(replan).toHaveBeenCalledTimes(1);
 
     // A repeated identical write is a no-op once the slot is owned: it must
     // not rewrite the record or repaint for a state that did not change.
-    const afterFirst = window.localStorage.getItem(FILTER_STORE_KEY);
+    const afterFirst = window.localStorage.getItem(filterStorageKey(manager));
     createLayersOpts(map).filterSetter(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect((manager as any).filtersTouched).toBe(true);
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBe(afterFirst);
+    expect(window.localStorage.getItem(filterStorageKey(manager))).toBe(afterFirst);
     expect(replan).toHaveBeenCalledTimes(1);
 
-    const record = readStoreRecord();
+    const record = readStoreRecord(manager);
     const source = measureSourceOf(record, manager.layerId);
     expect(source.value).toEqual(filter([CONST.MEASURE_MODE.DISTANCE]));
     expect(source.touched).toBe(true);
@@ -2671,7 +2669,7 @@ describe("MeasureManager — filter contract (enum mode)", () => {
       expect((manager as any).measureFilter).toEqual(
         filter([CONST.MEASURE_MODE.MARKER]),
       );
-      const record = readStoreRecord();
+      const record = readStoreRecord(manager);
       const source = measureSourceOf(record, manager.layerId);
       expect(source.value).toEqual(filter([CONST.MEASURE_MODE.MARKER]));
       expect(source.touched).toBe(true);
@@ -2923,7 +2921,7 @@ describe("MeasureManager — filter owner equivalence (F4)", () => {
     expect((manager as any).filtersTouched).toBe(true);
     expect((manager as any).measureFilter).toBeUndefined();
     expect(opts.filterProvider().filter).toBeUndefined();
-    const saved = readStoreRecord();
+    const saved = readStoreRecord(manager);
     const source = measureSourceOf(saved, manager.layerId);
     expect(source.value).toBeUndefined();
     expect(source.touched).toBe(true);
