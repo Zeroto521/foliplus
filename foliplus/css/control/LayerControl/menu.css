@@ -187,7 +187,8 @@
     color: var(--foliplus-on-accent);
   }
   .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:active,
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:hover:active {
+  .foliplus-layer-more-menu
+    button.foliplus-layer-more-menu-delete-pending:hover:active {
     background: var(--foliplus-accent-hover);
     color: var(--foliplus-on-accent);
   }
