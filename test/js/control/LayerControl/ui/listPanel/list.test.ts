@@ -3,7 +3,11 @@ import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { type LayerInfo, ROLE } from "#core/layer/index.js";
+import {
+  type LayerInfo,
+  ROLE,
+  normalizeFolderName,
+} from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
@@ -1539,41 +1543,16 @@ describe("clean-empty-folders button and role header order", () => {
     } as any);
   };
 
-  it("runs cleanEmptyFolders when the role header clean button is clicked", () => {
+  it("renders a row for a folder that holds no layer yet", () => {
+    // A folder created from the role menu owns a row immediately: it is the
+    // only handle for renaming or deleting it until a layer moves in.
     manager.createFolder("overlay", "empty-1");
     manager.ui?.reindexAfterMove?.();
-    const cleanBtn = attachedPanel(ui).querySelector(
-      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
+    const row = attachedPanel(ui).querySelector(
+      `[data-folder-key="${normalizeFolderName("empty-1")}"]`,
     ) as HTMLElement | null;
-    expect(cleanBtn).not.toBeNull();
-    const spy = vi.spyOn(manager, "cleanEmptyFolders");
-    cleanBtn?.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true }),
-    );
-    expect(spy).toHaveBeenCalledWith("overlay");
-  });
-
-  it("does not call cleanEmptyFolders for a clean button without data-role (defensive)", () => {
-    manager.createFolder("overlay", "empty-1");
-    manager.ui?.reindexAfterMove?.();
-    const spy = vi.spyOn(manager, "cleanEmptyFolders");
-    // A hand-built clean button with no data-role (the renderer always writes
-    // it, but the handler must not assume) — the click must not throw and must
-    // not dispatch a cleanup for an unknown role.
-    const btn = document.createElement("button");
-    btn.className = CONST.CLASSES.CLEAN_FOLDERS_BTN;
-    attachedPanel(ui).appendChild(btn);
-    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-    expect(spy).not.toHaveBeenCalled();
-  });
-
-  it("hides the clean button once the role has no empty folder key", () => {
-    // no empty keys: the default layout already has none
-    manager.ui?.reindexAfterMove?.();
-    const cleanBtn = attachedPanel(ui).querySelector(
-      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-    ) as HTMLElement | null;
-    expect(cleanBtn).toBeNull();
+    expect(row).not.toBeNull();
+    expect(row?.classList.contains(CONST.CLASSES.FOLDER_ROW)).toBe(true);
   });
 
   it("keeps each header adjacent to its own rows (DOM order)", () => {
@@ -1627,64 +1606,15 @@ describe("clean-empty-folders button and role header order", () => {
         const id = el.getAttribute(CONST.DATA.LAYER_ID);
         return `row:${id}`;
       });
-    // The empty overlay role's header trails the live base role.
-    expect(kinds).toEqual(["header:base", "row:base1", "header:overlay"]);
-    const cleanBtn = container.querySelector(
-      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-    ) as HTMLElement | null;
-    expect(cleanBtn).not.toBeNull();
-  });
-
-  it("shows the clean button incrementally after the folder's last member is deleted (no rebuild)", () => {
-    // Register a folder layer, then delete it. The delete freezes the folder
-    // key, and LAYER_ROLE_COUNT_CHANGED → syncCleanButton must render the
-    // clean button WITHOUT a full rebuild (reindexAfterMove is not called).
-    registerLayer("folder1", "Roads", "overlay", "My Folder");
-    expect(manager.deleteLayer("folder1")).toBe(true);
-    const cleanBtn = attachedPanel(ui).querySelector(
-      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-    ) as HTMLElement | null;
-    expect(cleanBtn).not.toBeNull();
-  });
-
-  it("removes the clean button when a layer rejoins the emptied folder (incremental)", () => {
-    // Freeze an empty folder key, then re-register a member under the same
-    // folder. LAYER_ROLE_COUNT_CHANGED → syncCleanButton must hide the button
-    // without a full rebuild.
-    manager.createFolder("overlay", "my folder");
-    manager.ui?.reindexAfterMove?.();
+    // The empty overlay role's header trails the live base role, and its empty
+    // folder still renders a row under it (the row is the rename/delete handle).
+    expect(kinds.slice(0, 3)).toEqual(["header:base", "row:base1", "header:overlay"]);
+    expect(kinds.length).toBe(4);
     expect(
-      attachedPanel(ui).querySelector(
-        `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-      ),
+      container.querySelector(`[data-folder-key="${normalizeFolderName("empty-1")}"]`),
     ).not.toBeNull();
-    registerLayer("folder1", "Roads", "overlay", "My Folder");
-    expect(
-      attachedPanel(ui).querySelector(
-        `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-      ),
-    ).toBeNull();
   });
 
-  it("updates the clean button count in place without stacking a second button (incremental)", () => {
-    // Seed two empty folder keys directly (no live members) and rebuild.
-    manager.createFolder("overlay", "folder a");
-    manager.createFolder("overlay", "folder b");
-    const before = attachedPanel(ui).querySelectorAll(
-      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-    );
-    expect(before.length).toBe(1);
-    expect((before[0] as HTMLElement).dataset.emptyCount).toBe("2");
-    // Re-register a member into the first folder: its key stops being empty,
-    // the event fires, and syncCleanButton must refresh the ONE existing
-    // button's label/count to 1 — never appending a second button.
-    registerLayer("folder1", "Roads", "overlay", "Folder A");
-    const after = attachedPanel(ui).querySelectorAll(
-      `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-    );
-    expect(after.length).toBe(1);
-    expect((after[0] as HTMLElement).dataset.emptyCount).toBe("1");
-  });
 });
 
 describe("role header identity key", () => {

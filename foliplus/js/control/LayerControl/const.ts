@@ -145,7 +145,6 @@ const CLASSES = {
   MORE_MENU_UP: "foliplus-layer-more-menu-up",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   /** The role header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the role owns at least one empty folder key. */
-  CLEAN_FOLDERS_BTN: "foliplus-layer-clean-folders",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEPARATOR_LABEL: "foliplus-layer-sep-label",
   /** Set on the map container when zero basemaps are visible (A′ hatch).
@@ -380,6 +379,8 @@ const ACTION = {
   COLLAPSE_ALL: "collapse-all",
   /** Folder menu: rename the folder. */
   RENAME_FOLDER: "rename-folder",
+  /** Role menu: delete every empty folder in this role. */
+  CLEAN_EMPTY_FOLDERS: "clean-empty-folders",
 };
 
 /** The `data-role` value the toggle-all checkbox writes on itself. A
@@ -419,7 +420,6 @@ const SEL = {
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
   MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
   SEPARATOR_LABEL: `.${CLASSES.SEPARATOR_LABEL}`,
-  CLEAN_FOLDERS: `.${CLASSES.CLEAN_FOLDERS_BTN}`,
 };
 
 /** Upper bound for a map and layer that declare no max zoom.

@@ -195,6 +195,12 @@ const folderOf = (layout: FolderLayout, layer: LayerInfo): string | null => {
   return layer.folder ?? null;
 };
 
+/** The display spelling for a folder key: the directory entry's name, or the
+ *  key itself when the folder has no directory entry yet. One reader for both
+ *  a member-bearing block and an empty folder that only owns an order key. */
+const folderDisplayNameOf = (layout: FolderLayout, key: string): string =>
+  layout.folders.find(f => f.key === key)?.name ?? key;
+
 /** Group one role's folder members into blocks, keyed by normalize(name).
  *  `registryEntries` is the WHOLE registry in anchor order; the block anchor
  *  is the member's GLOBAL index in it (not a per-role index), matching
@@ -585,6 +591,7 @@ export {
   isFolderLayout,
   seedFolderLayout,
   folderOf,
+  folderDisplayNameOf,
   groupByFolder,
   roleOrder,
   fullDisplayOrder,

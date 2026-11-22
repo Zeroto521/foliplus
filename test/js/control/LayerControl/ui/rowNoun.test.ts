@@ -1,6 +1,6 @@
 // test/js/control/LayerControl/ui/noun.test.ts — the {noun} substitution.
 import { describe, expect, it } from "vitest";
-import { withNoun } from "#control/LayerControl/ui/noun.js";
+import { withNoun } from "#control/LayerControl/ui/rowNoun.js";
 
 /** A translator that resolves from a table and echoes an unknown key. */
 const translator = (table: Record<string, string>) =>

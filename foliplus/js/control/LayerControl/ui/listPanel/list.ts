@@ -25,6 +25,7 @@ import {
   type LayerRole,
   ROLE,
   folderOf,
+  folderDisplayNameOf,
   groupByFolder,
   normalizeFolderName,
 } from "#core/layer/index.js";
@@ -482,7 +483,18 @@ const displayBlocks = (
   const blocks = [];
   for (const key of listed) {
     const block = folders.get(key);
-    if (block) blocks.push(block);
+    // An empty folder (created but not yet holding a layer) has no members, so
+    // groupByFolder cannot see it. It still owns a row: the user names it right
+    // after creating it, and the row is the only handle for renaming/deleting
+    // it until a layer moves in.
+    blocks.push(
+      block ?? {
+        key,
+        displayName: folderDisplayNameOf(layout, key),
+        anchor: Number.MAX_SAFE_INTEGER,
+        members: [],
+      },
+    );
   }
   const rest = [...folders.values()]
     .filter(block => !listedKeys.has(block.key))
@@ -737,7 +749,6 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
     ui.listPanel.authorDefaultFoldedRoles,
     role,
   );
-  const withFolders = hasAnyFolder(ui);
   // Role-level count: aggregated with the same source as the checkbox
   // (spec §2.8 — role count and checkbox state come from one aggregator).
   const vis = roleVisibility(ui, role);
@@ -772,19 +783,21 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
     ),
     dom.el("span", { class: CONST.CLASSES.SEPARATOR_LABEL }, ui.T(labelKey)),
   ];
-  if (withFolders) {
-    // v3.6: role row gains the divider (before count), the layer-count
-    // (role layer count, not feature count), the role-level type icon and a
-    // row-level ⋮ (independent of the panel-header ⋮).
-    // Same paint recipe as the shared section divider (soft gradient at both
-    // ends); only the span differs, because the role row now owns the count /
-    // icon / more cells that the pre-folder divider used to run through. A
-    // second hand-rolled line here is what made the two role sections look
-    // different from main (issue 4).
-    const roleDivider = sectionDivider("div");
-    roleDivider.classList.add(CONST.CLASSES.ROLE_DIVIDER);
-    children.push(roleDivider);
-    children.push(
+  // The role row always carries the divider (before count), the layer-count
+  // (role layer count, not feature count), the role-level type icon and a
+  // row-level ⋮ (independent of the panel-header ⋮). The ⋮ is the only entry
+  // to "New Folder", so gating these cells on "a folder already exists" made
+  // the first folder unreachable from the UI.
+  //
+  // Same paint recipe as the shared section divider (soft gradient at both
+  // ends); only the span differs, because the role row owns the count / icon /
+  // more cells the pre-folder divider used to run through. A second hand-rolled
+  // line here is what made the two role sections look different from main
+  // (issue 4).
+  const roleDivider = sectionDivider("div");
+  roleDivider.classList.add(CONST.CLASSES.ROLE_DIVIDER);
+  children.push(roleDivider);
+  children.push(
       dom.el(
         "span",
         {
@@ -817,14 +830,6 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
         { html: SVGs.ICON_MORE },
       ),
     );
-  }
-  // spec v3.6 §1.2: when the role has folders, the role row carries its own
-  // .foliplus-role-divider (before the count); the shared panel
-  // section-divider is the pre-folder leftover and must not render (it would
-  // overlap count/icon/more). A plain role row (no folders) keeps the shared
-  // divider, exactly as before folders existed.
-  if (!withFolders) children.push(sectionDivider("div"));
-  children.push(...cleanFolderButton(ui, role));
   return dom.el(
     "div",
     {
@@ -842,31 +847,6 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
     },
     ...children,
   );
-};
-
-/** Build the role's "clean empty folders" button when the role owns at
- *  least one empty folder key; otherwise an empty array. A native <button>
- *  so keyboard users Tab to it (hard constraint 4b); the click handler is
- *  bound on the container by lifecycle, and the keydown guard sits in
- *  keyboard.ts. */
-const cleanFolderButton = (ui: LayerUI, role: string): HTMLElement[] => {
-  const empty = emptyFolderKeys(ui, role);
-  if (empty.length === 0) return [];
-  const label = ui.T("clean_empty_folders").replace("{count}", String(empty.length));
-  return [
-    dom.el(
-      "button",
-      {
-        type: "button",
-        class: CONST.CLASSES.CLEAN_FOLDERS_BTN,
-        "data-role": role,
-        title: ui.T("clean_empty_folders_tooltip"),
-        "aria-label": label,
-        "data-empty-count": String(empty.length),
-      },
-      label,
-    ),
-  ];
 };
 
 /** Render a folder row (a user-created group inside a role).
@@ -1108,42 +1088,12 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  *     the layer focus overlay, or the row keyboard cursor
  */
 
-/** Incremental three-state sync of a role header's "clean empty folders"
- *  button. Runs on LAYER_ROLE_COUNT_CHANGED so a folder's last
- *  member leaving (deleteLayer freeze) shows the button, and a layer
- *  rejoining the folder hides it — without a full rebuild (which would drop
- *  focus/drag state). Idempotent: a no-op when the button state already
- *  matches the role's empty-folder keys, so a double event never stacks a
- *  second button. */
-const syncCleanButton = (ui: LayerUI, role: string): void => {
-  const row = ui.uiContainer?.querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
-  );
-  if (!row) return; // no header for this role (yet) — nothing to sync
-  const existing = row.querySelector(CONST.SEL.CLEAN_FOLDERS);
-  const empty = emptyFolderKeys(ui, role);
-  if (empty.length === 0) {
-    existing?.remove();
-    return;
-  }
-  const label = ui.T("clean_empty_folders").replace("{count}", String(empty.length));
-  if (existing) {
-    // Count changed (or stayed) — refresh label/aria/title/count in place,
-    // never rebuilding the row.
-    existing.textContent = label;
-    existing.setAttribute("aria-label", label);
-    existing.setAttribute("data-empty-count", String(empty.length));
-    return;
-  }
-  row.appendChild(cleanFolderButton(ui, role)[0]);
-};
-
 export {
+  emptyFolderKeys,
   initTypesAndVisibility,
   markSettled,
   rebuildList,
   syncRowOrder,
-  syncCleanButton,
   renderInitialList,
   insertLayerItem,
   updateLayerItemLabel,

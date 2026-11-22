@@ -56,6 +56,7 @@ export {
   isFolderLayout,
   seedFolderLayout,
   folderOf,
+  folderDisplayNameOf,
   groupByFolder,
   roleOrder,
   fullDisplayOrder,

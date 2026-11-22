@@ -37,7 +37,6 @@ import {
   insertLayerItem,
   markSettled,
   renderInitialList,
-  syncCleanButton,
   syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -230,21 +229,6 @@ const bindLayerEvents = (ui: LayerUI): void => {
         // row for the whole time the user is flipping controls inside it.
         row.focus({ focusVisible: false } as FocusOptions);
       }
-    }
-
-    // The clean-empty-folders button lives inside the toggle-all
-    // header, so it must be intercepted BEFORE the toggle-all branch folds
-    // the role. stopPropagation keeps the press from reaching the row /
-    // map (hard constraint 4).
-    const cleanBtn = el.closest(CONST.SEL.CLEAN_FOLDERS) as HTMLElement | null;
-    if (cleanBtn) {
-      event.stopPropagation();
-      event.preventDefault();
-      const role = cleanBtn.dataset.role ?? "";
-      if (role) {
-        ui.c.cleanEmptyFolders(role as LayerRole);
-      }
-      return;
     }
 
     // The fold branch climbs on the header row's identity key, never on the
@@ -448,7 +432,6 @@ const bindLayerEvents = (ui: LayerUI): void => {
     }),
     subscribe(EVENTS.LAYER_ROLE_COUNT_CHANGED, (payload: { role: string }) => {
       syncToggleAll(ui, payload.role);
-      syncCleanButton(ui, payload.role);
     }),
     subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
       // The reorder signal only moves rows: the emitters (moveLayerUp/Down,

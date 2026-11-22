@@ -1,8 +1,8 @@
 // LayerControl UI — Overflow (⋮) menu.
 import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
 import { folderFoldKey } from "../listPanel/drag.js";
-import { rebuildList } from "../listPanel/list.js";
-import { type RowNoun, withNoun } from "../noun.js";
+import { emptyFolderKeys, rebuildList } from "../listPanel/list.js";
+import { type RowNoun, withNoun } from "../rowNoun.js";
 import { saveState } from "../state.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
@@ -10,7 +10,11 @@ import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
-import { type LayerRole, isContainerRow } from "#core/layer/index.js";
+import {
+  type LayerRole,
+  isContainerRow,
+  normalizeFolderName,
+} from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -430,8 +434,9 @@ let armedDelete: {
   ui: LayerUI;
   label: HTMLElement;
   menuItem: HTMLElement;
-  /** Locale key the entry shows when idle. */
-  idleKey: string;
+  /** The entry's idle label text, captured before arming so a label carrying a
+   *  placeholder (the empty-folder count) restores verbatim. */
+  idleText: string;
   /** Locale key the entry shows while armed. */
   confirmKey: string;
   originalTitle: string;
@@ -506,19 +511,13 @@ const buildDeleteItem = (
   return item;
 };
 
-/** The idle and confirming locale keys for a delete entry. One table for every
- *  kind of delete entry — a layer, a component's data, a folder — so the
- *  two-step confirm reads the same wherever it appears. */
-const deleteLabelKeys = (
-  menuItem: HTMLElement,
-): { idleKey: string; confirmKey: string } => {
-  if (menuItem.dataset.mode === "clear") {
-    return { idleKey: "clear_data", confirmKey: "clear_data_confirm" };
-  }
-  // A layer and a folder share the verb: the noun lives on the row, not in the
-  // label, so one pair covers both.
-  return { idleKey: "delete", confirmKey: "delete_confirm" };
-};
+/** The confirming locale key for a delete entry. One table for every kind of
+ *  delete entry — a layer, a component's data, a folder, a role's empty
+ *  folders — so the two-step confirm reads the same wherever it appears. The
+ *  idle label is captured from the entry itself, so an idle label carrying a
+ *  placeholder (the empty-folder count) restores verbatim. */
+const deleteConfirmKey = (menuItem: HTMLElement): string =>
+  menuItem.dataset.mode === "clear" ? "clear_data_confirm" : "delete_confirm";
 
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
@@ -529,11 +528,18 @@ const armDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
   );
   if (!label) return;
   disarmDelete();
-  const { idleKey, confirmKey } = deleteLabelKeys(menuItem);
+  const confirmKey = deleteConfirmKey(menuItem);
   // The title attribute is set by the entry builder at construction, so there
   // is no null to fall back to.
   const originalTitle = menuItem.getAttribute("title")!;
-  armedDelete = { ui, label, menuItem, idleKey, confirmKey, originalTitle };
+  armedDelete = {
+    ui,
+    label,
+    menuItem,
+    idleText: label.textContent ?? "",
+    confirmKey,
+    originalTitle,
+  };
   label.textContent = ui.T(confirmKey);
   menuItem.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
   menuItem.setAttribute("title", ui.T(confirmKey));
@@ -547,7 +553,7 @@ const disarmDelete = (): void => {
   armedDeleteTimer = undefined;
   const armed = armedDelete;
   if (!armed) return;
-  armed.label.textContent = armed.ui.T(armed.idleKey);
+  armed.label.textContent = armed.idleText;
   armed.menuItem.setAttribute("title", armed.originalTitle);
   armed.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
   armedDelete = null;
@@ -564,6 +570,16 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
   }
   const action = menuItem.dataset.action;
   disarmDelete();
+  if (action === CONST.ACTION.CLEAN_EMPTY_FOLDERS) {
+    // The role row owns the identity; the menu closes first because the action
+    // rerenders the list the menu is anchored to.
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) {
+      ui.closeMoreMenu(true);
+      ui.c.cleanEmptyFolders(role as LayerRole);
+    }
+    return true;
+  }
   if (action === CONST.ACTION.DELETE_FOLDER) {
     // The folder row owns the identity: it carries no data-layer-id, so the
     // menu record's folderKey / role / folder name are the handles. The menu
@@ -640,6 +656,23 @@ const folderKeysOfRole = (ui: LayerUI, role: string): string[] => {
   return [...keys];
 };
 
+/** The role's folder keys in block order, including an empty folder (a key in
+ *  `order` with no members yet). */
+const folderKeysInOrder = (ui: LayerUI, role: string): string[] =>
+  ui.c.folderLayoutView.order[role as LayerRole] ?? [];
+
+/** The default name for a new folder: the locale noun, suffixed with the
+ *  smallest free ordinal so a second create never collides with the first. */
+const nextFolderDefaultName = (ui: LayerUI, role: string): string => {
+  const base = ui.T("new_folder_default_name");
+  const taken = new Set(folderKeysInOrder(ui, role));
+  if (!taken.has(normalizeFolderName(base))) return base;
+  for (let n = 2; ; n += 1) {
+    const candidate = `${base} ${n}`;
+    if (!taken.has(normalizeFolderName(candidate))) return candidate;
+  }
+};
+
 const setAllFoldersFolded = (ui: LayerUI, role: string, folded: boolean) => {
   for (const key of folderKeysOfRole(ui, role)) {
     const fk = folderFoldKey(role, key);
@@ -687,17 +720,17 @@ const startFolderRename = (
   });
 };
 
-/** Start a new folder in a role: create it (controller) then open an inline
- *  rename on its row so the user names it immediately. Blank/escape leaves the
- *  default name (spec §4.1: silent no-op on empty). */
+/** Start a new folder in a role: create it (controller), then open an inline
+ *  rename on its row so the user names it immediately. The row exists even
+ *  though the folder holds no layer yet, and the input opens focused with the
+ *  default name selected. Blank/escape leaves the default name (spec §4.1:
+ *  silent no-op on empty). */
 const startNewFolder = (ui: LayerUI, role: string) => {
-  const result = ui.c.createFolder(role as LayerRole, "New Folder");
+  const name = nextFolderDefaultName(ui, role);
+  const result = ui.c.createFolder(role as LayerRole, name);
   if (!result.ok) return;
   rebuildList(ui);
-  // An empty folder has no members yet, so it renders no row (groupByFolder is
-  // member-driven). The user names it via the folder's row once it owns a layer
-  // (the move-to-folder wiring lands separately); creating here is a silent
-  // no-op until then, which is the current effective behavior.
+  startFolderRename(ui, role, normalizeFolderName(name), name);
 };
 const MENU_ACTIONS: Record<
   MenuAction,
@@ -736,6 +769,14 @@ const MENU_ACTIONS: Record<
   [CONST.ACTION.DELETE_FOLDER]: (ui, menuItem) => {
     // Same two-step confirm as a layer delete: the first activation only arms,
     // so the menu stays open and the confirming label is visible.
+    if (activateDeleteItem(ui, menuItem)) {
+      return { closeMenu: true, restoreRowFocus: true };
+    }
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.CLEAN_EMPTY_FOLDERS]: (ui, menuItem) => {
+    // Same two-step confirm as every other delete entry: the first activation
+    // only arms, so the menu stays open and the confirming label is visible.
     if (activateDeleteItem(ui, menuItem)) {
       return { closeMenu: true, restoreRowFocus: true };
     }
@@ -945,6 +986,31 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
       role: "separator",
       "aria-hidden": "true",
     }),
+  );
+  // The empty-folder cleanup sits at the destructive tail, behind the same
+  // divider and two-step confirm as every other delete entry. It is disabled
+  // (with the reason as its tooltip) when the role owns no empty folder.
+  const emptyCount = emptyFolderKeys(ui, role).length;
+  const cleanDisabled = emptyCount === 0;
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.CLEAN_EMPTY_FOLDERS,
+        role: "menuitem",
+        title: cleanDisabled
+          ? ui.T("clean_empty_folders_none")
+          : ui.T("clean_empty_folders_tooltip"),
+        "aria-disabled": cleanDisabled ? "true" : "false",
+      },
+      { html: Icons.ICON_DELETE },
+      dom.el(
+        "span",
+        { class: CONST.CLASSES.MENU_DELETE_LABEL },
+        ui.T("clean_empty_folders").replace("{count}", String(emptyCount)),
+      ),
+    ),
   );
   attachRowMenu(ui, item, menu, { role });
 };

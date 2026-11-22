@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { nativeConsumesKey } from "#core/interaction/index.js";
+import { normalizeFolderName } from "#core/layer/index.js";
 import { ensureModes } from "#core/lifecycle/index.js";
 import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -1799,7 +1800,7 @@ describe("ui/list folder rows (menu)", () => {
     getBounds: () => ({ isValid: () => true }),
   });
 
-  it("role menu new-folder creates a folder row and opens an inline rename", () => {
+  it("role menu new-folder creates a folder row and opens a focused inline rename", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -1823,13 +1824,23 @@ describe("ui/list folder rows (menu)", () => {
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
     runMenuAction(ui, mi);
-    // The default "New Folder" is created in the layout (key is normalized);
-    // the action routes through createFolder + rebuildList (the coverage this
-    // branch needs). An empty folder renders as the clean-button state, not a
-    // row, so the assertion is on the layout, not the DOM row.
-    const keys = ui.c.folderLayoutView.folders.map(f => f.key);
-    expect(keys).toContain("new folder");
-    expect(ui.c.folderLayoutView.order.overlay).toContain("new folder");
+
+    const defaultName = ui.T("new_folder_default_name");
+    const key = normalizeFolderName(defaultName);
+    expect(ui.c.folderLayoutView.order.overlay).toContain(key);
+    // The empty folder owns a row, and the inline rename opens on it with the
+    // default name selected so the user can type over it immediately.
+    const row = ui.uiContainer!.querySelector(
+      `[data-folder-key="${key}"]`,
+    ) as HTMLElement | null;
+    expect(row).not.toBeNull();
+    // The row's first input is its checkbox; the rename input is the text one.
+    const input = row!.querySelector(
+      'input[type="text"]',
+    ) as HTMLInputElement | null;
+    expect(input).not.toBeNull();
+    expect(input!.value).toBe(defaultName);
+    expect(document.activeElement).toBe(input);
   });
 
   it("role menu expand-all/collapse-all folds or unfolds every folder in the role", () => {
@@ -2141,7 +2152,7 @@ describe("ui/list folder rows (menu)", () => {
     }
   });
 
-  it("new-folder handles a duplicate name and a not-yet-rendered row", () => {
+  it("new-folder gives each new folder a free default name", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
@@ -2157,26 +2168,24 @@ describe("ui/list folder rows (menu)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    // Duplicate name ("roads" already exists) → createFolder returns
-    // { ok: false } → startNewFolder returns early.
-    (ui.overlayPanel as any).activeMenu = {
-      item: roleRow,
-      menu: document.createElement("div"),
-      role: "overlay",
+    const create = () => {
+      (ui.overlayPanel as any).activeMenu = {
+        item: roleRow,
+        menu: document.createElement("div"),
+        role: "overlay",
+      };
+      const mi = document.createElement("button");
+      mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
+      runMenuAction(ui, mi);
     };
-    const mi = document.createElement("button");
-    mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
-    mi.setAttribute("data-folder-name", "roads");
-    // NEW_FOLDER creates "New Folder" (hardcoded), so we cannot make a
-    // duplicate via the action's default name. Instead assert the action
-    // creates a new empty folder that has no rendered row (silent no-op).
-    runMenuAction(ui, mi);
-    // A fresh empty folder is created but renders no row: the inline rename
-    // start must no-op (label null) rather than throw.
-    expect(() => runMenuAction(ui, mi)).not.toThrow();
-    // The layout now has an extra folder entry (the new empty one).
-    const keys = ui.c.folderLayoutView.folders.map(f => f.key);
-    expect(keys).toContain("new folder");
+    create();
+    create();
+    // The second create must not collide with the first: the default name
+    // takes the smallest free ordinal.
+    const base = ui.T("new_folder_default_name");
+    const keys = ui.c.folderLayoutView.order.overlay;
+    expect(keys).toContain(normalizeFolderName(base));
+    expect(keys).toContain(normalizeFolderName(`${base} 2`));
   });
 
   it("more-click on a row-less button is ignored", () => {
