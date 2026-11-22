@@ -119,6 +119,24 @@ const normalizeFolderName = (name: string): string =>
  *  first-seen raw spelling wins and is never normalised for display. */
 const folderDisplayName = (name: string): string => name.trim();
 
+/** Prefix that marks a ROOT-LAYER entry in a role's block order.
+ *
+ *  A block order entry is either a folder key or `layer:<id>`. Root layers
+ *  used to be appended after every folder block, so a layer could never sit
+ *  between two folders; carrying the layer in the order is what makes that
+ *  position expressible. The prefix keeps the two namespaces apart — a folder
+ *  may legally be named like a layer id. */
+const ROOT_LAYER_PREFIX = "layer:";
+
+const rootLayerEntry = (layerId: string): string => ROOT_LAYER_PREFIX + layerId;
+
+const isRootLayerEntry = (entry: string): boolean =>
+  entry.startsWith(ROOT_LAYER_PREFIX);
+
+/** The folder keys of a block order, with the root-layer entries removed. */
+const folderEntries = (order: readonly string[]): string[] =>
+  order.filter(entry => !isRootLayerEntry(entry));
+
 /** The length a folder name is judged by, in Unicode code points.
  *
  *  Measured on the normalised name - the same NFC / whitespace-fold / trim
@@ -300,7 +318,7 @@ const listedRoleOrder = (
   role: LayerRole,
   registryEntries: readonly LayerInfo[],
 ): string[] => {
-  const listed = layout.order[role] ?? [];
+  const listed = folderEntries(layout.order[role] ?? []);
   const folders = groupByFolder(registryEntries, role, layout);
   const unlisted = [...folders.keys()]
     .filter(k => !listed.includes(k))
@@ -320,7 +338,10 @@ const freezeRoleOrder = (
 ): FolderLayout => {
   const frozen = listedRoleOrder(layout, role, registryEntries);
   if (!frozen.includes(key)) frozen.push(key);
-  return { ...layout, order: { ...layout.order, [role]: frozen } };
+  // Root-layer entries are not folders: they keep their place at the tail of
+  // the frozen order rather than being dropped by the folder-only rebuild.
+  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
+  return { ...layout, order: { ...layout.order, [role]: [...frozen, ...roots] } };
 };
 
 /** Seed a layout from the current registry: folder directory from the author
@@ -360,9 +381,13 @@ const createFolder = (
 ): FolderLayout => {
   const key = normalizeFolderName(name);
   if (key === "") return layout;
-  const order = registryEntries
-    ? listedRoleOrder(layout, role, registryEntries)
-    : (layout.order[role] ?? []);
+  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
+  const order = [
+    ...(registryEntries
+      ? listedRoleOrder(layout, role, registryEntries)
+      : folderEntries(layout.order[role] ?? [])),
+    ...roots,
+  ];
   if (order.includes(key)) return layout; // same-role duplicate refused
   // A different role may already hold this key: base and overlay folders
   // with the same name are two different folders (role-scoped identity).
@@ -464,8 +489,49 @@ const moveLayerToFolder = (
   const nextOrder = order.includes(key) ? order : [...order, key];
   return {
     ...layout,
-    order: { ...layout.order, [role]: nextOrder },
+    // The layer is no longer a root block: its order entry goes with the
+    // assignment, or the same layer would render twice.
+    order: {
+      ...layout.order,
+      [role]: nextOrder.filter(entry => entry !== rootLayerEntry(layerId)),
+    },
     members: { ...layout.members, [layerId]: { role, folder: key } },
+  };
+};
+
+/** The role's block order with every folder listed in anchor order, keeping
+ *  the existing root-layer entries. A move needs this first: an author-declared
+ *  folder lives only in `members`, so an empty order cannot address it by key
+ *  and the move would fall back to appending — which renders the folder (or the
+ *  moved layer) at the head of the role instead of where the user dropped it. */
+const seedBlockOrder = (
+  layout: FolderLayout,
+  role: LayerRole,
+  registryEntries: readonly LayerInfo[],
+): string[] => [
+  ...listedRoleOrder(layout, role, registryEntries),
+  ...(layout.order[role] ?? []).filter(isRootLayerEntry),
+];
+
+/** Move a layer to its role's root, positioned before `beforeEntry` in the
+ *  block order (null appends at the tail). `beforeEntry` is a block-order
+ *  entry — a folder key or `layer:<id>` — so a layer can be dropped between
+ *  two folder blocks, not only after all of them. */
+const moveLayerToRootAt = (
+  layout: FolderLayout,
+  layerId: string,
+  role: LayerRole,
+  beforeEntry: string | null,
+): FolderLayout => {
+  const entry = rootLayerEntry(layerId);
+  const order = (layout.order[role] ?? []).filter(k => k !== entry);
+  const at = beforeEntry === null ? -1 : order.indexOf(beforeEntry);
+  if (at === -1) order.push(entry);
+  else order.splice(at, 0, entry);
+  return {
+    ...layout,
+    order: { ...layout.order, [role]: order },
+    members: { ...layout.members, [layerId]: { role, folder: "" } },
   };
 };
 
@@ -490,10 +556,16 @@ const moveLayerToRoot = (
  *  SURVIVES (the automatic freeze), so the block stays put for the clean
  *  button. */
 const dropLayer = (layout: FolderLayout, layerId: string): FolderLayout => {
-  if (!(layerId in layout.members)) return layout;
+  const entry = rootLayerEntry(layerId);
+  const hasRootEntry = Object.values(layout.order).some(order => order.includes(entry));
+  if (!(layerId in layout.members) && !hasRootEntry) return layout;
   const members = { ...layout.members };
   delete members[layerId];
-  return { ...layout, members };
+  const order: FolderLayout["order"] = {};
+  for (const [role, entries] of Object.entries(layout.order)) {
+    order[role as LayerRole] = entries.filter(k => k !== entry);
+  }
+  return { ...layout, members, order };
 };
 
 /** Restore the author's declared layout: clear the block order and every
@@ -616,6 +688,11 @@ export {
   fullDisplayOrder,
   freezeRoleOrder,
   createFolder,
+  ROOT_LAYER_PREFIX,
+  isRootLayerEntry,
+  moveLayerToRootAt,
+  rootLayerEntry,
+  seedBlockOrder,
   renameFolder,
   deleteFolder,
   moveFolder,

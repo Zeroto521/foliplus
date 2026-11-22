@@ -24,6 +24,7 @@ import {
   moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
+  moveLayerToRootAt,
   normalizeFolderName,
   readFolderLayout,
   renameFolder,
@@ -119,6 +120,47 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(layout.order.overlay).toBeUndefined();
     const created = createFolder(layout, "overlay", "Facilities", entries);
     expect(created.order.overlay).toEqual(["roads", "water", "facilities"]);
+  });
+
+  it("moveLayerToRootAt places the layer between two listed folder blocks", () => {
+    const entries = [
+      entry("a", "overlay", "Alpha", 0),
+      entry("b", "overlay", "Beta", 1),
+    ];
+    let layout = seedFolderLayout(entries);
+    layout = freezeRoleOrder(layout, "overlay", entries, "alpha");
+    expect(layout.order.overlay).toEqual(["alpha", "beta"]);
+
+    layout = moveLayerToRootAt(layout, "a", "overlay", "beta");
+
+    // The layer is a block of its own, between the two folders — not appended
+    // after every folder block.
+    expect(layout.order.overlay).toEqual(["alpha", "layer:a", "beta"]);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "" });
+  });
+
+  it("moveLayerToFolder drops the layer's root block entry", () => {
+    const entries = [entry("a", "overlay", "Alpha", 0)];
+    let layout = seedFolderLayout(entries);
+    layout = moveLayerToRootAt(layout, "a", "overlay", null);
+    expect(layout.order.overlay).toEqual(["layer:a"]);
+
+    layout = moveLayerToFolder(layout, "a", "overlay", "Alpha");
+
+    // The layer is a member now: keeping the root entry would render it twice.
+    expect(layout.order.overlay).toEqual(["alpha"]);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "alpha" });
+  });
+
+  it("dropLayer removes the layer's root block entry", () => {
+    const entries = [entry("a", "overlay", "Alpha", 0)];
+    let layout = seedFolderLayout(entries);
+    layout = moveLayerToRootAt(layout, "a", "overlay", null);
+
+    layout = dropLayer(layout, "a");
+
+    expect(layout.order.overlay).toEqual([]);
+    expect(layout.members.a).toBeUndefined();
   });
 
   it("createFolder without the registry keeps the plain append", () => {
