@@ -7555,6 +7555,63 @@ describe("reorderFolder", () => {
   });
 });
 
+describe("moveLayerToFolder / moveLayerToRootAt", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("moves a root layer into a folder and back out", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "a1",
+          name: "A",
+          role: "overlay",
+          folder: "Alpha",
+          layer: polygonLayer(),
+        },
+        { id: "r1", name: "R", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+
+    expect(manager.moveLayerToFolder("r1", "Alpha")).toBe(true);
+    expect(manager.folderNameOf("r1")).toBe("Alpha");
+
+    expect(manager.moveLayerToFolder("r1", "")).toBe(true);
+    expect(manager.folderNameOf("r1")).toBeNull();
+  });
+
+  it("places a root layer between two folder blocks", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "a1",
+          name: "A",
+          role: "overlay",
+          folder: "Alpha",
+          layer: polygonLayer(),
+        },
+        {
+          id: "b1",
+          name: "B",
+          role: "overlay",
+          folder: "Beta",
+          layer: polygonLayer(),
+        },
+        { id: "r1", name: "R", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+    // Freeze the block order so both folders are listed.
+    manager.createFolder("overlay", "Gamma");
+
+    expect(manager.moveLayerToRootAt("r1", "beta")).toBe(true);
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("layer:r1");
+    const order = manager.folderLayoutView.order.overlay ?? [];
+    expect(order.indexOf("layer:r1")).toBeLessThan(order.indexOf("beta"));
+  });
+});
+
 describe("renameFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();

@@ -73,8 +73,12 @@ import {
   folderOf,
   freezeRoleOrder,
   moveFolder,
+  moveLayerToFolder as moveLayerToFolderInLayout,
+  moveLayerToRootAt as moveLayerToRootAtInLayout,
+  moveLayerToRoot as moveLayerToRootInLayout,
   normalizeFolderName,
   renameFolder,
+  seedBlockOrder,
   visibleDomOf,
   walkLeaf,
   zFor,
@@ -2160,6 +2164,83 @@ class LayerController implements LayerAPI {
     const seeded = freezeRoleOrder(layout, role, this.layerRegistry.layers, key);
     const next = moveFolder(seeded, role, key, targetKey, after);
     if (next === seeded) return false;
+    this.folderLayout.set(next);
+    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
+    this.folderLayout.flush();
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
+  }
+
+  /** Move a layer into a folder, or to its role's root when `folderKey` is
+   *  "". The tree guide, the folder's count and the row's position all follow
+   *  from the assignment, so this is the only write the drag needs.
+   *
+   *  @param layerId - The layer to move.
+   *  @param folderKey - Destination folder key, or "" for the role's root.
+   *  @returns true when the layout changed.
+   */
+  moveLayerToFolder(layerId: string, folderKey: string): boolean {
+    const layerInfo = this.layerRegistry.get(layerId);
+    if (!layerInfo) return false;
+    const layout = this.folderLayout.layout;
+    // Seed the block order first: an author-declared folder is not in `order`,
+    // so the move would append its key and the folder would jump to the head of
+    // the role instead of staying where it is.
+    const seeded = {
+      ...layout,
+      order: {
+        ...layout.order,
+        [layerInfo.role]: seedBlockOrder(
+          layout,
+          layerInfo.role,
+          this.layerRegistry.layers,
+        ),
+      },
+    };
+    const next =
+      folderKey === ""
+        ? moveLayerToRootInLayout(seeded, layerId, layerInfo.role)
+        : moveLayerToFolderInLayout(seeded, layerId, layerInfo.role, folderKey);
+    if (next === layout) return false;
+    this.folderLayout.set(next);
+    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
+    this.folderLayout.flush();
+    if (this.ui) this.ui.reindexAfterMove();
+    return true;
+  }
+
+  /** Move a layer to its role's root at a block position: before
+   *  `beforeEntry` (a folder key or `layer:<id>`), or at the tail when null.
+   *  This is what lets a layer land between two folder blocks.
+   *
+   *  @param layerId - The layer to move.
+   *  @param beforeEntry - Block-order entry to insert before, or null.
+   *  @returns true when the layout changed.
+   */
+  moveLayerToRootAt(layerId: string, beforeEntry: string | null): boolean {
+    const layerInfo = this.layerRegistry.get(layerId);
+    if (!layerInfo) return false;
+    const layout = this.folderLayout.layout;
+    // Same seeding as moveLayerToFolder: the target entry has to be addressable
+    // in the order, or the insert falls back to the tail.
+    const seeded = {
+      ...layout,
+      order: {
+        ...layout.order,
+        [layerInfo.role]: seedBlockOrder(
+          layout,
+          layerInfo.role,
+          this.layerRegistry.layers,
+        ),
+      },
+    };
+    const next = moveLayerToRootAtInLayout(
+      seeded,
+      layerId,
+      layerInfo.role,
+      beforeEntry,
+    );
+    if (next === layout) return false;
     this.folderLayout.set(next);
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
     this.folderLayout.flush();
