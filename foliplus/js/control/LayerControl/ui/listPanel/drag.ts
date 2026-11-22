@@ -347,6 +347,22 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   );
   ui.listPanel.lastDragOverItem = item;
 
+  // A container dropped on a folder's member row would join that folder, which
+  // a layer group cannot do. The folder row's middle zone already refuses with
+  // this sentence; a member row is the same rule reached from the inside, so it
+  // must answer the same way instead of falling through to the reorder path
+  // (which allows the hover and then silently drops the move).
+  const targetId = item.getAttribute(CONST.DATA.LAYER_ID);
+  if (
+    targetId &&
+    isContainerDrag(ui, ui.listPanel.dragEntry!.id) &&
+    ui.c.folderNameOf(targetId)
+  ) {
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+    showDragHint(ui, "group_no_folder");
+    return;
+  }
+
   if (!ui.c.canReorderBetween(armed, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
     showReorderBlockedHint(ui);

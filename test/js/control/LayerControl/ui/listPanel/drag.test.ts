@@ -751,6 +751,28 @@ describe("ui/drag", () => {
 
       expect(manager.folderNameOf("G1")).toBeNull();
     });
+
+    it("refuses a container over a folder's member row, with the same sentence", () => {
+      // The member row is the same rule reached from the inside: a drop there
+      // would join the member's folder, which a container cannot do. The hover
+      // must refuse and say why instead of painting the reorder indicator and
+      // then dropping the move on the floor.
+      const { manager, ui } = folderFixture(["a", "b"]);
+      manager.registerLayer({ id: "G1", name: "G1", role: "overlay" });
+      ui.c.findLayer = vi.fn(() => ({
+        eachLayer: vi.fn(),
+        _layers: {},
+      })) as never;
+      const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+      const member = rowOf(ui, "b1");
+      withRect(member, 100, 36);
+
+      handleDragStart(ui, dragEvent(rowOf(ui, "G1")));
+      handleDragOver(ui, dragEvent(member, {}, 118));
+
+      expect(showHint).toHaveBeenCalled();
+      expect(manager.folderNameOf("G1")).toBeNull();
+    });
   });
 
   describe("commit — a drop runs the controller funnel like any move", () => {
