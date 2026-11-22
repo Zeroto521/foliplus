@@ -795,4 +795,15 @@ describe("core/layer util: countVisibleChildLayers", () => {
     const map = makeMap(new Set());
     expect(countVisibleChildLayers(layer, map)).toBe(0);
   });
+
+  it("returns 0 when the map cannot answer membership", () => {
+    // A stub map without hasLayer cannot say which children are on the map, so
+    // the visible count is 0 rather than a throw.
+    const a = { options: {} };
+    const layer = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(a),
+    } as unknown as L.Layer;
+    expect(countVisibleChildLayers(layer, {} as unknown as L.Map)).toBe(0);
+  });
 });
