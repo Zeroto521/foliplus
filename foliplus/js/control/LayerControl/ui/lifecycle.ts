@@ -329,9 +329,8 @@ const bindLayerEvents = (ui: LayerUI): void => {
   container.addEventListener("drop", ui.onDrop);
   container.addEventListener("dragend", ui.onDragEnd);
   // Double-click on a layer row → focus the map on that layer.
-  container.addEventListener("dblclick", event =>
-    handleDblClick(ui, event as MouseEvent),
-  );
+  ui.onDblClick = event => handleDblClick(ui, event as MouseEvent);
+  container.addEventListener("dblclick", ui.onDblClick);
 
   // Overflow ("more") button → dropdown menu. Uses event delegation so it
   // works for rows created after bindLayerEvents (registerLayer at runtime).
@@ -585,6 +584,7 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onDragLeave) container.removeEventListener("dragleave", ui.onDragLeave);
   if (ui.onDrop) container.removeEventListener("drop", ui.onDrop);
   if (ui.onDragEnd) container.removeEventListener("dragend", ui.onDragEnd);
+  if (ui.onDblClick) container.removeEventListener("dblclick", ui.onDblClick);
   if (ui.onMoreClick) container.removeEventListener("click", ui.onMoreClick);
   if (ui.onMoreMapClick) ui.c.map.off("click", ui.onMoreMapClick);
   if (ui.onZoomEnd) ui.c.map.off("zoomend", ui.onZoomEnd);

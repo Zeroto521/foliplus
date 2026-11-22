@@ -619,7 +619,7 @@ describe("ui/drag", () => {
       expect(ui.listPanel.dragEntry).toBeNull();
     });
 
-    it("a blocked cross-group drop hints, commits nothing and stays armed", () => {
+    it("a blocked cross-group drop hints, commits nothing and closes the session", () => {
       const { manager, ui } = initFixture({
         data: [
           ...overlays(2),
@@ -637,7 +637,9 @@ describe("ui/drag", () => {
 
       expect(showHint).toHaveBeenCalled();
       expect(orderOf(manager)).toEqual(before);
-      expect(ui.listPanel.dragEntry).not.toBeNull();
+      // A drop ends the gesture: a programmatic drop never receives the native
+      // dragend, so the refusal has to close the session itself.
+      expect(ui.listPanel.dragEntry).toBeNull();
     });
 
     it("handleDragOver re-resolves the armed position on every event", () => {

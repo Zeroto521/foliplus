@@ -495,7 +495,10 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     return;
   }
   if (!ui.c.canReorderBetween(armed, targetIdx)) {
+    // A programmatic drop never receives the native dragend, so the session
+    // has to be closed here — same reason as the no-op branch above.
     showReorderBlockedHint(ui);
+    clearDragState(ui);
     return;
   }
 
