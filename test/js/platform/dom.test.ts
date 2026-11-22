@@ -399,6 +399,27 @@ describe("removeInlineEditInput", () => {
     expect(removeInlineEditInput(label as HTMLLabelElement)).toBeNull();
     expect(label.textContent).toBe("text");
   });
+
+  it("puts the replaced text back, so a no-op commit leaves no blank label", () => {
+    // The input takes the label's place, so removing it has to restore the
+    // text: a commit that changes nothing (Enter on the default name) never
+    // rebuilds the row, and the label would stay empty until something else
+    // repainted it.
+    const label = dom.el("label", null, "Roads");
+    createInlineEditInput({
+      label: label as HTMLLabelElement,
+      initialValue: "Roads",
+      className: "edit",
+      ariaLabel: "Rename",
+      onCommit: () => {},
+      onCancel: () => {},
+    });
+    expect(label.textContent).toBe("");
+
+    removeInlineEditInput(label as HTMLLabelElement);
+
+    expect(label.textContent).toBe("Roads");
+  });
 });
 
 describe("createInlineEditInput", () => {
