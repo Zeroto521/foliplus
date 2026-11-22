@@ -680,6 +680,79 @@ describe("ui/drag", () => {
     });
   });
 
+  describe("layer drop on a folder row", () => {
+    /** Pin a row's box so the drop zone is deterministic (jsdom rects are 0). */
+    const withRect = (row: HTMLElement, top: number, height: number): void => {
+      row.getBoundingClientRect = () =>
+        ({
+          top,
+          height,
+          bottom: top + height,
+          left: 0,
+          right: 0,
+          width: 0,
+          x: 0,
+          y: top,
+          toJSON: () => ({}),
+        }) as DOMRect;
+    };
+
+    it("places the layer before the block when the pointer is on the top edge", () => {
+      const { manager, ui } = folderFixture(["a", "b"]);
+      manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+      const row = folderRowOf(ui, "b");
+      withRect(row, 100, 36);
+
+      handleDragStart(ui, dragEvent(rowOf(ui, "R1")));
+      handleDrop(ui, dragEvent(row, {}, 102));
+
+      expect(manager.folderLayoutView.order.overlay).toEqual(["a", "layer:R1", "b"]);
+      expect(manager.folderNameOf("R1")).toBeNull();
+    });
+
+    it("places the layer after the block when the pointer is on the bottom edge", () => {
+      const { manager, ui } = folderFixture(["a", "b"]);
+      manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+      const row = folderRowOf(ui, "b");
+      withRect(row, 100, 36);
+
+      handleDragStart(ui, dragEvent(rowOf(ui, "R1")));
+      handleDrop(ui, dragEvent(row, {}, 134));
+
+      expect(manager.folderLayoutView.order.overlay).toEqual(["a", "b", "layer:R1"]);
+    });
+
+    it("takes the layer into the folder when the pointer is in the middle", () => {
+      const { manager, ui } = folderFixture(["a", "b"]);
+      manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+      const row = folderRowOf(ui, "b");
+      withRect(row, 100, 36);
+
+      handleDragStart(ui, dragEvent(rowOf(ui, "R1")));
+      handleDrop(ui, dragEvent(row, {}, 118));
+
+      expect(manager.folderNameOf("R1")).toBe("b");
+    });
+
+    it("refuses to put a container into a folder", () => {
+      // A container's children are its own sub-layers; a folder groups registry
+      // rows. The middle zone is refused, the edges still place it beside.
+      const { manager, ui } = folderFixture(["a", "b"]);
+      manager.registerLayer({ id: "G1", name: "G1", role: "overlay" });
+      ui.c.findLayer = vi.fn(() => ({
+        eachLayer: vi.fn(),
+        _layers: {},
+      })) as never;
+      const row = folderRowOf(ui, "b");
+      withRect(row, 100, 36);
+
+      handleDragStart(ui, dragEvent(rowOf(ui, "G1")));
+      handleDrop(ui, dragEvent(row, {}, 118));
+
+      expect(manager.folderNameOf("G1")).toBeNull();
+    });
+  });
+
   describe("commit — a drop runs the controller funnel like any move", () => {
     it("a drop publishes the reorder signal and the layer CHANGE", () => {
       const { manager, ui } = initFixture({ data: overlays(3) });

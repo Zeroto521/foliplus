@@ -1,9 +1,10 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { rebuildList } from "./list.js";
+import { displayBlocks, rebuildList } from "./list.js";
 import {
   type LayerRole,
+  isContainerRow,
   normalizeFolderName,
   rootLayerEntry,
 } from "#core/layer/index.js";
@@ -164,6 +165,12 @@ const folderDropTarget = (ui: LayerUI, event: DragEvent): HTMLElement | null => 
   return row;
 };
 
+/** A container row (a group) never joins a folder: its children are its own
+ *  sub-layers, and a folder groups registry rows. Dropping one on a folder row
+ *  is refused rather than silently accepted. */
+const isContainerDrag = (ui: LayerUI, layerId: string): boolean =>
+  isContainerRow(ui.c.layerRegistry.get(layerId), ui.c.findLayer(layerId));
+
 /** The block-order entry a row belongs to: a folder row's key, a root layer
  *  row's `layer:<id>`, or — for a member row — the folder block above it. */
 const blockEntryOfRow = (row: HTMLElement): string | null => {
@@ -179,6 +186,37 @@ const blockEntryOfRow = (row: HTMLElement): string | null => {
     prev = prev.previousElementSibling as HTMLElement | null;
   }
   return rootLayerEntry(id);
+};
+
+/** The block-order entry that follows `entry` in the role's block order, or
+ *  null when it is the last block. Used to place a layer AFTER a folder block:
+ *  inserting before the next block is the same position. */
+const blockEntryAfter = (ui: LayerUI, role: string, entry: string): string | null => {
+  const blocks = displayBlocks(ui, role);
+  const idx = blocks.findIndex(block =>
+    block.kind === "folder"
+      ? block.key === entry
+      : rootLayerEntry(block.layer.id) === entry,
+  );
+  if (idx < 0 || idx + 1 >= blocks.length) return null;
+  const next = blocks[idx + 1];
+  return next.kind === "folder" ? next.key : rootLayerEntry(next.layer.id);
+};
+
+/** Which third of a folder row the pointer is over. The middle takes the layer
+ *  INTO the folder; the edges place it as a root block before/after the block,
+ *  which is how a layer gets between two folders — the rows are adjacent, so
+ *  there is no gap to drop into. */
+const folderDropZone = (
+  row: HTMLElement,
+  clientY: number,
+): "before" | "into" | "after" => {
+  const rect = row.getBoundingClientRect();
+  if (rect.height === 0) return "into";
+  const ratio = (clientY - rect.top) / rect.height;
+  if (ratio < 0.25) return "before";
+  if (ratio > 0.75) return "after";
+  return "into";
 };
 
 /** The block-order entry the pointer sits BEFORE, for a drop that lands in the
@@ -248,9 +286,21 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       CONST.CLASSES.DRAG_OVER_INTO,
     );
   }
-  // A folder row is a drop target: the layer joins that folder.
+  // A folder row is a drop target: the layer joins that folder. A container
+  // row is not — its children are its own sub-layers, so it never joins a
+  // folder.
   const folderKey = item?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
   if (item && folderKey) {
+    if (isContainerDrag(ui, ui.listPanel.dragEntry!.id)) {
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+      item.classList.remove(
+        CONST.CLASSES.DRAG_OVER_TOP,
+        CONST.CLASSES.DRAG_OVER_BOTTOM,
+        CONST.CLASSES.DRAG_OVER_INTO,
+      );
+      ui.listPanel.lastDragOverItem = null;
+      return;
+    }
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
     item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
     item.classList.add(CONST.CLASSES.DRAG_OVER_INTO);
@@ -327,11 +377,22 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   const armedEntry = ui.listPanel.dragEntry;
   if (!armedEntry) return;
 
-  // A folder row takes the layer into that folder.
+  // A folder row takes the layer into that folder — unless the layer is a
+  // container, whose children are its own sub-layers.
   const folderKey = target?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
   if (target && folderKey) {
     try {
-      ui.c.moveLayerToFolder(armedEntry.id, folderKey);
+      const zone = folderDropZone(target, event.clientY);
+      if (zone === "into") {
+        if (!isContainerDrag(ui, armedEntry.id)) {
+          ui.c.moveLayerToFolder(armedEntry.id, folderKey);
+        }
+      } else if (zone === "before") {
+        ui.c.moveLayerToRootAt(armedEntry.id, folderKey);
+      } else {
+        const role = target.getAttribute(CONST.DATA.ROLE) ?? "";
+        ui.c.moveLayerToRootAt(armedEntry.id, blockEntryAfter(ui, role, folderKey));
+      }
     } finally {
       clearDragState(ui);
     }
@@ -372,7 +433,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // tree guide follows from the assignment, so this is the whole move.
   const targetFolder = ui.c.folderNameOf(targetId!) ?? "";
   const sourceFolder = ui.c.folderNameOf(armedEntry.id) ?? "";
-  if (targetFolder !== sourceFolder) {
+  if (targetFolder !== sourceFolder && !isContainerDrag(ui, armedEntry.id)) {
     ui.c.moveLayerToFolder(armedEntry.id, targetFolder);
   }
   if (armed === targetIdx) {

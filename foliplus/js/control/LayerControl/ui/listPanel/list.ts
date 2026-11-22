@@ -1136,6 +1136,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  */
 
 export {
+  displayBlocks,
   emptyFolderKeys,
   initTypesAndVisibility,
   markSettled,
