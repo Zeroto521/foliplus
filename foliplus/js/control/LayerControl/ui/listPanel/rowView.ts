@@ -174,12 +174,6 @@ const rowType = (
   return { svg: SVGs.ICON_UNKNOWN, key: "type_unknown" };
 };
 
-/**
- * One layer's inputs to the row visual: the projection input builder.
- *
- *  Everything the row shows is read here and nothing is written, so the row
- *  cannot read a stale decoration and looking at a layer cannot move the map.
- */
 /** The count column's text rule: one number when the whole group agrees, a
  *  kept-of-total pair otherwise. Shared by role rows, folder rows and
  *  container rows so the three can never drift — the count column's fixed
@@ -207,6 +201,12 @@ const groupCountTooltip = (
   total: number,
 ): string => ui.T(key).replace("{on}", String(on)).replace("{total}", String(total));
 
+/**
+ * One layer's inputs to the row visual: the projection input builder.
+ *
+ *  Everything the row shows is read here and nothing is written, so the row
+ *  cannot read a stale decoration and looking at a layer cannot move the map.
+ */
 const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const layer = ui.c.findLayer(layerInfo);
   const checked = intentVisibleOf(ui, layerInfo.id);

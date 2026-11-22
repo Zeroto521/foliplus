@@ -6,7 +6,7 @@ import type {
   LayerInfo,
   LayerKind,
 } from "./type.js";
-import { countChildLayers, walkLeaf } from "./walkLeaf.js";
+import { childrenOf, countChildLayers, walkLeaf } from "./walkLeaf.js";
 import {
   internalLayers,
   isGroupLike,
@@ -231,20 +231,10 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
   // jsdom mock) is recognised by its shape: every direct child carries a
   // GeoJSON feature envelope. A user FeatureGroup children (plain markers /
   // paths) carry none, so the two cannot be confused.
-  let featureChildCount = 0;
-  let childCount = 0;
-  const each = c.eachLayer;
-  if (each) {
-    try {
-      each.call(layer, (child: L.Layer) => {
-        childCount++;
-        if (child && "feature" in child) featureChildCount++;
-      });
-    } catch {
-      /* hostile getter — treat as non-GeoJSON, the walk will decide */
-    }
+  const children = childrenOf(layer);
+  if (children.length > 0 && children.every(child => child && "feature" in child)) {
+    return false;
   }
-  if (childCount > 0 && featureChildCount === childCount) return false;
   return true;
 };
 
@@ -282,34 +272,13 @@ const countChildLayersOf = (layer: L.Layer): number => countChildLayers(layer);
  *  @param {L.Map} map - Leaflet map (owner of the membership fact).
  *  @returns {number} Number of direct children on the map. */
 const countVisibleChildLayers = (layer: L.Layer, map: L.Map): number => {
-  // Direct children: eachLayer wins (Leaflet containers), else the internal
-  // registry. Same priority as walkLeaf.childrenOf — kept local to avoid
-  // widening walkLeaf's public surface for one caller.
-  let children: L.Layer[] = [];
-  // Structural access to the group interface only for eachLayer / _layers;
-  // L.LayerGroup is not assignable from L.Layer without a double cast, which
-  // the source-pin guard forbids, so narrow to the fields we actually read.
-  const group = layer as {
-    eachLayer?: (fn: (child: L.Layer) => void) => void;
-    _layers?: Record<string, L.Layer>;
-  };
-  try {
-    if (typeof group.eachLayer === "function") {
-      const out: L.Layer[] = [];
-      group.eachLayer((child: L.Layer) => out.push(child));
-      children = out;
-    } else {
-      const reg = internalLayers(
-        layer as L.Layer & { _layers?: Record<string, L.Layer> },
-      );
-      children = reg ? Object.values(reg) : [];
-    }
-  } catch {
-    children = [];
-  }
+  // The child enumeration is walkLeaf's childrenOf — the same read
+  // countChildLayers uses, so "how many children" and "how many are visible"
+  // can never disagree about what a child is.
+  if (typeof map.hasLayer !== "function") return 0;
   let visible = 0;
-  for (const child of children) {
-    if (typeof map.hasLayer === "function" && map.hasLayer(child)) visible++;
+  for (const child of childrenOf(layer)) {
+    if (map.hasLayer(child)) visible++;
   }
   return visible;
 };
