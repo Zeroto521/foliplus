@@ -316,6 +316,26 @@ describe("ui/list row placement", () => {
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
+  it("renders a folder row folded when its role is folded", () => {
+    // Folding a role hides the whole block, header included — the folder's own
+    // fold state is untouched, so unfolding the role restores the same view.
+    const { ui } = initFixture({
+      data: [{ id: "A", name: "A", role: "overlay", folder: "Roads" }],
+    });
+    ui.listPanel.foldedRoles[ROLE.OVERLAY] = true;
+
+    renderInitialList(ui);
+
+    const folder = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.FOLDER_KEY}="roads"]`,
+    );
+    expect(folder).not.toBeNull();
+    expect(folder!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    // The row is the block's header, so it must NOT carry the folder's own
+    // FOLDED state — only the "hidden because my role is folded" marker.
+    expect(folder!.classList.contains(CONST.CLASSES.FOLDED)).toBe(false);
+  });
+
   it("closes the row panels it drops with the rows", () => {
     // A rebuild replaces the whole list (fold, reorder, or the list arriving).
     // The style panel can dispose its scheme picker and unpin itself, but only

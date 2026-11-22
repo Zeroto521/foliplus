@@ -555,8 +555,12 @@ const renderInitialList = (ui: LayerUI) => {
           role,
           block.key,
         );
-        // The row paints its own fold state (renderFolderRow); only the
-        // members are hidden here.
+        // The row paints its own fold state (renderFolderRow). A folded ROLE
+        // hides the whole block, header included — otherwise folding a role
+        // left its folder rows on screen and only their members went away.
+        // The folder's own fold state is untouched, so unfolding the role
+        // restores exactly the view the user had.
+        if (roleFolded) row.classList.add(CONST.CLASSES.GROUP_FOLDED);
         frag.appendChild(row);
         for (const member of block.block.members) {
           const item = renderLayerItem(ui, member);
