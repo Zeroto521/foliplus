@@ -970,7 +970,15 @@ describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
         { key: "new folder 4", name: "new folder 4" },
         { key: "new folder 5", name: "new folder 5" },
       ],
-      order: { overlay: ["new folder", "new folder 2", "new folder 3", "new folder 4", "new folder 5"] },
+      order: {
+        overlay: [
+          "new folder",
+          "new folder 2",
+          "new folder 3",
+          "new folder 4",
+          "new folder 5",
+        ],
+      },
       members: {},
     };
     expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 6");
@@ -1009,4 +1017,15 @@ describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
     expect(nextFolderDefaultName(layout, "overlay", "roads")).toBe("roads 2");
   });
 
+  it("nextFolderDefaultName ignores members of a different role", () => {
+    // The @233 false arm: a member whose role does not match is not a taken
+    // key for this role, so the base stays free.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "new folder", name: "new folder" }],
+      order: { overlay: ["new folder"] },
+      members: { a: { role: "base", folder: "basemap" } },
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 2");
+  });
 });
