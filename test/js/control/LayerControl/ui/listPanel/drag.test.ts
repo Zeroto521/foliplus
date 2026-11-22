@@ -160,10 +160,10 @@ describe("ui/drag", () => {
 
     it("leaves the fold state alone across a folder drag", () => {
       const { ui } = folderFixture(["a", "b"]);
-      ui.listPanel.foldedFolders.add("overlay::a");
+      ui.listPanel.foldedFolders["overlay::a"] = true;
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
       handleDragEnd(ui);
-      expect(ui.listPanel.foldedFolders.has("overlay::a")).toBe(true);
+      expect(ui.listPanel.foldedFolders["overlay::a"]).toBe(true);
     });
 
     it("refuses a drop onto a layer row or the other role", () => {
@@ -965,7 +965,7 @@ describe("ui/list folder rows (fold)", () => {
     const memberRow = ui.uiContainer!.querySelector(`[data-layer-id="rd1"]`);
     expect(memberRow!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
     // The in-memory fold set is the single source (persistence schedules it).
-    expect(ui.listPanel.foldedFolders.has("overlay::roads")).toBe(true);
+    expect(ui.listPanel.foldedFolders["overlay::roads"]).toBe(true);
   });
 
   it("keeps the folded folder row visible and hides only its members (issue 10)", () => {
@@ -1016,7 +1016,7 @@ describe("ui/list folder rows (fold)", () => {
       // (state.ts:38) and the record hits storage.
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       const rec = ui.c.persistence.load();
-      expect(rec.foldedFolders).toContain("overlay::roads");
+      expect(rec.foldedFolders["overlay::roads"]).toBe(true);
     } finally {
       vi.useRealTimers();
     }

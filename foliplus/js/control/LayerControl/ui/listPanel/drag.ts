@@ -45,8 +45,9 @@ const folderFoldKey = (role: string, name: string): string =>
  *  role — no second fold implementation. */
 const toggleFolderFold = (ui: LayerUI, role: string, name: string): void => {
   const key = folderFoldKey(role, name);
-  if (ui.listPanel.foldedFolders.has(key)) ui.listPanel.foldedFolders.delete(key);
-  else ui.listPanel.foldedFolders.add(key);
+  // Record the flip as an explicit opinion in BOTH directions: an expand over
+  // an author default fold has to be distinguishable from "never touched".
+  ui.listPanel.foldedFolders[key] = !isFolderFolded(ui, role, name);
   rebuildList(ui);
   saveFoldState(ui);
 };
@@ -131,15 +132,17 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
 };
 
-const showReorderBlockedHint = (ui: LayerUI) => {
+/** One transient hint per gesture, throttled so a drag that keeps crossing
+ *  the same refusal does not stack toasts. */
+const showDragHint = (ui: LayerUI, key: string) => {
   const now = Date.now();
   if (now - ui.listPanel.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   ui.listPanel.lastDragHintAt = now;
-  ui.c.map.foliplus!.showHint(
-    ui.config.name,
-    ui.T("reorder_group_only"),
-    HINT_DURATION.SHORT,
-  );
+  ui.c.map.foliplus!.showHint(ui.config.name, ui.T(key), HINT_DURATION.SHORT);
+};
+
+const showReorderBlockedHint = (ui: LayerUI) => {
+  showDragHint(ui, "reorder_group_only");
 };
 
 /** Whether the pointer sits in the bottom half of a row, i.e. the drop lands
@@ -251,6 +254,15 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     if (!row) {
       ui.listPanel.lastDragOverItem = null;
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+      // A folder over a container row is a refusal worth naming: the two are
+      // different kinds of block, and silence reads as a broken drag.
+      const over = (event.target as HTMLElement | null)?.closest(
+        CONST.SEL.LAYER_ITEM,
+      ) as HTMLElement | null;
+      const overId = over?.getAttribute(CONST.DATA.LAYER_ID);
+      if (overId && isContainerDrag(ui, overId)) {
+        showDragHint(ui, "folder_no_container");
+      }
       return;
     }
     event.preventDefault();
@@ -291,7 +303,8 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // folder.
   const folderKey = item?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
   if (item && folderKey) {
-    if (isContainerDrag(ui, ui.listPanel.dragEntry!.id)) {
+    const zone = folderDropZone(item, event.clientY);
+    if (zone === "into" && isContainerDrag(ui, ui.listPanel.dragEntry!.id)) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
       item.classList.remove(
         CONST.CLASSES.DRAG_OVER_TOP,
@@ -299,11 +312,22 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         CONST.CLASSES.DRAG_OVER_INTO,
       );
       ui.listPanel.lastDragOverItem = null;
+      showDragHint(ui, "container_no_folder");
       return;
     }
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
-    item.classList.add(CONST.CLASSES.DRAG_OVER_INTO);
+    item.classList.remove(
+      CONST.CLASSES.DRAG_OVER_TOP,
+      CONST.CLASSES.DRAG_OVER_BOTTOM,
+      CONST.CLASSES.DRAG_OVER_INTO,
+    );
+    item.classList.add(
+      zone === "before"
+        ? CONST.CLASSES.DRAG_OVER_TOP
+        : zone === "after"
+          ? CONST.CLASSES.DRAG_OVER_BOTTOM
+          : CONST.CLASSES.DRAG_OVER_INTO,
+    );
     ui.listPanel.lastDragOverItem = item;
     return;
   }
