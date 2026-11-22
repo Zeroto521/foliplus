@@ -1358,6 +1358,533 @@ describe("drop adopts the target row's folder", () => {
   });
 });
 
+describe("drag — the dataTransfer is always optional", () => {
+  /** Pin a row's box so the drop zone is deterministic (jsdom rects are 0). */
+  const withRect = (row: HTMLElement, top: number, height: number): void => {
+    row.getBoundingClientRect = () =>
+      ({
+        top,
+        height,
+        bottom: top + height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  /** A drag event without a dataTransfer: jsdom and some browsers omit it. */
+  const noTransfer = (target: HTMLElement, clientY = 0): DragEvent =>
+    ({
+      target,
+      clientY,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      dataTransfer: null,
+    }) as unknown as DragEvent;
+
+  it("arms a folder drag on an event without a dataTransfer", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    const row = folderRowOf(ui, "a");
+
+    handleDragStart(ui, noTransfer(row));
+
+    // The gesture is armed regardless: the dataTransfer only carries the
+    // cursor affordance the browser paints.
+    expect(ui.listPanel.dragFolder).toEqual({ role: "overlay", key: "a" });
+    expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+  });
+
+  it("paints a folder drag's hover marker without a dataTransfer", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const row = folderRowOf(ui, "b");
+
+    handleDragOver(ui, noTransfer(row));
+
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+  });
+
+  it("refuses a folder drag over a container row without a dataTransfer", () => {
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+
+    handleDragOver(ui, noTransfer(rowOf(ui, "G1")));
+
+    expect(showHint).toHaveBeenCalled();
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("answers a layer hover over a gap without a dataTransfer", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    const shell = document.createElement("div");
+    attachedPanel(ui).appendChild(shell);
+
+    expect(() => handleDragOver(ui, noTransfer(shell))).not.toThrow();
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("refuses a layer on the other role's folder row without a dataTransfer", () => {
+    // The cross-role guard must not depend on the dataTransfer: a refusal
+    // that silently turns into a drop is worse than no marker at all.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["a"], base: ["b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "base",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "R1",
+          name: "R1",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const baseFolder = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.FOLDER_KEY}="b"]`,
+    )!;
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+
+    expect(() => handleDragOver(ui, noTransfer(baseFolder))).not.toThrow();
+  });
+
+  it("refuses a container on a folder's middle zone without a dataTransfer", () => {
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
+
+    expect(() => handleDragOver(ui, noTransfer(row, 118))).not.toThrow();
+  });
+
+  it("refuses a container over a member row without a dataTransfer", () => {
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({
+      id: "G1",
+      name: "G1",
+      role: "overlay",
+      layer: containerLayer(),
+    });
+    const member = rowOf(ui, "b1");
+    handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
+
+    expect(() => handleDragOver(ui, noTransfer(member))).not.toThrow();
+  });
+
+  it("drops a layer into a folder row whose box is not measurable", () => {
+    // jsdom rows carry zero boxes, and so can a row mid-layout: the zone
+    // answers "into", so the drop joins the folder instead of guessing a
+    // block position.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const move = vi.spyOn(ui.c, "moveLayerToFolder");
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(folderRowOf(ui, "a"), {}, 0));
+
+    expect(move).toHaveBeenCalledWith("R1", "a");
+  });
+});
+
+describe("drag — block order across root layers", () => {
+  /** Pin a row's box so the drop zone is deterministic (jsdom rects are 0). */
+  const withRect = (row: HTMLElement, top: number, height: number): void => {
+    row.getBoundingClientRect = () =>
+      ({
+        top,
+        height,
+        bottom: top + height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  /** A role's block order holding a root layer between two folder blocks. */
+  const interleavedFixture = () =>
+    initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["a", "layer:R1", "b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "overlay",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "R1",
+          name: "R1",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+
+  it("places a layer after the folder block that precedes a root layer", () => {
+    // A root layer sits between the two folder blocks: dropping a layer on
+    // folder "a"'s after-zone lands it before that root block, not after
+    // folder "b" — the position follows the block order, not the row order.
+    const { manager, ui } = interleavedFixture();
+    manager.registerLayer({ id: "R2", name: "R2", role: "overlay" });
+    const row = folderRowOf(ui, "a");
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "R2"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(row, {}, 134));
+
+    expect(move).toHaveBeenCalledWith("R2", "layer:R1");
+  });
+
+  it("drops at the block tail when the pointer is below every row", () => {
+    // No row sits above the pointer, so there is no block to insert before:
+    // the layer becomes a root block at the tail of the role's order.
+    const { ui } = folderFixture(["a", "b"]);
+    withRect(folderRowOf(ui, "a"), 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "b1"), { effectAllowed: "" }));
+    const shell = document.createElement("div");
+    attachedPanel(ui).appendChild(shell);
+
+    handleDrop(ui, dragEvent(shell, {}, 400));
+
+    expect(move).toHaveBeenCalledWith("b1", null);
+  });
+
+  it("lands at the block tail when the pointer sits over the role header", () => {
+    // The role header names no folder and no layer, so it is not a block
+    // boundary: a drop in its row has nothing to insert before and lands at
+    // the tail.
+    const { ui } = folderFixture(["a", "b"]);
+    const header = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.ROLE}="overlay"]`,
+    )!;
+    withRect(header, 40, 30);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "b1"), { effectAllowed: "" }));
+    const shell = document.createElement("div");
+    attachedPanel(ui).appendChild(shell);
+
+    handleDrop(ui, dragEvent(shell, {}, 50));
+
+    expect(move).toHaveBeenCalledWith("b1", null);
+  });
+
+  it("drops after a folder row that carries no role", () => {
+    // A folder row without its role cannot be placed relative to its block
+    // order, so the drop falls back to the tail of the role's order.
+    const { ui } = folderFixture(["a", "b"]);
+    const row = folderRowOf(ui, "b");
+    row.removeAttribute(CONST.DATA.ROLE);
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(row, {}, 134));
+
+    expect(move).toHaveBeenCalledWith("a1", null);
+  });
+});
+
+describe("drag — block resolution at the role edges", () => {
+  /** Pin a row's box so the drop zone is deterministic (jsdom rects are 0). */
+  const withRect = (row: HTMLElement, top: number, height: number): void => {
+    row.getBoundingClientRect = () =>
+      ({
+        top,
+        height,
+        bottom: top + height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  it("drops a folder drag onto a layer row and names no target", () => {
+    // A folder block only lands on a folder row: a layer row is not a block,
+    // so the drag must refuse it instead of resolving to a neighbouring one.
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const layerRow = rowOf(ui, "b1");
+    const dataTransfer = { dropEffect: "" };
+
+    handleDragOver(ui, dragEvent(layerRow, dataTransfer, 0));
+
+    expect(dataTransfer.dropEffect).toBe("none");
+    expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("places a layer after a folder block that precedes a root layer", () => {
+    // The block order can interleave a root layer between folder blocks: the
+    // position after folder "a" is that root block, not folder "b".
+    const { manager, ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["a", "layer:R1", "b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "overlay",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "R1",
+          name: "R1",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    manager.registerLayer({ id: "R2", name: "R2", role: "overlay" });
+    const row = folderRowOf(ui, "a");
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "R2"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(row, {}, 134));
+
+    expect(move).toHaveBeenCalledWith("R2", "layer:R1");
+  });
+
+  it("joins a folder row that lost its role", () => {
+    // The role is read defensively: a folder row without it still takes the
+    // layer in its middle zone, and the cross-role guard skips it rather than
+    // refusing a same-role move it cannot classify.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const row = folderRowOf(ui, "b");
+    row.removeAttribute(CONST.DATA.ROLE);
+    withRect(row, 100, 36);
+    const dataTransfer = { dropEffect: "" };
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+
+    handleDragOver(ui, dragEvent(row, dataTransfer, 118));
+
+    expect(dataTransfer.dropEffect).toBe("move");
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(true);
+  });
+
+  it("paints a folder join marker when the drag carries no dataTransfer", () => {
+    // The affordance is optional: the pointer state must still paint when the
+    // browser omits the transfer, and the drop must still join the folder.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
+    const row = folderRowOf(ui, "b");
+    withRect(row, 100, 36);
+    handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
+    const event = {
+      target: row,
+      clientY: 118,
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      dataTransfer: null,
+    } as unknown as DragEvent;
+
+    expect(() => handleDragOver(ui, event)).not.toThrow();
+
+    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(true);
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+  });
+});
+
+describe("drag — placing a layer after a folder block", () => {
+  /** Pin a row's box so the drop zone is deterministic (jsdom rects are 0). */
+  const withRect = (row: HTMLElement, top: number, height: number): void => {
+    row.getBoundingClientRect = () =>
+      ({
+        top,
+        height,
+        bottom: top + height,
+        left: 0,
+        right: 0,
+        width: 0,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+  };
+
+  it("places a layer before the folder block that follows", () => {
+    // Inserting after one folder block is the same position as before the
+    // block that follows it, so the resolver names that neighbour folder.
+    const { ui } = folderFixture(["a", "b"]);
+    const row = folderRowOf(ui, "a");
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(row, {}, 134));
+
+    expect(move).toHaveBeenCalledWith("a1", "b");
+  });
+
+  it("places a layer after a folder that follows a root block", () => {
+    // The resolver walks the role's block list to find the folder: a root
+    // block ahead of it is not the position, so the search keeps walking.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["layer:R0", "a", "b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "overlay",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "R0",
+          name: "R0",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const row = folderRowOf(ui, "a");
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(row, {}, 134));
+
+    expect(move).toHaveBeenCalledWith("a1", "b");
+  });
+
+  it("places a layer before the root block that follows the folder", () => {
+    // The role's block order can interleave a root layer between folders: the
+    // position after folder "a" is that root block, not folder "b".
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [
+          { key: "a", name: "a" },
+          { key: "b", name: "b" },
+        ],
+        order: { overlay: ["a", "layer:R0", "b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "b1",
+          name: "b1",
+          role: "overlay",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "R0",
+          name: "R0",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const row = folderRowOf(ui, "a");
+    withRect(row, 100, 36);
+    const move = vi.spyOn(ui.c, "moveLayerToRootAt");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+
+    handleDrop(ui, dragEvent(row, {}, 134));
+
+    expect(move).toHaveBeenCalledWith("a1", "layer:R0");
+  });
+});
+
 describe("ui/list folder rows (fold)", () => {
   beforeEach(() => {
     window.localStorage.clear();

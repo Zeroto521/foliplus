@@ -3,6 +3,7 @@ import { attachedPanel, findItem, initFixture } from "../fixture.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
 import { nativeConsumesKey } from "#core/interaction/index.js";
 import { normalizeFolderName } from "#core/layer/index.js";
 import { ensureModes } from "#core/lifecycle/index.js";
@@ -2451,5 +2452,219 @@ describe("ui/list folder rows (menu)", () => {
     );
     expect(ui.overlayPanel.activeMenu).toBeNull();
     outside.remove();
+  });
+  it("clean-empty-folders arms on the first click and fires on the second", () => {
+    // An empty folder is a key in the role's block order with no member. A root
+    // layer (folder: "") is not a member of any folder, so "empty" stays empty.
+    const cleanSpy = vi.fn();
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["empty"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    ui.c.cleanEmptyFolders = cleanSpy;
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    ui.openRoleMenu(roleRow);
+    const menu = ui.overlayPanel.activeMenu!.menu!;
+    const btn = menu.querySelector<HTMLElement>(
+      `button[data-action="${CONST.ACTION.CLEAN_EMPTY_FOLDERS}"]`,
+    )!;
+    expect(btn.getAttribute("aria-disabled")).toBe("false");
+    const label = btn.querySelector(CONST.SEL.MENU_DELETE_LABEL)!;
+    expect(label.textContent).toBe(ui.T("clean_empty_folders"));
+
+    // The menu-local click listener dispatches through handleMenuClick: the first
+    // activation only arms (label swaps to the confirm text, menu stays open).
+    const clickOn = (el: HTMLElement) => {
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "target", { value: el });
+      menu.dispatchEvent(event);
+    };
+    clickOn(btn);
+    expect(btn.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)).toBe(true);
+    expect(label.textContent).toBe(ui.T("delete_confirm"));
+    expect(cleanSpy).not.toHaveBeenCalled();
+
+    // The second activation fires: the menu closes and the role is cleaned.
+    clickOn(btn);
+    expect(cleanSpy).toHaveBeenCalledWith("overlay");
+    expect(ui.overlayPanel.activeMenu).toBeNull();
+  });
+
+  it("disables clean-empty-folders when the role owns no empty folder", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    ui.openRoleMenu(roleRow);
+    const btn = ui.overlayPanel.activeMenu!.menu!.querySelector<HTMLElement>(
+      `button[data-action="${CONST.ACTION.CLEAN_EMPTY_FOLDERS}"]`,
+    )!;
+    expect(btn.getAttribute("aria-disabled")).toBe("true");
+    expect(btn.getAttribute("title")).toBe(ui.T("clean_empty_folders_none"));
+  });
+
+  it("rename-folder falls back to the item's own role and folder name when the menu record lacks them", () => {
+    // The menu record's folderKey is the handle; role and display name may be
+    // missing from the record but live on the row (data-role / data-folder-name).
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const stub = document.createElement("div");
+    stub.setAttribute(CONST.DATA.ROLE, "overlay");
+    stub.setAttribute(CONST.DATA.FOLDER_NAME, "Roads");
+    (ui.overlayPanel as any).activeMenu = {
+      item: stub,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+    };
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
+    runMenuAction(ui, mi);
+    expect(
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`),
+    ).not.toBeNull();
+  });
+
+  it("new-folder with a refused create is a silent no-op", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: roleRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+    };
+    // A refused create (duplicate / blank / too-long) makes startNewFolder return
+    // before opening the inline rename: no input, no throw.
+    ui.c.createFolder = () => ({ ok: false, reason: "duplicate" });
+    const mi = document.createElement("button");
+    mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
+    expect(() => runMenuAction(ui, mi)).not.toThrow();
+    expect(ui.uiContainer!.querySelector(`.${CONST.CLASSES.RENAME_INPUT}`)).toBeNull();
+  });
+  it("role menu closes through the panel controller when the map is clicked outside", () => {
+    // attachRowMenu registers a PanelController with dismiss.outsidePress=click.
+    // An outside click reaches the overlay registry, which calls the entry's
+    // close → controller.close → the spec's close callback (closeMoreMenu).
+    // This is the only path that exercises the spec.close body.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const roleRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    ui.openRoleMenu(roleRow);
+    expect(ui.overlayPanel.activeMenu).not.toBeNull();
+
+    // A press outside the menu (the map container) closes it via the overlay
+    // registry's click-capture pass.
+    document.body.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(ui.overlayPanel.activeMenu).toBeNull();
+  });
+
+  it("layer menu closes when the anchored layer is torn down", () => {
+    // subscribeLayerTearDown subscribes the menu's close to LAYER_REMOVED /
+    // LAYER_DELETED for the anchored layer id. The teardown contract is that an
+    // anchor teardown must close the menu through that callback, independent of
+    // any row-removal path that would also close it.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const item = findItem(ui, "rd1");
+    // The menu anchors on the row's data-layer-id (the layer row).
+    ui.openMoreMenu(item);
+    expect(ui.overlayPanel.activeMenu).not.toBeNull();
+
+    // The registry's teardown signal for the anchored id reaches the
+    // tear-down subscriber, which closes the menu.
+    ui.events.emit(EVENTS.LAYER_REMOVED, { id: "rd1" });
+
+    expect(ui.overlayPanel.activeMenu).toBeNull();
+  });
+
+  it("layer menu closes when the anchored layer is component-deleted", () => {
+    // The tear-down subscriber also routes LAYER_DELETED (the component-owned
+    // delete channel) to closeMoreMenu — the same contract as LAYER_REMOVED.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const item = findItem(ui, "rd1");
+    ui.openMoreMenu(item);
+    expect(ui.overlayPanel.activeMenu).not.toBeNull();
+
+    // The component-delete signal for the anchored id closes the menu.
+    ui.events.emit(EVENTS.LAYER_DELETED, { id: "rd1" });
+
+    expect(ui.overlayPanel.activeMenu).toBeNull();
   });
 });

@@ -335,6 +335,14 @@ describe("LayerUI lifecycle — defensive rails", () => {
       ui.c.uiContainer = null as any;
       expect(() => ui.unbindEvents()).not.toThrow();
     });
+
+    it("unbinds the dblclick handler when onDblClick is null (guard arm)", () => {
+      // bindLayerEvents set onDblClick, but a subscriber already off'd it (or
+      // never attached): the guard must not throw and must not remove a null
+      // handler. This is the false arm of the `if (ui.onDblClick)` rail.
+      (ui as any).onDblClick = null;
+      expect(() => ui.unbindEvents()).not.toThrow();
+    });
   });
 
   describe("attachUI — late-registration draining rails", () => {

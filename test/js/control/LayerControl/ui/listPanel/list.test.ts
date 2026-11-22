@@ -21,6 +21,7 @@ import {
   rebuildList,
   reconcileCursorByIdentity,
   renderInitialList,
+  renderLayerItem,
   syncRowOrder,
   toggleFold,
   updateLayerItemLabel,
@@ -2553,5 +2554,152 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     ) as HTMLElement;
     // At least one member is visible by default, so the folder row is active.
     expect(row.classList.contains(CONST.CLASSES.ACTIVE)).toBe(true);
+  });
+});
+
+describe("ui/list row-order and tree-connector guards", () => {
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  const makeTreeRow = (attrs: Record<string, string>) => {
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.LAYER_ITEM;
+    for (const [k, v] of Object.entries(attrs)) row.setAttribute(k, v);
+    const tree = document.createElement("span");
+    tree.className = CONST.CLASSES.FOLD_TREE;
+    row.appendChild(tree);
+    return row;
+  };
+
+  it("syncRowOrder tolerates rows missing from the panel (row-found guards)", () => {
+    // The row-found guards: a folder/member/layer row absent from the DOM must not
+    // derail the reorder — it is simply skipped. Remove one of each and re-sync.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads", "root"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        { id: "root1", name: "Root", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+    const panel = ui.uiContainer!;
+    const folderRow = panel.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}[${CONST.DATA.FOLDER_KEY}="roads"]`,
+    );
+    const rd2Row = panel.querySelector(`[${CONST.DATA.LAYER_ID}="rd2"]`);
+    const rootRow = panel.querySelector(`[${CONST.DATA.LAYER_ID}="root1"]`);
+    folderRow?.remove();
+    rd2Row?.remove();
+    rootRow?.remove();
+    expect(() => syncRowOrder(ui)).not.toThrow();
+  });
+
+  it("refreshTreeConnectors skips a tree row whose id is missing from the registry", () => {
+    // A LAYER_ITEM row carrying a tree guide but no registered layer: the id->info
+    // lookup fails and the row is skipped rather than dereferencing undefined.
+    const { ui } = initFixture({ data: [] });
+    const ghost = makeTreeRow({ "data-layer-id": "ghost" });
+    ui.uiContainer!.appendChild(ghost);
+    expect(() => syncRowOrder(ui)).not.toThrow();
+  });
+
+  it("refreshTreeConnectors skips a tree row with no layer id", () => {
+    // The id-falsy arm: a tree row without data-layer-id reads no registry entry.
+    const { ui } = initFixture({ data: [] });
+    const noId = makeTreeRow({});
+    ui.uiContainer!.appendChild(noId);
+    expect(() => syncRowOrder(ui)).not.toThrow();
+  });
+
+  it("refreshTreeConnectors treats a root layer row as not-a-member", () => {
+    // A root layer (no folder) renders no tree guide in practice, but a synthetic
+    // tree row for a root layer must not crash: folderOf is null and the row is skipped.
+    const { ui } = initFixture({
+      data: [{ id: "root1", name: "Root", role: "overlay", layer: polygonLayer() }],
+    });
+    const rootTree = makeTreeRow({ "data-layer-id": "root1" });
+    ui.uiContainer!.appendChild(rootTree);
+    expect(() => syncRowOrder(ui)).not.toThrow();
+  });
+
+  it("refreshTreeConnectors skips a tree row whose folder block is unknown", () => {
+    // A layer whose folder key is not in the layout: folderOf returns the key but the
+    // block map has no such block — the connector logic treats it as not-a-member.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "orphan",
+          name: "Orphan",
+          role: "overlay",
+          folder: "ghost",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const orphanTree = makeTreeRow({ "data-layer-id": "orphan" });
+    ui.uiContainer!.appendChild(orphanTree);
+    expect(() => syncRowOrder(ui)).not.toThrow();
+  });
+
+  it("renderLayerItem treats a layer with an unknown folder as not-a-member", () => {
+    // memberInfo: folderOf resolves a key (the layer's own folder) but the layer is
+    // not in the registry list groupByFolder walks, so no block exists — the layer
+    // renders as a non-member row, not a folder member.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // The orphan is NOT in ui.c.layers (only rd1 is registered), so folderOf resolves
+    // "ghost" but groupByFolder never builds a "ghost" block.
+    const orphan: LayerInfo = {
+      id: "orphan",
+      name: "Orphan",
+      role: "overlay",
+      folder: "ghost",
+      layer: polygonLayer(),
+    } as LayerInfo;
+    let row: HTMLElement | null = null;
+    expect(() => {
+      row = renderLayerItem(ui, orphan);
+    }).not.toThrow();
+    expect(row).not.toBeNull();
+    // The rail has no tree guide: the orphan is not a member of any block.
+    expect(row!.querySelector(`.${CONST.CLASSES.FOLD_TREE}`)).toBeNull();
   });
 });
