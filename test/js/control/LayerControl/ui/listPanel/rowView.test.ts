@@ -941,8 +941,8 @@ describe("container layer row", () => {
     const cell = buildRowCell(ui, info);
     expect(cell.countText).toBe("2/3");
     // The fixture translator is a key-echo (T(key) = "LayerControl.<key>"), so the
-    // row's contract is that it picks the group_count_tooltip key.
-    expect(cell.groupTooltip).toBe("LayerControl.group_count_tooltip");
+    // row's contract is that it picks the sub_layers_count_tooltip key.
+    expect(cell.groupTooltip).toBe("LayerControl.sub_layers_count_tooltip");
   });
 
   it("container count tooltip speaks the shared {on}/{total} vocabulary", () => {
@@ -962,7 +962,7 @@ describe("container layer row", () => {
     // Resolve the real sentence instead of the fixture's key echo.
     const realT = ui.T.bind(ui);
     ui.T = ((key: string) =>
-      key === "group_count_tooltip"
+      key === "sub_layers_count_tooltip"
         ? "{on} of {total} sub-layers visible"
         : realT(key)) as typeof ui.T;
     const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);

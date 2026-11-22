@@ -17,6 +17,7 @@ import {
 import {
   applyRowView,
   buildRowCell,
+  countLabelTitle,
   countTooltip,
   displayName,
   roleCountText,
@@ -886,10 +887,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
       {
         class: CONST.CLASSES.COUNT_COL,
         [CONST.DATA.ROLE]: role,
-        title: ui
-          .T("role_count_tooltip")
-          .replace("{on}", String(vis.on))
-          .replace("{total}", String(vis.total)),
+        title: countTooltip(ui, "layers_count_tooltip", vis.on, vis.total),
       },
       countText,
     ),
@@ -901,7 +899,7 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
         class: CONST.CLASSES.TYPE_ICON_COL,
         // Same sentence shape as a layer row's type cell: the count, then the
         // word for what the row is.
-        title: `${countText} · ${ui.T(labelKey)}`,
+        title: countLabelTitle(countText, ui.T(labelKey)),
       },
       { html: role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS },
     ),
@@ -1011,7 +1009,7 @@ const renderFolderRow = (
       {
         class: CONST.CLASSES.COUNT_COL,
         [CONST.DATA.FOLDER_KEY]: folderKey,
-        title: countTooltip(ui, "folder_count_tooltip", vis.on, vis.total),
+        title: countTooltip(ui, "layers_count_tooltip", vis.on, vis.total),
       },
       countText,
     ),
@@ -1019,7 +1017,7 @@ const renderFolderRow = (
       "div",
       {
         class: CONST.CLASSES.TYPE_ICON_COL,
-        title: `${countText} · ${ui.T("noun_folder")}`,
+        title: countLabelTitle(countText, ui.T("noun_folder")),
       },
       { html: SVGs.ICON_FOLDER },
     ),

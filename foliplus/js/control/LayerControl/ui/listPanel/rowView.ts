@@ -112,9 +112,7 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
     ? cell.groupTooltip
     : cell.filtered
       ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
-      : cell.countText
-        ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
-        : (cell.titleTypeLabel ?? cell.typeLabel),
+      : countLabelTitle(cell.countText, cell.titleTypeLabel ?? cell.typeLabel),
 });
 
 /**
@@ -177,6 +175,17 @@ const rowType = (
   }
   return { svg: SVGs.ICON_UNKNOWN, key: "type_unknown" };
 };
+
+/** The count · label sentence every row's type cell and row title uses: the
+ *  count first, then the word for what the row is. A row with no count shows
+ *  the word alone. One builder, so the four call sites cannot drift into
+ *  "3 · 文件夹" on one row and "文件夹 · 3" on the next.
+ *
+ *  @param {string} countText - The row's count, or "" when it publishes none.
+ *  @param {string} label - The word for what the row is.
+ *  @returns {string} The hover sentence. */
+const countLabelTitle = (countText: string, label: string): string =>
+  countText ? `${countText} · ${label}` : label;
 
 /** The count column's text rule: one number when the whole group agrees, a
  *  kept-of-total pair otherwise. Shared by role rows, folder rows and
@@ -243,7 +252,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
       : null;
   const groupTooltip =
     isContainer && totalChildren != null && visibleChildren != null
-      ? countTooltip(ui, "group_count_tooltip", visibleChildren, totalChildren)
+      ? countTooltip(ui, "sub_layers_count_tooltip", visibleChildren, totalChildren)
       : "";
   const rawCount = filtered
     ? filterModel!.kept
@@ -352,7 +361,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
       // do (count · what it is). A leaf row needs no icon title: its row title
       // already carries the same sentence and bubbles to the icon.
       if (cell.container) {
-        typeCol.title = `${cell.countText} · ${ui.T("noun_group")}`;
+        typeCol.title = countLabelTitle(cell.countText, ui.T("noun_group"));
       }
     }
   }
@@ -408,8 +417,9 @@ const writeRoleCount = (
 export {
   applyRowView,
   buildRowCell,
-  displayName,
+  countLabelTitle,
   countTooltip,
+  displayName,
   inZoomRange,
   roleCountText,
   rowView,

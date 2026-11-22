@@ -13,6 +13,7 @@ import type { LayerUI } from "../surface.js";
 import {
   applyRowView,
   buildRowCell,
+  countTooltip,
   writeRoleCount,
   writeTriState,
 } from "./rowView.js";
@@ -236,10 +237,7 @@ const writeToggleAllCheckbox = (
       row,
       c.total,
       c.on,
-      ui
-        .T("role_count_tooltip")
-        .replace("{on}", String(c.on))
-        .replace("{total}", String(c.total)),
+      countTooltip(ui, "layers_count_tooltip", c.on, c.total),
     );
   }
   // Every group row of the role repaints on the same cadence: both the O(1)
