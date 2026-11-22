@@ -244,10 +244,20 @@ const nextFolderDefaultName = (
 ): string => {
   const taken = new Set(folderKeysOfRole(layout, role));
   if (!taken.has(normalizeFolderName(base))) return base;
-  for (let n = 2; ; n += 1) {
-    const candidate = `${base} ${n}`;
+  // Bounded by construction: `taken.size + 1` distinct candidates cannot all
+  // be taken, so the loop provably terminates instead of relying on "it will
+  // run out eventually". The stem is shortened to leave room for the suffix —
+  // a base near FOLDER_NAME_MAX would otherwise produce an over-long candidate
+  // that createFolder rejects as `too-long`, and "new folder" would look like
+  // it did nothing.
+  for (let n = 2; n <= taken.size + 2; n += 1) {
+    const suffix = ` ${n}`;
+    const room = FOLDER_NAME_MAX - [...suffix].length;
+    const stem = [...base].slice(0, room).join("").trimEnd();
+    const candidate = `${stem}${suffix}`;
     if (!taken.has(normalizeFolderName(candidate))) return candidate;
   }
+  return base;
 };
 
 /** Group one role's folder members into blocks, keyed by normalize(name).
