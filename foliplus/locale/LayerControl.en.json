@@ -58,7 +58,7 @@
   "LayerControl.clear_data_confirm": "Confirm Clear",
   "LayerControl.clear_data_tooltip": "Clear this component's data",
   "LayerControl.delete_folder_tooltip": "Delete this folder and promote its members to root — cannot be undone",
-  "LayerControl.clean_empty_folders": "Clean empty folders ({count})",
+  "LayerControl.clean_empty_folders": "Clean empty folders",
   "LayerControl.clean_empty_folders_tooltip": "Remove all empty folders in this section",
   "LayerControl.clean_empty_folders_none": "No empty folders in this section",
   "LayerControl.role_count_tooltip": "{on} of {total} layers visible",

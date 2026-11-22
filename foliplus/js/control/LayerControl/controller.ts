@@ -2130,9 +2130,7 @@ class LayerController implements LayerAPI {
     // display order from the updated layout. The role's existing blocks are
     // seeded into the order first, so "at the tail" means after the folders the
     // author declared (they live in `members`, not in `order`).
-    this.folderLayout.set(
-      createFolder(layout, role, name, this.layerRegistry.layers),
-    );
+    this.folderLayout.set(createFolder(layout, role, name, this.layerRegistry.layers));
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
 
     if (opts?.persist !== false) {

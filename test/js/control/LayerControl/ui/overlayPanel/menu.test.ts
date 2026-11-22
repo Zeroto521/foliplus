@@ -1835,9 +1835,7 @@ describe("ui/list folder rows (menu)", () => {
     ) as HTMLElement | null;
     expect(row).not.toBeNull();
     // The row's first input is its checkbox; the rename input is the text one.
-    const input = row!.querySelector(
-      'input[type="text"]',
-    ) as HTMLInputElement | null;
+    const input = row!.querySelector('input[type="text"]') as HTMLInputElement | null;
     expect(input).not.toBeNull();
     expect(input!.value).toBe(defaultName);
     expect(document.activeElement).toBe(input);

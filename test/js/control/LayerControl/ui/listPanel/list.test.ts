@@ -3,11 +3,7 @@ import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import {
-  type LayerInfo,
-  ROLE,
-  normalizeFolderName,
-} from "#core/layer/index.js";
+import { type LayerInfo, ROLE, normalizeFolderName } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
@@ -1604,7 +1600,6 @@ describe("clean-empty-folders button and role header order", () => {
       container.querySelector(`[data-folder-key="${normalizeFolderName("empty-1")}"]`),
     ).not.toBeNull();
   });
-
 });
 
 describe("role header identity key", () => {

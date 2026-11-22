@@ -2,7 +2,7 @@
 import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
 import { folderFoldKey } from "../listPanel/drag.js";
 import { emptyFolderKeys, rebuildList } from "../listPanel/list.js";
-import { type RowNoun, withNoun } from "../rowNoun.js";
+import { ROW_NOUN, type RowNoun, withNoun } from "../rowNoun.js";
 import { saveState } from "../state.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
@@ -182,7 +182,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   const focusDisabled = focusReason !== undefined;
   // A container row is a layer group, so its sentences say "layer group"
   // rather than "layer"; every other row is a plain layer.
-  const focusNoun: RowNoun = isContainer ? "group" : "layer";
+  const focusNoun: RowNoun = isContainer ? ROW_NOUN.GROUP : ROW_NOUN.LAYER;
   const focusDisabledTitle =
     focusReason !== undefined
       ? focusDisabledText(ui, focusReason, focusNoun)
@@ -707,7 +707,7 @@ const startFolderRename = (
     label,
     initialValue: folderName,
     className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
-    ariaLabel: withNoun(ui, "rename_placeholder", "folder"),
+    ariaLabel: withNoun(ui, "rename_placeholder", ROW_NOUN.FOLDER),
     isActive: () => ui.overlayPanel.activeRenameRow === item,
     onCommit: trimmed => {
       const next = trimmed.trim();
@@ -907,7 +907,7 @@ const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.RENAME_FOLDER,
         role: "menuitem",
-        title: withNoun(ui, "rename_tooltip", "folder"),
+        title: withNoun(ui, "rename_tooltip", ROW_NOUN.FOLDER),
       },
       { html: Icons.ICON_EDIT },
       ui.T("rename"),
@@ -1008,7 +1008,7 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
       dom.el(
         "span",
         { class: CONST.CLASSES.MENU_DELETE_LABEL },
-        ui.T("clean_empty_folders").replace("{count}", String(emptyCount)),
+        ui.T("clean_empty_folders"),
       ),
     ),
   );

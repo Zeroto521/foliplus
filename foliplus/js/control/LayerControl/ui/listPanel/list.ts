@@ -24,8 +24,8 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 import {
   type LayerRole,
   ROLE,
-  folderOf,
   folderDisplayNameOf,
+  folderOf,
   groupByFolder,
   normalizeFolderName,
 } from "#core/layer/index.js";
@@ -798,38 +798,38 @@ const renderToggleAllRow = (ui: LayerUI, role: string, labelKey: string) => {
   roleDivider.classList.add(CONST.CLASSES.ROLE_DIVIDER);
   children.push(roleDivider);
   children.push(
-      dom.el(
-        "span",
-        {
-          class: CONST.CLASSES.COUNT_COL,
-          [CONST.DATA.ROLE]: role,
-          title: ui
-            .T("role_count_tooltip")
-            .replace("{on}", String(vis.on))
-            .replace("{total}", String(vis.total)),
-        },
-        countText,
-      ),
-    );
-    children.push(
-      dom.el(
-        "div",
-        { class: CONST.CLASSES.TYPE_ICON_COL },
-        { html: role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS },
-      ),
-    );
-    children.push(
-      dom.el(
-        "button",
-        {
-          class: CONST.CLASSES.MORE_BTN,
-          type: "button",
-          title: ui.T("role_more_tooltip"),
-          "aria-label": ui.T("role_more_tooltip"),
-        },
-        { html: SVGs.ICON_MORE },
-      ),
-    );
+    dom.el(
+      "span",
+      {
+        class: CONST.CLASSES.COUNT_COL,
+        [CONST.DATA.ROLE]: role,
+        title: ui
+          .T("role_count_tooltip")
+          .replace("{on}", String(vis.on))
+          .replace("{total}", String(vis.total)),
+      },
+      countText,
+    ),
+  );
+  children.push(
+    dom.el(
+      "div",
+      { class: CONST.CLASSES.TYPE_ICON_COL },
+      { html: role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS },
+    ),
+  );
+  children.push(
+    dom.el(
+      "button",
+      {
+        class: CONST.CLASSES.MORE_BTN,
+        type: "button",
+        title: ui.T("role_more_tooltip"),
+        "aria-label": ui.T("role_more_tooltip"),
+      },
+      { html: SVGs.ICON_MORE },
+    ),
+  );
   return dom.el(
     "div",
     {
