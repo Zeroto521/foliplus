@@ -77,7 +77,6 @@ export {
   moveLayerToFolder,
   moveLayerToRoot,
   dropLayer,
-  restoreAuthorLayout,
 } from "./folderLayout.js";
 export type {
   FolderLayout,

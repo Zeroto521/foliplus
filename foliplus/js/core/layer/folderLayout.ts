@@ -678,15 +678,6 @@ const dropLayer = (layout: FolderLayout, layerId: string): FolderLayout => {
   return { ...layout, members, order };
 };
 
-/** Restore the author's declared layout: clear the block order and every
- *  member assignment, keeping the folder name directory (a reset would drop
- *  the user's display spellings). */
-const restoreAuthorLayout = (layout: FolderLayout): FolderLayout => ({
-  ...layout,
-  order: {},
-  members: {},
-});
-
 /** A per-map folder-layout manager: the in-memory layout plus the one
  *  debounced writer. One instance per map (see ensureFolderLayout). */
 interface FolderLayoutManager {
@@ -813,6 +804,5 @@ export {
   moveLayerToFolder,
   moveLayerToRoot,
   dropLayer,
-  restoreAuthorLayout,
 };
 export type { FolderLayout, FolderEntry, FolderMember, FolderLayoutManager };

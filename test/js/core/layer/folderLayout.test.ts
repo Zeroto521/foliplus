@@ -34,7 +34,6 @@ import {
   normalizeFolderName,
   readFolderLayout,
   renameFolder,
-  restoreAuthorLayout,
   roleBlocks,
   roleOrder,
   rootLayerEntry,
@@ -615,19 +614,6 @@ describe("pure helper coverage", () => {
     };
     expect(dropLayer(layout, "a")).toEqual({ ...emptyFolderLayout(), members: {} });
     expect(dropLayer(layout, "zzz")).toBe(layout);
-  });
-
-  it("restoreAuthorLayout clears order and members but keeps the directory", () => {
-    const layout: FolderLayout = {
-      ...emptyFolderLayout(),
-      folders: [{ key: "roads", name: "Streets" }],
-      order: { overlay: ["roads"] },
-      members: { a: { role: "overlay", folder: "roads" } },
-    };
-    const restored = restoreAuthorLayout(layout);
-    expect(restored.folders).toEqual([{ key: "roads", name: "Streets" }]);
-    expect(restored.order.overlay ?? []).toEqual([]);
-    expect(restored.members).toEqual({});
   });
 });
 
