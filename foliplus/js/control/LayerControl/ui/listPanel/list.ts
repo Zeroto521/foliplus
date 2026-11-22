@@ -24,10 +24,13 @@ import { syncNoBasemap, syncToggleAll } from "./visibility.js";
 import {
   type LayerRole,
   ROLE,
+  ROOT_LAYER_PREFIX,
   folderDisplayNameOf,
   folderOf,
   groupByFolder,
+  isRootLayerEntry,
   normalizeFolderName,
+  rootLayerEntry,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
@@ -293,8 +296,14 @@ const syncRowOrder = (ui: LayerUI): void => {
   if (!container) return;
   const rows = new Map<string, HTMLElement>();
   const anchors = new Map<string, HTMLElement>();
+  const folderRows = new Map<string, HTMLElement>();
   for (const child of Array.from(container.children)) {
     const el = child as HTMLElement;
+    const folderKey = el.getAttribute(CONST.DATA.FOLDER_KEY);
+    if (folderKey) {
+      folderRows.set(folderKey, el);
+      continue;
+    }
     const id = el.getAttribute(CONST.DATA.LAYER_ID);
     if (id) {
       // A duplicate id means two write paths raced or one leaked. The later
@@ -328,35 +337,52 @@ const syncRowOrder = (ui: LayerUI): void => {
   }
 
   const targets: HTMLElement[] = [];
-  // Anchor push follows the layer order (renderInitialList's ordering): a
-  // role's anchor is pushed the first time the loop sees one of its rows. A
-  // role that owns only an empty folder key (no live rows) has its anchor
-  // pushed after the loop instead, so it stays reachable for the cleanup
-  // button and the drift check cannot false-warn (builder-4 ②).
+  // The target sequence is the BLOCK order, not the registry order: a folder
+  // row is a block header, and a root layer can sit between two folder blocks.
+  // Walking the registry alone left every folder row out of `targets`, so the
+  // moves below pushed them to the end of the panel.
   const anchorSeen = new Set<string>();
-  for (const layerInfo of ui.c.layers) {
-    const role = layerInfo.role;
-    if (!anchorSeen.has(role) && rolesWithHeader(ui, role)) {
-      anchorSeen.add(role);
-      const anchor = anchors.get(role);
-      if (anchor) targets.push(anchor);
-      else ui.log?.warn("syncRowOrder: role rows present, anchor missing");
-    }
-    const row = rows.get(layerInfo.id);
-    if (row) targets.push(row);
-  }
-  for (const role of [ROLE.OVERLAY, ROLE.BASE]) {
-    if (anchorSeen.has(role)) continue;
+  const pushRole = (role: string): void => {
+    if (anchorSeen.has(role) || !rolesWithHeader(ui, role)) return;
+    anchorSeen.add(role);
     const anchor = anchors.get(role);
     if (anchor) targets.push(anchor);
-  }
+    else ui.log?.warn("syncRowOrder: role rows present, anchor missing");
+    // A stub surface (tests, a panel built before the layout exists) has no
+    // block order to walk: the registry order is the whole sequence.
+    if (!ui.c.folderLayoutView) {
+      for (const layerInfo of ui.c.layers) {
+        if (layerInfo.role !== role) continue;
+        const row = rows.get(layerInfo.id);
+        if (row) targets.push(row);
+      }
+      return;
+    }
+    for (const block of displayBlocks(ui, role)) {
+      if (block.kind === "folder") {
+        const row = folderRows.get(block.key);
+        if (row) targets.push(row);
+        // The block's members follow its header — a folder row without them
+        // would leave every member row behind at the panel's tail.
+        for (const member of block.block.members) {
+          const memberRow = rows.get(member.id);
+          if (memberRow) targets.push(memberRow);
+        }
+      } else {
+        const row = rows.get(block.layer.id);
+        if (row) targets.push(row);
+      }
+    }
+  };
+  for (const layerInfo of ui.c.layers) pushRole(layerInfo.role);
+  for (const role of [ROLE.OVERLAY, ROLE.BASE]) pushRole(role);
   // The length check is the cheap side of the panel-matches-registry
   // invariant; only when it breaks is the diff computed and named, so the
   // hot path never pays for the diagnostics. One warn names both sides of
   // the drift — an empty list reads as "[ ]", which is itself the answer.
   if (
     rows.size !==
-    targets.filter(t => !t.classList.contains(CONST.CLASSES.TOGGLE_ALL)).length
+    targets.filter(t => t.getAttribute(CONST.DATA.LAYER_ID) !== null).length
   ) {
     const missing = ui.c.layers.filter(l => !rows.has(l.id)).map(l => l.id);
     const known = new Set(ui.c.layers.map(l => l.id));
@@ -409,8 +435,9 @@ const syncRowOrder = (ui: LayerUI): void => {
  *  @returns {boolean} True when the header must be rendered. */
 const rolesWithHeader = (ui: LayerUI, role: string): boolean => {
   if (ui.c.layers.some(l => l.role === role)) return true;
-  const keys =
-    ui.c.folderLayoutView.order[role as keyof typeof ui.c.folderLayoutView.order];
+  // A stub surface may carry no layout at all; an absent layout owns no keys.
+  const layout = ui.c.folderLayoutView;
+  const keys = layout?.order[role as keyof typeof layout.order];
   return Boolean(keys && keys.length > 0);
 };
 
@@ -480,37 +507,53 @@ const displayBlocks = (
   const folders = groupByFolder(ui.c.layers, role as LayerRole, layout);
   const listed = layout.order[role as keyof typeof layout.order] ?? [];
   const listedKeys = new Set(listed);
-  const blocks = [];
-  for (const key of listed) {
-    const block = folders.get(key);
-    // An empty folder (created but not yet holding a layer) has no members, so
-    // groupByFolder cannot see it. It still owns a row: the user names it right
-    // after creating it, and the row is the only handle for renaming/deleting
-    // it until a layer moves in.
-    blocks.push(
-      block ?? {
-        key,
-        displayName: folderDisplayNameOf(layout, key),
-        anchor: Number.MAX_SAFE_INTEGER,
-        members: [],
-      },
-    );
-  }
-  const rest = [...folders.values()]
-    .filter(block => !listedKeys.has(block.key))
-    .sort((a, b) => a.anchor - b.anchor);
-  blocks.push(...rest);
+  const rootLayers = ui.c.layers.filter(
+    li => li.role === role && !folderOf(layout, li),
+  );
+  const rootById = new Map(rootLayers.map(li => [li.id, li]));
   const out: Array<
     | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
     | { kind: "layer"; layer: LayerInfo }
   > = [];
-  for (const block of blocks) {
+  // 1. The listed block order. An entry is a folder key or `layer:<id>`, so a
+  //    root layer can sit between two folder blocks instead of only after all
+  //    of them.
+  for (const entry of listed) {
+    if (isRootLayerEntry(entry)) {
+      const layer = rootById.get(entry.slice(ROOT_LAYER_PREFIX.length));
+      if (layer) out.push({ kind: "layer", layer });
+      continue;
+    }
+    const block = folders.get(entry);
+    // An empty folder (created but not yet holding a layer) has no members, so
+    // groupByFolder cannot see it. It still owns a row: the user names it right
+    // after creating it, and the row is the only handle for renaming/deleting
+    // it until a layer moves in.
+    out.push({
+      kind: "folder",
+      key: entry,
+      name: block?.displayName ?? folderDisplayNameOf(layout, entry),
+      block: block ?? {
+        key: entry,
+        displayName: folderDisplayNameOf(layout, entry),
+        anchor: Number.MAX_SAFE_INTEGER,
+        members: [],
+      },
+    });
+  }
+  // 2. Unlisted folders, by anchor.
+  const rest = [...folders.values()]
+    .filter(block => !listedKeys.has(block.key))
+    .sort((a, b) => a.anchor - b.anchor);
+  for (const block of rest) {
     out.push({ kind: "folder", key: block.key, name: block.displayName, block });
   }
-  const rootLayers = ui.c.layers.filter(
-    li => li.role === role && !folderOf(layout, li),
-  );
-  for (const li of rootLayers) out.push({ kind: "layer", layer: li });
+  // 3. Root layers the order does not name, in registry order.
+  for (const li of rootLayers) {
+    if (!listedKeys.has(rootLayerEntry(li.id))) {
+      out.push({ kind: "layer", layer: li });
+    }
+  }
   return out;
 };
 const renderInitialList = (ui: LayerUI) => {
