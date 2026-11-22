@@ -122,6 +122,8 @@ const CLASSES = {
   FOCUSED: "foliplus-is-focused-row",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
+  /** A folder row the dragged layer would join. */
+  DRAG_OVER_INTO: "foliplus-layer-drag-over-into",
   DRAGGING: "foliplus-layer-dragging",
   FOLD_BTN: "foliplus-layer-fold-btn",
   FOLDED: "foliplus-layer-folded",

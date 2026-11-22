@@ -469,6 +469,14 @@
       animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
         var(--foliplus-drag-pulse-count);
     }
+    /* A folder row the dragged layer would join: the whole row lights up
+       instead of a before/after edge, because the drop is "into", not
+       "beside". */
+    &.foliplus-layer-drag-over-into {
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: inset 0 0 0 var(--foliplus-drag-border-width)
+        var(--foliplus-accent-primary);
+    }
     &.foliplus-layer-drag-over-bottom {
       border-bottom: var(--foliplus-drag-border-width) solid
         var(--foliplus-accent-primary);

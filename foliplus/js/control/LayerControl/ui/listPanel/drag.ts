@@ -2,7 +2,11 @@
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { rebuildList } from "./list.js";
-import { type LayerRole, normalizeFolderName } from "#core/layer/index.js";
+import {
+  type LayerRole,
+  normalizeFolderName,
+  rootLayerEntry,
+} from "#core/layer/index.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
@@ -160,6 +164,40 @@ const folderDropTarget = (ui: LayerUI, event: DragEvent): HTMLElement | null => 
   return row;
 };
 
+/** The block-order entry a row belongs to: a folder row's key, a root layer
+ *  row's `layer:<id>`, or — for a member row — the folder block above it. */
+const blockEntryOfRow = (row: HTMLElement): string | null => {
+  const folderKey = row.getAttribute(CONST.DATA.FOLDER_KEY);
+  if (folderKey) return folderKey;
+  const id = row.getAttribute(CONST.DATA.LAYER_ID);
+  if (!id) return null;
+  let prev = row.previousElementSibling as HTMLElement | null;
+  while (prev) {
+    const key = prev.getAttribute(CONST.DATA.FOLDER_KEY);
+    if (key) return key;
+    if (prev.classList.contains(CONST.CLASSES.ROLE_ROW)) break;
+    prev = prev.previousElementSibling as HTMLElement | null;
+  }
+  return rootLayerEntry(id);
+};
+
+/** The block-order entry the pointer sits BEFORE, for a drop that lands in the
+ *  gap between rows (no row under the cursor). Null means "after every block".
+ *  Only block rows count: a member row resolves to the folder block above it,
+ *  so a drop in the middle of a folder's members lands before that folder. */
+const blockEntryBefore = (ui: LayerUI, clientY: number): string | null => {
+  const rows = ui.uiContainer?.querySelectorAll<HTMLElement>(
+    `${CONST.SEL.LAYER_ITEM}, ${CONST.SEL.TOGGLE_ALL}`,
+  );
+  if (!rows) return null;
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect();
+    if (rect.height === 0) continue;
+    if (rect.top + rect.height / 2 > clientY) return blockEntryOfRow(row);
+  }
+  return null;
+};
+
 const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // A folder drag only ever reorders blocks: it never enters the layer-index
   // path below, which would resolve a folder row to no registry entry.
@@ -202,15 +240,37 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
-  if (!item) return;
+  const prev = ui.listPanel.lastDragOverItem;
+  if (prev && prev !== item) {
+    prev.classList.remove(
+      CONST.CLASSES.DRAG_OVER_TOP,
+      CONST.CLASSES.DRAG_OVER_BOTTOM,
+      CONST.CLASSES.DRAG_OVER_INTO,
+    );
+  }
+  // A folder row is a drop target: the layer joins that folder.
+  const folderKey = item?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
+  if (item && folderKey) {
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
+    item.classList.add(CONST.CLASSES.DRAG_OVER_INTO);
+    ui.listPanel.lastDragOverItem = item;
+    return;
+  }
+  if (!item) {
+    // The gap between rows: the layer lands at that block position.
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+    ui.listPanel.lastDragOverItem = null;
+    return;
+  }
 
   const targetIdx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
-  const prev = ui.listPanel.lastDragOverItem;
-  if (prev && prev !== item) {
-    prev.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
-  }
-  item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
+  item.classList.remove(
+    CONST.CLASSES.DRAG_OVER_TOP,
+    CONST.CLASSES.DRAG_OVER_BOTTOM,
+    CONST.CLASSES.DRAG_OVER_INTO,
+  );
   ui.listPanel.lastDragOverItem = item;
 
   if (!ui.c.canReorderBetween(armed, targetIdx)) {
@@ -229,7 +289,11 @@ const handleDragLeave = (event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   if (item) {
-    item.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
+    item.classList.remove(
+      CONST.CLASSES.DRAG_OVER_TOP,
+      CONST.CLASSES.DRAG_OVER_BOTTOM,
+      CONST.CLASSES.DRAG_OVER_INTO,
+    );
   }
 };
 
@@ -262,7 +326,29 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   ) as HTMLElement | null;
   const armedEntry = ui.listPanel.dragEntry;
   if (!armedEntry) return;
-  if (!target) return;
+
+  // A folder row takes the layer into that folder.
+  const folderKey = target?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
+  if (target && folderKey) {
+    try {
+      ui.c.moveLayerToFolder(armedEntry.id, folderKey);
+    } finally {
+      clearDragState(ui);
+    }
+    return;
+  }
+
+  // No row under the pointer: the layer lands at that block position, which is
+  // how it gets between two folder blocks.
+  if (!target) {
+    const before = blockEntryBefore(ui, event.clientY);
+    try {
+      ui.c.moveLayerToRootAt(armedEntry.id, before);
+    } finally {
+      clearDragState(ui);
+    }
+    return;
+  }
 
   // The session is validated at every use, not just at the end: the entry
   // the gesture armed with must still be the one the registry holds. An
@@ -277,7 +363,18 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
 
   const targetId = target.getAttribute(CONST.DATA.LAYER_ID);
   const targetIdx = targetId ? registryIdx(ui, targetId) : -1;
-  if (targetIdx < 0) return;
+  if (targetIdx < 0) {
+    clearDragState(ui);
+    return;
+  }
+  // Dropping on a row adopts that row's folder: onto a root row the layer
+  // leaves its folder, onto a member row it joins that member's folder. The
+  // tree guide follows from the assignment, so this is the whole move.
+  const targetFolder = ui.c.folderNameOf(targetId!) ?? "";
+  const sourceFolder = ui.c.folderNameOf(armedEntry.id) ?? "";
+  if (targetFolder !== sourceFolder) {
+    ui.c.moveLayerToFolder(armedEntry.id, targetFolder);
+  }
   if (armed === targetIdx) {
     // A drop on the armed row finishes the gesture: a programmatic drop never
     // sends the native dragend the browser would, so the session comes down
@@ -318,6 +415,7 @@ const clearDragState = (ui: LayerUI): void => {
       CONST.CLASSES.DRAGGING,
       CONST.CLASSES.DRAG_OVER_TOP,
       CONST.CLASSES.DRAG_OVER_BOTTOM,
+      CONST.CLASSES.DRAG_OVER_INTO,
     ),
   );
 };

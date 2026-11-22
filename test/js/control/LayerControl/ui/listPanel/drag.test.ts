@@ -444,7 +444,7 @@ describe("ui/drag", () => {
       expect(ui.listPanel.dragEntry).toBeNull();
     });
 
-    it("a drop whose target row left the registry is a no-op", () => {
+    it("a drop whose target row left the registry commits nothing and ends the session", () => {
       const { manager, ui } = initFixture({ data: overlays(3) });
       handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
       const targetRow = rowOf(ui, "L0");
@@ -454,9 +454,9 @@ describe("ui/drag", () => {
       handleDrop(ui, dragEvent(targetRow));
 
       expect(orderOf(manager)).toEqual(before);
-      // A target that no longer resolves leaves the session armed for a
-      // valid drop, the same way an out-of-row drop does.
-      expect(ui.listPanel.dragEntry).not.toBeNull();
+      // The target names a layer the registry no longer holds, so there is
+      // nothing to move onto: the gesture is over.
+      expect(ui.listPanel.dragEntry).toBeNull();
     });
 
     it("handleDragOver is a no-op until a drag is armed", () => {
@@ -592,7 +592,7 @@ describe("ui/drag", () => {
       expect(orderOf(manager)).toEqual(before);
     });
 
-    it("handleDrop is a no-op when the drop lands outside every row", () => {
+    it("a drop outside every row lands the layer at the block tail", () => {
       const { manager, ui } = initFixture({ data: overlays(3) });
       handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
       const shell = document.createElement("div");
@@ -601,10 +601,12 @@ describe("ui/drag", () => {
 
       handleDrop(ui, dragEvent(shell));
 
-      // No target row: nothing reorders; the drag stays armed for a valid
-      // drop.
+      // No row under the pointer: the layer becomes a root block at the tail
+      // of the role's block order (jsdom rects are all zero, so no row is
+      // "before" the pointer).
       expect(orderOf(manager)).toEqual(before);
-      expect(ui.listPanel.dragEntry).not.toBeNull();
+      expect(manager.folderLayoutView.order.overlay ?? []).toContain("layer:L1");
+      expect(ui.listPanel.dragEntry).toBeNull();
     });
 
     it("a blocked cross-group drop hints, commits nothing and stays armed", () => {
@@ -658,7 +660,7 @@ describe("ui/drag", () => {
       expect(ui.listPanel.lastDragOverItem).toBeNull();
     });
 
-    it("handleDragOver and handleDrop ignore a row carrying no data-layer-id", () => {
+    it("handleDragOver and handleDrop ignore a row carrying no identity", () => {
       const { manager, ui } = initFixture({ data: overlays(3) });
       handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
       const orphan = document.createElement("div");
@@ -668,13 +670,13 @@ describe("ui/drag", () => {
       handleDragOver(ui, dragEvent(orphan));
       handleDrop(ui, dragEvent(orphan));
 
-      // The row names no layer, so neither handler acts on it: the drag
-      // stays armed for a row that does.
+      // The row names no layer and no folder, so neither handler acts on it.
       expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
       expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
       expect(ui.listPanel.lastDragOverItem).toBeNull();
       expect(orderOf(manager)).toEqual(["L0", "L1", "L2"]);
-      expect(ui.listPanel.dragEntry).not.toBeNull();
+      expect(ui.listPanel.dragEntry).toBeNull();
     });
   });
 
