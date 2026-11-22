@@ -340,7 +340,12 @@ const createInlineEditInput = (opts: {
   });
   input.addEventListener("blur", () => commit(input.value));
 
-  inlineEditOriginal.set(opts.label, opts.label.textContent ?? "");
+  // Record the text only on the first open: a second open without an
+  // intervening removeInlineEditInput would otherwise capture the empty string
+  // the first open left behind, and the teardown would blank the label.
+  if (!inlineEditOriginal.has(opts.label)) {
+    inlineEditOriginal.set(opts.label, opts.label.textContent ?? "");
+  }
   opts.label.textContent = "";
   opts.label.appendChild(input);
   input.focus();
