@@ -1533,16 +1533,6 @@ describe("clean-empty-folders button and role header order", () => {
     vi.useRealTimers();
   });
 
-  const registerLayer = (id: string, name: string, role: string, folder?: string) => {
-    manager.registerLayer({
-      id,
-      name,
-      role: role as "overlay" | "base",
-      ...(folder ? { folder } : {}),
-      layer: { options: {}, eachLayer: vi.fn() },
-    } as any);
-  };
-
   it("renders a row for a folder that holds no layer yet", () => {
     // A folder created from the role menu owns a row immediately: it is the
     // only handle for renaming or deleting it until a layer moves in.

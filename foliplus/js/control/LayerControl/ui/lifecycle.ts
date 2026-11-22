@@ -68,7 +68,7 @@ import {
 import { forgetDegradedHint } from "./style/valuePaint.js";
 import type { LayerUI } from "./surface.js";
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
-import { type LayerRole, ROLE } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /**
