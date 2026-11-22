@@ -2480,6 +2480,211 @@ describe("LayerUI focus", () => {
       expect(getPaneSpy).toHaveBeenCalledWith("phantom_pane");
     });
   });
+
+  describe("bringFocusedLayerToFront() container child panes", () => {
+    const makeContainer = (children: any[]) => {
+      const c: any = {
+        options: {},
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(),
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => children),
+        _layers: {},
+      };
+      c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+        for (const child of children) fn(child);
+      });
+      return c;
+    };
+
+    it("lifts a child pane the surface did not discover", () => {
+      const childA = { options: {}, visible: true };
+      const childB = { options: { pane: "grp_pane_b" }, visible: true };
+      const container = makeContainer([childA, childB]);
+      manager.registerLayer({
+        id: "grp",
+        name: "Group",
+        role: "overlay",
+        layer: container,
+      });
+      const layerInfo = manager.layerRegistry.get("grp")!;
+      const surface = manager.surfaceFor(layerInfo);
+      vi.spyOn(manager, "surfaceFor").mockReturnValue({
+        ...surface,
+        panes: [
+          {
+            name: "foliplus-pane-2",
+            role: "base",
+            element: document.createElement("div"),
+          },
+        ],
+        paneNames: ["foliplus-pane-2"],
+        setZOverride: () => true,
+        restoreZ: vi.fn(),
+      } as never);
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue([
+        "foliplus-pane-2",
+        "grp_pane_b",
+      ]);
+      const lifted: Record<string, HTMLElement> = {};
+      vi.spyOn(manager.map, "getPane").mockImplementation(((name: string) => {
+        const el = document.createElement("div");
+        lifted[name] = el;
+        return el;
+      }) as any);
+
+      bringFocusedLayerToFront(ui, layerInfo);
+
+      expect(lifted["grp_pane_b"].classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(
+        true,
+      );
+      expect(lifted["grp_pane_b"].style.zIndex).toBe(String(focusLayerZ()));
+    });
+
+    it("does not lift a child pane already owned by the surface", () => {
+      const childA = { options: {}, visible: true };
+      const childB = { options: { pane: "grp_pane_b" }, visible: true };
+      const container = makeContainer([childA, childB]);
+      manager.registerLayer({
+        id: "grp",
+        name: "Group",
+        role: "overlay",
+        layer: container,
+      });
+      const layerInfo = manager.layerRegistry.get("grp")!;
+      const surface = manager.surfaceFor(layerInfo);
+      vi.spyOn(manager, "surfaceFor").mockReturnValue({
+        ...surface,
+        panes: [
+          {
+            name: "grp_pane_b",
+            role: "base",
+            element: document.createElement("div"),
+          },
+          {
+            name: "foliplus-pane-2",
+            role: "base",
+            element: document.createElement("div"),
+          },
+        ],
+        paneNames: ["grp_pane_b", "foliplus-pane-2"],
+        setZOverride: () => true,
+        restoreZ: vi.fn(),
+      } as never);
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue([
+        "grp_pane_b",
+        "foliplus-pane-2",
+      ]);
+      bringFocusedLayerToFront(ui, layerInfo);
+      // Both panes are already owned by the surface, so the container
+      // child-pane lift must NOT double-lift either one — the surface path
+      // is the single owner of every pane it declared.
+      const restores = ui.focusController.focusedPaneRestores;
+      expect(restores.some(([label]) => label === "lift:pane:grp_pane_b")).toBe(false);
+      expect(restores.some(([label]) => label === "lift:pane:foliplus-pane-2")).toBe(
+        false,
+      );
+    });
+
+    it("swallows a getLayerPanes failure instead of crashing the focus", () => {
+      const childA = { options: {}, visible: true };
+      const container = makeContainer([childA]);
+      manager.registerLayer({
+        id: "grp",
+        name: "Group",
+        role: "overlay",
+        layer: container,
+      });
+      const layerInfo = manager.layerRegistry.get("grp")!;
+      const surface = manager.surfaceFor(layerInfo);
+      vi.spyOn(manager, "surfaceFor").mockReturnValue({
+        ...surface,
+        panes: [
+          {
+            name: "foliplus-pane-2",
+            role: "base",
+            element: document.createElement("div"),
+          },
+        ],
+        paneNames: ["foliplus-pane-2"],
+        setZOverride: () => true,
+        restoreZ: vi.fn(),
+      } as never);
+      vi.spyOn(manager, "getLayerPanes").mockImplementation(() => {
+        throw new Error("pane discovery exploded");
+      });
+      const lifted: Record<string, HTMLElement> = {};
+      vi.spyOn(manager.map, "getPane").mockImplementation(((name: string) => {
+        const el = document.createElement("div");
+        lifted[name] = el;
+        return el;
+      }) as any);
+      expect(() => bringFocusedLayerToFront(ui, layerInfo)).not.toThrow();
+      const restores = ui.focusController.focusedPaneRestores;
+      expect(restores.some(([label]) => label.startsWith("lift:pane:"))).toBe(false);
+    });
+
+    it("skips a child pane that is a shared default pane", () => {
+      // A core pane (overlayPane, markerPane, ...) belongs to every layer, so
+      // lifting it for one container would reorder unrelated layers.
+      const childA = { options: {}, visible: true };
+      const container = makeContainer([childA]);
+      manager.registerLayer({
+        id: "grp",
+        name: "Group",
+        role: "overlay",
+        layer: container,
+      });
+      const layerInfo = manager.layerRegistry.get("grp")!;
+      const surface = manager.surfaceFor(layerInfo);
+      vi.spyOn(manager, "surfaceFor").mockReturnValue({
+        ...surface,
+        panes: [],
+        paneNames: [],
+        setZOverride: () => true,
+        restoreZ: vi.fn(),
+      } as never);
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue(["overlayPane"]);
+      const getPaneSpy = vi
+        .spyOn(manager.map, "getPane")
+        .mockImplementation((() => document.createElement("div")) as any);
+
+      bringFocusedLayerToFront(ui, layerInfo);
+
+      expect(getPaneSpy).not.toHaveBeenCalledWith("overlayPane");
+      const restores = ui.focusController.focusedPaneRestores;
+      expect(restores.some(([label]) => label.startsWith("lift:pane:"))).toBe(false);
+    });
+
+    it("skips a child pane the map does not have", () => {
+      // Best-effort: getLayerPanes can name a pane whose DOM node was never
+      // created; the lift skips it instead of throwing.
+      const childA = { options: {}, visible: true };
+      const container = makeContainer([childA]);
+      manager.registerLayer({
+        id: "grp",
+        name: "Group",
+        role: "overlay",
+        layer: container,
+      });
+      const layerInfo = manager.layerRegistry.get("grp")!;
+      const surface = manager.surfaceFor(layerInfo);
+      vi.spyOn(manager, "surfaceFor").mockReturnValue({
+        ...surface,
+        panes: [],
+        paneNames: [],
+        setZOverride: () => true,
+        restoreZ: vi.fn(),
+      } as never);
+      vi.spyOn(manager, "getLayerPanes").mockReturnValue(["ghost_pane"]);
+      vi.spyOn(manager.map, "getPane").mockReturnValue(null as never);
+
+      expect(() => bringFocusedLayerToFront(ui, layerInfo)).not.toThrow();
+      const restores = ui.focusController.focusedPaneRestores;
+      expect(restores.some(([label]) => label.startsWith("lift:pane:"))).toBe(false);
+    });
+  });
 });
 
 // ── Notification-contract cases, moved from the former

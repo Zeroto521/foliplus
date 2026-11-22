@@ -15,7 +15,12 @@
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
-import { ROLE, countChildLayersOf, isContainerLayer } from "#core/layer/index.js";
+import {
+  ROLE,
+  countChildLayersOf,
+  countVisibleChildLayers,
+  isContainerRow,
+} from "#core/layer/index.js";
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
@@ -49,6 +54,8 @@ interface RowCell {
   filtered?: boolean;
   /** Hover title used while filtered: kept / total filtered · type. */
   filterTitle?: string;
+  /** Hover title for a container row: N visible / M sub-layers. */
+  containerTooltip?: string;
 }
 
 /** What one row element should look like. */
@@ -97,11 +104,13 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   typeLabel: cell.typeLabel,
   filtered: Boolean(cell.filtered),
   countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
-  title: cell.filtered
-    ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
-    : cell.countText
-      ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
-      : (cell.titleTypeLabel ?? cell.typeLabel),
+  title: cell.containerTooltip
+    ? cell.containerTooltip
+    : cell.filtered
+      ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
+      : cell.countText
+        ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
+        : (cell.titleTypeLabel ?? cell.typeLabel),
 });
 
 /**
@@ -151,7 +160,7 @@ const rowType = (
   // logical layer can also be backed by a group (an L.layerGroup()) but expose
   // a featureCountProvider — that layer's count is provider-driven, so it is
   // not a sub-layer container.
-  if (layer && !layerInfo.featureCountProvider && isContainerLayer(layer)) {
+  if (isContainerRow(layerInfo, layer)) {
     // Materialize the surface before the container answer: a container whose
     // leaves expose labelable properties still needs its label pane, and the
     // surface is what declares it (withLabelSpec runs inside surfaceFor).
@@ -164,6 +173,33 @@ const rowType = (
   }
   return { svg: SVGs.ICON_UNKNOWN, key: "type_unknown" };
 };
+
+/** The count column's text rule: one number when the whole group agrees, a
+ *  kept-of-total pair otherwise. Shared by role rows, folder rows and
+ *  container rows so the three can never drift — the count column's fixed
+ *  track was sized against this one shape. */
+const roleCountText = (total: number, on: number): string =>
+  on === total ? String(total) : on === 0 ? `0/${total}` : `${on}/${total}`;
+
+/** The count column's tooltip rule: one sentence, one placeholder vocabulary.
+ *
+ *  Every group row that shows a visible-of-total count spells it out through
+ *  this builder, so the role header, a folder header and a container row can
+ *  never drift into two formats or two names for the same number. Only the
+ *  unit noun differs, and it is the caller's key: a folder counts registered
+ *  layers, a container counts its unregistered Leaflet sub-layers.
+ *
+ *  @param {LayerUI} ui - Layer UI (owns the translator).
+ *  @param {string} key - Locale key carrying the sentence.
+ *  @param {number} on - Visible count.
+ *  @param {number} total - Total count.
+ *  @returns {string} The resolved tooltip. */
+const groupCountTooltip = (
+  ui: LayerUI,
+  key: string,
+  on: number,
+  total: number,
+): string => ui.T(key).replace("{on}", String(on)).replace("{total}", String(total));
 
 /**
  * One layer's inputs to the row visual: the projection input builder.
@@ -193,17 +229,35 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   // deep feature census — the row says "3 layers", not "12 features". A logical
   // layer backed by a group with a featureCountProvider keeps the provider
   // count (the group is its representation, not a folder of sub-layers).
+  const isContainer = isContainerRow(layerInfo, layer);
+  const totalChildren = isContainer ? countChildLayersOf(layer!) : null;
+  const visibleChildren =
+    isContainer && layer ? countVisibleChildLayers(layer, ui.c.map) : null;
+  // 三态 count for a container row: all children visible → the bare total
+  // ("3"), some → "visible/total" ("2/3"), none → "0/3". The tooltip spells
+  // it out with the same pair. A container's count is a display string, NOT a
+  // number through formatNumber.
   const containerCount =
-    layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
-      ? countChildLayersOf(layer)
+    totalChildren != null && visibleChildren != null
+      ? roleCountText(totalChildren, visibleChildren)
       : null;
+  const containerTooltip =
+    isContainer && totalChildren != null && visibleChildren != null
+      ? groupCountTooltip(ui, "container_count_tooltip", visibleChildren, totalChildren)
+      : "";
   const rawCount = filtered
     ? filterModel!.kept
     : containerCount != null
       ? containerCount
       : ui.c.getFeatureCount(layerInfo.id);
   const countText =
-    rawCount != null ? formatNumber(rawCount, "auto", ui.config.locale_code) : "";
+    // A container's count is already the display string ("2/3"); pass it
+    // through verbatim. Numeric counts keep the auto format.
+    typeof containerCount === "string"
+      ? containerCount
+      : rawCount != null
+        ? formatNumber(rawCount as number, "auto", ui.config.locale_code)
+        : "";
   const filterTitle = filtered
     ? ui
         .T("filter_row_title")
@@ -223,6 +277,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     checked,
     filtered,
     filterTitle,
+    containerTooltip,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is
@@ -296,6 +351,13 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.setAttribute(CONST.DATA.TITLE, view.typeLabel);
   item.title = view.title;
 };
-
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  groupCountTooltip,
+  inZoomRange,
+  roleCountText,
+  rowView,
+};
 export type { RowCell, RowLabels, RowView };

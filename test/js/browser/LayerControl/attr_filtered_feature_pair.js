@@ -9,7 +9,7 @@
   api.registerLayer({
     id: ID,
     name: "Attr Pair Probe",
-    layer: L.layerGroup(),
+    layer: L.circleMarker([0, 0]),
     filterProvider: () => ({
       dimensions: [
         { kind: "range", field: "value", label: "value", range: [0, 10], step: 1 },

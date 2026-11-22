@@ -4,7 +4,7 @@ import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { EVENTS } from "#core/event/index.js";
-import { ROLE, countChildLayersOf, isContainerLayer } from "#core/layer/index.js";
+import { ROLE, countChildLayersOf, isContainerRow } from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -80,7 +80,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       ? "type_tile_map"
       : layerInfo?.iconSvg
         ? "type_custom"
-        : layer && !layerInfo?.featureCountProvider && isContainerLayer(layer)
+        : isContainerRow(layerInfo, layer)
           ? "type_container"
           : `type_${gtype}`;
   addRow(ui.T("attr_type"), ui.T(typeKey));
@@ -93,10 +93,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
       layerInfo && typeof layerInfo.filterProvider === "function"
         ? layerInfo.filterProvider()
         : null;
-    const container =
-      layerInfo && layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
-        ? layer
-        : null;
+    const container = isContainerRow(layerInfo, layer) ? layer : null;
     const count =
       container != null
         ? countChildLayersOf(container)

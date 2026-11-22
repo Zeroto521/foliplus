@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   countFeatureGeometry,
+  countVisibleChildLayers,
   findLayer,
   getGeometryType,
   isContainerLayer,
+  isContainerRow,
   isLayerInPanes,
   paintsAtZoom,
   setInteractive,
@@ -620,6 +622,44 @@ describe("core/layer util: isContainerLayer", () => {
     expect(isContainerLayer(geoShape)).toBe(false);
   });
 
+  it("isContainerLayer: a real L.FeatureGroup (not GeoJSON) with feature-leaf children is a container", () => {
+    // Real-runtime class hierarchy: L.GeoJSON extends L.FeatureGroup extends L.LayerGroup.
+    // A folium FeatureGroup is instanceof L.FeatureGroup but NOT instanceof L.GeoJSON. Its
+    // direct children may carry .feature (feature leaves) — the GeoJSON SHAPE fallback would
+    // wrongly exclude such a group. The canonical L.FeatureGroup branch must win.
+    class FeatureGroupStub {
+      _layers: Record<string, unknown> = {};
+      eachLayer(fn: (c: unknown) => void): void {
+        for (const c of Object.values(this._layers)) fn(c);
+      }
+    }
+
+    class GeoJSONStub extends FeatureGroupStub {}
+
+    const prevFG = (window as any).L.FeatureGroup;
+    const prevGJ = (window as any).L.GeoJSON;
+    (window as any).L.FeatureGroup = FeatureGroupStub;
+    (window as any).L.GeoJSON = GeoJSONStub;
+    try {
+      const fg = new FeatureGroupStub();
+      // Direct children are feature leaves (each carries a .feature envelope).
+      fg._layers["1"] = { feature: { type: "Feature" } };
+      fg._layers["2"] = { feature: { type: "Feature" } };
+      // A folium FeatureGroup: group-like + child registry + instanceof FeatureGroup, not GeoJSON.
+      Object.assign(fg, {
+        options: {},
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => Object.values(fg._layers)),
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(),
+      });
+      expect(isContainerLayer(fg as unknown as L.Layer)).toBe(true);
+    } finally {
+      (window as any).L.FeatureGroup = prevFG;
+      (window as any).L.GeoJSON = prevGJ;
+    }
+  });
   it("isContainerLayer: excludes a real L.GeoJSON instance", () => {
     // jsdom has no L.GeoJSON; the predicate guards the instanceof check, so
     // stub the class to exercise the GeoJSON exclusion branch.
@@ -638,5 +678,132 @@ describe("core/layer util: isContainerLayer", () => {
     } finally {
       (window as any).L.GeoJSON = prev;
     }
+  });
+  it("isContainerLayer: a GeoJSON is not a container even when it is also a FeatureGroup", () => {
+    // Real Leaflet: L.GeoJSON extends L.FeatureGroup, so a GeoJson layer is
+    // instanceof L.GeoJSON AND instanceof L.FeatureGroup. The canonical
+    // L.FeatureGroup branch must not claim a GeoJSON data layer as a container.
+    class GeoJSONStub {
+      _layers: Record<string, unknown> = {};
+      eachLayer(fn: (c: unknown) => void): void {
+        for (const c of Object.values(this._layers)) fn(c);
+      }
+    }
+    const prevFG = (window as any).L.FeatureGroup;
+    const prevGJ = (window as any).L.GeoJSON;
+    (window as any).L.FeatureGroup = GeoJSONStub;
+    (window as any).L.GeoJSON = GeoJSONStub;
+    try {
+      const geo = new GeoJSONStub();
+      Object.assign(geo, {
+        options: {},
+        addLayer: vi.fn(),
+        removeLayer: vi.fn(),
+        getLayers: vi.fn(() => Object.values((geo as any)._layers)),
+        clearLayers: vi.fn(),
+        getBounds: vi.fn(),
+      });
+      geo._layers["1"] = { feature: { type: "Feature" } };
+      expect(isContainerLayer(geo as unknown as L.Layer)).toBe(false);
+    } finally {
+      (window as any).L.FeatureGroup = prevFG;
+      (window as any).L.GeoJSON = prevGJ;
+    }
+  });
+});
+
+describe("core/layer util: isContainerRow", () => {
+  const makeGroup = () => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => []),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn();
+    return c;
+  };
+  const info = (extra: Record<string, unknown> = {}) =>
+    ({ id: "L1", name: "L1", role: "overlay", ...extra }) as any;
+
+  it("is a container row only when the entry declares no featureCountProvider", () => {
+    const group = makeGroup();
+    expect(isContainerRow(info(), group)).toBe(true);
+    // MeasureControl and HeatmapControl register a group with a provider: the
+    // count is provider-driven, so the row is data, not a sub-layer container.
+    expect(isContainerRow(info({ featureCountProvider: () => 3 }), group)).toBe(false);
+  });
+
+  it("is never a container row without an entry or a layer", () => {
+    const group = makeGroup();
+    expect(isContainerRow(null, group)).toBe(false);
+    expect(isContainerRow(undefined, group)).toBe(false);
+    expect(isContainerRow(info(), null)).toBe(false);
+    expect(isContainerRow(info(), undefined)).toBe(false);
+  });
+});
+
+describe("core/layer util: countVisibleChildLayers", () => {
+  const makeMap = (owned: Set<unknown>) =>
+    ({
+      hasLayer: (child: unknown) => owned.has(child),
+    }) as unknown as L.Map;
+
+  it("counts only children the map still owns (eachLayer path)", () => {
+    const a = { options: {} };
+    const b = { options: {} };
+    const c = { options: {} };
+    const layer = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => {
+        fn(a);
+        fn(b);
+        fn(c);
+      },
+    } as unknown as L.Layer;
+    const map = makeMap(new Set([a, b]));
+    expect(countVisibleChildLayers(layer, map)).toBe(2);
+  });
+
+  it("falls back to the internal registry when there is no eachLayer", () => {
+    const a = { options: {} };
+    const b = { options: {} };
+    const layer = {
+      options: {},
+      _layers: { "1": a, "2": b },
+    } as unknown as L.Layer;
+    const map = makeMap(new Set([b]));
+    expect(countVisibleChildLayers(layer, map)).toBe(1);
+  });
+
+  it("returns 0 when the child enumeration throws", () => {
+    const layer = {
+      options: {},
+      eachLayer: () => {
+        throw new Error("boom");
+      },
+    } as unknown as L.Layer;
+    const map = makeMap(new Set());
+    expect(countVisibleChildLayers(layer, map)).toBe(0);
+  });
+
+  it("returns 0 when the layer has no children at all", () => {
+    const layer = { options: {} } as unknown as L.Layer;
+    const map = makeMap(new Set());
+    expect(countVisibleChildLayers(layer, map)).toBe(0);
+  });
+
+  it("returns 0 when the map cannot answer membership", () => {
+    // A stub map without hasLayer cannot say which children are on the map, so
+    // the visible count is 0 rather than a throw.
+    const a = { options: {} };
+    const layer = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(a),
+    } as unknown as L.Layer;
+    expect(countVisibleChildLayers(layer, {} as unknown as L.Map)).toBe(0);
   });
 });

@@ -56,6 +56,9 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_polygon",
     "LayerControl.type_empty",
     "LayerControl.type_container",
+    # groupCountTooltip(ui, key, on, total) in rowView.ts — the locale key is a
+    # parameter, so the scanner cannot see the T() call behind it.
+    "LayerControl.container_count_tooltip",
     # labelKey / titleKey passed as function parameters.
     "LayerControl.data_layer_label",
     "LocateControl.popup_title_geo",
