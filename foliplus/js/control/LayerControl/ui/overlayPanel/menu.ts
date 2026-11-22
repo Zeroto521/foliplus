@@ -27,7 +27,10 @@ import * as Icons from "#platform/icon.js";
 import { throttleRaf } from "#platform/throttle.js";
 import { FORM_CLASS, PANEL_CLASS, placeSurface } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { folderFoldKey } from "#control/LayerControl/declaredFolder.js";
+import {
+  effectiveFolderFolded,
+  folderFoldKey,
+} from "#control/LayerControl/declaredFolder.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /**
@@ -954,6 +957,20 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
       menuLabel(ui.T("new_folder")),
     ),
   );
+  // Expand/collapse are disabled when they would do nothing: every folder is
+  // already in that state, or the role owns no folder at all. The reason is the
+  // tooltip, the same contract the empty-folder cleanup uses.
+  const folderKeys = roleFolderKeys(ui, role);
+  const foldedCount = folderKeys.filter(key =>
+    effectiveFolderFolded(
+      ui.listPanel.authorFoldedFolders,
+      ui.listPanel.foldedFolders,
+      role,
+      key,
+    ),
+  ).length;
+  const expandDisabled = folderKeys.length === 0 || foldedCount === 0;
+  const collapseDisabled = folderKeys.length === 0 || foldedCount === folderKeys.length;
   menu.appendChild(
     dom.el(
       "button",
@@ -961,7 +978,8 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.EXPAND_ALL,
         role: "menuitem",
-        title: ui.T("expand_all_tooltip"),
+        title: expandDisabled ? ui.T("expand_all_none") : ui.T("expand_all_tooltip"),
+        "aria-disabled": expandDisabled ? "true" : "false",
       },
       { html: SVGs.ICON_EXPAND_ALL },
       menuLabel(ui.T("expand_all")),
@@ -974,7 +992,10 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.COLLAPSE_ALL,
         role: "menuitem",
-        title: ui.T("collapse_all_tooltip"),
+        title: collapseDisabled
+          ? ui.T("collapse_all_none")
+          : ui.T("collapse_all_tooltip"),
+        "aria-disabled": collapseDisabled ? "true" : "false",
       },
       { html: SVGs.ICON_COLLAPSE_ALL },
       menuLabel(ui.T("collapse_all")),
