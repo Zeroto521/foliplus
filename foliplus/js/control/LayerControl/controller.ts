@@ -223,7 +223,8 @@ type FolderRefusalReason = "blank" | "duplicate" | "too-long" | "missing";
  *  otherwise `ok: false` with the {@link FolderRefusalReason} — never
  *  `"missing"`, since a create has no old folder to lose. */
 type FolderCreateResult =
-  { ok: true } | { ok: false; reason: Exclude<FolderRefusalReason, "missing"> };
+  | { ok: true; key: string }
+  | { ok: false; reason: Exclude<FolderRefusalReason, "missing"> };
 
 /** The outcome of {@link LayerController.renameFolder}: `ok: true` on success
  *  (including a normalisation-only no-op), otherwise `ok: false` with the
@@ -1447,6 +1448,12 @@ class LayerController implements LayerAPI {
       opts,
       Boolean(this.ui),
     );
+    // A layer registered after init can still declare a folder. Seed the layout
+    // from the registry so the row joins that folder: the seed is idempotent and
+    // never overrides an existing assignment, so a re-registration is a no-op.
+    // Without it the declaration only reached the layout at init, and a late
+    // layer's folder row fell back to the normalised key for its display name.
+    this.folderLayout?.seed(this.layerRegistry.layers);
     // The commit token reaches the factory inside `registerEntry`, at the
     // registry write point — the only place that knows the entry exists before
     // `materialize()`/pane work can throw. Nothing to forward from here.
@@ -2147,8 +2154,11 @@ class LayerController implements LayerAPI {
     if (opts?.persist !== false) {
       this.folderLayout.flush();
     }
-    if (this.ui) this.ui.reindexAfterMove();
-    return { ok: true };
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
+    // The key travels back: the caller opens the inline rename on the row it
+    // just created, and re-deriving the key from the name would be a second
+    // normalisation of the same string.
+    return { ok: true, key };
   }
 
   /** Move one folder block within its role's block order. The whole block
@@ -2174,7 +2184,7 @@ class LayerController implements LayerAPI {
     this.folderLayout.set(next);
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
     this.folderLayout.flush();
-    if (this.ui) this.ui.reindexAfterMove();
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
     return true;
   }
 
@@ -2221,7 +2231,7 @@ class LayerController implements LayerAPI {
     this.folderLayout.set(next);
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
     this.folderLayout.flush();
-    if (this.ui) this.ui.reindexAfterMove();
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
     return true;
   }
 
@@ -2273,7 +2283,7 @@ class LayerController implements LayerAPI {
     this.folderLayout.set(next);
     this.layerRegistry.normalizeGroups(this.folderLayout.layout);
     this.folderLayout.flush();
-    if (this.ui) this.ui.reindexAfterMove();
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
     return true;
   }
 
@@ -2351,7 +2361,7 @@ class LayerController implements LayerAPI {
     if (opts?.persist !== false) {
       this.folderLayout.flush();
     }
-    if (this.ui) this.ui.reindexAfterMove();
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
     return { ok: true };
   }
 
@@ -2398,7 +2408,7 @@ class LayerController implements LayerAPI {
     if (opts?.persist !== false) {
       this.folderLayout.flush();
     }
-    if (this.ui) this.ui.reindexAfterMove();
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
     return true;
   }
 
@@ -2431,7 +2441,7 @@ class LayerController implements LayerAPI {
       order: { ...layout.order, [role]: remaining },
     });
     this.folderLayout.flush();
-    if (this.ui) this.ui.reindexAfterMove();
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
     return emptyKeys.length;
   }
 

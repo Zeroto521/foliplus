@@ -223,6 +223,33 @@ const folderOf = (layout: FolderLayout, layer: LayerInfo): string | null => {
 const folderDisplayNameOf = (layout: FolderLayout, key: string): string =>
   layout.folders.find(f => f.key === key)?.name ?? key;
 
+/** Every folder key one role holds: its block order plus its live member
+ *  assignments, unioned. An empty folder (created but not yet holding a layer)
+ *  is in the order; an author-declared folder the user has not touched is only
+ *  in `members`. Reading one of the two would miss the other. */
+const folderKeysOfRole = (layout: FolderLayout, role: LayerRole): string[] => {
+  const keys = new Set<string>(folderEntries(layout.order[role] ?? []));
+  for (const m of Object.values(layout.members)) {
+    if (m.role === role && m.folder) keys.add(m.folder);
+  }
+  return [...keys];
+};
+
+/** The default name for a new folder: `base`, or the smallest free ordinal
+ *  suffix so a second create never collides with the first. */
+const nextFolderDefaultName = (
+  layout: FolderLayout,
+  role: LayerRole,
+  base: string,
+): string => {
+  const taken = new Set(folderKeysOfRole(layout, role));
+  if (!taken.has(normalizeFolderName(base))) return base;
+  for (let n = 2; ; n += 1) {
+    const candidate = `${base} ${n}`;
+    if (!taken.has(normalizeFolderName(candidate))) return candidate;
+  }
+};
+
 /** Group one role's folder members into blocks, keyed by normalize(name).
  *  `registryEntries` is the WHOLE registry in anchor order; the block anchor
  *  is the member's GLOBAL index in it (not a per-role index), matching
@@ -241,9 +268,11 @@ const groupByFolder = (
   const map = new Map<string, FolderBlock>();
   registryEntries.forEach((entry, globalIndex) => {
     if (entry.role !== role) return;
-    const folder = folderOf(layout, entry);
-    if (!folder) return;
-    const key = normalizeFolderName(folder);
+    // folderOf already returns the normalised key — normalising again would
+    // only re-run NFC + whitespace + lowercase on a value that is already in
+    // that form.
+    const key = folderOf(layout, entry);
+    if (!key) return;
     let block = map.get(key);
     if (!block) {
       // The directory entry's name is the current display spelling (a rename
@@ -252,7 +281,7 @@ const groupByFolder = (
       const named = layout.folders.find(f => f.key === key);
       block = {
         key,
-        displayName: named ? named.name : folderDisplayName(folder),
+        displayName: named ? named.name : key,
         anchor: globalIndex,
         members: [],
       };
@@ -477,8 +506,15 @@ const renameFolder = (
   // next rename / delete / drag-into would all miss the folder.
   const newKey = normalizeFolderName(newName);
   if (newKey === "") return layout;
+  // A folder exists when the directory, the block order OR a live member
+  // assignment names it: an author-declared folder that the user has not
+  // touched yet lives only in `members`, and the controller's existence check
+  // already counts that. Reading only the first two would answer "renamed"
+  // while returning the layout unchanged.
   const hasOld =
-    layout.folders.some(f => f.key === key) || (layout.order[role] ?? []).includes(key);
+    layout.folders.some(f => f.key === key) ||
+    (layout.order[role] ?? []).includes(key) ||
+    Object.values(layout.members).some(m => m.role === role && m.folder === key);
   if (!hasOld) return layout;
   // A rename to a name another folder already owns is refused; renaming to the
   // folder's own normalised name is a display-only change and stays allowed.
@@ -747,6 +783,8 @@ export {
   seedFolderLayout,
   folderOf,
   folderDisplayNameOf,
+  folderKeysOfRole,
+  nextFolderDefaultName,
   folderEntries,
   groupByFolder,
   roleBlocks,

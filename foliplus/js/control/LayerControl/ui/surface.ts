@@ -60,6 +60,7 @@ interface LayerUI {
   onDragLeave: ((event: DragEvent) => void) | null;
   onDragEnd: ((event: DragEvent) => void) | null;
   onDrop: ((event: DragEvent) => void) | null;
+  onDblClick: ((event: MouseEvent) => void) | null;
   onMoreClick: ((event: Event) => void) | null;
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   onZoomEnd: (() => void) | null;
@@ -96,7 +97,7 @@ interface LayerUI {
   isFocusing(): boolean;
   cancelFocus(): void;
   syncNoBasemap(): void;
-  reindexAfterMove(): void;
+  rebuildAfterLayoutChange(): void;
 }
 
 export type { LayerUI };

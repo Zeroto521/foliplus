@@ -9,7 +9,12 @@ import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
 import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
-import { type LayerRole, isGroupRow, normalizeFolderName } from "#core/layer/index.js";
+import {
+  type LayerRole,
+  folderKeysOfRole,
+  isGroupRow,
+  nextFolderDefaultName as nextFolderDefaultNameInLayout,
+} from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -424,8 +429,9 @@ type DeleteMode = "clear" | "delete" | "absent";
  *  the entry stays focused and forgotten. */
 const DELETE_ARMED_TIMEOUT_MS = 3000;
 
-/** The one armed delete entry, if any: only one menu is open at a time, so a
- *  module-level pointer cannot refer to two rows at once. */
+/** The one armed delete entry, if any. Only one menu is open at a time, and
+ *  armDelete disarms the previous entry before arming, so a module-level
+ *  pointer cannot refer to two rows at once. */
 let armedDelete: {
   ui: LayerUI;
   label: HTMLElement;
@@ -653,34 +659,20 @@ const menuLayerId = (ui: LayerUI): string => ui.overlayPanel.activeMenu?.layerId
  *  (keyboard knew three of the six actions and sent the rest to focus-layer).
  *  The `Record<MenuAction, …>` shape makes a new CONST.ACTION value fail
  *  typecheck until its branch exists here. */
-const folderKeysOfRole = (ui: LayerUI, role: string): string[] => {
-  const layout = ui.c.folderLayoutView;
-  const keys = new Set<string>();
-  for (const m of Object.values(layout.members)) {
-    if (m.role === role && m.folder) keys.add(m.folder);
-  }
-  return [...keys];
-};
+/** The role's folder keys, read from the layout (the owner of the arithmetic). */
+const roleFolderKeys = (ui: LayerUI, role: string): string[] =>
+  folderKeysOfRole(ui.c.folderLayoutView, role as LayerRole);
 
-/** The role's folder keys in block order, including an empty folder (a key in
- *  `order` with no members yet). */
-const folderKeysInOrder = (ui: LayerUI, role: string): string[] =>
-  ui.c.folderLayoutView.order[role as LayerRole] ?? [];
-
-/** The default name for a new folder: the locale noun, suffixed with the
- *  smallest free ordinal so a second create never collides with the first. */
-const nextFolderDefaultName = (ui: LayerUI, role: string): string => {
-  const base = ui.T("new_folder_default_name");
-  const taken = new Set(folderKeysInOrder(ui, role));
-  if (!taken.has(normalizeFolderName(base))) return base;
-  for (let n = 2; ; n += 1) {
-    const candidate = `${base} ${n}`;
-    if (!taken.has(normalizeFolderName(candidate))) return candidate;
-  }
-};
+/** The default name for a new folder, from the layout's own collision check. */
+const nextFolderDefaultName = (ui: LayerUI, role: string): string =>
+  nextFolderDefaultNameInLayout(
+    ui.c.folderLayoutView,
+    role as LayerRole,
+    ui.T("new_folder_default_name"),
+  );
 
 const setAllFoldersFolded = (ui: LayerUI, role: string, folded: boolean) => {
-  for (const key of folderKeysOfRole(ui, role)) {
+  for (const key of roleFolderKeys(ui, role)) {
     // An explicit opinion in both directions, so expand-all opens an
     // author-folded folder instead of leaving it folded.
     ui.listPanel.foldedFolders[folderFoldKey(role, key)] = folded;
@@ -738,7 +730,7 @@ const startNewFolder = (ui: LayerUI, role: string) => {
   const result = ui.c.createFolder(role as LayerRole, name);
   if (!result.ok) return;
   rebuildList(ui);
-  startFolderRename(ui, role, normalizeFolderName(name), name);
+  startFolderRename(ui, role, result.key, name);
 };
 const MENU_ACTIONS: Record<
   MenuAction,

@@ -57,6 +57,8 @@ export {
   seedFolderLayout,
   folderOf,
   folderDisplayNameOf,
+  folderKeysOfRole,
+  nextFolderDefaultName,
   folderEntries,
   groupByFolder,
   roleBlocks,

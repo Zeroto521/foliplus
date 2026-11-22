@@ -1021,7 +1021,7 @@ describe("LayerController", () => {
       </div>
     `;
     manager.uiContainer = container;
-    manager.ui = { reindexAfterMove: vi.fn() } as any;
+    manager.ui = { rebuildAfterLayoutChange: vi.fn() } as any;
     // verify DOM structure includes toggle-all rows and every layer item
     // (getNavigableItems is tested via browser tests)
     const items = container.querySelectorAll(
@@ -4817,7 +4817,7 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerUp rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
     // Move is the last remaining register-time signal that used to call the
-    // UI's reindexAfterMove directly; it now rides the same bus the rest of
+    // UI's rebuildAfterLayoutChange directly; it now rides the same bus the rest of
     // the reorder paths do, so a missing emit silently breaks drag + keyboard
     // reordering. Attach a bare ui + uiContainer to reach the branch.
     manager = new LayerController(map, [
@@ -6580,7 +6580,7 @@ describe("deleteFolder", () => {
     expect(ok).toBe(false);
   });
 
-  it("[BR-3] deleteFolder: no ui -> reindexAfterMove not called (if(this.ui) false)", () => {
+  it("[BR-3] deleteFolder: no ui -> rebuildAfterLayoutChange not called (if(this.ui) false)", () => {
     const { manager } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
@@ -6650,7 +6650,7 @@ describe("cleanEmptyFolders", () => {
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });
 
-  it("[BR-6] cleanEmptyFolders: no ui -> reindexAfterMove not called", () => {
+  it("[BR-6] cleanEmptyFolders: no ui -> rebuildAfterLayoutChange not called", () => {
     const { manager } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["empty1"] }),
       data: [],
@@ -7383,7 +7383,9 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toEqual({ ok: true });
+    // The key travels back so the caller can open the inline rename on the row
+    // it just created without re-deriving it from the name.
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
     expect(readLayoutStorage()).not.toBeNull();
@@ -7397,7 +7399,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toEqual({ ok: true });
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["water", "roads"]);
   });
 
@@ -7448,7 +7450,7 @@ describe("createFolder", () => {
     const okOverlay = manager.createFolder("overlay", "Roads");
     const okBase = manager.createFolder("base", "roads");
 
-    expect(okOverlay).toEqual({ ok: true });
+    expect(okOverlay).toEqual({ ok: true, key: "roads" });
     expect(okBase).toEqual({ ok: false, reason: "duplicate" }); // base already has "roads"
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.order.base ?? []).toEqual(["roads"]);
@@ -7470,14 +7472,14 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toEqual({ ok: true });
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("createFolder writes the layout and reindexes", () => {
     const { manager } = initFixture({ data: [] });
     window.localStorage.removeItem(LAYOUT_DOC_KEY);
-    const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
+    const reindex = vi.spyOn(manager.ui!, "rebuildAfterLayoutChange");
 
     manager.createFolder("overlay", "Roads");
 
@@ -7512,7 +7514,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads", { persist: false });
 
-    expect(ok).toEqual({ ok: true });
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
   });

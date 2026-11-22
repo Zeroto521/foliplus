@@ -6,21 +6,27 @@
 // a layout exists, and the order keys are the ONLY block priority.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  FOLDER_NAME_MAX,
   type FolderLayout,
   LAYOUT_DOC_KEY,
   type LayerInfo,
   type LayerRole,
+  ROOT_LAYER_PREFIX,
   createFolder,
   createFolderLayoutManager,
   deleteFolder,
   dropLayer,
   emptyFolderLayout,
   ensureFolderLayout,
+  folderEntries,
+  folderNameLength,
+  folderNameTooLong,
   folderOf,
   freezeRoleOrder,
   fullDisplayOrder,
   groupByFolder,
   isFolderLayout,
+  isRootLayerEntry,
   moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
@@ -29,7 +35,10 @@ import {
   readFolderLayout,
   renameFolder,
   restoreAuthorLayout,
+  roleBlocks,
   roleOrder,
+  rootLayerEntry,
+  seedBlockOrder,
   seedFolderLayout,
   writeFolderLayout,
 } from "#core/layer/index.js";
@@ -833,5 +842,115 @@ describe("moveFolder — no-op guards", () => {
     expect(moveFolder(layout, "overlay", "roads", "water", true).order.overlay).toEqual(
       ["water", "roads"],
     );
+  });
+});
+
+describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
+  it("folderNameLength folds NFC, collapses whitespace, trims, counts code points", () => {
+    // NFC: an e + combining acute normalises to a single e-acute code point.
+    expect(folderNameLength("e\u0301")).toBe(1);
+    // Whitespace collapse + trim, same as the panel's normalisation.
+    expect(folderNameLength("  Roads\tRoads  ")).toBe(11);
+    // A non-BMP surrogate pair is one code point, not two UTF-16 units.
+    expect(folderNameLength("\u{1F600}")).toBe(1);
+    expect(folderNameLength("")).toBe(0);
+  });
+
+  it("folderNameTooLong is the single cap decision point", () => {
+    const atMax = "a".repeat(FOLDER_NAME_MAX);
+    expect(folderNameTooLong(atMax)).toBe(false);
+    expect(folderNameTooLong(`${atMax}b`)).toBe(true);
+  });
+
+  it("rootLayerEntry / isRootLayerEntry / ROOT_LAYER_PREFIX / folderEntries", () => {
+    expect(ROOT_LAYER_PREFIX).toBe("layer:");
+    expect(rootLayerEntry("a")).toBe("layer:a");
+    expect(isRootLayerEntry("layer:a")).toBe(true);
+    expect(isRootLayerEntry("roads")).toBe(false);
+    expect(folderEntries(["roads", "layer:a", "water"])).toEqual(["roads", "water"]);
+    expect(folderEntries([])).toEqual([]);
+  });
+
+  it("roleBlocks honours a listed root-layer entry (info present)", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:a"] },
+    };
+    const entries = [entry("a", "overlay", null, 0)] as LayerInfo[];
+    const blocks = roleBlocks("overlay", entries, layout);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toEqual({ kind: "layer", info: entries[0] });
+  });
+
+  it("roleBlocks skips a stale listed root-layer entry (no live info)", () => {
+    // A "layer:<id>" entry whose id is not in the registry: the block has no
+    // info to paint, so the pass skips it instead of emitting a null layer.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:ghost"] },
+    };
+    // Empty registry: no unlisted root layer is pushed in the tail pass either.
+    expect(roleBlocks("overlay", [], layout)).toEqual([]);
+  });
+
+  it("roleBlocks pushes an unlisted root layer and skips a listed one", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:a"] },
+    };
+    const entries = [
+      entry("a", "overlay", null, 0),
+      entry("b", "overlay", null, 1),
+    ] as LayerInfo[];
+    const blocks = roleBlocks("overlay", entries, layout);
+    // a is listed (pushed in the listed pass), b is unlisted (pushed in the tail).
+    expect(blocks.map(b => (b.kind === "layer" ? b.info.id : b.key))).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(blocks[0]).toEqual({ kind: "layer", info: entries[0] });
+    expect(blocks[1]).toEqual({ kind: "layer", info: entries[1] });
+  });
+
+  it("moveFolder no-ops on a missing role order (the ?? [] arm)", () => {
+    // No order entry for the role: listed resolves to [] via the ?? arm, and
+    // the key is not in an empty list, so the move is rejected.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: {},
+      members: {},
+    };
+    expect(moveFolder(layout, "overlay", "roads", "water", true)).toBe(layout);
+  });
+
+  it("moveFolder no-ops when the target is not listed (key is listed)", () => {
+    // The guard's second operand: a drag whose TARGET outlived a delete. The
+    // key itself is still listed, so only the target arm rejects the move.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: {},
+    };
+    expect(moveFolder(layout, "overlay", "roads", "ghost", true)).toBe(layout);
+  });
+
+  it("seedBlockOrder maps folder and layer blocks to their order entries", () => {
+    const folderLayout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const entries = [entry("a", "overlay", "Roads", 0)] as LayerInfo[];
+    expect(seedBlockOrder(folderLayout, "overlay", entries)).toEqual(["roads"]);
+
+    const rootLayout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:b"] },
+    };
+    const rootEntries = [entry("b", "overlay", null, 0)] as LayerInfo[];
+    expect(seedBlockOrder(rootLayout, "overlay", rootEntries)).toEqual(["layer:b"]);
   });
 });
