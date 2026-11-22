@@ -92,7 +92,7 @@ interface LayerUI {
   closeFilterPanel(setFocus: boolean): void;
   applyStyleLabelState(): void;
   renameLayer(layerId: string): void;
-  finishRename(cancel?: boolean): void;
+  finishRename(restoreText?: boolean): void;
   focusLayer(layerId: string): void;
   isFocusing(): boolean;
   cancelFocus(): void;

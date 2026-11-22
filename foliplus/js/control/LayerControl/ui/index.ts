@@ -519,8 +519,8 @@ class LayerUI implements LayerUISurface {
   renameLayer(layerId: string) {
     return renameLayer(this, layerId);
   }
-  finishRename(cancel?: boolean) {
-    return finishRename(this, cancel);
+  finishRename(restoreText?: boolean) {
+    return finishRename(this, restoreText);
   }
   focusLayer(layerId: string) {
     return focusLayer(this, layerId);
