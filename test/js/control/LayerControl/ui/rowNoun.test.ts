@@ -1,6 +1,7 @@
 // LayerControl ui/rowNoun — the row noun vocabulary and the {noun} substitution.
 import { describe, expect, it } from "vitest";
 import { ROW_NOUN, nounKey, withNoun } from "#control/LayerControl/ui/rowNoun.js";
+import type { LayerUI } from "#control/LayerControl/ui/surface.js";
 
 const ui = {
   T: (key: string) =>
@@ -12,7 +13,7 @@ const ui = {
       noun_group: "layer group",
       noun_role: "section",
     })[key] ?? key,
-} as never;
+} as unknown as LayerUI;
 
 describe("LayerControl ui: withNoun", () => {
   it("fills the placeholder with the noun's own locale key", () => {

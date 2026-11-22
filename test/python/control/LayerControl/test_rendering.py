@@ -594,39 +594,39 @@ class TestLayerControlRendering:
         # only ever applied to divider and is now avoided.
         assert not any("divider" in l for l in lines)
 
-    def test_toggle_all_divider_uses_explicit_column_range(self):
-        """Divider is placed by grid-column: 4 / -1 (explicit range), not
-        grid-area or grid-column: span — so it never overflows to a new row
-        when anonymous slots change count."""
+    def test_role_divider_lives_in_the_label_column_flex_cell(self):
+        """The role divider is not a grid item: it sits inside .foliplus-role-head,
+        one flex cell in the label column, so it starts at the name's edge and
+        takes the rest of the column. As a second grid item in the same column
+        it overlapped the name (measured left 68 against a name spanning 56-98)."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        # Find the .foliplus-section-divider rule nested under toggle-all. The
-        # role row's own divider carries .foliplus-role-divider and is narrowed
-        # to the label column, so the leftover rule excludes it by :not().
-        idx = css.find(".foliplus-section-divider:not(.foliplus-role-divider) {")
-        assert idx != -1, "no .foliplus-section-divider:not(...) { rule found"
-        block = css[idx : css.index("}", idx) + 1]
-        assert "grid-column: 4 / -1" in block
-        assert "grid-area" not in block, (
-            "divider must not be positioned by grid-area (the dual-declaration trap)"
+        head_idx = css.find(".foliplus-role-head {")
+        assert head_idx != -1, "no .foliplus-role-head rule"
+        head = css[head_idx : css.index("}", head_idx) + 1]
+        assert "grid-column: 3" in head, "the head owns the label column"
+        assert "display: flex" in head
+        div_idx = css.find(".foliplus-role-head .foliplus-role-divider {")
+        assert div_idx != -1, "no role-divider rule inside the head"
+        div = css[div_idx : css.index("}", div_idx) + 1]
+        assert "flex: 1" in div, "the divider takes the rest of the column"
+        assert "margin: 0" in div, (
+            "the shared divider's panel inset must be cancelled inside the head"
         )
-        assert "grid-column: span" not in block, (
-            "divider must not use span (overflowed to next row on 6-col track)"
-        )
+        # The pre-folder rule that placed a divider by grid-column is gone: the
+        # role row owns count/icon/more now, so nothing spans 4 / -1.
+        assert "grid-column: 4 / -1" not in css
 
-    def test_toggle_all_divider_column_range_bounded_by_track(self):
-        """Divider's grid-column: 4 / -1 stays inside the 6-col track:
-        start (4) = label slot + 1; end (-1) = last column. So the range
-        never overflows past the last track, which would push the divider
-        to a new row."""
+    def test_role_divider_cannot_overflow_the_track(self):
+        """The divider is a flex child of the label cell, not a grid item, so it
+        cannot be pushed to an implicit row when the anonymous slot count
+        changes — the failure mode the old grid-column: 4 / -1 rule guarded
+        against by hand."""
         token_css = read_css("foliplus/css/common/token.css")
         layer_css = read_css("foliplus/css/control/LayerControl/index.css")
-        # The shared track defines exactly 6 columns:
-        #   drag(16) check(16) label(1fr) count(min/max) icon(16) more(7)
+        # The shared track still defines the row's columns; the head is one cell.
         idx = token_css.find("--foliplus-grid-layer-cols:")
         assert idx != -1
         track = token_css[idx : token_css.index(";", idx)]
-        # Count the track's top-level terms only: minmax(min, max) is ONE
-        # column even though it contains a comma and a space.
         body = track.split(":", 1)[1]
         col_terms: list[str] = []
         depth = 0
@@ -651,19 +651,22 @@ class TestLayerControlRendering:
         assert "minmax(" in col_terms[3] and "count-track" in col_terms[3], (
             f"count column must be a bounded minmax track, got {col_terms[3]!r}"
         )
-        # Divider rule must sit in the toggle-all container (so 4 / -1 is
-        # evaluated against the same 6-col track).
+        # The toggle-all row still uses that track.
         ta_idx = layer_css.find(".foliplus-layer-sep.foliplus-layer-toggle-all {")
         assert ta_idx != -1
         ta_block = layer_css[ta_idx : layer_css.index("}", ta_idx) + 1]
         assert "var(--foliplus-grid-layer-cols)" in ta_block
-        div_idx = layer_css[ta_idx:].find(".foliplus-section-divider {")
-        assert div_idx != -1, "divider rule not inside toggle-all container"
-        div_block = layer_css[
-            ta_idx : ta_idx + layer_css[ta_idx:].index("}", div_idx) + 1
-        ]
-        assert "grid-column: 4 / -1" in div_block, (
-            "divider must start at col 4 (after label slot 3) and end at -1 (col 6)"
+        # The divider is placed by flex, never by the grid.
+        head_idx = layer_css.find(".foliplus-role-head {")
+        assert head_idx != -1
+        head = layer_css[head_idx : layer_css.index("}", head_idx) + 1]
+        assert "min-width: 0" in head, "the flex cell must be allowed to shrink"
+        div_idx = layer_css.find(".foliplus-role-head .foliplus-role-divider {")
+        assert div_idx != -1
+        div = layer_css[div_idx : layer_css.index("}", div_idx) + 1]
+        assert "min-width: 0" in div
+        assert "grid-column" not in div and "grid-area" not in div, (
+            "the divider must not be placed on the grid at all"
         )
 
     def test_toggle_all_align_self_center_removed(self):
@@ -729,11 +732,13 @@ class TestLayerControlRendering:
         display."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
-        assert f"&:has({overlay_list})" in css, (
+        assert f".foliplus-layer-item:has({overlay_list})" in css, (
             "the lift must key on the more-menu AND the row-panel shell"
         )
-        assert ".foliplus-layer-item:has(" in css, (
-            "the owner row (the row containing the open overlay) is raised"
+        # The role row is deliberately not a .foliplus-layer-item, so it needs
+        # its own leg or the next row's hover paints over its menu.
+        assert ".foliplus-layer-role:has(.foliplus-layer-more-menu.open)" in css, (
+            "the role row needs its own lift leg"
         )
         assert "z-index: var(--foliplus-z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row — the shared shell adds a 2px
