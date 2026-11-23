@@ -97,3 +97,86 @@ describe("vocabulary guard: no section middle-layer", () => {
     ).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Three-way vocabulary guard: role / folder / group / container
+//
+// The user split (2026-11-23) is: role = overlay/base grouping, folder = a
+// user-created group inside a role, group = a Leaflet layer group shown as one
+// row, and container = a DOM node or the map's own container ONLY. A
+// "container" identifier that means a layer group is a regression toward the
+// pre-rename vocabulary, exactly like a stray "section" above.
+//
+// The guard bans the identifier SHAPES that only ever mean a layer group
+// (ContainerLike, isContainerNode, isContainerLayer, isContainerDrag, ...). DOM
+// and map container names (uiContainer, getContainer, _container, containerId,
+// latLngToContainerPoint, ...) carry different shapes and are unaffected, so no
+// allow-list is needed — a false positive here means the new name really does
+// read as a layer group and should be renamed.
+// ---------------------------------------------------------------------------
+const BANNED_CONTAINER_SHAPES: RegExp[] = [
+  /\bContainerLike\b/,
+  /\bisContainer[A-Z][a-zA-Z]*\b/,
+  /\bContainerNode\b/,
+  /\bContainerLayer\b/,
+  /\bContainerRow\b/,
+];
+
+// A makeContainer is a layer-group fixture factory ONLY when it does not build
+// an HTMLElement. FullscreenControl and focus tests legitimately name a DOM
+// container factory makeContainer (returns HTMLElement), which is the allowed
+// container meaning. A layer-group makeContainer takes a children list and
+// returns an object with eachLayer/_layers, so those signatures fail here.
+function containerViolations(src: string): string[] {
+  const hits: string[] = [];
+  for (const shape of BANNED_CONTAINER_SHAPES) {
+    if (shape.test(src)) hits.push(shape.source);
+  }
+  // Heuristic, not exhaustive: a makeContainer is a layer-group fixture factory
+  // ONLY when it does not build an HTMLElement. FullscreenControl and focus tests
+  // legitimately name a DOM container factory makeContainer (returns
+  // HTMLElement), which is the allowed container meaning. A layer-group
+  // makeContainer takes a children list and returns an object with
+  // eachLayer/_layers, so those signatures fail here. Matches both the arrow
+  // (const makeContainer = ...) and function (function makeContainer(...) {...})
+  // declaration styles; a factory declared some other way is not caught — this
+  // guard narrows the common cases, it does not prove absence.
+  const declPattern =
+    /(?:const makeContainer\s*=\s*|function makeContainer\s*)\(([^)]*)\)[^\n]*/g;
+  let m: RegExpExecArray | null;
+  while ((m = declPattern.exec(src)) !== null) {
+    const params = m[1];
+    const tail = src.slice(m.index, m.index + 400);
+    const isDomFactory =
+      /HTMLElement/.test(m[0]) || /document\.createElement/.test(tail);
+    const isGroupFactory =
+      /children/.test(params) || /eachLayer/.test(tail) || /_layers/.test(tail);
+    if (isGroupFactory && !isDomFactory) {
+      hits.push(`makeContainer (layer-group factory, params: ${params.trim()})`);
+    }
+  }
+  return hits;
+}
+
+describe("vocabulary guard: no layer-group 'container' identifiers", () => {
+  it("scans the tree for container identifiers that mean a layer group", () => {
+    const hits: string[] = [];
+    const roots = [join(REPO_ROOT, "foliplus", "js"), join(REPO_ROOT, "test", "js")];
+    for (const root of roots) {
+      for (const file of walk(root)) {
+        const rel = relative(REPO_ROOT, file).replace(/\\/g, "/");
+        if (EXEMPT_FILES.has(rel)) continue;
+        const src = readFileSync(file, "utf8");
+        for (const v of containerViolations(src)) {
+          hits.push(`${rel}: ${v}`);
+        }
+      }
+    }
+    expect(
+      hits,
+      `layer-group 'container' identifiers are a vocabulary regression; rename to group: ${hits.join(
+        "; ",
+      )}`,
+    ).toEqual([]);
+  });
+});

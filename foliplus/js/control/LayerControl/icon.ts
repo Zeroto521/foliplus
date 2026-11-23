@@ -6,7 +6,7 @@ const ICON_LAYERS = `
     <polygon points="2 16 12 21 22 16"/>
   </svg>`;
 
-/** Container group glyph — two overlapping rounded squares (the design's
+/** Group glyph — two overlapping rounded squares (the design's
  *  container-row icon). The back square is drawn as the visible L only, so
  *  nothing has to be masked: a surface-filled front square painted a white
  *  patch that stayed white on a hovered or checked row. Stroke and weight are
