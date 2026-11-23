@@ -278,6 +278,12 @@ const dispatchStateOp = (
             return false;
           }
           let wrote = false;
+          const hasContainer = ui.c.map.hasLayer(layer);
+          if (op.value !== hasContainer) {
+            if (op.value) ui.c.map.addLayer(layer);
+            else ui.c.map.removeLayer(layer);
+            wrote = true;
+          }
           for (const child of children) {
             const has = ui.c.map.hasLayer(child);
             if (op.value !== has) {

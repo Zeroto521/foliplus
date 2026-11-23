@@ -9,15 +9,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { buildCheckboxCell } from "#control/LayerControl/ui/listPanel/checkbox.js";
 import {
   childDisplayName,
   childRowId,
+  focusChildLayer,
   groupChildren,
   isGroupExpanded,
   removeGroupChildren,
   resolveChild,
   toggleGroupExpand,
 } from "#control/LayerControl/ui/listPanel/groupExpand.js";
+import { buildCountCol } from "#control/LayerControl/ui/listPanel/rowCell.js";
 
 describe("group expand", () => {
   let manager: LayerController;
@@ -150,12 +153,15 @@ describe("group expand", () => {
     for (const child of fg.getLayers()) {
       expect(map.removeLayer).toHaveBeenCalledWith(child);
     }
-    // The group itself is NOT removed as a whole (its children are the unit).
+    // The group container IS removed as a unit too — its own membership must
+    // follow the children's aggregate, or map.hasLayer(group) stays true and
+    // the label manager's isVisible gate keeps painting its labels (browser
+    // regression: labels don't follow layer visibility).
     const groupLayer = fg;
     const removedGroup = (map.removeLayer as ReturnType<typeof vi.fn>).mock.calls.some(
       call => call[0] === groupLayer,
     );
-    expect(removedGroup).toBe(false);
+    expect(removedGroup).toBe(true);
   });
 
   it("unchecking an EMPTY group row removes the group itself (browser reload P1)", () => {
@@ -172,6 +178,25 @@ describe("group expand", () => {
     // An empty container has no children to remove individually — the group
     // itself is the map entry and must leave.
     expect(map.removeLayer).toHaveBeenCalledWith(fg);
+  });
+
+  it("unchecking an empty group that is already off the map is a no-op (P1 项①)", () => {
+    installLeafletGlobals();
+    const fg = makeGroup([]);
+    manager.registerLayer({ id: "fg", name: "Empty", role: "overlay", layer: fg });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    (map.hasLayer as ReturnType<typeof vi.fn>).mockImplementation(
+      (l: unknown) => l !== fg,
+    );
+    const row = groupRow();
+    const cb = row!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    cb.checked = false;
+    cb.dispatchEvent(new Event("change", { bubbles: true }));
+    // The group is already off the map, so no write happens (op.value === has).
+    expect(map.removeLayer).not.toHaveBeenCalledWith(fg);
+    expect(map.addLayer).not.toHaveBeenCalledWith(fg);
   });
 });
 
@@ -951,6 +976,159 @@ describe("group expand — child row menu (stage 1)", () => {
     expect(
       attachedPanel(ui).querySelector(`[data-layer-id="${CSS.escape(childId)}"]`),
     ).toBeNull();
+  });
+});
+
+describe("group expand — child focus coverage", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const makeGroup = (children: unknown[]) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  const registerGroupWith = (children: unknown[]) => {
+    const fg = makeGroup(children);
+    manager.registerLayer({ id: "fg", name: "Group", role: "overlay", layer: fg });
+    return fg;
+  };
+
+  it("focusChildLayer on an off-map child shows the hidden hint", () => {
+    const child = {
+      options: {},
+      _name: "c",
+      getBounds: () => ({ isValid: () => true }),
+    };
+    registerGroupWith([child]);
+    const childId = childRowId("fg", child);
+    (map.hasLayer as ReturnType<typeof vi.fn>).mockImplementation(
+      (l: unknown) => l !== child,
+    );
+    const hintSpy = vi.spyOn(map.foliplus, "showHint");
+    focusChildLayer(ui, "fg", childId);
+    expect(hintSpy).toHaveBeenCalledWith(
+      ui.config.name,
+      expect.any(String),
+      expect.any(Number),
+    );
+  });
+
+  it("focusChildLayer on a bounds-less child shows the no_bounds hint", () => {
+    const child = { options: {}, _name: "c" };
+    registerGroupWith([child]);
+    const childId = childRowId("fg", child);
+    const hintSpy = vi.spyOn(map.foliplus, "showHint");
+    focusChildLayer(ui, "fg", childId);
+    expect(hintSpy).toHaveBeenCalledWith(
+      ui.config.name,
+      expect.any(String),
+      expect.any(Number),
+    );
+  });
+
+  it("focusChildLayer on a tiny child flies to it", () => {
+    const child = {
+      options: {},
+      _name: "c",
+      getBounds: () => ({
+        isValid: () => true,
+        getSouthWest: () => ({ lat: 30, lng: 100 }),
+        getNorthEast: () => ({ lat: 30.0001, lng: 100.0001 }),
+        getCenter: () => ({ lat: 30.00005, lng: 100.00005 }),
+        extend: () => ({ isValid: () => true }),
+      }),
+    };
+    registerGroupWith([child]);
+    const childId = childRowId("fg", child);
+    focusChildLayer(ui, "fg", childId);
+    expect(map.flyTo).toHaveBeenCalled();
+  });
+});
+
+describe("group expand — shared cell helpers (coverage)", () => {
+  it("groupChildren returns [] for an unknown parent", () => {
+    const { ui } = initFixture();
+    expect(groupChildren(ui, "nope")).toEqual([]);
+  });
+
+  it("childDisplayName reads a GeoJSON feature name string", () => {
+    const child = { feature: { properties: { name: "River" } }, options: {} };
+    expect(childDisplayName(child)).toBe("River");
+  });
+
+  it("buildCountCol with no text renders an empty count span", () => {
+    const span = buildCountCol({});
+    expect(span.className).toContain("count");
+    expect(span.textContent ?? "").toBe("");
+  });
+
+  it("buildCheckboxCell skips undefined attribute values", () => {
+    const { input } = buildCheckboxCell({ id: "cb1", title: undefined });
+    expect(input.getAttribute("id")).toBe("cb1");
+    expect(input.hasAttribute("title")).toBe(false);
+  });
+
+  it("buildCountCol with no text argument renders an empty count span", () => {
+    const span = buildCountCol({});
+    expect(span.textContent ?? "").toBe("");
+  });
+
+  it("the focus rect teardown clears the hint once the rect expires", () => {
+    const { manager, ui, map } = initFixture();
+    const child = {
+      options: {},
+      _name: "c",
+      getBounds: () => ({
+        isValid: () => true,
+        getSouthWest: () => ({ lat: 30, lng: 100 }),
+        getNorthEast: () => ({ lat: 40, lng: 110 }),
+        getCenter: () => ({ lat: 35, lng: 105 }),
+        extend: () => ({ isValid: () => true }),
+      }),
+    };
+    const fg: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => [child]),
+      _layers: {},
+    };
+    fg.eachLayer = vi.fn((fn: (c: unknown) => void) => {
+      for (const c of [child]) fn(c);
+    });
+    manager.registerLayer({ id: "fg", name: "Group", role: "overlay", layer: fg });
+    const hintSpy = vi.spyOn(map.foliplus, "showHint");
+    vi.useFakeTimers();
+    focusChildLayer(ui, "fg", childRowId("fg", child));
+    expect(map.fitBounds).toHaveBeenCalled();
+    vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS);
+    expect(hintSpy).toHaveBeenCalledWith(ui.config.name, "", 0);
   });
 });
 
