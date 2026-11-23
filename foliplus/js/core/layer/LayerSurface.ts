@@ -1066,7 +1066,7 @@ const detectCapabilities = (
   // `"redraw"`), not something this detector invents.
   const hasContentPanes =
     Boolean(opts.paneName) ||
-    (opts.paneSpecs && opts.paneSpecs.length > 0) ||  
+    (opts.paneSpecs && opts.paneSpecs.length > 0) ||
     opts.canvas;
 
   // The pane carrier is real for this surface when the FULL tree audits
