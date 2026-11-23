@@ -192,6 +192,82 @@ afterEach(() => {
   for (const registry of createdRegistries.splice(0)) registry.destroy();
 });
 
+/** The `ui` fields that are *data*, not behaviour: the DOM root, the three view
+ *  subsystems, the stores and the `on*`/unsubscribe slots. The controller tests
+ *  its truthiness (`this.ui?.listPanel ? cursorRef(this.ui) : null`) and reads
+ *  members off it, so auto-stubbing these as functions would both flip that
+ *  guard onto a code path whose collaborators are absent and hand back a mock
+ *  where a `LayerListPanel` is expected. They stay absent unless a test
+ *  overrides them — matching the panel that simply has not attached yet. */
+const UI_DATA_PROPS = new Set([
+  "c",
+  "uiContainer",
+  "controller",
+  "events",
+  "config",
+  "T",
+  "_",
+  "log",
+  "intentStore",
+  "runtimeStore",
+  "currentColor",
+  "colorSurface",
+  "listPanel",
+  "overlayPanel",
+  "focusController",
+  "geometryMarqueeCleanup",
+  "onChange",
+  "onClick",
+  "onFocusIn",
+  "onFocusOut",
+  "onDragStart",
+  "onDragOver",
+  "onDragLeave",
+  "onDragEnd",
+  "onDrop",
+  "onDblClick",
+  "onMoreClick",
+  "onMoreMapClick",
+  "onZoomEnd",
+  "unsubscribeCountChange",
+  "unsubscribeControlAttached",
+  "unsubscribeEscape",
+  "unsubscribeLayerSignals",
+]);
+
+/** Build a stand-in for the panel UI for a test that only exercises the
+ *  controller, not the DOM.
+ *
+ *  The controller's teardown paths (`invalidateDerived`, `announceRetirement`,
+ *  `destroy`) call across the `ui` seam unguarded, and which methods they reach
+ *  depends on what the registry and the panel state look like at that moment —
+ *  so a hand-written stub can never be complete, and the one it misses throws
+ *  from the middle of the act under test. A Proxy answers every method
+ *  request with a memoised `vi.fn()` instead: the first read creates and keeps
+ *  it, so a test that reads `ui.invalidateFields` and asserts on it still sees
+ *  the same mock the act called, while a method no test asked about costs
+ *  nothing and cannot throw.
+ *
+ *  Explicit overrides win: pass the collaborators the act actually reads
+ *  (`intentStore`, `runtimeStore`, a seeded `applyUserState`) and they are
+ *  served as-is; only the gaps are auto-stubbed. Data fields stay absent — see
+ *  `UI_DATA_PROPS` — so a truthiness guard in the controller answers "there is
+ *  no panel here" instead of "the panel is a function". */
+export const makeDerivedUI = (
+  overrides: Record<string, unknown> = {},
+): LayerUI => {
+  const target: Record<string, unknown> = { ...overrides };
+  return new Proxy(target, {
+    get(t, prop: string) {
+      if (prop in t) return t[prop];
+      if (UI_DATA_PROPS.has(prop)) return undefined;
+      const fn = vi.fn();
+      t[prop] = fn;
+      return fn;
+    },
+  }) as unknown as LayerUI;
+};
+
 const initFixture = (
   options: {
     initialZoom?: number;

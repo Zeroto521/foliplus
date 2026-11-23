@@ -43,6 +43,7 @@ import {
   markSettled,
   rebuildList,
   renderInitialList,
+  refreshTreeConnectors,
   renderLayerItem,
   renderToggleAllRow,
   syncRowOrder,
@@ -142,6 +143,7 @@ export {
   renderLayerItem,
   colorLayerName,
   initLayerItem,
+  refreshTreeConnectors,
 };
 export { ListPanel };
 export {

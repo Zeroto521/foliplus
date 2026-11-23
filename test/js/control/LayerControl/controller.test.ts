@@ -5,6 +5,7 @@ import {
   findItem,
   initFixture,
   installLeafletGlobals,
+  makeDerivedUI,
   polygonLayer,
   trackMembership,
 } from "./ui/fixture.js";
@@ -78,6 +79,76 @@ const makeStore = (
 const seedStorage = (record: Record<string, unknown>) => {
   window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(record));
 };
+
+/** A manager.ui stub that answers every method call without throwing.
+ *
+ *  The derived-state barrier (invalidateDerived) runs on a debounced timer that
+ *  can fire AFTER a test completes, during teardown, while the test's own narrow
+ *  manager.ui stub (often scoped to one method) is still installed. Those
+ *  teardown paths (invalidateDerived, announceRetirement, destroy's
+ *  release-style-applies step, retireEntry) call many different ui methods, so a
+ *  stub missing any one of them throws "... is not a function" from the timer as
+ *  an uncaught error rather than a test failure.
+ *
+ *  A Proxy answers every unknown property with a fresh vi.fn(), so teardown can
+ *  call anything and get a no-op. Explicit overrides win over the auto-methods,
+ *  so a test that wants to assert a specific call still spies on the method it
+ *  cares about. */
+/** A manager.ui stub that answers every method call AND every DOM-ish data
+ *  member without throwing.
+ *
+ *  The derived-state barrier (invalidateDerived) runs on a debounced timer that
+ *  can fire AFTER a test completes, during teardown, while the test's own narrow
+ *  manager.ui stub (often scoped to one method) is still installed. Those
+ *  teardown paths call ui METHODS (invalidateDerived, announceRetirement,
+ *  destroy's release-style-applies step) and read ui DATA members that are then
+ *  queried as DOM (ui.container.querySelectorAll). A bare vi.fn() answers the
+ *  methods but breaks the data members (a function has no querySelectorAll);
+ *  a bare object breaks the calls. So the universal member is a CALLABLE that
+ *  also carries the DOM query methods, and any member read off it recurses into
+ *  the same callable — a method call, a querySelectorAll, and a chained read all
+ *  resolve without throwing.
+ *
+ *  Explicit overrides win over the universal member, so a test that wants to
+ *  assert a specific call still spies on the method it cares about. */
+const makeDerivedUI = (overrides: Record<string, unknown> = {}): LayerUI => {
+  const target: Record<string, unknown> = {
+    // Data members a teardown step reads as DATA, not as a method: the cursor
+    // snapshot reads listPanel.activeIdx (must be null, not a stub object) and
+    // the row retirement queries container. The universal callable answers
+    // both wrongly, so pin the two the teardown actually touches.
+    container: document.createElement("div"),
+    listPanel: { activeIdx: null },
+    ...overrides,
+  };
+  const makeMember = (): unknown => {
+    const fn = vi.fn(() => makeMember()) as unknown as Record<string, unknown>;
+    // DOM query methods a teardown step may call on a ui data member.
+    fn.querySelectorAll = vi.fn(() => [] as unknown[]);
+    fn.querySelector = vi.fn(() => null);
+    fn.getAttribute = vi.fn(() => null);
+    fn.closest = vi.fn(() => null);
+    return new Proxy(fn, {
+      get(t, prop: string) {
+        if (prop in t) return t[prop];
+        // Unknown member off this callable recurses into the same universal
+        // stub, so chained reads never throw either.
+        const nested = makeMember();
+        t[prop] = nested;
+        return nested;
+      },
+    });
+  };
+  return new Proxy(target, {
+    get(t, prop: string) {
+      if (prop in t) return t[prop];
+      const member = makeMember();
+      t[prop] = member;
+      return member;
+    },
+  }) as LayerUI;
+};
+
 
 // Leaflet models a TileLayer as a GridLayer subclass, and the manager relies on
 // that: a GridLayer carries its z natively (`setZIndex` / `options.zIndex`) and
@@ -279,6 +350,20 @@ describe("LayerController", () => {
     ]);
   });
 
+  afterEach(() => {
+    // The derived-state barrier (invalidateDerived) and the order enforcement
+    // both run on debounced timers that can resolve AFTER a test completes —
+    // during teardown, while the test's own narrow manager.ui stub (often
+    // scoped to one method, or missing data members like listPanel.activeIdx)
+    // is still installed. Cancel the pending timers at the source so teardown
+    // never runs against that partial UI, rather than trying to make a stub
+    // absorb every side effect (a stub cannot know which data members are read
+    // as DOM vs null-vs-object). makeDerivedUI stays as belt-and-suspenders for
+    // any timer a future change adds without a matching cancel.
+    manager.debouncedEnforce?.cancel?.();
+    manager.ui = makeDerivedUI();
+  });
+
   it("constructor creates registry from data", () => {
     expect(manager.layerRegistry.size).toBe(2);
   });
@@ -355,13 +440,13 @@ describe("LayerController", () => {
       collide: true,
     });
     const schedule = vi.spyOn(m.persistence, "schedule");
-    m.ui = {
+    m.ui = makeDerivedUI({
       c: m,
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       intentStore: makeStore(),
       saveState: () => saveState(m.ui!),
-    } as unknown as LayerUI;
+    }) as unknown as LayerUI;
 
     expect(m.unregisterLayer("keepcfg")).toBe(true);
     expect(m.label.hasConfig("keepcfg")).toBe(true);
@@ -857,11 +942,11 @@ describe("LayerController", () => {
   it("registerLayer uses incremental item init instead of full re-scan", () => {
     manager.map.hasLayer.mockReturnValue(true);
     manager.uiContainer = document.createElement("div");
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       // The replay entry point always returns a round; the stub has to honour it.
       applyUserState: vi.fn(() => []),
-    } as any;
+    }) as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({
       id: "new1",
@@ -1683,9 +1768,9 @@ describe("LayerController", () => {
 
   describe("replayStoredState", () => {
     it("replays projection/name/order/style via applyUserState then filter, in that order", () => {
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const filterSpy = vi
         .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
         .mockImplementation(() => {});
@@ -1705,9 +1790,9 @@ describe("LayerController", () => {
     });
 
     it("is idempotent — a second call replays the same dimensions the same way", () => {
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const filterSpy = vi
         .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
         .mockImplementation(() => {});
@@ -1738,9 +1823,9 @@ describe("LayerController", () => {
 
   describe("replayStoredStateAll", () => {
     it("sweeps applyUserState() once then replays the filter for every registered layer", () => {
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const filterSpy = vi
         .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
         .mockImplementation(() => {});
@@ -1885,7 +1970,7 @@ describe("LayerController", () => {
         { id: "H", name: "H", role: "overlay" },
       ]);
       const save = vi.fn(() => saveState(m.ui!));
-      m.ui = {
+      m.ui = makeDerivedUI({
         c: m,
         listPanel: {} as never,
         intentStore: makeStore(
@@ -1898,7 +1983,7 @@ describe("LayerController", () => {
         dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui!, id),
         saveState: save,
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
       // A component clear always unregisters first (saveOrder would otherwise
       // re-insert an id that is still live).
       m.unregisterLayer("H");
@@ -1958,7 +2043,7 @@ describe("LayerController", () => {
       });
       const m = new LayerController(map, [{ id: "H", name: "H", role: "overlay" }]);
       const save = vi.fn(() => saveState(m.ui!));
-      m.ui = {
+      m.ui = makeDerivedUI({
         c: m,
         listPanel: {} as never,
         intentStore: makeStore(
@@ -1968,7 +2053,7 @@ describe("LayerController", () => {
         dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui!, id),
         saveState: save,
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
       m.unregisterLayer("H");
       m.dropPersistedLayerState("H");
       m.persistence.flushAll();
@@ -2199,11 +2284,11 @@ describe("LayerController", () => {
   it("re-registering an existing layer updates the UI row", () => {
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       // The replay entry point always returns a round; the stub has to honour it.
       applyUserState: vi.fn(() => []),
-    } as any;
+    }) as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
     expect(emitSpy).toHaveBeenCalledWith(
@@ -2743,7 +2828,7 @@ describe("LayerController", () => {
     manager.uiContainer = document.createElement("div");
     const canvas = document.createElement("canvas");
     manager.registerLayer({ id: "heat", name: "Heat", canvas });
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       updateLayerItemLabel: vi.fn(),
       initLayerItem: vi.fn(),
       syncToggleAll: vi.fn(),
@@ -2763,7 +2848,7 @@ describe("LayerController", () => {
         ),
       intentStore: makeStore({ heat: { opacity: 0.4 } }, { heat: ["opacity"] }),
       runtimeStore: new LayerRuntimeStore(),
-    } as any;
+    }) as any;
 
     // Swap the canvas on re-registration — the new element starts opaque.
     const fresh = document.createElement("canvas");
@@ -2781,11 +2866,11 @@ describe("LayerController", () => {
     row.setAttribute("data-layer-id", "overlay1");
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
     expect(manager.uiContainer.querySelector("[data-layer-id=overlay1]")).toBeNull();
   });
@@ -2796,11 +2881,11 @@ describe("LayerController", () => {
     // not throw.
     manager.map.hasLayer.mockReturnValue(false);
     manager.uiContainer = document.createElement("div");
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
     expect(manager.unregisterLayer("overlay1")).toBe(true);
   });
 
@@ -2817,11 +2902,11 @@ describe("LayerController", () => {
     original.setAttribute("data-layer-id", "overlay1");
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(original);
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     const decoy = document.createElement("div");
     decoy.setAttribute("data-layer-id", "overlay1");
@@ -2849,11 +2934,11 @@ describe("LayerController", () => {
     manager.uiContainer = document.createElement("div");
     manager.uiContainer.appendChild(row);
     const container = manager.uiContainer;
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       saveState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
     vi.spyOn(manager, "clearAllLayers").mockImplementation(() => {
       manager.uiContainer = null;
     });
@@ -2868,10 +2953,10 @@ describe("LayerController", () => {
     // group to rescan. Existing tests only unregister overlays, so the BASE
     // branch of the ternary would silently rot without a pin.
     manager.map.hasLayer.mockReturnValue(false);
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       saveState: vi.fn(),
-    } as any;
+    }) as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     expect(manager.unregisterLayer("base1")).toBe(true);
     expect(emitSpy).toHaveBeenCalledWith(
@@ -2902,7 +2987,7 @@ describe("LayerController", () => {
     // expects the name they chose, not the registry's default.
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(
         {
           overlay1: {
@@ -2921,7 +3006,7 @@ describe("LayerController", () => {
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
     manager.unregisterLayer("overlay1");
 
     // Unregister keeps every stored dimension (maps + intents stay in step).
@@ -2960,7 +3045,7 @@ describe("LayerController", () => {
       },
     );
     manager.intentStore = store;
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: store,
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui!, id),
       saveState,
@@ -2968,7 +3053,7 @@ describe("LayerController", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       syncNoBasemap: vi.fn(),
-    } as any;
+    }) as any;
     manager.deleteLayer("overlay1");
 
     expect(getIntent(manager.ui!, "overlay1", "visible")).toBeUndefined();
@@ -2983,7 +3068,7 @@ describe("LayerController", () => {
   it("deleteLayer refuses an unknown id and writes nothing", () => {
     manager.map.hasLayer.mockReturnValue(false);
     const saveState = vi.fn();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(
         { overlay1: { visible: false, opacity: 0.4 } },
         { overlay1: ["opacity"] },
@@ -2993,7 +3078,7 @@ describe("LayerController", () => {
       saveState,
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     expect(manager.deleteLayer("never-registered")).toBe(false);
     expect(getIntent(manager.ui!, "overlay1", "visible")).toBe(false);
@@ -3023,7 +3108,7 @@ describe("LayerController", () => {
       { overlay1: ["visible", "opacity"] },
     );
     manager.intentStore = store;
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: store,
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(manager.ui!, id),
       saveState,
@@ -3031,7 +3116,7 @@ describe("LayerController", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       syncNoBasemap: vi.fn(),
-    } as any;
+    }) as any;
 
     expect(manager.deleteLayer("overlay1")).toBe(true);
 
@@ -3074,7 +3159,7 @@ describe("LayerController", () => {
       { overlay1: ["opacity"] },
     );
     m.intentStore = store;
-    m.ui = {
+    m.ui = makeDerivedUI({
       c: m,
       intentStore: store,
       dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui!, id),
@@ -3083,7 +3168,7 @@ describe("LayerController", () => {
       invalidateFields: vi.fn(),
       syncToggleAll: vi.fn(),
       syncNoBasemap: vi.fn(),
-    } as any;
+    }) as any;
 
     expect(m.deleteLayer("overlay1")).toBe(true);
 
@@ -4020,7 +4105,7 @@ describe("LayerController", () => {
         { measure1: ["visible", "opacity"], overlay1: ["visible", "opacity"] },
       );
       manager.intentStore = store;
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         c: manager,
         listPanel: {} as never,
         intentStore: store,
@@ -4029,7 +4114,7 @@ describe("LayerController", () => {
         saveState: save,
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
       manager.registerLayer({
         id: "measure1",
         name: "Measure",
@@ -4067,14 +4152,14 @@ describe("LayerController", () => {
 
     it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
       manager.map.hasLayer.mockReturnValue(false);
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         dropPersistedLayerState: vi.fn(),
         saveState: vi.fn(),
         renamedNames: {},
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
       const emitSpy = vi.spyOn(manager.events, "emitSettled");
 
       expect(manager.deleteLayer("base1")).toBe(true);
@@ -4102,11 +4187,11 @@ describe("LayerController", () => {
       } as any);
 
       const resetSpy = vi.fn();
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         resetSolidBasemap: resetSpy,
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
       const emitSpy = vi.spyOn(manager.events, "emitSettled");
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
@@ -4170,7 +4255,7 @@ describe("LayerController", () => {
         </div>
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
       `;
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         dropPersistedLayerState: vi.fn(),
         saveState: vi.fn(),
@@ -4179,7 +4264,7 @@ describe("LayerController", () => {
         renamedNames: {},
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
 
       expect(manager.deleteLayer("overlay1")).toBe(true);
 
@@ -4212,7 +4297,7 @@ describe("LayerController", () => {
         <div class="foliplus-layer-item" data-layer-id="base1" data-layer-type="base"></div>
         <div class="foliplus-layer-item" data-layer-id="${CONST.SOLID_BASEMAP_ID}" data-layer-type="base"></div>
       `;
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         runtimeStore: (() => {
           const s = new LayerRuntimeStore();
@@ -4228,7 +4313,7 @@ describe("LayerController", () => {
         renamedNames: {},
         saveNamesState: vi.fn(),
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
 
       expect(manager.deleteLayer("base1")).toBe(true);
 
@@ -4247,10 +4332,10 @@ describe("LayerController", () => {
     it("a throwing row signal stops the registration before its CHANGE", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.uiContainer = document.createElement("div");
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const changes: string[] = [];
       manager.events.on(EVENTS.LAYER_ITEM_ADDED, () => {
         throw new Error("item boom");
@@ -4403,10 +4488,10 @@ describe("LayerController", () => {
       // A panel is required for the replacement to announce its registration
       // CHANGE (a pre-attach register only queues the entry).
       manager.uiContainer = document.createElement("div");
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const changes: string[] = [];
       const removed: string[] = [];
       manager.events.on(EVENTS.LAYER_ITEM_REMOVED, payload => {
@@ -4434,10 +4519,10 @@ describe("LayerController", () => {
     it("a replacement registered and unregistered inside the fan-out still stops the old REMOVED", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.uiContainer = document.createElement("div");
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const removed: string[] = [];
       let swapped = false;
       manager.events.on(EVENTS.LAYER_CHANGE, payload => {
@@ -4467,10 +4552,10 @@ describe("LayerController", () => {
     it("a replacement registered inside LAYER_ROLE_COUNT_CHANGED stops before the old change and removal", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.uiContainer = document.createElement("div");
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const changes: string[] = [];
       const removed: string[] = [];
       let swapped = false;
@@ -4499,10 +4584,10 @@ describe("LayerController", () => {
     it("a different id registering during a retirement does not stop the retirement", () => {
       manager.map.hasLayer.mockReturnValue(false);
       manager.uiContainer = document.createElement("div");
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         applyUserState: vi.fn(() => []),
-      } as any;
+      }) as any;
       const removed: string[] = [];
       let otherDone = false;
       manager.events.on(EVENTS.LAYER_CHANGE, payload => {
@@ -4534,11 +4619,11 @@ describe("LayerController", () => {
         layer: { options: {} },
       } as any);
       const reset = vi.fn();
-      manager.ui = {
+      manager.ui = makeDerivedUI({
         intentStore: makeStore(),
         resetSolidBasemap: reset,
         invalidateFields: vi.fn(),
-      } as any;
+      }) as any;
       const noBase = vi.fn();
       let swapped = false;
       manager.events.on(EVENTS.LAYER_CHANGE, payload => {
@@ -6757,7 +6842,7 @@ describe("cleanEmptyFolders", () => {
       ],
     });
     manager.uiContainer = document.createElement("div");
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: (() => {
         const s = new LayerRuntimeStore();
@@ -6780,7 +6865,7 @@ describe("cleanEmptyFolders", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     const model = manager.genericFilterModel("overlay1");
     expect(model).not.toBeNull();
@@ -6822,7 +6907,7 @@ describe("cleanEmptyFolders", () => {
       ],
     });
     manager.uiContainer = document.createElement("div");
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: (() => {
         const s = new LayerRuntimeStore();
@@ -6845,7 +6930,7 @@ describe("cleanEmptyFolders", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     // The hidden-class carrier is the single place a committed filter touches
     // the DOM leaves. If setLayerFilter re-applied the class directly (bypassing
@@ -6875,7 +6960,7 @@ it("routes the injected generic filterSetter through setLayerFilter", () => {
     ],
   });
   manager.uiContainer = document.createElement("div");
-  manager.ui = {
+  manager.ui = makeDerivedUI({
     intentStore: makeStore(),
     runtimeStore: (() => {
       const s = new LayerRuntimeStore();
@@ -6898,7 +6983,7 @@ it("routes the injected generic filterSetter through setLayerFilter", () => {
     renamedNames: {},
     saveNamesState: vi.fn(),
     invalidateFields: vi.fn(),
-  } as any;
+  }) as any;
 
   // A plain data layer owns no caller capability, so the gate injects the
   // generic pair; the row carries it onto the registry entry.
@@ -8082,7 +8167,7 @@ describe("genericFilterModel — enum dimensions", () => {
 
   it("produces an enum dimension for a string field and marks the field non-numeric", () => {
     const manager = makeManager();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: makeRuntimeStore({
         enumFields: ["kind"],
@@ -8098,7 +8183,7 @@ describe("genericFilterModel — enum dimensions", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     const model = manager.genericFilterModel("overlay1");
     expect(model).not.toBeNull();
@@ -8120,7 +8205,7 @@ describe("genericFilterModel — enum dimensions", () => {
 
   it("offers numeric fields before enum fields in the picker", () => {
     const manager = makeManager();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: makeRuntimeStore({
         numericFields: ["mag"],
@@ -8138,7 +8223,7 @@ describe("genericFilterModel — enum dimensions", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     const model = manager.genericFilterModel("overlay1");
     expect(model).not.toBeNull();
@@ -8153,7 +8238,7 @@ describe("genericFilterModel — enum dimensions", () => {
 
   it("returns null when the layer has neither numeric nor enum fields", () => {
     const manager = makeManager();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: makeRuntimeStore({}),
       colorSurface: {} as any,
@@ -8165,7 +8250,7 @@ describe("genericFilterModel — enum dimensions", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     expect(manager.genericFilterModel("overlay1")).toBeNull();
   });
@@ -8174,7 +8259,7 @@ describe("genericFilterModel — enum dimensions", () => {
     // (no measurable attribute at all) must open the panel as well, so the
     // gate cannot reduce to "has a numeric field".
     const manager = makeManager();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: makeRuntimeStore({
         enumFields: ["kind"],
@@ -8190,7 +8275,7 @@ describe("genericFilterModel — enum dimensions", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
     // Numeric fields stay empty: the enumeration alone must carry the gate.
     expect(manager.genericFilterModel("overlay1")!.fields).toEqual([
       { value: "kind", label: "kind", numeric: false },
@@ -8201,7 +8286,7 @@ describe("genericFilterModel — enum dimensions", () => {
   it("truncates a large enum domain to the panel limit and marks it", () => {
     const manager = makeManager();
     const many = Array.from({ length: 60 }, (_, i) => `v${i}`);
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: makeRuntimeStore({
         enumFields: ["kind"],
@@ -8217,7 +8302,7 @@ describe("genericFilterModel — enum dimensions", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     const model = manager.genericFilterModel("overlay1");
     expect(model).not.toBeNull();
@@ -8231,7 +8316,7 @@ describe("genericFilterModel — enum dimensions", () => {
 
   it("tolerates an enum field whose value table is missing (corrupt store) without throwing", () => {
     const manager = makeManager();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       runtimeStore: makeRuntimeStore({
         enumFields: ["kind"],
@@ -8247,7 +8332,7 @@ describe("genericFilterModel — enum dimensions", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
 
     const model = manager.genericFilterModel("overlay1");
     expect(model).not.toBeNull();
@@ -8259,7 +8344,7 @@ describe("genericFilterModel — enum dimensions", () => {
 
   it("returns null when the host snapshot is missing (defensive read)", () => {
     const manager = makeManager();
-    manager.ui = {
+    manager.ui = makeDerivedUI({
       intentStore: makeStore(),
       // A bare store with no seeded filterFeatures row: getFilterFeatures
       // returns undefined, and the defensive read falls back to the empty
@@ -8274,7 +8359,7 @@ describe("genericFilterModel — enum dimensions", () => {
       renamedNames: {},
       saveNamesState: vi.fn(),
       invalidateFields: vi.fn(),
-    } as any;
+    }) as any;
     expect(manager.genericFilterModel("overlay1")).toBeNull();
   });
 });
