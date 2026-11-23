@@ -344,6 +344,7 @@ const getStyleSnapshot = (
   }
   return out;
 };
+
 class LayerController implements LayerAPI {
   /** Diagnostic marker: set by LayerController (true).  The lightweight stub
    * sets this to false.  For the actual LayerControl check, prefer

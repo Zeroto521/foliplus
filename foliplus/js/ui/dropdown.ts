@@ -735,7 +735,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   /** S2: build the search box (input + no-result notice) pinned above the
    *  option list. Only created when the consumer opts in. Returns the DOM
    *  trio and a refresh that re-inserts them after a renderRows wipe. */
-  const buildSearch = (search: NonNullable<DropdownOptions["search"]>) => {
+  const buildSearch = (_search: NonNullable<DropdownOptions["search"]>) => {
     const searchEl = dom.el("div", { class: DROPDOWN_CLASS.SEARCH });
     const input = dom.el("input", {
       type: "search",
