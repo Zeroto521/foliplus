@@ -55,7 +55,7 @@
   };
   build("long", "2026年11月13日 00:00", "2026年11月20日 23:30");
   // A label that fits the thumb (a bare digit) stays dot-centred and untruncated.
-  build("short", "1", "18");
+  build("short", "1", "100");
   host.remove();
   ui.closeStylePanel(false);
   return { error: null, result };

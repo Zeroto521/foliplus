@@ -1498,8 +1498,16 @@ describe("Slider width-adaptive end numbers", () => {
     return row;
   };
 
-  const stubLabel = (el: HTMLElement, intrinsic: number): void => {
-    Object.defineProperty(el, "scrollWidth", { value: intrinsic, configurable: true });
+  /** The default thumb width (--foliplus-slider-thumb-size). */
+  const THUMB_W = 14;
+  const stubThumb = (host: HTMLElement, width = THUMB_W): void => {
+    thumb(host).getBoundingClientRect = () => fakeRect({ width });
+  };
+
+  /** Stub the label's RENDERED box width (the width rule reads
+   *  getBoundingClientRect().width, not scrollWidth). */
+  const stubLabel = (el: HTMLElement, width: number): void => {
+    el.getBoundingClientRect = () => fakeRect({ width });
   };
 
   const endNumbers = (host: HTMLElement): [HTMLElement, HTMLElement] => [
@@ -1510,10 +1518,11 @@ describe("Slider width-adaptive end numbers", () => {
   const measure = (slider: Slider): void =>
     (slider as unknown as { measureValuesFit: () => void }).measureValuesFit();
 
-  it("centres a one-column number and clamps a wider one", () => {
-    // The alignment rule keys on display width: a one-column label ("0") stays
-    // dot-centred (its centre on the parked dot's centre); a two-column-or-
-    // wider label ("100") clamps to the track's end.
+  it("centres a narrow number and clamps a wider one", () => {
+    // The alignment rule keys on RENDERED width vs the thumb: a label no wider
+    // than the thumb ("0") stays dot-centred (its centre on the parked dot's
+    // centre); a label wider than the thumb ("100") clamps to the control's
+    // edge.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1522,17 +1531,18 @@ describe("Slider width-adaptive end numbers", () => {
       values: { min: "0", max: "100" },
     });
     stubRow(host, 160);
+    stubThumb(host);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 12);
+    stubLabel(maxEl, 20);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("centres a one-column min and clamps a long max", () => {
-    // A one-column label ("0") stays dot-centred; a long bound clamps to its
-    // track end (truncating inward).
+  it("centres a narrow min and clamps a long max", () => {
+    // A label no wider than the thumb ("0") stays dot-centred; a long bound
+    // clamps to its control edge (truncating inward).
     const { host } = make({
       min: 0,
       max: 100,
@@ -1541,6 +1551,7 @@ describe("Slider width-adaptive end numbers", () => {
       values: { min: "0", max: "a very long upper bound" },
     });
     stubRow(host, 160);
+    stubThumb(host);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
     stubLabel(maxEl, 90);
@@ -1549,10 +1560,10 @@ describe("Slider width-adaptive end numbers", () => {
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("keeps a one-column label centred whatever the row's width", () => {
-    // The row's width never decides a one-column label's alignment: a bare
-    // digit stays dot-centred on a narrow and a wide row alike, while a
-    // two-column-or-wider label ("100") clamps the same way.
+  it("keeps a narrow label centred whatever the row's width", () => {
+    // The row's width never decides a narrow label's alignment: a label no
+    // wider than the thumb stays dot-centred on a narrow and a wide row
+    // alike, while a wider label ("100") clamps the same way.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1561,9 +1572,10 @@ describe("Slider width-adaptive end numbers", () => {
       values: { min: "0", max: "100" },
     });
     stubRow(host, 160);
+    stubThumb(host);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 10);
-    stubLabel(maxEl, 12);
+    stubLabel(maxEl, 20);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(false);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
@@ -1578,8 +1590,8 @@ describe("Slider width-adaptive end numbers", () => {
   });
 
   it("clamps a text bound to its edge even when it fits on its half", () => {
-    // A date / category token reads as the row's edge, not the dot's value,
-    // so it clamps regardless of width — the same edge pin a number gets.
+    // A date / category token renders wider than the thumb, so it reads as the
+    // row's edge, not the dot's value — the same edge pin a number gets.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1588,8 +1600,9 @@ describe("Slider width-adaptive end numbers", () => {
       values: { min: "Jan 1, 2020", max: "Dec 31, 2024" },
     });
     stubRow(host, 160);
+    stubThumb(host);
     const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
+    stubLabel(minEl, 20);
     stubLabel(maxEl, 20);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
@@ -1607,6 +1620,7 @@ describe("Slider width-adaptive end numbers", () => {
       values: { min: "0%", max: "100%" },
     });
     stubRow(host, 160);
+    stubThumb(host);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 17);
     stubLabel(maxEl, 28);
@@ -1625,6 +1639,7 @@ describe("Slider width-adaptive end numbers", () => {
       values: { min: "5860", max: "28654" },
     });
     stubRow(host, 160);
+    stubThumb(host);
     const [minEl, maxEl] = endNumbers(host);
     stubLabel(minEl, 40);
     stubLabel(maxEl, 60);
@@ -1633,11 +1648,10 @@ describe("Slider width-adaptive end numbers", () => {
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("counts a wide glyph (a CJK bound) as two columns", () => {
-    // The display-width rule counts a CJK / full-width glyph as two digit
-    // columns: a single "一" is a wide label, so it clamps to the track's end
-    // (it would overhang a dot-centred one-column slot), and a Chinese text
-    // bound clamps the same way a long number does.
+  it("clamps a wide glyph (a CJK bound) to its edge", () => {
+    // A CJK / full-width glyph renders wider than the thumb, so it clamps to
+    // the control's edge (it would overhang a dot-centred narrow slot),
+    // and a Chinese text bound clamps the same way a long number does.
     const { host } = make({
       min: 0,
       max: 100,
@@ -1646,18 +1660,20 @@ describe("Slider width-adaptive end numbers", () => {
       values: { min: "一", max: "中文" },
     });
     stubRow(host, 160);
+    stubThumb(host);
     const [minEl, maxEl] = endNumbers(host);
-    stubLabel(minEl, 10);
+    stubLabel(minEl, 20);
     stubLabel(maxEl, 20);
     measure(sliderOf(host)!);
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 
-  it("counts every wide-glyph range as two columns", () => {
+  it("clamps every wide-glyph range to its edge", () => {
     // One character from each wide-glyph block (Hangul Jamo, Hangul
     // syllables, CJK compatibility, CJK compatibility forms, full-width
-    // forms and full-width ASCII) is a two-column label, so each clamps.
+    // forms and full-width ASCII) renders wider than the thumb, so each
+    // clamps.
     const ranges = [
       "\u1100", // Hangul Jamo
       "\uAC00", // Hangul syllables
@@ -1675,13 +1691,41 @@ describe("Slider width-adaptive end numbers", () => {
         values: { min: glyph, max: glyph },
       });
       stubRow(host, 160);
+      stubThumb(host);
       const [minEl, maxEl] = endNumbers(host);
-      stubLabel(minEl, 10);
-      stubLabel(maxEl, 10);
+      stubLabel(minEl, 20);
+      stubLabel(maxEl, 20);
       measure(sliderOf(host)!);
       expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
       expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     }
+  });
+
+  it("clamps a wide narrow-label glyph whose rendered width exceeds the thumb", () => {
+    // The width rule (not the character rule) decides alignment: a label whose
+    // RENDERED width exceeds the thumb's width clamps to the edge, even if it
+    // is one display column. An emoji / wide glyph that the old Unicode table
+    // missed (Yi, Ethiopic, emoji) is exactly this case — one code point but
+    // wider than the 14px thumb.
+    const { host } = make({
+      min: 0,
+      max: 100,
+      value: 40,
+      label: "x",
+      values: { min: "0", max: "100" },
+    });
+    stubRow(host, 160);
+    const [minEl, maxEl] = endNumbers(host);
+    const thumbEl = thumb(host);
+    // A 14px thumb (the CSS --foliplus-slider-thumb-size default).
+    thumbEl.getBoundingClientRect = () => fakeRect({ width: 14 });
+    // The "0" label renders 20px wide (a wide glyph), exceeding the thumb.
+    minEl.getBoundingClientRect = () => fakeRect({ width: 20 });
+    maxEl.getBoundingClientRect = () => fakeRect({ width: 20 });
+    measure(sliderOf(host)!);
+    // Width rule: 20 > 14 → both clamp.
+    expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
+    expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
 });
 

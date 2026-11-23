@@ -3070,13 +3070,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_slider_scale_ends_centered_on_their_thumbs(self, browser, tmp_path):
-        """The end numbers align by display width: one column centres, wider clamps.
+        """The end numbers align by rendered width: narrower centres, wider clamps.
 
-        The alignment rule keys on display width (a CJK glyph counts 2
-        columns, everything else 1): a one-column label (a bare digit like
+        The alignment rule keys on the label's rendered width against the
+        thumb's width: a label no wider than the thumb (a bare digit like
         "0") centres on the dot it names (its centre sits on the parked
-        thumb's centre, a half thumb in from the control edge); a label two
-        columns or wider is an axis label that pins to the slider's painted
+        thumb's centre, a half thumb in from the control edge); a label wider
+        than the thumb is an axis label that pins to the slider's painted
         end (its outer edge sits on the control edge, where the parked
         thumb's outer edge lands). The values row spans the control's width
         (no half-thumb inset). The row must not be widened by the labels,
@@ -3107,6 +3107,14 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 assert row.get("error") is None, f"{name} row: {row}"
                 assert len(row["thumbs"]) == thumbs, (
                     f"the {name} row does not have {thumbs} thumb(s): {row}"
+                )
+                # A zero-width row would pass every alignment assertion below
+                # (zero-vs-zero), so the geometry guards come first.
+                assert row["values"]["width"] > 0, (
+                    f"{name} slider row has no width: {row['values']}"
+                )
+                assert row["track"]["width"] > 0, (
+                    f"{name} track has no width: {row['track']}"
                 )
                 labels = row["labels"]
                 # A mirrored row keeps the logical anchors, so the minimum
@@ -3153,14 +3161,15 @@ class TestStyleBrowser(LayerControlBrowserBase):
                     min_dot = row["track"]["right"]
                     max_dot = row["track"]["left"]
                 thumb_width = row["thumbs"][0]["box"]["width"]
-                # The alignment rule keys on display width (a CJK glyph counts
-                # 2 columns, everything else 1): a one-column label (a bare
-                # digit like "0") centres on its dot; anything wider is an axis
-                # label and pins to the slider's painted end. The two states
-                # read different references: a dot-centred label's centre sits
-                # on the track edge (the parked thumb's centre), while a pinned
-                # label's outer edge sits on the control edge (where the parked
-                # thumb's outer edge lands). The dot already encodes the mirror.
+                # The alignment rule keys on the label's rendered width
+                # against the thumb's width: a label no wider than the thumb
+                # (a bare digit like "0") centres on its dot; anything wider
+                # is an axis label and pins to the slider's painted end. The
+                # two states read different references: a dot-centred label's
+                # centre sits on the track edge (the parked thumb's centre),
+                # while a pinned label's outer edge sits on the control edge
+                # (where the parked thumb's outer edge lands). The dot already
+                # encodes the mirror.
                 # A clamped label pins to the slider's PAINTED end, which is
                 # the control edge (the values row's edge), not the track
                 # element's edge: the track is inset half a thumb so a parked
@@ -3168,12 +3177,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 # bar (rail plus the two parked thumbs) therefore spans the
                 # full control width. Pinning to the track edge instead leaves
                 # the label half a thumb inside the bar's visible end.
+                # The alignment state is decided by the same width comparison
+                # the slider performs: label width vs thumb width.
                 for label, dot, side in (
                     (min_label, min_dot, "min"),
                     (max_label, max_dot, "max"),
                 ):
-                    text = label["text"]
-                    if len(text) == 1:
+                    if label["box"]["width"] <= thumb_width:
                         drift = abs(centre(label["box"]) - dot)
                         assert drift <= 1.0, (
                             f"{name} {side} number is not centred on its dot: "
@@ -3185,7 +3195,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         label_edge = label["box"][flush_edge]
                         dot = row["values"][flush_edge]
                         assert abs(label_edge - dot) <= 1.0, (
-                            f"{name} {side} axis label is not flush the track end ({flush_edge}): "
+                            f"{name} {side} axis label is not flush the control edge ({flush_edge}): "
                             f"{label['box']} vs dot {dot:.2f}px"
                         )
                 # own width (that is the layout's design: the anchor is a half
@@ -3288,10 +3298,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
     def test_slider_end_labels_ellipsize_not_overflow(self, browser, tmp_path):
         """A long value label truncates, a short one keeps its text.
 
-        The end numbers align by display width: a one-column label (a bare
-        digit) stays dot-centred; a two-column-or-wider label clamps to the
-        track's end (class is-clamp). A clamped label's content must not
-        paint past the track's box: a long value ellipsizes (its intrinsic
+        The end numbers align by rendered width: a label no wider than the
+        thumb (a bare digit) stays dot-centred; a wider label clamps to the
+        control's edge (class is-clamp). A clamped label's content must not
+        paint past the control's box: a long value ellipsizes (its intrinsic
         scroll width exceeds the box it is given) while a short value keeps
         its full text (it fits its box). Both end labels stay inside the
         values row's box and never overlap each other. The labels are built
@@ -3317,6 +3327,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result.get("error") is None, f"setup failed: {result}"
             for name, group in result["result"].items():
                 assert group["values"] is not None, f"{name}: no values row: {group}"
+                # A zero-width row would pass the overlap assertions below
+                # (zero-vs-zero), so the geometry guard comes first.
+                assert group["values"]["width"] > 0, (
+                    f"{name} slider row has no width: {group['values']}"
+                )
                 for side in ("min", "max"):
                     label = group[side]
                     assert label is not None, f"{name}: no {side} label: {group}"
@@ -3357,9 +3372,9 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"long max did not ellipsize: scrollWidth {long_max['scrollWidth']} "
                 f"<= clientWidth {long_max['clientWidth']}"
             )
-            # The short pair is a one-column min ("1", dot-centred) and a
-            # two-column max ("18", clamped): each keeps its full text because
-            # it fits the box it is given.
+            # The short pair is a narrow min ("1", dot-centred) and a wider
+            # max ("100", clamped): each keeps its full text because it fits
+            # the box it is given.
             short_min = result["result"]["short"]["min"]
             short_max = result["result"]["short"]["max"]
             assert not short_min["clamp"], f"short min clamped: {short_min}"

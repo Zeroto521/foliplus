@@ -145,6 +145,11 @@
   /* Deliberate: not --foliplus-dot-size. The thumb is a grab control, not a
      map/crop anchor dot. */
   --foliplus-slider-thumb-size: 14px;
+  /* Half a thumb: the one inset shared by the track (a parked thumb's outer
+     edge lands on the control's edge) and the dot-centred end labels (their
+     anchor sits on the parked thumb's centre). One token so the coordinate
+     space is explicit — a bare calc(thumb/2) anywhere else is a drift. */
+  --foliplus-slider-inset: calc(var(--foliplus-slider-thumb-size) / 2);
   /* Deliberate: not --foliplus-dot-size. Non-interactive readout dots
      (pointer-events: none) on the rail — smaller than the thumb so the thumb
      reads as the control. */

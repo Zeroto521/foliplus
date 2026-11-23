@@ -242,6 +242,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the listener single-source guard over foliplus/js production (raw .on/.addEventListener outside listenDOM/listenMap requires a listener-exempt comment), a tree guard not a script module",
   "check/mock-specifier":
     "the vi.mock/vi.doMock specifier resolution guard over test/js/**/*.ts",
+  "check/slider-inset":
+    "the slider-inset token single-source guard over foliplus/css/common/slider.css (no bare calc(thumb/2) outside the token definition), a tree guard not a script module",
   "check/fold-arrow":
     "the fold-arrow single-source guard over foliplus/js + foliplus/css (ICON_FOLD rests right-pointing, the two angles are named once in token.css and applied from aria-expanded in row.css with no literal rotate, list.ts feeds aria-expanded from isFolded), a tree guard not a script module",
 };

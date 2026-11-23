@@ -1,9 +1,9 @@
 // Geometry probe for the filter panel's range slider. Registers two range
 // owners — one with a one-column min / long max and one with both ends long —
-// and measures the end labels against the track's edges (a one-column label
-// centres on the parked dot's centre = the track edge; a two-column-or-wider
-// label clamps to the track's end), so a regression test can assert the
-// display-width alignment rule.
+// and measures the end labels against the control's edges (a label no wider
+// than the thumb centres on the parked dot's centre = the control edge; a
+// label wider than the thumb clamps to the control's edge), so a regression
+// test can assert the rendered-width alignment rule.
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
@@ -57,12 +57,14 @@ async () => {
     if (!sliderHost) return { error: "no filter slider" };
     const track = sliderHost.querySelector(".foliplus-slider-track");
     const values = sliderHost.querySelector(".foliplus-slider-values");
+    const thumb = sliderHost.querySelector(".foliplus-slider-thumb");
     const minEl = sliderHost.querySelector(".foliplus-slider-value-min");
     const maxEl = sliderHost.querySelector(".foliplus-slider-value-max");
     return {
       error: null,
       values: boxOf(values),
       track: boxOf(track),
+      thumb: boxOf(thumb),
       min: {
         ...boxOf(minEl),
         text: minEl.textContent,
