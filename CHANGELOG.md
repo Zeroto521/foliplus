@@ -71,7 +71,7 @@
 - `ScaleControl` / `LayerControl`: the bottom-left scale bar no longer covers an unpinned row panel — the row panel reads the page-level floating z-index token instead of a bare literal ([#1187](https://github.com/Zeroto521/foliplus/pull/1187), [#1199](https://github.com/Zeroto521/foliplus/pull/1199))
 - fold panels join the overlay registry's `map:panel` exclusive group, so opening any other overlay collapses an open fold panel (`collapse_on_outside=False` keeps it open) ([#1193](https://github.com/Zeroto521/foliplus/pull/1193))
 - `LayerControl` / `HeatmapControl`: a jenks or quantile classification degrades to equal breaks with a user-visible hint when simple-statistics is not loaded, instead of silently leaving the layer uncolored ([#1223](https://github.com/Zeroto521/foliplus/pull/1223), [#1227](https://github.com/Zeroto521/foliplus/pull/1227), [#1231](https://github.com/Zeroto521/foliplus/pull/1231))
-- `LayerControl`: the folder layout and the filter store are scoped to the map container like every other record, so two maps on one page keep their own folders and filters instead of sharing one global key
+- `LayerControl`: the folder layout and the filter store are scoped to the map container like every other record, so two maps on one page keep their own folders and filters instead of sharing one global key ([#1281](https://github.com/Zeroto521/foliplus/pull/1281))
 
 ## [v0.4.1] (2026-10-18)
 
