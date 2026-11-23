@@ -23,7 +23,7 @@ import pytest
 from conftest import feature_collection
 
 from foliplus import LayerControl
-from foliplus.control.LayerControl._layer_declaration import (
+from foliplus.control.LayerControl._layer import (
     FOLIPLUS_KEYS,
     declared_border,
     declared_filter,
@@ -543,6 +543,16 @@ def test_border_stays_out_of_conf():
 def test_declared_marker_color_is_read():
     layer = _geo(foliplus={"marker_color": "darkred"})
     assert declared_marker_color(layer, "Declared") == "darkred"
+
+
+def test_declared_marker_color_accepts_a_css_hex():
+    layer = _geo(foliplus={"marker_color": "#00A6A6"})
+    assert declared_marker_color(layer, "Declared") == "#00a6a6"
+
+
+def test_declared_marker_color_accepts_a_short_hex():
+    layer = _geo(foliplus={"marker_color": "#abc"})
+    assert declared_marker_color(layer, "Declared") == "#aabbcc"
 
 
 def test_undeclared_marker_color_is_none_without_a_warning():

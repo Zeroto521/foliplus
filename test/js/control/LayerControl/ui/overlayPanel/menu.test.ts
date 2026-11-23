@@ -112,10 +112,10 @@ describe("LayerUI menu", () => {
 
       expect(styleEntry).not.toBeNull();
       expect(styleEntry.getAttribute("aria-disabled")).toBe("true");
-      expect(styleEntry.getAttribute("title")).toBe(ui.T("container_no_style_filter"));
+      expect(styleEntry.getAttribute("title")).toBe(ui.T("group_no_style_filter"));
       expect(filterEntry).not.toBeNull();
       expect(filterEntry.getAttribute("aria-disabled")).toBe("true");
-      expect(filterEntry.getAttribute("title")).toBe(ui.T("container_no_style_filter"));
+      expect(filterEntry.getAttribute("title")).toBe(ui.T("group_no_style_filter"));
       expect(focusEntry).not.toBeNull();
       expect(focusEntry.getAttribute("aria-disabled")).toBe("false");
       ui.closeMoreMenu(false);
@@ -153,13 +153,9 @@ describe("LayerUI menu", () => {
       ) as HTMLElement;
 
       expect(styleEntry).not.toBeNull();
-      expect(styleEntry.getAttribute("title")).not.toBe(
-        ui.T("container_no_style_filter"),
-      );
+      expect(styleEntry.getAttribute("title")).not.toBe(ui.T("group_no_style_filter"));
       expect(filterEntry).not.toBeNull();
-      expect(filterEntry.getAttribute("title")).not.toBe(
-        ui.T("container_no_style_filter"),
-      );
+      expect(filterEntry.getAttribute("title")).not.toBe(ui.T("group_no_style_filter"));
       ui.closeMoreMenu(false);
     });
     it("outside click closes the open menu through the overlay registry", () => {

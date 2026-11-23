@@ -13,7 +13,7 @@ import { PaneLedger } from "./PaneLedger.js";
 import * as CONST from "./const.js";
 import { LAYER_PANE_CLASS } from "./const.js";
 import type { PaneSpec, PinnableNode } from "./type.js";
-import { isContainerNode, walkLeaf, walkTree } from "./walkLeaf.js";
+import { isGroupNode, walkLeaf, walkTree } from "./walkLeaf.js";
 import { zFor } from "./z.js";
 import {
   destroyPane,
@@ -713,7 +713,7 @@ class PaneManager {
       // A Path needs its renderer pinned; every other leaf just carries the
       // pane name written above. Containers never reach here — the walk
       // descends past them.
-      if (!isContainerNode(n) && n instanceof L.Path) {
+      if (!isGroupNode(n) && n instanceof L.Path) {
         this.ensureVector(n as PathWithPane, paneName);
       }
     });

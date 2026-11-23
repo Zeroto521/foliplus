@@ -147,8 +147,8 @@ const folderFixture = (keys: string[]) =>
 const folderRowOf = (ui: LayerUI, key: string): HTMLElement =>
   attachedPanel(ui).querySelector(`[${CONST.DATA.FOLDER_KEY}="${key}"]`) as HTMLElement;
 
-/** A layer group (container) layer stub, so isContainerDrag answers true. */
-const containerLayer = () => ({
+/** A layer group layer stub, so isGroupDrag answers true. */
+const groupLayerFixture = () => ({
   options: {},
   eachLayer: vi.fn(),
   _layers: {},
@@ -825,8 +825,8 @@ describe("ui/drag", () => {
       expect(manager.folderNameOf("R1")).toBe("b");
     });
 
-    it("refuses to put a container into a folder", () => {
-      // A container's children are its own sub-layers; a folder groups registry
+    it("refuses to put a group into a folder", () => {
+      // A group's children are its own sub-layers; a folder groups registry
       // rows. The middle zone is refused, the edges still place it beside.
       const { manager, ui } = folderFixture(["a", "b"]);
       manager.registerLayer({ id: "G1", name: "G1", role: "overlay" });
@@ -843,9 +843,9 @@ describe("ui/drag", () => {
       expect(manager.folderNameOf("G1")).toBeNull();
     });
 
-    it("refuses a container over a folder's member row, with the same sentence", () => {
+    it("refuses a group over a folder's member row, with the same sentence", () => {
       // The member row is the same rule reached from the inside: a drop there
-      // would join the member's folder, which a container cannot do. The hover
+      // would join the member's folder, which a group cannot do. The hover
       // must refuse and say why instead of painting the reorder indicator and
       // then dropping the move on the floor.
       const { manager, ui } = folderFixture(["a", "b"]);
@@ -1048,8 +1048,8 @@ describe("layer drop on a folder row — hover chrome", () => {
       }) as DOMRect;
   };
 
-  /** A layer group (container) layer stub, so isContainerDrag answers true. */
-  const containerLayer = () => ({
+  /** A layer group layer stub, so isGroupDrag answers true. */
+  const groupLayerFixture = () => ({
     options: {},
     eachLayer: vi.fn(),
     _layers: {},
@@ -1102,8 +1102,8 @@ describe("layer drop on a folder row — hover chrome", () => {
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 
-  it("refuses a container on a folder row's middle zone and names the reason", () => {
-    // A container's children are its own sub-layers; the middle zone would
+  it("refuses a group on a folder row's middle zone and names the reason", () => {
+    // A group's children are its own sub-layers; the middle zone would
     // join the folder, so the hover refuses with the same sentence the drop
     // uses, instead of painting a join marker the drop would then veto.
     const { manager, ui } = folderFixture(["a", "b"]);
@@ -1111,7 +1111,7 @@ describe("layer drop on a folder row — hover chrome", () => {
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const row = folderRowOf(ui, "b");
     withRect(row, 100, 36);
@@ -1124,7 +1124,7 @@ describe("layer drop on a folder row — hover chrome", () => {
     expect(ui.listPanel.lastDragOverItem).toBeNull();
   });
 
-  it("refuses a container on another container's middle zone", () => {
+  it("refuses a group on another group's middle zone", () => {
     // Two layer groups never nest: the middle zone is the "into" gesture and
     // it is refused by name, while the edges still reorder the group.
     const { manager, ui } = folderFixture(["a", "b"]);
@@ -1132,13 +1132,13 @@ describe("layer drop on a folder row — hover chrome", () => {
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     manager.registerLayer({
       id: "G2",
       name: "G2",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const row = rowOf(ui, "G2");
     withRect(row, 100, 36);
@@ -1156,16 +1156,16 @@ describe("layer drop on a folder row — hover chrome", () => {
     expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
   });
 
-  it("refuses a folder drag over a container row and names the reason", () => {
-    // A folder block and a container row are different kinds of block; a
-    // folder cannot adopt a container, so the hover answers with the
+  it("refuses a folder drag over a group row and names the reason", () => {
+    // A folder block and a group row are different kinds of block; a
+    // folder cannot adopt a group, so the hover answers with the
     // dedicated sentence instead of reading as a silent dead drop.
     const { manager, ui } = folderFixture(["a", "b"]);
     manager.registerLayer({
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
@@ -1377,7 +1377,7 @@ describe("block-order gap drop", () => {
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const row = folderRowOf(ui, "b");
     withRect(row, 100, 36);
@@ -1403,15 +1403,15 @@ describe("block-order gap drop", () => {
     expect(ui.listPanel.lastDragOverItem).toBeNull();
   });
 
-  it("refuses a container over a folder member row with the folder sentence", () => {
-    // A container over a member row would join that member's folder, which a
+  it("refuses a group over a folder member row with the folder sentence", () => {
+    // A group over a member row would join that member's folder, which a
     // layer group cannot do — the inside path must answer like the folder row.
     const { manager, ui } = folderFixture(["a", "b"]);
     manager.registerLayer({
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const member = rowOf(ui, "b1");
     withRect(member, 100, 36);
@@ -1520,13 +1520,13 @@ describe("drag — the dataTransfer is always optional", () => {
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 
-  it("refuses a folder drag over a container row without a dataTransfer", () => {
+  it("refuses a folder drag over a group row without a dataTransfer", () => {
     const { manager, ui } = folderFixture(["a", "b"]);
     manager.registerLayer({
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
@@ -1591,13 +1591,13 @@ describe("drag — the dataTransfer is always optional", () => {
     expect(() => handleDragOver(ui, noTransfer(baseFolder))).not.toThrow();
   });
 
-  it("refuses a container on a folder's middle zone without a dataTransfer", () => {
+  it("refuses a group on a folder's middle zone without a dataTransfer", () => {
     const { manager, ui } = folderFixture(["a", "b"]);
     manager.registerLayer({
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const row = folderRowOf(ui, "b");
     withRect(row, 100, 36);
@@ -1606,13 +1606,13 @@ describe("drag — the dataTransfer is always optional", () => {
     expect(() => handleDragOver(ui, noTransfer(row, 118))).not.toThrow();
   });
 
-  it("refuses a container over a member row without a dataTransfer", () => {
+  it("refuses a group over a member row without a dataTransfer", () => {
     const { manager, ui } = folderFixture(["a", "b"]);
     manager.registerLayer({
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const member = rowOf(ui, "b1");
     handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
@@ -2328,7 +2328,7 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     expect(showHint).toHaveBeenCalled();
   });
 
-  it("a container on another container's middle zone without a transfer refuses by name", () => {
+  it("a group on another group's middle zone without a transfer refuses by name", () => {
     // Two layer groups never nest; the refusal is named whether or not the
     // browser supplied a dataTransfer.
     const { manager, ui } = folderFixture(["a", "b"]);
@@ -2336,13 +2336,13 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
       id: "G1",
       name: "G1",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     manager.registerLayer({
       id: "G2",
       name: "G2",
       role: "overlay",
-      layer: containerLayer(),
+      layer: groupLayerFixture(),
     });
     const row = rowOf(ui, "G2");
     pinRect(row, 100, 36);

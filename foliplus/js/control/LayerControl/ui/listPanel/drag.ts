@@ -156,10 +156,10 @@ const folderDropTarget = (ui: LayerUI, event: DragEvent): HTMLElement | null => 
   return row;
 };
 
-/** A container row (a group) never joins a folder: its children are its own
+/** A group row never joins a folder: its children are its own
  *  sub-layers, and a folder groups registry rows. Dropping one on a folder row
  *  is refused rather than silently accepted. */
-const isContainerDrag = (ui: LayerUI, layerId: string): boolean =>
+const isGroupDrag = (ui: LayerUI, layerId: string): boolean =>
   isGroupRow(ui.c.layerRegistry.get(layerId), ui.c.findLayer(layerId));
 
 /** The block-order entry a row belongs to: a folder row's key, a root layer
@@ -249,13 +249,13 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     if (!row) {
       ui.listPanel.lastDragOverItem = null;
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      // A folder over a container row is a refusal worth naming: the two are
+      // A folder over a group row is a refusal worth naming: the two are
       // different kinds of block, and silence reads as a broken drag.
       const over = (event.target as HTMLElement | null)?.closest(
         CONST.SEL.LAYER_ITEM,
       ) as HTMLElement | null;
       const overId = over?.getAttribute(CONST.DATA.LAYER_ID);
-      if (overId && isContainerDrag(ui, overId)) {
+      if (overId && isGroupDrag(ui, overId)) {
         showDragHint(ui, "no_nest");
       } else if (over?.getAttribute(CONST.DATA.FOLDER_KEY)) {
         // A folder row of the OTHER role: blocks belong to one section.
@@ -314,7 +314,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     // The dragged entry retired mid-gesture (an unregister or a same-id
     // replacement): the session is over now. The source row may already be
     // gone, so a later native dragend cannot be counted on to reach this
-    // container — the hover chrome comes down here.
+    // group — the hover chrome comes down here.
     clearDragState(ui);
     return;
   }
@@ -331,7 +331,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       CONST.CLASSES.DRAG_OVER_BLOCKED,
     );
   }
-  // A folder row is a drop target: the layer joins that folder. A container
+  // A folder row is a drop target: the layer joins that folder. A group
   // row is not — its children are its own sub-layers, so it never joins a
   // folder.
   const folderKey = item?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
@@ -355,7 +355,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       return;
     }
     const zone = folderDropZone(item, event.clientY);
-    if (zone === "into" && isContainerDrag(ui, ui.listPanel.dragEntry!.id)) {
+    if (zone === "into" && isGroupDrag(ui, ui.listPanel.dragEntry!.id)) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
       item.classList.remove(
         CONST.CLASSES.DRAG_OVER_TOP,
@@ -402,7 +402,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   );
   ui.listPanel.lastDragOverItem = item;
 
-  // A container dropped on a folder's member row would join that folder, which
+  // A group dropped on a folder's member row would join that folder, which
   // a layer group cannot do. The folder row's middle zone already refuses with
   // this sentence; a member row is the same rule reached from the inside, so it
   // must answer the same way instead of falling through to the reorder path
@@ -413,8 +413,8 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // refusal is named rather than silently ignored.
   if (
     targetId &&
-    isContainerDrag(ui, ui.listPanel.dragEntry!.id) &&
-    isContainerDrag(ui, targetId) &&
+    isGroupDrag(ui, ui.listPanel.dragEntry!.id) &&
+    isGroupDrag(ui, targetId) &&
     folderDropZone(item, event.clientY) === "into"
   ) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
@@ -430,7 +430,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   }
   if (
     targetId &&
-    isContainerDrag(ui, ui.listPanel.dragEntry!.id) &&
+    isGroupDrag(ui, ui.listPanel.dragEntry!.id) &&
     ui.c.folderNameOf(targetId)
   ) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
@@ -478,7 +478,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     const targetKey = row?.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
     // No folder row under the pointer: a root layer row is a block of its own,
     // so the folder can be placed beside it. Anything else (another role, a
-    // container) was refused during dragover and commits nothing.
+    // group) was refused during dragover and commits nothing.
     const overRow = row
       ? null
       : ((event.target as HTMLElement | null)?.closest(
@@ -498,7 +498,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
         overRow &&
         overId &&
         overRole === draggedFolder.role &&
-        !isContainerDrag(ui, overId)
+        !isGroupDrag(ui, overId)
       ) {
         // A member row belongs to the folder block above it; a root layer row
         // is a block of its own. `blockEntryOfRow` resolves both.
@@ -525,13 +525,13 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   if (!draggedEntry) return;
 
   // A folder row takes the layer into that folder — unless the layer is a
-  // container, whose children are its own sub-layers.
+  // group, whose children are its own sub-layers.
   const folderKey = target?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
   if (target && folderKey) {
     try {
       const zone = folderDropZone(target, event.clientY);
       if (zone === "into") {
-        if (!isContainerDrag(ui, draggedEntry.id)) {
+        if (!isGroupDrag(ui, draggedEntry.id)) {
           ui.c.moveLayerToFolder(draggedEntry.id, folderKey);
         }
       } else if (zone === "before") {
@@ -582,7 +582,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // so a name-keyed move would materialise a second folder under the new name.
   const targetFolder = ui.c.folderKeyOf(targetId!) ?? "";
   const sourceFolder = ui.c.folderKeyOf(draggedEntry.id) ?? "";
-  if (targetFolder !== sourceFolder && !isContainerDrag(ui, draggedEntry.id)) {
+  if (targetFolder !== sourceFolder && !isGroupDrag(ui, draggedEntry.id)) {
     ui.c.moveLayerToFolder(draggedEntry.id, targetFolder);
   }
   if (dragged === targetIdx) {

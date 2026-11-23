@@ -104,7 +104,7 @@ const CLASSES = {
   GROUP_FOLDED: "foliplus-layer-group-folded",
   LAYER_LABEL: "foliplus-layer-label",
   /** A layer-group row: a grouping, not an item (heavier name, group noun). */
-  GROUP_ROW: "foliplus-layer-item-container",
+  GROUP_ROW: "foliplus-layer-item-group",
   /** Folder row container (a user-created group inside a role). */
   FOLDER_ROW: "foliplus-layer-item-folder",
   /** Folder row name label. */
