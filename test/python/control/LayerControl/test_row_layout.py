@@ -13,7 +13,7 @@ panel) and a reference .foliplus-row built by ui/rowLayout.ts.
 from __future__ import annotations
 
 import folium
-from conftest import _js, load_geojson, snippet
+from conftest import _js, load_geojson, panel_ready, snippet
 
 from ._browser_base import LayerControlBrowserBase
 from .helper import _geo_mixed
@@ -33,6 +33,13 @@ class TestRowLayoutPrimitiveBrowser(LayerControlBrowserBase):
         folium.GeoJson(_geo_point, name="Geo demo").add_to(fg)
         page, errors = self._make_page(browser, tmp_path, fg)
         try:
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
             assert page.evaluate(_OPEN_FILTER_DROPDOWN), (
                 "the filter panel dropdown did not open"
             )
@@ -72,6 +79,13 @@ class TestRowLayoutEllipsisBrowser(LayerControlBrowserBase):
         folium.GeoJson(_geo_mixed, name="Geo demo").add_to(fg)
         page, errors = self._make_page(browser, tmp_path, fg)
         try:
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
             got = page.evaluate(_ELLIPSIS)
             assert got is not None, "the ellipsis probe did not run"
             assert got.get("ok"), got
