@@ -99,7 +99,7 @@ def write_baseline(snapshot: dict) -> None:
     )
 
 
-# ── comparison (design §3) ──
+# ── comparison ──
 
 
 def _computed_close(a: dict, b: dict, *, dx: float = 1, dv: float = 0.01) -> bool:
@@ -144,7 +144,7 @@ def compare(baseline: dict, snapshot: dict) -> list[str]:
     """Return a list of human-readable diffs between *baseline* and *snapshot*.
 
     Empty list == parity. Structure / class-stack / aria are zero-tolerance
-    (design §3.1); computed style uses the ±1px / ±0.01 tolerance (design §3.2).
+    computed style uses the ±1px / ±0.01 tolerance.
     """
     diffs: list[str] = []
     for dim in ("fill", "border"):
@@ -171,7 +171,7 @@ def compare(baseline: dict, snapshot: dict) -> list[str]:
                     continue
                 if not b.get("present"):
                     continue
-                # class stack order (design §2.4) — zero tolerance
+                # class stack order — zero tolerance
                 if b.get("row", {}).get("cls") != s.get("row", {}).get("cls"):
                     diffs.append(
                         f"{dim}.{mode}.{geom}: row class stack {b.get('row', {}).get('cls')} → {s.get('row', {}).get('cls')}"

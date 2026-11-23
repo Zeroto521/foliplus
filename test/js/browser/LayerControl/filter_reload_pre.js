@@ -48,7 +48,12 @@
   const afterFilter = leaves.map(leaf => readDisplay(leaf));
 
   const filterState = mgr.filterStore.getFilter(id, "generic");
-  const persisted = localStorage.getItem("foliplus_filter_store");
+  // The record is scoped to its map container: find the one key this map wrote
+  // rather than assuming a global name.
+  const persistedKey = Object.keys(localStorage).find(key =>
+    key.startsWith("foliplus_filter_store_"),
+  );
+  const persisted = persistedKey ? localStorage.getItem(persistedKey) : null;
 
   return {
     id,

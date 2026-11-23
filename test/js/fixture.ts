@@ -382,7 +382,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       focusedPaneRestores: [],
     },
     listPanel: {
-      foldedRoles: new Set<string>(),
+      foldedRoles: {},
       checkedCount: {},
       activeIdx: null,
       listCursor: null,

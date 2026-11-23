@@ -1117,7 +1117,7 @@ describe("content dimension slot omission (label)", () => {
   // intent-key slots (write/reset/valueSource) therefore do not apply, and
   // this locks that decision so a future change cannot bolt the style slots
   // onto a content dimension by mistake. See registry.ts header +
-  // .foliplus/design/label-dimension-slot.md.
+  // the slot model in registry.ts.
   it("omits the intent-key slots a style-value dimension carries", () => {
     expect(LABEL_DIMENSION.write).toBeUndefined();
     expect(LABEL_DIMENSION.reset).toBeUndefined();

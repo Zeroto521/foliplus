@@ -1,5 +1,6 @@
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
+import { scopedStorageKey } from "#platform/storage.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_CLASS,
@@ -19,7 +20,7 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
  *  record rather than by introducing a new key. */
-const STORAGE = { KEY: `foliplus_layer_state_${map.getContainer().id}` };
+const STORAGE = { KEY: scopedStorageKey(map, "layer_state") };
 
 /** Color map layer. */
 const SOLID_BASEMAP_ID = "foliplus_color_map";
@@ -96,15 +97,42 @@ const CLASSES = {
   CTRL: "foliplus-layer-ctrl",
   ACTIVE: "foliplus-active",
   CHECKBOX: "foliplus-checkbox",
-  DRAG_CELL: "foliplus-drag-cell",
+  /** The row's leading rail: the grid slot that holds the fold chevron (role /
+   *  folder rows), the layer tree-line (├/└, root dash) and the hover drag
+   *  grip. One slot, three occupants by row kind — never renamed again. */
+  RAIL_CELL: "foliplus-layer-rail",
   GROUP_FOLDED: "foliplus-layer-group-folded",
   LAYER_LABEL: "foliplus-layer-label",
+  /** A layer-group row: a grouping, not an item (heavier name, group noun). */
+  GROUP_ROW: "foliplus-layer-item-container",
+  /** Folder row container (a user-created group inside a role). */
+  FOLDER_ROW: "foliplus-layer-item-folder",
+  /** Folder row name label. */
+  FOLDER_LABEL: "foliplus-layer-label-folder",
+  /** Role (section) row container — the overlay/base group header. */
+  ROLE_ROW: "foliplus-layer-role",
+  /** Tree-line node inside a folder member's rail (static state). */
+  FOLD_TREE: "foliplus-fold-tree",
+  /** Tree-line connector: mid-folder member (├). */
+  FOLD_TREE_MID: "foliplus-fold-tree-mid",
+  /** Tree-line connector: last folder member (└). */
+  FOLD_TREE_LAST: "foliplus-fold-tree-last",
+  /** Role row's divider line, placed before the count column. */
+  ROLE_DIVIDER: "foliplus-role-divider",
+  /** The role row's label + divider pair, laid out as one flex cell. */
+  ROLE_HEAD: "foliplus-role-head",
   /** Marks a row that owns the live Row-cursor visual (arrow keyboard cursor
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-is-focused-row",
   DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
   DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
+  /** A folder row the dragged layer would join. */
+  DRAG_OVER_INTO: "foliplus-layer-drag-over-into",
+  /** A drop the panel refuses (nesting a folder in a folder, a group in a
+   *  folder): the row draws a dashed outline so the zone reads as blocked
+   *  rather than as a dead strip that silently swallows the pointer. */
+  DRAG_OVER_BLOCKED: "foliplus-layer-drag-over-blocked",
   DRAGGING: "foliplus-layer-dragging",
   FOLD_BTN: "foliplus-layer-fold-btn",
   FOLDED: "foliplus-layer-folded",
@@ -128,7 +156,6 @@ const CLASSES = {
   MORE_MENU_UP: "foliplus-layer-more-menu-up",
   TOGGLE_ALL: "foliplus-layer-toggle-all",
   /** The role header's "clean empty folders" button. A native <button> so keyboard users Tab to it; rendered only while the role owns at least one empty folder key. */
-  CLEAN_FOLDERS_BTN: "foliplus-layer-clean-folders",
   FOLD_BTN_CTR: "foliplus-layer-sep",
   SEPARATOR_LABEL: "foliplus-layer-sep-label",
   /** Set on the map container when zero basemaps are visible (A′ hatch).
@@ -167,11 +194,11 @@ const CLASSES = {
   /** Divider above the ⋮ menu's destructive entry — its own <li> so the
    *  keyboard order stays one slot per entry. */
   MENU_DIVIDER: "foliplus-layer-more-menu-divider",
-  /** The ⋮ menu's delete label, kept in its own element so the armed state
+  /** The ⋮ menu's delete label, kept in its own element so the pending state
    *  can swap the text without rebuilding the entry. */
   MENU_DELETE_LABEL: "foliplus-layer-more-menu-delete-label",
   /** The ⋮ menu's delete entry while it waits for its confirming click. */
-  MENU_DELETE_ARMED: "foliplus-layer-more-menu-delete-armed",
+  MENU_DELETE_PENDING: "foliplus-layer-more-menu-delete-pending",
   /** The style panel's controls. Each is named by the builder *and* looked up
    *  again by the change handlers that read the panel back, so the names live
    *  here instead of being typed twice and drifting. */
@@ -334,6 +361,12 @@ const DATA = {
   LAYER_ID: "data-layer-id",
   COUNT: "data-item-count",
   TITLE: "data-item-title",
+  /** The role (overlay/base) a row belongs to. */
+  ROLE: "data-role",
+  /** The normalized folder key a row belongs to (folder rows and their members). */
+  FOLDER_KEY: "data-folder-key",
+  /** The folder's display name (folder rows only). */
+  FOLDER_NAME: "data-folder-name",
 };
 
 /** Overflow-menu action values (data-action). */
@@ -349,6 +382,16 @@ const ACTION = {
   DELETE_LAYER: "delete-layer",
   /** Explicitly delete the folder block a row belongs to. The row's layer keeps its folder until this fires; then every member is promoted to root and the folder key is removed. data-action value only — the menu renders the entry when the row's layer has a folder. */
   DELETE_FOLDER: "delete-folder",
+  /** Role menu: create a new folder inside this role. */
+  NEW_FOLDER: "new-folder",
+  /** Role menu: expand every folder in this role. */
+  EXPAND_ALL: "expand-all",
+  /** Role menu: collapse every folder in this role. */
+  COLLAPSE_ALL: "collapse-all",
+  /** Folder menu: rename the folder. */
+  RENAME_FOLDER: "rename-folder",
+  /** Role menu: delete every empty folder in this role. */
+  CLEAN_EMPTY_FOLDERS: "clean-empty-folders",
 };
 
 /** The `data-role` value the toggle-all checkbox writes on itself. A
@@ -360,6 +403,17 @@ const TOGGLE_ALL_ROLE = "toggle-all";
 /** DOM selectors. */
 const SEL = {
   LAYER_ITEM: ".foliplus-layer-item",
+  /** Folder row (a user-created group). */
+  FOLDER_ROW: ".foliplus-layer-item-folder",
+  /** Role (section) row. */
+  ROLE_ROW: ".foliplus-layer-role",
+  /** A leaf layer row — a data row that owns exactly one layer. Folder rows and
+   *  role rows carry LAYER_ITEM too (they share the cell chrome), so any
+   *  selector that means "the layers of a role" must exclude both; using
+   *  LAYER_ITEM there counts a group row as a layer. */
+  LEAF_ITEM:
+    ".foliplus-layer-item:not(.foliplus-layer-item-folder):not(.foliplus-layer-toggle-all)",
+  FOLD_TREE: ".foliplus-fold-tree",
   TOGGLE_ALL: ".foliplus-layer-toggle-all",
   /** The toggle-all header row, resolved by its stable identity key.
    *  `data-role` is written on the row when it is built and never changes for
@@ -377,7 +431,6 @@ const SEL = {
   ROW: ".foliplus-layer-item, .foliplus-layer-toggle-all",
   MENU_DELETE_LABEL: `.${CLASSES.MENU_DELETE_LABEL}`,
   SEPARATOR_LABEL: `.${CLASSES.SEPARATOR_LABEL}`,
-  CLEAN_FOLDERS: `.${CLASSES.CLEAN_FOLDERS_BTN}`,
 };
 
 /** Upper bound for a map and layer that declare no max zoom.

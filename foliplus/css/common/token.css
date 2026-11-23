@@ -52,6 +52,10 @@
   --foliplus-input-focus-border: var(--foliplus-red-500);
 
   --foliplus-divider-color: var(--foliplus-neutral-300);
+  /* The fold-tree guide is a structural line, not a hairline separator: it has
+     to stay legible against the row surface at 1px, so it takes the muted text
+     weight rather than the divider weight. */
+  --foliplus-tree-line-color: var(--foliplus-text-muted);
 
   --foliplus-panel-header-bg: var(--foliplus-neutral-100);
   --foliplus-panel-header-hover: var(--foliplus-neutral-300);
@@ -141,6 +145,11 @@
   /* Deliberate: not --foliplus-dot-size. The thumb is a grab control, not a
      map/crop anchor dot. */
   --foliplus-slider-thumb-size: 14px;
+  /* Half a thumb: the one inset shared by the track (a parked thumb's outer
+     edge lands on the control's edge) and the dot-centred end labels (their
+     anchor sits on the parked thumb's centre). One token so the coordinate
+     space is explicit — a bare calc(thumb/2) anywhere else is a drift. */
+  --foliplus-slider-inset: calc(var(--foliplus-slider-thumb-size) / 2);
   /* Deliberate: not --foliplus-dot-size. Non-interactive readout dots
      (pointer-events: none) on the rail — smaller than the thumb so the thumb
      reads as the control. */
@@ -440,6 +449,15 @@
   --foliplus-menu-row-selected-bar: var(--foliplus-accent-primary);
   --foliplus-menu-row-bar-width: 3px;
   --foliplus-menu-max-width: 320px;
+  /* Floor width for an overflow menu. Every LayerControl ⋮ menu (role /
+   *  folder / layer group / layer) reads as the same surface instead of sizing
+   *  to its own widest label; a genuinely longer label still grows past it
+   *  because the menu keeps width: max-content. */
+  /* One width for every overflow menu (role / folder / layer group / layer):
+     the four surfaces read as one control instead of four widths. Sized to the
+     widest label in either language — "清理空文件夹" / "Clean Empty" — so the
+     armed destructive label ("确认" / "Confirm") fits without clipping. */
+  --foliplus-menu-width: 104px;
   /* Max height of a menu/panel that needs to scroll (search results). The
      scheme picker and the dropdown keep their own geometry and do not use
      this default — see common/scheme-picker.css and ui/listbox.ts. */
@@ -502,6 +520,14 @@
   --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
     minmax(var(--foliplus-count-track-min-width), var(--foliplus-count-track-width))
     var(--foliplus-space-xl) var(--foliplus-more-btn-width);
+  /* Fold arrow: the two poses of the chevron ICON_FOLD paints. The icon rests
+     right-pointing (collapsed) and turns 90deg to point down (expanded) - the
+     tree-list convention (VS Code file explorer, GitHub file tree, Ant Design
+     Tree). Both angles are named here, so row.css has no angle of its own and
+     the folder and container rows #1276 adds reuse the same turn. A 180deg spin
+     would be the popup-style inversion: up-when-expanded. */
+  --foliplus-fold-rot-rest: 0deg;
+  --foliplus-fold-rot-expanded: 90deg;
   --foliplus-layer-row-min-height: calc(
     var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
       var(--foliplus-line-height-hint)

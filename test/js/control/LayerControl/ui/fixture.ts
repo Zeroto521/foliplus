@@ -1,5 +1,5 @@
 import { afterEach, vi } from "vitest";
-import { LAYOUT_DOC_KEY, ROLE } from "#core/layer/index.js";
+import { ROLE, folderLayoutKey } from "#core/layer/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -212,17 +212,19 @@ const initFixture = (
 ): { manager: LayerController; ui: LayerUI; map: any } => {
   window.CONFIG.name = "LayerControl";
   window.CONFIG.locale_code = "en";
+  const container = document.createElement("div");
+  document.body.appendChild(container);
   if (options.seed) {
     window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
   }
   if (options.seedLayout) {
-    window.localStorage.setItem(LAYOUT_DOC_KEY, JSON.stringify(options.seedLayout));
+    window.localStorage.setItem(
+      folderLayoutKey({ getContainer: () => container }),
+      JSON.stringify(options.seedLayout),
+    );
   }
 
   installLeafletGlobals();
-
-  const container = document.createElement("div");
-  document.body.appendChild(container);
 
   const sw = { lat: 30, lng: 100 };
   const ne = { lat: 40, lng: 110 };

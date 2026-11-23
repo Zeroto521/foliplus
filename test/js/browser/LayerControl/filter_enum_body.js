@@ -93,7 +93,7 @@ async () => {
     api.registerLayer({
       id: ID,
       name: "Enum probe",
-      layer: L.layerGroup(),
+      layer: L.circleMarker([0, 0]),
       featureCountProvider: () => (filter ? model().kept : TOTAL),
       filterProvider: model,
       filterSetter: next => {

@@ -15,11 +15,11 @@ import {
   FILTER_SOURCE,
   FOLDER_NAME_MAX,
   GEOM_TYPE,
-  LAYOUT_DOC_KEY,
   type LayerFilterModel,
   LayerRuntimeStore,
   ROLE,
   Z_INDEX,
+  folderLayoutKey,
   getLayerAlpha,
 } from "#core/layer/index.js";
 import * as coreLayer from "#core/layer/index.js";
@@ -57,9 +57,9 @@ const layoutFromRoles = (
   };
 };
 
-/** Read the persisted folder-layout document (null when never written). */
-const readLayoutStorage = (): Record<string, unknown> | null =>
-  JSON.parse(window.localStorage.getItem(LAYOUT_DOC_KEY) ?? "null");
+/** Read the persisted folder-layout document for a map (null when never written). */
+const readLayoutStorage = (map: any): Record<string, unknown> | null =>
+  JSON.parse(window.localStorage.getItem(folderLayoutKey(map)) ?? "null");
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -667,7 +667,10 @@ describe("LayerController", () => {
     manager.unregisterLayer("test_layer");
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler).toHaveBeenCalledWith({ id: "test_layer" });
+    expect(handler).toHaveBeenCalledWith(
+      { id: "test_layer" },
+      { origin: { kind: "system", via: "teardown" } },
+    );
   });
 
   it("unregisterLayer does NOT emit EVENTS.LAYER_REMOVED for unknown id", () => {
@@ -865,15 +868,27 @@ describe("LayerController", () => {
       name: "New",
       layer: { options: {} },
     } as any);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
-      id: "new1",
-    });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
-      id: "new1",
-    });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-      role: "overlay",
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_ADDED,
+      {
+        id: "new1",
+      },
+      { kind: "programmatic", via: "init" },
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_REFRESHED,
+      {
+        id: "new1",
+      },
+      { kind: "programmatic", via: "refresh" },
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ROLE_COUNT_CHANGED,
+      {
+        role: "overlay",
+      },
+      { kind: "system", via: "teardown" },
+    );
     expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
 
@@ -1021,7 +1036,7 @@ describe("LayerController", () => {
       </div>
     `;
     manager.uiContainer = container;
-    manager.ui = { reindexAfterMove: vi.fn() } as any;
+    manager.ui = { rebuildAfterLayoutChange: vi.fn() } as any;
     // verify DOM structure includes toggle-all rows and every layer item
     // (getNavigableItems is tested via browser tests)
     const items = container.querySelectorAll(
@@ -1055,7 +1070,10 @@ describe("LayerController", () => {
 
       // kind comes from the registry entry ("vector" for a pending Leaflet
       // registration), not from re-probing `arrived`.
-      expect(onChange).toHaveBeenCalledWith({ id: "late", kind: "vector" });
+      expect(onChange).toHaveBeenCalledWith(
+        { id: "late", kind: "vector" },
+        { origin: { kind: "system", via: "teardown" } },
+      );
     } finally {
       window.L.stamp = realStamp;
     }
@@ -2188,20 +2206,32 @@ describe("LayerController", () => {
     } as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_UPDATED, {
-      id: "overlay1",
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_UPDATED,
+      {
+        id: "overlay1",
+      },
+      { kind: "programmatic", via: "refresh" },
+    );
     expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
       id: "overlay1",
     });
     // A re-registration is how the API says the layer's content changed, so the
     // cached field list — and the field resolved from it — must be dropped.
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
-      id: "overlay1",
-    });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-      role: "overlay",
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_REFRESHED,
+      {
+        id: "overlay1",
+      },
+      { kind: "programmatic", via: "refresh" },
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ROLE_COUNT_CHANGED,
+      {
+        role: "overlay",
+      },
+      { kind: "system", via: "teardown" },
+    );
     // Opacity is stored per-id; re-registration may swap the live layer/canvas.
     expect(manager.ui!.applyUserState).toHaveBeenCalledWith("overlay1");
   });
@@ -2545,7 +2575,7 @@ describe("LayerController", () => {
     // lands before the error surfaces.
     expect(
       Array.from(
-        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LEAF_ITEM),
       ).map(el => el.dataset.layerId),
     ).toEqual(manager.layers.map(l => l.id));
     // The operation still never opened: no announcement for a half-committed move.
@@ -2573,7 +2603,7 @@ describe("LayerController", () => {
     expect(manager.layers[0].id).toBe("B");
     expect(
       Array.from(
-        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LEAF_ITEM),
       ).map(el => el.dataset.layerId),
     ).toEqual(manager.layers.map(l => l.id));
     expect(changes).toEqual([]);
@@ -2604,7 +2634,7 @@ describe("LayerController", () => {
     );
     expect(
       Array.from(
-        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
+        attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LEAF_ITEM),
       ).map(el => el.dataset.layerId),
     ).toEqual(manager.layers.map(l => l.id));
     warn.mockRestore();
@@ -2844,9 +2874,13 @@ describe("LayerController", () => {
     } as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     expect(manager.unregisterLayer("base1")).toBe(true);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-      role: ROLE.BASE,
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ROLE_COUNT_CHANGED,
+      {
+        role: ROLE.BASE,
+      },
+      { kind: "system", via: "teardown" },
+    );
   });
 
   it("attachUI skips a null entry in pending registrations", () => {
@@ -3694,7 +3728,10 @@ describe("LayerController", () => {
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.bringLayerToFront("bottom");
     expect(manager.layers[0].id).toBe("bottom");
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {
+      kind: "system",
+      via: "teardown",
+    });
   });
 
   it("bringLayerToFront ignores base layers", () => {
@@ -3851,7 +3888,10 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("rc1");
-      expect(handler).toHaveBeenCalledWith({ id: "rc1" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "rc1" },
+        { origin: { kind: "programmatic", via: "refresh" } },
+      );
     });
 
     it("does not emit for a base layer", () => {
@@ -3890,7 +3930,10 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("rt");
-      expect(handler).toHaveBeenCalledWith({ id: "rt" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "rt" },
+        { origin: { kind: "programmatic", via: "refresh" } },
+      );
       manager.invalidateType("rt");
       expect(manager.layerRegistry.get("rt")?.type).toBeNull();
     });
@@ -3900,7 +3943,10 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("ghost");
-      expect(handler).toHaveBeenCalledWith({ id: "ghost" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "ghost" },
+        { origin: { kind: "programmatic", via: "refresh" } },
+      );
     });
   });
 
@@ -3951,7 +3997,10 @@ describe("LayerController", () => {
 
       expect(manager.deleteLayer("measure1")).toBe(true);
 
-      expect(handler).toHaveBeenCalledWith({ id: "measure1" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "measure1" },
+        { origin: { kind: "system", via: "teardown" } },
+      );
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
       expect((manager as any).order.removedIds.has("measure1")).toBe(false);
@@ -4030,10 +4079,17 @@ describe("LayerController", () => {
 
       expect(manager.deleteLayer("base1")).toBe(true);
 
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-        role: ROLE.BASE,
+      expect(emitSpy).toHaveBeenCalledWith(
+        EVENTS.LAYER_ROLE_COUNT_CHANGED,
+        {
+          role: ROLE.BASE,
+        },
+        { kind: "system", via: "teardown" },
+      );
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {
+        kind: "system",
+        via: "teardown",
       });
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     });
 
     it("clears the color basemap — unregisters but keeps the id registerable", () => {
@@ -4057,10 +4113,17 @@ describe("LayerController", () => {
 
       expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect(resetSpy).toHaveBeenCalled();
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-        role: ROLE.BASE,
+      expect(emitSpy).toHaveBeenCalledWith(
+        EVENTS.LAYER_ROLE_COUNT_CHANGED,
+        {
+          role: ROLE.BASE,
+        },
+        { kind: "system", via: "teardown" },
+      );
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {
+        kind: "system",
+        via: "teardown",
       });
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
@@ -4263,7 +4326,10 @@ describe("LayerController", () => {
 
       // The owner handler and LayerControl cleanup both ran even though a
       // consumer ahead of them threw.
-      expect(owner).toHaveBeenCalledWith({ id: "measure1" });
+      expect(owner).toHaveBeenCalledWith(
+        { id: "measure1" },
+        { origin: { kind: "system", via: "teardown" } },
+      );
       expect(deleteEntrySpy).toHaveBeenCalledWith("measure1");
       // Component clear keeps the id registerable for the next draw.
       expect(manager.layerRegistry.has("measure1")).toBe(true);
@@ -4817,7 +4883,7 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
 
   it("moveLayerUp rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
     // Move is the last remaining register-time signal that used to call the
-    // UI's reindexAfterMove directly; it now rides the same bus the rest of
+    // UI's rebuildAfterLayoutChange directly; it now rides the same bus the rest of
     // the reorder paths do, so a missing emit silently breaks drag + keyboard
     // reordering. Attach a bare ui + uiContainer to reach the branch.
     manager = new LayerController(map, [
@@ -4828,7 +4894,10 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     manager.ui = {} as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerUp("b");
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {
+      kind: "system",
+      via: "teardown",
+    });
   });
 
   it("moveLayerDown rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
@@ -4840,7 +4909,10 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     manager.ui = {} as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerDown("a");
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {
+      kind: "system",
+      via: "teardown",
+    });
   });
 
   it("a successful move persists the new order and emits LAYER_CHANGE", () => {
@@ -5310,10 +5382,20 @@ it("a registration announces after the group count has settled", () => {
       },
     ],
   });
-  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-    total: 3,
-    on: 3,
-  });
+  // The header checkbox is the group count: 3 of 3 reads "all on".
+  const headerState = () => {
+    const row = ui.uiContainer!.querySelector(
+      `.foliplus-layer-toggle-all[data-role="${ROLE.OVERLAY}"]`,
+    );
+    const cb = row?.querySelector(
+      '[data-role="toggle-all"]',
+    ) as HTMLInputElement | null;
+    return {
+      checked: cb?.checked ?? null,
+      indeterminate: cb?.indeterminate ?? null,
+    };
+  };
+  expect(headerState()).toEqual({ checked: true, indeterminate: false });
 
   // The late layer arrives already hidden: a stored dimension is the only
   // state a late registration can carry, and it is the delta the entry
@@ -5321,10 +5403,13 @@ it("a registration announces after the group count has settled", () => {
   setIntent(ui, "fourth", "visible", false);
   ui.intentStore.seedProvenance("fourth", ["visible"]);
 
-  const countsAtDelivery: { total: number; on: number }[] = [];
+  const headersAtDelivery: {
+    checked: boolean | null;
+    indeterminate: boolean | null;
+  }[] = [];
   ui.events.on(EVENTS.LAYER_CHANGE, payload => {
     if (payload.id !== "fourth") return;
-    countsAtDelivery.push({ ...ui.listPanel.checkedCount[ROLE.OVERLAY] });
+    headersAtDelivery.push(headerState());
   });
 
   manager.registerLayer({
@@ -5334,8 +5419,13 @@ it("a registration announces after the group count has settled", () => {
     layer: polygonLayer(),
   });
 
-  expect(countsAtDelivery.length).toBeGreaterThan(0);
-  expect(countsAtDelivery[0]).toEqual({ total: 4, on: 3 });
+  expect(headersAtDelivery.length).toBeGreaterThan(0);
+  // 3 of 4 visible: the header is partial, not "all on" — the count settled
+  // before the announce.
+  expect(headersAtDelivery[0]).toEqual({
+    checked: false,
+    indeterminate: true,
+  });
 });
 
 it("a register whose notify destroys the control returns null", () => {
@@ -6435,7 +6525,7 @@ describe("deleteFolder", () => {
       ],
     });
 
-    const ok = manager.deleteFolder("overlay", "Roads");
+    const ok = manager.deleteFolder("overlay", "roads");
 
     expect(ok).toBe(true);
     expect(manager.layerRegistry.get("rd1")).toBeDefined();
@@ -6447,7 +6537,7 @@ describe("deleteFolder", () => {
       role: "overlay",
       folder: "",
     });
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("deleting an empty folder removes only the key", () => {
@@ -6460,7 +6550,7 @@ describe("deleteFolder", () => {
 
     expect(ok).toBe(true);
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("deleting a missing folder returns false and does not write the layout", () => {
@@ -6468,12 +6558,12 @@ describe("deleteFolder", () => {
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.deleteFolder("overlay", "never-existed");
 
     expect(ok).toBe(false);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
   it("deleting a base folder keeps an overlay folder of the same name", () => {
@@ -6521,7 +6611,7 @@ describe("deleteFolder", () => {
         },
       ],
     });
-    manager.deleteFolder("overlay", "Roads");
+    manager.deleteFolder("overlay", "roads");
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
 
     // Water loses its last member -> freezeSectionOrder runs.
@@ -6546,7 +6636,7 @@ describe("deleteFolder", () => {
         },
       ],
     });
-    const ok = manager.deleteFolder("overlay", "Roads");
+    const ok = manager.deleteFolder("overlay", "roads");
     expect(ok).toBe(true);
     // The author declaration is untouched; the member pin moved to root.
     expect(manager.folderNameOf("rd1")).toBeNull();
@@ -6560,13 +6650,13 @@ describe("deleteFolder", () => {
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.deleteFolder("overlay", "roads", { persist: false });
 
     expect(ok).toBe(true);
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
   it("[BR-2] deleteFolder: absent role key -> ?? [] empty-branch (no crash)", () => {
@@ -6580,7 +6670,7 @@ describe("deleteFolder", () => {
     expect(ok).toBe(false);
   });
 
-  it("[BR-3] deleteFolder: no ui -> reindexAfterMove not called (if(this.ui) false)", () => {
+  it("[BR-3] deleteFolder: no ui -> rebuildAfterLayoutChange not called (if(this.ui) false)", () => {
     const { manager } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
@@ -6613,13 +6703,13 @@ describe("cleanEmptyFolders", () => {
         },
       ],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const count = manager.cleanEmptyFolders("overlay");
 
     expect(count).toBe(2);
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["full"]);
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("[BR-4] cleanEmptyFolders: absent role key -> ?? [] empty-branch", () => {
@@ -6644,13 +6734,13 @@ describe("cleanEmptyFolders", () => {
         },
       ],
     });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
     const count = manager.cleanEmptyFolders("overlay");
     expect(count).toBe(0);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
-  it("[BR-6] cleanEmptyFolders: no ui -> reindexAfterMove not called", () => {
+  it("[BR-6] cleanEmptyFolders: no ui -> rebuildAfterLayoutChange not called", () => {
     const { manager } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["empty1"] }),
       data: [],
@@ -7379,14 +7469,16 @@ describe("createFolder", () => {
 
   it("creates an empty folder and materialises it at the role tail", () => {
     const { manager } = initFixture({ data: [] });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toEqual({ ok: true });
+    // The key travels back so the caller can open the inline rename on the row
+    // it just created without re-deriving it from the name.
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
   });
 
   it("creates an empty folder at the tail after an existing folder", () => {
@@ -7397,7 +7489,7 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toEqual({ ok: true });
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["water", "roads"]);
   });
 
@@ -7411,7 +7503,7 @@ describe("createFolder", () => {
 
   it("createFolder rejects a name over the cap and writes nothing", () => {
     const { manager } = initFixture({ data: [] });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
     const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
 
     const ok = manager.createFolder("overlay", "f".repeat(FOLDER_NAME_MAX + 1));
@@ -7419,7 +7511,7 @@ describe("createFolder", () => {
     expect(ok).toEqual({ ok: false, reason: "too-long" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
     expect(manager.folderLayoutView.folders).toEqual([]);
-    expect(readLayoutStorage()).toBeNull();
+    expect(readLayoutStorage(manager.map)).toBeNull();
     expect(warn).toHaveBeenCalledOnce();
     expect(String(warn.mock.calls[0][0])).toContain(
       `expected at most ${FOLDER_NAME_MAX}`,
@@ -7448,7 +7540,7 @@ describe("createFolder", () => {
     const okOverlay = manager.createFolder("overlay", "Roads");
     const okBase = manager.createFolder("base", "roads");
 
-    expect(okOverlay).toEqual({ ok: true });
+    expect(okOverlay).toEqual({ ok: true, key: "roads" });
     expect(okBase).toEqual({ ok: false, reason: "duplicate" }); // base already has "roads"
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.order.base ?? []).toEqual(["roads"]);
@@ -7470,18 +7562,18 @@ describe("createFolder", () => {
 
     const ok = manager.createFolder("overlay", "Roads");
 
-    expect(ok).toEqual({ ok: true });
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("createFolder writes the layout and reindexes", () => {
     const { manager } = initFixture({ data: [] });
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
-    const reindex = vi.spyOn(manager.ui!, "reindexAfterMove");
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
+    const reindex = vi.spyOn(manager.ui!, "rebuildAfterLayoutChange");
 
     manager.createFolder("overlay", "Roads");
 
-    expect(readLayoutStorage()).not.toBeNull();
+    expect(readLayoutStorage(manager.map)).not.toBeNull();
     expect(reindex).toHaveBeenCalledTimes(1);
   });
 
@@ -7508,15 +7600,111 @@ describe("createFolder", () => {
   it("createFolder honours persist:false and tolerates a detached UI", () => {
     const { manager } = initFixture({ data: [] });
     manager.ui = null;
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
     const ok = manager.createFolder("overlay", "Roads", { persist: false });
 
-    expect(ok).toEqual({ ok: true });
+    expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 });
+
+describe("reorderFolder", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("reorders author-declared folders whose role order is still empty", () => {
+    // Author-declared folders live in `members`, not in `order`, so the role's
+    // order starts empty — and moveFolder refuses a move between keys it cannot
+    // find there. The reorder has to freeze the current block order first.
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "a1",
+          name: "A",
+          role: "overlay",
+          folder: "Alpha",
+          layer: polygonLayer(),
+        },
+        {
+          id: "b1",
+          name: "B",
+          role: "overlay",
+          folder: "Beta",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
+
+    const ok = manager.reorderFolder("overlay", "alpha", "beta", true);
+
+    expect(ok).toBe(true);
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["beta", "alpha"]);
+  });
+});
+
+describe("moveLayerToFolder / moveLayerToRootAt", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  it("moves a root layer into a folder and back out", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "a1",
+          name: "A",
+          role: "overlay",
+          folder: "Alpha",
+          layer: polygonLayer(),
+        },
+        { id: "r1", name: "R", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+
+    // The move takes the folder KEY, not its display name.
+    expect(manager.moveLayerToFolder("r1", "alpha")).toBe(true);
+    expect(manager.folderNameOf("r1")).toBe("Alpha");
+
+    expect(manager.moveLayerToFolder("r1", "")).toBe(true);
+    expect(manager.folderNameOf("r1")).toBeNull();
+  });
+
+  it("places a root layer between two folder blocks", () => {
+    const { manager } = initFixture({
+      data: [
+        {
+          id: "a1",
+          name: "A",
+          role: "overlay",
+          folder: "Alpha",
+          layer: polygonLayer(),
+        },
+        {
+          id: "b1",
+          name: "B",
+          role: "overlay",
+          folder: "Beta",
+          layer: polygonLayer(),
+        },
+        { id: "r1", name: "R", role: "overlay", layer: polygonLayer() },
+      ],
+    });
+    // Freeze the block order so both folders are listed.
+    manager.createFolder("overlay", "Gamma");
+
+    expect(manager.moveLayerToRootAt("r1", "beta")).toBe(true);
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("layer:r1");
+    const order = manager.folderLayoutView.order.overlay ?? [];
+    expect(order.indexOf("layer:r1")).toBeLessThan(order.indexOf("beta"));
+  });
+});
+
 describe("renameFolder", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -7544,7 +7732,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Streets");
+    const ok = manager.renameFolder("overlay", "roads", "Streets");
 
     expect(ok).toEqual({ ok: true });
     // v2: the author declaration is untouched; the directory name is the display.
@@ -7564,7 +7752,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "  Streets  ");
+    const ok = manager.renameFolder("overlay", "roads", "  Streets  ");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
@@ -7579,7 +7767,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
@@ -7591,7 +7779,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "   ");
+    const ok = manager.renameFolder("overlay", "roads", "   ");
 
     expect(ok).toEqual({ ok: false, reason: "blank" });
   });
@@ -7645,23 +7833,26 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "streets");
+    const ok = manager.renameFolder("overlay", "roads", "streets");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("streets");
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
-  it("renameFolder is a no-op for a normalisation-only rename", () => {
+  it("renameFolder to the folder's own normalised name rewrites the display name", () => {
+    // The key is the identity, so this is a display-only change, not a no-op:
+    // the user asked for that spelling and the row must show it.
     const { manager } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "roads");
+    const ok = manager.renameFolder("overlay", "roads", "roads");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "roads" }]);
   });
 
   it("renameFolder renames an unlisted folder that has live members", () => {
@@ -7678,7 +7869,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Streets");
+    const ok = manager.renameFolder("overlay", "roads", "Streets");
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("Streets");
@@ -7706,7 +7897,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
     expect(manager.folderNameOf("rd1")).toBe("roads");
@@ -7718,16 +7909,16 @@ describe("renameFolder", () => {
       data: [],
     });
     manager.ui = null;
-    window.localStorage.removeItem(LAYOUT_DOC_KEY);
+    window.localStorage.removeItem(folderLayoutKey(manager.map));
 
-    const ok = manager.renameFolder("overlay", "Roads", "Streets", { persist: false });
+    const ok = manager.renameFolder("overlay", "roads", "Streets", { persist: false });
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderLayoutView.folders[0]).toEqual({
       key: "roads",
       name: "Streets",
     });
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
   it("renameFolder keeps the global duplicate predicate (P3-1): a cross-role name collision is refused", () => {
@@ -7736,7 +7927,7 @@ describe("renameFolder", () => {
       data: [],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     // P3-1 conclusion: the duplicate predicate stays GLOBAL across roles (a
     // name-keyed directory cannot hold two entries with the same name under
@@ -7759,7 +7950,7 @@ describe("renameFolder", () => {
       ],
     });
 
-    const ok = manager.renameFolder("overlay", "Roads", "Water");
+    const ok = manager.renameFolder("overlay", "roads", "Water");
 
     // The duplicate predicate is global, so a live member of the OTHER role
     // makes the new name a duplicate even when the name-keyed directory has

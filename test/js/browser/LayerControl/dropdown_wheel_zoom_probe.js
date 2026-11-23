@@ -35,7 +35,7 @@ async () => {
     api.registerLayer({
       id: ID,
       name: "Wheel zoom",
-      layer: L.layerGroup(),
+      layer: L.circleMarker([0, 0]),
       filterProvider: model,
       filterSetter: next => {
         filter = next;

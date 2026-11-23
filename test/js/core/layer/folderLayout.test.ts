@@ -6,8 +6,8 @@
 // a layout exists, and the order keys are the ONLY block priority.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  FOLDER_NAME_MAX,
   type FolderLayout,
-  LAYOUT_DOC_KEY,
   type LayerInfo,
   type LayerRole,
   createFolder,
@@ -16,21 +16,42 @@ import {
   dropLayer,
   emptyFolderLayout,
   ensureFolderLayout,
+  folderEntries,
+  folderLayoutKey,
+  folderNameLength,
+  folderNameTooLong,
   folderOf,
   freezeRoleOrder,
   fullDisplayOrder,
   groupByFolder,
   isFolderLayout,
+  mergeDeclaredFolders,
+  moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
+  moveLayerToRootAt,
+  nextFolderDefaultName,
   normalizeFolderName,
   readFolderLayout,
   renameFolder,
-  restoreAuthorLayout,
+  roleBlocks,
   roleOrder,
-  seedFolderLayout,
+  rootLayerEntry,
+  seedBlockOrder,
   writeFolderLayout,
 } from "#core/layer/index.js";
+
+/** A minimal fake map for the storage-key argument: the layout only reads
+ *  `getContainer().id`, so a plain object suffices. */
+const fakeMap = (id = "test-map"): { getContainer: () => { id: string } } => ({
+  getContainer: () => ({ id }),
+});
+
+/** The production merge applied to an empty layout — the "first seed" case.
+ *  The tests below drive `mergeDeclaredFolders`, the same function the
+ *  manager's `seed()` calls, so a green here is a green about production. */
+const seedFolderLayout = (entries: readonly LayerInfo[]): FolderLayout =>
+  mergeDeclaredFolders(emptyFolderLayout(), entries);
 
 const entry = (
   id: string,
@@ -106,11 +127,73 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(layout.folders).toHaveLength(1);
   });
 
+  it("createFolder with the registry appends after the folders the author declared", () => {
+    // Author-declared folders live in `members`, not in `order`, so the role's
+    // order starts empty. Without the registry the new key would be the only
+    // listed block and would sort ahead of every existing folder.
+    const entries = [
+      entry("a", "overlay", "Roads", 0),
+      entry("b", "overlay", "Water", 1),
+    ];
+    const layout = seedFolderLayout(entries);
+    expect(layout.order.overlay).toBeUndefined();
+    const created = createFolder(layout, "overlay", "Facilities", entries);
+    expect(created.order.overlay).toEqual(["roads", "water", "facilities"]);
+  });
+
+  it("moveLayerToRootAt places the layer between two listed folder blocks", () => {
+    const entries = [
+      entry("a", "overlay", "Alpha", 0),
+      entry("b", "overlay", "Beta", 1),
+    ];
+    let layout = seedFolderLayout(entries);
+    layout = freezeRoleOrder(layout, "overlay", entries, "alpha");
+    expect(layout.order.overlay).toEqual(["alpha", "beta"]);
+
+    layout = moveLayerToRootAt(layout, "a", "overlay", "beta");
+
+    // The layer is a block of its own, between the two folders — not appended
+    // after every folder block.
+    expect(layout.order.overlay).toEqual(["alpha", "layer:a", "beta"]);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "" });
+  });
+
+  it("moveLayerToFolder drops the layer's root block entry", () => {
+    const entries = [entry("a", "overlay", "Alpha", 0)];
+    let layout = seedFolderLayout(entries);
+    layout = moveLayerToRootAt(layout, "a", "overlay", null);
+    expect(layout.order.overlay).toEqual(["layer:a"]);
+
+    layout = moveLayerToFolder(layout, "a", "overlay", "Alpha");
+
+    // The layer is a member now: keeping the root entry would render it twice.
+    expect(layout.order.overlay).toEqual(["alpha"]);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "alpha" });
+  });
+
+  it("dropLayer removes the layer's root block entry", () => {
+    const entries = [entry("a", "overlay", "Alpha", 0)];
+    let layout = seedFolderLayout(entries);
+    layout = moveLayerToRootAt(layout, "a", "overlay", null);
+
+    layout = dropLayer(layout, "a");
+
+    expect(layout.order.overlay).toEqual([]);
+    expect(layout.members.a).toBeUndefined();
+  });
+
+  it("createFolder without the registry keeps the plain append", () => {
+    let layout = emptyFolderLayout();
+    layout = createFolder(layout, "overlay", "Roads");
+    layout = createFolder(layout, "overlay", "Water");
+    expect(layout.order.overlay).toEqual(["roads", "water"]);
+  });
+
   it("renameFolder rewrites only the display name, keeping the identity key and order in place", () => {
     let layout = emptyFolderLayout();
     layout = createFolder(layout, "overlay", "Roads");
     layout = createFolder(layout, "overlay", "Water");
-    layout = renameFolder(layout, "overlay", "Roads", "Streets");
+    layout = renameFolder(layout, "overlay", "roads", "Streets");
     expect(layout.folders).toEqual([
       { key: "roads", name: "Streets" },
       { key: "water", name: "Water" },
@@ -121,7 +204,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
   it("renameFolder leaves member keys untouched (the block stays put)", () => {
     let layout = seedFolderLayout([entry("a", "overlay", "Roads", 0)]);
     layout = createFolder(layout, "overlay", "Roads");
-    layout = renameFolder(layout, "overlay", "Roads", "Streets");
+    layout = renameFolder(layout, "overlay", "roads", "Streets");
     expect(layout.members.a).toEqual({ role: "overlay", folder: "roads" });
   });
 
@@ -132,7 +215,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     };
     // "roads" is listed (a live block) but has no directory entry: the rename
     // must materialise it rather than dropping the rename.
-    const next = renameFolder(layout, "overlay", "Roads", "Streets");
+    const next = renameFolder(layout, "overlay", "roads", "Streets");
     expect(next.folders).toEqual([{ key: "roads", name: "Streets" }]);
     expect(next.order.overlay).toEqual(["roads"]);
   });
@@ -140,7 +223,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
   it("deleteFolder promotes members to root and removes the key", () => {
     let layout = seedFolderLayout([entry("a", "overlay", "Roads", 0)]);
     layout = createFolder(layout, "overlay", "Roads");
-    layout = deleteFolder(layout, "overlay", "Roads");
+    layout = deleteFolder(layout, "overlay", "roads");
     expect(layout.members.a).toEqual({ role: "overlay", folder: "" });
     expect(layout.folders).toEqual([]);
     expect(layout.order.overlay).toEqual([]);
@@ -156,7 +239,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
         b: { role: "base", folder: "roads" },
       },
     };
-    const next = deleteFolder(layout, "overlay", "Roads");
+    const next = deleteFolder(layout, "overlay", "roads");
     // The base member keeps its assignment; the overlay one is pinned to root.
     expect(next.members.a).toEqual({ role: "overlay", folder: "" });
     expect(next.members.b).toEqual({ role: "base", folder: "roads" });
@@ -253,14 +336,17 @@ describe("storage round-trip", () => {
       order: { overlay: ["roads"] },
       members: { a: { role: "overlay", folder: "roads" } },
     };
-    writeFolderLayout(layout);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
-    expect(readFolderLayout()).toEqual(layout);
+    writeFolderLayout(layout, fakeMap());
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).not.toBeNull();
+    expect(readFolderLayout(fakeMap())).toEqual(layout);
   });
 
   it("reads a corrupt layout as empty", () => {
-    window.localStorage.setItem(LAYOUT_DOC_KEY, JSON.stringify({ version: 1 }));
-    expect(readFolderLayout()).toEqual(emptyFolderLayout());
+    window.localStorage.setItem(
+      folderLayoutKey(fakeMap()),
+      JSON.stringify({ version: 1 }),
+    );
+    expect(readFolderLayout(fakeMap())).toEqual(emptyFolderLayout());
   });
 });
 describe("seed merge", () => {
@@ -277,9 +363,9 @@ describe("seed merge", () => {
       order: { overlay: [] },
       members: { a: { role: "overlay", folder: "" } },
     };
-    writeFolderLayout(existing);
+    writeFolderLayout(existing, fakeMap());
 
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const entryA = entry("a", "overlay", "Roads", 0);
     manager.seed([entryA]);
 
@@ -297,9 +383,9 @@ describe("seed merge", () => {
       order: { overlay: ["roads"] },
       members: { a: { role: "overlay", folder: "roads" } },
     };
-    writeFolderLayout(existing);
+    writeFolderLayout(existing, fakeMap());
 
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const entryA = entry("a", "overlay", "Water", 1);
     manager.seed([entryA]);
 
@@ -309,7 +395,7 @@ describe("seed merge", () => {
   });
 
   it("an unassigned layer receives its author declaration when seeding", () => {
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const entryA = entry("a", "overlay", "Roads", 0);
     manager.seed([entryA]);
 
@@ -486,15 +572,27 @@ describe("pure helper coverage", () => {
     expect(layout.members.b).toEqual({ role: "overlay", folder: "roads" });
   });
 
-  it("renameFolder is a no-op on blank, normalisation-only, or missing", () => {
+  it("renameFolder is a no-op on a blank name or a missing key", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],
       order: { overlay: ["roads"] },
     };
-    expect(renameFolder(layout, "overlay", "Roads", "  ")).toBe(layout);
-    expect(renameFolder(layout, "overlay", "Roads", "roads")).toBe(layout);
-    expect(renameFolder(layout, "overlay", "Missing", "X")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "roads", "  ")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "missing", "X")).toBe(layout);
+  });
+
+  it("renameFolder to the folder's own normalised name rewrites the display name", () => {
+    // The key is the identity, so "Roads" -> "roads" is a display-only change,
+    // not a no-op: the user asked for that spelling.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+    };
+    const next = renameFolder(layout, "overlay", "roads", "roads");
+    expect(next.folders).toEqual([{ key: "roads", name: "roads" }]);
+    expect(next.order.overlay).toEqual(["roads"]);
   });
 
   it("moveLayerToFolder and moveLayerToRoot update the assignment", () => {
@@ -531,19 +629,6 @@ describe("pure helper coverage", () => {
     expect(dropLayer(layout, "a")).toEqual({ ...emptyFolderLayout(), members: {} });
     expect(dropLayer(layout, "zzz")).toBe(layout);
   });
-
-  it("restoreAuthorLayout clears order and members but keeps the directory", () => {
-    const layout: FolderLayout = {
-      ...emptyFolderLayout(),
-      folders: [{ key: "roads", name: "Streets" }],
-      order: { overlay: ["roads"] },
-      members: { a: { role: "overlay", folder: "roads" } },
-    };
-    const restored = restoreAuthorLayout(layout);
-    expect(restored.folders).toEqual([{ key: "roads", name: "Streets" }]);
-    expect(restored.order.overlay ?? []).toEqual([]);
-    expect(restored.members).toEqual({});
-  });
 });
 
 describe("manager lifecycle", () => {
@@ -554,7 +639,7 @@ describe("manager lifecycle", () => {
   });
 
   it("set then flush persists, reload re-reads, isEmpty reflects the state", () => {
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     expect(manager.isEmpty()).toBe(true);
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
@@ -565,8 +650,8 @@ describe("manager lifecycle", () => {
     manager.set(layout);
     expect(manager.isEmpty()).toBe(false);
     manager.flush();
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
-    const fresh = createFolderLayoutManager();
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).not.toBeNull();
+    const fresh = createFolderLayoutManager(fakeMap());
     expect(fresh.layout.members.a).toEqual({ role: "overlay", folder: "roads" });
     fresh.reload();
     expect(fresh.layout.order.overlay).toEqual(["roads"]);
@@ -574,15 +659,15 @@ describe("manager lifecycle", () => {
 
   it("set debounces the write and flush forces it", () => {
     vi.useFakeTimers();
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       members: { a: { role: "overlay", folder: "roads" } },
     };
     manager.set(layout);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).toBeNull();
     vi.advanceTimersByTime(200);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).not.toBeNull();
   });
 });
 
@@ -635,7 +720,7 @@ describe("coverage edges", () => {
       ],
       order: { overlay: ["roads"] },
     };
-    expect(renameFolder(layout, "overlay", "Roads", "water")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "roads", "water")).toBe(layout);
   });
 
   it("moveLayerToFolder is a no-op on a blank folder key", () => {
@@ -647,7 +732,7 @@ describe("coverage edges", () => {
   });
 
   it("seed skips an entry without an author folder", () => {
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     manager.seed([entry("a", "overlay", null, 0)]);
     expect(manager.layout.members).toEqual({});
     expect(manager.layout.folders).toEqual([]);
@@ -673,7 +758,7 @@ describe("coverage edges", () => {
 
   it("ensureFolderLayout returns the per-map singleton", () => {
     const api: { other: number; folderLayout?: unknown } = { other: 1 };
-    const map = { foliplus: api };
+    const map = { foliplus: api, getContainer: () => ({ id: "test-map" }) };
     const first = ensureFolderLayout(map);
     expect(ensureFolderLayout(map)).toBe(first);
     expect(map.foliplus.folderLayout).toBe(first);
@@ -697,8 +782,8 @@ describe("seed merge manager edges", () => {
       order: { overlay: ["roads"] },
       members: {},
     };
-    writeFolderLayout(existing);
-    const manager = createFolderLayoutManager();
+    writeFolderLayout(existing, fakeMap());
+    const manager = createFolderLayoutManager(fakeMap());
     manager.seed([entry("a", "overlay", "Roads", 0)]);
     expect(manager.layout.folders).toEqual([{ key: "roads", name: "Roads" }]);
     expect(manager.layout.members.a).toEqual({ role: "overlay", folder: "roads" });
@@ -712,7 +797,7 @@ describe("seed merge manager edges", () => {
       folders: [],
       order: {},
     };
-    expect(renameFolder(layout, "overlay", "Missing", "X")).toBe(layout);
+    expect(renameFolder(layout, "overlay", "missing", "X")).toBe(layout);
   });
 
   it("deleteFolder reads the role order through a missing role order", () => {
@@ -722,8 +807,258 @@ describe("seed merge manager edges", () => {
       order: {},
       members: { a: { role: "overlay", folder: "roads" } },
     };
-    const next = deleteFolder(layout, "overlay", "Roads");
+    const next = deleteFolder(layout, "overlay", "roads");
     expect(next.members.a).toEqual({ role: "overlay", folder: "" });
     expect(next.order.overlay ?? []).toEqual([]);
+  });
+});
+
+describe("moveFolder — no-op guards", () => {
+  const layout: FolderLayout = {
+    ...emptyFolderLayout(),
+    folders: [
+      { key: "roads", name: "Roads" },
+      { key: "water", name: "Water" },
+    ],
+    order: { overlay: ["roads", "water"] },
+    members: {},
+  };
+
+  it("returns the same layout when the key is its own target", () => {
+    // A drag that outlived a re-render can arm and target the same block.
+    expect(moveFolder(layout, "overlay", "roads", "roads", true)).toBe(layout);
+  });
+
+  it("returns the same layout when a key is not listed in the role", () => {
+    // A drag that outlived a rename or a delete cannot corrupt the order.
+    expect(moveFolder(layout, "overlay", "ghost", "roads", true)).toBe(layout);
+    expect(moveFolder(layout, "overlay", "roads", "ghost", true)).toBe(layout);
+  });
+
+  it("moves a listed block before or after its target", () => {
+    expect(
+      moveFolder(layout, "overlay", "water", "roads", false).order.overlay,
+    ).toEqual(["water", "roads"]);
+    expect(moveFolder(layout, "overlay", "roads", "water", true).order.overlay).toEqual(
+      ["water", "roads"],
+    );
+  });
+});
+
+describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
+  it("folderNameLength folds NFC, collapses whitespace, trims, counts code points", () => {
+    // NFC: an e + combining acute normalises to a single e-acute code point.
+    expect(folderNameLength("e\u0301")).toBe(1);
+    // Whitespace collapse + trim, same as the panel's normalisation.
+    expect(folderNameLength("  Roads\tRoads  ")).toBe(11);
+    // A non-BMP surrogate pair is one code point, not two UTF-16 units.
+    expect(folderNameLength("\u{1F600}")).toBe(1);
+    expect(folderNameLength("")).toBe(0);
+  });
+
+  it("folderNameTooLong is the single cap decision point", () => {
+    const atMax = "a".repeat(FOLDER_NAME_MAX);
+    expect(folderNameTooLong(atMax)).toBe(false);
+    expect(folderNameTooLong(`${atMax}b`)).toBe(true);
+  });
+
+  it("a root layer's block entry never collides with a folder key", () => {
+    // The encoding itself is internal; what the API promises is that a root
+    // layer's entry is distinguishable from a folder key, and that the folder
+    // view filters it out.
+    const rootEntry = rootLayerEntry("a");
+    expect(rootEntry).not.toBe("a");
+    expect(folderEntries(["roads", rootEntry, "water"])).toEqual(["roads", "water"]);
+    expect(folderEntries([])).toEqual([]);
+  });
+
+  it("roleBlocks honours a listed root-layer entry (info present)", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:a"] },
+    };
+    const entries = [entry("a", "overlay", null, 0)] as LayerInfo[];
+    const blocks = roleBlocks("overlay", entries, layout);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toEqual({ kind: "layer", info: entries[0] });
+  });
+
+  it("roleBlocks skips a stale listed root-layer entry (no live info)", () => {
+    // A "layer:<id>" entry whose id is not in the registry: the block has no
+    // info to paint, so the pass skips it instead of emitting a null layer.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:ghost"] },
+    };
+    // Empty registry: no unlisted root layer is pushed in the tail pass either.
+    expect(roleBlocks("overlay", [], layout)).toEqual([]);
+  });
+
+  it("roleBlocks pushes an unlisted root layer and skips a listed one", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:a"] },
+    };
+    const entries = [
+      entry("a", "overlay", null, 0),
+      entry("b", "overlay", null, 1),
+    ] as LayerInfo[];
+    const blocks = roleBlocks("overlay", entries, layout);
+    // a is listed (pushed in the listed pass), b is unlisted (pushed in the tail).
+    expect(blocks.map(b => (b.kind === "layer" ? b.info.id : b.key))).toEqual([
+      "a",
+      "b",
+    ]);
+    expect(blocks[0]).toEqual({ kind: "layer", info: entries[0] });
+    expect(blocks[1]).toEqual({ kind: "layer", info: entries[1] });
+  });
+
+  it("moveFolder no-ops on a missing role order (the ?? [] arm)", () => {
+    // No order entry for the role: listed resolves to [] via the ?? arm, and
+    // the key is not in an empty list, so the move is rejected.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: {},
+      members: {},
+    };
+    expect(moveFolder(layout, "overlay", "roads", "water", true)).toBe(layout);
+  });
+
+  it("moveFolder no-ops when the target is not listed (key is listed)", () => {
+    // The guard's second operand: a drag whose TARGET outlived a delete. The
+    // key itself is still listed, so only the target arm rejects the move.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: {},
+    };
+    expect(moveFolder(layout, "overlay", "roads", "ghost", true)).toBe(layout);
+  });
+
+  it("seedBlockOrder maps folder and layer blocks to their order entries", () => {
+    const folderLayout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: { overlay: ["roads"] },
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const entries = [entry("a", "overlay", "Roads", 0)] as LayerInfo[];
+    expect(seedBlockOrder(folderLayout, "overlay", entries)).toEqual(["roads"]);
+
+    const rootLayout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:b"] },
+    };
+    const rootEntries = [entry("b", "overlay", null, 0)] as LayerInfo[];
+    expect(seedBlockOrder(rootLayout, "overlay", rootEntries)).toEqual(["layer:b"]);
+  });
+  it("renameFolder accepts a member-only folder key (hasOld via members)", () => {
+    // hasOld reads the member map when the key is neither in the directory
+    // nor listed in any role order: a live member reference is still a
+    // real folder. The members arm is the third hasOld source.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const next = renameFolder(layout, "overlay", "roads", "Streets");
+    expect(next).not.toBe(layout);
+    expect(next.folders).toEqual([{ key: "roads", name: "Streets" }]);
+  });
+
+  it("nextFolderDefaultName finds the first free candidate past a dense run", () => {
+    // The loop bound is taken.size+2, so there are taken.size+1 candidates
+    // but only taken.size taken values: at least one is ALWAYS free. The
+    // @260 `return base` fallback is therefore unreachable by construction.
+    // This pins the free-candidate arm: with {new folder..new folder 5}
+    // taken, the loop (n=2..7) skips 2..5 and lands on 6.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [
+        { key: "new folder", name: "new folder" },
+        { key: "new folder 2", name: "new folder 2" },
+        { key: "new folder 3", name: "new folder 3" },
+        { key: "new folder 4", name: "new folder 4" },
+        { key: "new folder 5", name: "new folder 5" },
+      ],
+      order: {
+        overlay: [
+          "new folder",
+          "new folder 2",
+          "new folder 3",
+          "new folder 4",
+          "new folder 5",
+        ],
+      },
+      members: {},
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 6");
+  });
+  it("nextFolderDefaultName picks the first free candidate when the base is taken", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "new folder", name: "new folder" }],
+      order: { overlay: ["new folder"] },
+      members: {},
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 2");
+  });
+
+  it("nextFolderDefaultName returns the base untouched when it is not taken", () => {
+    // The early-out: base is free, so no suffix search runs (@246 true arm).
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "other", name: "Other" }],
+      order: { overlay: ["other"] },
+      members: {},
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder");
+  });
+
+  it("nextFolderDefaultName counts a member-only folder in the taken set", () => {
+    // The @233 members arm: a folder referenced only by a live member (not in
+    // the directory or any role order) is still a taken key, so a base that
+    // matches it gets a suffix.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "roads")).toBe("roads 2");
+  });
+
+  it("nextFolderDefaultName truncates the stem so the suffix still fits the cap", () => {
+    // A base already at the length cap cannot take a " 2" suffix verbatim: the
+    // candidate would be rejected by createFolder as too-long, and the new
+    // folder would silently never appear. The stem is cut to leave room for
+    // the suffix, so the returned name is always a legal folder name.
+    const base = "a".repeat(FOLDER_NAME_MAX);
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: base, name: base }],
+      order: { overlay: [base] },
+      members: {},
+    };
+    const next = nextFolderDefaultName(layout, "overlay", base);
+    expect(next).not.toBe(base);
+    expect(folderNameLength(next)).toBeLessThanOrEqual(FOLDER_NAME_MAX);
+    expect(folderNameTooLong(next)).toBe(false);
+    expect(next.endsWith(" 2")).toBe(true);
+  });
+
+  it("nextFolderDefaultName ignores members of a different role", () => {
+    // The @233 false arm: a member whose role does not match is not a taken
+    // key for this role, so the base stays free.
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "new folder", name: "new folder" }],
+      order: { overlay: ["new folder"] },
+      members: { a: { role: "base", folder: "basemap" } },
+    };
+    expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 2");
   });
 });

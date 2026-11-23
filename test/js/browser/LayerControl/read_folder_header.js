@@ -1,14 +1,18 @@
 () => {
   const row = document.querySelector('.foliplus-layer-toggle-all[data-role="overlay"]');
   if (!row) return { exists: false, cleanup: null };
-  const btn = row.querySelector(".foliplus-layer-clean-folders");
+  // The cleanup entry lives in the role row's overflow menu now (it used to be
+  // an inline button in the header, which the role row no longer has room for).
+  const more = row.querySelector(".foliplus-layer-more-btn");
+  if (more) more.click();
+  const item = document.querySelector('[data-action="clean-empty-folders"]');
   return {
     exists: true,
-    cleanup: btn
+    cleanup: item
       ? {
-          text: btn.textContent,
-          ariaLabel: btn.getAttribute("aria-label"),
-          count: Number((btn.textContent || "").match(/[（(](\d+)[)）]/)?.[1]),
+          text: item.textContent,
+          ariaLabel: item.getAttribute("title"),
+          disabled: item.getAttribute("aria-disabled") === "true",
         }
       : null,
   };

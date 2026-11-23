@@ -38,7 +38,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -293,7 +293,7 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
   describe("restoreCursor", () => {
     it("re-homes a folded group row onto its toggle-all row", () => {
       attachWithGroup(ui);
-      ui.listPanel.foldedRoles = new Set([ROLE.OVERLAY]);
+      ui.listPanel.foldedRoles = { [ROLE.OVERLAY]: true };
       attachedPanel(ui)
         .querySelectorAll<HTMLElement>(
           `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.OVERLAY}"]`,
@@ -474,5 +474,139 @@ describe("LayerUI cursor (pure cursor primitives)", () => {
       expect(ui.listPanel.activeIdx).toBe(expectedIdx);
       expect(base.classList.contains(CONST.CLASSES.FOCUSED)).toBe(true);
     });
+  });
+});
+
+describe("folder refs (refOf / rowByRef / restoreCursor)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let _map: any;
+
+  const layoutFromRoles = (sections: Record<string, string[]>) => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const folderRowOf = (key: string): HTMLElement =>
+    attachedPanel(ui).querySelector(
+      `[${CONST.DATA.FOLDER_KEY}="${key}"]`,
+    ) as HTMLElement;
+
+  beforeEach(() => {
+    ({
+      manager,
+      ui,
+      map: _map,
+    } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    }));
+    ui.listPanel.foldedRoles = {};
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("reads a folder row as a folder ref", () => {
+    const row = folderRowOf("roads");
+    setActiveItem(ui, ui.getNavigableItems().indexOf(row));
+    expect(cursorRef(ui)).toEqual({ kind: "folder", role: "overlay", key: "roads" });
+  });
+
+  it("re-homes a folder ref onto its folder row", () => {
+    const row = folderRowOf("roads");
+    restoreCursor(ui, { kind: "folder", role: "overlay", key: "roads" });
+    const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
+    expect(lit).toBe(row);
+    expect(ui.listPanel.activeIdx).toBe(ui.getNavigableItems().indexOf(row));
+  });
+
+  it("re-homes a role ref onto the role header", () => {
+    const header = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-role="overlay"]`,
+    ) as HTMLElement;
+    restoreCursor(ui, { kind: "role", role: "overlay" });
+    const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
+    expect(lit).toBe(header);
+    expect(ui.listPanel.activeIdx).toBe(ui.getNavigableItems().indexOf(header));
+  });
+
+  it("falls back to data-role when a folded row lacks data-layer-type", () => {
+    const row = findItem(ui, "rd1");
+    row.classList.add(CONST.CLASSES.GROUP_FOLDED);
+    row.removeAttribute("data-layer-type");
+    row.setAttribute("data-role", "overlay");
+    restoreCursor(ui, { kind: "layer", id: "rd1" });
+    const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
+    expect(lit?.classList.contains(CONST.CLASSES.TOGGLE_ALL)).toBe(true);
+  });
+});
+
+describe("reconcileCursorByIdentity edges", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let _map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map: _map } = initFixture());
+    if (!manager.layerRegistry.get("overlay2")) {
+      manager.registerLayer({
+        id: "overlay2",
+        name: "Circles",
+        role: "overlay",
+        layer: { options: {}, eachLayer: vi.fn() },
+      });
+    }
+    ui.listPanel.foldedRoles = {};
+    window.localStorage.removeItem(CONST.STORAGE.KEY);
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("bails at the container guard when the panel is detached", () => {
+    attachedPanel(ui).remove();
+    expect(() =>
+      reconcileCursorByIdentity(ui, { kind: "layer", id: "overlay1" }),
+    ).not.toThrow();
+  });
+
+  it("clears the cursor when the ref matches no navigable row", () => {
+    setActiveItem(ui, 0);
+    reconcileCursorByIdentity(ui, { kind: "layer", id: "ghost-layer" });
+    expect(ui.listPanel.activeIdx).toBeNull();
+  });
+
+  it("moves the marker when the ref matches a navigable row", () => {
+    setActiveItem(ui, 0);
+    reconcileCursorByIdentity(ui, { kind: "layer", id: "overlay1" });
+    const lit = attachedPanel(ui).querySelector(`.${CONST.CLASSES.FOCUSED}`);
+    expect(lit?.getAttribute(CONST.DATA.LAYER_ID)).toBe("overlay1");
+    expect(ui.listPanel.activeIdx).toBe(
+      ui.getNavigableItems().indexOf(lit as HTMLElement),
+    );
   });
 });
