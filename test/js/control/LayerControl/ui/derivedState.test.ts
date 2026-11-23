@@ -1,4 +1,4 @@
-// ui derived-state coherence guard — task-136.
+// ui derived-state coherence guard.
 //
 // Every registration path (construction-seeded A, runtime registerLayer B)
 // must leave the derived states — role tri-state, container row type, fold
@@ -6,7 +6,7 @@
 // table-driven so a new derived dimension is added here once and cannot be
 // forgotten on one path.
 //
-// See .foliplus/review/task-136-derived-state-review.md for the audit and the
+// See the derived-state coherence review for the audit and the
 // single "mutation → invalidate → rebuildList" rule this guards.
 import {
   TileLayer,
@@ -31,7 +31,6 @@ describe("ui derived-state coherence — B-path (runtime registerLayer)", () => 
 
   afterEach(() => {
     manager?.debouncedEnforce?.cancel?.();
-    manager?.debouncedRebuild?.cancel?.();
     document.body.innerHTML = "";
     vi.clearAllMocks();
     vi.useRealTimers();
@@ -111,7 +110,7 @@ describe("ui derived-state coherence — B-path (runtime registerLayer)", () => 
         expect(row).not.toBeNull();
         // The container row's type column carries the group glyph.
         const typeCol = row!.querySelector(
-          "." + CONST.CLASSES.TYPE_ICON_COL,
+          `.${CONST.CLASSES.TYPE_ICON_COL}`,
         ) as HTMLElement | null;
         expect(typeCol?.innerHTML).toContain("<svg");
         // Its count is the direct child count (2), not a feature census.
