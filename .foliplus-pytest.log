@@ -641,4 +641,4 @@ test/python/infra/test_flaky95_probe.py::TestInertBehavior::test_unopenable_log_
 test/python/infra/test_flaky95_probe.py::TestInertBehavior::test_uncreatable_log_dir_stays_inert ERROR [ 42%]
 test/python/infra/test_flaky95_probe.py::TestInertBehavior::test_write_failure_is_swallowed PASSED [ 42%]
 test/python/infra/test_flaky95_probe.py::TestInertBehavior::test_snapshot_failure_still_records_without_browser_metrics ERROR [ 42%]
-test/python/infra/test_flaky95_probe.py::TestSamplingCadence::test_one_sample_every_n_pages 
+test/python/infra/test_flaky95_probe.py::TestSamplingCadence::test_one_sample_every_n_pages
