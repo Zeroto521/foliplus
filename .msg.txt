@@ -1,6 +1,0 @@
-fix(marker_color): the python channel expands a 3-digit hex like the js one
-
-The declaration channel and the paint channel must carry the same string
-for one chassis colour. Python now expands #rgb to #rrggbb and lowercases,
-matching normalizeHexColor; the two hex regexes name each other so a
-future widening cannot drift silently.
