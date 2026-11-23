@@ -176,10 +176,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Row semantics come from the entry, not the Leaflet class: a logical layer
   // backed by a group with a featureCountProvider (MeasureControl, Heatmap) is
   // data, so its style and filter panels stay available.
-  const isGroup = isGroupRow(
-    ui.c.layerRegistry.get(layerId),
-    ui.c.findLayer(layerId),
-  );
+  const isGroup = isGroupRow(ui.c.layerRegistry.get(layerId), ui.c.findLayer(layerId));
   const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries

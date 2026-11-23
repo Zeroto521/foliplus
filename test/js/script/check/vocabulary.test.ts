@@ -141,18 +141,22 @@ function containerViolations(src: string): string[] {
   // (const makeContainer = ...) and function (function makeContainer(...) {...})
   // declaration styles; a factory declared some other way is not caught — this
   // guard narrows the common cases, it does not prove absence.
-  const declRe = /(?:const makeContainer\s*=\s*|function makeContainer\s*)\(([^)]*)\)[^\n]*/g;
+  const declRe =
+    /(?:const makeContainer\s*=\s*|function makeContainer\s*)\(([^)]*)\)[^\n]*/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(src)) !== null) {
     const params = m[1];
     const tail = src.slice(m.index, m.index + 400);
-    const isDomFactory = /HTMLElement/.test(m[0]) || /document\.createElement/.test(tail);
-    const isGroupFactory = /children/.test(params) || /eachLayer/.test(tail) || /_layers/.test(tail);
-    if (isGroupFactory && !isDomFactory) hits.push(`makeContainer (layer-group factory, params: ${params.trim()})`);
+    const isDomFactory =
+      /HTMLElement/.test(m[0]) || /document\.createElement/.test(tail);
+    const isGroupFactory =
+      /children/.test(params) || /eachLayer/.test(tail) || /_layers/.test(tail);
+    if (isGroupFactory && !isDomFactory) {
+      hits.push(`makeContainer (layer-group factory, params: ${params.trim()})`);
+    }
   }
   return hits;
 }
-
 
 describe("vocabulary guard: no layer-group 'container' identifiers", () => {
   it("scans the tree for container identifiers that mean a layer group", () => {
@@ -164,13 +168,15 @@ describe("vocabulary guard: no layer-group 'container' identifiers", () => {
         if (EXEMPT_FILES.has(rel)) continue;
         const src = readFileSync(file, "utf8");
         for (const v of containerViolations(src)) {
-          hits.push(rel + ": " + v);
+          hits.push(`${rel}: ${v}`);
         }
       }
     }
     expect(
       hits,
-      "layer-group 'container' identifiers are a vocabulary regression; rename to group: " + hits.join("; "),
+      `layer-group 'container' identifiers are a vocabulary regression; rename to group: ${hits.join(
+        "; ",
+      )}`,
     ).toEqual([]);
   });
 });
