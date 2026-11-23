@@ -218,7 +218,7 @@ class LayerFactory {
 
     const commonLayerOpts = {
       id: opts.id,
-      name: opts.name || opts.id, // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- empty name should fall back to id
+      name: opts.name || opts.id,  
       iconSvg: opts.iconSvg ?? null,
       featureCountProvider: opts.featureCountProvider ?? null,
       styleProvider: opts.styleProvider ?? null,

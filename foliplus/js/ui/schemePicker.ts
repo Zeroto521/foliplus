@@ -294,7 +294,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       // Repaint the active row's ✓ lead when the selection moves without a
       // full rebuild (listbox calls this from the row-toggle and refreshHead).
       paintRow: (row, _item, ctx) => {
-        const lead = row.querySelector<HTMLElement>("." + SCHEME_PICKER_CLASS.LEAD);
+        const lead = row.querySelector<HTMLElement>(`.${  SCHEME_PICKER_CLASS.LEAD}`);
         if (lead) lead.textContent = ctx.selected ? "\u2713" : "";
       },
     },

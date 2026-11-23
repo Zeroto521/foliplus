@@ -36,7 +36,7 @@ const drawHexagon = (
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
   ctx.closePath();
-  ctx.fillStyle = feat.properties.fillColor || SCHEME_FALLBACK_COLOR; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- empty string should fall back
+  ctx.fillStyle = feat.properties.fillColor || SCHEME_FALLBACK_COLOR;  
   ctx.globalAlpha = drawAlpha(fillAlpha, layerAlpha);
   ctx.fill();
   ctx.globalAlpha = 1;
