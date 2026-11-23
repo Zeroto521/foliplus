@@ -13,6 +13,7 @@ import {
   setActiveItem,
   syncActiveItem,
 } from "./cursor.js";
+import { toggleContainerExpand } from "./containerExpand.js";
 import { toggleFold, toggleFolderFold } from "./drag.js";
 import { isNativeControl } from "#core/interaction/index.js";
 import { ROLE } from "#core/layer/index.js";
@@ -228,6 +229,15 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
           const role = folderRow?.getAttribute(CONST.DATA.ROLE) ?? "";
           if (fk && role) {
             toggleFolderFold(ui, role, fk);
+          } else {
+            // A container row's chevron expands/collapses the group.
+            const containerRow = (
+              document.activeElement as HTMLElement
+            ).closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
+            const parentId = containerRow?.getAttribute(CONST.DATA.LAYER_ID);
+            if (parentId && containerRow?.classList.contains(CONST.CLASSES.GROUP_ROW)) {
+              toggleContainerExpand(ui, parentId);
+            }
           }
         }
         break;

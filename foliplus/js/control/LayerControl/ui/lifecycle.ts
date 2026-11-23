@@ -31,6 +31,7 @@ import {
   toggleFold,
   toggleFolderFold,
 } from "./listPanel/drag.js";
+import { toggleContainerExpand } from "./listPanel/containerExpand.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
@@ -230,6 +231,23 @@ const bindLayerEvents = (ui: LayerUI): void => {
         // row for the whole time the user is flipping controls inside it.
         row.focus({ focusVisible: false } as FocusOptions);
       }
+    }
+
+    // A container row's chevron is the expand entry (design: chevron, not
+    // the row body — the row body stays a selectable layer row). The chevron
+    // is a .FOLD_BTN inside a .GROUP_ROW row; this branch must run before the
+    // folder-row branch (a container row is not a folder row).
+    const containerChevron = el.closest(
+      `.${CONST.CLASSES.GROUP_ROW} .${CONST.CLASSES.FOLD_BTN}`,
+    ) as HTMLElement | null;
+    if (containerChevron) {
+      const parentId = containerChevron
+        .closest(CONST.SEL.LAYER_ITEM)
+        ?.getAttribute(CONST.DATA.LAYER_ID);
+      if (parentId) {
+        toggleContainerExpand(ui, parentId);
+      }
+      return;
     }
 
     // The fold branch climbs on the header row's identity key, never on the

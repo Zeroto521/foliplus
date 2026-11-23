@@ -25,6 +25,9 @@ import {
   syncListCursor,
 } from "./cursor.js";
 import {
+  toggleContainerExpand,
+} from "./containerExpand.js";
+import {
   clearDragState,
   handleDragEnd,
   handleDragLeave,
@@ -100,6 +103,13 @@ class ListPanel {
    *  (foldedRoles) is checked first and this falls back under it. See
    *  control/LayerControl/declaredRole.ts. */
   authorDefaultFoldedRoles: Record<string, boolean> = {};
+  /** Per-container expand opinion. Record<parentLayerId, boolean>:
+   *  true (expanded) / false (explicit collapsed); absent key = never
+   *  touched, so the container follows the built-in collapsed default.
+   *  Containers are the OPPOSITE of roles/folders: a fresh container is
+   *  collapsed, and only an explicit expand opens it. Persisted through the
+   *  same channel as the fold state (state.ts saveFoldState). */
+  expandedContainers: Record<string, boolean> = {};
   /** Index of the currently-navigable row the cursor is parked on, or null
    *  when the cursor is cleared (Escape, outside press). */
   activeIdx: number | null = null;
@@ -144,6 +154,7 @@ export {
   initLayerItem,
 };
 export { ListPanel };
+export { toggleContainerExpand };
 export {
   applyRowView,
   buildRowCell,

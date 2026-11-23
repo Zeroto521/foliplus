@@ -613,6 +613,19 @@
     }
   }
 
+  /* ── Container child row (expanded group member) ──
+     A child row is a leaf-looking row one level deeper: the rail holds the
+     drag grip (no tree node, no chevron), the row keeps the same cells as a
+     leaf, and the label reads one weight lighter than the group header. */
+  .foliplus-layer-item-child {
+    grid-template-areas: "rail check label icon more";
+    cursor: default;
+
+    .foliplus-layer-label {
+      font-weight: var(--foliplus-font-weight-normal);
+    }
+  }
+
   /* ── Role row (section header, now a ⋮ row too) ── */
   .foliplus-layer-role {
     font-size: var(--foliplus-font-size-xs);

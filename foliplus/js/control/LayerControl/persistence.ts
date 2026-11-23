@@ -33,6 +33,8 @@ type LiveState = {
   foldedRoles?: () => Record<string, boolean>;
   /** User-folded folder identities (`role::name`). */
   foldedFolders?: () => Record<string, boolean>;
+  /** Container expand opinions (parentLayerId → expanded). */
+  expandedContainers?: () => Record<string, boolean>;
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
@@ -83,8 +85,14 @@ type LiveState = {
  *  touched". There is deliberately no compatibility read: the shape change is
  *  a breaking change accepted for this release, so an old v5 record still
  *  loads but its fold state is dropped (read as `{}`), and the next write
- *  stamps v6. */
-const RECORD_VERSION = 6;
+ *  stamps v6.
+ *
+ *  6 → 7: `expandedContainers` landed as a Record<parentLayerId, boolean>
+ *  (container expand opinions). A container defaults to collapsed, so an old
+ *  v6 record (no such field) reads as `{}` — every container collapsed, the
+ *  built-in default — and the next write stamps v7. No data loss: the field
+ *  is new, so there is nothing old to migrate. */
+const RECORD_VERSION = 7;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
@@ -92,6 +100,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   removed: [],
   foldedRoles: {},
   foldedFolders: {},
+  expandedContainers: {},
   renamedNames: {},
   layers: {},
 });
@@ -360,9 +369,9 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
   if (Array.isArray(data.removed) && data.removed.every(id => typeof id === "string")) {
     record.removed = data.removed as string[];
   }
-  // foldedRoles is now a Record<role, boolean> (v7+). A legacy array
+  // foldedRoles is now a Record<role, boolean> (v8+). A legacy array
   // (v5 and earlier) is deliberately dropped — read as {} — so a stale
-  // record cannot mis-shape the fold state; the next write re-stamps v7.
+  // record cannot mis-shape the fold state; the next write re-stamps v8.
   if (Array.isArray(data.foldedRoles)) {
     // Legacy array: no per-role opinion recorded, read as {}.
   } else {
@@ -382,6 +391,14 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
       if (typeof value === "boolean") parsed[key] = value;
     }
     record.foldedFolders = parsed;
+  }
+  const containerMap = asObject(data.expandedContainers);
+  if (containerMap) {
+    const parsed: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(containerMap)) {
+      if (typeof value === "boolean") parsed[key] = value;
+    }
+    record.expandedContainers = parsed;
   }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
@@ -416,6 +433,9 @@ const mergeFields = (
     removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
     foldedFolders: fields.foldedFolders ? fields.foldedFolders() : record.foldedFolders,
+    expandedContainers: fields.expandedContainers
+      ? fields.expandedContainers()
+      : record.expandedContainers,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
   };

@@ -18,6 +18,7 @@ import {
   writeTriState,
 } from "./rowView.js";
 import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
+import { resolveChild } from "./containerExpand.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the
@@ -385,6 +386,21 @@ const setFolderVisible = (
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
+  // A child row's checkbox talks to the map directly: the child is not a
+  // registry row (no LayerInfo), so the layer-change path below would no-op.
+  // The row id is parentId::stamp; resolve the parent and the child.
+  const childRow = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
+  const childId = childRow?.getAttribute(CONST.DATA.LAYER_ID);
+  if (childId?.includes("::")) {
+    const parentId = childId.slice(0, childId.indexOf("::"));
+    const child = resolveChild(ui, parentId, childId);
+    if (child && ui.c.map) {
+      if (target.checked) ui.c.map.addLayer(child);
+      else ui.c.map.removeLayer(child);
+    }
+    return;
+  }
+
   // A folder row's checkbox is a group toggle for every member: the folder
   // row has no data-layer-id (it is a group row, not a leaf), so the layer
   // change path below would no-op. Climb to the folder row by its key.

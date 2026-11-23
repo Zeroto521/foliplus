@@ -96,7 +96,15 @@ class CircleMarker {
  */
 const stamp = (() => {
   let id = 0;
-  return vi.fn(() => ++id);
+  return vi.fn((obj: object) => {
+    // Real L.stamp caches on the object (_leaflet_id) so two calls for the
+    // same layer return the same id. A stateless counter reissues a fresh id
+    // every call, which breaks container child rows (childRowId stamps at
+    // render, resolveChild stamps again → mismatch). Cache like the real one.
+    const anyObj = obj as { _leaflet_id?: number };
+    anyObj._leaflet_id = anyObj._leaflet_id ?? ++id;
+    return anyObj._leaflet_id;
+  });
 })();
 
 /** Populate window.L with the stubs LayerController / PaneManager expect. */

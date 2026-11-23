@@ -34,9 +34,15 @@ import {
   folderEntries,
   folderOf,
   groupByFolder,
+  isGroupRow,
   roleBlocks,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
+import {
+  containerChildren,
+  isContainerExpanded,
+  renderChildItem,
+} from "./containerExpand.js";
 import { ICON_GLOBE } from "#platform/icon.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -600,6 +606,19 @@ const renderInitialList = (ui: LayerUI) => {
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
         }
         frag.appendChild(item);
+        // A container row, when expanded, renders its direct children right
+        // after itself. Child rows are not registry rows, so they are only
+        // rendered (not registered); the parent's expanded flag drives this.
+        const layer = ui.c.findLayer(block.layer);
+        if (
+          !roleFolded &&
+          isGroupRow(block.layer, layer) &&
+          isContainerExpanded(ui, block.layer.id)
+        ) {
+          for (const child of containerChildren(ui, block.layer.id)) {
+            frag.appendChild(renderChildItem(ui, block.layer.id, child));
+          }
+        }
       }
     }
   };
@@ -1044,9 +1063,28 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // All layers get the "more" button — data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
+  const layer = ui.c.findLayer(layerInfo);
+  const isContainer = isGroupRow(layerInfo, layer);
+  const containerExpanded = isContainer && isContainerExpanded(ui, layerInfo.id);
   const withFolders = hasAnyFolder(ui);
   const railChildren: HTMLElement[] = [];
-  if (withFolders) {
+  if (isContainer) {
+    // A container row's chevron is the expand entry (like a folder row's),
+    // not a drag hint: the rail slot is the chevron, the grip is the hover
+    // swap below.
+    railChildren.push(
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.FOLD_BTN,
+          "aria-expanded": containerExpanded ? "true" : "false",
+          "aria-label": name,
+          title: ui.T(containerExpanded ? "fold_tooltip" : "unfold_tooltip"),
+        },
+        { html: SVGs.ICON_FOLD },
+      ),
+    );
+  } else if (withFolders) {
     // v3.6: with folders the rail slot is the tree-line (member) or empty
     // (root) at rest, and the drag grip appears on hover. The grip element is
     // always present (existing drag-probe readers query it); the tree node is

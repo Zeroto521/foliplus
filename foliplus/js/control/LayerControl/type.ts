@@ -59,6 +59,11 @@ type LayerPersistedRecord = {
    *  author defaults fall below it, built-in "all expanded" below
    *  that. */
   foldedFolders: Record<string, boolean>;
+  /** Container expand opinions: parentLayerId → expanded (true) or
+   *  collapsed (false). Absent key = never touched, so the container
+   *  follows the built-in collapsed default. Containers are the opposite
+   *  of roles/folders: a fresh container is collapsed. */
+  expandedContainers: Record<string, boolean>;
   /** Layer id → user-assigned display name. */
   renamedNames: Record<string, string>;
   /** Layer id → the user's per-layer intent. Empty means the user changed

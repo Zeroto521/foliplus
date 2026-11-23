@@ -14,6 +14,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   removed: [],
   foldedRoles: {},
   foldedFolders: {},
+  expandedContainers: {},
   renamedNames: {},
   layers: {},
 });
@@ -63,6 +64,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
+        expandedContainers: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -80,6 +82,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
+        expandedContainers: {},
         renamedNames: { a: "A2" },
         layers: {
           a: {
@@ -875,6 +878,7 @@ describe("LayerPersistence", () => {
         // Legacy array foldedRoles is dropped as {} (v6 shape change, no compat read).
         foldedRoles: {},
         foldedFolders: {},
+        expandedContainers: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -944,6 +948,7 @@ describe("LayerPersistence", () => {
         // Legacy array foldedRoles reads as {} and stays {} through the write.
         foldedRoles: {},
         foldedFolders: {},
+        expandedContainers: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1535,6 +1540,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
+        expandedContainers: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1566,6 +1572,7 @@ describe("LayerPersistence", () => {
         // Legacy array foldedRoles reads as {} and the write leaves it alone.
         foldedRoles: {},
         foldedFolders: {},
+        expandedContainers: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1682,6 +1689,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: {},
         foldedFolders: {},
+        expandedContainers: {},
         renamedNames: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
