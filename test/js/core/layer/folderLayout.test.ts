@@ -202,12 +202,7 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(layout.members.a).toBeUndefined();
   });
 
-  it("createFolder without the registry keeps the plain append", () => {
-    let layout = emptyFolderLayout();
-    layout = createFolder(layout, "overlay", "Roads");
-    layout = createFolder(layout, "overlay", "Water");
-    expect(layout.order.overlay).toEqual(["roads", "water"]);
-  });
+
 
   it("renameFolder rewrites only the display name, keeping the identity key and order in place", () => {
     let layout = emptyFolderLayout();

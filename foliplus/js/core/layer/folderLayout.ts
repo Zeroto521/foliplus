@@ -494,9 +494,9 @@ const mergeDeclaredFolders = (
  *  it to the identity directory. Same-role duplicates (directory, order or
  *  live member) are refused. Pure: returns the same layout on a no-op.
  *
- *  Pass `registryEntries` to append after the folders the role already holds:
- *  an author-declared folder lives in `members`, not in `order`, so appending
- *  to an empty order would sort the new folder ahead of every existing one. */
+ *  Pass `registryEntries` to seed the block order from roleBlocks (the
+ *  merge-by-anchor result): root layers keep their anchor slots instead of
+ *  being pushed to the tail after every folder. */
 const createFolder = (
   layout: FolderLayout,
   role: LayerRole,
@@ -506,16 +506,9 @@ const createFolder = (
   const key = normalizeFolderName(name);
   if (key === "") return layout;
   // Single-source the existing block order from roleBlocks (the merge-by-anchor
-  // result) when the registry is known, exactly as freezeRoleOrder does: root
-  // layers keep their anchor slots instead of being pushed to the tail after
-  // every folder. Without the registry we can only see what `order` lists, so
-  // the no-registry path keeps the listed folders followed by listed roots.
-  const order = registryEntries
-    ? seedBlockOrder(layout, role, registryEntries)
-    : [
-        ...folderEntries(layout.order[role] ?? []),
-        ...(layout.order[role] ?? []).filter(isRootLayerEntry),
-      ];
+  // result), exactly as freezeRoleOrder does: root layers keep their anchor
+  // slots instead of being pushed to the tail after every folder.
+  const order = seedBlockOrder(layout, role, registryEntries ?? []);
   if (order.includes(key)) return layout; // same-role duplicate refused
   // A different role may already hold this key: base and overlay folders
   // with the same name are two different folders (role-scoped identity).
