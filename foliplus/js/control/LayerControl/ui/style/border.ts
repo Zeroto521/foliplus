@@ -573,11 +573,42 @@ const applySolidStrokeToLayer = (
   });
 };
 
+/** Whether the border face has anything of its own to replay for a layer: a
+ *  stored border intent, or an author declaration. The replay loop gates on
+ *  this so a layer the user never touched (and that declared nothing) is not
+ *  swept by the border's solid fallback on registration/layeradd. */
+const hasBorderProvenance = (ui: LayerUI, layerId: string): boolean =>
+  BORDER_INTENT_KEYS.some(k => getIntent(ui, layerId, k) !== undefined) ||
+  readDeclaredBorder(
+    ui.c.layerRegistry.get(layerId)?.layer ?? ui.c.findLayer(layerId),
+    layerId,
+  ).declared !== undefined;
+
+/** Whether the author explicitly disabled the stroke on this layer's first
+ *  style leaf. An author who says stroke:false wants no outline; foliplus must
+ *  not invent one unless the user or a declaration asks for it. */
+const authorStrokeDisabled = (ui: LayerUI, layerId: string): boolean => {
+  const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
+  if (!layer) return false;
+  let disabled = false;
+  walkStyleLeaves(layer, leaf => {
+    if (leaf.options?.stroke === false) disabled = true;
+  });
+  return disabled;
+};
+
 const applyBorderToLayer = (ui: LayerUI, layerId: string): void => {
   // Register this UI's stroke replay once (idempotent): a follow-fill border
   // re-derives from the leaf's current fill, and the fill writer asks for
   // this replay by face — no direct fill -> border import, no cycle.
   registerFaceReplay(ui, FACE.STROKE, id => applyBorderToLayer(ui, id));
+  // The author explicitly disabled the stroke: there is no stroke to own, so
+  // foliplus must not invent one unless the user or a declaration asks for it.
+  // The face replay above is still registered, so a later fill write keeps its
+  // follow-fill border联动. (registerFaceReplay is idempotent.)
+  if (!hasBorderProvenance(ui, layerId) && authorStrokeDisabled(ui, layerId)) {
+    return;
+  }
   // Everything after the replay registration is the shared engine dispatch:
   // VALUE+hasValue->applyValueStrokeToLayer; ORIGINAL->original; FOLLOW_FILL->
   // solid(undefined); else->needsDerivation->authorFace("color")->solid(base).
@@ -1339,6 +1370,7 @@ const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
 export {
   applyBorderToLayer,
   replayDeclaredBorder,
+  hasBorderProvenance,
   authoredBorder,
   bindBorderRow,
   bindBorderRowShell,

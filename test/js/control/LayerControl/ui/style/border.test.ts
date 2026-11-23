@@ -3088,6 +3088,45 @@ describe("follow-fill border mode", () => {
     expect(painted0.color).toBe("#010101");
     expect(painted1.color).toBe("#020202");
   });
+  it("applyBorderToLayer writes no stroke on an undeclared stroke:false CircleMarker", () => {
+    // A quickstart-style CircleMarker layer: no foliplus declaration, no
+    // border intent, author stroke disabled. The attach sweep calls
+    // applyBorderToLayer via the stroke face replay, and the engine falls
+    // through to the solid branch, deriving one colour from the author's fill
+    // and painting it on every marker. The layer has nothing for the border to
+    // own, so applyBorderToLayer must write no stroke at all.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      // The quickstart author declares stroke:false -- no outline to own.
+      leaf.options.stroke = false;
+      leaf.options.color = ["#0d0887", "#7e03a8"][i];
+      leaf.options.fillColor = leaf.options.color;
+      delete leaf.feature;
+    });
+    registerDeclared("plain_pts", undefined, leaves);
+    ui.c.layerRegistry.get("plain_pts").fillAuthor = { perFeature: true };
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    // Drive the replay through the gate (applyUserState with this layer's id),
+    // the same path the layeradd hook uses.
+    ui.applyUserState("plain_pts");
+    expect(leaves[0].setStyle.mock.calls.length).toBe(before0);
+  });
+  it("a stroke:false layer with a user border colour intent still paints the stroke", () => {
+    // The gate must not swallow a genuine user intent: stroke:false only blocks
+    // the no-provenance solid fallback, not a stroke colour the user picked.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach(leaf => {
+      leaf.options.stroke = false;
+      leaf.options.color = "#0d0887";
+      leaf.options.fillColor = "#0d0887";
+    });
+    registerDeclared("user_pts", undefined, leaves);
+    ui.c.layerRegistry.get("user_pts").fillAuthor = { perFeature: true };
+    setIntent(ui, "user_pts", "borderColor", "#abcdef");
+    applyBorderToLayer(ui, "user_pts");
+    const painted = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(painted.color).toBe("#abcdef");
+  });
   it("applyUserState attach sweep paints a declared value border on first frame", () => {
     // The reported quickstart: a CircleMarker layer declares foliplus.border
     // value and the map must open on the ramp, not the author's flat stroke.
