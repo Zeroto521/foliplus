@@ -11,8 +11,8 @@
 // The locator is a capture regex over the source text, so each guarded constant
 // states WHERE its twin lives and WHAT to pull out — the assertion itself is the
 // one assertCrossLangLiteral call, not a bespoke test per constant.
-import fs from "node:fs";
 import { repoPath } from "#test/path.js";
+import fs from "node:fs";
 
 /** Read a repo-relative source file. */
 export const readSource = (relPath: string): string =>
@@ -28,7 +28,7 @@ export const extractLiteral = (relPath: string, locator: RegExp): string => {
   const match = source.match(locator);
   if (!match) {
     throw new Error(
-      "crossLangLiteral: locator " + String(locator) + " matched nothing in " + relPath,
+      `crossLangLiteral: locator ${String(locator)} matched nothing in ${relPath}`,
     );
   }
   return match[1];
@@ -43,5 +43,5 @@ export const assertCrossLangLiteral = (
   jsLiteral: string,
   label: string,
 ): void => {
-  expect(jsLiteral, label + ": Python and JS twins diverged").toBe(pyLiteral);
+  expect(jsLiteral, `${label}: Python and JS twins diverged`).toBe(pyLiteral);
 };
