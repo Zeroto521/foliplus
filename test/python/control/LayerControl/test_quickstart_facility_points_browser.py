@@ -33,6 +33,8 @@ from conftest import load_geojson, make_browser_page, snippet, use_page
 
 from foliplus import LayerControl
 
+from .helper import _expand_panel
+
 DATA_GEOJSON = "test/data/LayerControl/geojson/quickstart_facility_points_6.geojson"
 LAYER_NAME = "Facility Points"
 
@@ -78,8 +80,8 @@ class TestQuickstartFacilityPointsBrowser:
             marker_type="circle_marker",
             style_kwds={"radius": 3, "fillOpacity": 0.8, "stroke": False},
             legend=False,
-            show=False,
         )
+        _expand_panel(m)
         html = m.get_root().render()
 
         html, n = re.subn(
@@ -91,6 +93,11 @@ class TestQuickstartFacilityPointsBrowser:
         assert n == 1, "LayerControl instantiation not found in rendered HTML"
         page, errors = make_browser_page(browser, tmp_path, html, slug)
         page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        # .explore defaults the layer to hidden; click its checkbox to render
+        # the CircleMarkers to SVG before the test reads the first frame.
+        # The layer ships hidden (show=False or .explore default).
+        page.evaluate(snippet("LayerControl/show_all_layers"))
+        page.wait_for_selector('path.leaflet-interactive', timeout=10000)
         return page, errors
 
     def test_first_frame_paints_per_feature_plasma(self, browser, tmp_path):
