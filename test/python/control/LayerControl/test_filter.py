@@ -16,7 +16,7 @@ from conftest import (
 from foliplus import LayerControl
 
 from ._browser_base import LayerControlBrowserBase
-from .helper import _geo_zone
+from .helper import _geo_mixed, _geo_zone
 
 
 class TestFilterBrowser(LayerControlBrowserBase):
