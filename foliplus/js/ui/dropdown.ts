@@ -355,17 +355,10 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
    */
   const paintOptionRow = (
     row: HTMLElement,
-    item: DropdownItem,
-    ctx: { selected: boolean; index: number },
-    st: InternalState,
+    ctx: { selected: boolean },
   ): void => {
-    if (st.multiple) {
-      const box = row.querySelector<HTMLInputElement>("input[type=checkbox]");
-      if (box) box.checked = ctx.selected;
-      return;
-    }
-    const lead = row.querySelector<HTMLElement>(`.${DROPDOWN_CLASS.LEAD}`);
-    if (lead) lead.textContent = ctx.selected ? "\u2713" : "";
+    const box = row.querySelector<HTMLInputElement>("input[type=checkbox]");
+    if (box) box.checked = ctx.selected;
   };
 
   const selectAllRowOf = (): HTMLElement => {
@@ -427,7 +420,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       renderRow: (item, ctx) => renderOptionRow(item, ctx, state),
       // Repaint the row's own indicator after a state change without a full
       // rebuild (ui/listbox calls this from the row-toggle and refreshHead).
-      paintRow: (row, item, ctx) => paintOptionRow(row, item, ctx, state),
+      paintRow: (row, _item, ctx) => paintOptionRow(row, ctx),
     },
     classes: {
       list: DROPDOWN_CLASS.LIST,

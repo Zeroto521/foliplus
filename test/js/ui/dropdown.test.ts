@@ -1574,3 +1574,26 @@ describe("disabled option affordance", () => {
     );
   });
 });
+
+describe("dropdown: single-mode ✓ lead repaint", () => {
+  // The lead is repainted in place on a row toggle (no full rebuild), so a
+  // single-select dropdown must move the ✓ without re-rendering the list.
+  const leadsOf = (dropdown: Dropdown): (string | null)[] =>
+    optionEls(dropdown).map(
+      el => el.querySelector(".foliplus-dropdown-lead")?.textContent ?? null,
+    );
+
+  it("moves the ✓ to the newly picked row", () => {
+    const { dropdown } = bridged("a", [
+      { value: "a", label: "Alpha" },
+      { value: "b", label: "Bee" },
+    ]);
+    dropdown.trigger.click();
+    expect(leadsOf(dropdown)).toEqual(["\u2713", ""]);
+
+    optionEls(dropdown)[1].click();
+    // A single pick closes the popup; re-open to read the repainted rows.
+    dropdown.trigger.click();
+    expect(leadsOf(dropdown)).toEqual(["", "\u2713"]);
+  });
+});
