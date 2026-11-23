@@ -1727,7 +1727,6 @@ describe("Slider width-adaptive end numbers", () => {
     expect(minEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
     expect(maxEl.classList.contains(SLIDER_CLASS.VALUE_CLAMP)).toBe(true);
   });
-
 });
 
 describe("Slider bubbles retire when the window loses the pointer", () => {

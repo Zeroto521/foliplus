@@ -5,7 +5,7 @@
 // anywhere in slider.css is a second coordinate space that drifts when the
 // thumb size is edited — the exact 7px misalignment the slider refactor
 // removed. This guard fails the build when a bare half-thumb calc reappears.
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";

@@ -3373,7 +3373,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"<= clientWidth {long_max['clientWidth']}"
             )
             # The short pair is a narrow min ("1", dot-centred) and a wider
-            # max ("18", clamped): each keeps its full text because it fits
+            # max ("100", clamped): each keeps its full text because it fits
             # the box it is given.
             short_min = result["result"]["short"]["min"]
             short_max = result["result"]["short"]["max"]

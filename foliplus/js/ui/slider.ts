@@ -672,8 +672,7 @@ class Slider {
     // rendered box makes the rule immune to font changes, new glyphs and
     // emoji — the character-count table it replaces drifted silently.
     const thumbWidth = this.thumbs[0]?.getBoundingClientRect().width ?? 0;
-    const fits = (el: HTMLElement) =>
-      el.getBoundingClientRect().width <= thumbWidth;
+    const fits = (el: HTMLElement) => el.getBoundingClientRect().width <= thumbWidth;
     const fit = (el: HTMLElement) =>
       fits(el)
         ? el.classList.remove(SLIDER_CLASS.VALUE_CLAMP)

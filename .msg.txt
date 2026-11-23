@@ -1,0 +1,7 @@
+fix(ui): the slider end labels clamp by rendered width, not character count
+
+Merge origin/main (the toolchain guard gained the fold-arrow subject; both
+guard subjects stay). Three files needed the formatter's line shapes. The
+end-label ellipsis fixture still expected the old character-count clamp;
+the probe now uses a label whose rendered width overflows the thumb, which
+is the rule this change ships.
