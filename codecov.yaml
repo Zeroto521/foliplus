@@ -3,9 +3,13 @@ coverage:
   round: down
   # Only the shipped package and the TS sources it bundles are measured: the
   # pytest run collects foliplus/, the vitest run collects foliplus/js/. Test
-  # trees, browser probes and the docs are executed or rendered, never covered,
+  # trees, browser probes, stylesheets and the docs are executed or rendered,
   # so a PR that only touches them must not be scored as "0% patch coverage".
+  # Stylesheets are rendered, never collected: the vitest run scopes coverage to
+  # foliplus/js/**, so a PR that touches only CSS (a token or rule move) has no
+  # coverage data for those lines and would be scored as uncovered patch.
   ignore:
+    - "foliplus/css/**"
     - "test/**"
     - "doc/**"
   status:
