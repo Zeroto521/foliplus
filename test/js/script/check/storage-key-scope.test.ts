@@ -1,5 +1,14 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // Per-map storage-key scope guard: every persisted record key must derive from
@@ -127,9 +136,14 @@ const firstArg = (src: string, openIdx: number): string => {
   return src.slice(openIdx + 1).trim();
 };
 
-/** Find storage call sites and their FIRST key argument (skips platform/storage.ts defs). */
+/** The wrapper implementation is the one module allowed to touch localStorage:
+ *  every other module must route its keys through platform/storage. */
+const isStorageImplFile = (filePath: string): boolean =>
+  filePath.replace(/\\/g, "/").endsWith("platform/storage.ts");
+
+/** Find storage call sites and their FIRST key argument (skips platform/storage.ts). */
 const findStorageCalls = (src: string, filePath: string): Call[] => {
-  if (filePath.replace(/\\/g, "/").endsWith("platform/storage.ts")) return [];
+  if (isStorageImplFile(filePath)) return [];
   const calls: Call[] = [];
   const re =
     /\b(?:loadRecord|saveRecord|loadVersioned|saveVersioned|removeRecord)\s*\(/g;
@@ -149,6 +163,27 @@ const findStorageCalls = (src: string, filePath: string): Call[] => {
     calls.push({ line, keyArg });
   }
   return calls;
+};
+
+type BareCall = { line: number; arg: string };
+
+/** Find bare window.localStorage.(get|set|remove)Item call sites.
+ *
+ * platform/storage.ts owns the wrapper and is the only module allowed to reach
+ * localStorage itself; any other module writing a key straight through it would
+ * silently skip the map-scope contract, so it is reported as a violation.
+ */
+const findBareLocalStorage = (src: string, filePath: string): BareCall[] => {
+  if (isStorageImplFile(filePath)) return [];
+  const out: BareCall[] = [];
+  const re = /\.localStorage\s*\.\s*(?:get|set|remove)Item\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(src)) !== null) {
+    const openIdx = src.indexOf("(", m.index);
+    const line = src.slice(0, m.index).split("\n").length;
+    out.push({ line, arg: firstArg(src, openIdx) });
+  }
+  return out;
 };
 
 /** Resolve a key arg to scoped status. */
@@ -183,28 +218,62 @@ const isScopedArg = (
   return false;
 };
 
-describe("storage keys are scoped to the map container", () => {
-  it("every storage call key derives from map.getContainer().id", () => {
-    const files = walkTs(JS_ROOT);
-    const chainByModule = new Map<string, Set<string>>();
-    for (const file of files) {
-      chainByModule.set(file, scopedChainsIn(readFileSync(file, "utf-8")));
-    }
-    const violations: string[] = [];
-    for (const file of files) {
-      const src = readFileSync(file, "utf-8");
-      const imports = parseImports(src, file);
-      for (const call of findStorageCalls(src, file)) {
-        if (
-          !isScopedArg(call.keyArg, chainByModule.get(file)!, imports, chainByModule)
-        ) {
-          violations.push(
-            `${file.replace(`${REPO_ROOT}/`, "")}:${call.line}: ${call.keyArg}`,
-          );
-        }
+/** Run both scans over one tree and return every violation as `relpath:line: detail`. */
+const scanViolations = (root: string): string[] => {
+  const files = walkTs(root);
+  const chainByModule = new Map<string, Set<string>>();
+  for (const file of files) {
+    chainByModule.set(file, scopedChainsIn(readFileSync(file, "utf-8")));
+  }
+  const violations: string[] = [];
+  for (const file of files) {
+    const rel = file.slice(root.length).split(/[\\/]/).join("/");
+    const src = readFileSync(file, "utf-8");
+    const imports = parseImports(src, file);
+    for (const call of findStorageCalls(src, file)) {
+      if (!isScopedArg(call.keyArg, chainByModule.get(file)!, imports, chainByModule)) {
+        violations.push(`${rel}:${call.line}: ${call.keyArg}`);
       }
     }
-    expect(violations).toEqual([]);
+    for (const bare of findBareLocalStorage(src, file)) {
+      violations.push(`${rel}:${bare.line}: bare localStorage access (${bare.arg})`);
+    }
+  }
+  return violations;
+};
+
+describe("storage keys are scoped to the map container", () => {
+  it("every storage key and every localStorage access routes through platform/storage", () => {
+    expect(scanViolations(JS_ROOT)).toEqual([]);
+  });
+
+  it("rejects a module that reaches localStorage outside the wrapper", () => {
+    const root = mkdtempSync(join(tmpdir(), "foliplus-storage-guard-"));
+    try {
+      mkdirSync(join(root, "js", "platform"), { recursive: true });
+      mkdirSync(join(root, "js", "leaky"), { recursive: true });
+      // The wrapper itself may touch localStorage - it is exempt.
+      writeFileSync(
+        join(root, "js", "platform", "storage.ts"),
+        "export const read = (k: string) => window.localStorage.getItem(k);\n",
+      );
+      // A module that skips the wrapper and writes a key straight through it
+      // bypasses the map scope entirely - the guard must name it.
+      writeFileSync(
+        join(root, "js", "leaky", "cache.ts"),
+        "// leaky/cache - scratch read-through cache.\n" +
+          'const GHOST = "foliplus_layer_layout";\n' +
+          "export const peek = (): string | null =>\n" +
+          "  window.localStorage.getItem(GHOST);\n",
+      );
+      const found = scanViolations(join(root, "js"));
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain("cache.ts:");
+      expect(found[0]).toContain("leaky");
+      expect(found[0].endsWith("bare localStorage access (GHOST)")).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("rejects a deliberate global key (synthetic RED proof)", () => {

@@ -2529,6 +2529,43 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     expect(foldBtn.getAttribute("title")).toBe(ui.T("unfold_tooltip"));
   });
 
+  it("marks member rows GROUP_FOLDED when the folder is folded but the role is not", () => {
+    // The layer member inherits the folder's hidden state at render time
+    // (roleFolded || folderFolded). The folder is folded and the role stays
+    // expanded, so each member row must carry GROUP_FOLDED even though the
+    // role itself is not folded.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    ui.listPanel.foldedFolders["overlay::roads"] = true;
+    rebuildList(ui);
+    const member = (id: string) =>
+      ui.uiContainer!.querySelector(`[data-layer-id="${id}"]`) as HTMLElement;
+    expect(member("rd1").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    expect(member("rd2").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    // Unfold the folder: the members drop the marker.
+    ui.listPanel.foldedFolders = {};
+    rebuildList(ui);
+    expect(member("rd1").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+    expect(member("rd2").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+  });
+
   it("folder row reads active when a member is visible (ACTIVE class)", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
@@ -2725,5 +2762,49 @@ describe("ui/list row-order and tree-connector guards", () => {
     const icon = row!.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`);
     expect(icon).not.toBeNull();
     expect(icon!.innerHTML).toBe("");
+  });
+});
+
+describe("ui/list coverage gaps (#1282)", () => {
+  it("emptyFolderKeys falls back to an empty order when the role has no order key", () => {
+    // The role's block order may be absent (a role with no blocks yet): the
+    // candidate scan must fall back to [] instead of throwing on undefined.
+    const layout = {
+      version: 2,
+      folders: [],
+      order: { base: [] },
+      members: {},
+    };
+    const ui = {
+      c: {
+        folderLayoutView: layout,
+        layers: [],
+        layerRegistry: { get: () => undefined },
+      },
+    } as unknown as LayerUI;
+    expect(emptyFolderKeys(ui, "overlay")).toEqual([]);
+  });
+
+  it("renderLayerItem fills the type-icon column from a layer's iconSvg", () => {
+    // The direct branch: a layer carrying a custom iconSvg (from an explicit
+    // opts.iconSvg) paints that SVG into the type-icon column.
+    const { ui } = initFixture({ data: [] });
+    const custom: LayerInfo = {
+      id: "custom",
+      name: "Custom",
+      role: "overlay",
+      folder: "",
+      iconSvg:
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'><path d='M0 0h1v1H0z'/></svg>",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as LayerInfo;
+    let row: HTMLElement | null = null;
+    expect(() => {
+      row = renderLayerItem(ui, custom);
+    }).not.toThrow();
+    expect(row).not.toBeNull();
+    const icon = row!.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`);
+    expect(icon).not.toBeNull();
+    expect(icon!.innerHTML).toContain("<svg");
   });
 });

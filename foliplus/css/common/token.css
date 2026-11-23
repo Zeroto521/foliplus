@@ -145,6 +145,11 @@
   /* Deliberate: not --foliplus-dot-size. The thumb is a grab control, not a
      map/crop anchor dot. */
   --foliplus-slider-thumb-size: 14px;
+  /* Half a thumb: the one inset shared by the track (a parked thumb's outer
+     edge lands on the control's edge) and the dot-centred end labels (their
+     anchor sits on the parked thumb's centre). One token so the coordinate
+     space is explicit — a bare calc(thumb/2) anywhere else is a drift. */
+  --foliplus-slider-inset: calc(var(--foliplus-slider-thumb-size) / 2);
   /* Deliberate: not --foliplus-dot-size. Non-interactive readout dots
      (pointer-events: none) on the rail — smaller than the thumb so the thumb
      reads as the control. */
@@ -515,6 +520,14 @@
   --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
     minmax(var(--foliplus-count-track-min-width), var(--foliplus-count-track-width))
     var(--foliplus-space-xl) var(--foliplus-more-btn-width);
+  /* Fold arrow: the two poses of the chevron ICON_FOLD paints. The icon rests
+     right-pointing (collapsed) and turns 90deg to point down (expanded) - the
+     tree-list convention (VS Code file explorer, GitHub file tree, Ant Design
+     Tree). Both angles are named here, so row.css has no angle of its own and
+     the folder and container rows #1276 adds reuse the same turn. A 180deg spin
+     would be the popup-style inversion: up-when-expanded. */
+  --foliplus-fold-rot-rest: 0deg;
+  --foliplus-fold-rot-expanded: 90deg;
   --foliplus-layer-row-min-height: calc(
     var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
       var(--foliplus-line-height-hint)

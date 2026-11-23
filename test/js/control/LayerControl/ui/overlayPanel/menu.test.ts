@@ -405,6 +405,22 @@ describe("LayerUI menu", () => {
       expect(ui.overlayPanel.activeMenu).not.toBeNull();
     });
 
+    it("stays open when focus returns to the row that owns the menu", () => {
+      // The guard treats the owning row (and anything inside it) as "still
+      // inside": focus moving from a menu entry back onto the row itself must
+      // not dismiss, or the row's own focus state would close its menu.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: item }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
+    });
+
     it("closeMoreMenu(setFocus=true) returns focus to the layer row", () => {
       const item = findItem(ui, "overlay1");
       const focusSpy = vi.fn();
@@ -1752,6 +1768,87 @@ describe("LayerUI menu", () => {
       expect(actions).toContain(CONST.ACTION.DELETE_FOLDER);
       // Delete is the last entry of the folder menu.
       expect(actions[actions.length - 1]).toBe(CONST.ACTION.DELETE_FOLDER);
+    });
+
+    // ── coverage edges (internal guards, reached via the public surface) ──
+
+    it("a disabled entry with explainDisabled but no title shows no hint", () => {
+      // runMenuAction({ explainDisabled: true }) reports the reason via the
+      // entry's title; an entry with aria-disabled but no title has nothing to
+      // say, so no hint fires and the menu stays open.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.setAttribute("aria-disabled", "true");
+      li.removeAttribute("title");
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      runMenuAction(ui, li, { explainDisabled: true });
+      expect(hintSpy).not.toHaveBeenCalled();
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+
+    it("a disabled entry with explainDisabled and a title shows that title", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.setAttribute("aria-disabled", "true");
+      li.setAttribute("title", "why-not");
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      runMenuAction(ui, li, { explainDisabled: true });
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "why-not",
+        expect.any(Number),
+      );
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+    });
+
+    it("a disabled entry without explainDisabled is a silent no-op", () => {
+      // The click path passes no explainDisabled, so a disabled entry is skipped
+      // without a hint (the hint is the keyboard path's alone).
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const li = item.querySelector(
+        ".foliplus-layer-more-menu button[data-action='focus-layer']",
+      ) as HTMLElement;
+      li.setAttribute("aria-disabled", "true");
+      li.setAttribute("title", "why-not");
+      const hintSpy = vi.fn();
+      map.foliplus.showHint = hintSpy;
+      runMenuAction(ui, li);
+      expect(hintSpy).not.toHaveBeenCalled();
+    });
+
+    it("a layer menu focusout to a node outside the row closes it", () => {
+      // The focus-out guard returns early only while focus stays inside the
+      // owning row; moving to a node that is neither the row nor inside the menu
+      // dismisses. This is the guard's outside half for the layer menu.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      const elsewhere = document.createElement("div");
+      document.body.appendChild(elsewhere);
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: elsewhere }),
+      );
+      expect(ui.overlayPanel.activeMenu).toBeNull();
+      elsewhere.remove();
+    });
+
+    it("a layer menu focusout with a null relatedTarget closes it", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: null }),
+      );
+      expect(ui.overlayPanel.activeMenu).toBeNull();
     });
   });
 });
