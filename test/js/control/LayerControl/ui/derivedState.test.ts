@@ -151,19 +151,38 @@ describe("ui derived-state coherence — tree connector (delete path)", () => {
   const layoutFromRoles = (sections: Record<string, string[]>) => {
     const keys = new Set<string>();
     for (const list of Object.values(sections)) for (const k of list) keys.add(k);
-    return { version: 2, folders: [...keys].map(k => ({ key: k, name: k })), order: sections, members: {} };
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
   };
 
   const tree = (id: string): HTMLElement | null =>
-    attachedPanel(ui).querySelector(`[data-layer-id="${id}"] .${CONST.CLASSES.FOLD_TREE}`);
+    attachedPanel(ui).querySelector(
+      `[data-layer-id="${id}"] .${CONST.CLASSES.FOLD_TREE}`,
+    );
 
   beforeEach(() => {
     installLeafletGlobals();
     ({ manager, ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
-        { id: "rd1", name: "Roads", role: "overlay", folder: "roads", layer: polygonLayer() },
-        { id: "rd2", name: "Rivers", role: "overlay", folder: "roads", layer: polygonLayer() },
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
       ],
     }));
   });
@@ -186,7 +205,13 @@ describe("ui derived-state coherence — tree connector (delete path)", () => {
 
   it("registering a new member computes the new row's connector and leaves prior rows coherent", () => {
     expect(tree("rd2")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
-    manager.registerLayer({ id: "rd3", name: "Lakes", role: "overlay", folder: "roads", layer: polygonLayer() });
+    manager.registerLayer({
+      id: "rd3",
+      name: "Lakes",
+      role: "overlay",
+      folder: "roads",
+      layer: polygonLayer(),
+    });
     // New row at front: it is not the last member, so it must show MID, and
     // the prior last member (rd2) must remain LAST — the block order is
     // [rd3, rd1, rd2] because prepend() puts new overlays at index 0.
@@ -214,7 +239,12 @@ describe("ui derived-state mechanism — the barrier re-derives every dimension"
 
   it("registerLayer schedules a barrier that re-derives tree connectors", () => {
     const spy = vi.spyOn(ui, "refreshTreeConnectors");
-    manager.registerLayer({ id: "overlay2", name: "Late", role: "overlay", layer: polygonLayer() });
+    manager.registerLayer({
+      id: "overlay2",
+      name: "Late",
+      role: "overlay",
+      layer: polygonLayer(),
+    });
     expect(spy).toHaveBeenCalled();
   });
 

@@ -253,9 +253,7 @@ const UI_DATA_PROPS = new Set([
  *  served as-is; only the gaps are auto-stubbed. Data fields stay absent — see
  *  `UI_DATA_PROPS` — so a truthiness guard in the controller answers "there is
  *  no panel here" instead of "the panel is a function". */
-export const makeDerivedUI = (
-  overrides: Record<string, unknown> = {},
-): LayerUI => {
+export const makeDerivedUI = (overrides: Record<string, unknown> = {}): LayerUI => {
   const target: Record<string, unknown> = { ...overrides };
   return new Proxy(target, {
     get(t, prop: string) {

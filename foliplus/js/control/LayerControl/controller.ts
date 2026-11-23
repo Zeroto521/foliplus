@@ -1162,10 +1162,7 @@ class LayerController implements LayerAPI {
    *  DOM is already consistent, so a subscriber that listens for it (the
    *  toggle-all repaint) always reads current numbers.
    */
-  invalidateDerived(
-    operation: SettledOperation,
-    roles: Iterable<string> = [],
-  ): void {
+  invalidateDerived(operation: SettledOperation, roles: Iterable<string> = []): void {
     if (this.isDestroyed || !this.map?.getContainer()) return;
     const ui = this.ui;
     if (!ui) return;
