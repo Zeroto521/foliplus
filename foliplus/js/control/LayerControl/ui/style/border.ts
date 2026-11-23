@@ -1372,7 +1372,6 @@ const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
 export {
   applyBorderToLayer,
   replayDeclaredBorder,
-  hasBorderProvenance,
   authoredBorder,
   bindBorderRow,
   bindBorderRowShell,

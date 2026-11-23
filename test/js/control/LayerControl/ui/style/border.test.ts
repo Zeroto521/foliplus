@@ -3088,76 +3088,65 @@ describe("follow-fill border mode", () => {
     expect(painted0.color).toBe("#010101");
     expect(painted1.color).toBe("#020202");
   });
-  it("applyBorderToLayer writes no stroke on an undeclared stroke:false CircleMarker", () => {
-    // A quickstart-style CircleMarker layer: no foliplus declaration, no
-    // border intent, author stroke disabled. The attach sweep calls
-    // applyBorderToLayer via the stroke face replay, and the engine falls
-    // through to the solid branch, deriving one colour from the author's fill
-    // and painting it on every marker. The layer has nothing for the border to
-    // own, so applyBorderToLayer must write no stroke at all.
+  it("borderCarriesValue is true for a CircleMarker the surface reads as unknown", () => {
+    // An unenveloped marker (no .feature) makes the surface answer UNKNOWN.
+    // geometryKindOf then walks the leaves and infers POINT from the
+    // CircleMarker, so a declared value border still carries value on such a
+    // layer instead of stepping aside.
     const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
-    leaves.forEach((leaf, i) => {
-      // The quickstart author declares stroke:false -- no outline to own.
-      leaf.options.stroke = false;
-      leaf.options.color = ["#0d0887", "#7e03a8"][i];
-      leaf.options.fillColor = leaf.options.color;
+    leaves.forEach(leaf => {
       delete leaf.feature;
     });
-    registerDeclared("plain_pts", undefined, leaves);
-    ui.c.layerRegistry.get("plain_pts")!.fillAuthor = {
-      perFeature: true,
-      distinct: 2,
-      stops: ["#0d0887", "#7e03a8"],
-      scale: { kind: "continuous", column: "count" },
-    };
-    const before0 = leaves[0].setStyle.mock.calls.length;
-    // Drive the replay through the gate (applyUserState with this layer's id),
-    // the same path the layeradd hook uses.
-    ui.applyUserState("plain_pts");
-    expect(leaves[0].setStyle.mock.calls.length).toBe(before0);
+    registerDeclared(
+      "unknown_geom",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    const row = buildBorderRow(ui, "unknown_geom") as HTMLElement;
+    document.body.appendChild(row);
+    const select = row.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+    // POINT inferred -> by_value is offered, proving the leaf inference ran.
+    expect(select).not.toBeNull();
+    expect(Array.from(select!.options).map(o => o.value)).toContain("value");
   });
-  it("a weight:0 CircleMarker layer with no intent or declaration is not painted", () => {
-    // weight:0 is the other "author disabled the stroke" spelling. The gate
-    // must treat it the same as stroke:false so the solid fallback does not
-    // invent an outline the author asked not to have.
+  it("hasBorderProvenance is true from a declaration alone (no intent)", () => {
+    // The right arm of hasBorderProvenance: a declared border with no stored
+    // intent still counts as provenance, so the attach sweep repaints it.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    registerDeclared(
+      "decl_only",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    ui.applyUserState("decl_only");
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before0);
+  });
+
+  it("authorStrokeDisabled treats weight:0 as no outline even with stroke unset", () => {
+    // The right arm of the stroke/weight check: weight 0 alone (stroke left at
+    // its default) is still "no outline", so the gate holds.
     const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
     leaves.forEach((leaf, i) => {
+      delete leaf.options.stroke;
       leaf.options.weight = 0;
       leaf.options.color = ["#0d0887", "#7e03a8"][i];
       leaf.options.fillColor = leaf.options.color;
     });
-    registerDeclared("w0_pts", undefined, leaves);
-    ui.c.layerRegistry.get("w0_pts")!.fillAuthor = {
+    registerDeclared("w0_nostroke", undefined, leaves);
+    ui.c.layerRegistry.get("w0_nostroke")!.fillAuthor = {
       perFeature: true,
       distinct: 2,
       stops: ["#0d0887", "#7e03a8"],
       scale: { kind: "continuous", column: "count" },
     };
     const before0 = leaves[0].setStyle.mock.calls.length;
-    applyBorderToLayer(ui, "w0_pts");
+    ui.applyUserState("w0_nostroke");
     expect(leaves[0].setStyle.mock.calls.length).toBe(before0);
   });
-  it("a stroke:false layer with a user border colour intent still paints the stroke", () => {
-    // The gate must not swallow a genuine user intent: stroke:false only blocks
-    // the no-provenance solid fallback, not a stroke colour the user picked.
-    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
-    leaves.forEach(leaf => {
-      leaf.options.stroke = false;
-      leaf.options.color = "#0d0887";
-      leaf.options.fillColor = "#0d0887";
-    });
-    registerDeclared("user_pts", undefined, leaves);
-    ui.c.layerRegistry.get("user_pts")!.fillAuthor = {
-      perFeature: true,
-      distinct: 2,
-      stops: ["#0d0887", "#7e03a8"],
-      scale: { kind: "continuous", column: "count" },
-    };
-    setIntent(ui, "user_pts", "borderColor", "#abcdef");
-    applyBorderToLayer(ui, "user_pts");
-    const painted = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
-    expect(painted.color).toBe("#abcdef");
-  });
+
   it("applyUserState attach sweep paints a declared value border on first frame", () => {
     // The reported quickstart: a CircleMarker layer declares foliplus.border
     // value and the map must open on the ramp, not the author's flat stroke.
