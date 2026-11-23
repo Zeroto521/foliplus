@@ -46,13 +46,10 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.focus_no_bounds",
     # withNoun(ui, key, noun) in ui/noun.ts — the sentence key is a parameter,
     # and the noun itself is built as `noun_${noun}`.
-    "LayerControl.focus_tooltip",
     "LayerControl.rename_tooltip",
     "LayerControl.rename_placeholder",
-    "LayerControl.noun_layer",
     "LayerControl.noun_role",
     # withNoun(ui, "more_tooltip", noun) — the sentence key is a parameter.
-    "LayerControl.more_tooltip",
     # showDragHint(ui, key) in ui/listPanel/drag.ts — the key is a parameter.
     "LayerControl.same_role_only",
     "LayerControl.no_nest",
