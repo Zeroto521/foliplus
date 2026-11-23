@@ -651,7 +651,7 @@ describe("createInlineEditInput — repeated open", () => {
   });
 });
 
-describe("createInlineEditInput — first open on a fresh label (task-70)", () => {
+describe("createInlineEditInput — first open on a fresh label (#1282)", () => {
   it("records the original text the first time a label is opened", () => {
     // The guard records the text only on the first open. A fresh label has no
     // WeakMap entry, so the has() branch is false and the original is captured.

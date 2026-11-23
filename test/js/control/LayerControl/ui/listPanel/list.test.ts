@@ -2728,7 +2728,7 @@ describe("ui/list row-order and tree-connector guards", () => {
   });
 });
 
-describe("ui/list coverage gaps (task-70)", () => {
+describe("ui/list coverage gaps (#1282)", () => {
   it("emptyFolderKeys falls back to an empty order when the role has no order key", () => {
     // The role's block order may be absent (a role with no blocks yet): the
     // candidate scan must fall back to [] instead of throwing on undefined.
