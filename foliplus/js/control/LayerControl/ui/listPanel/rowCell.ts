@@ -1,4 +1,4 @@
-// LayerControl/ui/listPanel/rowCells — shared row cell construction.
+// LayerControl/ui/listPanel/rowCell — shared row cell construction.
 //
 // The leaf row, the folder row, the role (toggle-all) row and the group child
 // row each render the same column vocabulary: rail, checkbox, count, type

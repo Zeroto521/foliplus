@@ -157,6 +157,22 @@ describe("group expand", () => {
     );
     expect(removedGroup).toBe(false);
   });
+
+  it("unchecking an EMPTY group row removes the group itself (browser reload P1)", () => {
+    installLeafletGlobals();
+    const fg = makeGroup([]);
+    manager.registerLayer({ id: "fg", name: "Empty", role: "overlay", layer: fg });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    const row = groupRow();
+    const cb = row!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    cb.checked = false;
+    cb.dispatchEvent(new Event("change", { bubbles: true }));
+    // An empty container has no children to remove individually — the group
+    // itself is the map entry and must leave.
+    expect(map.removeLayer).toHaveBeenCalledWith(fg);
+  });
 });
 
 describe("group expand — defensive rails", () => {

@@ -19,7 +19,7 @@ import {
   buildMoreBtn,
   buildRailCell,
   buildTypeIconCol,
-} from "./rowCells.js";
+} from "./rowCell.js";
 import {
   applyRowView,
   buildRowCell,

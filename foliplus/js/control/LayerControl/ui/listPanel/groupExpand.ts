@@ -29,7 +29,7 @@ import {
   buildMoreBtn,
   buildRailCell,
   buildTypeIconCol,
-} from "./rowCells.js";
+} from "./rowCell.js";
 import { countLabelTitle, countTooltip, roleCountText } from "./rowView.js";
 import {
   childrenOf,

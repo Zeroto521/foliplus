@@ -265,6 +265,18 @@ const dispatchStateOp = (
         // child-level write is the one the count actually reports.
         if (isGroupRow(layerInfo, layer)) {
           const children = childrenOf(layer);
+          // An empty container has no children to add/remove individually —
+          // the group itself IS the map entry (folium re-adds the FeatureGroup
+          // object on reload), so fall back to treating the group as the unit.
+          if (children.length === 0) {
+            const has = ui.c.map.hasLayer(layer);
+            if (op.value !== has) {
+              if (op.value) ui.c.map.addLayer(layer);
+              else ui.c.map.removeLayer(layer);
+              return true;
+            }
+            return false;
+          }
           let wrote = false;
           for (const child of children) {
             const has = ui.c.map.hasLayer(child);
