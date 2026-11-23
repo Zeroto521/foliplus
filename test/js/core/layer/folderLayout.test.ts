@@ -1133,10 +1133,6 @@ describe("folder drag across root rows (P1 #1289)", () => {
   // A clean localStorage layout: no order, no members. The author declares the
   // folder; root1/root2 are unassigned roots. The folder's member sits between
   // the two roots by registration order.
-  const layout: FolderLayout = {
-    ...emptyFolderLayout(),
-    folders: [{ key: "roads", name: "Roads" }],
-  };
   const entries = [
     entry("root1", "overlay", null, 0),
     entry("a", "overlay", "Roads", 1),
