@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 import folium
-from conftest import _js, load_geojson, make_browser_page, use_page
+from conftest import _js, load_geojson, make_browser_page, snippet, use_page
 
 from foliplus import LayerControl
 
@@ -124,12 +124,7 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             page.wait_for_timeout(400)
 
             def get_folder_names():
-                return page.evaluate(
-                    """() => Array.from(
-                        document.querySelectorAll('.foliplus-layer-item-folder')
-                    ).map(el => el.getAttribute('data-folder-key'))
-                    """
-                )
+                return page.evaluate(snippet("LayerControl/folder_names"))
 
             before = get_folder_names()
             assert len(before) >= 2, f"expected 2+ folder rows, got {before}"

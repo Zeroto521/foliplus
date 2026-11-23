@@ -2389,7 +2389,7 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     });
     const row = attachedPanel(ui).querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
-    ) as HTMLElement | null;
+    ) as HTMLElement;
     const before = row.className;
     handleDragOver(ui, dragEvent(row));
     expect(row.className).toBe(before);

@@ -388,7 +388,15 @@ const roleBlocks = (
   const slots: Slot[] = [];
   for (const block of [...folders.values()]) {
     if (listedKeys.has(block.key)) continue;
-    slots.push({ at: block.anchor, block: { kind: "folder", key: block.key, displayName: block.displayName, members: block.members } });
+    slots.push({
+      at: block.anchor,
+      block: {
+        kind: "folder",
+        key: block.key,
+        displayName: block.displayName,
+        members: block.members,
+      },
+    });
   }
   for (const info of rootLayers) {
     if (listedKeys.has(rootLayerEntry(info.id))) continue;
