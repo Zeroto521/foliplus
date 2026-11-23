@@ -84,6 +84,15 @@ describe("event-origin: bus calls must carry an origin", () => {
     );
     expect(v).toHaveLength(0);
   });
+  it("ignores a call whose event arg is not an EVENTS member", () => {
+    // The eventNameOf arm: only `EVENTS.UPPER_SNAKE` spells a semantic event.
+    // A lower-case member (`EVENTS.foo`) is not a bus event name — the checker
+    // returns null and the call is not scanned for an origin, so no violation.
+    const v = check(
+      "const bus = new EventBus();\n" + 'bus.emit(EVENTS.notAnEvent, { id: "a" });\n',
+    );
+    expect(v).toHaveLength(0);
+  });
   it("flags a publish whose origin slot holds a non-origin value", () => {
     // A trailing argument that is neither an object literal, an identifier nor
     // a property access (here: a numeric literal) is not an origin — `isOriginArg`
@@ -147,6 +156,55 @@ describe("event-origin: scan and CLI", () => {
     }
   });
 
+  it("runCli falls back to the process working directory when argv is empty", () => {
+    // The `argv[0] || process.cwd()` default: runCli() with no explicit root
+    // scans the process working directory. Vitest workers cannot chdir, so
+    // point `process.cwd` at a clean throwaway instead — the fallback arm is
+    // what runs, not a chdir.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "evorigin-cwd-"));
+    try {
+      fs.mkdirSync(path.join(root, "foliplus", "js"), { recursive: true });
+      fs.writeFileSync(path.join(root, "foliplus/js", "clean.ts"), CLEAN);
+      const cwd = vi.spyOn(process, "cwd").mockReturnValue(root);
+      const log = vi.spyOn(console, "log").mockImplementation(() => {});
+      try {
+        // Pass an empty argv: the default `process.argv.slice(2)` would carry
+        // vitest's own args, and a truthy argv[0] would skip the fallback.
+        expect(runCli([])).toBe(0);
+        expect(cwd).toHaveBeenCalled();
+      } finally {
+        cwd.mockRestore();
+        log.mockRestore();
+      }
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("scan walks nested directories and ignores non-TypeScript files", () => {
+    // The walk recurses into subdirectories (the `entry.isDirectory` arm) and
+    // skips files that do not end in .ts (the non-TypeScript arm): a .css or
+    // .json file in the tree is never scanned for bus calls.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "evorigin-walk-"));
+    try {
+      fs.mkdirSync(path.join(root, "foliplus", "js", "core", "layer"), {
+        recursive: true,
+      });
+      fs.writeFileSync(path.join(root, "foliplus/js/core/layer", "nested.ts"), BAD);
+      fs.writeFileSync(path.join(root, "foliplus/js", "styles.css"), BAD);
+      fs.writeFileSync(path.join(root, "foliplus/js", "manifest.json"), BAD);
+      const v = scan(root);
+      // Only the .ts file inside the nested directory is scanned — the .css
+      // and .json files sit at the top of the tree, are skipped, and would
+      // otherwise each report the same violation three times over.
+      expect(v).toHaveLength(1);
+      // `scan` reports paths with forward slashes regardless of the host
+      // separator, so the nested file is named with `/` throughout.
+      expect(v[0].file).toBe("foliplus/js/core/layer/nested.ts");
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
   it("runCli exits 1, names each violation and counts them", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "evorigin-cli-bad-"));
     try {
