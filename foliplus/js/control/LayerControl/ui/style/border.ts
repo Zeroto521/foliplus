@@ -1290,7 +1290,16 @@ const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
   for (const key of BORDER_INTENT_KEYS) {
     if (getIntent(ui, layerId, key) !== undefined) return;
   }
-  if (declaredBorderMode(ui, layerId) !== STYLE_MODE.FOLLOW_FILL) return;
+  // Both declared border modes are read-time defaults the provenance sweep
+  // never reaches, so the attach replay owns both: a follow_fill border and a
+  // value (colormap) border would otherwise open on the author's flat stroke
+  // until the first panel touch. The declared value border replays on attach
+  // like the declared fill does. A declared value steps aside on a
+  // channel that cannot paint it (polygon/point outline) inside
+  // declaredBorderMode, so applying here is a no-op there — same honest
+  // degradation a stored value gets.
+  const declared = declaredBorderMode(ui, layerId);
+  if (declared !== STYLE_MODE.FOLLOW_FILL && declared !== STYLE_MODE.VALUE) return;
   let painted = declaredReplayed.get(ui);
   if (painted?.has(layerId)) return;
   applyBorderToLayer(ui, layerId);

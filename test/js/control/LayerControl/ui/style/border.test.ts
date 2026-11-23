@@ -3007,6 +3007,33 @@ describe("follow-fill border mode", () => {
     replayDeclaredBorder(ui, "drep4");
     expect(leaves[0].setStyle).not.toHaveBeenCalled();
   });
+  it("replayDeclaredBorder paints a declared value (colormap) border on attach", () => {
+    // A declared value border is a read-time default like follow_fill: the
+    // attach sweep is the only pass that reaches it, so without a replay arm
+    // the map opens on the author's flat stroke and only a style-mode round
+    // trip paints the ramp (task-147). The replay must apply the classified
+    // stroke, not skip it.
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    registerDeclared(
+      "dval1",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    // Registration itself must not paint the border: the ramp reaches the map
+    // only through the attach replay, so assert on the delta not the absolute.
+    const before = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "dval1");
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before);
+    // The classified stroke carries a real colour (the ramp), not the flat
+    // author stroke the leaf was created with.
+    // The classified stroke carries a real ramp colour, not the flat author
+    // stroke the leaf was created with — assert the concrete Reds values
+    // (leaf0=#010101, leaf1=#020202) so a solid or no-op paint cannot pass.
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
   // declared value (foliplus.border value mode)
   // The declaration is a read-time value default: no stored intent - the
   // border shows and classifies by the author's declared field/config.
