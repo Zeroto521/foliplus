@@ -3034,6 +3034,31 @@ describe("follow-fill border mode", () => {
     expect(painted0.color).toBe("#010101");
     expect(painted1.color).toBe("#020202");
   });
+  it("replayDeclaredBorder paints a declared value border on a CircleMarker (point) at attach", () => {
+    // The reported case: a CircleMarker declares a value (colormap) border and
+    // the author expects the ramp on the stroke at attach. Point geometry is
+    // value-carrying like a line — the border is the marker's own outline and
+    // classifies per marker (polygon stays follow-fill-only by contract).
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      leaf.feature.properties.count = i + 1;
+    });
+    registerDeclared(
+      "dval_point",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "dval_point");
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before0);
+    // The ramp lands on the stroke, not the flat author colour — assert the
+    // concrete Reds scheme values
+    // (marker 0=#010101, marker 1=#020202) so a solid or no-op paint cannot pass.
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
   // declared value (foliplus.border value mode)
   // The declaration is a read-time value default: no stored intent - the
   // border shows and classifies by the author's declared field/config.
@@ -3439,23 +3464,29 @@ describe("border options per geometry", () => {
     ]);
   });
 
-  // Polygon and point share one rule: a border that outlines a filled face
-  // offers follow-fill, and never by-value. One table drives both so a change
-  // to the outline contract cannot be applied to one geometry and forgotten on
-  // the other (the drift that made this matrix red after follow-fill landed).
-  it.each(["polygon", "point"] as const)(
-    "%s: { original, single, follow-fill } — never by-value",
-    kind => {
-      const id = `g_${kind}`;
-      registerGeometryLayer(id, kind);
-      expectGeometryType(id, kind);
-      expect(modeValues(openBorderRow(id))).toEqual([
-        STYLE_MODE.ORIGINAL,
-        STYLE_MODE.SOLID,
-        STYLE_MODE.FOLLOW_FILL,
-      ]);
-    },
-  );
+  // Polygon only: a border that outlines a filled face offers follow-fill and
+  // never by-value (the fill behind it classifies; the outline does not).
+  it("polygon: { original, single, follow-fill } — never by-value", () => {
+    registerGeometryLayer("g_polygon", "polygon");
+    expectGeometryType("g_polygon", "polygon");
+    expect(modeValues(openBorderRow("g_polygon"))).toEqual([
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.FOLLOW_FILL,
+    ]);
+  });
+  // Point carries value like a line: a CircleMarker's stroke is the marker's
+  // own outline and classifies per marker, so by-value IS offered (the
+  // reported colormap-border case).
+  it("point: { original, single, value } — a marker stroke classifies", () => {
+    registerGeometryLayer("g_point", "point");
+    expectGeometryType("g_point", "point");
+    expect(modeValues(openBorderRow("g_point"))).toEqual([
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.VALUE,
+    ]);
+  });
   it("the column is the DIM single source (border)", () => {
     expect(DIM.BORDER).toBe("border");
     registerGeometryLayer("g_dim", "line");

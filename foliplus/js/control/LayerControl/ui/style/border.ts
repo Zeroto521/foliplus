@@ -914,10 +914,15 @@ const displayBorderMode = (ui: LayerUI, layerId: string): StyleMode =>
   resolveDisplayMode(borderSpec(ui, layerId));
 
 /** Whether the border face can paint by value: the border is the element's
- *  own primary colour only on a line. Polygon/point borders are the outline
- *  and never classify by value (two states only: original + single). */
-const borderCarriesValue = (ui: LayerUI, layerId: string): boolean =>
-  geometryKindOf(ui, layerId) === GEOM_TYPE.LINE;
+ *  own primary colour on a line and on a point (a CircleMarker's stroke is the
+ *  marker's own outline and classifies per marker), so both carry value. A
+ *  polygon's border is only the outline of a filled face — it never
+ *  classifies by value and follows the fill instead (two states only:
+ *  original + single). */
+const borderCarriesValue = (ui: LayerUI, layerId: string): boolean => {
+  const kind = geometryKindOf(ui, layerId);
+  return kind === GEOM_TYPE.LINE || kind === GEOM_TYPE.POINT;
+};
 
 /** The geometry category of a border-capable layer, resolved from the
  *  surface (never a layer-name/type-string guess). */
@@ -1295,9 +1300,9 @@ const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
   // value (colormap) border would otherwise open on the author's flat stroke
   // until the first panel touch. The declared value border replays on attach
   // like the declared fill does. A declared value steps aside on a
-  // channel that cannot paint it (polygon/point outline) inside
-  // declaredBorderMode, so applying here is a no-op there — same honest
-  // degradation a stored value gets.
+  // channel that cannot paint it (a polygon's outline; a point's stroke
+  // carries value) inside declaredBorderMode, so applying here is a no-op
+  // there — same honest degradation a stored value gets.
   const declared = declaredBorderMode(ui, layerId);
   if (declared !== STYLE_MODE.FOLLOW_FILL && declared !== STYLE_MODE.VALUE) return;
   let painted = declaredReplayed.get(ui);
