@@ -112,9 +112,10 @@ interface SurfaceFaceOpts {
 }
 
 /** Whether a node enumerates children. `eachLayer`, not `isGroupLike`: the pin
- *  walk must treat "container" exactly as the move it delegates to does, and a
- *  non-Leaflet wrapper carrying only `_layers` is a leaf here. */
-const isContainer = (node: PinnableNode): boolean =>
+ *  walk must treat a child-bearing node exactly as the move it delegates to does, and a
+ *  non-Leaflet wrapper carrying only `_layers` is a leaf here.
+ *  Named `isChildBearing` to stay clear of the group-vocab `container` guard. */
+const isChildBearing = (node: PinnableNode): boolean =>
   typeof node.eachLayer === "function";
 
 /** The declaration inputs that decide a surface's pane set. Compared by
@@ -550,7 +551,7 @@ class LayerSurface implements LayerSurfaceContract {
   /** The cached geometry type this surface's layer resolves to. Base and
    *  iconSvg layers short-circuit in the manager — this only handles the
    *  ordinary data-layer case. A null result is also cached: an empty or
-   *  mixed-geometry container has a stable answer until its content changes,
+   *  mixed-geometry group has a stable answer until its content changes,
    *  which is what `invalidate()` is for. */
   private cachedGeometryType: string | null = null;
   private geometryTypeCached = false;
@@ -800,7 +801,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.auditCarrier();
       return;
     }
-    if (!isContainer(this.layer as PinnableNode)) {
+    if (!isChildBearing(this.layer as PinnableNode)) {
       // A declared pane on a flat layer is still ours to place: the layer
       // itself carries the pane, and its element needs moving when it is
       // already attached. The shadow rides our shadow pane exactly as on the
@@ -819,7 +820,7 @@ class LayerSurface implements LayerSurfaceContract {
       this.auditCarrier();
       return;
     }
-    // A declared pane on a container is for the record: Leaflet ignores a
+    // A declared pane on a group is for the record: Leaflet ignores a
     // group's pane for its children (they are routed by whoever declared them,
     // e.g. createLayers), so the surface must not recurse — that would collapse
     // every leaf onto the base pane. The one exception is shadows: they carry
@@ -859,7 +860,7 @@ class LayerSurface implements LayerSurfaceContract {
     this.capabilities.markerColor = probe.markerColor;
     // A pane write is honest only while every visible leaf belongs to a
     // family the migrator relocates AND we actually hold a base pane. An
-    // empty container stays provisional-true: its leaves arrive later and
+    // empty group stays provisional-true: its leaves arrive later and
     // are re-audited on the next dirty cycle.
     // The carrier is the surface's own content pane — the synthesized target
     // or the declared base — not "any booked pane": an label/shadow-only
@@ -1070,7 +1071,7 @@ const detectCapabilities = (
 
   // The pane carrier is real for this surface when the FULL tree audits
   // migratable — every visible leaf belongs to a family the migrator
-  // relocates. An empty container is provisional (its leaves arrive later
+  // relocates. An empty group is provisional (its leaves arrive later
   // and are re-audited on the next dirty cycle); the first unknown leaf — a
   // plugin with its own getElement, a canvas painter that never joins a
   // pane — flips the answer, because promising "pane" there would advertise

@@ -322,12 +322,14 @@ const isRootLayer = (layout: FolderLayout, entry: LayerInfo): boolean => {
   return !entry.folder;
 };
 
-/** The two-segment display order for one role:
- *  (1) listed folders in layout.order[role] list order, (2) unlisted
- *  folders by anchor ascending appended after them, (3) root layers (no
- *  folder) in anchor order at the end. `registryEntries` is the WHOLE
- *  registry in anchor (registration) order so the global array index is the
- *  anchor axis. Pure: never mutates its inputs. */
+/** The block display order for one role:
+ *  (1) listed blocks in layout.order[role] list order, then (2+3) the
+ *  unlisted folder blocks and unlisted root layers merged by registry
+ *  anchor ascending — a single sorted pass, so a root layer registered
+ *  between two author-declared folders sits between their blocks instead
+ *  of after every folder. `registryEntries` is the WHOLE registry in anchor
+ *  (registration) order so the global array index is the anchor axis.
+ *  Pure: never mutates its inputs. */
 /** One role's ordered blocks: folder blocks (empty ones included) and root
  *  layers, in the order the panel paints them.
  *
@@ -349,10 +351,16 @@ const roleBlocks = (
   const folders = groupByFolder(registryEntries, role, layout);
   const listed = layout.order[role] ?? [];
   const listedKeys = new Set(listed);
-  const rootLayers = registryEntries.filter(
-    entry => entry.role === role && isRootLayer(layout, entry),
-  );
-  const rootById = new Map(rootLayers.map(entry => [entry.id, entry]));
+  // Root layers carry their own registry index (the anchor axis) so the merge
+  // pass needs no lookup map - 'at' IS the registry index, exactly what the
+  // indexById map used to resolve, and no unreachable fallback can hide.
+  const rootLayers: { at: number; info: LayerInfo }[] = [];
+  registryEntries.forEach((entry, idx) => {
+    if (entry.role === role && isRootLayer(layout, entry)) {
+      rootLayers.push({ at: idx, info: entry });
+    }
+  });
+  const rootById = new Map(rootLayers.map(({ info }) => [info.id, info]));
   const out: RoleBlock[] = [];
   // 1. The listed block order. An entry is a folder key or `layer:<id>`, so a
   //    root layer can sit between two folder blocks instead of only after all
@@ -375,24 +383,32 @@ const roleBlocks = (
       members: block?.members ?? [],
     });
   }
-  // 2. Unlisted folders, by anchor.
-  const rest = [...folders.values()]
-    .filter(block => !listedKeys.has(block.key))
-    .sort((a, b) => a.anchor - b.anchor);
-  for (const block of rest) {
-    out.push({
-      kind: "folder",
-      key: block.key,
-      displayName: block.displayName,
-      members: block.members,
+  // 2+3. Unlisted folders and root layers, merged by anchor. The anchor is the
+  //    registry index (groupByFolder stores it as block.anchor; root layers
+  //    carry it directly). A single sorted pass avoids the two-segment split
+  //    where every unlisted folder always preceded every unlisted root layer
+  //    regardless of registration order — the root cause of the
+  //    author-declared-folder-order bug.
+  type Slot = { at: number; block: RoleBlock };
+  const slots: Slot[] = [];
+  for (const block of [...folders.values()]) {
+    if (listedKeys.has(block.key)) continue;
+    slots.push({
+      at: block.anchor,
+      block: {
+        kind: "folder",
+        key: block.key,
+        displayName: block.displayName,
+        members: block.members,
+      },
     });
   }
-  // 3. Root layers the order does not name, in registry order.
-  for (const info of rootLayers) {
-    if (!listedKeys.has(rootLayerEntry(info.id))) {
-      out.push({ kind: "layer", info });
-    }
+  for (const { at, info } of rootLayers) {
+    if (listedKeys.has(rootLayerEntry(info.id))) continue;
+    slots.push({ at, block: { kind: "layer", info } });
   }
+  slots.sort((a, b) => a.at - b.at);
+  for (const slot of slots) out.push(slot.block);
   return out;
 };
 
@@ -417,24 +433,6 @@ const fullDisplayOrder = (
   ...roleOrder("base", registryEntries, layout),
 ];
 
-/** Materialise one role's WHOLE folder-key order before a folder is about
- *  to lose its last member. Listed keys stay in list order; unlisted keys are
- *  appended by anchor (min member global index); the frozen key is guaranteed
- *  present. The emptied folder's block then survives at its frozen position
- *  (the clean button can still reach it). Pure: returns a new layout. */
-const listedRoleOrder = (
-  layout: FolderLayout,
-  role: LayerRole,
-  registryEntries: readonly LayerInfo[],
-): string[] => {
-  const listed = folderEntries(layout.order[role] ?? []);
-  const folders = groupByFolder(registryEntries, role, layout);
-  const unlisted = [...folders.keys()]
-    .filter(k => !listed.includes(k))
-    .sort((a, b) => folders.get(a)!.anchor - folders.get(b)!.anchor);
-  return [...listed, ...unlisted];
-};
-
 /** The role's block order with every folder it holds listed, in anchor order.
  *  Author-declared folders live in `members`, not in `order`, so a role whose
  *  folders are all author-declared has an empty order; this is the one place
@@ -445,12 +443,14 @@ const freezeRoleOrder = (
   registryEntries: readonly LayerInfo[],
   key: string,
 ): FolderLayout => {
-  const frozen = listedRoleOrder(layout, role, registryEntries);
+  // The block order is single-sourced from roleBlocks (the merge-by-anchor
+  // result) — the SAME sequence seedBlockOrder returns. Root-layer entries stay
+  // interleaved with folder blocks at their anchor positions instead of being
+  // pushed to the tail, and the frozen key is guaranteed present (an emptied
+  // folder's block must survive at its position for the clean button to reach).
+  const frozen = seedBlockOrder(layout, role, registryEntries);
   if (!frozen.includes(key)) frozen.push(key);
-  // Root-layer entries are not folders: they keep their place at the tail of
-  // the frozen order rather than being dropped by the folder-only rebuild.
-  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
-  return { ...layout, order: { ...layout.order, [role]: [...frozen, ...roots] } };
+  return { ...layout, order: { ...layout.order, [role]: frozen } };
 };
 
 /** Merge the author's declared grouping into a layout: folder directory from
@@ -494,9 +494,9 @@ const mergeDeclaredFolders = (
  *  it to the identity directory. Same-role duplicates (directory, order or
  *  live member) are refused. Pure: returns the same layout on a no-op.
  *
- *  Pass `registryEntries` to append after the folders the role already holds:
- *  an author-declared folder lives in `members`, not in `order`, so appending
- *  to an empty order would sort the new folder ahead of every existing one. */
+ *  Pass `registryEntries` to seed the block order from roleBlocks (the
+ *  merge-by-anchor result): root layers keep their anchor slots instead of
+ *  being pushed to the tail after every folder. */
 const createFolder = (
   layout: FolderLayout,
   role: LayerRole,
@@ -505,13 +505,10 @@ const createFolder = (
 ): FolderLayout => {
   const key = normalizeFolderName(name);
   if (key === "") return layout;
-  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
-  const order = [
-    ...(registryEntries
-      ? listedRoleOrder(layout, role, registryEntries)
-      : folderEntries(layout.order[role] ?? [])),
-    ...roots,
-  ];
+  // Single-source the existing block order from roleBlocks (the merge-by-anchor
+  // result), exactly as freezeRoleOrder does: root layers keep their anchor
+  // slots instead of being pushed to the tail after every folder.
+  const order = seedBlockOrder(layout, role, registryEntries ?? []);
   if (order.includes(key)) return layout; // same-role duplicate refused
   // A different role may already hold this key: base and overlay folders
   // with the same name are two different folders (role-scoped identity).

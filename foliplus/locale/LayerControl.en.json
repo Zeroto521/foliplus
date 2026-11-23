@@ -140,7 +140,7 @@
   "LayerControl.filter_clear_disabled": "No filter to clear",
   "LayerControl.filter_row_title": "{kept} / {total} filtered · {type}",
   "LayerControl.filter_empty": "No filterable fields on this layer",
-  "LayerControl.container_no_style_filter": "Style and filter are not supported on a layer group.",
+  "LayerControl.group_no_style_filter": "Style and filter are not supported on a layer group.",
   "LayerControl.filter_enum_truncated": "Showing the first 50 of the values in this field",
   "LayerControl.style_border_mode": "Border Mode",
   "LayerControl.style_border_follow_fill": "Follow Fill",

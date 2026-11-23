@@ -141,6 +141,26 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(created.order.overlay).toEqual(["roads", "water", "facilities"]);
   });
 
+  it("createFolder keeps root layers interleaved at their anchor slots (P2 #1289)", () => {
+    // Same P1 scenario but the folder is created AFTER the layout is seeded:
+    // root1/member a/root2, then the user adds a new folder. The roots must stay
+    // interleaved, not be pushed to the tail after every folder.
+    const entries = [
+      entry("root1", "overlay", null, 0),
+      entry("a", "overlay", "Roads", 1),
+      entry("root2", "overlay", null, 2),
+    ] as LayerInfo[];
+    const layout = seedFolderLayout(entries);
+    expect(layout.order.overlay).toBeUndefined();
+    const created = createFolder(layout, "overlay", "New Roads", entries);
+    expect(created.order.overlay).toEqual([
+      "layer:root1",
+      "roads",
+      "layer:root2",
+      "new roads",
+    ]);
+  });
+
   it("moveLayerToRootAt places the layer between two listed folder blocks", () => {
     const entries = [
       entry("a", "overlay", "Alpha", 0),
@@ -180,13 +200,6 @@ describe("createFolder / renameFolder / deleteFolder", () => {
 
     expect(layout.order.overlay).toEqual([]);
     expect(layout.members.a).toBeUndefined();
-  });
-
-  it("createFolder without the registry keeps the plain append", () => {
-    let layout = emptyFolderLayout();
-    layout = createFolder(layout, "overlay", "Roads");
-    layout = createFolder(layout, "overlay", "Water");
-    expect(layout.order.overlay).toEqual(["roads", "water"]);
   });
 
   it("renameFolder rewrites only the display name, keeping the identity key and order in place", () => {
@@ -286,7 +299,9 @@ describe("freezeRoleOrder", () => {
       ] as LayerInfo[],
       "roads",
     );
-    expect(layout.order.overlay).toEqual(["roads"]);
+    // The freeze preserves the unlisted root layer at its anchor position
+    // instead of dropping it (single-source with seedBlockOrder).
+    expect(layout.order.overlay).toEqual(["roads", "layer:b"]);
   });
 });
 
@@ -487,7 +502,7 @@ describe("pure helper coverage", () => {
     expect(map.get("roads")!.members.map(m => m.id)).toEqual(["a", "b"]);
   });
 
-  it("roleOrder lists listed keys first then unlisted by anchor, and roots last", () => {
+  it("roleOrder lists listed keys first, then unlisted folders and roots merged by anchor", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],
@@ -503,7 +518,70 @@ describe("pure helper coverage", () => {
       entry("c", "overlay", "Water", 2),
     ] as LayerInfo[];
     const order = roleOrder("overlay", entries, layout);
-    expect(order.map(e => e.id)).toEqual(["a", "c", "b"]);
+    expect(order.map(e => e.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("unlisted author folders and root layers merge by registry anchor", () => {
+    // A root layer registered BETWEEN two author-declared folders must sit
+    // between their blocks. The two-segment order (all unlisted folders,
+    // then all roots) would bucket both folders first regardless of
+    // registration order — the author-declared-folder-order bug. The
+    // merge-by-anchor order follows the registry index, so root2 (registered
+    // at 2) lands between roads (anchor 1) and water (anchor 3).
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [
+        { key: "roads", name: "Roads" },
+        { key: "water", name: "Water" },
+      ],
+      // Author-declared folders live in members, NOT in order: the role's
+      // order is empty until the user drags or freezes.
+      order: {},
+      members: {
+        a: { role: "overlay", folder: "roads" },
+        b: { role: "overlay", folder: "water" },
+      },
+    };
+    const entries = [
+      entry("root1", "overlay", null, 0),
+      entry("a", "overlay", "Roads", 1),
+      entry("root2", "overlay", null, 2),
+      entry("b", "overlay", "Water", 3),
+    ] as LayerInfo[];
+    const order = roleOrder("overlay", entries, layout);
+    // Registry anchor order: root1(0), roads(1), root2(2), water(3). The
+    // folders are NOT bucketed before the roots.
+    expect(order.map(e => e.id)).toEqual(["root1", "a", "root2", "b"]);
+  });
+
+  it("unlisted author folders registered before roots stay first by anchor", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const entries = [
+      entry("a", "overlay", "Roads", 0),
+      entry("root1", "overlay", null, 1),
+    ] as LayerInfo[];
+    const order = roleOrder("overlay", entries, layout);
+    expect(order.map(e => e.id)).toEqual(["a", "root1"]);
+  });
+
+  it("unlisted author folders registered after roots stay last by anchor", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const entries = [
+      entry("root1", "overlay", null, 0),
+      entry("a", "overlay", "Roads", 1),
+    ] as LayerInfo[];
+    const order = roleOrder("overlay", entries, layout);
+    expect(order.map(e => e.id)).toEqual(["root1", "a"]);
   });
 
   it("roleOrder skips a stale listed key that has no live members", () => {
@@ -694,7 +772,8 @@ describe("coverage edges", () => {
     };
     const entries = [entry("a", "overlay", null, 0)] as LayerInfo[];
     const next = freezeRoleOrder(layout, "overlay", entries, "roads");
-    expect(next.order.overlay).toEqual(["water", "roads"]);
+    // The freeze keeps the unlisted root layer too, at its anchor slot.
+    expect(next.order.overlay).toEqual(["water", "layer:a", "roads"]);
   });
 
   it("roleOrder sorts multiple unlisted folders by their anchor", () => {
@@ -1060,5 +1139,62 @@ describe("new signature: roleBlocks / seedBlockOrder / name length", () => {
       members: { a: { role: "base", folder: "basemap" } },
     };
     expect(nextFolderDefaultName(layout, "overlay", "new folder")).toBe("new folder 2");
+  });
+});
+
+describe("folder drag across root rows (P1 #1289)", () => {
+  // A clean localStorage layout: no order, no members. The author declares the
+  // folder; root1/root2 are unassigned roots. The folder's member sits between
+  // the two roots by registration order.
+  const entries = [
+    entry("root1", "overlay", null, 0),
+    entry("a", "overlay", "Roads", 1),
+    entry("root2", "overlay", null, 2),
+  ] as LayerInfo[];
+
+  it("seeds the folder between the two root rows", () => {
+    const seeded = seedFolderLayout(entries);
+    expect(seeded.members.a).toEqual({ role: "overlay", folder: "roads" });
+    expect(seeded.order).toEqual({});
+    const blocks = roleBlocks("overlay", entries, seeded);
+    expect(blocks.map(b => (b.kind === "folder" ? b.key : b.info.id))).toEqual([
+      "root1",
+      "roads",
+      "root2",
+    ]);
+  });
+
+  it("places a dragged folder before a root row (order and render agree)", () => {
+    const seeded = seedFolderLayout(entries);
+    const frozen = freezeRoleOrder(seeded, "overlay", entries, "roads");
+    // The freeze materialises the block order from the merge-by-anchor result:
+    // the folder sits between the two roots, not after both.
+    expect(frozen.order.overlay).toEqual(["layer:root1", "roads", "layer:root2"]);
+    // The render order must agree with the persisted order.
+    const blocks = roleBlocks("overlay", entries, frozen);
+    expect(blocks.map(b => (b.kind === "folder" ? b.key : b.info.id))).toEqual([
+      "root1",
+      "roads",
+      "root2",
+    ]);
+    // Moving the folder before root2's row keeps both roots around it.
+    const moved = moveFolder(frozen, "overlay", "roads", "layer:root2", false);
+    expect(moved.order.overlay).toEqual(["layer:root1", "roads", "layer:root2"]);
+  });
+
+  it("places a dragged folder after a root row without pushing the other root to the tail", () => {
+    const seeded = seedFolderLayout(entries);
+    const frozen = freezeRoleOrder(seeded, "overlay", entries, "roads");
+    const moved = moveFolder(frozen, "overlay", "roads", "layer:root2", true);
+    expect(moved.order.overlay).toEqual(["layer:root1", "layer:root2", "roads"]);
+  });
+
+  it("moveFolder accepts a root-layer entry as target when it is listed", () => {
+    const seeded = seedFolderLayout(entries);
+    const frozen = freezeRoleOrder(seeded, "overlay", entries, "roads");
+    // The target is a root-layer entry (not a folder key); the guard must not
+    // reject it once the freeze lists it.
+    const moved = moveFolder(frozen, "overlay", "roads", "layer:root2", false);
+    expect(moved).not.toBe(frozen);
   });
 });

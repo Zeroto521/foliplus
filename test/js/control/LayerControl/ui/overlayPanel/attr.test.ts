@@ -956,7 +956,7 @@ describe("container layer attrs", () => {
     ui?.uiContainer?.remove();
   });
 
-  const makeContainer = (children: unknown[] = []) => {
+  const makeGroup = (children: unknown[] = []) => {
     const c: any = {
       options: {},
       clearLayers: vi.fn(),
@@ -975,7 +975,7 @@ describe("container layer attrs", () => {
   it("attrs panel names a container by its child count", () => {
     // The attrs panel for a container layer reports the direct child count
     // with the attr_child_count label (container != null arm in attr.ts).
-    const container = makeContainer([{ options: {} }, { options: {} }]);
+    const container = makeGroup([{ options: {} }, { options: {} }]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });

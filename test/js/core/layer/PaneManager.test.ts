@@ -539,7 +539,7 @@ describe("PaneManager", () => {
       return p as unknown as L.Path & { options: Record<string, unknown> };
     };
 
-    const makeContainer = (children: L.Layer[]) =>
+    const makeGroup = (children: L.Layer[]) =>
       ({
         options: {},
         eachLayer: (fn: (c: L.Layer) => void) => children.forEach(fn),
@@ -559,7 +559,7 @@ describe("PaneManager", () => {
       expect(path.options.renderer).toBe(renderer);
     });
 
-    it("recurses into a container and pins every child path", () => {
+    it("recurses into a group and pins every child path", () => {
       // A GeoJSON group handed to createLayers used to leave its child paths on
       // the map's default renderer, because only the top node got options.pane.
       // Leaflet ignores a group's pane for its children, so each child has to
@@ -571,7 +571,7 @@ describe("PaneManager", () => {
       };
       const pm = new PaneManager(map);
       const children = [makePath(), makePath()];
-      pm.pinTree(makeContainer(children), "data");
+      pm.pinTree(makeGroup(children), "data");
       for (const path of children) {
         expect(path.options.pane).toBe("data");
         expect(path.options.renderer).toBeDefined();

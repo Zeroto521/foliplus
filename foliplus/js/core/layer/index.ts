@@ -98,7 +98,7 @@ export {
   suspendMapInteractions,
   getGeometryType,
   countFeatureGeometry,
-  isContainerLayer,
+  isGroupLayer,
   isGroupRow,
   countChildLayersOf,
   countVisibleChildLayers,
@@ -111,7 +111,7 @@ export {
   withLayerAlpha,
 } from "./canvasAlpha.js";
 export {
-  isContainerNode,
+  isGroupNode,
   someLeaf,
   walkLeaf,
   walkTree,

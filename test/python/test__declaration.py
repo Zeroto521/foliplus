@@ -830,6 +830,34 @@ def test_normalise_marker_color_does_not_gate_the_vocabulary():
     assert normalise_marker_color("not-a-preset", owner="Owner") == "not-a-preset"
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("#00A6A6", "#00a6a6"),
+        ("#abc", "#aabbcc"),
+        ("  #1A2B3C  ", "#1a2b3c"),
+    ],
+)
+def test_normalise_marker_color_accepts_a_css_hex(raw, expected):
+    assert normalise_marker_color(raw, owner="Owner") == expected
+
+
+@pytest.mark.parametrize("raw", ["#12", "#12345", "#1234567", "red", "#GGGGGG"])
+def test_normalise_marker_color_passes_a_non_preset_through(raw):
+    # The Python reader does not own the preset/hex vocabulary (that is the JS
+    # reader's verdict, which warns once) — it only gates the shape (a
+    # non-empty string), so a malformed hex or an unknown preset name survives
+    # unchanged for the JS reader to warn about.
+    _declaration.foliplus_reports.clear()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert normalise_marker_color(raw, owner="Owner") == raw
+
+
+def test_normalise_marker_color_hex_is_lowercased():
+    assert normalise_marker_color("#AABBCC", owner="Owner") == "#aabbcc"
+
+
 # icon_size normalisation: a whole-number pixel size; folium Icon has no
 # px-size channel, so this is foliplus-only.
 @pytest.mark.parametrize("raw", [1, 36, 120])

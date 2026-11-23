@@ -1211,7 +1211,7 @@ describe("LayerController", () => {
     }
   });
 
-  it("onLayerAdd responds to container layers (GeoJSON/FeatureGroup) too", () => {
+  it("onLayerAdd responds to group layers (GeoJSON/FeatureGroup) too", () => {
     // Container layers (L.GeoJSON / FeatureGroup) previously fell through the
     // Path/Marker filter, so their addTo never re-ran enforceOrder. Any
     // registered container's add must coalesce into one enforce.
@@ -2053,7 +2053,7 @@ describe("LayerController", () => {
 
   // ── surface container guard ──
 
-  it("a surface pins a container's content, never the container itself", () => {
+  it("a surface pins a group's content, never the group itself", () => {
     // Leaflet ignores a group's own `options.pane` for its children, so the pin
     // walks the tree instead of writing a pane onto the container.
     const container = { options: {} as Record<string, unknown>, eachLayer: vi.fn() };
@@ -3517,7 +3517,7 @@ describe("LayerController", () => {
     }
   });
 
-  it("registerLayer pins the pane on a layer with a container of its own", () => {
+  it("registerLayer pins the pane on a layer with a group of its own", () => {
     // A non-Path/Marker layer with children (L.GeoJSON-style) must get its
     // pane written so enforceOrder does not fall back to a generated pane.
     const child = { options: {} as Record<string, unknown> };
@@ -3861,7 +3861,7 @@ describe("LayerController", () => {
       logSpy.mockRestore();
     });
 
-    it("counts polygons in a feature container via forEachLeaf fallback", () => {
+    it("counts polygons in a feature group via forEachLeaf fallback", () => {
       const layer = wrap(makeLeaf(window.L.Polygon), makeLeaf(window.L.Polygon));
       manager.registerLayer({ id: "poly", name: "Poly", layer });
       expect(manager.getFeatureCount("poly")).toBe(2);
