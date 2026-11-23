@@ -202,8 +202,6 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(layout.members.a).toBeUndefined();
   });
 
-
-
   it("renameFolder rewrites only the display name, keeping the identity key and order in place", () => {
     let layout = emptyFolderLayout();
     layout = createFolder(layout, "overlay", "Roads");
