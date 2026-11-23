@@ -24,10 +24,10 @@
 //  - standalone (pass `items`, optional `multiple`): the dropdown owns the
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
-import { ROW_CLASS } from "./rowLayoutClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
 import { applyOptionRowA11y } from "./optionRow.js";
+import { ROW_CLASS } from "./rowLayoutClassName.js";
 import type { Dropdown, DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -296,8 +296,12 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       activedescendant: "none",
       // The option label is the row-primitive content cell, so a dropdown
       // option and a scheme/search row share the same [leading][content] track.
-      renderRow: (item) => {
-        const label = dom.el("span", { class: DROPDOWN_CLASS.OPTION_LABEL }, item.label);
+      renderRow: item => {
+        const label = dom.el(
+          "span",
+          { class: DROPDOWN_CLASS.OPTION_LABEL },
+          item.label,
+        );
         return dom.el("span", { class: ROW_CLASS.CONTENT }, label);
       },
     },

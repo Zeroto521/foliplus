@@ -7,7 +7,7 @@
 // The body is an arrow function (the browser-probe parser reads a function
 // body), so no import/export — the DOM is already on the page.
 () => {
-  const box = (el) => {
+  const box = el => {
     const r = el.getBoundingClientRect();
     return {
       x: Math.round(r.x * 10) / 10,

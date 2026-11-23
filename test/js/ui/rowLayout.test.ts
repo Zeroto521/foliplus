@@ -43,9 +43,7 @@ describe("row primitive tokens", () => {
 
 describe("row primitive css", () => {
   it("pins the .foliplus-row flex box", () => {
-    expect(rowCss).toMatch(
-      /\.foliplus-row\s*\{[^}]*display:\s*flex/,
-    );
+    expect(rowCss).toMatch(/\.foliplus-row\s*\{[^}]*display:\s*flex/);
     expect(rowCss).toMatch(
       /\.foliplus-row\s*\{[^}]*min-height:\s*var\(--foliplus-row-height\)/,
     );
@@ -61,15 +59,9 @@ describe("row primitive css", () => {
     expect(rowCss).toMatch(
       /\.foliplus-row-leading\s*\{[^}]*flex:\s*0 0 var\(--foliplus-row-leading-width\)/,
     );
-    expect(rowCss).toMatch(
-      /\.foliplus-row-content\s*\{[^}]*flex:\s*1 1 auto/,
-    );
-    expect(rowCss).toMatch(
-      /\.foliplus-row-content\s*\{[^}]*min-width:\s*0/,
-    );
-    expect(rowCss).toMatch(
-      /\.foliplus-row-trailing\s*\{[^}]*flex:\s*0 0 auto/,
-    );
+    expect(rowCss).toMatch(/\.foliplus-row-content\s*\{[^}]*flex:\s*1 1 auto/);
+    expect(rowCss).toMatch(/\.foliplus-row-content\s*\{[^}]*min-width:\s*0/);
+    expect(rowCss).toMatch(/\.foliplus-row-trailing\s*\{[^}]*flex:\s*0 0 auto/);
   });
 });
 
