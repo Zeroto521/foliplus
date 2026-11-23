@@ -18,6 +18,7 @@ import {
   syncNoBasemap,
   syncToggleAll,
 } from "#control/LayerControl/ui/listPanel/index.js";
+import { writeTriState } from "#control/LayerControl/ui/listPanel/rowView.js";
 import { intentVisibleOf, projectLayer } from "#control/LayerControl/ui/projection.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };
@@ -304,6 +305,27 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
     expect(
       item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`)!.innerHTML,
     ).toBe("old");
+  });
+});
+
+describe("writeTriState over-count boundary", () => {
+  it("an on count above total stays unchecked and indeterminate", () => {
+    // The tri-state aggregate guards on === total, so a stale over-count
+    // (more rows marked on than the aggregate counts) must NOT paint as
+    // all-checked. allChecked is false; indeterminate stays true.
+    const input = document.createElement("input");
+    writeTriState(input, 3, 4);
+    expect(input.checked).toBe(false);
+    expect(input.indeterminate).toBe(true);
+    expect(input.getAttribute("aria-checked")).toBe("mixed");
+  });
+
+  it("an on count of zero paints none-checked (not indeterminate)", () => {
+    const input = document.createElement("input");
+    writeTriState(input, 3, 0);
+    expect(input.checked).toBe(false);
+    expect(input.indeterminate).toBe(false);
+    expect(input.getAttribute("aria-checked")).toBe("false");
   });
 });
 
