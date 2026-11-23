@@ -487,7 +487,7 @@ describe("pure helper coverage", () => {
     expect(map.get("roads")!.members.map(m => m.id)).toEqual(["a", "b"]);
   });
 
-  it("roleOrder lists listed keys first then unlisted by anchor, and roots last", () => {
+  it("roleOrder lists listed keys first, then unlisted folders and roots merged by anchor", () => {
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       folders: [{ key: "roads", name: "Roads" }],
@@ -503,7 +503,70 @@ describe("pure helper coverage", () => {
       entry("c", "overlay", "Water", 2),
     ] as LayerInfo[];
     const order = roleOrder("overlay", entries, layout);
-    expect(order.map(e => e.id)).toEqual(["a", "c", "b"]);
+    expect(order.map(e => e.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("unlisted author folders and root layers merge by registry anchor", () => {
+    // A root layer registered BETWEEN two author-declared folders must sit
+    // between their blocks. The two-segment order (all unlisted folders,
+    // then all roots) would bucket both folders first regardless of
+    // registration order — the author-declared-folder-order bug. The
+    // merge-by-anchor order follows the registry index, so root2 (registered
+    // at 2) lands between roads (anchor 1) and water (anchor 3).
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [
+        { key: "roads", name: "Roads" },
+        { key: "water", name: "Water" },
+      ],
+      // Author-declared folders live in members, NOT in order: the role's
+      // order is empty until the user drags or freezes.
+      order: {},
+      members: {
+        a: { role: "overlay", folder: "roads" },
+        b: { role: "overlay", folder: "water" },
+      },
+    };
+    const entries = [
+      entry("root1", "overlay", null, 0),
+      entry("a", "overlay", "Roads", 1),
+      entry("root2", "overlay", null, 2),
+      entry("b", "overlay", "Water", 3),
+    ] as LayerInfo[];
+    const order = roleOrder("overlay", entries, layout);
+    // Registry anchor order: root1(0), roads(1), root2(2), water(3). The
+    // folders are NOT bucketed before the roots.
+    expect(order.map(e => e.id)).toEqual(["root1", "a", "root2", "b"]);
+  });
+
+  it("unlisted author folders registered before roots stay first by anchor", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const entries = [
+      entry("a", "overlay", "Roads", 0),
+      entry("root1", "overlay", null, 1),
+    ] as LayerInfo[];
+    const order = roleOrder("overlay", entries, layout);
+    expect(order.map(e => e.id)).toEqual(["a", "root1"]);
+  });
+
+  it("unlisted author folders registered after roots stay last by anchor", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      folders: [{ key: "roads", name: "Roads" }],
+      order: {},
+      members: { a: { role: "overlay", folder: "roads" } },
+    };
+    const entries = [
+      entry("root1", "overlay", null, 0),
+      entry("a", "overlay", "Roads", 1),
+    ] as LayerInfo[];
+    const order = roleOrder("overlay", entries, layout);
+    expect(order.map(e => e.id)).toEqual(["root1", "a"]);
   });
 
   it("roleOrder skips a stale listed key that has no live members", () => {

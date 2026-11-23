@@ -322,12 +322,14 @@ const isRootLayer = (layout: FolderLayout, entry: LayerInfo): boolean => {
   return !entry.folder;
 };
 
-/** The two-segment display order for one role:
- *  (1) listed folders in layout.order[role] list order, (2) unlisted
- *  folders by anchor ascending appended after them, (3) root layers (no
- *  folder) in anchor order at the end. `registryEntries` is the WHOLE
- *  registry in anchor (registration) order so the global array index is the
- *  anchor axis. Pure: never mutates its inputs. */
+/** The block display order for one role:
+ *  (1) listed blocks in layout.order[role] list order, then (2+3) the
+ *  unlisted folder blocks and unlisted root layers merged by registry
+ *  anchor ascending — a single sorted pass, so a root layer registered
+ *  between two author-declared folders sits between their blocks instead
+ *  of after every folder. `registryEntries` is the WHOLE registry in anchor
+ *  (registration) order so the global array index is the anchor axis.
+ *  Pure: never mutates its inputs. */
 /** One role's ordered blocks: folder blocks (empty ones included) and root
  *  layers, in the order the panel paints them.
  *
@@ -375,24 +377,25 @@ const roleBlocks = (
       members: block?.members ?? [],
     });
   }
-  // 2. Unlisted folders, by anchor.
-  const rest = [...folders.values()]
-    .filter(block => !listedKeys.has(block.key))
-    .sort((a, b) => a.anchor - b.anchor);
-  for (const block of rest) {
-    out.push({
-      kind: "folder",
-      key: block.key,
-      displayName: block.displayName,
-      members: block.members,
-    });
+  // 2+3. Unlisted folders and root layers, merged by anchor. The anchor is the
+  //    registry index (groupByFolder stores it as block.anchor; root layers use
+  //    their registry index via the indexById map). A single sorted pass avoids
+  //    the two-segment split where every unlisted folder always preceded every
+  //    unlisted root layer regardless of registration order — the root cause of
+  //    the author-declared-folder-order bug.
+  const indexById = new Map(registryEntries.map((entry, idx) => [entry.id, idx]));
+  type Slot = { at: number; block: RoleBlock };
+  const slots: Slot[] = [];
+  for (const block of [...folders.values()]) {
+    if (listedKeys.has(block.key)) continue;
+    slots.push({ at: block.anchor, block: { kind: "folder", key: block.key, displayName: block.displayName, members: block.members } });
   }
-  // 3. Root layers the order does not name, in registry order.
   for (const info of rootLayers) {
-    if (!listedKeys.has(rootLayerEntry(info.id))) {
-      out.push({ kind: "layer", info });
-    }
+    if (listedKeys.has(rootLayerEntry(info.id))) continue;
+    slots.push({ at: indexById.get(info.id) ?? 0, block: { kind: "layer", info } });
   }
+  slots.sort((a, b) => a.at - b.at);
+  for (const slot of slots) out.push(slot.block);
   return out;
 };
 

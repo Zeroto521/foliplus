@@ -91,3 +91,71 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
                     f"icon overlaps more: icon right={icon['right']} more left={more['left']}"
                 )
             assert not errors, f"console errors: {errors}"
+
+
+    def _page_two_folders(self, browser, tmp_path):
+        """A page with two folder blocks in the overlay role, each with a member."""
+        fc = load_geojson("LayerControl", "empty_feature_collection")
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        folium.GeoJson(fc, name="Roads", foliplus={"folder": "Roads"}).add_to(m)
+        folium.GeoJson(fc, name="Water", foliplus={"folder": "Water"}).add_to(m)
+        LayerControl().add_to(m)
+        html = m.get_root().render()
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1
+        page, errors = make_browser_page(browser, tmp_path, html, "two_folders")
+        page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    def test_folder_drag_reorders_blocks(self, browser, tmp_path):
+        """A folder row can be dragged to reorder the folder blocks.
+
+        Reproduces the user report: folder rows could not be dragged to sort.
+        The HTML5 drag is simulated via CDP Input.dispatchDragEvent since
+        Playwright mouse events do not trigger HTML5 drag-and-drop.
+        """
+        with use_page(self._page_two_folders, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_timeout(400)
+
+            def get_folder_names():
+                return page.evaluate(
+                    """() => Array.from(
+                        document.querySelectorAll('.foliplus-layer-item-folder')
+                    ).map(el => el.getAttribute('data-folder-key'))
+                    """
+                )
+
+            before = get_folder_names()
+            assert len(before) >= 2, f"expected 2+ folder rows, got {before}"
+
+            # Drag the first folder row to after the second
+            src_row = page.query_selector(".foliplus-layer-item-folder")
+            src_box = src_row.bounding_box()
+            tgt_row = page.query_selector_all(".foliplus-layer-item-folder")[1]
+            tgt_box = tgt_row.bounding_box()
+
+            src_x = src_box["x"] + src_box["width"] / 2
+            src_y = src_box["y"] + src_box["height"] / 2
+            # Drop at the bottom quarter of the target folder row: the "after"
+            # zone places the dragged folder AFTER the target (block reorder).
+            # The center is the "into" zone, which correctly refuses folder
+            # nesting — so we must drop at the edge to test sorting.
+            page.locator(".foliplus-layer-item-folder").nth(0).drag_to(
+                page.locator(".foliplus-layer-item-folder").nth(1),
+                target_position={"x": tgt_box["width"] / 2, "y": tgt_box["height"] * 0.85},
+            )
+            page.wait_for_timeout(400)
+
+            after = get_folder_names()
+            print(f"  before={before} after={after}")
+            # The dragged folder (roads) moves after water: the order flips.
+            assert after == ["water", "roads"], (
+                f"folder order did not change after drag: "
+                f"before={before} after={after}"
+            )

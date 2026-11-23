@@ -2376,15 +2376,22 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
   it("folderDropTarget returns null when no folder drag is armed", () => {
     // The defensive guard at drag.ts:148: a dragover with no armed folder
     // drag (dragFolder null) must no-op rather than dereference it.
-    const { ui } = initFixture();
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "fold1",
+          name: "F1",
+          role: "overlay",
+          folder: "roads",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
     const row = attachedPanel(ui).querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
     ) as HTMLElement | null;
-    if (!row) return; // fixture may have no folder row; guard is still exercised
     const before = row.className;
-    const event = new DragEvent("dragover", { bubbles: true });
-    Object.defineProperty(event, "clientY", { value: 0 });
-    row.dispatchEvent(event);
+    handleDragOver(ui, dragEvent(row));
     expect(row.className).toBe(before);
   });
 });
