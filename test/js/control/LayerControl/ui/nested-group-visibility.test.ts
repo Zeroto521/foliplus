@@ -1,4 +1,4 @@
-// Discriminator for task-166: does unchecking a nested group hide its
+// Discriminator: does unchecking a nested group hide its
 // GRANDCHILDREN on the map, and does the group row's visible count track them?
 //
 // Three questions this pins (lead's directive — evidence before code):
@@ -14,7 +14,7 @@ import { installLeafletGlobals } from "./fixture.js";
 import { describe, expect, it, vi } from "vitest";
 import { countVisibleChildLayers } from "#core/layer/index.js";
 import { dispatchStateOp } from "#control/LayerControl/ui/apply.js";
-import { LayerUI } from "#control/LayerControl/ui/index.js";
+import type { LayerUI } from "#control/LayerControl/ui/index.js";
 
 /** A membership-tracking map that emulates Leaflet's recursive cascade:
  *  removing a container removes every descendant it owns. */
@@ -55,8 +55,6 @@ const groupNode = (kids: unknown[]) => ({
     for (const k of kids) fn(k);
   },
 });
-const groupB = () => groupNode([]);
-const groupA = () => groupNode([]);
 
 const makeUi = (map: unknown) =>
   ({
@@ -67,7 +65,7 @@ const makeUi = (map: unknown) =>
     },
   }) as unknown as LayerUI;
 
-describe("nested group grandchild visibility (task-166 discriminator)", () => {
+describe("nested group grandchild visibility", () => {
   it("unchecking group A hides the grandchild M (cascade)", () => {
     const { map, register } = makeMembershipMap();
     const m = markerM();
@@ -87,6 +85,11 @@ describe("nested group grandchild visibility (task-166 discriminator)", () => {
     expect(map.hasLayer(m)).toBe(true);
 
     dispatchStateOp(ui, layerInfo, { type: "visible", value: false });
+    // The control removes the WHOLE group in one call and lets Leaflet
+    // cascade; a per-child loop would call removeLayer for b and m too.
+    // The first call is the control's own: the whole group, not a child.
+    // (The mock's own cascade adds further calls, so count the first.)
+    expect(map.removeLayer.mock.calls[0][0]).toBe(a);
     expect(map.hasLayer(m)).toBe(false);
   });
 
