@@ -15,6 +15,12 @@ import {
 } from "./cursor.js";
 import { groupChildren, isGroupExpanded, renderChildItem } from "./groupExpand.js";
 import {
+  buildCheckbox,
+  buildMoreBtn,
+  buildRailCell,
+  buildTypeIconCol,
+} from "./rowCells.js";
+import {
   applyRowView,
   buildRowCell,
   countLabelTitle,
@@ -595,6 +601,20 @@ const renderInitialList = (ui: LayerUI) => {
             item.classList.add(CONST.CLASSES.GROUP_FOLDED);
           }
           frag.appendChild(item);
+          // A folder member that is an expanded container renders its direct
+          // children right after itself, exactly like the non-member path
+          // below. Child rows are not registry rows.
+          const memberLayer = ui.c.findLayer(member);
+          if (
+            !roleFolded &&
+            !folderFolded &&
+            isGroupRow(member, memberLayer) &&
+            isGroupExpanded(ui, member.id)
+          ) {
+            for (const child of groupChildren(ui, member.id)) {
+              frag.appendChild(renderChildItem(ui, member.id, child));
+            }
+          }
         }
       } else {
         const item = renderLayerItem(ui, block.layer);
@@ -874,29 +894,12 @@ const renderToggleAllRow = (
     ),
   );
   children.push(
-    dom.el(
-      "div",
-      {
-        class: CONST.CLASSES.TYPE_ICON_COL,
-        // Same sentence shape as a layer row's type cell: the count, then the
-        // word for what the row is.
-        title: countLabelTitle(countText, ui.T(labelKey)),
-      },
-      { html: role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS },
+    buildTypeIconCol(
+      countLabelTitle(countText, ui.T(labelKey)),
+      role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS,
     ),
   );
-  children.push(
-    dom.el(
-      "button",
-      {
-        class: CONST.CLASSES.MORE_BTN,
-        type: "button",
-        title: withNoun(ui, "more_tooltip", ROW_NOUN.ROLE),
-        "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.ROLE),
-      },
-      { html: SVGs.ICON_MORE },
-    ),
-  );
+  children.push(buildMoreBtn(withNoun(ui, "more_tooltip", ROW_NOUN.ROLE)));
   return dom.el(
     "div",
     {
@@ -962,20 +965,15 @@ const renderFolderRow = (
       },
       { html: SVGs.ICON_FOLD },
     ),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.CHECKBOX },
-      (() => {
-        const input = dom.el("input", {
-          type: "checkbox",
-          checked: "",
-          "aria-label": folderName,
-          title: ui.T(vis.on > 0 ? "deselect_tooltip" : "select_tooltip"),
-        }) as HTMLInputElement;
-        writeTriState(input, vis.total, vis.on);
-        return input;
-      })(),
-    ),
+    (() => {
+      const { cell, input } = buildCheckbox({
+        checked: "",
+        "aria-label": folderName,
+        title: ui.T(vis.on > 0 ? "deselect_tooltip" : "select_tooltip"),
+      });
+      writeTriState(input, vis.total, vis.on);
+      return cell;
+    })(),
     dom.el(
       "label",
       {
@@ -994,24 +992,8 @@ const renderFolderRow = (
       },
       countText,
     ),
-    dom.el(
-      "div",
-      {
-        class: CONST.CLASSES.TYPE_ICON_COL,
-        title: countLabelTitle(countText, ui.T("noun_folder")),
-      },
-      { html: SVGs.ICON_FOLDER },
-    ),
-    dom.el(
-      "button",
-      {
-        class: CONST.CLASSES.MORE_BTN,
-        type: "button",
-        title: withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER),
-        "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER),
-      },
-      { html: SVGs.ICON_MORE },
-    ),
+    buildTypeIconCol(countLabelTitle(countText, ui.T("noun_folder")), SVGs.ICON_FOLDER),
+    buildMoreBtn(withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER)),
   );
 };
 
@@ -1044,18 +1026,9 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
   if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
 
-  const moreBtn = dom.el(
-    "button",
-    {
-      class: CONST.CLASSES.MORE_BTN,
-      type: "button",
-      // A container row is corrected to the group noun by applyRowView, which
-      // is the first point that knows the layer resolved to a group.
-      title: withNoun(ui, "more_tooltip", ROW_NOUN.LAYER),
-      "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.LAYER),
-    },
-    { html: SVGs.ICON_MORE },
-  );
+  // A container row is corrected to the group noun by applyRowView, which
+  // is the first point that knows the layer resolved to a group.
+  const moreBtn = buildMoreBtn(withNoun(ui, "more_tooltip", ROW_NOUN.LAYER));
   // All layers get the "more" button — data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
@@ -1100,27 +1073,18 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       );
     }
   }
-  const railCell = dom.el(
-    "span",
-    { class: CONST.CLASSES.RAIL_CELL, title: ui.T("drag_tooltip") },
-    ...railChildren,
-  );
+  const railCell = buildRailCell(railChildren, ui.T("drag_tooltip"));
   railCell.insertAdjacentHTML("beforeend", SVGs.ICON_DRAG_HANDLE);
   const children: HTMLElement[] = [
     railCell,
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.CHECKBOX },
-      dom.el("input", {
-        type: "checkbox",
-        checked: "",
-        // The name reaches assistive tech via aria-label. `title` is the
-        // Select/Deselect slot — initLayerItem sets it per checked state
-        // before this row can be hovered, so leave it unseeded rather than
-        // flashing the layer name.
-        "aria-label": name,
-      }),
-    ),
+    buildCheckbox({
+      checked: "",
+      // The name reaches assistive tech via aria-label. `title` is the
+      // Select/Deselect slot — initLayerItem sets it per checked state
+      // before this row can be hovered, so leave it unseeded rather than
+      // flashing the layer name.
+      "aria-label": name,
+    }).cell,
     dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
     dom.el("span", {
       class: CONST.CLASSES.COUNT_COL,

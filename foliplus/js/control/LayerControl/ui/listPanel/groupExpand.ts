@@ -23,6 +23,13 @@ import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { childDisplayName, childRowId, resolveChild } from "./childRow.js";
+import {
+  buildCheckbox,
+  buildCountCol,
+  buildMoreBtn,
+  buildRailCell,
+  buildTypeIconCol,
+} from "./rowCells.js";
 import { countLabelTitle, countTooltip, roleCountText } from "./rowView.js";
 import {
   childrenOf,
@@ -33,7 +40,6 @@ import {
 import { ensureModes, guardBlocked } from "#core/lifecycle/index.js";
 import { dom } from "#platform/dom.js";
 import * as CONST from "#control/LayerControl/const.js";
-import * as SVGs from "#control/LayerControl/icon.js";
 import { getTypeSVG } from "#control/LayerControl/util.js";
 
 /** How many child rows render before the "show all" prompt. v1 lazy ceiling:
@@ -70,11 +76,10 @@ const renderChildItem = (
 
   // Tree connector line (item ④ decision B): a child row is never draggable —
   // child order is Leaflet's own, so the rail carries only the tree line.
-  const railCell = dom.el("span", {
-    class: CONST.CLASSES.RAIL_CELL,
-    title: ui.T("drag_tooltip"),
-  });
-  railCell.appendChild(dom.el("span", { class: CONST.CLASSES.FOLD_TREE }));
+  const railCell = buildRailCell(
+    [dom.el("span", { class: CONST.CLASSES.FOLD_TREE })],
+    ui.T("drag_tooltip"),
+  );
 
   // Count (shared roleCountText rule): a child's unit is its own geometry
   // feature count. A child on the map shows the bare count; a hidden child
@@ -85,23 +90,15 @@ const renderChildItem = (
 
   // Type icon (shared getGeometryType → getTypeSVG rule).
   const gtype = getGeometryType(child);
-  const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
-  typeIconEl.innerHTML = getTypeSVG(gtype);
-  typeIconEl.title = countLabelTitle(countText, ui.T(`type_${gtype}`));
+  const typeIconEl = buildTypeIconCol(
+    countLabelTitle(countText, ui.T(`type_${gtype}`)),
+    getTypeSVG(gtype),
+  );
 
   // ⋮ menu button: identical chrome to a member row's. Click is routed by
   // handleMoreClick → openMoreMenu, which detects the child row and opens
   // the child menu (focus / remove).
-  const moreBtn = dom.el(
-    "button",
-    {
-      class: CONST.CLASSES.MORE_BTN,
-      type: "button",
-      title: ui.T("more_tooltip"),
-      "aria-label": ui.T("more_tooltip"),
-    },
-    { html: SVGs.ICON_MORE },
-  );
+  const moreBtn = buildMoreBtn(ui.T("more_tooltip"));
 
   return dom.el(
     "div",
@@ -112,20 +109,13 @@ const renderChildItem = (
       [CONST.DATA.LAYER_ID]: id,
     },
     railCell,
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.CHECKBOX },
-      dom.el("input", {
-        type: "checkbox",
-        checked: onMap ? "" : undefined,
-        "aria-label": name,
-      }),
-    ),
+    buildCheckbox({
+      checked: onMap ? "" : undefined,
+      "aria-label": name,
+    }).cell,
     dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
-    dom.el(
-      "span",
+    buildCountCol(
       {
-        class: CONST.CLASSES.COUNT_COL,
         [CONST.DATA.LAYER_ID]: id,
         title: countTooltip(ui, "sub_layers_count_tooltip", on, total),
       },

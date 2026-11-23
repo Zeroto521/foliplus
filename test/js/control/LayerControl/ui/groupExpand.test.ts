@@ -1034,4 +1034,74 @@ describe("group expand — role expand/collapse (P1 项⑥)", () => {
       attachedPanel(ui).querySelector(`${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`),
     ).toBeNull();
   });
+
+  it("role expand-all unfolds a folder and expands a group inside it", () => {
+    installLeafletGlobals();
+    const fg = makeGroup([child()]);
+    manager.registerLayer({
+      id: "fg",
+      name: "Group",
+      role: "overlay",
+      layer: fg,
+      folder: "roads",
+    });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    const folderRow = attachedPanel(ui).querySelector(
+      `${CONST.SEL.FOLDER_ROW}[data-folder-key="roads"]`,
+    ) as HTMLElement;
+    expect(folderRow).not.toBeNull();
+    const roleRow = attachedPanel(ui).querySelector(
+      `${CONST.SEL.TOGGLE_ALL}[data-role="overlay"]`,
+    ) as HTMLElement;
+    const moreBtn = roleRow.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`)!;
+    moreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const menu = ui.overlayPanel.activeMenu!.menu!;
+    menu.querySelector<HTMLElement>(`button[data-action="expand-all"]`)!.click();
+    expect(folderRow.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      attachedPanel(ui).querySelector(`${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`),
+    ).not.toBeNull();
+  });
+
+  it("role collapse-all folds a folder and collapses a group inside it", () => {
+    installLeafletGlobals();
+    const fg = makeGroup([child()]);
+    manager.registerLayer({
+      id: "fg",
+      name: "Group",
+      role: "overlay",
+      layer: fg,
+      folder: "roads",
+    });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    const roleRow = attachedPanel(ui).querySelector(
+      `${CONST.SEL.TOGGLE_ALL}[data-role="overlay"]`,
+    ) as HTMLElement;
+    const moreBtn = roleRow.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`)!;
+    moreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    let menu = ui.overlayPanel.activeMenu!.menu!;
+    menu.querySelector<HTMLElement>(`button[data-action="expand-all"]`)!.click();
+    expect(
+      attachedPanel(ui).querySelector(`${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`),
+    ).not.toBeNull();
+    const roleRow2 = attachedPanel(ui).querySelector(
+      `${CONST.SEL.TOGGLE_ALL}[data-role="overlay"]`,
+    ) as HTMLElement;
+    const moreBtn2 = roleRow2.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`)!;
+    moreBtn2.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    menu = ui.overlayPanel.activeMenu!.menu!;
+    menu.querySelector<HTMLElement>(`button[data-action="collapse-all"]`)!.click();
+    expect(
+      attachedPanel(ui).querySelector(`${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`),
+    ).toBeNull();
+    const groupRow = attachedPanel(ui).querySelector(
+      `${CONST.SEL.LAYER_ITEM}[data-layer-id="fg"]`,
+    ) as HTMLElement;
+    const foldBtn = groupRow?.querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`);
+    expect(foldBtn?.getAttribute("aria-expanded")).toBe("false");
+  });
 });
