@@ -51,4 +51,23 @@ const authorDefaultRoleFolds = (
   return out;
 };
 
-export { authorDefaultRoleFolds };
+/** Resolve the effective fold state a role header renders with.
+ *
+ *  Priority: user override (opinion) > author default > expanded. The user
+ *  override is the persisted foldedRoles Record (absent | true | false),
+ *  written by the panel's own toggle; the author default is
+ *  {@link authorDefaultRoleFolds}.
+ *
+ *  @param {Readonly<Record<string, boolean>>} userOpinion - The user override.
+ *  @param {Readonly<Record<string, boolean>>} authorDefault - The author
+ *    default folded role map.
+ *  @param {string} role - A LayerRole ("base" | "overlay").
+ *  @returns {boolean} True when the role renders folded.
+ */
+const effectiveRoleFolded = (
+  userOpinion: Readonly<Record<string, boolean>>,
+  authorDefault: Readonly<Record<string, boolean>>,
+  role: string,
+): boolean => userOpinion[role] ?? authorDefault[role] ?? false;
+
+export { authorDefaultRoleFolds, effectiveRoleFolded };
