@@ -2727,3 +2727,47 @@ describe("ui/list row-order and tree-connector guards", () => {
     expect(icon!.innerHTML).toBe("");
   });
 });
+
+describe("ui/list coverage gaps (task-70)", () => {
+  it("emptyFolderKeys falls back to an empty order when the role has no order key", () => {
+    // The role's block order may be absent (a role with no blocks yet): the
+    // candidate scan must fall back to [] instead of throwing on undefined.
+    const layout = {
+      version: 2,
+      folders: [],
+      order: { base: [] },
+      members: {},
+    };
+    const ui = {
+      c: {
+        folderLayoutView: layout,
+        layers: [],
+        layerRegistry: { get: () => undefined },
+      },
+    } as unknown as LayerUI;
+    expect(emptyFolderKeys(ui, "overlay")).toEqual([]);
+  });
+
+  it("renderLayerItem fills the type-icon column from a layer's iconSvg", () => {
+    // The direct branch: a layer carrying a custom iconSvg (from an explicit
+    // opts.iconSvg) paints that SVG into the type-icon column.
+    const { ui } = initFixture({ data: [] });
+    const custom: LayerInfo = {
+      id: "custom",
+      name: "Custom",
+      role: "overlay",
+      folder: "",
+      iconSvg:
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1 1'><path d='M0 0h1v1H0z'/></svg>",
+      layer: { options: {}, eachLayer: vi.fn() },
+    } as LayerInfo;
+    let row: HTMLElement | null = null;
+    expect(() => {
+      row = renderLayerItem(ui, custom);
+    }).not.toThrow();
+    expect(row).not.toBeNull();
+    const icon = row!.querySelector(`.${CONST.CLASSES.TYPE_ICON_COL}`);
+    expect(icon).not.toBeNull();
+    expect(icon!.innerHTML).toContain("<svg");
+  });
+});

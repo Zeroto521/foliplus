@@ -650,3 +650,23 @@ describe("createInlineEditInput — repeated open", () => {
     expect(label.textContent).toBe("Roads");
   });
 });
+
+describe("createInlineEditInput — first open on a fresh label (task-70)", () => {
+  it("records the original text the first time a label is opened", () => {
+    // The guard records the text only on the first open. A fresh label has no
+    // WeakMap entry, so the has() branch is false and the original is captured.
+    const label = dom.el("label", null, "First");
+    const opts = {
+      label: label as HTMLLabelElement,
+      initialValue: "First",
+      className: "edit",
+      ariaLabel: "Rename",
+      onCommit: vi.fn(),
+      onCancel: vi.fn(),
+    };
+    createInlineEditInput(opts);
+    expect(label.textContent).toBe("");
+    removeInlineEditInput(label as HTMLLabelElement);
+    expect(label.textContent).toBe("First");
+  });
+});
