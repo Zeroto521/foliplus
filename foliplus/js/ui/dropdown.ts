@@ -338,7 +338,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     }
     const box = dom.el("input", {
       type: "checkbox",
-      class: `${CHECK_SLOT_CLASS.BOX  } ${  DROPDOWN_CLASS.ROW_CHECKBOX}`,
+      class: `${CHECK_SLOT_CLASS.BOX} ${DROPDOWN_CLASS.ROW_CHECKBOX}`,
       // The row button is the interactive control; the box is the visual
       // mark only (demo fidelity), so it is hidden from AT and the tab order.
       "aria-hidden": "true",
@@ -364,7 +364,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       if (box) box.checked = ctx.selected;
       return;
     }
-    const lead = row.querySelector<HTMLElement>(`.${  DROPDOWN_CLASS.LEAD}`);
+    const lead = row.querySelector<HTMLElement>(`.${DROPDOWN_CLASS.LEAD}`);
     if (lead) lead.textContent = ctx.selected ? "\u2713" : "";
   };
 

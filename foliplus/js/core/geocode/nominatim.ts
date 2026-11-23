@@ -77,7 +77,7 @@ const formatAddress = (displayName: string, map?: L.Map, code = "en"): string =>
   if (parts.length === 0) return "";
   // Domestic (Chinese) maps OR locale=zh: reverse order (small → large → large → small)
   // Foreign maps: keep original order
-  const isChinese = (map && getMapCrsType(map) !== "WGS84") || code === "zh";
+  const isChinese = (map && getMapCrsType(map) !== "WGS84") || code === "zh"; // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- left side can be false
   if (isChinese) return parts.reverse().join(",");
   return parts.join(",");
 };
