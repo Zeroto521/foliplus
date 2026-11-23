@@ -58,9 +58,9 @@ class TestQuickstartFacilityPointsBrowser:
 
         scores = [
             feat["properties"]["score"]
-            for feat in load_geojson(
-                "LayerControl", "quickstart_facility_points_6"
-            )["features"]
+            for feat in load_geojson("LayerControl", "quickstart_facility_points_6")[
+                "features"
+            ]
         ]
         xs = np.array(scores, dtype=float) / 100.0
         return [matplotlib.colors.to_hex(cm.plasma(x)) for x in xs]
@@ -140,5 +140,3 @@ class TestQuickstartFacilityPointsBrowser:
                 )
 
             assert not errors, f"JS errors: {errors}"
-
-
