@@ -17,7 +17,7 @@
 - `LayerControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `HeatmapControl`: Clear restores the declared source, its fields and the panel without collapsing it, keeping focus on Clear ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
-- Shared dropdown: a large option list is searchable (combobox + listbox, live status) and a truncated filter domain reaches values past its display cap ([#1182](https://github.com/Zeroto521/foliplus/pull/1182))
+- Shared dropdown: a large option list is searchable (combobox + listbox, live status) and a truncated filter domain reaches values past its display cap ([#1182](https://github.com/Zeroto521/foliplus/pull/1182), [#1301](https://github.com/Zeroto521/foliplus/pull/1301))
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
 
 ### Removed
