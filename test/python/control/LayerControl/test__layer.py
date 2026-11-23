@@ -23,7 +23,7 @@ import pytest
 from conftest import feature_collection
 
 from foliplus import LayerControl
-from foliplus.control.LayerControl._layer_declaration import (
+from foliplus.control.LayerControl._layer import (
     FOLIPLUS_KEYS,
     declared_border,
     declared_filter,
