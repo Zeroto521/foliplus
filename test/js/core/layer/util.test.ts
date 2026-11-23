@@ -4,7 +4,7 @@ import {
   countVisibleChildLayers,
   findLayer,
   getGeometryType,
-  isContainerLayer,
+  isGroupLayer,
   isGroupRow,
   isLayerInPanes,
   paintsAtZoom,
@@ -75,7 +75,7 @@ describe("core/layer util", () => {
       };
     };
 
-    it("walks containers and leaves", () => {
+    it("walks groups and leaves", () => {
       const { a, b, layer } = group();
       const visited: L.Layer[] = [];
       walkTree(layer as never, l => visited.push(l));
@@ -117,7 +117,7 @@ describe("core/layer util", () => {
 
     it("recurses into nested _layers (fallback branch)", () => {
       // The fallback is distinguished only by which node ends up leaf: the
-      // _layers branch recurses without calling fn, so a container that
+      // _layers branch recurses without calling fn, so a group that
       // carries _layers is never itself visited. Tag the real leaf and assert
       // on the tag — an empty {} is indistinguishable from a non-recursion.
       const leaf = { leaf: true };
@@ -129,7 +129,7 @@ describe("core/layer util", () => {
 
     it("respects the recursion depth limit", () => {
       const depth = CONST.RECURSION.LAYER_DEPTH + 2;
-      // Build a chain of eachLayer containers deeper than LAYER_DEPTH.
+      // Build a chain of eachLayer groups deeper than LAYER_DEPTH.
       let tail: L.Layer = {
         eachLayer: (fn: (l: L.Layer) => void) => fn({} as L.Layer),
       };
@@ -174,7 +174,7 @@ describe("core/layer util", () => {
       expect(getGeometryType(group as never)).toBe("point");
     });
 
-    it("returns empty for a container with no leaves", () => {
+    it("returns empty for a group with no leaves", () => {
       const emptyGroup = { eachLayer: () => {} };
       expect(getGeometryType(emptyGroup as never)).toBe("empty");
     });
@@ -309,7 +309,7 @@ describe("core/layer util", () => {
       expect(countFeatureGeometry(mainGroup as never)).toBe(1);
     });
 
-    it("handles a mixed container", () => {
+    it("handles a mixed group", () => {
       const marker = new window.L.Marker();
       marker.feature = {};
       const label = new window.L.Polygon();
@@ -323,7 +323,7 @@ describe("core/layer util", () => {
       expect(countFeatureGeometry(group as never)).toBe(3);
     });
 
-    it("returns 0 for an empty container", () => {
+    it("returns 0 for an empty group", () => {
       const emptyGroup = { eachLayer: () => {} };
       expect(countFeatureGeometry(emptyGroup as never)).toBe(0);
     });
@@ -510,7 +510,7 @@ describe("core/layer util", () => {
   });
 
   describe("suspendMapInteractions", () => {
-    /** Map whose eachLayer yields a single top-level container holding `leaf`. */
+    /** Map whose eachLayer yields a single top-level group holding `leaf`. */
     const makeMapWithLeaf = (interactive = true) => {
       const el = document.createElement("path");
       if (interactive) el.classList.add("leaflet-interactive");
@@ -552,7 +552,7 @@ describe("core/layer util", () => {
       expect(() => restore()).not.toThrow();
     });
 
-    it("walks top-level containers via map.eachLayer", () => {
+    it("walks top-level groups via map.eachLayer", () => {
       const map = { eachLayer: vi.fn() };
       suspendMapInteractions(map as never);
       expect(map.eachLayer).toHaveBeenCalledTimes(1);
@@ -590,9 +590,9 @@ describe("core/layer util", () => {
   });
 });
 
-describe("core/layer util: isContainerLayer", () => {
-  // A minimal container stub: group-like with a child registry + fixed list.
-  const makeContainer = (children: unknown[] = []) => {
+describe("core/layer util: isGroupLayer", () => {
+  // A minimal group stub: group-like with a child registry + fixed list.
+  const makeGroupStub = (children: unknown[] = []) => {
     const c: any = {
       options: {},
       clearLayers: vi.fn(),
@@ -608,21 +608,21 @@ describe("core/layer util: isContainerLayer", () => {
     return c;
   };
 
-  it("isContainerLayer: group-like true, plain polygon false, GeoJSON shape false", () => {
+  it("isGroupLayer: group-like true, plain polygon false, GeoJSON shape false", () => {
     const poly: any = { options: {} };
     Object.setPrototypeOf(poly, new (window as any).L.Polygon());
-    const container = makeContainer([poly]);
-    const geoShape = makeContainer([
+    const group = makeGroupStub([poly]);
+    const geoShape = makeGroupStub([
       { feature: { type: "Feature" } },
       { feature: { type: "Feature" } },
     ]);
-    expect(isContainerLayer(container)).toBe(true);
-    expect(isContainerLayer(poly)).toBe(false);
+    expect(isGroupLayer(group)).toBe(true);
+    expect(isGroupLayer(poly)).toBe(false);
     // GeoJSON shape: every child carries a feature envelope.
-    expect(isContainerLayer(geoShape)).toBe(false);
+    expect(isGroupLayer(geoShape)).toBe(false);
   });
 
-  it("isContainerLayer: a real L.FeatureGroup (not GeoJSON) with feature-leaf children is a container", () => {
+  it("isGroupLayer: a real L.FeatureGroup (not GeoJSON) with feature-leaf children is a group", () => {
     // Real-runtime class hierarchy: L.GeoJSON extends L.FeatureGroup extends L.LayerGroup.
     // A folium FeatureGroup is instanceof L.FeatureGroup but NOT instanceof L.GeoJSON. Its
     // direct children may carry .feature (feature leaves) — the GeoJSON SHAPE fallback would
@@ -654,13 +654,13 @@ describe("core/layer util: isContainerLayer", () => {
         clearLayers: vi.fn(),
         getBounds: vi.fn(),
       });
-      expect(isContainerLayer(fg as unknown as L.Layer)).toBe(true);
+      expect(isGroupLayer(fg as unknown as L.Layer)).toBe(true);
     } finally {
       (window as any).L.FeatureGroup = prevFG;
       (window as any).L.GeoJSON = prevGJ;
     }
   });
-  it("isContainerLayer: excludes a real L.GeoJSON instance", () => {
+  it("isGroupLayer: excludes a real L.GeoJSON instance", () => {
     // jsdom has no L.GeoJSON; the predicate guards the instanceof check, so
     // stub the class to exercise the GeoJSON exclusion branch.
     class GeoJSONStub {
@@ -674,15 +674,15 @@ describe("core/layer util: isContainerLayer", () => {
     try {
       const geo = new GeoJSONStub();
       geo._layers["1"] = { feature: { type: "Feature" } };
-      expect(isContainerLayer(geo as unknown as L.Layer)).toBe(false);
+      expect(isGroupLayer(geo as unknown as L.Layer)).toBe(false);
     } finally {
       (window as any).L.GeoJSON = prev;
     }
   });
-  it("isContainerLayer: a GeoJSON is not a container even when it is also a FeatureGroup", () => {
+  it("isGroupLayer: a GeoJSON is not a group even when it is also a FeatureGroup", () => {
     // Real Leaflet: L.GeoJSON extends L.FeatureGroup, so a GeoJson layer is
     // instanceof L.GeoJSON AND instanceof L.FeatureGroup. The canonical
-    // L.FeatureGroup branch must not claim a GeoJSON data layer as a container.
+    // L.FeatureGroup branch must not claim a GeoJSON data layer as a group.
     class GeoJSONStub {
       _layers: Record<string, unknown> = {};
       eachLayer(fn: (c: unknown) => void): void {
@@ -704,7 +704,7 @@ describe("core/layer util: isContainerLayer", () => {
         getBounds: vi.fn(),
       });
       geo._layers["1"] = { feature: { type: "Feature" } };
-      expect(isContainerLayer(geo as unknown as L.Layer)).toBe(false);
+      expect(isGroupLayer(geo as unknown as L.Layer)).toBe(false);
     } finally {
       (window as any).L.FeatureGroup = prevFG;
       (window as any).L.GeoJSON = prevGJ;
@@ -729,15 +729,15 @@ describe("core/layer util: isGroupRow", () => {
   const info = (extra: Record<string, unknown> = {}) =>
     ({ id: "L1", name: "L1", role: "overlay", ...extra }) as any;
 
-  it("is a container row only when the entry declares no featureCountProvider", () => {
+  it("is a group row only when the entry declares no featureCountProvider", () => {
     const group = makeGroup();
     expect(isGroupRow(info(), group)).toBe(true);
     // MeasureControl and HeatmapControl register a group with a provider: the
-    // count is provider-driven, so the row is data, not a sub-layer container.
+    // count is provider-driven, so the row is data, not a sub-layer group.
     expect(isGroupRow(info({ featureCountProvider: () => 3 }), group)).toBe(false);
   });
 
-  it("is never a container row without an entry or a layer", () => {
+  it("is never a group row without an entry or a layer", () => {
     const group = makeGroup();
     expect(isGroupRow(null, group)).toBe(false);
     expect(isGroupRow(undefined, group)).toBe(false);

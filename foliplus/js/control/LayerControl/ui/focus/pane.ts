@@ -8,7 +8,7 @@ import {
   PANE_ROLE,
   ROLE,
   focusLayerZ,
-  isContainerLayer,
+  isGroupLayer,
   zFor,
 } from "#core/layer/index.js";
 import type { FinalizeStep } from "#platform/finalize.js";
@@ -160,7 +160,7 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
       // not discover (e.g. a child added after reconcile, or a nested group
       // with its own declared pane). Lift any such pane too so focusing the
       // container lifts every sub-layer, not just the surface's own panes.
-      if (layer && isContainerLayer(layer)) {
+      if (layer && isGroupLayer(layer)) {
         const covered = new Set(surface.paneNames);
         let childPanes: string[] = [];
         try {

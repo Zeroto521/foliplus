@@ -3059,7 +3059,7 @@ class LayerController implements LayerAPI {
         ["unbind-ui", () => this.ui?.unbindEvents()],
         ["destroy-persistence", () => this.persistence.destroy()],
         [
-          "clear-container",
+          "clear-group",
           () => {
             if (this.uiContainer) this.uiContainer.innerHTML = "";
           },

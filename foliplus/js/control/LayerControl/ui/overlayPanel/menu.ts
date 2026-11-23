@@ -176,7 +176,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Row semantics come from the entry, not the Leaflet class: a logical layer
   // backed by a group with a featureCountProvider (MeasureControl, Heatmap) is
   // data, so its style and filter panels stay available.
-  const isContainer = isGroupRow(
+  const isGroup = isGroupRow(
     ui.c.layerRegistry.get(layerId),
     ui.c.findLayer(layerId),
   );
@@ -188,7 +188,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   const focusDisabled = focusReason !== undefined;
   // A container row is a layer group, so its sentences say "layer group"
   // rather than "layer"; every other row is a plain layer.
-  const focusNoun: RowNoun = isContainer ? ROW_NOUN.GROUP : ROW_NOUN.LAYER;
+  const focusNoun: RowNoun = isGroup ? ROW_NOUN.GROUP : ROW_NOUN.LAYER;
   const focusDisabledTitle =
     focusReason !== undefined
       ? focusDisabledText(ui, focusReason, focusNoun)
@@ -204,7 +204,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // filter action (the panel would target an invisible layer), so the entry
   // is disabled for the same reason style is. Tooltip priority mirrors
   // style: the hidden reason first, then the no-fields reason.
-  const filterDisabled = isContainer || focusReason === "hidden" || !filterHasFields;
+  const filterDisabled = isGroup || focusReason === "hidden" || !filterHasFields;
   if (filterInfo) {
     menu.appendChild(
       dom.el(
@@ -213,8 +213,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           type: "button",
           "data-action": CONST.ACTION.FILTER_LAYER,
           role: "menuitem",
-          title: isContainer
-            ? ui.T("container_no_style_filter")
+          title: isGroup
+            ? ui.T("group_no_style_filter")
             : focusReason === "hidden"
               ? focusDisabledText(ui, "hidden", focusNoun)
               : filterHasFields
@@ -251,7 +251,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // (or vice versa) — and it cannot drift from the panel's dimension list.
   const cap = styleCapability(ui, layerId);
   const canConfigure = Object.values(cap.dims).some(Boolean) || cap.styleDelegation;
-  const styleDisabled = isContainer || focusReason === "hidden" || !canConfigure;
+  const styleDisabled = isGroup || focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
     dom.el(
@@ -260,8 +260,8 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
-        title: isContainer
-          ? ui.T("container_no_style_filter")
+        title: isGroup
+          ? ui.T("group_no_style_filter")
           : styleDisabled
             ? ui.T("style_label_no_data")
             : ui.T("style_layer_tooltip"),
