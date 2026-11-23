@@ -141,7 +141,6 @@
   "LayerControl.filter_row_title": "{kept} / {total} 已筛选 · {type}",
   "LayerControl.filter_empty": "该图层没有可筛选字段",
   "LayerControl.group_no_style_filter": "图层组不支持样式/筛选",
-  "LayerControl.filter_enum_truncated": "仅显示该字段的前 50 个值",
   "LayerControl.filter_enum_showing": "显示 {shown} / {total} 个值",
   "LayerControl.filter_enum_search_placeholder": "搜索值…",
   "LayerControl.filter_enum_search_no_result": "无匹配值",
