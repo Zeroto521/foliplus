@@ -245,6 +245,22 @@ def _cdn_cached(
     return None, None
 
 
+# ── External geocode providers ────────────────────────────────────
+# Browser tests must stay network-independent (AGENTS.md). The geocode
+# providers (Nominatim / Photon / Pelias) fetch from the live internet
+# when a measurement, marker or history entry triggers a reverse/forward
+# geocode lookup. Under a file:// origin those fetches are CORS-blocked,
+# which surfaces as a console.error (No Access-Control-Allow-Origin)
+# and makes "assert not errors" flake on any network. Intercept every
+# known provider host and answer deterministically so the test asserts
+# on app behavior, never on external network state.
+_GEOCODE_PROVIDER_HOSTS = (
+    "nominatim.openstreetmap.org",
+    "photon.komoot.io",
+    "api.demo.pelias.io",
+)
+
+
 def _is_cdn_url(url: str) -> bool:
     """True if *url* matches a known CDN asset (fragment substring match)."""
     return any(fragment in url for fragment in _CDN_CACHE)
@@ -334,6 +350,14 @@ def _install_cdn_route(target: Any) -> None:
         url = route.request.url
         if "tile.openstreetmap.org" in url:
             route.fulfill(status=404, body=b"")
+            return
+
+        if any(host in url for host in _GEOCODE_PROVIDER_HOSTS):
+            # Deterministic geocode response: empty JSON, no address, no CORS error.
+            # The app treats an empty/404 lookup as address-not-found / lookup-failed
+            # (geocoder.ts catch), so the test still asserts on app behavior while
+            # never depending on the live geocoder.
+            route.fulfill(status=200, body=b"{}", content_type="application/json")
             return
 
         if not _is_cdn_url(url):

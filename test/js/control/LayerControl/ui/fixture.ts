@@ -99,7 +99,7 @@ const stamp = (() => {
   return vi.fn((obj: object) => {
     // Real L.stamp caches on the object (_leaflet_id) so two calls for the
     // same layer return the same id. A stateless counter reissues a fresh id
-    // every call, which breaks container child rows (childRowId stamps at
+    // every call, which breaks group child rows (childRowId stamps at
     // render, resolveChild stamps again → mismatch). Cache like the real one.
     const anyObj = obj as { _leaflet_id?: number };
     anyObj._leaflet_id = anyObj._leaflet_id ?? ++id;
