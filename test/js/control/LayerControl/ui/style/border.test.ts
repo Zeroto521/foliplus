@@ -3011,7 +3011,7 @@ describe("follow-fill border mode", () => {
     // A declared value border is a read-time default like follow_fill: the
     // attach sweep is the only pass that reaches it, so without a replay arm
     // the map opens on the author's flat stroke and only a style-mode round
-    // trip paints the ramp (task-147). The replay must apply the classified
+    // trip paints the ramp .. The replay must apply the classified
     // stroke, not skip it.
     const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
     registerDeclared(
