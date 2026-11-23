@@ -347,7 +347,7 @@ describe("EventBus", () => {
     });
 
     const operation = new SettledOperation(bus);
-    operation.emit("first", { id: "a" });
+    operation.emit("first", { id: "a", kind: "vector" as const });
     operation.emit("second", { id: "b" });
 
     // Both events were attempted; the failure surfaces only at the boundary.
@@ -581,7 +581,7 @@ describe("EventBus", () => {
     const seen: unknown[] = [];
     const readMeta = (_payload: unknown, meta?: { origin?: unknown }) =>
       seen.push(meta?.origin);
-    const origin = { kind: "user", via: "panel" };
+    const origin = { kind: "user", via: "panel" } as const;
     bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta);
     bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta, "external");
     bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta, "external");
@@ -623,12 +623,22 @@ describe("EventBus", () => {
     const readMeta = (_payload: unknown, meta?: { origin?: unknown }) =>
       seen.push(meta?.origin);
     for (let i = 0; i < 5; i++) bus.on(EVENTS.LAYER_CHANGE, readMeta, "external");
-    const origin = { kind: "user", via: "panel" };
-    bus.emit(EVENTS.LAYER_CHANGE, { id: "a" }, origin);
-    bus.emitSuperseding(EVENTS.LAYER_CHANGE, "a", { id: "a" }, origin);
-    bus.emitSettled(EVENTS.LAYER_CHANGE, { id: "a" }, origin);
-    bus.emitSupersedingSettled(EVENTS.LAYER_CHANGE, "a", { id: "a" }, origin);
-    bus.publish(EVENTS.LAYER_CHANGE, { id: "a" }, origin);
+    const origin = { kind: "user", via: "panel" } as const;
+    bus.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }, origin);
+    bus.emitSuperseding(
+      EVENTS.LAYER_CHANGE,
+      "a",
+      { id: "a", kind: "vector" as const },
+      origin,
+    );
+    bus.emitSettled(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }, origin);
+    bus.emitSupersedingSettled(
+      EVENTS.LAYER_CHANGE,
+      "a",
+      { id: "a", kind: "vector" as const },
+      origin,
+    );
+    bus.publish(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }, origin);
     expect(seen).toEqual([origin, origin, origin, origin, origin]);
   });
 
@@ -663,7 +673,8 @@ describe("EventBus", () => {
     const voidSeen: unknown[] = [];
     bus.on(
       EVENTS.LAYER_LIST_REBUILD,
-      (payload, meta) => voidSeen.push([payload, meta?.origin]),
+      (payload: unknown, meta?: { origin?: unknown }) =>
+        voidSeen.push([payload, meta?.origin]),
       "external",
     );
     noArgsVoidSuperseding(EVENTS.LAYER_LIST_REBUILD, "rebuild");
@@ -686,9 +697,9 @@ describe("EventBus", () => {
     bus.on(EVENTS.LAYER_CHANGE, () => {
       throw new Error("terminal boom");
     });
-    expect(() => bus.publish(EVENTS.LAYER_CHANGE, { id: "a" })).toThrow(
-      "terminal boom",
-    );
+    expect(() =>
+      bus.publish(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }),
+    ).toThrow("terminal boom");
   });
 
   it("listenerCount counts every listener across events", () => {
