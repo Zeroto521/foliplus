@@ -33,6 +33,7 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   rebuildList,
+  refreshTreeConnectors,
   renderInitialList,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -274,6 +275,11 @@ class LayerUI implements LayerUISurface {
   /** Refresh count column for every overlay item (no title change). */
   refreshAllCounts() {
     return refreshAllCounts(this);
+  }
+
+  /** Re-derive each member row's tree connector (├ vs └) from the layout. */
+  refreshTreeConnectors() {
+    return refreshTreeConnectors(this);
   }
 
   unbindEvents() {

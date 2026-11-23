@@ -139,11 +139,118 @@ describe("ui derived-state coherence — B-path (runtime registerLayer)", () => 
   it.each(coherenceTable)("$name", ({ register, check }) => {
     installLeafletGlobals();
     register();
-    // The registration scheduled a debounced rebuild; flush it so the
-    // coherence guard is checked after the settle, not before.
-    vi.useFakeTimers();
-    vi.advanceTimersByTime(200);
-    vi.useRealTimers();
+    // The barrier invalidates synchronously inside the registration, so the
+    // coherence guard is checked after the settle already happened.
     check();
+  });
+});
+describe("ui derived-state coherence — tree connector (delete path)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const layoutFromRoles = (sections: Record<string, string[]>) => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const tree = (id: string): HTMLElement | null =>
+    attachedPanel(ui).querySelector(
+      `[data-layer-id="${id}"] .${CONST.CLASSES.FOLD_TREE}`,
+    );
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    }));
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("deleting the folder's last member flips the prior member to LAST", () => {
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(false);
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(true);
+    expect(tree("rd2")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    manager.deleteLayer("rd2");
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(false);
+  });
+
+  it("registering a new member computes the new row's connector and leaves prior rows coherent", () => {
+    expect(tree("rd2")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    manager.registerLayer({
+      id: "rd3",
+      name: "Lakes",
+      role: "overlay",
+      folder: "roads",
+      layer: polygonLayer(),
+    });
+    // New row at front: it is not the last member, so it must show MID, and
+    // the prior last member (rd2) must remain LAST — the block order is
+    // [rd3, rd1, rd2] because prepend() puts new overlays at index 0.
+    expect(tree("rd3")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(true);
+    expect(tree("rd3")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(false);
+    expect(tree("rd2")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(true);
+  });
+});
+
+describe("ui derived-state mechanism — the barrier re-derives every dimension", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("registerLayer schedules a barrier that re-derives tree connectors", () => {
+    const spy = vi.spyOn(ui, "refreshTreeConnectors");
+    manager.registerLayer({
+      id: "overlay2",
+      name: "Late",
+      role: "overlay",
+      layer: polygonLayer(),
+    });
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("deleteLayer schedules a barrier that re-derives tree connectors", () => {
+    const spy = vi.spyOn(ui, "refreshTreeConnectors");
+    manager.deleteLayer("overlay1");
+    expect(spy).toHaveBeenCalled();
   });
 });
