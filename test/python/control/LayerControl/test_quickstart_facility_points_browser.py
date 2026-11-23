@@ -29,7 +29,7 @@ import re
 
 import folium
 import geopandas as gpd
-from conftest import _js, load_geojson, make_browser_page, use_page
+from conftest import load_geojson, make_browser_page, snippet, use_page
 
 from foliplus import LayerControl
 
@@ -96,7 +96,7 @@ class TestQuickstartFacilityPointsBrowser:
     def test_first_frame_paints_per_feature_plasma(self, browser, tmp_path):
         """Every circle marker carries its own plasma fill on the first frame."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
-            dump = page.evaluate(_js("LayerControl/quickstart_first_frame_dump"))
+            dump = page.evaluate(snippet("LayerControl/quickstart_first_frame_dump"))
             assert dump is not None, "first-frame dump could not run"
             if "error" in dump:
                 raise AssertionError(f"first-frame dump error: {dump}")

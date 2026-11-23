@@ -11,7 +11,7 @@
 //   layerName: the panel row name this was matched against.
 () => {
   const rows = [...document.querySelectorAll("path.leaflet-interactive")];
-  const markers = rows.map((p) => {
+  const markers = rows.map(p => {
     const stroke = p.getAttribute("stroke");
     const fill = p.getAttribute("fill");
     const strokeWidth = p.getAttribute("stroke-width");
@@ -23,17 +23,25 @@
       strokeWidth: strokeWidth,
     };
   });
-  const distinctFills = new Set(markers.map((m) => m.fill)).size;
+  const distinctFills = new Set(markers.map(m => m.fill)).size;
 
   // Panel rows: the expanded list row carries the layer name; the style
   // sub-rows expose the resolved mode as text. Read whatever mode text the
   // fill/border cells render so the test can lock what the panel CLAIMS.
-  const panelFillModes = [...document.querySelectorAll(
-    ".foliplus-layer-ctrl [data-layer-dim=fill], .foliplus-layer-ctrl .foliplus-dim-fill",
-  )].map((el) => (el.textContent || "").trim()).filter(Boolean);
-  const panelBorderModes = [...document.querySelectorAll(
-    ".foliplus-layer-ctrl [data-layer-dim=border], .foliplus-layer-ctrl .foliplus-dim-border",
-  )].map((el) => (el.textContent || "").trim()).filter(Boolean);
+  const panelFillModes = [
+    ...document.querySelectorAll(
+      ".foliplus-layer-ctrl [data-layer-dim=fill], .foliplus-layer-ctrl .foliplus-dim-fill",
+    ),
+  ]
+    .map(el => (el.textContent || "").trim())
+    .filter(Boolean);
+  const panelBorderModes = [
+    ...document.querySelectorAll(
+      ".foliplus-layer-ctrl [data-layer-dim=border], .foliplus-layer-ctrl .foliplus-dim-border",
+    ),
+  ]
+    .map(el => (el.textContent || "").trim())
+    .filter(Boolean);
 
   return {
     markers: markers,
@@ -42,4 +50,4 @@
     panelBorderModes: panelBorderModes,
     markerCount: markers.length,
   };
-}
+};
