@@ -353,11 +353,25 @@ def _install_cdn_route(target: Any) -> None:
             return
 
         if any(host in url for host in _GEOCODE_PROVIDER_HOSTS):
-            # Deterministic geocode response: empty JSON, no address, no CORS error.
-            # The app treats an empty/404 lookup as address-not-found / lookup-failed
+            # Deterministic geocode response: empty JSON, no address. The app
+            # treats an empty lookup as address-not-found / lookup-failed
             # (geocoder.ts catch), so the test still asserts on app behavior while
             # never depending on the live geocoder.
-            route.fulfill(status=200, body=b"{}", content_type="application/json")
+            #
+            # Access-Control-Allow-Origin is REQUIRED: geocode goes through a
+            # cross-origin fetch() from a file:// page (origin null), and without
+            # the header Chromium blocks the response and logs a CORS console.error
+            # ("No 'Access-Control-Allow-Origin' header is present"). That error is
+            # NOT filtered by the page error collector (only "Failed to load
+            # resource" is), so "assert not errors" flakes on any geocode fetch.
+            # Same reason the CDN handler below sets the header for anonymous
+            # image loads (marker icons).
+            route.fulfill(
+                status=200,
+                body=b"{}",
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*"},
+            )
             return
 
         if not _is_cdn_url(url):

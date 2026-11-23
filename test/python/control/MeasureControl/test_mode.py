@@ -275,6 +275,10 @@ class TestMeasureMarkerBrowser:
                     status=200,
                     content_type="application/json",
                     body='{"display_name":"Resolved Address, Test City"}',
+                    # Cross-origin fetch() from a file:// page needs ACAO or
+                    # Chromium blocks the response + logs a CORS console.error,
+                    # which the page error collector does not filter.
+                    headers={"Access-Control-Allow-Origin": "*"},
                 ),
             )
             page.evaluate(_js("MeasureControl/seed_marker_nulladdr_storage"))
@@ -309,6 +313,10 @@ class TestMeasureMarkerBrowser:
                     status=200,
                     content_type="application/json",
                     body='{"display_name":"Resolved Address, Test City"}',
+                    # Cross-origin fetch() from a file:// page needs ACAO or
+                    # Chromium blocks the response + logs a CORS console.error,
+                    # which the page error collector does not filter.
+                    headers={"Access-Control-Allow-Origin": "*"},
                 ),
             )
             # Restore a marker with address:null
