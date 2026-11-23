@@ -3,7 +3,7 @@
 () =>
   [...document.querySelectorAll(".foliplus-layer-item")].map(r => {
     const cs = getComputedStyle(r);
-    const g = r.querySelector(".foliplus-drag-cell .drag-handle");
+    const g = r.querySelector(".foliplus-layer-rail .drag-handle");
     const m = r.querySelector(".foliplus-layer-more-btn");
     const i = r.querySelector(".foliplus-type-icon-col");
     return {

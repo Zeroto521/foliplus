@@ -15,7 +15,7 @@ import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 // which would leave every nested access `unknown`.
 type UiView = {
   listPanel: {
-    foldedRoles: Set<string>;
+    foldedRoles: Record<string, boolean>;
     lastDragHintAt: number;
     dragEntry: unknown;
     activeIdx: unknown;
@@ -48,8 +48,9 @@ describe("window.L marker mock", () => {
 describe("makeLayerUIMock — LayerUI field completeness", () => {
   it("covers every field the LayerUI constructor initialises", () => {
     const ui = makeLayerUIMock() as unknown as UiView;
-    // Sets
-    expect(ui.listPanel.foldedRoles).toBeInstanceOf(Set);
+    // Records (per-role user fold opinion)
+    expect(typeof ui.listPanel.foldedRoles).toBe("object");
+    expect(ui.listPanel.foldedRoles).not.toBeInstanceOf(Array);
     // Intent store (values + provenance axes)
     expect(ui.intentStore).toBeInstanceOf(LayerIntentStore);
     expect(ui.intentStore.dumpIntents()).toEqual({});

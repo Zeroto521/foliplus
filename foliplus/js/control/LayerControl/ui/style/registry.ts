@@ -46,7 +46,7 @@
 // `reset` deletes the config entry (back to "never configured") rather than
 // clearing an intent key (back to the author's declared value), and it has no
 // user/author provenance tiers. It carries `gate` / `row` / `contentChange`
-// only. See .foliplus/design/label-dimension-slot.md; the guard test
+// only. See the slot model below; the guard test
 // (registry.test.ts) locks this so a future change does not bolt the style
 // slots onto a content dimension by mistake.
 //

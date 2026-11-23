@@ -7,7 +7,7 @@
 // number separates that flake from a real regression. What the incremental
 // reconcile exists to keep is a *ratio*: a reorder round must stay an order of
 // magnitude cheaper than the full list rebuild (`rebuildList`, reached through
-// `ui.reindexAfterMove()`) that the old per-move path performed. That rebuild
+// `ui.rebuildAfterLayoutChange()`) that the old per-move path performed. That rebuild
 // is timed in the same process, on the same 200-row panel, right after the
 // round — both operations are synchronous and CPU-bound, so host speed and
 // scheduler contention scale them together and only their ratio is asserted.
@@ -77,7 +77,7 @@ describe("perf/list syncRowOrder", () => {
 
     // Warm both paths once: first-call JIT, layout and cache misses belong to
     // neither operation, and folding them into a sample only adds noise.
-    ui.reindexAfterMove();
+    ui.rebuildAfterLayoutChange();
 
     // The measurement: median of three up+down rounds, so one GC or scheduler
     // stall cannot decide the result.
@@ -99,7 +99,7 @@ describe("perf/list syncRowOrder", () => {
     let rebuildElapsed = Infinity;
     for (let i = 0; i < REBUILD_SAMPLES; i++) {
       const start = performance.now();
-      ui.reindexAfterMove();
+      ui.rebuildAfterLayoutChange();
       rebuildElapsed = Math.min(rebuildElapsed, performance.now() - start);
     }
 

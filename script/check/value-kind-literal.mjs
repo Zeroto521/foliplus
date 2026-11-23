@@ -25,7 +25,7 @@
  *     These are NOT excluded by a code path: the guard's literal set is only
  *     { 'numeric', 'category' } (VALUE_KIND), so FILL_MODE values
  *     ('solid' / 'value' / 'original') are a DIFFERENT literal set the guard
- *     never scans. When task-41 renames FILL_MODE to STYLE_MODE, decide
+ *     never scans. When FILL_MODE is renamed to STYLE_MODE, decide
  *     separately whether the style-mode vocabulary also needs a drift guard;
  *     if it does, that is a new literal set to scan (or a second guard), not
  *     the removal of an existing exclusion. Do not claim a FILL_MODE

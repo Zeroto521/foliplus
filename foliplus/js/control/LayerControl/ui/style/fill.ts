@@ -431,7 +431,7 @@ const fillDetailBuilder = (
   if (mode === STYLE_MODE.ORIGINAL) {
     return (ui, layerId) => {
       // A single-colour author has one paint to show: the compact [swatch |
-      // opacity] read-only row (design §2.1). A per-feature author has no
+      // opacity] read-only row. A per-feature author has no
       // single colour to put in a swatch — the shared original-colors detail
       // (column/colors/method/count) is the honest readout.
       if (paintsPerFeatureFill(ui, layerId)) {

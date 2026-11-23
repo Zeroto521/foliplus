@@ -16,8 +16,10 @@ misalignment this test exists to catch.
 
 from __future__ import annotations
 
+import json
+
 import folium
-from conftest import _js, panel_ready, use_page
+from conftest import _js, load_geojson, panel_ready, use_page
 
 from foliplus import LayerControl
 
@@ -37,7 +39,10 @@ class TestFilterRangeSliderLabelAlignment(LayerControlBrowserBase):
         wider than the thumb stays dot-centred, every wider label clamps to the
         control's edge.
         """
-        layer = folium.FeatureGroup(name="Filter align")
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name="Filter align",
+        )
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(

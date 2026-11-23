@@ -37,7 +37,7 @@ async () => {
     api.registerLayer({
       id,
       name,
-      layer: L.layerGroup(),
+      layer: L.circleMarker([0, 0]),
       featureCountProvider: () => 10,
       filterProvider: model,
       filterSetter: next => {

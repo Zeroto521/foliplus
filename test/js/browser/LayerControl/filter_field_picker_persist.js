@@ -52,7 +52,7 @@ async () => {
     api.registerLayer({
       id: ID,
       name: "Field picker probe",
-      layer: L.layerGroup(),
+      layer: L.circleMarker([0, 0]),
       featureCountProvider: () => 10,
       filterProvider: model,
       filterSetter: next => {
