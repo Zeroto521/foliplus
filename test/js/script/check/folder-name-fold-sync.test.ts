@@ -35,7 +35,9 @@ const pyFoldExpr = (): string => {
   //     return re.sub(r"\s+", " ", unicodedata.normalize("NFC", name.strip())).lower()
   const m = src.match(/def _folder_key\([\s\S]*?return\s+([^\n]+)\n/);
   if (!m) {
-    throw new Error("folder-name-fold-sync: could not locate Python _folder_key return");
+    throw new Error(
+      "folder-name-fold-sync: could not locate Python _folder_key return",
+    );
   }
   return m[1];
 };
@@ -45,9 +47,13 @@ const jsFoldExpr = (): string => {
   const src = readSource(JS_LAYOUT);
   // const normalizeFolderName = (name: string): string =>
   //   name.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
-  const m = src.match(/const normalizeFolderName\s*=\s*\([^)]*\)\s*:?\s*string\s*=>\s*([^;]+);/);
+  const m = src.match(
+    /const normalizeFolderName\s*=\s*\([^)]*\)\s*:?\s*string\s*=>\s*([^;]+);/,
+  );
   if (!m) {
-    throw new Error("folder-name-fold-sync: could not locate JS normalizeFolderName body");
+    throw new Error(
+      "folder-name-fold-sync: could not locate JS normalizeFolderName body",
+    );
   }
   return m[1];
 };
