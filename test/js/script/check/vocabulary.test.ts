@@ -141,10 +141,10 @@ function containerViolations(src: string): string[] {
   // (const makeContainer = ...) and function (function makeContainer(...) {...})
   // declaration styles; a factory declared some other way is not caught — this
   // guard narrows the common cases, it does not prove absence.
-  const declRe =
+  const declPattern =
     /(?:const makeContainer\s*=\s*|function makeContainer\s*)\(([^)]*)\)[^\n]*/g;
   let m: RegExpExecArray | null;
-  while ((m = declRe.exec(src)) !== null) {
+  while ((m = declPattern.exec(src)) !== null) {
     const params = m[1];
     const tail = src.slice(m.index, m.index + 400);
     const isDomFactory =
