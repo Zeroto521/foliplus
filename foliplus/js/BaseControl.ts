@@ -112,6 +112,8 @@ class BaseControl extends L.Control {
     } catch {
       return container;
     }
+    // origin-exempt: attachment is a lifecycle broadcast with no self-echo
+    // consumer — every control is new, no subscriber initiated it.
     publish(events, EVENTS.CONTROL_ATTACHED, {
       component: this.constructor.name,
     });

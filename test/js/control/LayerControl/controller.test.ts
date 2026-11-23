@@ -667,7 +667,10 @@ describe("LayerController", () => {
     manager.unregisterLayer("test_layer");
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler).toHaveBeenCalledWith({ id: "test_layer" });
+    expect(handler).toHaveBeenCalledWith(
+      { id: "test_layer" },
+      { origin: { kind: "system", via: "teardown" } },
+    );
   });
 
   it("unregisterLayer does NOT emit EVENTS.LAYER_REMOVED for unknown id", () => {
@@ -865,15 +868,27 @@ describe("LayerController", () => {
       name: "New",
       layer: { options: {} },
     } as any);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
-      id: "new1",
-    });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
-      id: "new1",
-    });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-      role: "overlay",
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_ADDED,
+      {
+        id: "new1",
+      },
+      { kind: "programmatic", via: "init" },
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_REFRESHED,
+      {
+        id: "new1",
+      },
+      { kind: "programmatic", via: "refresh" },
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ROLE_COUNT_CHANGED,
+      {
+        role: "overlay",
+      },
+      { kind: "system", via: "teardown" },
+    );
     expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
   });
 
@@ -1055,7 +1070,10 @@ describe("LayerController", () => {
 
       // kind comes from the registry entry ("vector" for a pending Leaflet
       // registration), not from re-probing `arrived`.
-      expect(onChange).toHaveBeenCalledWith({ id: "late", kind: "vector" });
+      expect(onChange).toHaveBeenCalledWith(
+        { id: "late", kind: "vector" },
+        { origin: { kind: "system", via: "teardown" } },
+      );
     } finally {
       window.L.stamp = realStamp;
     }
@@ -2188,20 +2206,32 @@ describe("LayerController", () => {
     } as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.registerLayer({ id: "overlay1", name: "Renamed" });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_UPDATED, {
-      id: "overlay1",
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_UPDATED,
+      {
+        id: "overlay1",
+      },
+      { kind: "programmatic", via: "refresh" },
+    );
     expect(emitSpy).not.toHaveBeenCalledWith(EVENTS.LAYER_ITEM_ADDED, {
       id: "overlay1",
     });
     // A re-registration is how the API says the layer's content changed, so the
     // cached field list — and the field resolved from it — must be dropped.
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ITEM_REFRESHED, {
-      id: "overlay1",
-    });
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-      role: "overlay",
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ITEM_REFRESHED,
+      {
+        id: "overlay1",
+      },
+      { kind: "programmatic", via: "refresh" },
+    );
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ROLE_COUNT_CHANGED,
+      {
+        role: "overlay",
+      },
+      { kind: "system", via: "teardown" },
+    );
     // Opacity is stored per-id; re-registration may swap the live layer/canvas.
     expect(manager.ui!.applyUserState).toHaveBeenCalledWith("overlay1");
   });
@@ -2844,9 +2874,13 @@ describe("LayerController", () => {
     } as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     expect(manager.unregisterLayer("base1")).toBe(true);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-      role: ROLE.BASE,
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_ROLE_COUNT_CHANGED,
+      {
+        role: ROLE.BASE,
+      },
+      { kind: "system", via: "teardown" },
+    );
   });
 
   it("attachUI skips a null entry in pending registrations", () => {
@@ -3694,7 +3728,10 @@ describe("LayerController", () => {
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.bringLayerToFront("bottom");
     expect(manager.layers[0].id).toBe("bottom");
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {
+      kind: "system",
+      via: "teardown",
+    });
   });
 
   it("bringLayerToFront ignores base layers", () => {
@@ -3851,7 +3888,10 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("rc1");
-      expect(handler).toHaveBeenCalledWith({ id: "rc1" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "rc1" },
+        { origin: { kind: "programmatic", via: "refresh" } },
+      );
     });
 
     it("does not emit for a base layer", () => {
@@ -3890,7 +3930,10 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("rt");
-      expect(handler).toHaveBeenCalledWith({ id: "rt" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "rt" },
+        { origin: { kind: "programmatic", via: "refresh" } },
+      );
       manager.invalidateType("rt");
       expect(manager.layerRegistry.get("rt")?.type).toBeNull();
     });
@@ -3900,7 +3943,10 @@ describe("LayerController", () => {
       const handler = vi.fn();
       bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
       manager.refreshCount("ghost");
-      expect(handler).toHaveBeenCalledWith({ id: "ghost" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "ghost" },
+        { origin: { kind: "programmatic", via: "refresh" } },
+      );
     });
   });
 
@@ -3951,7 +3997,10 @@ describe("LayerController", () => {
 
       expect(manager.deleteLayer("measure1")).toBe(true);
 
-      expect(handler).toHaveBeenCalledWith({ id: "measure1" });
+      expect(handler).toHaveBeenCalledWith(
+        { id: "measure1" },
+        { origin: { kind: "system", via: "teardown" } },
+      );
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
       expect((manager as any).order.removedIds.has("measure1")).toBe(false);
@@ -4030,10 +4079,17 @@ describe("LayerController", () => {
 
       expect(manager.deleteLayer("base1")).toBe(true);
 
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-        role: ROLE.BASE,
+      expect(emitSpy).toHaveBeenCalledWith(
+        EVENTS.LAYER_ROLE_COUNT_CHANGED,
+        {
+          role: ROLE.BASE,
+        },
+        { kind: "system", via: "teardown" },
+      );
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {
+        kind: "system",
+        via: "teardown",
       });
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
     });
 
     it("clears the color basemap — unregisters but keeps the id registerable", () => {
@@ -4057,10 +4113,17 @@ describe("LayerController", () => {
 
       expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
       expect(resetSpy).toHaveBeenCalled();
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_ROLE_COUNT_CHANGED, {
-        role: ROLE.BASE,
+      expect(emitSpy).toHaveBeenCalledWith(
+        EVENTS.LAYER_ROLE_COUNT_CHANGED,
+        {
+          role: ROLE.BASE,
+        },
+        { kind: "system", via: "teardown" },
+      );
+      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED, {
+        kind: "system",
+        via: "teardown",
       });
-      expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_NO_BASEMAP_CHANGED);
       expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
     });
 
@@ -4263,7 +4326,10 @@ describe("LayerController", () => {
 
       // The owner handler and LayerControl cleanup both ran even though a
       // consumer ahead of them threw.
-      expect(owner).toHaveBeenCalledWith({ id: "measure1" });
+      expect(owner).toHaveBeenCalledWith(
+        { id: "measure1" },
+        { origin: { kind: "system", via: "teardown" } },
+      );
       expect(deleteEntrySpy).toHaveBeenCalledWith("measure1");
       // Component clear keeps the id registerable for the next draw.
       expect(manager.layerRegistry.has("measure1")).toBe(true);
@@ -4828,7 +4894,10 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     manager.ui = {} as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerUp("b");
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {
+      kind: "system",
+      via: "teardown",
+    });
   });
 
   it("moveLayerDown rebuilds the list via LAYER_LIST_REBUILD when a UI is attached", () => {
@@ -4840,7 +4909,10 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     manager.ui = {} as any;
     const emitSpy = vi.spyOn(manager.events, "emitSettled");
     manager.moveLayerDown("a");
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD);
+    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_LIST_REBUILD, {
+      kind: "system",
+      via: "teardown",
+    });
   });
 
   it("a successful move persists the new order and emits LAYER_CHANGE", () => {
