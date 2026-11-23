@@ -3111,6 +3111,22 @@ describe("follow-fill border mode", () => {
     ui.applyUserState("plain_pts");
     expect(leaves[0].setStyle.mock.calls.length).toBe(before0);
   });
+  it("a weight:0 CircleMarker layer with no intent or declaration is not painted", () => {
+    // weight:0 is the other "author disabled the stroke" spelling. The gate
+    // must treat it the same as stroke:false so the solid fallback does not
+    // invent an outline the author asked not to have.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      leaf.options.weight = 0;
+      leaf.options.color = ["#0d0887", "#7e03a8"][i];
+      leaf.options.fillColor = leaf.options.color;
+    });
+    registerDeclared("w0_pts", undefined, leaves);
+    ui.c.layerRegistry.get("w0_pts").fillAuthor = { perFeature: true };
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    applyBorderToLayer(ui, "w0_pts");
+    expect(leaves[0].setStyle.mock.calls.length).toBe(before0);
+  });
   it("a stroke:false layer with a user border colour intent still paints the stroke", () => {
     // The gate must not swallow a genuine user intent: stroke:false only blocks
     // the no-provenance solid fallback, not a stroke colour the user picked.

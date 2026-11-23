@@ -592,7 +592,9 @@ const authorStrokeDisabled = (ui: LayerUI, layerId: string): boolean => {
   if (!layer) return false;
   let disabled = false;
   walkStyleLeaves(layer, leaf => {
-    if (leaf.options?.stroke === false) disabled = true;
+    if (leaf.options?.stroke === false || leaf.options?.weight === 0) {
+      disabled = true;
+    }
   });
   return disabled;
 };
