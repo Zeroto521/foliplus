@@ -42,7 +42,10 @@ const buildCheckboxCell = (
  *
  *  @param {number} total - Total members.
  *  @param {number} on - Members currently on. */
-const triState = (total: number, on: number): { checked: boolean; indeterminate: boolean } => ({
+const triState = (
+  total: number,
+  on: number,
+): { checked: boolean; indeterminate: boolean } => ({
   checked: total > 0 && on === total,
   indeterminate: on > 0 && on < total,
 });

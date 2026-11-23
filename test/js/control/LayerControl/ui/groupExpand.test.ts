@@ -22,7 +22,6 @@ import {
 describe("group expand", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let map: any;
 
   beforeEach(() => {
     ({ manager, ui, map } = initFixture());
@@ -780,7 +779,6 @@ describe("group expand — child checkbox rails", () => {
 describe("group expand — child row parity (P1 对齐)", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let map: any;
 
   afterEach(() => {
     manager?.debouncedEnforce?.cancel?.();
@@ -849,7 +847,6 @@ describe("group expand — child row parity (P1 对齐)", () => {
 describe("group expand — child row menu (stage 1)", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let map: any;
 
   afterEach(() => {
     manager?.debouncedEnforce?.cancel?.();
@@ -944,7 +941,6 @@ describe("group expand — child row menu (stage 1)", () => {
 describe("group expand — role expand/collapse (P1 项⑥)", () => {
   let manager: LayerController;
   let ui: LayerUI;
-  let map: any;
 
   afterEach(() => {
     manager?.debouncedEnforce?.cancel?.();
@@ -1004,7 +1000,8 @@ describe("group expand — role expand/collapse (P1 项⑥)", () => {
     ) as HTMLElement;
     const moreBtn = roleRow.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`)!;
     moreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    const menu = ui.overlayPanel.activeMenu?.menu!;
+    const menu = ui.overlayPanel.activeMenu?.menu;
+    if (!menu) throw new Error("expected an open menu");
     const btn = menu.querySelector<HTMLElement>(`button[data-action="${action}"]`)!;
     btn.click();
     return ui;
