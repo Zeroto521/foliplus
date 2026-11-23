@@ -109,7 +109,7 @@ class TestQuickstartFacilityPointsBrowser:
                 raise AssertionError(f"first-frame dump error: {dump}")
 
             markers = dump["markers"]
-            assert dump["markerCount"] >= 6, (
+            assert dump["markerCount"] == 6, (
                 "expected >=6 circle markers from .explore(), got {}".format(
                     dump["markerCount"]
                 )

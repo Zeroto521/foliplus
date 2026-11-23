@@ -3088,6 +3088,34 @@ describe("follow-fill border mode", () => {
     expect(painted0.color).toBe("#010101");
     expect(painted1.color).toBe("#020202");
   });
+  it("geometryKindOf falls back to the surface answer when the layer is absent", () => {
+    // Lines 973-974: when the surface answers UNKNOWN and the layer object is
+    // absent from both the registry entry and findLayer, geometryKindOf
+    // returns the surface answer (UNKNOWN) rather than throwing.
+    const leaves = [makeLayerForGeometry("point")];
+    leaves.forEach(leaf => {
+      delete leaf.feature;
+    });
+    manager.registerLayer({
+      id: "no_layer_obj",
+      name: "no_layer_obj",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 1,
+        stops: ["#0d0887"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    // Overwrite the registry entry to strip the layer object so the
+    // !layer early return fires.
+    const li = ui.c.layerRegistry.get("no_layer_obj");
+    if (li) (li as any).layer = undefined;
+    // buildBorderRow reads geometryKindOf: with the layer object absent it
+    // falls through 973-974 and the row still renders a mode select.
+    const row = buildBorderRow(ui, "no_layer_obj") as HTMLElement;
+    expect(row).not.toBeNull();
+  });
   it("borderCarriesValue is true for a CircleMarker the surface reads as unknown", () => {
     // An unenveloped marker (no .feature) makes the surface answer UNKNOWN.
     // geometryKindOf then walks the leaves and infers POINT from the

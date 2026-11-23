@@ -101,7 +101,7 @@ class TestCircleMarkerFirstFrameColour:
             fills = [p["fill"] for p in dump["paths"] if p["fill"]]
             assert fills, f"no filled CircleMarker paths found: {dump}"
             # Per-feature colours must survive attach: not all markers one colour.
-            assert len(set(fills)) >= 2, (
+            assert len(set(fills)) == len(fills), (
                 "per-feature plasma colours collapsed to a single colour on the "
                 f"first frame (diag: {json.dumps(dump)})"
             )
