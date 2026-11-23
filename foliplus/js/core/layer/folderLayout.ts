@@ -433,24 +433,6 @@ const fullDisplayOrder = (
   ...roleOrder("base", registryEntries, layout),
 ];
 
-/** Materialise one role's WHOLE folder-key order before a folder is about
- *  to lose its last member. Listed keys stay in list order; unlisted keys are
- *  appended by anchor (min member global index); the frozen key is guaranteed
- *  present. The emptied folder's block then survives at its frozen position
- *  (the clean button can still reach it). Pure: returns a new layout. */
-const listedRoleOrder = (
-  layout: FolderLayout,
-  role: LayerRole,
-  registryEntries: readonly LayerInfo[],
-): string[] => {
-  const listed = folderEntries(layout.order[role] ?? []);
-  const folders = groupByFolder(registryEntries, role, layout);
-  const unlisted = [...folders.keys()]
-    .filter(k => !listed.includes(k))
-    .sort((a, b) => folders.get(a)!.anchor - folders.get(b)!.anchor);
-  return [...listed, ...unlisted];
-};
-
 /** The role's block order with every folder it holds listed, in anchor order.
  *  Author-declared folders live in `members`, not in `order`, so a role whose
  *  folders are all author-declared has an empty order; this is the one place
@@ -523,13 +505,17 @@ const createFolder = (
 ): FolderLayout => {
   const key = normalizeFolderName(name);
   if (key === "") return layout;
-  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
-  const order = [
-    ...(registryEntries
-      ? listedRoleOrder(layout, role, registryEntries)
-      : folderEntries(layout.order[role] ?? [])),
-    ...roots,
-  ];
+  // Single-source the existing block order from roleBlocks (the merge-by-anchor
+  // result) when the registry is known, exactly as freezeRoleOrder does: root
+  // layers keep their anchor slots instead of being pushed to the tail after
+  // every folder. Without the registry we can only see what `order` lists, so
+  // the no-registry path keeps the listed folders followed by listed roots.
+  const order = registryEntries
+    ? seedBlockOrder(layout, role, registryEntries)
+    : [
+        ...folderEntries(layout.order[role] ?? []),
+        ...(layout.order[role] ?? []).filter(isRootLayerEntry),
+      ];
   if (order.includes(key)) return layout; // same-role duplicate refused
   // A different role may already hold this key: base and overlay folders
   // with the same name are two different folders (role-scoped identity).

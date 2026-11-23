@@ -141,6 +141,26 @@ describe("createFolder / renameFolder / deleteFolder", () => {
     expect(created.order.overlay).toEqual(["roads", "water", "facilities"]);
   });
 
+  it("createFolder keeps root layers interleaved at their anchor slots (P2 #1289)", () => {
+    // Same P1 scenario but the folder is created AFTER the layout is seeded:
+    // root1/member a/root2, then the user adds a new folder. The roots must stay
+    // interleaved, not be pushed to the tail after every folder.
+    const entries = [
+      entry("root1", "overlay", null, 0),
+      entry("a", "overlay", "Roads", 1),
+      entry("root2", "overlay", null, 2),
+    ] as LayerInfo[];
+    const layout = seedFolderLayout(entries);
+    expect(layout.order.overlay).toBeUndefined();
+    const created = createFolder(layout, "overlay", "New Roads", entries);
+    expect(created.order.overlay).toEqual([
+      "layer:root1",
+      "roads",
+      "layer:root2",
+      "new roads",
+    ]);
+  });
+
   it("moveLayerToRootAt places the layer between two listed folder blocks", () => {
     const entries = [
       entry("a", "overlay", "Alpha", 0),
