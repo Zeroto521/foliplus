@@ -69,7 +69,7 @@ const ICON_COLOR = `
 
 const ICON_FOLD = `
   <svg viewBox="0 0 24 24">
-    <polyline points="18 15 12 9 6 15"/>
+    <polyline points="9 6 15 12 9 18"/>
   </svg>`;
 
 /** "Expand all" glyph — two chevrons pointing down: the tree opens downward.

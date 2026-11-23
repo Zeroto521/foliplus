@@ -515,6 +515,14 @@
   --foliplus-grid-layer-cols: var(--foliplus-space-xl) var(--foliplus-space-xl) 1fr
     minmax(var(--foliplus-count-track-min-width), var(--foliplus-count-track-width))
     var(--foliplus-space-xl) var(--foliplus-more-btn-width);
+  /* Fold arrow: the two poses of the chevron ICON_FOLD paints. The icon rests
+     right-pointing (collapsed) and turns 90deg to point down (expanded) - the
+     tree-list convention (VS Code file explorer, GitHub file tree, Ant Design
+     Tree). Both angles are named here, so row.css has no angle of its own and
+     the folder and container rows #1276 adds reuse the same turn. A 180deg spin
+     would be the popup-style inversion: up-when-expanded. */
+  --foliplus-fold-rot-rest: 0deg;
+  --foliplus-fold-rot-expanded: 90deg;
   --foliplus-layer-row-min-height: calc(
     var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
       var(--foliplus-line-height-hint)
