@@ -19,8 +19,8 @@ import {
 
 /** One style dimension's structural facts, in one table entry.
  *
- *  `role` is the panel role the row renders in (the AGENTS.md vocabulary
- *  rule names this `role`, not `section`).
+ *  `role` is the panel role the row renders in — the vocabulary names this
+ *  `role`, never `section`.
  *  `tier` is the capability comparison: "native" means the surface must
  *  declare the slot exactly `"native"` (a native write carrier);
  *  "not-none" means anything but `"none"` (a pane projection still counts).

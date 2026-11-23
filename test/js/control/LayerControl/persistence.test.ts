@@ -13,6 +13,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   order: null,
   removed: [],
   foldedRoles: {},
+  foldedFolders: {},
   renamedNames: {},
   layers: {},
 });
@@ -61,6 +62,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: { OVERLAYS: true },
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -77,6 +79,7 @@ describe("LayerPersistence", () => {
         order: ids,
         removed: [],
         foldedRoles: { OVERLAYS: true },
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: {
           a: {
@@ -138,8 +141,8 @@ describe("LayerPersistence", () => {
       vi.useRealTimers();
     });
 
-    it("drops a v5 array foldedRoles and reads it as {} (v7 shape change)", () => {
-      // RECORD_VERSION 6 → 7 changed foldedRoles from a Set-shaped array to a
+    it("drops a v5 array foldedRoles and reads it as {} (v6 shape change)", () => {
+      // RECORD_VERSION 5 → 6 changed foldedRoles from a Set-shaped array to a
       // Record<role, boolean>. There is deliberately no compatibility read:
       // the old array is dropped (fold state lost) while every other field
       // survives, and the next write stamps the current version.
@@ -157,7 +160,7 @@ describe("LayerPersistence", () => {
       expect(rec.foldedRoles).toEqual({});
     });
 
-    it("parses a v7 Record<role, boolean> foldedRoles with only boolean values", () => {
+    it("parses a Record<role, boolean> foldedRoles with only boolean values", () => {
       seedStorage({
         version: RECORD_VERSION,
         foldedRoles: { OVERLAYS: true, base: false },
@@ -217,6 +220,46 @@ describe("LayerPersistence", () => {
       expect(written.layers).toEqual({});
       save.mockRestore();
       vi.useRealTimers();
+    });
+
+    it("drops a v5 record's array-shaped fold state (v5 → v6)", () => {
+      // RECORD_VERSION 5 → 6 changed `foldedRoles` from a Set-shaped array
+      // (folded keys only) to a Record<role, boolean> (both directions). The
+      // shape change is a breaking change accepted for this release, so the
+      // old array is dropped rather than migrated: the record still loads,
+      // its fold state reads as "no user opinion", and every other field
+      // survives. The next write stamps v6.
+      seedStorage({
+        version: 5,
+        order: ["a"],
+        renamedNames: { a: "A2" },
+        foldedRoles: ["overlay"],
+        layers: {},
+      });
+      const rec = makePersistence().load();
+      expect(rec.version).toBe(RECORD_VERSION);
+      expect(rec.order).toEqual(["a"]);
+      expect(rec.renamedNames).toEqual({ a: "A2" });
+      expect(rec.foldedRoles).toEqual({});
+      expect(rec.foldedFolders).toEqual({});
+    });
+
+    it("reads a foldedFolders map as per-folder opinions", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        order: [],
+        renamedNames: {},
+        foldedRoles: {},
+        foldedFolders: { "overlay::roads": false, "overlay::water": true },
+        layers: {},
+      });
+      const rec = makePersistence().load();
+      // An explicit EXPAND (false) survives the read: that is what lets a user
+      // open an author-folded folder.
+      expect(rec.foldedFolders).toEqual({
+        "overlay::roads": false,
+        "overlay::water": true,
+      });
     });
 
     it("prunes a deleted id from the label segment on read", () => {
@@ -829,8 +872,9 @@ describe("LayerPersistence", () => {
         version: RECORD_VERSION,
         order: ["a", "b"],
         removed: [],
-        // Legacy array foldedRoles is dropped as {} (v7 shape change, no compat read).
+        // Legacy array foldedRoles is dropped as {} (v6 shape change, no compat read).
         foldedRoles: {},
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -899,6 +943,7 @@ describe("LayerPersistence", () => {
         removed: [],
         // Legacy array foldedRoles reads as {} and stays {} through the write.
         foldedRoles: {},
+        foldedFolders: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1489,6 +1534,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: { OVERLAYS: true },
+        foldedFolders: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1519,6 +1565,7 @@ describe("LayerPersistence", () => {
         removed: [],
         // Legacy array foldedRoles reads as {} and the write leaves it alone.
         foldedRoles: {},
+        foldedFolders: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1634,6 +1681,7 @@ describe("LayerPersistence", () => {
         order: ["a", "b"],
         removed: [],
         foldedRoles: {},
+        foldedFolders: {},
         renamedNames: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1919,5 +1967,52 @@ describe("styleMode key migration (step 3 acceptance)", () => {
       },
     });
     expect(makePersistence().load().layers).toEqual({});
+  });
+
+  describe("persistence coverage edges", () => {
+    it("keeps a category kind on a category fill value", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        layers: {
+          a: {
+            fillValue: { kind: "category", field: "cls", scheme: "Reds" },
+            overrides: ["fillValue"],
+          },
+        },
+      });
+      const loaded = makePersistence().load().layers.a;
+      expect(loaded?.fillValue?.kind).toBe("category");
+      expect(loaded?.overrides).toEqual(["fillValue"]);
+    });
+
+    it("keeps a whitelisted divicon-class icon", () => {
+      seedStorage({
+        layers: {
+          a: { icon: { kind: "divicon-class", value: "pin" }, overrides: ["icon"] },
+        },
+      });
+      const loaded = makePersistence().load().layers.a;
+      expect(loaded?.icon?.kind).toBe("divicon-class");
+      expect(typeof loaded?.icon?.value).toBe("string");
+      expect((loaded?.icon?.value as string).length).toBeGreaterThan(0);
+    });
+
+    it("drops non-boolean foldedFolders values but keeps boolean ones", () => {
+      seedStorage({
+        version: RECORD_VERSION,
+        foldedFolders: { a: true, b: 5, c: "x", d: null, e: false },
+      });
+      const record = makePersistence().load();
+      expect(record?.foldedFolders).toEqual({ a: true, e: false });
+    });
+
+    it("writes scheduled foldedFolders through mergeFields", () => {
+      const save = spySave();
+      const persistence = makePersistence();
+      persistence.schedule({ foldedFolders: () => ({ x: true }) } as never);
+      persistence.flushAll();
+      const record = lastRecord(save);
+      expect(record.foldedFolders).toEqual({ x: true });
+    });
   });
 });

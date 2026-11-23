@@ -30,7 +30,11 @@ const syncListCursor = (ui: LayerUI): void => {
  *  "base", the same strings the role headers carry, and a bare string
  *  would let a same-named header steal the re-home (the header sits ahead
  *  of the rows in every findIndex). */
-type CursorRef = { kind: "layer"; id: string } | { kind: "role"; role: string } | null;
+type CursorRef =
+  | { kind: "layer"; id: string }
+  | { kind: "folder"; role: string; key: string }
+  | { kind: "role"; role: string }
+  | null;
 
 /** Read one row's cursor identity: layer rows key on data-layer-id,
  *  toggle-all rows on data-role — the two attributes never co-occur on a
@@ -39,16 +43,36 @@ const refOf = (el: HTMLElement): CursorRef => {
   const id = el.getAttribute(CONST.DATA.LAYER_ID);
   if (id) return { kind: "layer", id };
   const role = el.getAttribute("data-role");
-  return role ? { kind: "role", role } : null;
+  if (!role) return null;
+  // A folder row carries data-role too (it belongs to a role), so it needs its
+  // own kind: without it the re-home resolved the folder to the role header —
+  // the first element with that data-role — and clicking a folder row moved
+  // the cursor onto the role row.
+  const key = el.getAttribute(CONST.DATA.FOLDER_KEY);
+  return key ? { kind: "folder", role, key } : { kind: "role", role };
 };
 
 /** The one row lookup both re-home paths share (the rebuild-grade restore
  *  and the incremental reconcile): kind-keyed, so a layer named "overlay"
  *  never resolves to the overlay role header and back. */
-const rowByRef = (items: HTMLElement[], ref: Exclude<CursorRef, null>): number =>
-  ref.kind === "layer"
-    ? items.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === ref.id)
-    : items.findIndex(el => el.getAttribute("data-role") === ref.role);
+const rowByRef = (items: HTMLElement[], ref: Exclude<CursorRef, null>): number => {
+  if (ref.kind === "layer") {
+    return items.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === ref.id);
+  }
+  if (ref.kind === "folder") {
+    return items.findIndex(
+      el =>
+        el.getAttribute(CONST.DATA.FOLDER_KEY) === ref.key &&
+        el.getAttribute("data-role") === ref.role,
+    );
+  }
+  // The role header is the one row with this data-role and no folder key.
+  return items.findIndex(
+    el =>
+      el.getAttribute("data-role") === ref.role &&
+      !el.hasAttribute(CONST.DATA.FOLDER_KEY),
+  );
+};
 
 const cursorRef = (ui: LayerUI): CursorRef => {
   if (ui.listPanel.activeIdx === null) return null;
@@ -72,7 +96,11 @@ const restoreCursor = (ui: LayerUI, ref: CursorRef): void => {
   const items = getNavigableItems(ui);
   let idx = rowByRef(items, ref);
   if (idx !== -1 && items[idx].classList.contains(CONST.CLASSES.GROUP_FOLDED)) {
-    const role = items[idx].getAttribute("data-layer-type");
+    // A layer row carries its role in data-layer-type; a folder row carries it
+    // in data-role. Both fall back to the same role header.
+    const role =
+      items[idx].getAttribute("data-layer-type") ??
+      items[idx].getAttribute("data-role");
     idx = items.findIndex(
       el =>
         el.classList.contains(CONST.CLASSES.TOGGLE_ALL) &&

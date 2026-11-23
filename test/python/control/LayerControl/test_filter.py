@@ -417,14 +417,15 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_folder_delete_clean_entries(self, browser, tmp_path):
-        """The section header's clean-empty-folders button is the real end-to-end
+        """The role row's clean-empty-folders menu entry is the real end-to-end
         coverage of the empty-folder cleanup path.
 
         A folder layer is registered and then deleted, so #911's empty-folder
-        freeze leaves a key with no live member; the header renders with a clean
-        button. Clicking it removes the stale key and the button itself. The
-        three empty-folder cleanup probes are referenced here so the browser-probe inventory
-        sees them as reachable, not orphaned.
+        freeze leaves a key with no live member; the role row's overflow menu
+        offers the cleanup entry enabled. Activating it (arm, then confirm)
+        removes the stale key and its folder row. The three empty-folder cleanup
+        probes are referenced here so the browser-probe inventory sees them as
+        reachable, not orphaned.
         """
         layer = folium.GeoJson(_geo_zone, name="Roads")
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
@@ -437,7 +438,10 @@ class TestFilterBrowser(LayerControlBrowserBase):
             header = page.evaluate(_js("LayerControl/read_folder_header"))
             assert header and header.get("exists") is True, header
             cleanup = header.get("cleanup")
-            assert cleanup and cleanup.get("count", 0) >= 1, header
+            assert cleanup, header
+            # The entry is enabled exactly when the section holds an empty
+            # folder — that is the state this test seeded.
+            assert cleanup.get("disabled") is False, header
             assert cleanup.get("ariaLabel"), header
 
             counted = page.evaluate(_js("LayerControl/count_panel_rows"))
@@ -445,7 +449,6 @@ class TestFilterBrowser(LayerControlBrowserBase):
 
             clicked = page.evaluate(_js("LayerControl/click_folder_cleanup"))
             assert clicked and clicked.get("clicked") is True, clicked
-            assert clicked.get("remainingCount") == 0, clicked
-            assert clicked.get("buttonGone") is True, clicked
+            assert clicked.get("folderGone") is True, clicked
 
             assert not errors, f"JS errors: {errors}"
