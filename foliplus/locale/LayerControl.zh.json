@@ -140,7 +140,7 @@
   "LayerControl.filter_clear_disabled": "当前没有筛选",
   "LayerControl.filter_row_title": "{kept} / {total} 已筛选 · {type}",
   "LayerControl.filter_empty": "该图层没有可筛选字段",
-  "LayerControl.group_no_style_filter": "图层组不支持样式/筛选",
+  "LayerControl.group_no_style_filter": "容器图层不支持样式/筛选，请展开后对子图层操作",
   "LayerControl.filter_enum_truncated": "仅显示该字段的前 50 个值",
   "LayerControl.style_border_mode": "边框模式",
   "LayerControl.style_border_follow_fill": "跟随填充",

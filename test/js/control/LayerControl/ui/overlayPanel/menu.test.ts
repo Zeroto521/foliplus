@@ -2830,4 +2830,20 @@ describe("ui/list folder rows (menu)", () => {
 
     expect(ui.overlayPanel.activeMenu).toBeNull();
   });
+
+  // ─────────────────── container tooltip wording ───────────────────
+
+  describe("container tooltip wording", () => {
+    it("guides the user to expand the container before styling or filtering", () => {
+      const read = (rel: string) => JSON.parse(readFileSync(repoPath(rel), "utf8"));
+      const en = read("foliplus/locale/LayerControl.en.json");
+      const zh = read("foliplus/locale/LayerControl.zh.json");
+      expect(en["LayerControl.group_no_style_filter"]).toBe(
+        "Style and filter are not supported on a layer group. Expand the group to style or filter its child layers.",
+      );
+      expect(zh["LayerControl.group_no_style_filter"]).toBe(
+        "容器图层不支持样式/筛选，请展开后对子图层操作",
+      );
+    });
+  });
 });
