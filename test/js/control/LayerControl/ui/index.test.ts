@@ -243,8 +243,8 @@ describe("LayerUI shell — delegates", () => {
     expect(enforce).toHaveBeenCalled();
   });
 
-  it("reindexAfterMove rebuilds the list without dropping rows", () => {
-    ui.reindexAfterMove();
+  it("rebuildAfterLayoutChange rebuilds the list without dropping rows", () => {
+    ui.rebuildAfterLayoutChange();
 
     expect(ui.uiContainer!.querySelector("[data-layer-id='overlay1']")).not.toBeNull();
     expect(ui.uiContainer!.querySelector("[data-layer-id='base1']")).not.toBeNull();

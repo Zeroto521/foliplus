@@ -297,7 +297,10 @@ class TestDropdownListTouchBrowser:
     def test_touch_drag_over_the_enum_dropdown_does_not_pan_the_map(
         self, touch_browser, tmp_path
     ):
-        layer = folium.FeatureGroup(name="Touch scroll")
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name="Touch scroll",
+        )
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
         layer.add_to(m)

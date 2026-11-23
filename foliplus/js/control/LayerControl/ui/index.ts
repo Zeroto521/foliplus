@@ -43,13 +43,12 @@ import {
   handleChange,
   syncNoBasemap,
   syncToggleAll,
-  syncToggleAllFromCount,
   toggleAll,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel, openAttrsPanel } from "./overlayPanel/attr.js";
 import { closeFilterPanel, openFilterPanel } from "./overlayPanel/filter.js";
 import { OverlayPanel } from "./overlayPanel/index.js";
-import { closeMoreMenu, openMoreMenu } from "./overlayPanel/menu.js";
+import { closeMoreMenu, openMoreMenu, openRoleMenu } from "./overlayPanel/menu.js";
 import { finishRename, renameLayer } from "./overlayPanel/rename.js";
 import { intentVisibleOf } from "./projection.js";
 import {
@@ -161,6 +160,8 @@ class LayerUI implements LayerUISurface {
   declare onDragLeave: ((event: DragEvent) => void) | null;
   declare onDragEnd: ((event: DragEvent) => void) | null;
   declare onDrop: ((event: DragEvent) => void) | null;
+  /** Double-click handler: focus the map on the row's layer. */
+  onDblClick: ((event: MouseEvent) => void) | null;
   /** Click handler for the "more" (⋮) button. */
   onMoreClick: ((event: Event) => void) | null;
   /** Listen-map handler to detect clicks outside the open menu. */
@@ -223,6 +224,7 @@ class LayerUI implements LayerUISurface {
     this.unsubscribeControlAttached = null;
     this.unsubscribeEscape = null;
     this.unsubscribeLayerSignals = [];
+    this.onDblClick = null;
     this.onMoreClick = null;
     this.onMoreMapClick = null;
     this.onZoomEnd = null;
@@ -367,7 +369,7 @@ class LayerUI implements LayerUISurface {
   initLayerItem(layerInfo: LayerInfo) {
     return initLayerItem(this, layerInfo);
   }
-  reindexAfterMove() {
+  rebuildAfterLayoutChange() {
     // The rebuild entry owns rows, counts, readiness and the round; a caller
     // that just moved a layer only has to ask for it.
     return rebuildList(this);
@@ -382,9 +384,6 @@ class LayerUI implements LayerUISurface {
   }
   syncToggleAll(role: string) {
     return syncToggleAll(this, role);
-  }
-  syncToggleAllFromCount(role: string) {
-    return syncToggleAllFromCount(this, role);
   }
   syncNoBasemap() {
     return syncNoBasemap(this);
@@ -460,6 +459,9 @@ class LayerUI implements LayerUISurface {
   openMoreMenu(item: HTMLElement) {
     return openMoreMenu(this, item);
   }
+  openRoleMenu(item: HTMLElement) {
+    return openRoleMenu(this, item);
+  }
   closeMoreMenu(setFocus: boolean) {
     return closeMoreMenu(this, setFocus);
   }
@@ -513,8 +515,8 @@ class LayerUI implements LayerUISurface {
   renameLayer(layerId: string) {
     return renameLayer(this, layerId);
   }
-  finishRename(cancel?: boolean) {
-    return finishRename(this, cancel);
+  finishRename(restoreText?: boolean) {
+    return finishRename(this, restoreText);
   }
   focusLayer(layerId: string) {
     return focusLayer(this, layerId);

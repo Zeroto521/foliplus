@@ -18,7 +18,6 @@ import {
   getLayerItems,
   syncNoBasemap,
   syncToggleAll,
-  syncToggleAllFromCount,
   toggleAll,
 } from "#control/LayerControl/ui/listPanel/index.js";
 import { intentVisibleOf } from "#control/LayerControl/ui/projection.js";
@@ -417,7 +416,7 @@ describe("applyVisibility", () => {
 
       applyVisibility(only.ui as LayerUI, "only", false);
       expect(all.checked).toBe(false);
-      // `checkedCount === 0` makes `noneChecked` true, so `!allChecked &&
+      // `on === 0` makes `noneChecked` true, so `!allChecked &&
       // !noneChecked` is false. Nothing checked is not a partial state. Pinned
       // so a change to the tri-state rule shows up here.
       expect(all.indeterminate).toBe(false);
@@ -425,78 +424,33 @@ describe("applyVisibility", () => {
       only.destroy();
     });
 
-    it("keeps checkedCount in sync with a full rescan across many clicks", () => {
-      // The incremental counter is the fast path; the full rescan is the
-      // reconcile path. This test pins that the two agree after a series of
-      // toggles, so an off-by-one in bumpCheckedCount (or a missed
-      // reconcile-point call) shows up here.
-      //
-      // The attach-time initTypesAndVisibility runs in setTimeout(0), so
-      // the synchronous test body bootstraps the counter itself before the
-      // first click.
+    it("keeps the role header in sync with the intent across many clicks", () => {
+      // The header is the only record of the aggregate: every click repaints
+      // it from the registry, so a missed repaint shows up here.
       syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 2,
-      });
+      expect(allToggle(ui).checked).toBe(true);
+      expect(allToggle(ui).indeterminate).toBe(false);
 
-      // Hide overlay1: on 2 → 1. Rescan agrees.
+      // Hide overlay1: 2 of 2 → 1 of 2.
       applyVisibility(ui, "overlay1", false);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 1,
-      });
-      syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 1,
-      });
+      expect(allToggle(ui).checked).toBe(false);
+      expect(allToggle(ui).indeterminate).toBe(true);
 
-      // Hide overlay2: on 1 → 0. Rescan agrees.
+      // Hide overlay2: 1 of 2 → 0 of 2.
       applyVisibility(ui, "overlay2", false);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 0,
-      });
-      syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 0,
-      });
+      expect(allToggle(ui).checked).toBe(false);
+      expect(allToggle(ui).indeterminate).toBe(false);
 
-      // Show both: on 0 → 2. Rescan agrees.
+      // Show both: 0 of 2 → 2 of 2.
       applyVisibility(ui, "overlay1", true);
       applyVisibility(ui, "overlay2", true);
-      syncToggleAll(ui, ROLE.OVERLAY);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 2,
-      });
+      expect(allToggle(ui).checked).toBe(true);
+      expect(allToggle(ui).indeterminate).toBe(false);
 
-      // Setting a value to the same value it already has is a no-op: the
-      // delta is zero and the count is unchanged.
+      // Setting a value to the value it already has is a no-op.
       applyVisibility(ui, "overlay1", true);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 2,
-      });
-    });
-
-    it("exposes syncToggleAllFromCount as a delegator on LayerUI", () => {
-      // The public method on LayerUI is the wrapper around the module-level
-      // function; a host page that holds the UI instance calls it through
-      // that slot. Pinned so the delegator stays reachable and writes the
-      // tri-state checkbox off the cached count.
-      syncToggleAll(ui, ROLE.OVERLAY);
-      applyVisibility(ui, "overlay1", false);
-      expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-        total: 2,
-        on: 1,
-      });
-      ui.syncToggleAllFromCount(ROLE.OVERLAY);
-      const all = allToggle(ui);
-      expect(all.checked).toBe(false);
-      expect(all.indeterminate).toBe(true);
+      expect(allToggle(ui).checked).toBe(true);
+      expect(allToggle(ui).indeterminate).toBe(false);
     });
 
     it("skips syncNoBasemap for overlay clicks but calls it for base clicks", () => {
@@ -1085,7 +1039,6 @@ describe("unit helpers", () => {
       c: { layerRegistry: { get: () => undefined } },
       T: (k: string) => k,
       listPanel: {
-        checkedCount: {},
         foldedRoles: {},
         T: (k: string) => k,
       },
@@ -1115,7 +1068,6 @@ describe("unit helpers", () => {
       focusController: { focusingLayerId: null },
       T: (k: string) => k,
       listPanel: {
-        checkedCount: {},
         foldedRoles: {},
         T: (k: string) => k,
       },
@@ -1157,7 +1109,7 @@ describe("unit helpers", () => {
         runtimeStore: new LayerRuntimeStore(),
         focusController: { focusingLayerId: null },
         T: (k: string) => k,
-        listPanel: { checkedCount: {}, foldedRoles: {} },
+        listPanel: { foldedRoles: {} },
       } as unknown as LayerUI;
       return { ui, container };
     };
@@ -1203,78 +1155,17 @@ describe("unit helpers", () => {
     `;
     const ui = {
       uiContainer,
-      c: { layerRegistry: { get: () => ({ id: "x" }) } },
+      c: { layerRegistry: { get: () => ({ id: "x" }), items: [] } },
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       T: (k: string) => k,
       listPanel: {
-        checkedCount: {},
         foldedRoles: {},
         T: (k: string) => k,
       },
     } as unknown as LayerUI;
 
     expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
-  });
-
-  it("syncToggleAllFromCount bails when the group header is absent", () => {
-    // The row that carries the group's toggle-all checkbox is not present in
-    // the panel — nothing to write to, so the sync must bail rather than null-
-    // deref. Pinned so the O(1) path fails open like the full-rescan path
-    // does.
-    const uiContainer = document.createElement("div");
-    const ui = {
-      uiContainer,
-      checkedCount: {},
-      T: (k: string) => k,
-      listPanel: {
-        checkedCount: {},
-        foldedRoles: {},
-        T: (k: string) => k,
-      },
-    } as unknown as LayerUI;
-
-    expect(() => syncToggleAllFromCount(ui, ROLE.OVERLAY)).not.toThrow();
-  });
-
-  it("syncToggleAllFromCount bails when the header has no toggle-all input", () => {
-    // The header row resolves but carries no [data-role="toggle-all"] input:
-    // there is nothing to paint, so the sync must bail rather than write into
-    // a null element — the same guard the full-rescan path already carries.
-    const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}"></div>`;
-    const ui = {
-      uiContainer,
-      checkedCount: {},
-      listPanel: { checkedCount: {}, T: (k: string) => k },
-      T: (k: string) => k,
-    } as unknown as LayerUI;
-
-    expect(() => syncToggleAllFromCount(ui, ROLE.OVERLAY)).not.toThrow();
-  });
-
-  it("syncToggleAllFromCount treats a missing counter as an empty group", () => {
-    // A thin stub that skips the constructor leaves checkedCount empty; the
-    // write must still degrade to `checked=false, indeterminate=false` rather
-    // than crashing on the `?? { total: 0, on: 0 }` fallback. This also pins
-    // the empty-group tri-state semantics: `on === 0` means nothing checked,
-    // not a partial state.
-    const uiContainer = document.createElement("div");
-    uiContainer.innerHTML = `<div class="foliplus-layer-toggle-all" data-role="${ROLE.OVERLAY}"><input type="checkbox" data-role="toggle-all" /></div>`;
-    const ui = {
-      uiContainer,
-      checkedCount: {},
-      listPanel: { checkedCount: {}, T: (k: string) => k },
-      T: (k: string) => k,
-    } as unknown as LayerUI;
-
-    syncToggleAllFromCount(ui, ROLE.OVERLAY);
-
-    const all = uiContainer.querySelector<HTMLInputElement>(
-      '[data-role="toggle-all"]',
-    )!;
-    expect(all.checked).toBe(false);
-    expect(all.indeterminate).toBe(false);
   });
 });
 
@@ -1308,4 +1199,491 @@ it("a bulk toggle-all does not announce a layer a subscriber unregistered", () =
   expect(seen).toEqual(["alpha", "gamma"]);
   expect(ui.c.layerRegistry.has("beta")).toBe(false);
   expect(intentVisibleOf(ui, "gamma")).toBe(false);
+});
+
+describe("ui/list folder rows (visibility)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  it("repaints the folder count and tri-state when a member is toggled (issue 6)", () => {
+    // The folder row is a group row: its count and its checkbox are one
+    // aggregate over its members. Both used to be written once at render, so a
+    // member toggled afterwards left the header claiming "2" beside one
+    // visible layer.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads 1",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Roads 2",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = () =>
+      ui.uiContainer!.querySelector(`.${CONST.CLASSES.FOLDER_ROW}`)!;
+    const count = () =>
+      folderRow().querySelector(`.${CONST.CLASSES.COUNT_COL}`)!.textContent;
+    const box = () =>
+      folderRow().querySelector('input[type="checkbox"]') as HTMLInputElement;
+
+    expect(count()).toBe("2");
+    expect(box().checked).toBe(true);
+
+    applyVisibility(ui, "rd1", false);
+    expect(count()).toBe("1/2");
+    expect(box().checked).toBe(false);
+    expect(box().indeterminate).toBe(true);
+
+    applyVisibility(ui, "rd2", false);
+    expect(count()).toBe("0/2");
+    expect(box().checked).toBe(false);
+    expect(box().indeterminate).toBe(false);
+  });
+
+  it("folder checkbox toggles only the folder's members", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "water",
+          name: "Water",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      role: "overlay",
+      folderKey: "roads",
+    };
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    // The bulk toggle rebuilds the list, so read the fresh row.
+    const freshCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    expect(freshCb.getAttribute("aria-checked")).toBe("false");
+    const rootCb = ui.uiContainer!.querySelector(
+      '[data-layer-id="water"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(rootCb.checked).toBe(true);
+  });
+
+  it("folder checkbox restores the folder's members", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // Hide the folder's members first so show-folder has something to restore.
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+    };
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    const memberCb = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(memberCb.checked).toBe(false);
+    // The same checkbox restores the members' visibility.
+    const folderCb2 = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb2.checked = true;
+    folderCb2.dispatchEvent(new Event("change", { bubbles: true }));
+    const memberCb2 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(memberCb2.checked).toBe(true);
+  });
+
+  it("folder row checkbox change hides/shows every member through handleChange", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Parks",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    ui.handleChange({ target: folderCb } as unknown as Event);
+    const member1 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    const member2 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd2"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(member1.checked).toBe(false);
+    expect(member2.checked).toBe(false);
+    // Toggle back on: the folder row's checkbox flips the group visible.
+    const folderCb2 = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb2.checked = true;
+    ui.handleChange({ target: folderCb2 } as unknown as Event);
+    const member3 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    const member4 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd2"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(member3.checked).toBe(true);
+    expect(member4.checked).toBe(true);
+  });
+
+  it("checkbox change on a folder row without a key no-ops", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.FOLDER_ROW;
+    row.appendChild(cb);
+    ui.uiContainer!.appendChild(row);
+    expect(() =>
+      cb.dispatchEvent(new Event("change", { bubbles: true })),
+    ).not.toThrow();
+  });
+
+  it("folder visibility counts only the folder's own members", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "wt1",
+          name: "Water",
+          role: "overlay",
+          folder: "water",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      '[data-folder-key="roads"]',
+    ) as HTMLElement;
+    (ui.overlayPanel as any).activeMenu = {
+      item: folderRow,
+      menu: document.createElement("div"),
+      folderKey: "roads",
+      role: "overlay",
+    };
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    folderCb.dispatchEvent(new Event("change", { bubbles: true }));
+    const waterCb = ui.uiContainer!.querySelector(
+      '[data-layer-id="wt1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(waterCb.checked).toBe(true);
+  });
+
+  it("syncFolderRows skips a folder row that carries no key", () => {
+    // The folder row's key is its block identity; a row without one cannot be
+    // reconciled, so the pass skips it instead of throwing.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "roads", name: "Roads" }],
+        order: { overlay: ["roads"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "roads",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}`,
+    ) as HTMLElement;
+    expect(folderRow).not.toBeNull();
+    folderRow.removeAttribute(CONST.DATA.FOLDER_KEY);
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
+});
+
+describe("visibility coverage edges", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  const layoutFromRoles = (
+    sections: Record<string, string[]>,
+  ): Record<string, unknown> => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const polygonLayer = () => ({
+    options: {},
+    getBounds: () => ({ isValid: () => true }),
+  });
+
+  it("handleChange on a folder checkbox with a torn-down panel bails at the container guard", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.FOLDER_ROW;
+    row.setAttribute(CONST.DATA.FOLDER_KEY, "roads");
+    row.setAttribute(CONST.DATA.ROLE, "overlay");
+    row.appendChild(cb);
+    document.body.appendChild(row);
+    (ui as unknown as { c: { uiContainer: HTMLElement | null } }).c.uiContainer = null;
+    expect(() => ui.handleChange({ target: cb } as unknown as Event)).not.toThrow();
+  });
+
+  it("syncFolderRows skips a folder row that carries no checkbox", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const bare = document.createElement("div");
+    bare.className = CONST.CLASSES.FOLDER_ROW;
+    bare.setAttribute(CONST.DATA.FOLDER_KEY, "water");
+    bare.setAttribute(CONST.DATA.ROLE, "overlay");
+    ui.uiContainer!.appendChild(bare);
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
+
+  it("setFolderVisible records no delta for a member already in the target state", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Parks",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    applyVisibility(ui, "rd2", false);
+    const folderCb = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
+    ) as HTMLInputElement;
+    folderCb.checked = false;
+    ui.handleChange({ target: folderCb } as unknown as Event);
+    const rd1 = ui.uiContainer!.querySelector(
+      '[data-layer-id="rd1"] input[type=checkbox]',
+    ) as HTMLInputElement;
+    expect(rd1.checked).toBe(false);
+  });
+
+  it("handleChange bails on a non-checkbox target", () => {
+    const { ui } = initFixture({});
+    expect(() =>
+      ui.handleChange({ target: { tagName: "select", type: "" } } as unknown as Event),
+    ).not.toThrow();
+    expect(() =>
+      ui.handleChange({
+        target: { tagName: "input", type: "radio" },
+      } as unknown as Event),
+    ).not.toThrow();
+  });
+
+  it("handleChange on a folder checkbox whose key has no members falls back to an empty aggregate", () => {
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // A folder row for a key that has no registered members: the aggregate
+    // map has no entry for it, so handleChange reads the ?? fallback.
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = false;
+    const row = document.createElement("div");
+    row.className = CONST.CLASSES.FOLDER_ROW;
+    row.setAttribute(CONST.DATA.FOLDER_KEY, "ghost");
+    row.setAttribute(CONST.DATA.ROLE, "overlay");
+    row.appendChild(cb);
+    ui.uiContainer!.appendChild(row);
+    expect(() => ui.handleChange({ target: cb } as unknown as Event)).not.toThrow();
+  });
+});
+
+describe("visibility coverage edges (group rows)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  it("syncToggleAll bails when the panel is gone (no container)", () => {
+    // A reconcile that lands after the control unmounted (a queued timer, a
+    // late bulk toggle) has no panel to repaint: the sync must bail rather
+    // than dereference a null container.
+    const { ui } = initFixture({});
+    ui.c.uiContainer = null;
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAll returns early when the role owns no folder row", () => {
+    // The role header still paints, but there is no folder header to
+    // reconcile: the folder-row pass must bail on an empty node list rather
+    // than walking a nonexistent block.
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
 });

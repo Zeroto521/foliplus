@@ -1,7 +1,12 @@
 // core layer-traversal utilities — pure functions, no DOM / CONFIG.
 import * as CONST from "./const.js";
-import type { LabelAwareLayer, LayerCapabilities, LayerKind } from "./type.js";
-import { countChildLayers, walkLeaf } from "./walkLeaf.js";
+import type {
+  LabelAwareLayer,
+  LayerCapabilities,
+  LayerInfo,
+  LayerKind,
+} from "./type.js";
+import { childrenOf, countChildLayers, walkLeaf } from "./walkLeaf.js";
 import {
   internalLayers,
   isGroupLike,
@@ -168,6 +173,11 @@ type ContainerLike = L.Layer & {
  *  carry `eachLayer` (a Polygon stand-in, a marker with a stray method) is not
  *  a container.
  *
+ *  A real L.FeatureGroup (L.featureGroup / a folium FeatureGroup) is always
+ *  a container — even when its direct children carry `.feature` envelopes
+ *  (feature leaves), the GeoJSON shape fallback below would wrongly exclude
+ *  such a group, so the canonical class branch wins first.
+ *
  *  One deliberate exclusion keeps the probe honest: L.GeoJSON extends
  *  L.FeatureGroup extends L.LayerGroup, so a naive `eachLayer` probe would
  *  mislabel EVERY GeoJSON row as a container — a GeoJSON layer is data, not a
@@ -195,6 +205,22 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
   // owns no sub-layers, so a naive eachLayer probe would mislabel EVERY
   // GeoJSON row as a container. instanceof L.GeoJSON is the canonical check;
   // the guard keeps a jsdom mock L (no GeoJSON class) from throwing.
+  // A real L.FeatureGroup (not a GeoJSON data layer) is always a user-facing
+  // container — a folium FeatureGroup groups sub-layers even when its direct
+  // children carry .feature envelopes (feature leaves). The GeoJSON shape
+  // fallback below would wrongly exclude such a group, so the canonical class
+  // branch wins first. Guarded because jsdom mocks L without the FeatureGroup
+  // class (layerGroup is a factory there).
+  if (
+    typeof L.FeatureGroup === "function" &&
+    layer instanceof (L.FeatureGroup as new () => L.Layer) &&
+    !(
+      typeof L.GeoJSON === "function" &&
+      layer instanceof (L.GeoJSON as new () => L.Layer)
+    )
+  ) {
+    return true;
+  }
   if (
     typeof L.GeoJSON === "function" &&
     layer instanceof (L.GeoJSON as new () => L.Layer)
@@ -205,27 +231,57 @@ const isContainerLayer = (layer: L.Layer): layer is ContainerLike => {
   // jsdom mock) is recognised by its shape: every direct child carries a
   // GeoJSON feature envelope. A user FeatureGroup children (plain markers /
   // paths) carry none, so the two cannot be confused.
-  let featureChildCount = 0;
-  let childCount = 0;
-  const each = c.eachLayer;
-  if (each) {
-    try {
-      each.call(layer, (child: L.Layer) => {
-        childCount++;
-        if (child && "feature" in child) featureChildCount++;
-      });
-    } catch {
-      /* hostile getter — treat as non-GeoJSON, the walk will decide */
-    }
+  const children = childrenOf(layer);
+  if (children.length > 0 && children.every(child => child && "feature" in child)) {
+    return false;
   }
-  if (childCount > 0 && featureChildCount === childCount) return false;
   return true;
 };
+
+/** Whether a registry entry renders as a container ROW.
+ *
+ *  Row semantics — the type glyph, the count column, and whether the style and
+ *  filter panels are available — belong to the entry, not to the Leaflet class
+ *  alone. A logical layer can be backed by a group and still be data:
+ *  MeasureControl and HeatmapControl both register an L.layerGroup with a
+ *  `featureCountProvider`, and their count is provider-driven rather than a
+ *  sub-layer census. `isContainerLayer` answers the geometry question (is this
+ *  a group?); this answers the row question, so the provider exception lives
+ *  here once instead of being re-derived at every call site.
+ *
+ *  @param {LayerInfo|null|undefined} layerInfo - Registry entry behind the row.
+ *  @param {L.Layer|null|undefined} layer - Leaflet layer behind the entry.
+ *  @returns {boolean} Whether the row is a container row. */
+const isGroupRow = (
+  layerInfo: LayerInfo | null | undefined,
+  layer: L.Layer | null | undefined,
+): boolean =>
+  Boolean(
+    layer && layerInfo && !layerInfo.featureCountProvider && isContainerLayer(layer),
+  );
 
 /** Count a container's DIRECT children (its own sub-layers, not deep leaves).
  *  @param {L.Layer} layer - Leaflet container.
  *  @returns {number} Number of direct children. */
 const countChildLayersOf = (layer: L.Layer): number => countChildLayers(layer);
+/** Count a container's DIRECT children currently added to the map (visible
+ *  sub-layers). A direct child is counted only when the map still owns it
+ *  (map.hasLayer(child)); a child removed from the map is not a visible
+ *  sub-layer even though it remains in the container's registry.
+ *  @param {L.Layer} layer - Leaflet container.
+ *  @param {L.Map} map - Leaflet map (owner of the membership fact).
+ *  @returns {number} Number of direct children on the map. */
+const countVisibleChildLayers = (layer: L.Layer, map: L.Map): number => {
+  // The child enumeration is walkLeaf's childrenOf — the same read
+  // countChildLayers uses, so "how many children" and "how many are visible"
+  // can never disagree about what a child is.
+  if (typeof map.hasLayer !== "function") return 0;
+  let visible = 0;
+  for (const child of childrenOf(layer)) {
+    if (map.hasLayer(child)) visible++;
+  }
+  return visible;
+};
 
 /** Count geometric features in a layer tree.
  *  Counts geometry-producing leaves (Polygon / Polyline / CircleMarker / Marker).
@@ -380,5 +436,7 @@ export {
   getGeometryType,
   countFeatureGeometry,
   isContainerLayer,
+  isGroupRow,
   countChildLayersOf,
+  countVisibleChildLayers,
 };

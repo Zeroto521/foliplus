@@ -22,11 +22,11 @@ import type { LayerUI } from "./surface.js";
 const loadPersistedState = (ui: LayerUI) => {
   const state = ui.c.persistence.load();
   ui.listPanel.foldedRoles = { ...state.foldedRoles };
-  // The author's declared default fold state is NOT persisted: it is author
-  // config baked into the page (CONF.folders / CONF.roles), so it is
-  // re-derived on every load and stays fresh if the author changes the
-  // declaration. The user override (foldedRoles) is checked first and falls
-  // back to this.
+  // User opinion (persisted, tri-state) and author default (CONF.folders) are
+  // two layers; effectiveFold = foldedFolders[key] ?? authorFoldedFolders.has(key).
+  // The author default is re-derived on every load so it stays fresh if the
+  // author changes the declaration.
+  ui.listPanel.foldedFolders = { ...state.foldedFolders };
   ui.listPanel.authorFoldedFolders = authorFoldedKeys(ui.config?.folders);
   ui.listPanel.authorDefaultFoldedRoles = authorDefaultRoleFolds(ui.config?.roles);
   // Intent values + provenance sink into the store. The label config is read
@@ -43,6 +43,7 @@ const loadPersistedState = (ui: LayerUI) => {
 const saveFoldState = (ui: LayerUI) => {
   ui.c.persistence.schedule({
     foldedRoles: () => ({ ...ui.listPanel.foldedRoles }),
+    foldedFolders: () => ({ ...ui.listPanel.foldedFolders }),
   });
 };
 

@@ -144,8 +144,8 @@ const createTranslator = (
 
 /**
  * Create a component-scoped translator that auto-prepends the component name
- * to every key. Callers write T("focus_layer") instead of
- * _(`${CONFIG.name}.focus_layer`).
+ * to every key. Callers write T("focus") instead of
+ * _(`${CONFIG.name}.focus`).
  */
 const createScopedTranslator = (config: ComponentConfig): ((key: string) => string) => {
   const _ = createTranslator(config);

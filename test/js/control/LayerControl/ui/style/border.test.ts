@@ -1898,7 +1898,7 @@ describe("content-change replay", () => {
   });
 });
 
-// ── C1–C7: value-based stroke wiring (spec §5) ──────────────────────────────────────────────
+// ── C1–C7: value-based stroke wiring ────────────────────────────────────────────────────────
 //
 // These exercise the WIRING, not the engine (strokeValue.test.ts owns the
 // engine): applyBorderToLayer must dispatch to applyValueStroke when the

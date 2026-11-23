@@ -19,8 +19,12 @@ import type { PanelController } from "#core/leaflet/index.js";
  *  subscription installed while that panel is open (so unbinding clears
  *  them in lockstep). */
 class OverlayPanel {
-  /** Layer id whose label is currently an inline rename input, or null. */
+  /** Layer id whose label is currently an inline rename input, or null. A
+   *  folder rename has no layer id — the row below is the shared handle. */
   activeRenameId: string | null = null;
+  /** The row whose label is currently an inline rename input, or null. Both
+   *  rename kinds (layer and folder) set it, so one teardown serves both. */
+  activeRenameRow: HTMLElement | null = null;
   /** Unsubscribe for LAYER_REMOVED while a rename input is open (external
    *  delete cancels the in-flight rename without committing). */
   renameRemovedUnsub: (() => void) | null = null;
@@ -29,6 +33,10 @@ class OverlayPanel {
     item: HTMLElement;
     menu: HTMLElement;
     layerId: string;
+    /** The folder key the menu was opened for (folder rows only). */
+    folderKey?: string;
+    /** The role the menu was opened for (role rows only). */
+    role?: string;
   } | null = null;
   /** Unregister for the overflow menu's registry entry (installed while open). */
   menuOverlayUnregister: (() => void) | null = null;

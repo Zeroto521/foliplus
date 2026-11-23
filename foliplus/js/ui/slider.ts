@@ -43,30 +43,6 @@ const finishSlidersIn = (root: ParentNode): void => {
 const clamp = (value: number, lo: number, hi: number): number =>
   Math.min(hi, Math.max(lo, value));
 
-/** Display width of one label in "digit columns": a CJK / full-width glyph
- *  counts 2, everything else 1. The end-label alignment rule keys on this
- *  width, not on a pixel measurement, so a Chinese value and a number with
- *  the same visual span get the same alignment. */
-const displayWidth = (s: string): number => {
-  let w = 0;
-  for (const ch of s) {
-    // A for..of yields whole code points (a lone surrogate is one char), so
-    // index 0 is always in range and codePointAt never returns undefined; the
-    // cast keeps the branch out of the hot path.
-    const cp = ch.codePointAt(0) as number;
-    const wide =
-      (cp >= 0x1100 && cp <= 0x115f) ||
-      (cp >= 0x2e80 && cp <= 0xa4cf) ||
-      (cp >= 0xac00 && cp <= 0xd7a3) ||
-      (cp >= 0xf900 && cp <= 0xfaff) ||
-      (cp >= 0xfe30 && cp <= 0xfe6f) ||
-      (cp >= 0xff00 && cp <= 0xff60) ||
-      (cp >= 0xffe0 && cp <= 0xffe6);
-    w += wide ? 2 : 1;
-  }
-  return w;
-};
-
 // ── The value bubble ──────────────────────────────────────────────
 // Bubbles are page-level and keyed by anchor (the thumb element): a row that
 // owns one changes, the node does not. Keeping them out of every panel's
@@ -673,14 +649,14 @@ class Slider {
   }
 
   /** Width-adaptive end labels: the alignment rule keys on the label's
-   *  display width in digit columns (see displayWidth). A label that fits a
-   *  single digit column is dot-centred (its centre sits on the parked
-   *  thumb's centre, a half thumb in from the control edge); anything wider
-   *  is an axis label and pins to the slider's painted ends (class is-clamp,
-   *  the control's two edges — where the parked thumbs' outer edges land),
-   *  clipping its text toward the inside. The switch is decided per label on
-   *  render / open / resize — never on a drag frame, so a pointermove cannot
-   *  churn the layout. */
+   *  RENDERED width against the thumb's width. A label no wider than the
+   *  thumb is dot-centred (its centre sits on the parked thumb's centre, a
+   *  half thumb in from the control edge); anything wider is an axis label
+   *  and pins to the slider's painted ends (class is-clamp, the control's two
+   *  edges — where the parked thumbs' outer edges land), clipping its text
+   *  toward the inside. The switch is decided per label on render / open /
+   *  resize — never on a drag frame, so a pointermove cannot churn the
+   *  layout. */
   private measureValuesFit(): void {
     if (!this.minEl || !this.maxEl || !this.opts.values) return;
     const rowWidth = this.valuesRow.clientWidth;
@@ -688,16 +664,21 @@ class Slider {
     // laid-out width; skip and let the deferred measure or the resize observer
     // decide once the row is in the document.
     if (rowWidth === 0) return;
-    // The rule: one display column = dot-centred (a bare digit like "0" or
-    // "A" centres on its dot); two or more = clamp to the track's ends. The
-    // fit keys on the rendered label text (opts.values), which is the same
-    // string renderValues wrote into the span, so no null text path exists.
-    const fit = (el: HTMLElement, text: string) =>
-      displayWidth(text) < 2
+    // The rule keys on the RENDERED label width vs the thumb width — not on
+    // a character count. A label no wider than the thumb fits its dot-centred
+    // slot (its centre sits on the parked thumb's centre, a half thumb in
+    // from the control edge); a label wider than the thumb clamps to the
+    // painted bar ends (class is-clamp, the control's two edges). Reading the
+    // rendered box makes the rule immune to font changes, new glyphs and
+    // emoji — the character-count table it replaces drifted silently.
+    const thumbWidth = this.thumbs[0]?.getBoundingClientRect().width ?? 0;
+    const fits = (el: HTMLElement) => el.getBoundingClientRect().width <= thumbWidth;
+    const fit = (el: HTMLElement) =>
+      fits(el)
         ? el.classList.remove(SLIDER_CLASS.VALUE_CLAMP)
         : el.classList.add(SLIDER_CLASS.VALUE_CLAMP);
-    fit(this.minEl, this.opts.values.min);
-    fit(this.maxEl, this.opts.values.max);
+    fit(this.minEl);
+    fit(this.maxEl);
     // The deferred fit measure runs after the first layout, so the current
     // label can finally read its dot's real centre (the constructor's own
     // sync saw zero-width boxes and deferred).

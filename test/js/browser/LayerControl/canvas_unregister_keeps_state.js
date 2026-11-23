@@ -30,10 +30,12 @@ async () => {
   };
   const registered = () => api.layers.some(l => l.id === id);
 
-  // A plain featureGroup is user-owned and still gets the Layer section's
-  // opacity row (its surface capability is "pane", not "none").
+  // A plain GeoJSON leaf is user-owned and still gets the Layer section's
+  // opacity row (its surface capability is "pane", not "none"). It must be a
+  // leaf, not a group: a group is a container row, and a container's style
+  // panel is disabled by design.
   const makeOverlay = () =>
-    api.registerLayer({ id, name: "Delete Probe", layer: L.featureGroup() });
+    api.registerLayer({ id, name: "Delete Probe", layer: L.geoJSON() });
   makeOverlay();
   const row = document.querySelector(`.foliplus-layer-item[data-layer-id="${id}"]`);
   if (!row) return { error: "row not rendered", registered: registered() };

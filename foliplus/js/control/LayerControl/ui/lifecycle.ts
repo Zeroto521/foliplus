@@ -29,6 +29,7 @@ import {
   handleDragStart,
   handleDrop,
   toggleFold,
+  toggleFolderFold,
 } from "./listPanel/drag.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
@@ -36,7 +37,6 @@ import {
   insertLayerItem,
   markSettled,
   renderInitialList,
-  syncCleanButton,
   syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
@@ -47,6 +47,7 @@ import {
   syncNoBasemap,
   syncToggleAll,
   toggleAll,
+  toggleTarget,
 } from "./listPanel/visibility.js";
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeFilterPanel } from "./overlayPanel/filter.js";
@@ -68,7 +69,7 @@ import {
 import { forgetDegradedHint } from "./style/valuePaint.js";
 import type { LayerUI } from "./surface.js";
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
-import { type LayerRole, ROLE } from "#core/layer/index.js";
+import { ROLE } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /**
@@ -190,13 +191,13 @@ const bindLayerEvents = (ui: LayerUI): void => {
       // event fires, making it impossible to detect the pre-click state.
       const role = row.dataset.role ?? "";
       const items = getLayerItems(ui, role);
-      const noneChecked = Array.from(items).every((item: Element) => {
+      const on = Array.from(items).filter((item: Element) => {
         const c = item.querySelector(
           'input[type="checkbox"]',
         ) as HTMLInputElement | null;
-        return !c?.checked;
-      });
-      toggleAll(ui, role, noneChecked);
+        return c?.checked;
+      }).length;
+      toggleAll(ui, role, toggleTarget(on));
       return;
     }
     handleChange(ui, event);
@@ -231,28 +232,41 @@ const bindLayerEvents = (ui: LayerUI): void => {
       }
     }
 
-    // The clean-empty-folders button lives inside the toggle-all
-    // header, so it must be intercepted BEFORE the toggle-all branch folds
-    // the role. stopPropagation keeps the press from reaching the row /
-    // map (hard constraint 4).
-    const cleanBtn = el.closest(CONST.SEL.CLEAN_FOLDERS) as HTMLElement | null;
-    if (cleanBtn) {
-      event.stopPropagation();
-      event.preventDefault();
-      const role = cleanBtn.dataset.role ?? "";
-      if (role) {
-        ui.c.cleanEmptyFolders(role as LayerRole);
-      }
-      return;
-    }
-
     // The fold branch climbs on the header row's identity key, never on the
     // row class (see SEL.TOGGLE_ALL_ROW), and the click landing on the row's own
     // toggle-all checkbox is the onChange path, not a fold.
+    // A folder row's whole row folds its folder, reusing the
+    // role handler path: the click on the row body (not the checkbox or the
+    // ⋮ button, which stopPropagation in their own handlers) toggles the
+    // folder. A drag does not fold (didDrag guard lives in handleDragStart).
+    const folderRow = el.closest(CONST.SEL.FOLDER_ROW) as HTMLElement | null;
+    if (folderRow) {
+      if (
+        el.closest(`.${CONST.CLASSES.CHECKBOX}`) ||
+        el.closest(`.${CONST.CLASSES.MORE_BTN}`)
+      ) {
+        return;
+      }
+      const fk = folderRow.getAttribute(CONST.DATA.FOLDER_KEY);
+      const role = folderRow.getAttribute(CONST.DATA.ROLE) ?? "";
+      if (fk && role) {
+        toggleFolderFold(ui, role, fk);
+      }
+      return;
+    }
     const toggleAllEl =
       (el.closest(CONST.SEL.TOGGLE_ALL_ROW) as HTMLElement | null) ??
       (el.closest(CONST.SEL.TOGGLE_ALL) as HTMLElement | null);
-    if (!toggleAllEl || el.closest(`[data-role="${CONST.TOGGLE_ALL_ROLE}"]`)) {
+    // The checkbox is the onChange path, and the ⋮ button owns its own click
+    // handler (it opens the overflow menu). Both bubble here, so both must be
+    // excluded — the folder-row branch above already excludes the same pair.
+    // Without the ⋮ exclusion the menu opens and the role folds in one
+    // gesture, and the rebuild tears the menu down before it can be used.
+    if (
+      !toggleAllEl ||
+      el.closest(`[data-role="${CONST.TOGGLE_ALL_ROLE}"]`) ||
+      el.closest(`.${CONST.CLASSES.MORE_BTN}`)
+    ) {
       return;
     }
     toggleFold(ui, toggleAllEl.dataset.role ?? "");
@@ -315,9 +329,8 @@ const bindLayerEvents = (ui: LayerUI): void => {
   container.addEventListener("drop", ui.onDrop);
   container.addEventListener("dragend", ui.onDragEnd);
   // Double-click on a layer row → focus the map on that layer.
-  container.addEventListener("dblclick", event =>
-    handleDblClick(ui, event as MouseEvent),
-  );
+  ui.onDblClick = event => handleDblClick(ui, event as MouseEvent);
+  container.addEventListener("dblclick", ui.onDblClick);
 
   // Overflow ("more") button → dropdown menu. Uses event delegation so it
   // works for rows created after bindLayerEvents (registerLayer at runtime).
@@ -419,7 +432,6 @@ const bindLayerEvents = (ui: LayerUI): void => {
     }),
     subscribe(EVENTS.LAYER_ROLE_COUNT_CHANGED, (payload: { role: string }) => {
       syncToggleAll(ui, payload.role);
-      syncCleanButton(ui, payload.role);
     }),
     subscribe(EVENTS.LAYER_LIST_REBUILD, () => {
       // The reorder signal only moves rows: the emitters (moveLayerUp/Down,
@@ -572,6 +584,7 @@ const unbindEvents = (ui: LayerUI): void => {
   if (ui.onDragLeave) container.removeEventListener("dragleave", ui.onDragLeave);
   if (ui.onDrop) container.removeEventListener("drop", ui.onDrop);
   if (ui.onDragEnd) container.removeEventListener("dragend", ui.onDragEnd);
+  if (ui.onDblClick) container.removeEventListener("dblclick", ui.onDblClick);
   if (ui.onMoreClick) container.removeEventListener("click", ui.onMoreClick);
   if (ui.onMoreMapClick) ui.c.map.off("click", ui.onMoreMapClick);
   if (ui.onZoomEnd) ui.c.map.off("zoomend", ui.onZoomEnd);

@@ -174,6 +174,7 @@ const someLeaf = (
 };
 
 export {
+  childrenOf,
   countChildLayers,
   findLeaf,
   findNode,
