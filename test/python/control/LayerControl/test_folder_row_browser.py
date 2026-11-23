@@ -92,7 +92,6 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
                 )
             assert not errors, f"console errors: {errors}"
 
-
     def _page_two_folders(self, browser, tmp_path):
         """A page with two folder blocks in the overlay role, each with a member."""
         fc = load_geojson("LayerControl", "empty_feature_collection")
@@ -143,7 +142,10 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             # nesting — so we must drop at the edge to test sorting.
             page.locator(".foliplus-layer-item-folder").nth(0).drag_to(
                 page.locator(".foliplus-layer-item-folder").nth(1),
-                target_position={"x": tgt_box["width"] / 2, "y": tgt_box["height"] * 0.85},
+                target_position={
+                    "x": tgt_box["width"] / 2,
+                    "y": tgt_box["height"] * 0.85,
+                },
             )
             page.wait_for_timeout(400)
 
@@ -151,6 +153,5 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             print(f"  before={before} after={after}")
             # The dragged folder (roads) moves after water: the order flips.
             assert after == ["water", "roads"], (
-                f"folder order did not change after drag: "
-                f"before={before} after={after}"
+                f"folder order did not change after drag: before={before} after={after}"
             )
