@@ -353,10 +353,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
    *  the interactive control; its leading mark is queried and repainted,
    *  so a toggle never needs a full renderRows.
    */
-  const paintOptionRow = (
-    row: HTMLElement,
-    ctx: { selected: boolean },
-  ): void => {
+  const paintOptionRow = (row: HTMLElement, ctx: { selected: boolean }): void => {
     const box = row.querySelector<HTMLInputElement>("input[type=checkbox]");
     if (box) box.checked = ctx.selected;
   };
