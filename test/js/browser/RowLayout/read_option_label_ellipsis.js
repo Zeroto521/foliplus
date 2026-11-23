@@ -14,6 +14,9 @@
 // overflow:hidden actually clips (a block label), FALSE when the label is an
 // unclipped inline. jsdom cannot lay out, so this is a browser probe driven by
 // test/python/control/LayerControl/test_row_layout.py.
+//
+// The interaction chain uses poll-until waits instead of fixed sleeps so a
+// slow CI runner cannot miss a menu/panel/option render between steps.
 async () => {
   const api = window.map.foliplus && window.map.foliplus.LayerAPI;
   const bus = window.map.foliplus && window.map.foliplus.events;
@@ -36,10 +39,19 @@ async () => {
     total: 1,
   });
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const until = async (fn, ms = 2000, step = 25) => {
+    const end = Date.now() + ms;
+    for (;;) {
+      const v = fn();
+      if (v) return v;
+      if (Date.now() > end) return null;
+      await wait(step);
+    }
+  };
   const row = () =>
     document.querySelector(`.foliplus-layer-item[data-layer-id="${ID}"]`);
   try {
-    if (!row()) {
+    if (!(await until(row, 1000))) {
       api.registerLayer({
         id: ID,
         name: "Row label ellipsis",
@@ -49,23 +61,27 @@ async () => {
           filter = next;
         },
       });
-      await wait(30);
+      await until(row, 1000);
     }
     row().querySelector(".foliplus-layer-more-btn").click();
-    await wait(30);
-    const menuItem = row().querySelector(
-      '.foliplus-layer-more-menu [data-action="filter-layer"]',
+    const menuItem = await until(() =>
+      row().querySelector('.foliplus-layer-more-menu [data-action="filter-layer"]'),
     );
     if (!menuItem) return { ok: false, reason: "no-menu-item" };
     menuItem.click();
-    await wait(40);
-    const panel = row().querySelector(".foliplus-layer-filter-panel");
-    const trigger =
-      panel && panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger");
+    const panel = await until(() =>
+      row().querySelector(".foliplus-layer-filter-panel"),
+    );
+    const trigger = await until(
+      () =>
+        panel &&
+        panel.querySelector(".foliplus-filter-enum .foliplus-dropdown-trigger"),
+    );
     if (!trigger) return { ok: false, reason: "no-trigger" };
     trigger.click();
-    await wait(40);
-    const option = document.querySelector(".foliplus-dropdown-option");
+    const option = await until(() =>
+      document.querySelector(".foliplus-dropdown-option"),
+    );
     const label = option && option.querySelector(".foliplus-dropdown-option-label");
     const content = option && option.querySelector(".foliplus-row-content");
     if (!label || !content) return { ok: false, reason: "no-label" };
