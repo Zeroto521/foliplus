@@ -248,8 +248,14 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the slider-inset token single-source guard over foliplus/css/common/slider.css (no bare calc(thumb/2) outside the token definition), a tree guard not a script module",
   "check/fold-arrow":
     "the fold-arrow single-source guard over foliplus/js + foliplus/css (ICON_FOLD rests right-pointing, the two angles are named once in token.css and applied from aria-expanded in row.css with no literal rotate, list.ts feeds aria-expanded from isFolded), a tree guard not a script module",
+  "check/derived-barrier":
+    "the derived-state projection barrier guard over foliplus/js production (syncToggleAll/refreshAllCounts/refreshTreeConnectors call sites pinned to the controller.ts invalidateDerived barrier or an explicit whitelist), a tree guard not a script module",
   "check/hex-color-sync":
     "the Python↔JS marker-chassis hex shape sync guard over foliplus/_declaration.py + foliplus/js/platform/color.ts (two hand-copied regex literals must stay identical + judge a 44-sample set the same), a tree guard not a script module",
+  "check/role-words-sync":
+    "the Python↔JS layer-role vocabulary twin guard over foliplus/control/LayerControl/_role.py + foliplus/js/core/layer/const.ts (the two role words must stay identical and in the same order on both sides), a tree guard not a script module",
+  "check/folder-name-max-sync":
+    "the Python↔JS folder-name bound twin guard over foliplus/_declaration.py + foliplus/js/core/layer/folderLayout.ts (FOLDER_NAME_MAX must stay the same number on both sides), a tree guard not a script module",
 };
 
 // `test/js/script/<stem>.test.ts` has a subject when a module exists at the

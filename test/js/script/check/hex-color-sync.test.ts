@@ -7,10 +7,12 @@
 // would let a hex the Python channel accepts paint one colour and the JS
 // channel reject — the two channels must carry the same string for one
 // chassis colour. This guard extracts the regex literal from BOTH source
-// files and asserts (1) the literals are identical, (2) the same hex sample
-// set judges consistently on both sides, and (3) both channels normalise a
-// 3-digit hex to the same #rrggbb lowercase form.
+// files (through the shared crossLangLiteral locator) and asserts (1) the
+// literals are identical, (2) the same hex sample set judges consistently on
+// both sides, and (3) both channels normalise a 3-digit hex to the same
+// #rrggbb lowercase form.
 import { repoPath } from "#test/path.js";
+import { assertCrossLangLiteral, extractLiteral } from "./crossLangLiteral.js";
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
@@ -18,21 +20,16 @@ import { isHexColor, normalizeHexColor } from "#platform/color.js";
 const PY_DECL = "foliplus/_declaration.py";
 const JS_COLOR = "foliplus/js/platform/color.ts";
 
-/** Extract the Python _HEX_COLOR_RE literal (the regex string, no quotes). */
-const readPyHexRe = (): string => {
-  const src = fs.readFileSync(repoPath(PY_DECL), "utf8");
-  const m = src.match(/_HEX_COLOR_RE = re\.compile\(r"([^"]+)"\)/);
-  if (!m) throw new Error(`_HEX_COLOR_RE literal not found in ${PY_DECL}`);
-  return m[1];
-};
+/** The Python _HEX_COLOR_RE twin, pulled through the shared locator. */
+const readPyHexRe = (): string =>
+  extractLiteral(PY_DECL, /_HEX_COLOR_RE = re\.compile\(r"([^"]+)"\)/);
 
-/** Extract the JS isHexColor shape regex literal (the regex string, no slashes). */
-const readJsHexRe = (): string => {
-  const src = fs.readFileSync(repoPath(JS_COLOR), "utf8");
-  const m = src.match(/\^#\[0-9a-fA-F\]\{3\}\(\[0-9a-fA-F\]\{3\}\)\?\$/);
-  if (!m) throw new Error(`hex shape regex not found in ${JS_COLOR}`);
-  return m[0];
-};
+/** The JS isHexColor shape regex twin, pulled through the shared locator. */
+const readJsHexRe = (): string =>
+  extractLiteral(
+    JS_COLOR,
+    /typeof value === "string" && \/(\^#[^/]+)\/\.test\(value\)/,
+  );
 
 // A broad hex-shaped sample set: valid 3/6-digit (mixed case), malformed
 // lengths, non-hex digits, missing hash, whitespace, empty, non-string, and
@@ -89,7 +86,7 @@ describe("marker chassis hex shape stays in step across Python and JS", () => {
   const jsRegExp = new RegExp(jsRe);
 
   it("carries one identical hex shape regex literal on both sides", () => {
-    expect(jsRe).toBe(pyRe);
+    assertCrossLangLiteral(pyRe, jsRe, "hex shape regex");
   });
 
   it("judges the same hex sample set consistently on both sides", () => {

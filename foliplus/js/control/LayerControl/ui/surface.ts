@@ -76,6 +76,8 @@ interface LayerUI {
   // ── delegates the modules call on the shell ──
   activeLayerItem(): HTMLElement | null;
   refreshAllCounts(): void;
+  refreshTreeConnectors(): void;
+  syncToggleAll(role: string): void;
   saveState(): void;
   applyUserState(id?: string): ProjectionBatch;
   initTypesAndVisibility(): ProjectionBatch;

@@ -2566,6 +2566,34 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     expect(member("rd2").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
   });
 
+  it("handles a folder block with zero members (empty for-body)", () => {
+    // A folder key declared in the layout but with no live member layer yields
+    // an empty block.members list, so the member for-loop body never runs.
+    // The folder row still renders; no member rows are produced.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    // Retire the only member so the folder block has zero members.
+    ui.c.unregisterLayer("rd1");
+    rebuildList(ui);
+    const folderRow = ui.uiContainer!.querySelector(
+      `.${CONST.CLASSES.FOLDER_ROW}[${CONST.DATA.FOLDER_KEY}="roads"]`,
+    );
+    expect(folderRow).not.toBeNull();
+    // No member rows remain under the empty folder.
+    const members = ui.uiContainer!.querySelectorAll(`[data-layer-id="rd1"]`);
+    expect(members.length).toBe(0);
+  });
+
   it("folder row reads active when a member is visible (ACTIVE class)", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),

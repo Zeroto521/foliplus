@@ -43,6 +43,7 @@ import {
   insertLayerItem,
   markSettled,
   rebuildList,
+  refreshTreeConnectors,
   renderInitialList,
   renderLayerItem,
   renderToggleAllRow,
@@ -150,6 +151,7 @@ export {
   renderLayerItem,
   colorLayerName,
   initLayerItem,
+  refreshTreeConnectors,
 };
 export { ListPanel };
 export { toggleGroupExpand };

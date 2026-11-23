@@ -169,6 +169,12 @@ const blockEntryOfRow = (row: HTMLElement): string | null => {
   if (folderKey) return folderKey;
   const id = row.getAttribute(CONST.DATA.LAYER_ID);
   if (!id) return null;
+  // A member row carries the tree guide; a root layer row does not (list.ts
+  // renders the guide only when memberInfo.isMember). Only a member row belongs
+  // to the folder block above it — a root layer row is a block of its own, so
+  // walking up here would return the folder key to a root row that sits below a
+  // member row and silently drop the folder onto itself.
+  if (!row.querySelector(CONST.SEL.FOLD_TREE)) return rootLayerEntry(id);
   let prev = row.previousElementSibling as HTMLElement | null;
   while (prev) {
     const key = prev.getAttribute(CONST.DATA.FOLDER_KEY);

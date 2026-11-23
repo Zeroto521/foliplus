@@ -1168,4 +1168,5 @@ export {
   renderLayerItem,
   colorLayerName,
   initLayerItem,
+  refreshTreeConnectors,
 };

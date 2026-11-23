@@ -630,6 +630,13 @@ class LayerController implements LayerAPI {
       this.enforceOrder();
     }, CONST.ENFORCE_ORDER_DEBOUNCE_MS);
 
+    // The derived-state barrier: every registry mutation that changes row
+    // structure (register / unregister / delete) calls invalidateDerived()
+    // synchronously, so the role-count notification is delivered through the
+    // settled operation before the announce (the pinned emitSettled contract).
+    // Attach and reorder deliberately do NOT go through here (attach is a
+    // one-time full scan, reorder only moves rows without changing any count).
+
     this.onLayerAdd = event => {
       if (
         this.isDestroyed ||
@@ -1140,6 +1147,48 @@ class LayerController implements LayerAPI {
     );
   }
 
+  /** Re-derive every DOM-structure dimension of the panel from the registry.
+   *
+   *  The derived state (role tri-state / role count, folder row counts, tree
+   *  connectors) is written once at attach or at render time and then left
+   *  alone, while the registry can mutate at runtime (a late registration, a
+   *  delete). This is the single invalidation point that re-reads the
+   *  registry for every such dimension. It is deliberately full-panel (the
+   *  cost is the same order as the derive phase of rebuildList, and it skips
+   *  the DOM rebuild) — a per-role or per-row optimization is a later step.
+   *
+   *  The order matters: counts and connectors read the same folder layout, and
+   *  LAYER_ROLE_COUNT_CHANGED is published once per affected role after the
+   *  DOM is already consistent, so a subscriber that listens for it (the
+   *  toggle-all repaint) always reads current numbers.
+   */
+  invalidateDerived(operation: SettledOperation, roles: Iterable<string> = []): void {
+    if (this.isDestroyed || !this.map?.getContainer()) return;
+    const ui = this.ui;
+    if (!ui) return;
+    // 1. Role headers: tri-state checkbox + count column + folder rows.
+    ui.syncToggleAll(ROLE.OVERLAY);
+    ui.syncToggleAll(ROLE.BASE);
+    // 2. Every layer row's count column (a layer count may have shifted).
+    ui.refreshAllCounts();
+    // 3. The tree connectors: a member may have become / stopped being the
+    //    last of its block.
+    ui.refreshTreeConnectors();
+    // 4. One notification per role the caller touched, deduplicated. The roles
+    //    come from the caller, not from the registry: the retiring layer is
+    //    already gone from it, so re-deriving the set here would announce a
+    //    role whose count did not move and stay silent about the one that just
+    //    did (dropping the last base layer would notify overlay). A subscriber
+    //    that re-places a menu or repaints a row reads the consistent DOM.
+    for (const role of new Set(roles)) {
+      operation.emit(
+        EVENTS.LAYER_ROLE_COUNT_CHANGED,
+        { role },
+        { kind: "system", via: "teardown" },
+      );
+    }
+  }
+
   findLayer(idOrInfo: string | LayerInfo): L.Layer | null {
     return this.domain.findLayer(idOrInfo);
   }
@@ -1533,13 +1582,13 @@ class LayerController implements LayerAPI {
         { id: opts.id },
         { kind: "programmatic", via: "refresh" },
       );
-      operation.emit(
-        EVENTS.LAYER_ROLE_COUNT_CHANGED,
-        {
-          role: layerInfo.role,
-        },
-        { kind: "system", via: "teardown" },
-      );
+      // The registration changed row structure: the derived state (role
+      // count / tri-state / tree connectors) is invalidated through the
+      // barrier, which publishes the role-count notification itself after
+      // the DOM is consistent. The direct emit is gone — a barrier call and
+      // a bare emit would double-notify and the emit would read stale
+      // aggregates.
+      this.invalidateDerived(operation, [layerInfo.role]);
       // Defer z-order enforcement so batch registration coalesces into one pass.
       this.debouncedEnforce();
       // REFRESHED / GROUP_COUNT consumers can also throw: those failures are
@@ -1963,14 +2012,10 @@ class LayerController implements LayerAPI {
       );
       if (!gate()) return false;
       // The row was just removed: rescan the role's count so the toggle-all
-      // checkbox reflects the removal in the same frame.
-      operation.emit(
-        EVENTS.LAYER_ROLE_COUNT_CHANGED,
-        {
-          role: layerInfo.role,
-        },
-        { kind: "system", via: "teardown" },
-      );
+      // checkbox reflects the removal in the same frame. The barrier owns the
+      // notification now (see invalidateDerived); a bare emit here would read
+      // aggregates before the removal had settled into the registry.
+      this.invalidateDerived(operation, [layerInfo.role]);
       if (!gate()) return false;
       this.emitLayerChange(id, layerInfo.kind, operation);
       if (!gate()) return false;
@@ -2057,13 +2102,10 @@ class LayerController implements LayerAPI {
       const announced = this.announceRetirement(retired.layerInfo, operation);
       if (this.ui && announced) {
         this.ui.resetSolidBasemap();
-        operation.emit(
-          EVENTS.LAYER_ROLE_COUNT_CHANGED,
-          {
-            role: ROLE.BASE,
-          },
-          { kind: "system", via: "teardown" },
-        );
+        // The base role header's derived state (count / tri-state) is stale
+        // now; the barrier re-derives it and publishes the role-count
+        // notification itself.
+        this.invalidateDerived(operation, [retired.layerInfo.role]);
         operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, {
           kind: "system",
           via: "teardown",
@@ -2134,13 +2176,9 @@ class LayerController implements LayerAPI {
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);
     if (this.ui && announced) {
-      operation.emit(
-        EVENTS.LAYER_ROLE_COUNT_CHANGED,
-        {
-          role: retired.layerInfo.role,
-        },
-        { kind: "system", via: "teardown" },
-      );
+      // The deletion changed the role's row structure: the barrier re-derives
+      // the derived state and publishes the role-count notification itself.
+      this.invalidateDerived(operation, [retired.layerInfo.role]);
       operation.emit(EVENTS.LAYER_NO_BASEMAP_CHANGED, {
         kind: "system",
         via: "teardown",

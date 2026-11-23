@@ -10,6 +10,10 @@ import {
 
 /** Timing / delay constants. */
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
+/** The derived-state barrier debounce: registry mutations coalesce into one
+ *  re-derive pass. Same 50 ms as the order-enforce debounce, so a batch of
+ *  registrations settles in one frame instead of N. */
+const INVALIDATE_DERIVED_DEBOUNCE_MS = 50;
 /** One debounce for every persisted dimension -- the record is written whole,
  *  so there is a single timer rather than one per dimension. */
 const SAVE_DEBOUNCE_MS = 100;
@@ -461,6 +465,7 @@ export {
   DEFAULT_LABEL,
   DRAG,
   ENFORCE_ORDER_DEBOUNCE_MS,
+  INVALIDATE_DERIVED_DEBOUNCE_MS,
   FOCUS,
   FOCUS_PANE,
   FILL_VALUE,
