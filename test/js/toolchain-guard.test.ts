@@ -220,6 +220,10 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the Arrow/Escape keyboard-ownership guard over foliplus/js source, a tree guard not a script module",
   "check/file-header":
     "the canonical file-header guard over foliplus/js source (registry file-header.canonical.json), a tree guard not a script module",
+  "check/marker-color-preset":
+    "the marker-colour preset table consistency guard (19 presets, unique keys and hex, reverse lookup), a tree guard not a script module",
+  "check/selected-class-guard":
+    "the selected/active class vocabulary guard across dropdown, scheme picker and listbox, a tree guard not a script module",
   "check/glyph-prefix-guard":
     "the glyph-prefix single-source guard over foliplus/js production (fa-solid literal only on the GLYPH_PREFIXES.solid declaration line), a tree guard not a script module",
   "check/style-dimension-cycle":
