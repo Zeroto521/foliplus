@@ -20,6 +20,7 @@ import { parseValueDeclaration } from "./declaredFill.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
 
 /** The recognised border declaration mode literals (public API, snake_case).
  *  The JS internal literals are "followFill" / "value"; this reader maps. */
@@ -152,13 +153,16 @@ const parseIconSize = (
   return { declared: raw, invalid };
 };
 
-/** Parse the raw `marker_color` declaration into a validated preset name.
+/** Parse the raw `marker_color` declaration into a validated preset name
+ *  or a CSS hex.
  *
  *  A non-string (Python already gated the shape, but the namespace is a folium
  *  passthrough nothing validates at construction) or a blank name is rejected.
- *  A name outside MARKER_COLOR_PRESET_HEX is rejected too — an unknown preset
- *  would otherwise fall through to the derived blue and the author would never
- *  know their declaration was ignored. */
+ *  A name outside MARKER_COLOR_PRESET_HEX and a malformed hex are rejected too
+ *  — an unknown preset or bad hex would otherwise fall through to the derived
+ *  blue and the author would never know their declaration was ignored. A
+ *  valid hex is normalised (#rgb → #rrggbb, lowercased) and read as the
+ *  chassis colour directly (the flat mask path paints any hex). */
 const parseMarkerColor = (
   raw: unknown,
   layerId: string | undefined,
@@ -173,13 +177,14 @@ const parseMarkerColor = (
     return { invalid };
   }
   const name = raw.trim();
-  if (!(name in MARKER_COLOR_PRESET_HEX)) {
-    const message = `an unknown marker_color preset ${JSON.stringify(name)} (expected one of ${Object.keys(MARKER_COLOR_PRESET_HEX).join(", ")})`;
-    reject("preset", message);
-    invalid.push(message);
-    return { invalid };
+  if (name in MARKER_COLOR_PRESET_HEX) return { declared: name, invalid };
+  if (isHexColor(name)) {
+    return { declared: normalizeHexColor(name).toLowerCase(), invalid };
   }
-  return { declared: name, invalid };
+  const message = `an unknown marker_color preset ${JSON.stringify(name)} (expected one of ${Object.keys(MARKER_COLOR_PRESET_HEX).join(", ")} or a CSS hex)`;
+  reject("preset", message);
+  invalid.push(message);
+  return { invalid };
 };
 
 /** The key → parse registry: a new scalar declared* channel registers here. */
