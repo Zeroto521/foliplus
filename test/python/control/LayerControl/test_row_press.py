@@ -105,7 +105,12 @@ class TestRowPressScopeBrowser:
         carve-out keeps the wash off the owner row while a panel control
         is pressed.
         """
-        layer = folium.FeatureGroup(name="Style target", overlay=True, show=True)
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name="Style target",
+            overlay=True,
+            show=True,
+        )
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             self._open_panel(page)
             wash = self._sample_wash(page)
@@ -146,7 +151,12 @@ class TestRowPressScopeBrowser:
         checkbox, or drag-cell is not inside either overlay, so the wash
         must still apply.
         """
-        layer = folium.FeatureGroup(name="Row press", overlay=True, show=True)
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name="Row press",
+            overlay=True,
+            show=True,
+        )
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             self._open_panel(page)
             wash = self._sample_wash(page)
@@ -176,7 +186,12 @@ class TestRowPressScopeBrowser:
         carve-out keeps the wash off the owner row while a menu item is
         pressed.
         """
-        layer = folium.FeatureGroup(name="Menu target", overlay=True, show=True)
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name="Menu target",
+            overlay=True,
+            show=True,
+        )
         with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
             self._open_panel(page)
             wash = self._sample_wash(page)
@@ -295,15 +310,14 @@ def _make_layout_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
     LayerControl().add_to(m)
     base_polygon = leaflet_path("LayerControl", "polygon_row_layout")
     for i in range(n_layers):
-        fg = folium.FeatureGroup(name=f"Layer {i:02d}", overlay=True, show=True)
-        folium.Polygon(
-            [[lat + i * 0.01, lng] for lat, lng in base_polygon],
-            color="#0000ff",
-            weight=2,
-            fill=True,
-        ).add_to(fg)
-        folium.Marker([26.08 + i * 0.01, 119.30 + i * 0.01]).add_to(fg)
-        fg.add_to(m)
+        # A leaf GeoJson, not a FeatureGroup: a group is a container row now
+        # and a container has no style panel, which is what these tests drive.
+        folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name=f"Layer {i:02d}",
+            overlay=True,
+            show=True,
+        ).add_to(m)
     html = m.get_root().render()
     page, errors = make_browser_page(browser, tmp_path, html, slug)
     page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
@@ -475,8 +489,12 @@ def _make_scale_page(browser, tmp_path, *, order="panel_first"):
     """
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     for i in range(5):
-        fg = folium.FeatureGroup(name=f"Layer {i}", overlay=True, show=True)
-        fg.add_to(m)
+        folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name=f"Layer {i}",
+            overlay=True,
+            show=True,
+        ).add_to(m)
     lc = LayerControl(locale="en")
     sc = ScaleControl()
     if order == "scale_first":

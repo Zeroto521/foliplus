@@ -13,7 +13,7 @@ import {
   setActiveItem,
   syncActiveItem,
 } from "./cursor.js";
-import { toggleFold } from "./drag.js";
+import { toggleFold, toggleFolderFold } from "./drag.js";
 import { isNativeControl } from "#core/interaction/index.js";
 import { ROLE } from "#core/layer/index.js";
 import { HINT_DURATION, isInsideOverlay } from "#core/overlay/index.js";
@@ -218,6 +218,17 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
           // type-enforced: the renderer always writes data-role on this row.
           /* v8 ignore next -- the renderer always writes data-role on this row */
           toggleFold(ui, row.dataset.role ?? "");
+        } else {
+          // A folder row's chevron folds its folder, not a role. The folder
+          // row carries data-folder-key (the normalized name) and data-role.
+          const folderRow = (document.activeElement as HTMLElement).closest(
+            CONST.SEL.FOLDER_ROW,
+          ) as HTMLElement | null;
+          const fk = folderRow?.getAttribute(CONST.DATA.FOLDER_KEY);
+          const role = folderRow?.getAttribute(CONST.DATA.ROLE) ?? "";
+          if (fk && role) {
+            toggleFolderFold(ui, role, fk);
+          }
         }
         break;
       }
@@ -243,14 +254,6 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
         // the menu open and surfaces its title as a hint (a keyboard user gets
         // no tooltip hover).
         runMenuAction(ui, menuBtn, { explainDisabled: true });
-        break;
-      }
-      // The clean-empty-folders button is a native <button>; its
-      // Enter/Space activation fires a click (handled in lifecycle), so this
-      // manual dispatch must stand aside or the row's checkbox flips too.
-      if (document.activeElement?.classList.contains(CONST.CLASSES.CLEAN_FOLDERS_BTN)) {
-        event.preventDefault();
-        event.stopPropagation();
         break;
       }
       event.preventDefault();

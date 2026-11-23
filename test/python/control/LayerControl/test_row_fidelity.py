@@ -9,14 +9,29 @@ what the map actually draws.
 These tests assert the FIXED contract: the style row shows the author's real
 paint — the derive path's inline style.color for a glyph, the nested chassis
 preset for a group — and keeps a declared standard preset unchanged.
+
+The row is a GeoJson layer, not a FeatureGroup: a FeatureGroup is a container
+row now (no style panel), and a bare folium.Marker is a MacroElement rather
+than a Layer, so it never becomes a row on its own. A GeoJson layer with a
+point feature and a `marker=` template is the leaf that carries an awesome
+marker and still owns a style panel.
 """
 
 from __future__ import annotations
 
+import json
+
 import folium
-from conftest import _js, use_page
+from conftest import _js, load_geojson, use_page
 
 from ._browser_base import LayerControlBrowserBase
+
+_POINT = json.dumps(load_geojson("LayerControl", "point_11934_2611"))
+
+
+def _marker_layer(name: str, marker: folium.Marker) -> folium.GeoJson:
+    """A leaf GeoJson layer whose point renders as *marker*."""
+    return folium.GeoJson(_POINT, name=name, marker=marker)
 
 
 class TestRowColorFidelityBrowser(LayerControlBrowserBase):
@@ -24,63 +39,25 @@ class TestRowColorFidelityBrowser(LayerControlBrowserBase):
 
     @staticmethod
     def _icon_declared():
-        fg = folium.FeatureGroup(name="Icon declared", overlay=True, show=True)
-        folium.Marker(
-            [26.08, 119.30],
-            icon=folium.Icon(icon_color="red"),
-            name="Declared icon color",
-        ).add_to(fg)
-        return fg
+        return _marker_layer(
+            "Icon declared", folium.Marker(icon=folium.Icon(icon_color="red"))
+        )
 
     @staticmethod
     def _icon_inline_only():
         """Author paints the glyph inline but declares no iconColor option."""
-        fg = folium.FeatureGroup(name="Icon inline", overlay=True, show=True)
-        folium.Marker(
-            [26.08, 119.30],
-            icon=folium.DivIcon(html='<i style="color:purple">&#9733;</i>'),
-            name="Inline-only icon color",
-        ).add_to(fg)
-        return fg
+        return _marker_layer(
+            "Icon inline",
+            folium.Marker(
+                icon=folium.DivIcon(html='<i style="color:purple">&#9733;</i>')
+            ),
+        )
 
     @staticmethod
     def _marker_color_declared():
-        fg = folium.FeatureGroup(name="MC declared", overlay=True, show=True)
-        folium.Marker(
-            [26.08, 119.30],
-            icon=folium.Icon(color="green"),
-            name="Declared marker color",
-        ).add_to(fg)
-        return fg
-
-    @staticmethod
-    def _marker_color_nested() -> folium.FeatureGroup:
-        """A nested group whose marker carries a chassis preset one level down."""
-        inner = folium.FeatureGroup(name="Inner")
-        folium.Marker(
-            [26.08, 119.30],
-            icon=folium.Icon(color="purple"),
-            name="Nested marker",
-        ).add_to(inner)
-        outer = folium.FeatureGroup(name="Outer", overlay=True, show=True)
-        outer.add_child(inner)
-        return outer
-
-    @staticmethod
-    def _marker_color_mixed() -> folium.FeatureGroup:
-        """Single-level mixed: first marker declares blue, second orange."""
-        fg = folium.FeatureGroup(name="Mixed", overlay=True, show=True)
-        folium.Marker(
-            [26.08, 119.30],
-            icon=folium.Icon(icon_color="white"),
-            name="First",
-        ).add_to(fg)
-        folium.Marker(
-            [26.08, 119.31],
-            icon=folium.Icon(color="orange"),
-            name="Second",
-        ).add_to(fg)
-        return fg
+        return _marker_layer(
+            "MC declared", folium.Marker(icon=folium.Icon(color="green"))
+        )
 
     def _measure(self, browser, tmp_path, layer, slug):
         with use_page(self._make_page, browser, tmp_path, layer, slug=slug) as (
@@ -136,35 +113,10 @@ class TestRowColorFidelityBrowser(LayerControlBrowserBase):
         assert "awesome-marker-icon-green" in r["marker"]["cls"], r
         assert not errors, errors
 
-    def test_marker_color_nested_matches(self, browser, tmp_path):
-        """A nested chassis preset: the row reads the full tree, like the gate."""
-        r, errors = self._measure(
-            browser, tmp_path, self._marker_color_nested(), "fidelity_mc_nested"
-        )
-        assert r["panel"], r
-        assert r["markerColorRow"]["present"], r
-        # The row must read the nested purple, not the blue fallback.
-        assert r["markerColorRow"]["value"].lower() == "#d252b9", {
-            "rowValue": r["markerColorRow"]["value"],
-            "preset": r["marker"]["preset"] if r["marker"] else None,
-        }
-        # The map paints the nested marker's real chassis.
-        assert r["marker"] is not None and r["marker"]["hasChassis"], r
-        assert "awesome-marker-icon-purple" in r["marker"]["cls"], r
-        assert not errors, errors
-
-    def test_marker_color_mixed_first_wins(self, browser, tmp_path):
-        """Single-level mixed: the row reads the first marker's declared preset."""
-        r, errors = self._measure(
-            browser, tmp_path, self._marker_color_mixed(), "fidelity_mc_mixed"
-        )
-        assert r["panel"], r
-        assert r["markerColorRow"]["present"], r
-        assert r["markerColorRow"]["value"].lower() == "#38aadd", {
-            "rowValue": r["markerColorRow"]["value"],
-            "preset": r["marker"]["preset"] if r["marker"] else None,
-        }
-        assert (
-            r["marker"] is not None and "awesome-marker-icon-blue" in r["marker"]["cls"]
-        ), r
-        assert not errors, errors
+    # The nested-group and mixed-group chassis reads used to be asserted here
+    # through a FeatureGroup row's style panel. A FeatureGroup is a container
+    # row now and a container has no style panel, so the browser-level premise
+    # is gone. The capability itself is unchanged and covered where it lives:
+    # test/js/control/LayerControl/ui/style/markerColor.test.ts ("reads a nested
+    # group like the gate, not one level") and iconColor.test.ts ("shows the
+    # author's color for a nested group, like the gate").

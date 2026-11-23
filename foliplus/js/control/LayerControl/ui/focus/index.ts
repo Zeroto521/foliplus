@@ -8,6 +8,7 @@ import {
   applyProjectionAll,
   notifyDeltas,
 } from "../apply.js";
+import { ROW_NOUN, type RowNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
 import { showFocusDisabledHint } from "./hint.js";
@@ -17,10 +18,20 @@ import {
   hideOtherLayers,
   restoreHiddenLayers,
 } from "./pane.js";
+import { isGroupRow } from "#core/layer/index.js";
 import { ensureModes, guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { type FinalizeStep, finalize } from "#platform/finalize.js";
 import * as CONST from "#control/LayerControl/const.js";
+
+/** Which noun a focus sentence uses for this row: a layer group reads as a
+ *  group, everything else as a layer. A folder row never reaches this path
+ *  today (folder focus is its own feature); when it does, it passes
+ *  `ROW_NOUN.FOLDER`. */
+const rowNoun = (
+  layerInfo: Parameters<typeof isGroupRow>[0],
+  layer: Parameters<typeof isGroupRow>[1],
+): RowNoun => (isGroupRow(layerInfo, layer) ? ROW_NOUN.GROUP : ROW_NOUN.LAYER);
 
 /** Toggle visibility of the currently focused layer. */
 const toggleFocusedLayer = (ui: LayerUI): void => {
@@ -75,7 +86,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
     'input[type="checkbox"]',
   ) as HTMLInputElement | null;
   if (checkbox && !checkbox.checked) {
-    showFocusDisabledHint(ui, "hidden");
+    showFocusDisabledHint(ui, "hidden", rowNoun(layerInfo, layer));
     return;
   }
 
@@ -111,7 +122,7 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
   // no announce) behind.
   if (!bounds?.isValid()) {
     if (rejoinedLayer) ui.c.map.removeLayer(rejoinedLayer);
-    showFocusDisabledHint(ui, "no_bounds");
+    showFocusDisabledHint(ui, "no_bounds", rowNoun(layerInfo, layer));
     return;
   }
 
@@ -376,6 +387,7 @@ export {
 export {
   focusDisabledLocaleKey,
   focusDisabledReason,
+  focusDisabledText,
   showFocusDisabledHint,
 } from "./hint.js";
 export { bringFocusedLayerToFront } from "./pane.js";

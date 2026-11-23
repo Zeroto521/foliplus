@@ -84,17 +84,28 @@
   /* ── Section label (rendered only inside toggle-all rows) ── */
   .foliplus-layer-sep-label {
     grid-area: label;
+    position: relative;
+    z-index: 1;
     font-size: var(--foliplus-font-size-xs);
     color: var(--foliplus-text-muted);
     text-transform: uppercase;
     letter-spacing: var(--foliplus-letter-spacing-tight);
     white-space: nowrap;
+    /* The role row's divider fills the label column behind this label; the
+       surface paint creates the text gap so the hairline does not cross the
+       label (spec v3.6: divider ends before the count column). The paint
+       inherits the row's own background, so the gap follows the row between
+       its resting surface and the checked-row wash instead of punching a
+       white hole in the wash. The chip hugs the text, so the hairline shows
+       in the rest of the label column. */
+    justify-self: start;
+    background-color: inherit;
   }
 
   /* ── Shared grid placements (each row is an independent grid container,
        so these global rules apply inside all of them via grid-context evaluation). */
-  .foliplus-drag-cell {
-    grid-area: drag;
+  .foliplus-layer-rail {
+    grid-area: rail;
     /* Always black. The grip is a static affordance, not a control that joins
        the hover/active color dance, so it never tints accent. */
     color: var(--foliplus-text-primary);
@@ -121,12 +132,13 @@
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     display: grid;
     grid-template-columns: var(--foliplus-grid-layer-cols);
-    /* Drag/check/label are named slots (placed via item-level grid-area
-       shared with layer-item rows). Divider is 3 anonymous slots —
-       positioned by grid-column: 4 / -1 on the item, not a named area.
-       This avoids the dual-declaration coupling (template-areas + item
-       grid-area) that only the divider originally had. */
-    grid-template-areas: "drag check label . . .";
+    /* Rail/check/label/count/icon/more are named slots (placed via
+       item-level grid-area shared with layer-item rows). The role row now
+       carries count/icon/more (spec v3.6 §1.2), so it uses the same six
+       named areas as folder/layer rows — otherwise those grid-area names
+       would auto-place into one implicit cell and overlap. The role divider
+       is placed by grid-column: 3 (label column only), not a named area. */
+    grid-template-areas: "rail check label count icon more";
     column-gap: var(--foliplus-grid-layer-gap);
     align-items: center;
     /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
@@ -146,10 +158,6 @@
        toggle-all row is destroyed and re-created on every list rebuild, and
        its folded state (border-left-color: var(--foliplus-accent-primary)) is re-applied
        on rebuild, so a transition on either would flash on each rebuild. */
-
-    .foliplus-section-divider {
-      grid-column: 4 / -1;
-    }
   }
   /* Section label: primary color + semibold so it reads as a real header */
   .foliplus-layer-toggle-all .foliplus-layer-sep-label {
@@ -168,7 +176,7 @@
 
   /* ── Fold toggle button ── */
   .foliplus-layer-fold-btn {
-    grid-area: drag;
+    grid-area: rail;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -357,7 +365,7 @@
         0 var(--foliplus-size-2) var(--foliplus-size-4) var(--foliplus-accent-primary);
       background: var(--foliplus-surface);
 
-      .foliplus-drag-cell .drag-handle {
+      .foliplus-layer-rail .drag-handle {
         opacity: 1;
       }
       .foliplus-type-icon-col {
@@ -379,7 +387,7 @@
        appended inside the row, and CSS :active matches the pressed element
        plus every ancestor, so a press on any panel/menu control would
        otherwise light the owner row. The row's own label / checkbox /
-       drag-cell still receive the wash. :has is already in use below
+       rail still receive the wash. :has is already in use below
        (line ~359) so no browser support regression. */
     &:not([data-layer-type="base"]):not(
         :has(.foliplus-row-panel :active, .foliplus-layer-more-menu :active)
@@ -399,10 +407,12 @@
      sibling (z-index 1, later in DOM) paints over it (measured, not
      guessed). Lifting the owner row itself to the floating index carries
      the open overlay with it and settles every combination. */
-  &:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
-    .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
-      z-index: var(--foliplus-z-index-floating);
-    }
+  /* The role row is deliberately not a .foliplus-layer-item (that class means
+     "a layer row" to the panel's own selectors), so it needs its own leg:
+     without it the role ⋮ menu was painted over by the next row's hover. */
+  .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel),
+  .foliplus-layer-role:has(.foliplus-layer-more-menu.open) {
+    z-index: var(--foliplus-z-index-floating);
   }
 
   /* ── Base basemap rows stay quiet ──
@@ -413,6 +423,9 @@
   .foliplus-layer-item[data-layer-type="base"]:is(:hover, .foliplus-is-focused-row) {
     box-shadow: none;
     background: transparent;
+    /* A basemap is a stack slot, not a data layer: it carries draggable=true
+       like every row, but reordering it is not the gesture the cursor should
+       advertise, so it keeps the default arrow. Data rows get grab below. */
     cursor: default;
   }
   .foliplus-layer-item[data-layer-type="base"].foliplus-active:is(
@@ -426,14 +439,17 @@
   .foliplus-layer-item {
     display: grid;
     grid-template-columns: var(--foliplus-grid-layer-cols);
-    grid-template-areas: "drag check label count icon more";
+    grid-template-areas: "rail check label count icon more";
     column-gap: var(--foliplus-grid-layer-gap);
     padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
       var(--foliplus-space-md) var(--foliplus-space-sm);
     align-items: center;
     box-sizing: border-box;
     min-height: var(--foliplus-layer-row-min-height);
-    cursor: default;
+    /* Every row is draggable (spec v3.8 §1.3: folder / member / root rows all
+       carry draggable=true), so the cursor advertises the gesture. The
+       dragging state swaps to grabbing below. */
+    cursor: grab;
     user-select: none;
     border-radius: var(--foliplus-radius-sm);
     font-size: var(--foliplus-font-size-md);
@@ -444,6 +460,65 @@
        (fold click -> renderInitialList), so a transition on either would
        cause .foliplus-active rows (checked layers) to flash on each rebuild. */
 
+    &[draggable="true"] {
+      cursor: move;
+    }
+    /* .foliplus-active surface/border live with the Row-cursor recipe above so the
+       interaction white (later, equal specificity) can out-rank the wash.
+       The hover icon wake lives INSIDE the Row-cursor recipe — this block only
+       carries the checked-row (active) wake. The old bare :hover branch was
+       removed: on a row-panel hover the recipe is carved out, so a stray
+       :hover here would still wake the type icon to black. */
+    &.foliplus-layer-dragging {
+      background: var(--foliplus-accent-light);
+      opacity: var(--foliplus-alpha-70);
+      cursor: grabbing;
+    }
+    &.foliplus-layer-drag-over-top {
+      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: var(--foliplus-drag-top-shadow);
+      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
+        var(--foliplus-drag-pulse-count);
+    }
+    /* A folder row the dragged layer would join: the whole row lights up
+       instead of a before/after edge, because the drop is "into", not
+       "beside". */
+    &.foliplus-layer-drag-over-into {
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: inset 0 0 0 var(--foliplus-drag-border-width)
+        var(--foliplus-accent-primary);
+    }
+    /* A refused drop: dashed outline, no fill — visibly "not here" instead of
+       the solid edge or full-row fill an accepted drop draws. */
+    &.foliplus-layer-drag-over-blocked {
+      outline: var(--foliplus-drag-border-width) dashed var(--foliplus-accent-primary);
+      outline-offset: calc(-1 * var(--foliplus-drag-border-width));
+    }
+    &.foliplus-layer-drag-over-bottom {
+      border-bottom: var(--foliplus-drag-border-width) solid
+        var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: var(--foliplus-drag-bottom-shadow);
+      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
+        var(--foliplus-drag-pulse-count);
+    }
+  }
+
+  /* ── Shared row cells (layer / folder / role header) ──
+     Every row type places the same cells in the same grid areas, so the paint
+     lives here once and reaches all three by selector. The role header is NOT
+     a .foliplus-layer-item — that class means "a layer row" to the panel's own
+     selectors and to the browser tests, and a header matching it made every
+     leaf-row lookup resolve to the header. */
+  :is(.foliplus-layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all) {
+    /* Identity: gray at rest, wakes to black when the row is active. Accent
+       stays reserved for actions (more) and status (border), so the type icon
+       reads as focus, not as a call-to-action. The hover wake lives in the
+       Row-cursor recipe; this is the checked-row wake. */
+    &.foliplus-active .foliplus-type-icon-col {
+      color: var(--foliplus-text-primary);
+    }
     .foliplus-layer-label {
       min-width: 0;
       cursor: inherit;
@@ -452,6 +527,15 @@
       text-overflow: ellipsis;
       margin: 0;
       font-weight: var(--foliplus-font-weight-normal);
+    }
+    /* A folder and a layer group are groupings, not items: their names read one
+       weight heavier than a leaf's, so the hierarchy is role > grouping > item
+       without changing any size. Nested here, not beside the folder block: the
+       shared rule above is (0,4,0) through :is(), so a sibling rule at (0,3,0)
+       lost to it and the folder name stayed at 400. */
+    &.foliplus-layer-item-folder .foliplus-layer-label,
+    &.foliplus-layer-item-container .foliplus-layer-label {
+      font-weight: var(--foliplus-font-weight-medium);
     }
     /* ── Feature count column ──
       Right-aligned. The value is ALWAYS the compact form
@@ -502,40 +586,145 @@
         }
       }
     }
+  }
 
-    &[draggable="true"] {
-      cursor: move;
+  /* ── Folder row (a group header inside a role) ── */
+  .foliplus-layer-item-folder {
+    grid-template-areas: "rail check label count icon more";
+    cursor: pointer;
+    font-size: var(--foliplus-font-size-md);
+    font-weight: var(--foliplus-font-weight-medium);
+
+    .foliplus-layer-label-folder {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin: 0;
+      font-size: var(--foliplus-font-size-md);
+      font-weight: var(--foliplus-font-weight-medium);
     }
-    /* .foliplus-active surface/border live with the Row-cursor recipe above so the
-       interaction white (later, equal specificity) can out-rank the wash.
-       The hover icon wake lives INSIDE the Row-cursor recipe — this block only
-       carries the checked-row (active) wake. The old bare :hover branch was
-       removed: on a row-panel hover the recipe is carved out, so a stray
-       :hover here would still wake the type icon to black. */
-    /* Identity: gray at rest, wakes to black on hover and when the row is
-       active. Accent stays reserved for actions (more) and status (border),
-       so the type icon reads as focus, not as a call-to-action. */
-    &.foliplus-active .foliplus-type-icon-col {
-      color: var(--foliplus-text-primary);
+    &.foliplus-layer-folded {
+      border-left-color: var(--foliplus-accent-primary);
+
+      .foliplus-layer-fold-btn svg {
+        transform: rotate(180deg);
+      }
+      .foliplus-layer-fold-btn {
+        color: var(--foliplus-accent-primary);
+      }
     }
-    &.foliplus-layer-dragging {
-      background: var(--foliplus-accent-light);
-      opacity: var(--foliplus-alpha-70);
+  }
+
+  /* ── Role row (section header, now a ⋮ row too) ── */
+  .foliplus-layer-role {
+    font-size: var(--foliplus-font-size-xs);
+    font-weight: var(--foliplus-font-weight-semibold);
+    letter-spacing: var(--foliplus-letter-spacing-tight);
+
+    .foliplus-layer-sep-label {
+      font-size: var(--foliplus-font-size-xs);
+      font-weight: var(--foliplus-font-weight-semibold);
     }
-    &.foliplus-layer-drag-over-top {
-      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: var(--foliplus-drag-top-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
-        var(--foliplus-drag-pulse-count);
+  }
+
+  /* ── Role divider: the shared section-divider paint, label column only ──
+     The element carries .foliplus-section-divider too, so the paint (soft
+     gradient at both ends) is the one recipe main has always used; this rule
+     only narrows the span to the label column, because the role row now owns
+     the count / icon / more cells the pre-folder divider ran through. */
+  /* The role row's label + divider pair. One flex cell in the label column:
+     the divider starts right after the name and takes the rest of the column,
+     so its left fade begins at the name's edge instead of under it. */
+  .foliplus-role-head {
+    grid-row: 1;
+    grid-column: 3;
+    display: flex;
+    align-items: center;
+    gap: var(--foliplus-space-sm);
+    min-width: 0;
+  }
+  .foliplus-role-head .foliplus-role-divider {
+    flex: 1;
+    min-width: 0;
+    align-self: center;
+    /* The shared divider carries the panel's horizontal inset as a margin;
+       inside the head the flex gap is the only spacing, so the line starts
+       right at the name instead of 12px after it. */
+    margin: 0;
+  }
+
+  /* ── Fold-tree guides for folder members (rail column) ──
+     The vertical stem sits on the rail's centre line, so it lines up with the
+     fold chevron of the folder header above it. Two shapes, not one:
+     the mid variant is a branch that continues below this row (├), the last
+     variant is the elbow that ends the branch (└), so its stem stops at the
+     horizontal stub. */
+  .foliplus-fold-tree {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    color: var(--foliplus-tree-line-color);
+
+    &::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      /* The rail cell is the grid track (content height), not the row box: the
+         row's vertical padding sits outside it. Extending by that padding is
+         what makes the stem continuous from one row into the next instead of
+         breaking at every row boundary. */
+      top: calc(-1 * var(--foliplus-space-md));
+      bottom: calc(-1 * var(--foliplus-space-md));
+      width: 0;
+      border-left: var(--foliplus-border-thin) solid currentColor;
+      transform: translateX(-50%);
     }
-    &.foliplus-layer-drag-over-bottom {
-      border-bottom: var(--foliplus-drag-border-width) solid
-        var(--foliplus-accent-primary);
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: var(--foliplus-drag-bottom-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
-        var(--foliplus-drag-pulse-count);
-    }
+  }
+  /* └ — the branch ends here: the stem stops at the elbow. */
+  .foliplus-fold-tree-last::before {
+    bottom: 50%;
+  }
+  .foliplus-fold-tree-mid::after,
+  .foliplus-fold-tree-last::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    right: 0;
+    top: 50%;
+    height: 0;
+    border-bottom: var(--foliplus-border-thin) solid currentColor;
+    transform: translateY(-50%);
+  }
+
+  /* ── Rail cell: tree guides by default, grip on hover (mutual exclusion) ── */
+  .foliplus-layer-rail {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Full row height: the tree guide is inset:0 inside this cell, so a
+       content-height rail left the stem 16px tall in a 36px row and the line
+       broke between rows. The flex centring keeps the grip on the row's
+       middle line. */
+    align-self: stretch;
+  }
+  /* When the rail has a tree guide, hide the grip until hover; on hover,
+     show the grip and hide the guide. A member row shows a grip on hover
+     exactly like a root row (spec §3.3). */
+  .foliplus-layer-item .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .foliplus-layer-item:hover
+    .foliplus-layer-rail:has(.foliplus-fold-tree)
+    .drag-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .foliplus-layer-item:is(:hover, .foliplus-is-focused-row)
+    .foliplus-layer-rail:has(.foliplus-fold-tree)
+    .foliplus-fold-tree {
+    opacity: 0;
   }
 }

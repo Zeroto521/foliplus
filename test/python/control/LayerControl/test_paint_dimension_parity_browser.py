@@ -1,6 +1,6 @@
 """Parity harness for the S6 PaintDimension engine — browser baseline test.
 
-This is the CI side of the two-layer parity harness (s6-parity-harness-design.md).
+This is the CI side of the two-layer parity harness.
 The JS probe test/js/browser/LayerControl/sample_paint_dimension.js is the
 shared sampler; this test drives it through Playwright and compares the DOM /
 class-stack / aria / computed-style snapshot against the baseline fixture
@@ -20,8 +20,8 @@ Re-record the baseline:
       -m browser
 
 The harness self-check (a deliberate drift must turn red) is a separate,
-temporary mutation the builder performs once — see s6-parity-harness-design.md §5
-"判死自检". This test file only verifies the baseline is green.
+temporary mutation the builder performs once (a deliberate drift must turn the
+comparison red). This test file only verifies the baseline is green.
 """
 
 from __future__ import annotations
