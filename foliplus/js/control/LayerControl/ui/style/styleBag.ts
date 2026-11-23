@@ -543,7 +543,12 @@ const announceStyleChange = (owner: StyleApplyOwner, box: ApplyBox): void => {
   if (box.source === EVENTS.LAYER_ITEM_COUNT_CHANGE) return;
   const bus = (owner as Partial<LayerUI>).events;
   if (!bus) return;
-  publish(bus, EVENTS.LAYER_STYLE_CHANGE, { id: box.layerId }, { kind: "user", via: "panel" });
+  publish(
+    bus,
+    EVENTS.LAYER_STYLE_CHANGE,
+    { id: box.layerId },
+    { kind: "user", via: "panel" },
+  );
 };
 /** Execute one box: reclaim the entry first, run inside the boundary
  *  second. The ordering is the whole contract — see the region header. The

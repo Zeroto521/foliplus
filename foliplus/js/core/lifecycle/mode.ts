@@ -81,10 +81,15 @@ class ModeManager {
     // the registry saying "Measure owns the map" while the layers still take
     // pointer events. The settled broadcast then finishes every listener.
     this.syncInteractionLock();
-    publish(this.bus, EVENTS.MODE_CHANGE, {
-      component,
-      mode,
-    } satisfies ModeChangePayload, { kind: "user", via: "panel" });
+    publish(
+      this.bus,
+      EVENTS.MODE_CHANGE,
+      {
+        component,
+        mode,
+      } satisfies ModeChangePayload,
+      { kind: "user", via: "panel" },
+    );
   }
 
   /**

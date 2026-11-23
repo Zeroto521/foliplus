@@ -43,7 +43,7 @@ const BUS_CALLS = new Set([
  *  a `kind` property (our discriminated union) — `{ kind: "user", via: ... }`.
  *  The origin is the LAST argument that is such an object (or a reference to
  *  an origin-shaped constant), after the payload. */
-const isOriginArg = (node) => {
+const isOriginArg = node => {
   if (!node) return false;
   if (ts.isObjectLiteralExpression(node)) {
     return node.properties.some(
@@ -53,19 +53,19 @@ const isOriginArg = (node) => {
   // A reference to an origin-shaped binding (const ORIGIN = { kind: ... }).
   if (ts.isIdentifier(node) || ts.isPropertyAccessExpression(node)) return true;
   return false;
-}
+};
 
 /** Recognise `EVENTS.X` as the event name. Semantic events are spelled
  *  as the dictionary constant, never a bare string — a bare string is a DOM
  *  or module-local event (e.g. slider's own `emit("input")`), not a bus call. */
-const eventNameOf = (arg) => {
+const eventNameOf = arg => {
   if (!arg) return null;
   if (ts.isPropertyAccessExpression(arg)) {
     const text = arg.getText();
     if (/^EVENTS\.[A-Z_]+$/.test(text)) return text;
   }
   return null;
-}
+};
 
 /** Collect every origin violation in one file's source. */
 const findOriginDrift = (source, fileRel) => {
@@ -129,7 +129,7 @@ const findOriginDrift = (source, fileRel) => {
   };
   visit(sf);
   return violations;
-}
+};
 
 /** Scan every production .ts under foliplus/js and report violations. */
 const scan = (root = process.cwd()) => {
@@ -150,7 +150,7 @@ const scan = (root = process.cwd()) => {
     all.push(...findOriginDrift(source, rel));
   }
   return all;
-}
+};
 
 /** CLI entry: scan, print, exit 1 on any violation. */
 const runCli = (argv = process.argv.slice(2)) => {
@@ -165,7 +165,7 @@ const runCli = (argv = process.argv.slice(2)) => {
   }
   console.log(`event-origin: ${violations.length} violation(s)`);
   return 1;
-}
+};
 
 export { findOriginDrift, scan, runCli };
 

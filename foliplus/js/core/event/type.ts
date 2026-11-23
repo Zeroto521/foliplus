@@ -81,8 +81,4 @@ interface EventMeta {
   readonly origin?: EventOrigin;
 }
 
-export type {
-  EventPayloadMap,
-  EventOrigin,
-  EventMeta,
-};
+export type { EventPayloadMap, EventOrigin, EventMeta };

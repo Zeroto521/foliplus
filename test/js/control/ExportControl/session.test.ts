@@ -99,9 +99,13 @@ describe("sessionMethods — export events", () => {
     const events = ensureEvents(manager.map);
     vi.spyOn(events, "publish");
     manager.doExport();
-    expect(events.publish).toHaveBeenCalledWith("foliplus:export:before", {
-      component: "ExportControl",
-    }, { kind: "user", via: "panel" });
+    expect(events.publish).toHaveBeenCalledWith(
+      "foliplus:export:before",
+      {
+        component: "ExportControl",
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 
   it("records a BEFORE_EXPORT consumer failure and the export start continues", () => {
@@ -204,9 +208,13 @@ describe("sessionMethods — export events", () => {
     manager.onRenderSuccess(document.createElement("canvas"), hideEls);
     await new Promise(r => setTimeout(r, 0));
     HTMLCanvasElement.prototype.toBlob = origToBlob;
-    expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
-      component: "ExportControl",
-    }, { kind: "user", via: "panel" });
+    expect(events.emitSettled).toHaveBeenCalledWith(
+      "foliplus:export:after",
+      {
+        component: "ExportControl",
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 
   it("onRenderError emits after:export event", () => {
@@ -214,9 +222,13 @@ describe("sessionMethods — export events", () => {
     vi.spyOn(events, "emitSettled");
     const hideEls = document.querySelectorAll("div");
     manager.onRenderError(new Error("render fail"), hideEls);
-    expect(events.emitSettled).toHaveBeenCalledWith("foliplus:export:after", {
-      component: "ExportControl",
-    }, { kind: "user", via: "panel" });
+    expect(events.emitSettled).toHaveBeenCalledWith(
+      "foliplus:export:after",
+      {
+        component: "ExportControl",
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 });
 

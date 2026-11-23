@@ -676,10 +676,15 @@ const emitDelta = (
   // raises it once the whole operation has been announced.
   let failure: DispatchFailure | undefined;
   if (delta.wroteVisible) {
-    failure = ui.events.emitSupersedingSettled(EVENTS.LAYER_CHANGE, layerInfo.id, {
-      id: layerInfo.id,
-      kind: layerInfo.kind,
-    }, { kind: "programmatic", via: "self" });
+    failure = ui.events.emitSupersedingSettled(
+      EVENTS.LAYER_CHANGE,
+      layerInfo.id,
+      {
+        id: layerInfo.id,
+        kind: layerInfo.kind,
+      },
+      { kind: "programmatic", via: "self" },
+    );
   }
   if (delta.intentMoved) {
     if (!entryStillRegistered(ui, layerInfo)) return failure;

@@ -62,7 +62,12 @@ const doExport = function (this: ExportManager) {
   // the diagnostic log, and an observer cannot derail the start — the export
   // is committed from here on.
   this.modes.setMode(CONFIG.name, "exporting");
-  publish(this.events, EVENTS.BEFORE_EXPORT, { component: CONFIG.name }, { kind: "user", via: "panel" });
+  publish(
+    this.events,
+    EVENTS.BEFORE_EXPORT,
+    { component: CONFIG.name },
+    { kind: "user", via: "panel" },
+  );
   const r = Object.assign({}, this.cropState.rect);
   const geoBounds = this.cropState.geoBounds;
   if (geoBounds) {
@@ -342,7 +347,11 @@ const endExport = function (this: ExportManager) {
   this.isExporting = false;
   this.modes.setMode(CONFIG.name, null);
   this.removeExportOverlay();
-  operation.emit(EVENTS.AFTER_EXPORT, { component: CONFIG.name }, { kind: "user", via: "panel" });
+  operation.emit(
+    EVENTS.AFTER_EXPORT,
+    { component: CONFIG.name },
+    { kind: "user", via: "panel" },
+  );
   operation.throwIfFailed();
 };
 

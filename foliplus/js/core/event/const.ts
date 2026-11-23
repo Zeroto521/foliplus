@@ -181,7 +181,6 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.LAYER_FILTER_CHANGE]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
 };
 
-
 /** Runtime set of events whose payload is void (see EventPayloadMap). The
  *  type map declares these as `void`, so an emit carries only an origin —
  *  the runtime split of `(payload, origin)` must not reclassify the origin

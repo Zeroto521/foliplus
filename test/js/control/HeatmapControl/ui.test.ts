@@ -345,9 +345,13 @@ describe("bindControls — change handlers", () => {
     const emitSpy = vi.spyOn(m.events, "publish");
     ctrl.fieldSelect.value = "sales";
     fire(ctrl.fieldSelect, "change");
-    expect(emitSpy).toHaveBeenCalledWith("foliplus:layer:style-change", {
-      id: m.layerId,
-    }, { kind: "user", via: "panel" });
+    expect(emitSpy).toHaveBeenCalledWith(
+      "foliplus:layer:style-change",
+      {
+        id: m.layerId,
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 });
 
