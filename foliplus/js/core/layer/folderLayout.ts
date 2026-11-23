@@ -461,12 +461,14 @@ const freezeRoleOrder = (
   registryEntries: readonly LayerInfo[],
   key: string,
 ): FolderLayout => {
-  const frozen = listedRoleOrder(layout, role, registryEntries);
+  // The block order is single-sourced from roleBlocks (the merge-by-anchor
+  // result) — the SAME sequence seedBlockOrder returns. Root-layer entries stay
+  // interleaved with folder blocks at their anchor positions instead of being
+  // pushed to the tail, and the frozen key is guaranteed present (an emptied
+  // folder's block must survive at its position for the clean button to reach).
+  const frozen = seedBlockOrder(layout, role, registryEntries);
   if (!frozen.includes(key)) frozen.push(key);
-  // Root-layer entries are not folders: they keep their place at the tail of
-  // the frozen order rather than being dropped by the folder-only rebuild.
-  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
-  return { ...layout, order: { ...layout.order, [role]: [...frozen, ...roots] } };
+  return { ...layout, order: { ...layout.order, [role]: frozen } };
 };
 
 /** Merge the author's declared grouping into a layout: folder directory from
