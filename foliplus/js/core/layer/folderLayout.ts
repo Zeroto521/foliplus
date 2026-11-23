@@ -351,10 +351,16 @@ const roleBlocks = (
   const folders = groupByFolder(registryEntries, role, layout);
   const listed = layout.order[role] ?? [];
   const listedKeys = new Set(listed);
-  const rootLayers = registryEntries.filter(
-    entry => entry.role === role && isRootLayer(layout, entry),
-  );
-  const rootById = new Map(rootLayers.map(entry => [entry.id, entry]));
+  // Root layers carry their own registry index (the anchor axis) so the merge
+  // pass needs no lookup map - 'at' IS the registry index, exactly what the
+  // indexById map used to resolve, and no unreachable fallback can hide.
+  const rootLayers: { at: number; info: LayerInfo }[] = [];
+  registryEntries.forEach((entry, idx) => {
+    if (entry.role === role && isRootLayer(layout, entry)) {
+      rootLayers.push({ at: idx, info: entry });
+    }
+  });
+  const rootById = new Map(rootLayers.map(({ info }) => [info.id, info]));
   const out: RoleBlock[] = [];
   // 1. The listed block order. An entry is a folder key or `layer:<id>`, so a
   //    root layer can sit between two folder blocks instead of only after all
@@ -378,12 +384,11 @@ const roleBlocks = (
     });
   }
   // 2+3. Unlisted folders and root layers, merged by anchor. The anchor is the
-  //    registry index (groupByFolder stores it as block.anchor; root layers use
-  //    their registry index via the indexById map). A single sorted pass avoids
-  //    the two-segment split where every unlisted folder always preceded every
-  //    unlisted root layer regardless of registration order — the root cause of
-  //    the author-declared-folder-order bug.
-  const indexById = new Map(registryEntries.map((entry, idx) => [entry.id, idx]));
+  //    registry index (groupByFolder stores it as block.anchor; root layers
+  //    carry it directly). A single sorted pass avoids the two-segment split
+  //    where every unlisted folder always preceded every unlisted root layer
+  //    regardless of registration order — the root cause of the
+  //    author-declared-folder-order bug.
   type Slot = { at: number; block: RoleBlock };
   const slots: Slot[] = [];
   for (const block of [...folders.values()]) {
@@ -398,9 +403,9 @@ const roleBlocks = (
       },
     });
   }
-  for (const info of rootLayers) {
+  for (const { at, info } of rootLayers) {
     if (listedKeys.has(rootLayerEntry(info.id))) continue;
-    slots.push({ at: indexById.get(info.id) ?? 0, block: { kind: "layer", info } });
+    slots.push({ at, block: { kind: "layer", info } });
   }
   slots.sort((a, b) => a.at - b.at);
   for (const slot of slots) out.push(slot.block);
