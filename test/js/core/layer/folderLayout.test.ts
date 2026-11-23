@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FOLDER_NAME_MAX,
   type FolderLayout,
-  LAYOUT_DOC_KEY,
   type LayerInfo,
   type LayerRole,
   createFolder,
@@ -18,6 +17,7 @@ import {
   emptyFolderLayout,
   ensureFolderLayout,
   folderEntries,
+  folderLayoutKey,
   folderNameLength,
   folderNameTooLong,
   folderOf,
@@ -40,6 +40,12 @@ import {
   seedBlockOrder,
   writeFolderLayout,
 } from "#core/layer/index.js";
+
+/** A minimal fake map for the storage-key argument: the layout only reads
+ *  `getContainer().id`, so a plain object suffices. */
+const fakeMap = (id = "test-map"): { getContainer: () => { id: string } } => ({
+  getContainer: () => ({ id }),
+});
 
 /** The production merge applied to an empty layout — the "first seed" case.
  *  The tests below drive `mergeDeclaredFolders`, the same function the
@@ -330,14 +336,17 @@ describe("storage round-trip", () => {
       order: { overlay: ["roads"] },
       members: { a: { role: "overlay", folder: "roads" } },
     };
-    writeFolderLayout(layout);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
-    expect(readFolderLayout()).toEqual(layout);
+    writeFolderLayout(layout, fakeMap());
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).not.toBeNull();
+    expect(readFolderLayout(fakeMap())).toEqual(layout);
   });
 
   it("reads a corrupt layout as empty", () => {
-    window.localStorage.setItem(LAYOUT_DOC_KEY, JSON.stringify({ version: 1 }));
-    expect(readFolderLayout()).toEqual(emptyFolderLayout());
+    window.localStorage.setItem(
+      folderLayoutKey(fakeMap()),
+      JSON.stringify({ version: 1 }),
+    );
+    expect(readFolderLayout(fakeMap())).toEqual(emptyFolderLayout());
   });
 });
 describe("seed merge", () => {
@@ -354,9 +363,9 @@ describe("seed merge", () => {
       order: { overlay: [] },
       members: { a: { role: "overlay", folder: "" } },
     };
-    writeFolderLayout(existing);
+    writeFolderLayout(existing, fakeMap());
 
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const entryA = entry("a", "overlay", "Roads", 0);
     manager.seed([entryA]);
 
@@ -374,9 +383,9 @@ describe("seed merge", () => {
       order: { overlay: ["roads"] },
       members: { a: { role: "overlay", folder: "roads" } },
     };
-    writeFolderLayout(existing);
+    writeFolderLayout(existing, fakeMap());
 
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const entryA = entry("a", "overlay", "Water", 1);
     manager.seed([entryA]);
 
@@ -386,7 +395,7 @@ describe("seed merge", () => {
   });
 
   it("an unassigned layer receives its author declaration when seeding", () => {
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const entryA = entry("a", "overlay", "Roads", 0);
     manager.seed([entryA]);
 
@@ -630,7 +639,7 @@ describe("manager lifecycle", () => {
   });
 
   it("set then flush persists, reload re-reads, isEmpty reflects the state", () => {
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     expect(manager.isEmpty()).toBe(true);
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
@@ -641,8 +650,8 @@ describe("manager lifecycle", () => {
     manager.set(layout);
     expect(manager.isEmpty()).toBe(false);
     manager.flush();
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
-    const fresh = createFolderLayoutManager();
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).not.toBeNull();
+    const fresh = createFolderLayoutManager(fakeMap());
     expect(fresh.layout.members.a).toEqual({ role: "overlay", folder: "roads" });
     fresh.reload();
     expect(fresh.layout.order.overlay).toEqual(["roads"]);
@@ -650,15 +659,15 @@ describe("manager lifecycle", () => {
 
   it("set debounces the write and flush forces it", () => {
     vi.useFakeTimers();
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     const layout: FolderLayout = {
       ...emptyFolderLayout(),
       members: { a: { role: "overlay", folder: "roads" } },
     };
     manager.set(layout);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).toBeNull();
     vi.advanceTimersByTime(200);
-    expect(window.localStorage.getItem(LAYOUT_DOC_KEY)).not.toBeNull();
+    expect(window.localStorage.getItem(folderLayoutKey(fakeMap()))).not.toBeNull();
   });
 });
 
@@ -723,7 +732,7 @@ describe("coverage edges", () => {
   });
 
   it("seed skips an entry without an author folder", () => {
-    const manager = createFolderLayoutManager();
+    const manager = createFolderLayoutManager(fakeMap());
     manager.seed([entry("a", "overlay", null, 0)]);
     expect(manager.layout.members).toEqual({});
     expect(manager.layout.folders).toEqual([]);
@@ -749,7 +758,7 @@ describe("coverage edges", () => {
 
   it("ensureFolderLayout returns the per-map singleton", () => {
     const api: { other: number; folderLayout?: unknown } = { other: 1 };
-    const map = { foliplus: api };
+    const map = { foliplus: api, getContainer: () => ({ id: "test-map" }) };
     const first = ensureFolderLayout(map);
     expect(ensureFolderLayout(map)).toBe(first);
     expect(map.foliplus.folderLayout).toBe(first);
@@ -773,8 +782,8 @@ describe("seed merge manager edges", () => {
       order: { overlay: ["roads"] },
       members: {},
     };
-    writeFolderLayout(existing);
-    const manager = createFolderLayoutManager();
+    writeFolderLayout(existing, fakeMap());
+    const manager = createFolderLayoutManager(fakeMap());
     manager.seed([entry("a", "overlay", "Roads", 0)]);
     expect(manager.layout.folders).toEqual([{ key: "roads", name: "Roads" }]);
     expect(manager.layout.members.a).toEqual({ role: "overlay", folder: "roads" });

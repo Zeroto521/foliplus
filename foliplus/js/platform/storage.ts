@@ -6,6 +6,21 @@ import { debounce } from "./debounce.js";
 import { createLogger } from "./log.js";
 import type { Persisted, PersistedOpts } from "./type.js";
 
+/** A minimal structural view of a Leaflet map: only the container id is needed
+ *  to scope a storage key. Components pass their `map` (or a fake in tests);
+ *  the helper never touches the map beyond `getContainer().id`. */
+type MapLike = { getContainer: () => { id: string } };
+
+/** Build the per-map localStorage key for one record. Every persisted record
+ *  is scoped to its map container (`foliplus_<suffix>_<mapId>`), so multi-map
+ *  pages keep state separate and a new dimension extends the record instead of
+ *  opening a new global key. This is the single source for the key shape:
+ *  LayerControl's state key, the folder layout and the filter store all ask it.
+ *  Do NOT write a `foliplus_*` key literal without this helper — the
+ *  storage-key-scope guard rejects unscoped keys. */
+const scopedStorageKey = (map: MapLike, suffix: string): string =>
+  `foliplus_${suffix}_${map.getContainer().id}`;
+
 /**
  * Read and parse a value from localStorage.
  * @param key - localStorage key.
@@ -198,5 +213,6 @@ export {
   removeRecord,
   saveRecord,
   saveVersioned,
+  scopedStorageKey,
 };
-export type { Persisted, PersistedOpts };
+export type { MapLike, Persisted, PersistedOpts };

@@ -242,6 +242,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the listener single-source guard over foliplus/js production (raw .on/.addEventListener outside listenDOM/listenMap requires a listener-exempt comment), a tree guard not a script module",
   "check/mock-specifier":
     "the vi.mock/vi.doMock specifier resolution guard over test/js/**/*.ts",
+  "check/storage-key-scope":
+    "the per-map storage-key scope guard over foliplus/js production (every loadRecord/saveRecord/loadVersioned/saveVersioned/removeRecord key derives from map.getContainer().id via scopedStorageKey), a tree guard not a script module",
   "check/slider-inset":
     "the slider-inset token single-source guard over foliplus/css/common/slider.css (no bare calc(thumb/2) outside the token definition), a tree guard not a script module",
   "check/fold-arrow":
