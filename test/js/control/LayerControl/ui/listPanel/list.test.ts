@@ -2529,6 +2529,33 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     expect(foldBtn.getAttribute("title")).toBe(ui.T("unfold_tooltip"));
   });
 
+  it("marks member rows GROUP_FOLDED when the folder is folded but the role is not", () => {
+    // The layer member inherits the folder's hidden state at render time
+    // (roleFolded || folderFolded). The folder is folded and the role stays
+    // expanded, so each member row must carry GROUP_FOLDED even though the
+    // role itself is not folded.
+    const { ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        { id: "rd1", name: "Roads", role: "overlay", folder: "roads", layer: polygonLayer() },
+        { id: "rd2", name: "Rivers", role: "overlay", folder: "roads", layer: polygonLayer() },
+      ],
+    });
+    ui.listPanel.foldedFolders["overlay::roads"] = true;
+    rebuildList(ui);
+    const member = (id: string) =>
+      ui.uiContainer!.querySelector(
+        `[data-layer-id="${id}"]`,
+      ) as HTMLElement;
+    expect(member("rd1").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    expect(member("rd2").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
+    // Unfold the folder: the members drop the marker.
+    ui.listPanel.foldedFolders = {};
+    rebuildList(ui);
+    expect(member("rd1").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+    expect(member("rd2").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(false);
+  });
+
   it("folder row reads active when a member is visible (ACTIVE class)", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
