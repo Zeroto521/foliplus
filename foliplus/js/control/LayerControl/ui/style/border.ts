@@ -929,7 +929,25 @@ const borderCarriesValue = (ui: LayerUI, layerId: string): boolean => {
 const geometryKindOf = (ui: LayerUI, layerId: string): string | null => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return null;
-  return ui.c.surfaceFor(layerInfo).geometryType();
+  const fromSurface = ui.c.surfaceFor(layerInfo).geometryType();
+  if (fromSurface !== null && fromSurface !== GEOM_TYPE.UNKNOWN) {
+    return fromSurface;
+  }
+  // The surface could not classify (nothing materialised yet, or an
+  // unenveloped marker): infer from the leaves so a declared value border
+  // still resolves on the first frame. A marker leaf is a point, a polyline
+  // (non-polygon) leaf is a line; anything else keeps the surface answer.
+  const layer = (layerInfo.layer ?? ui.c.findLayer(layerId)) as StyleCarrier | null;
+  if (!layer) return fromSurface;
+  let sawPoint = false;
+  let sawLine = false;
+  walkStyleLeaves(layer, node => {
+    if (node instanceof L.CircleMarker || node instanceof L.Marker) sawPoint = true;
+    else if (node instanceof L.Polyline && !(node instanceof L.Polygon)) sawLine = true;
+  });
+  if (sawPoint) return GEOM_TYPE.POINT;
+  if (sawLine) return GEOM_TYPE.LINE;
+  return fromSurface;
 };
 /** The border channel's chrome: the engine owns no vocabulary, so the
  *  adapter carries the classes and label. label is translated through the
@@ -1275,11 +1293,14 @@ const BORDER_DIMENSION = registerDimension<{
       getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined ||
       getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined ||
       effectiveBorderValue(ui, layerId) !== undefined ||
-      // A declared follow_fill border has no stored mode intent, yet a leaf
-      // that lands late must still be repainted: the declaration is the
-      // border's default paint. Without this arm the border would never
-      // reach a leaf added after the panel opened.
-      declaredBorderMode(ui, layerId) === STYLE_MODE.FOLLOW_FILL,
+      // A declared follow_fill OR value border has no stored mode intent,
+      // yet a leaf that lands late must still be repainted: the declaration
+      // is the border's default paint. Without these arms the border would
+      // never reach a leaf added after the panel opened. The value arm is
+      // what recovers a CircleMarker whose geometry/fields read unknown at
+      // the one-shot attach sweep (#1285).
+      declaredBorderMode(ui, layerId) === STYLE_MODE.FOLLOW_FILL ||
+      declaredBorderMode(ui, layerId) === STYLE_MODE.VALUE,
     run: (ui, layerId) => applyBorderToLayer(ui, layerId),
   },
 });
@@ -1292,18 +1313,6 @@ const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
  *  on the author's stroke until the first panel touch — the mirror of
  *  replayDeclaredFill. Called once per layer on attach. */
 const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
-  // #1285 diagnostic: trace whether the declared value border's layer reaches
-  // the attach sweep and what mode/geometry it resolves at that moment.
-  console.warn(
-    "[1285-diag] replayDeclaredBorder",
-    layerId,
-    "declared=",
-    declaredBorderMode(ui, layerId),
-    "geom=",
-    geometryKindOf(ui, layerId),
-    "registrySize=",
-    ui.c.layerRegistry.layers.length,
-  );
   for (const key of BORDER_INTENT_KEYS) {
     if (getIntent(ui, layerId, key) !== undefined) return;
   }

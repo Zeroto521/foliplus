@@ -3059,6 +3059,35 @@ describe("follow-fill border mode", () => {
     expect(painted0.color).toBe("#010101");
     expect(painted1.color).toBe("#020202");
   });
+  it("a layer registered after the sweep still gets its declared value border", () => {
+    // #1285 leg 1: the declared-value attach replay runs once over the layers
+    // already in the registry. A CircleMarker layer that lands AFTER that sweep
+    // (component first, layer added later -- the late-registration family) must still
+    // reach the map with its ramp, either through a content-change replay or a
+    // registration-time replay. Before the fix it opened on the author's flat
+    // stroke and only a style-mode toggle recovered it.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      leaf.feature.properties.count = i + 1;
+    });
+    // Register the layer AFTER the one-shot sweep has already run for the
+    // initial registry (nothing else registered yet, so the sweep is a no-op).
+    ui.applyUserState();
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    registerDeclared(
+      "dval_late",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    // The late layer gets its declared value border through the registration
+    // or content-change replay (not left on the author's flat stroke).
+    ui.applyUserState("dval_late");
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before0);
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
   it("applyUserState attach sweep paints a declared value border on first frame", () => {
     // The reported quickstart: a CircleMarker layer declares foliplus.border
     // value and the map must open on the ramp, not the author's flat stroke.
