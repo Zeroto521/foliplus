@@ -139,8 +139,8 @@ describe("ui derived-state coherence — B-path (runtime registerLayer)", () => 
   it.each(coherenceTable)("$name", ({ register, check }) => {
     installLeafletGlobals();
     register();
-    // Flush the debounced rebuild the registration scheduled (§8 single
-    // invalidate rule). The guard must hold after the settle, not before.
+    // The registration scheduled a debounced rebuild; flush it so the
+    // coherence guard is checked after the settle, not before.
     vi.useFakeTimers();
     vi.advanceTimersByTime(200);
     vi.useRealTimers();
