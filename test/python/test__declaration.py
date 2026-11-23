@@ -834,7 +834,7 @@ def test_normalise_marker_color_does_not_gate_the_vocabulary():
     ("raw", "expected"),
     [
         ("#00A6A6", "#00a6a6"),
-        ("#abc", "#abc"),
+        ("#abc", "#aabbcc"),
         ("  #1A2B3C  ", "#1a2b3c"),
     ],
 )

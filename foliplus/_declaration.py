@@ -98,11 +98,14 @@ BORDER_KEY = "border"
 #: folium kwargs - that is why it is a foliplus declaration.
 MARKER_COLOR_KEY = "marker_color"
 #: The CSS hex shapes a declared marker chassis colour may take (#rgb or
-#: #rrggbb). The JS reader normalises #rgb to #rrggbb at paint; here
-#: the shape is validated so a malformed hex warns at collection time.
-#: Mirrors isHexColor / normalizeHexColor in foliplus/js/platform/color.ts:
-#: the two sides must agree on the shape, or a hex the JS reader paints is
-#: rejected at collection time (or a malformed hex survives and warns later).
+#: #rrggbb). The shape is validated here so a malformed hex warns at
+#: collection time; the value is normalised here too (see
+#: normalise_marker_color) so both channels carry the same string.
+#: KEEP IN STEP with isHexColor / normalizeHexColor in
+#: foliplus/js/platform/color.ts - this regex is a hand-copied twin of
+#: the JS one (follow-up guard card pending); if one side widens the
+#: shape the other must widen too or a hex one side paints the other
+#: rejects.
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
 #: The per-layer marker icon pixel-size declaration key: a whole-number pixel
 #: size for the marker icon. folium's Icon carries a fixed pixel size and
@@ -699,10 +702,11 @@ def normalise_marker_color(
     filter uses (shape here, vocabulary at the consumer). An unknown preset
     name therefore survives this reader and is warned once by the JS panel,
     which owns the preset table. A CSS hex shape is recognised here and
-    lowered (#rgb is expanded to #rrggbb by the JS reader, which normalises
-    and paints it); a malformed hex is not a preset either and also survives
-    this reader, so the JS panel warns once for it - the hex vocabulary is the
-    JS reader's, not this module's.
+    normalised exactly as the JS reader normalises it (#rgb is expanded to
+    #rrggbb and the value lowered), so the two channels carry the same
+    string for one chassis colour; a malformed hex is not a preset either
+    and also survives this reader, so the JS panel warns once for it - the
+    hex vocabulary is the JS reader's, not this module's.
 
     ``owner`` names the control and ``subject`` the specific subject (a layer
     name), so every message and de-duplication note is attributable.
@@ -734,6 +738,12 @@ def normalise_marker_color(
     # shape defect and warns at collection time (a malformed hex is not a
     # preset the JS reader owns).
     if _HEX_COLOR_RE.match(name):
+        # Expand #rgb to #rrggbb here too - the JS reader paints the expanded
+        # form (normalizeHexColor), so the two channels must agree on the
+        # string for one chassis colour (single source, not shape-only).
+        if len(name) == 4:  # "#rgb"
+            r, g, b = name[1], name[2], name[3]
+            return f"#{r}{r}{g}{g}{b}{b}".lower()
         return name.lower()
     return name
 

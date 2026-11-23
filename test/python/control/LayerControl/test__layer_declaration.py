@@ -552,7 +552,7 @@ def test_declared_marker_color_accepts_a_css_hex():
 
 def test_declared_marker_color_accepts_a_short_hex():
     layer = _geo(foliplus={"marker_color": "#abc"})
-    assert declared_marker_color(layer, "Declared") == "#abc"
+    assert declared_marker_color(layer, "Declared") == "#aabbcc"
 
 
 def test_undeclared_marker_color_is_none_without_a_warning():
