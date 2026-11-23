@@ -204,6 +204,41 @@ describe("ui/drag", () => {
       handleDrop(ui, dragEvent(layerRow));
       expect(ui.c.folderLayoutView.order.overlay).toEqual(before);
     });
+
+    it("drops a folder before a root layer row (P1 #1289 regression)", () => {
+      // Clean localStorage: a folder declared by the author (member a1 sits
+      // between the two root layers by registration order) and two unassigned
+      // root layers. The user drags the folder block onto the root2 row.
+      const { manager, ui } = initFixture({
+        seedLayout: {
+          version: 2,
+          folders: [{ key: "a", name: "a" }],
+          order: {},
+          members: {},
+        },
+        data: [
+          { id: "root1", name: "root1", role: "overlay" as const },
+          {
+            id: "a1",
+            name: "a1",
+            role: "overlay" as const,
+            folder: "a",
+            layer: { options: {}, eachLayer: vi.fn() },
+          },
+          { id: "root2", name: "root2", role: "overlay" as const },
+        ],
+      });
+      const row = rowOf(ui, "root2");
+      pinRect(row, 100, 36);
+      handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+      // Pointer on the top edge of root2's row: the folder lands BEFORE it.
+      handleDrop(ui, dragEvent(row, {}, 102));
+      expect(manager.folderLayoutView.order.overlay).toEqual([
+        "layer:root1",
+        "a",
+        "layer:root2",
+      ]);
+    });
   });
 
   describe("folder block drag — hover chrome", () => {
@@ -2376,15 +2411,22 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
   it("folderDropTarget returns null when no folder drag is armed", () => {
     // The defensive guard at drag.ts:148: a dragover with no armed folder
     // drag (dragFolder null) must no-op rather than dereference it.
-    const { ui } = initFixture();
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "fold1",
+          name: "F1",
+          role: "overlay",
+          folder: "roads",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
     const row = attachedPanel(ui).querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
-    ) as HTMLElement | null;
-    if (!row) return; // fixture may have no folder row; guard is still exercised
+    ) as HTMLElement;
     const before = row.className;
-    const event = new DragEvent("dragover", { bubbles: true });
-    Object.defineProperty(event, "clientY", { value: 0 });
-    row.dispatchEvent(event);
+    handleDragOver(ui, dragEvent(row));
     expect(row.className).toBe(before);
   });
 });
