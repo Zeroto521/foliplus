@@ -246,7 +246,7 @@ def _cdn_cached(
 
 
 # ── External geocode providers ────────────────────────────────────
-# Browser tests must stay network-independent (AGENTS.md). The geocode
+# Browser tests must stay network-independent. The geocode
 # providers (Nominatim / Photon / Pelias) fetch from the live internet
 # when a measurement, marker or history entry triggers a reverse/forward
 # geocode lookup. Under a file:// origin those fetches are CORS-blocked,
