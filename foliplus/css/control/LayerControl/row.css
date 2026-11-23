@@ -444,7 +444,7 @@
     padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
       var(--foliplus-space-md) var(--foliplus-space-sm);
     align-items: center;
-    cursor: default;
+    cursor: grab;
     user-select: none;
     border-radius: var(--foliplus-radius-sm);
     transition: none;
@@ -453,9 +453,6 @@
        (fold click -> renderInitialList), so a transition on either would
        cause .foliplus-active rows (checked layers) to flash on each rebuild. */
 
-    &[draggable="true"] {
-      cursor: move;
-    }
     /* .foliplus-active surface/border live with the Row-cursor recipe above so the
        interaction white (later, equal specificity) can out-rank the wash.
        The hover icon wake lives INSIDE the Row-cursor recipe — this block only

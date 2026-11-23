@@ -8,8 +8,8 @@
 // behavior.
 //
 // Does NOT import any Heatmap or LayerControl module.
-import { createListbox } from "./listbox.js";
 import { buildLeadSlot } from "./checkSlot.js";
+import { createListbox } from "./listbox.js";
 import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import { PANEL_CLASS } from "./panelClassName.js";
 import { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
@@ -249,7 +249,6 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     renderColorBar(bar, item.value, numClasses, classes.block, colorScale);
     return dom.el("span", { class: SCHEME_PICKER_CLASS.ROW_CONTENT }, lead.slot, bar);
   };
-
 
   // Apply a selection: update the value model + all picker-owned DOM, close
   // the dropdown, and notify. The engine calls this for a row activation

@@ -415,7 +415,7 @@ const refreshHead = (state: InternalState): void => {
     const on = selected.includes(item.value);
     row.setAttribute("aria-selected", on ? "true" : "false");
     row.classList.toggle(state.spec.shape.selectedClass, on);
-      state.spec.shape.paintRow?.(row, item, { selected: on, index });
+    state.spec.shape.paintRow?.(row, item, { selected: on, index });
   });
 };
 
@@ -669,7 +669,10 @@ const onListKeyDown = (state: InternalState, event: KeyboardEvent): void => {
             state.spec.shape.selectedClass,
             selectedNow,
           );
-          state.spec.shape.paintRow?.(state.rowEls[index]!, item, { selected: selectedNow, index });
+          state.spec.shape.paintRow?.(state.rowEls[index]!, item, {
+            selected: selectedNow,
+            index,
+          });
         } else {
           close(state, { restoreFocus: true });
         }
