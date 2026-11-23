@@ -405,6 +405,22 @@ describe("LayerUI menu", () => {
       expect(ui.overlayPanel.activeMenu).not.toBeNull();
     });
 
+    it("stays open when focus returns to the row that owns the menu", () => {
+      // The guard treats the owning row (and anything inside it) as "still
+      // inside": focus moving from a menu entry back onto the row itself must
+      // not dismiss, or the row's own focus state would close its menu.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu")! as HTMLElement;
+
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: item }),
+      );
+
+      expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
+    });
+
     it("closeMoreMenu(setFocus=true) returns focus to the layer row", () => {
       const item = findItem(ui, "overlay1");
       const focusSpy = vi.fn();
