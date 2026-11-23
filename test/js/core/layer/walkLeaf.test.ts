@@ -4,7 +4,7 @@ import {
   countChildLayersOf,
   findLeaf,
   findNode,
-  isContainerNode,
+  isGroupNode,
   someLeaf,
   walkLeaf,
   walkTree,
@@ -18,7 +18,7 @@ const group = (...children: unknown[]) => ({
 const leaf = (tag = "") => ({ __tag: tag });
 
 describe("walkLeaf", () => {
-  it("visits every leaf and skips containers", () => {
+  it("visits every leaf and skips groups", () => {
     const a = leaf("a");
     const b = leaf("b");
     const g = group(a, b);
@@ -69,7 +69,7 @@ describe("walkLeaf", () => {
     expect(visited).toEqual([hostile]);
   });
 
-  it("childrenOf: a container whose eachLayer throws contributes no children", () => {
+  it("childrenOf: a group whose eachLayer throws contributes no children", () => {
     // A walk is a query, so one hostile node must not abort the caller. The
     // node still has to read as a container here - safeGroupLike answers from
     // the same `eachLayer` that later throws when it is called - so the
@@ -106,7 +106,7 @@ describe("walkLeaf", () => {
 });
 
 describe("walkTree", () => {
-  it("visits containers and leaves", () => {
+  it("visits groups and leaves", () => {
     const a = leaf("a");
     const g = group(a);
     const visited: unknown[] = [];
@@ -161,7 +161,7 @@ describe("findNode", () => {
     eachLayer: (fn: (l: unknown) => void) => children.forEach(fn),
   });
 
-  it("returns the container's own value, which walkLeaf never visits", () => {
+  it("returns the group's own value, which walkLeaf never visits", () => {
     const g = declared("on-container", [leaf("a")]);
     const result = findNode(
       g,
@@ -172,7 +172,7 @@ describe("findNode", () => {
     expect(result).toBe("on-container");
   });
 
-  it("root first: the container's own value wins over a child's", () => {
+  it("root first: the group's own value wins over a child's", () => {
     const g = declared("outer", [declared("inner")]);
     let visits = 0;
     const result = findNode(g, n => {
@@ -184,7 +184,7 @@ describe("findNode", () => {
     expect(visits).toBe(1);
   });
 
-  it("descends into children when the container declares nothing", () => {
+  it("descends into children when the group declares nothing", () => {
     const child = declared("on-child");
     const g = { eachLayer: (fn: (l: unknown) => void) => fn(child) };
     const result = findNode(
@@ -250,15 +250,15 @@ describe("someLeaf", () => {
   });
 });
 
-describe("isContainerNode", () => {
+describe("isGroupNode", () => {
   it("true when eachLayer is a function", () => {
-    expect(isContainerNode({ eachLayer: () => {} })).toBe(true);
+    expect(isGroupNode({ eachLayer: () => {} })).toBe(true);
   });
 
   it("false when eachLayer is absent", () => {
-    expect(isContainerNode({})).toBe(false);
-    expect(isContainerNode(null)).toBe(false);
-    expect(isContainerNode(undefined)).toBe(false);
+    expect(isGroupNode({})).toBe(false);
+    expect(isGroupNode(null)).toBe(false);
+    expect(isGroupNode(undefined)).toBe(false);
   });
 
   it("false, not throwing, when the eachLayer read itself throws", () => {
@@ -269,8 +269,8 @@ describe("isContainerNode", () => {
         throw new Error("getter boom");
       },
     });
-    expect(() => isContainerNode(hostile)).not.toThrow();
-    expect(isContainerNode(hostile)).toBe(false);
+    expect(() => isGroupNode(hostile)).not.toThrow();
+    expect(isGroupNode(hostile)).toBe(false);
   });
 });
 

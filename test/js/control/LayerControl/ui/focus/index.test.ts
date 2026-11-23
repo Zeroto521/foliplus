@@ -2481,8 +2481,8 @@ describe("LayerUI focus", () => {
     });
   });
 
-  describe("bringFocusedLayerToFront() container child panes", () => {
-    const makeContainer = (children: any[]) => {
+  describe("bringFocusedLayerToFront() group child panes", () => {
+    const makeGroup = (children: any[]) => {
       const c: any = {
         options: {},
         clearLayers: vi.fn(),
@@ -2501,12 +2501,12 @@ describe("LayerUI focus", () => {
     it("lifts a child pane the surface did not discover", () => {
       const childA = { options: {}, visible: true };
       const childB = { options: { pane: "grp_pane_b" }, visible: true };
-      const container = makeContainer([childA, childB]);
+      const group = makeGroup([childA, childB]);
       manager.registerLayer({
         id: "grp",
         name: "Group",
         role: "overlay",
-        layer: container,
+        layer: group,
       });
       const layerInfo = manager.layerRegistry.get("grp")!;
       const surface = manager.surfaceFor(layerInfo);
@@ -2545,12 +2545,12 @@ describe("LayerUI focus", () => {
     it("does not lift a child pane already owned by the surface", () => {
       const childA = { options: {}, visible: true };
       const childB = { options: { pane: "grp_pane_b" }, visible: true };
-      const container = makeContainer([childA, childB]);
+      const group = makeGroup([childA, childB]);
       manager.registerLayer({
         id: "grp",
         name: "Group",
         role: "overlay",
-        layer: container,
+        layer: group,
       });
       const layerInfo = manager.layerRegistry.get("grp")!;
       const surface = manager.surfaceFor(layerInfo);
@@ -2577,7 +2577,7 @@ describe("LayerUI focus", () => {
         "foliplus-pane-2",
       ]);
       bringFocusedLayerToFront(ui, layerInfo);
-      // Both panes are already owned by the surface, so the container
+      // Both panes are already owned by the surface, so the group
       // child-pane lift must NOT double-lift either one — the surface path
       // is the single owner of every pane it declared.
       const restores = ui.focusController.focusedPaneRestores;
@@ -2589,12 +2589,12 @@ describe("LayerUI focus", () => {
 
     it("swallows a getLayerPanes failure instead of crashing the focus", () => {
       const childA = { options: {}, visible: true };
-      const container = makeContainer([childA]);
+      const group = makeGroup([childA]);
       manager.registerLayer({
         id: "grp",
         name: "Group",
         role: "overlay",
-        layer: container,
+        layer: group,
       });
       const layerInfo = manager.layerRegistry.get("grp")!;
       const surface = manager.surfaceFor(layerInfo);
@@ -2627,14 +2627,14 @@ describe("LayerUI focus", () => {
 
     it("skips a child pane that is a shared default pane", () => {
       // A core pane (overlayPane, markerPane, ...) belongs to every layer, so
-      // lifting it for one container would reorder unrelated layers.
+      // lifting it for one group would reorder unrelated layers.
       const childA = { options: {}, visible: true };
-      const container = makeContainer([childA]);
+      const group = makeGroup([childA]);
       manager.registerLayer({
         id: "grp",
         name: "Group",
         role: "overlay",
-        layer: container,
+        layer: group,
       });
       const layerInfo = manager.layerRegistry.get("grp")!;
       const surface = manager.surfaceFor(layerInfo);
@@ -2661,12 +2661,12 @@ describe("LayerUI focus", () => {
       // Best-effort: getLayerPanes can name a pane whose DOM node was never
       // created; the lift skips it instead of throwing.
       const childA = { options: {}, visible: true };
-      const container = makeContainer([childA]);
+      const group = makeGroup([childA]);
       manager.registerLayer({
         id: "grp",
         name: "Group",
         role: "overlay",
-        layer: container,
+        layer: group,
       });
       const layerInfo = manager.layerRegistry.get("grp")!;
       const surface = manager.surfaceFor(layerInfo);

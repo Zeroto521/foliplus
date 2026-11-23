@@ -13,7 +13,7 @@ from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
 from ._folder import normalise_folders
-from ._layer_declaration import (
+from ._layer import (
     declared_border,
     declared_filter,
     declared_folder,

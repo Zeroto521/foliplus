@@ -12,7 +12,7 @@
 // channel as the fold state (see ../state.js saveFoldState).
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { childrenOf, isContainerLayer } from "#core/layer/index.js";
+import { childrenOf, isGroupLayer } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -62,7 +62,7 @@ const resolveChild = (
   const layerInfo = ui.c.layerRegistry.get(parentId);
   if (!layerInfo) return null;
   const layer = ui.c.findLayer(layerInfo) ?? layerInfo.layer;
-  if (!layer || !isContainerLayer(layer)) return null;
+  if (!layer || !isGroupLayer(layer)) return null;
   for (const child of childrenOf(layer)) {
     if (L.stamp(child) === stamp) return child;
   }
@@ -74,7 +74,7 @@ const groupChildren = (ui: LayerUI, parentId: string): L.Layer[] => {
   const layerInfo = ui.c.layerRegistry.get(parentId);
   if (!layerInfo) return [];
   const layer = ui.c.findLayer(layerInfo) ?? layerInfo.layer;
-  if (!layer || !isContainerLayer(layer)) return [];
+  if (!layer || !isGroupLayer(layer)) return [];
   return childrenOf(layer);
 };
 

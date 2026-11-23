@@ -852,7 +852,7 @@ describe("container layer row", () => {
     ui?.uiContainer?.remove();
   });
 
-  const makeContainer = (children: unknown[] = []) => {
+  const makeGroup = (children: unknown[] = []) => {
     const c: any = {
       options: {},
       clearLayers: vi.fn(),
@@ -870,7 +870,7 @@ describe("container layer row", () => {
 
   it("row shows the container type icon and the child count", () => {
     const leaf: any = { options: {} };
-    const container = makeContainer([leaf, leaf]);
+    const container = makeGroup([leaf, leaf]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -890,12 +890,12 @@ describe("container layer row", () => {
 
   it("a logical layer backed by a group with a featureCountProvider is NOT a container", () => {
     // Regression: the browser filter test registers a layer backed by an empty
-    // L.layerGroup() with a provider-driven count. isContainerLayer(empty group)
+    // L.layerGroup() with a provider-driven count. isGroupLayer(empty group)
     // is true (group-like + child registry), so the row misclassified it as a
     // container and showed the child count (0) instead of the provider count.
     // The group is the layer's Leaflet REPRESENTATION, not a folder of
     // sub-layers — a provider-carrying layer keeps its provider count.
-    const group = makeContainer([]);
+    const group = makeGroup([]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: group }],
     });
@@ -919,7 +919,7 @@ describe("container layer row", () => {
   });
 
   it("container delete and teardown are safe", () => {
-    const container = makeContainer([{ options: {} }]);
+    const container = makeGroup([{ options: {} }]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -934,7 +934,7 @@ describe("container layer row", () => {
     const childA = { options: {}, visible: true };
     const childB = { options: {}, visible: true };
     const childC = { options: {}, visible: false };
-    const container = makeContainer([childA, childB, childC]);
+    const container = makeGroup([childA, childB, childC]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -956,7 +956,7 @@ describe("container layer row", () => {
     const childA = { options: {}, visible: true };
     const childB = { options: {}, visible: true };
     const childC = { options: {}, visible: false };
-    const container = makeContainer([childA, childB, childC]);
+    const container = makeGroup([childA, childB, childC]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -976,7 +976,7 @@ describe("container layer row", () => {
   it("container count column collapses to the bare total when all children are visible", () => {
     const childA = { options: {}, visible: true };
     const childB = { options: {}, visible: true };
-    const container = makeContainer([childA, childB]);
+    const container = makeGroup([childA, childB]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -991,7 +991,7 @@ describe("container layer row", () => {
     const childA = { options: {}, visible: false };
     const childB = { options: {}, visible: false };
     const childC = { options: {}, visible: false };
-    const container = makeContainer([childA, childB, childC]);
+    const container = makeGroup([childA, childB, childC]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -1005,7 +1005,7 @@ describe("container layer row", () => {
     const childA = { options: {}, visible: true };
     const childB = { options: {}, visible: true };
     const childC = { options: {}, visible: true };
-    const container = makeContainer([childA, childB, childC]);
+    const container = makeGroup([childA, childB, childC]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -1021,7 +1021,7 @@ describe("container layer row", () => {
     const childA = { options: {}, visible: true };
     const childB = { options: {}, visible: true };
     const childC = { options: {}, visible: false };
-    const container = makeContainer([childA, childB, childC]);
+    const container = makeGroup([childA, childB, childC]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -1036,7 +1036,7 @@ describe("container layer row", () => {
     const childA = { options: {}, visible: false };
     const childB = { options: {}, visible: false };
     const childC = { options: {}, visible: false };
-    const container = makeContainer([childA, childB, childC]);
+    const container = makeGroup([childA, childB, childC]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });

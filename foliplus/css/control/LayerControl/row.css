@@ -534,7 +534,7 @@
        shared rule above is (0,4,0) through :is(), so a sibling rule at (0,3,0)
        lost to it and the folder name stayed at 400. */
     &.foliplus-layer-item-folder .foliplus-layer-label,
-    &.foliplus-layer-item-container .foliplus-layer-label {
+    &.foliplus-layer-item-group .foliplus-layer-label {
       font-weight: var(--foliplus-font-weight-medium);
     }
     /* ── Feature count column ──
