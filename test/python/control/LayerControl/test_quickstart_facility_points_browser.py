@@ -97,7 +97,7 @@ class TestQuickstartFacilityPointsBrowser:
         # the CircleMarkers to SVG before the test reads the first frame.
         # The layer ships hidden (show=False or .explore default).
         page.evaluate(snippet("LayerControl/show_all_layers"))
-        page.wait_for_selector('path.leaflet-interactive', timeout=10000)
+        page.wait_for_selector("path.leaflet-interactive", timeout=10000)
         return page, errors
 
     def test_first_frame_paints_per_feature_plasma(self, browser, tmp_path):
