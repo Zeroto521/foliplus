@@ -88,6 +88,24 @@ class TestSafeJson:
         """The template interpolates this into ``| safe`` — it must be a str."""
         assert type(_safe_json({"a": 1})) is str
 
+    def test_jinja2_leaves_line_terminators_literal_with_ensure_ascii_false(self):
+        """Guard: documents that jinja2 3.1.6 with ensure_ascii=False does NOT
+        escape U+2028/U+2029 — the reason foliplus's _safe_json post-processes.
+
+        When a future jinja2 starts escaping them under ensure_ascii=False,
+        this test fails and we should drop the foliplus replace pass.
+        See .foliplus/notes/escape-upstream-eval.md for the full audit.
+        """
+        from jinja2.utils import htmlsafe_json_dumps
+
+        out = htmlsafe_json_dumps({"a": "x\u2028y"}, ensure_ascii=False)
+        # Literal U+2028 is present (NOT escaped) — this is the jinja2 behavior
+        # foliplus must correct with its post-process pass.
+        assert "\u2028" in out
+
+        out2 = htmlsafe_json_dumps({"a": "x\u2029y"}, ensure_ascii=False)
+        assert "\u2029" in out2
+
 
 def _render_layer_map(layer_name: str) -> str:
     """Render a single-feature-group map with a foliplus LayerControl."""
