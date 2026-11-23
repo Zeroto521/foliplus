@@ -1649,3 +1649,41 @@ describe("visibility coverage edges", () => {
     expect(() => ui.handleChange({ target: cb } as unknown as Event)).not.toThrow();
   });
 });
+
+describe("visibility coverage edges (group rows)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.body.innerHTML = "";
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  it("syncToggleAll bails when the panel is gone (no container)", () => {
+    // A reconcile that lands after the control unmounted (a queued timer, a
+    // late bulk toggle) has no panel to repaint: the sync must bail rather
+    // than dereference a null container.
+    const { ui } = initFixture({});
+    ui.c.uiContainer = null;
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
+
+  it("syncToggleAll returns early when the role owns no folder row", () => {
+    // The role header still paints, but there is no folder header to
+    // reconcile: the folder-row pass must bail on an empty node list rather
+    // than walking a nonexistent block.
+    const { ui } = initFixture({
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    expect(() => syncToggleAll(ui, ROLE.OVERLAY)).not.toThrow();
+  });
+});
