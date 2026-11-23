@@ -3104,7 +3104,12 @@ describe("follow-fill border mode", () => {
       delete leaf.feature;
     });
     registerDeclared("plain_pts", undefined, leaves);
-    ui.c.layerRegistry.get("plain_pts").fillAuthor = { perFeature: true };
+    ui.c.layerRegistry.get("plain_pts")!.fillAuthor = {
+      perFeature: true,
+      distinct: 2,
+      stops: ["#0d0887", "#7e03a8"],
+      scale: { kind: "continuous", column: "count" },
+    };
     const before0 = leaves[0].setStyle.mock.calls.length;
     // Drive the replay through the gate (applyUserState with this layer's id),
     // the same path the layeradd hook uses.
@@ -3122,7 +3127,12 @@ describe("follow-fill border mode", () => {
       leaf.options.fillColor = leaf.options.color;
     });
     registerDeclared("w0_pts", undefined, leaves);
-    ui.c.layerRegistry.get("w0_pts").fillAuthor = { perFeature: true };
+    ui.c.layerRegistry.get("w0_pts")!.fillAuthor = {
+      perFeature: true,
+      distinct: 2,
+      stops: ["#0d0887", "#7e03a8"],
+      scale: { kind: "continuous", column: "count" },
+    };
     const before0 = leaves[0].setStyle.mock.calls.length;
     applyBorderToLayer(ui, "w0_pts");
     expect(leaves[0].setStyle.mock.calls.length).toBe(before0);
@@ -3137,7 +3147,12 @@ describe("follow-fill border mode", () => {
       leaf.options.fillColor = "#0d0887";
     });
     registerDeclared("user_pts", undefined, leaves);
-    ui.c.layerRegistry.get("user_pts").fillAuthor = { perFeature: true };
+    ui.c.layerRegistry.get("user_pts")!.fillAuthor = {
+      perFeature: true,
+      distinct: 2,
+      stops: ["#0d0887", "#7e03a8"],
+      scale: { kind: "continuous", column: "count" },
+    };
     setIntent(ui, "user_pts", "borderColor", "#abcdef");
     applyBorderToLayer(ui, "user_pts");
     const painted = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
