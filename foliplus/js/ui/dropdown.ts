@@ -740,15 +740,15 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     const input = dom.el("input", {
       type: "search",
       class: DROPDOWN_CLASS.SEARCH_INPUT,
-      placeholder: search.placeholder,
-      "aria-label": search.placeholder,
+      placeholder: opts.searchPlaceholder,
+      "aria-label": opts.searchPlaceholder,
       autocomplete: "off",
       spellcheck: "false",
     }) as HTMLInputElement;
     const noResult = dom.el(
       "div",
       { class: DROPDOWN_CLASS.NO_RESULT, hidden: "" },
-      search.noResult,
+      opts.searchNoResult,
     );
     searchEl.append(input, noResult);
 
@@ -803,7 +803,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   };
 
   const search = opts.search ? buildSearch(opts.search) : null;
-  searchBox = search;
   if (search) search.ensure();
   const syncFromNative = (): void => {
     if (!state.native) return;

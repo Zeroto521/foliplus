@@ -290,7 +290,8 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     return {
       border: {
         color: v.color,
-        weight: v.weight,        mode: v.mode,
+        weight: v.weight,
+        mode: v.mode,
         value: v.value,
         // Border per-feature is the ORIGINAL mode (author's own stroke).
         perFeature: v.mode === "original",

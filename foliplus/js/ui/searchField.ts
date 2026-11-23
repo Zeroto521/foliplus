@@ -48,6 +48,7 @@ const createSearchField = (opts: SearchFieldOptions): SearchField => {
   if (opts.ariaLabel) input.setAttribute("aria-label", opts.ariaLabel);
 
   const onInputEvent = (): void => opts.onInput(input.value);
+  // listener-exempt: the field owns its element and drops the listener with it (the element is returned to the caller and disposed with the popup).
   input.addEventListener("input", onInputEvent);
   if (opts.onKeyDown) input.addEventListener("keydown", opts.onKeyDown);
 

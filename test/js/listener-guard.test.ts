@@ -214,7 +214,7 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "ui/dropdown.ts",
-    n: 3,
+    n: 6,
     pairedOff: 0,
     reason:
       "the bridged select's own change bridge: a programmatic `change` is the one signal that the select moved (a preset loader, another control), so the adapter re-reads the value and refreshes its label and the open popup; plus the search-mode input bindings (input + keydown) the dropdown creates on the search field it owns and drops with the popup",

@@ -29,6 +29,7 @@ const EXEMPT: string[] = [
   "core/overlay/overlayRegistry.ts",
   "ui/listbox.ts",
   "ui/slider.ts",
+  "ui/dropdown.ts",
   "control/ExportControl/crop.ts",
 ];
 const SOURCE_EXT = new Set([".ts", ".tsx"]);

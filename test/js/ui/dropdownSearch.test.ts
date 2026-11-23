@@ -718,7 +718,7 @@ it("activates the item at the FILTERED index, not the source index", () => {
   });
 });
 
-describe("dropdown search: defensive defaults (policy §4.2)", () => {
+describe("dropdown search: defensive defaults", () => {
   it("renders an empty placeholder when none is provided", () => {
     const { dropdown } = makeSearch(makeItems(12), {
       searchPlaceholder: undefined as never,

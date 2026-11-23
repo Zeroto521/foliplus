@@ -557,7 +557,6 @@ describe("filterStore — invariants", () => {
     store.registerHost("L1", "filter", host);
     expect(apply).not.toHaveBeenCalled();
     expect(store.sources("L1")).toEqual(["filter"]);
-<<<<<<< HEAD
     expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
   });
 
@@ -624,9 +623,6 @@ describe("filterStore — invariants", () => {
     expect(apply).not.toHaveBeenCalled();
     expect(store.sources("L1")).toEqual(["filter"]);
     expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
-=======
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
->>>>>>> e0c77b91 (refactor(layer): release the filter host on drop and add a presence probe)
   });
 
   it("whole-layer reset keeps sibling layers and rewrites the record", () => {
