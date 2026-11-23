@@ -321,7 +321,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // Deleting the folder a layer belongs to is the folder row's own operation,
   // not the layer's: each row type owns its entry set, and a layer menu with
   // two entries both labelled "Delete" would make the user guess which one
-  // they are confirming (issue 11).
+  // they are confirming.
 
   // Delete goes behind a divider: everything above it is reversible (view,
   // configure, rename, inspect), and this is the only entry that is not. Three
@@ -703,7 +703,7 @@ const startFolderRename = (
   if (!item || !label) return;
   closeOverlays(ui);
   // Same row flag the layer rename sets: it is what stretches the input across
-  // the label+count area, so both rename kinds render identically (issue 16).
+  // the label+count area, so both rename kinds render identically.
   ui.overlayPanel.activeRenameRow = item;
   item.classList.add(CONST.CLASSES.RENAMING);
   createInlineEditInput({

@@ -841,8 +841,7 @@ const renderToggleAllRow = (
   // Same paint recipe as the shared section divider (soft gradient at both
   // ends); only the span differs, because the role row owns the count / icon /
   // more cells the pre-folder divider used to run through. A second hand-rolled
-  // line here is what made the two role sections look different from main
-  // (issue 4).
+  // line here is what made the two role sections look different from main.
   children.push(
     dom.el(
       "span",
@@ -887,7 +886,7 @@ const renderToggleAllRow = (
       // the header. The shared cell paint reaches it by selector instead (see
       // the "Shared row cells" block in row.css).
       // ACTIVE is the icon wake: a group row whose members are on reads as
-      // active exactly like a checked layer row (issue 3).
+      // active exactly like a checked layer row.
       class: `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
       tabindex: "0",
       "data-role": role,
@@ -923,7 +922,7 @@ const renderFolderRow = (
       // FOLDED is the row's own state (chevron direction, accent rail);
       // GROUP_FOLDED means "hidden because my group is folded" and belongs to
       // the members only — putting it here hid the header itself, which is the
-      // only way back to the members (issue 10).
+      // only way back to the members.
       class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
       tabindex: "0",
       [CONST.DATA.ROLE]: role,

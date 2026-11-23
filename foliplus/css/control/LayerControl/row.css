@@ -644,7 +644,7 @@
 
   /* ── Fold-tree guides for folder members (rail column) ──
      The vertical stem sits on the rail's centre line, so it lines up with the
-     fold chevron of the folder header above it (issue 5). Two shapes, not one:
+     fold chevron of the folder header above it. Two shapes, not one:
      the mid variant is a branch that continues below this row (├), the last
      variant is the elbow that ends the branch (└), so its stem stops at the
      horizontal stub. */
