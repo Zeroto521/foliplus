@@ -131,18 +131,13 @@
   align-items: center;
   gap: var(--foliplus-space-sm);
   width: 100%;
-  min-height: var(--foliplus-menu-row-h);
   padding: var(--foliplus-space-xs) var(--foliplus-space-md);
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--foliplus-text-primary);
-  font-family: inherit;
-  font-size: var(--foliplus-font-size-md);
   line-height: 1.5;
   text-align: left;
   cursor: pointer;
-  box-sizing: border-box;
   transition: background-color var(--foliplus-transition-fast);
 }
 .foliplus-dropdown-option:hover:not([disabled]) {
@@ -158,19 +153,15 @@
      default arrow would read the row as selectable. */
   cursor: not-allowed;
 }
-/* Persistent selection: the soft accent wash plus the 3px inset bar, drawn
-   with box-shadow so the row keeps its full width and the bar cannot shift
-   the label. The hover rule above still answers on top of it. */
+/* Persistent selection: the soft accent wash plus the accent border on the
+   bar the base row already carries. The border is already reserved on every
+   row, so switching states cannot shift the label. The hover rule above still
+   answers on top of it. */
 .foliplus-dropdown-option[aria-selected="true"] {
   background: var(--foliplus-menu-row-selected-bg);
-  box-shadow: inset var(--foliplus-menu-row-bar-width) 0 0
-    var(--foliplus-menu-row-selected-bar);
 }
 .foliplus-dropdown-option:focus-visible {
-  outline: none;
-  box-shadow:
-    inset var(--foliplus-menu-row-bar-width) 0 0 var(--foliplus-menu-row-selected-bar),
-    var(--foliplus-focus-ring);
+  box-shadow: var(--foliplus-focus-ring);
   border-radius: var(--foliplus-radius-sm);
 }
 .foliplus-dropdown-option-label {
@@ -181,6 +172,58 @@
   white-space: nowrap;
 }
 
-/* The multi-select row used to reserve a tick column here. It is gone on
-   purpose: the trigger already reports "N selected", and the inset bar above
-   carries the selected state for single and multiple alike. */
+/* ── Select-all row (multiple mode) ──
+   Rendered above the options by ui/dropdown.ts. It keeps the option row's
+   height / padding / left bar / hover / focus so it reads as one of the rows
+   and not as a button bar; a bottom hairline sets it apart from the first
+   option. The set actions re-read the current selection (ui/dropdown.ts), so
+   the box and its label never go stale after a pick. */
+.foliplus-dropdown-select-all {
+  /* Demo fidelity (.foliplus/demo/multiselect-demo-A-bar.html): the row is
+     sticky at the top of the list so a long option list scrolling under it
+     keeps the select-all affordance in view. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--foliplus-space-sm);
+  width: 100%;
+  min-height: var(--foliplus-menu-row-h);
+  padding: var(--foliplus-space-xs) var(--foliplus-space-md);
+  color: var(--foliplus-text-primary);
+  /* Demo fidelity: raised surface + slightly heavier label so the row reads
+     as a header above the option list. The token vocabulary has no
+     neutral-50; --foliplus-surface-raised (neutral-100) is the single
+     source for "slightly raised above the list". */
+  background: var(--foliplus-surface-raised);
+  font-weight: 500;
+  font-size: var(--foliplus-font-size-md);
+  line-height: 1.5;
+  cursor: pointer;
+  box-sizing: border-box;
+  /* The same transparent left bar the option rows carry, so the checkbox sits
+     where the option labels start instead of 2px left of them. */
+  border-left: var(--foliplus-border-thick) solid transparent;
+  border-bottom: var(--foliplus-border-thin) solid var(--foliplus-input-border);
+  transition: background-color var(--foliplus-transition-fast);
+}
+.foliplus-dropdown-select-all:hover {
+  background: var(--foliplus-menu-row-hover-bg);
+  color: var(--foliplus-menu-row-hover-ink);
+}
+.foliplus-dropdown-select-all:active {
+  background: var(--foliplus-accent-soft-bg);
+}
+/* Focus lands on the real checkbox inside; :focus-within paints it on the row
+   so the ring reads as the row's, not a stray frame on the box. */
+.foliplus-dropdown-select-all:focus-within {
+  box-shadow: var(--foliplus-focus-ring);
+}
+.foliplus-dropdown-select-all-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

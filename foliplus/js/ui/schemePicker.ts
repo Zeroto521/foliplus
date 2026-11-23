@@ -8,7 +8,9 @@
 // behavior.
 //
 // Does NOT import any Heatmap or LayerControl module.
+import { buildLeadSlot } from "./checkSlot.js";
 import { createListbox } from "./listbox.js";
+import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import { PANEL_CLASS } from "./panelClassName.js";
 import { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
 import type { SchemePicker } from "./type.js";
@@ -228,14 +230,24 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     }
   };
 
-  // A scheme row: the label bar the engine paints plus the row's disabled
-  // tooltip. The engine owns the row's class/data-key/ARIA/click/keyboard and
-  // renders the title from `item.title` (provided by itemsOf, where the
-  // disabled hint lives); the adapter owns only the color bar.
-  const renderRow = (item: { value: string; disabled?: boolean }) => {
+  // A scheme row: the ✓ lead and the color bar. The engine owns the row's
+  // class/data-key/ARIA/click/keyboard and renders the title from `item.title`
+  // (provided by itemsOf, where the disabled hint lives); the adapter owns the
+  // indicator and the color bar.
+  //
+  // The bar is the ONLY in-flow child (flex:1) so it spans the full row and
+  // stays aligned with the trigger strip — the strip-alignment invariant the
+  // browser test enforces. The ✓ lead is an absolute overlay on the bar's left
+  // edge, so it never shifts the bar's geometry.
+  const renderRow = (
+    item: { value: string; disabled?: boolean },
+    ctx: { selected: boolean; index: number },
+  ) => {
+    const lead = buildLeadSlot(SCHEME_PICKER_CLASS.LEAD);
+    lead.paint(ctx.selected);
     const bar = dom.el("div", { class: classes.bar });
     renderColorBar(bar, item.value, numClasses, classes.block, colorScale);
-    return bar;
+    return dom.el("span", { class: SCHEME_PICKER_CLASS.ROW_CONTENT }, lead.slot, bar);
   };
 
   // Apply a selection: update the value model + all picker-owned DOM, close
@@ -282,7 +294,7 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     },
     classes: {
       list: classes.dropdown,
-      row: classes.item,
+      row: [classes.item, MENU_ROW_CLASS.ROW].join(" "),
       portal: SCHEME_PICKER_CLASS.PORTAL,
       up: "",
       open: classes.open,

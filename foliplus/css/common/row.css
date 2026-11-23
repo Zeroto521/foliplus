@@ -1,0 +1,63 @@
+@import "token.css";
+
+/* ui/menuRowClassName — the shared selection row chrome.
+   One recipe for every row surface that carries the left selection bar and
+   the menu-row typography: the LayerControl layer item (control/LayerControl/row.css),
+   the ui/dropdown option row (common/dropdown.css) and the ui/schemePicker
+   item (common/scheme-picker.css).
+
+   What is shared here:
+   - The left selection bar: every row reserves the same real 2px border
+     (transparent in the base, --foliplus-accent-primary when selected), so
+     the bar is measured off --foliplus-border-thick everywhere instead of a
+     surface-specific inset box-shadow, and switching the selected state never
+     shifts the label.
+   - The row typography: menu text colour, inherited font family and the
+     md font size the user's design spec names for every row.
+   - The shared min-height: the layer-row-min-height (not the 30px menu-row-h)
+     so the dropdown / scheme rows sit on the same baseline as the layer rows.
+   - The selected accent bar: recoloured on the border the base already
+     reserves. The class spellings differ per surface (the dropdown uses
+     .foliplus-is-selected, the scheme picker .foliplus-is-active, the layer
+     item .foliplus-active, and the listbox engine also sets
+     [aria-selected=true]), so the shared selector names all four.
+
+   What stays per-surface (NOT here):
+   - Layout (layer = 6-column grid, dropdown/scheme = flex) and padding.
+   - The hover wash / cursor recipe (the layer row's white+glow cursor recipe
+     is deliberately different from the dropdown/scheme simple accent hover).
+   - The selected background wash (layer uses --foliplus-accent-light, the
+     dropdown/scheme use --foliplus-menu-row-selected-bg / accent-soft).
+   - The focus treatment (layer = red glow cursor, dropdown/scheme =
+     --foliplus-focus-ring). These differ by design and are declared by each
+     surface's own stylesheet.
+
+   The class is single-sourced in ui/menuRowClassName.ts; this file only
+   owns the declarations. */
+
+.foliplus-menu-row {
+  box-sizing: border-box;
+  /* Reserved here, transparent: the selected state recolours this border
+     instead of painting an inset box-shadow. The bar is on every row so the
+     label never shifts when the state changes. */
+  border-left: var(--foliplus-border-thick) solid transparent;
+  color: var(--foliplus-text-primary);
+  font-family: inherit;
+  font-size: var(--foliplus-font-size-md);
+  /* No min-height here: the shared class owns the selection bar + typography,
+     each surface owns its own row height (dropdown option 30px, scheme item
+     30px, layer item its padding+content). A shared min-height inflated the
+     menu/scheme rows to the layer row height and pushed the scheme list's
+     later items out of the clamped scroll port (clipping the first rows). */
+}
+
+/* Selected: the accent bar on the border the base row already reserves.
+   The four spellings are the four surfaces' own selected-class names; the
+   shared selector keeps the bar one mechanism without touching each
+   surface's background wash. */
+.foliplus-menu-row.foliplus-is-selected,
+.foliplus-menu-row[aria-selected="true"],
+.foliplus-menu-row.foliplus-is-active,
+.foliplus-menu-row.foliplus-active {
+  border-left-color: var(--foliplus-accent-primary);
+}

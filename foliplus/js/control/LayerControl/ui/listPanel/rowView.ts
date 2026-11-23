@@ -25,6 +25,7 @@ import {
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
+import { selectAllStateOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import * as Util from "#control/LayerControl/util.js";
@@ -387,13 +388,12 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
  *  and call this to paint the checkbox — a layer row's own checkbox is
  *  always binary and never goes through here. */
 const writeTriState = (input: HTMLInputElement, total: number, on: number): void => {
-  const allChecked = total > 0 && on === total;
-  const noneChecked = on === 0;
-  input.checked = allChecked;
-  input.indeterminate = !allChecked && !noneChecked;
+  const verdict = selectAllStateOf(total, on);
+  input.checked = verdict.allChecked;
+  input.indeterminate = verdict.state === "indeterminate";
   input.setAttribute(
     "aria-checked",
-    allChecked ? "true" : noneChecked ? "false" : "mixed",
+    verdict.allChecked ? "true" : verdict.noneChecked ? "false" : "mixed",
   );
 };
 

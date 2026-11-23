@@ -38,7 +38,7 @@ import {
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
-import { finishSlidersIn, sectionDivider } from "#ui/index.js";
+import { MENU_ROW_CLASS, finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
@@ -1099,7 +1099,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   return dom.el(
     "div",
     {
-      class: CONST.CLASSES.LAYER_ITEM,
+      class: [CONST.CLASSES.LAYER_ITEM, MENU_ROW_CLASS.ROW].join(" "),
       draggable: "true",
       tabindex: "0",
       [CONST.DATA.LAYER_ID]: layerInfo.id,

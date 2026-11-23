@@ -444,16 +444,9 @@
     padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)
       var(--foliplus-space-md) var(--foliplus-space-sm);
     align-items: center;
-    box-sizing: border-box;
-    min-height: var(--foliplus-layer-row-min-height);
-    /* Every row is draggable (spec v3.8 §1.3: folder / member / root rows all
-       carry draggable=true), so the cursor advertises the gesture. The
-       dragging state swaps to grabbing below. */
     cursor: grab;
     user-select: none;
     border-radius: var(--foliplus-radius-sm);
-    font-size: var(--foliplus-font-size-md);
-    border-left: var(--foliplus-border-thick) solid transparent;
     transition: none;
     /* border-color and background-color intentionally NOT animated on this
        row: the item is destroyed and re-created on every list rebuild

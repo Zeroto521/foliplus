@@ -37,6 +37,7 @@ export {
 } from "./dropdown.js";
 export type { DropdownOverlay } from "./dropdown.js";
 export { createListbox } from "./listbox.js";
+export { DROPDOWN_CLASS } from "./dropdownClassName.js";
 export {
   bindLiveColor,
   bindLiveNumber,
@@ -60,7 +61,10 @@ export { readOnlyValue } from "./panelField.js";
 export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export { SLIDER_CLASS } from "./sliderClassName.js";
 export { LABEL_CLASS } from "./labelClassName.js";
+export { MENU_ROW_CLASS } from "./menuRowClassName.js";
 export { ensureActiveVisible } from "./scrollIntoView.js";
+export { selectAllAction, selectAllStateOf } from "./selectAllState.js";
+export type { SelectAllState, SelectAllVerdict } from "./selectAllState.js";
 export { STYLE_MODE_KEY } from "./styleModeKey.js";
 export type {
   CanvasLabelStyle,

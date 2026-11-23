@@ -361,10 +361,19 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
     expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x)");
     expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
-    expect(item).not.toContain("border-left");
-    // The selected row draws the same 3px bar as the shared dropdown row.
-    const active = blockOf(scheme, ".foliplus-scheme-picker-item.foliplus-is-active {");
-    expect(active).toContain("var(--foliplus-menu-row-bar-width) 0 0");
+    // The item carries the shared menu row, which reserves the selection bar
+    // as a real border (transparent in the base row). The inset subtraction
+    // above keeps the colour strip on the trigger strip's x — and the padding
+    // accounts for the border the shared row reserves.
+    const row = css("foliplus/css/common/row.css");
+    const menuRow = blockOf(row, ".foliplus-menu-row {");
+    expect(menuRow).toContain(
+      "border-left: var(--foliplus-border-thick) solid transparent",
+    );
+    // The selected row recolours the border it already reserves: one 2px bar
+    // shared with the dropdown option and the LayerControl row.
+    const active = blockOf(row, ".foliplus-menu-row.foliplus-is-active,");
+    expect(active).toContain("border-left-color: var(--foliplus-accent-primary)");
   });
 
   it("reserves the scrollbar lane in both list states", () => {
