@@ -1292,6 +1292,18 @@ const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
  *  on the author's stroke until the first panel touch — the mirror of
  *  replayDeclaredFill. Called once per layer on attach. */
 const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
+  // #1285 diagnostic: trace whether the declared value border's layer reaches
+  // the attach sweep and what mode/geometry it resolves at that moment.
+  console.warn(
+    "[1285-diag] replayDeclaredBorder",
+    layerId,
+    "declared=",
+    declaredBorderMode(ui, layerId),
+    "geom=",
+    geometryKindOf(ui, layerId),
+    "registrySize=",
+    ui.c.layerRegistry.layers.length,
+  );
   for (const key of BORDER_INTENT_KEYS) {
     if (getIntent(ui, layerId, key) !== undefined) return;
   }
