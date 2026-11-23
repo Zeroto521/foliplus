@@ -3059,6 +3059,29 @@ describe("follow-fill border mode", () => {
     expect(painted0.color).toBe("#010101");
     expect(painted1.color).toBe("#020202");
   });
+  it("applyUserState attach sweep paints a declared value border on first frame", () => {
+    // The reported quickstart: a CircleMarker layer declares foliplus.border
+    // value and the map must open on the ramp, not the author's flat stroke.
+    // Drive the REAL attach entry (applyUserState with no id = the full sweep)
+    // rather than replayDeclaredBorder directly, so the test reproduces the
+    // attach ordering and the geometry/materialisation state the sweep sees.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      leaf.feature.properties.count = i + 1;
+    });
+    registerDeclared(
+      "dval_attach",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    // Attach sweep (no id = the full-sweep half): the final stroke on every
+    // leaf must be the classified ramp colour, not the author's flat stroke.
+    ui.applyUserState();
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
   // declared value (foliplus.border value mode)
   // The declaration is a read-time value default: no stored intent - the
   // border shows and classifies by the author's declared field/config.
