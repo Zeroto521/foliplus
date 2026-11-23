@@ -132,9 +132,16 @@ function containerViolations(src: string): string[] {
   for (const shape of BANNED_CONTAINER_SHAPES) {
     if (shape.test(src)) hits.push(shape.source);
   }
-  // Scan each makeContainer declaration: a violation builds a group object,
-  // not an HTMLElement. Match the decl line and peek at what it returns.
-  const declRe = /const makeContainer\s*=\s*\(([^)]*)\)[^\n]*/g;
+  // Heuristic, not exhaustive: a makeContainer is a layer-group fixture factory
+  // ONLY when it does not build an HTMLElement. FullscreenControl and focus tests
+  // legitimately name a DOM container factory makeContainer (returns
+  // HTMLElement), which is the allowed container meaning. A layer-group
+  // makeContainer takes a children list and returns an object with
+  // eachLayer/_layers, so those signatures fail here. Matches both the arrow
+  // (const makeContainer = ...) and function (function makeContainer(...) {...})
+  // declaration styles; a factory declared some other way is not caught — this
+  // guard narrows the common cases, it does not prove absence.
+  const declRe = /(?:const makeContainer\s*=\s*|function makeContainer\s*)\(([^)]*)\)[^\n]*/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(src)) !== null) {
     const params = m[1];
