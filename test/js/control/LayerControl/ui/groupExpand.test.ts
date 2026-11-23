@@ -134,6 +134,30 @@ describe("group expand", () => {
     // The group count still reads the group's children.
     expect(row!.querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("2");
   });
+
+  it("unchecking the group row removes every direct child from the map (P1 显隐)", () => {
+    installLeafletGlobals();
+    const fg = makeGroup([child("a"), child("b"), child("c")]);
+    manager.registerLayer({ id: "fg", name: "Group", role: "overlay", layer: fg });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    const row = groupRow();
+    // The group row's own checkbox: data-layer-id "fg" (the non-:: path).
+    const cb = row!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    cb.checked = false;
+    cb.dispatchEvent(new Event("change", { bubbles: true }));
+    // Every direct child leaves the map individually — not just the group.
+    for (const child of fg.getLayers()) {
+      expect(map.removeLayer).toHaveBeenCalledWith(child);
+    }
+    // The group itself is NOT removed as a whole (its children are the unit).
+    const groupLayer = fg;
+    const removedGroup = (map.removeLayer as ReturnType<typeof vi.fn>).mock.calls.some(
+      call => call[0] === groupLayer,
+    );
+    expect(removedGroup).toBe(false);
+  });
 });
 
 describe("group expand — defensive rails", () => {
@@ -750,5 +774,267 @@ describe("group expand — child checkbox rails", () => {
     cb!.click();
     // No throw, no map call (map.addLayer is not invoked for a stale child).
     expect(true).toBe(true);
+  });
+});
+
+describe("group expand — child row parity (P1 对齐)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  const child = (name: string) => ({ options: {}, _name: name });
+
+  const makeGroup = (children: unknown[]) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  it("a child row carries count, type icon, more button and tree line — no drag grip", () => {
+    installLeafletGlobals();
+    const fg = makeGroup([child("a")]);
+    manager.registerLayer({ id: "fg", name: "Group", role: "overlay", layer: fg });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    const row = attachedPanel(ui).querySelector(
+      `${CONST.SEL.LAYER_ITEM}[data-layer-id="fg"]`,
+    ) as HTMLElement | null;
+    row!.querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+    const first = attachedPanel(ui).querySelector<HTMLElement>(
+      `${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`,
+    )!;
+    // Count column present and non-empty ("1" for one child on the map).
+    const count = first.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
+    expect(count).not.toBeNull();
+    expect(count!.textContent).not.toBe("");
+    // Type icon column has content (not an empty div).
+    const type = first.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
+    expect(type).not.toBeNull();
+    expect(type!.innerHTML.trim()).not.toBe("");
+    // More (⋮) menu button present.
+    expect(
+      first.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`),
+    ).not.toBeNull();
+    // Tree connector line present (├/└) — no drag grip.
+    expect(
+      first.querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_TREE}`),
+    ).not.toBeNull();
+    // Read-only: not draggable.
+    expect(first.getAttribute("draggable")).toBe("false");
+  });
+});
+
+describe("group expand — child row menu (stage 1)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  const childWithBounds = () => ({
+    options: {},
+    _name: "child",
+    getBounds: () => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 31, lng: 101 }),
+      getCenter: () => ({ lat: 30.5, lng: 100.5 }),
+      extend: () => ({ isValid: () => true }),
+    }),
+  });
+
+  const makeGroup = (children: unknown[]) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return c;
+  };
+
+  const expandGroup = () => {
+    installLeafletGlobals();
+    const fg = makeGroup([childWithBounds()]);
+    manager.registerLayer({ id: "fg", name: "Group", role: "overlay", layer: fg });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    const row = attachedPanel(ui).querySelector(
+      `${CONST.SEL.LAYER_ITEM}[data-layer-id="fg"]`,
+    ) as HTMLElement;
+    row.querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+    return attachedPanel(ui).querySelector<HTMLElement>(
+      `${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`,
+    )!;
+  };
+
+  it("opens a child menu with focus and remove entries", () => {
+    const childRow = expandGroup();
+    ui.openMoreMenu(childRow);
+    const menu = ui.overlayPanel.activeMenu?.menu;
+    expect(menu).not.toBeNull();
+    const focus = menu!.querySelector<HTMLElement>(`button[data-action="focus-layer"]`);
+    expect(focus).not.toBeNull();
+    const del = menu!.querySelector<HTMLElement>(`button[data-action="delete-layer"]`);
+    expect(del).not.toBeNull();
+  });
+
+  it("focus action fits the map to the child's bounds", () => {
+    const childRow = expandGroup();
+    ui.openMoreMenu(childRow);
+    const menu = ui.overlayPanel.activeMenu!.menu!;
+    const focus = menu.querySelector<HTMLElement>(`button[data-action="focus-layer"]`)!;
+    focus.click();
+    expect(map.fitBounds).toHaveBeenCalled();
+  });
+
+  it("remove action removes the child from the map and its row", () => {
+    const childRow = expandGroup();
+    ui.openMoreMenu(childRow);
+    const menu = ui.overlayPanel.activeMenu!.menu!;
+    const del = menu.querySelector<HTMLElement>(`button[data-action="delete-layer"]`)!;
+    del.click();
+    // First click confirms (two-step); second deletes.
+    del.click();
+    const childId = childRow.getAttribute(CONST.DATA.LAYER_ID)!;
+    expect(
+      attachedPanel(ui).querySelector(`[data-layer-id="${CSS.escape(childId)}"]`),
+    ).toBeNull();
+  });
+});
+
+describe("group expand — role expand/collapse (P1 项⑥)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "roads", name: "Roads" }],
+        order: { overlay: ["roads"] },
+        members: {},
+      },
+    }));
+  });
+
+  const child = () => ({
+    options: {},
+    _name: "child",
+    getBounds: () => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 31, lng: 101 }),
+      getCenter: () => ({ lat: 30.5, lng: 100.5 }),
+      extend: () => ({ isValid: () => true }),
+    }),
+  });
+
+  const makeGroup = (children: unknown[]) => {
+    const c: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    c.eachLayer = vi.fn((fn: (c2: unknown) => void) => {
+      for (const c2 of children) fn(c2);
+    });
+    return c;
+  };
+
+  const openRoleMenuAndClick = (action: string) => {
+    installLeafletGlobals();
+    const fg = makeGroup([child()]);
+    manager.registerLayer({ id: "fg", name: "Group", role: "overlay", layer: fg });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    const roleRow = attachedPanel(ui).querySelector(
+      `${CONST.SEL.TOGGLE_ALL}[data-role="overlay"]`,
+    ) as HTMLElement;
+    const moreBtn = roleRow.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`)!;
+    moreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const menu = ui.overlayPanel.activeMenu?.menu!;
+    const btn = menu.querySelector<HTMLElement>(`button[data-action="${action}"]`)!;
+    btn.click();
+    return ui;
+  };
+
+  it("role expand-all expands every group and shows its children", () => {
+    openRoleMenuAndClick("expand-all");
+    expect(
+      attachedPanel(ui).querySelector(`${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`),
+    ).not.toBeNull();
+  });
+
+  it("role collapse-all collapses every group and hides its children", () => {
+    openRoleMenuAndClick("expand-all");
+    expect(
+      attachedPanel(ui).querySelector(`${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`),
+    ).not.toBeNull();
+    // Reopen the role menu and collapse.
+    const roleRow = attachedPanel(ui).querySelector(
+      `${CONST.SEL.TOGGLE_ALL}[data-role="overlay"]`,
+    ) as HTMLElement;
+    const moreBtn = roleRow.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`)!;
+    moreBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    const menu = ui.overlayPanel.activeMenu!.menu!;
+    const collapse = menu.querySelector<HTMLElement>(
+      `button[data-action="collapse-all"]`,
+    )!;
+    collapse.click();
+    expect(
+      attachedPanel(ui).querySelector(`${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`),
+    ).toBeNull();
   });
 });

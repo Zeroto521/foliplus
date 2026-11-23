@@ -16,6 +16,7 @@ import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import { ROW_NOUN, withNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
+import { triState } from "./checkbox.js";
 import {
   ROLE,
   countChildLayersOf,
@@ -387,14 +388,12 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
  *  and call this to paint the checkbox — a layer row's own checkbox is
  *  always binary and never goes through here. */
 const writeTriState = (input: HTMLInputElement, total: number, on: number): void => {
-  const allChecked = total > 0 && on === total;
-  const noneChecked = on === 0;
-  input.checked = allChecked;
-  input.indeterminate = !allChecked && !noneChecked;
-  input.setAttribute(
-    "aria-checked",
-    allChecked ? "true" : noneChecked ? "false" : "mixed",
-  );
+  // The rule is the shared tri-state answer; the WRITE stays here so the
+  // rowView guard still sees one writer for the checkbox slot.
+  const { checked, indeterminate } = triState(total, on);
+  input.checked = checked;
+  input.indeterminate = indeterminate;
+  input.setAttribute("aria-checked", indeterminate ? "mixed" : String(checked));
 };
 
 /** Write the role row's count cell — text and tooltip — from the same

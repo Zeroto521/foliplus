@@ -10,12 +10,31 @@
 // State: expandedGroups: Record<parentLayerId, boolean> on ui.listPanel,
 // default false (groups start collapsed). Persisted through the same
 // channel as the fold state (see ../state.js saveFoldState).
+import {
+  computeLayerBounds,
+  drawFocusMask,
+  drawFocusRect,
+  highlightFocusedRow,
+  registerAutoCancel,
+  showFocusDisabledHint,
+} from "../focus/index.js";
+import { hideOtherLayers } from "../focus/pane.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { childrenOf, isGroupLayer } from "#core/layer/index.js";
+import { closeOverlays } from "../teardown.js";
+import { childDisplayName, childRowId, resolveChild } from "./childRow.js";
+import { countLabelTitle, countTooltip, roleCountText } from "./rowView.js";
+import {
+  childrenOf,
+  countFeatureGeometry,
+  getGeometryType,
+  isGroupLayer,
+} from "#core/layer/index.js";
+import { ensureModes, guardBlocked } from "#core/lifecycle/index.js";
 import { dom } from "#platform/dom.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
+import { getTypeSVG } from "#control/LayerControl/util.js";
 
 /** How many child rows render before the "show all" prompt. v1 lazy ceiling:
  *  a huge group must not paint hundreds of rows on one expand. */
@@ -24,50 +43,6 @@ const CHILD_RENDER_CAP = 50;
 /** Whether one group is currently expanded (default false = collapsed). */
 const isGroupExpanded = (ui: LayerUI, parentId: string): boolean =>
   Boolean(ui.listPanel.expandedGroups[parentId]);
-
-/** The DOM identity of a child row: parentId + '::' + L.stamp(child). The
- *  stamp is stable for a layer's lifetime on one page, so a child row re-resolves
- *  to the same child across a rebuild; it is NOT persisted (only the parent's
- *  expanded flag is), so a reload collapses every group. */
-const childRowId = (parentId: string, child: unknown): string =>
-  `${parentId}::${L.stamp(child)}`;
-
-/** A child layer's display name. Leaflet layers carry no canonical name; the
- *  GeoJSON feature name is the common source, then a layer's options.name,
- *  then a generic fallback. */
-const childDisplayName = (child: unknown): string => {
-  const feature = (child as { feature?: { properties?: Record<string, unknown> } })
-    ?.feature;
-  if (feature?.properties && typeof feature.properties.name === "string") {
-    return feature.properties.name;
-  }
-  const options = (child as { options?: Record<string, unknown> })?.options;
-  if (options && typeof options.name === "string" && options.name) {
-    return options.name;
-  }
-  return "Layer";
-};
-
-/** Resolve a child row's layer object from its data-layer-id. Returns null
- *  when the id does not parse or the parent no longer holds that child. */
-const resolveChild = (
-  ui: LayerUI,
-  parentId: string,
-  childId: string,
-): L.Layer | null => {
-  const sep = `${parentId}::`;
-  if (!childId.startsWith(sep)) return null;
-  const stamp = Number(childId.slice(sep.length));
-  if (!Number.isFinite(stamp)) return null;
-  const layerInfo = ui.c.layerRegistry.get(parentId);
-  if (!layerInfo) return null;
-  const layer = ui.c.findLayer(layerInfo) ?? layerInfo.layer;
-  if (!layer || !isGroupLayer(layer)) return null;
-  for (const child of childrenOf(layer)) {
-    if (L.stamp(child) === stamp) return child;
-  }
-  return null;
-};
 
 /** The group layer's direct children, in Leaflet's own order. */
 const groupChildren = (ui: LayerUI, parentId: string): L.Layer[] => {
@@ -93,11 +68,40 @@ const renderChildItem = (
   const name = childDisplayName(child);
   const onMap = ui.c.map.hasLayer(child);
 
+  // Tree connector line (item ④ decision B): a child row is never draggable —
+  // child order is Leaflet's own, so the rail carries only the tree line.
   const railCell = dom.el("span", {
     class: CONST.CLASSES.RAIL_CELL,
     title: ui.T("drag_tooltip"),
   });
-  railCell.insertAdjacentHTML("beforeend", SVGs.ICON_DRAG_HANDLE);
+  railCell.appendChild(dom.el("span", { class: CONST.CLASSES.FOLD_TREE }));
+
+  // Count (shared roleCountText rule): a child's unit is its own geometry
+  // feature count. A child on the map shows the bare count; a hidden child
+  // shows 0/total through the same rule the group row uses.
+  const total = countFeatureGeometry(child);
+  const on = onMap ? total : 0;
+  const countText = roleCountText(total, on);
+
+  // Type icon (shared getGeometryType → getTypeSVG rule).
+  const gtype = getGeometryType(child);
+  const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
+  typeIconEl.innerHTML = getTypeSVG(gtype);
+  typeIconEl.title = countLabelTitle(countText, ui.T(`type_${gtype}`));
+
+  // ⋮ menu button: identical chrome to a member row's. Click is routed by
+  // handleMoreClick → openMoreMenu, which detects the child row and opens
+  // the child menu (focus / remove).
+  const moreBtn = dom.el(
+    "button",
+    {
+      class: CONST.CLASSES.MORE_BTN,
+      type: "button",
+      title: ui.T("more_tooltip"),
+      "aria-label": ui.T("more_tooltip"),
+    },
+    { html: SVGs.ICON_MORE },
+  );
 
   return dom.el(
     "div",
@@ -118,8 +122,17 @@ const renderChildItem = (
       }),
     ),
     dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
-    dom.el("span", { class: CONST.CLASSES.COUNT_COL, [CONST.DATA.LAYER_ID]: id }),
-    dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL }),
+    dom.el(
+      "span",
+      {
+        class: CONST.CLASSES.COUNT_COL,
+        [CONST.DATA.LAYER_ID]: id,
+        title: countTooltip(ui, "sub_layers_count_tooltip", on, total),
+      },
+      countText,
+    ),
+    typeIconEl,
+    moreBtn,
   );
 };
 
@@ -177,6 +190,89 @@ const toggleGroupExpand = (ui: LayerUI, parentId: string): void => {
   saveFoldState(ui);
 };
 
+/** Focus the map on one child of a group. The child is not a registry row
+ *  (no LayerInfo), so the shared focusLayer cannot resolve it; this path
+ *  resolves the Leaflet child directly, fits the map to its bounds and
+ *  highlights its row. The child's pane lift is skipped (it has no surface
+ *  entry), but the zoom + mask + rect + row highlight are the same. */
+const focusChildLayer = (ui: LayerUI, parentId: string, childId: string): void => {
+  if (guardBlocked(ui.c.map, ui.config.name, ui.T("blocked"))) return;
+  const child = resolveChild(ui, parentId, childId);
+  if (!child) return;
+  if (!ui.c.map.hasLayer(child)) {
+    showFocusDisabledHint(ui, "hidden");
+    return;
+  }
+  const bounds = computeLayerBounds(child);
+  if (!bounds?.isValid()) {
+    showFocusDisabledHint(ui, "no_bounds");
+    return;
+  }
+  closeOverlays(ui);
+  hideOtherLayers(ui);
+  ui.c.label.setFocusFilter(childId);
+  const itemEl =
+    ui.uiContainer?.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(childId)}"]`,
+    ) ?? null;
+  const modes = ensureModes(ui.c.map);
+  modes.setMode(ui.config.name, "focusing");
+  ui.focusController.focusingLayerId = childId;
+  const southWest = bounds.getSouthWest();
+  const northEast = bounds.getNorthEast();
+  const area =
+    Math.abs(northEast.lat - southWest.lat) * Math.abs(northEast.lng - southWest.lng);
+  if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
+    const center = bounds.getCenter();
+    const maxZoom = Math.min(
+      ui.c.map.getMaxZoom(),
+      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+    );
+    ui.c.map.flyTo(center, maxZoom, { duration: CONST.FOCUS.FIT_DURATION });
+    if (itemEl) highlightFocusedRow(ui, itemEl, childId);
+    registerAutoCancel(ui, childId);
+    return;
+  }
+  drawFocusMask(ui, bounds);
+  drawFocusRect(ui, bounds);
+  if (itemEl) highlightFocusedRow(ui, itemEl, childId);
+  ui.c.map.fitBounds(bounds, {
+    animate: true,
+    duration: CONST.FOCUS.FIT_DURATION,
+    padding: CONST.FOCUS.PADDING,
+    maxZoom: Math.min(
+      ui.c.map.getMaxZoom(),
+      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+    ),
+  });
+  const ref = ui.focusController.focusRect;
+  setTimeout(() => {
+    if (ui.focusController.focusRect === ref) {
+      // Local import avoided: dismissFocus is exported by focus/index but not
+      // re-exported here; call through the focus controller's public teardown.
+      ui.c.map.foliplus?.showHint?.(ui.config.name, "", 0);
+    }
+  }, CONST.FOCUS.RECT_DURATION_MS);
+  registerAutoCancel(ui, childId);
+};
+
+/** Remove one child from its group: map.removeLayer + drop the row. The group
+ *  row's count and the role aggregates refresh on the next rebuild (a
+ *  LAYER_ROLE_COUNT_CHANGED is emitted by the group's own lifecycle when the
+ *  map membership changes). */
+const removeChildLayer = (ui: LayerUI, parentId: string, childId: string): void => {
+  const child = resolveChild(ui, parentId, childId);
+  if (!child) return;
+  if (ui.c.map.hasLayer(child)) ui.c.map.removeLayer(child);
+  const container = ui.uiContainer;
+  if (container) {
+    const row = container.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(childId)}"]`,
+    );
+    row?.remove();
+  }
+};
+
 export {
   isGroupExpanded,
   childRowId,
@@ -186,4 +282,6 @@ export {
   renderChildItem,
   removeGroupChildren,
   toggleGroupExpand,
+  focusChildLayer,
+  removeChildLayer,
 };

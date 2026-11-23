@@ -40,7 +40,9 @@ import {
   HIDDEN,
   PANE_ROLE,
   carrierTargetOf,
+  childrenOf,
   getLayerAlpha,
+  isGroupRow,
   setLayerAlpha,
 } from "#core/layer/index.js";
 
@@ -253,6 +255,27 @@ const dispatchStateOp = (
     if (carrier === CAP_TIER.NATIVE) {
       const layer = layerInfo.layer ?? ui.c.findLayer(layerInfo);
       if (layer) {
+        // A group row (folium FeatureGroup / LayerGroup shown as one row)
+        // owns unregistered direct children — the user's checkbox must
+        // add/remove each child, never the group as a whole. Removing the
+        // group would leave its children on the map (the group is only a
+        // container), which is exactly the "uncheck shows 0/3 but the map
+        // still paints them" acceptance failure. The group row's count is
+        // `countVisibleChildLayers` — direct children on the map — so the
+        // child-level write is the one the count actually reports.
+        if (isGroupRow(layerInfo, layer)) {
+          const children = childrenOf(layer);
+          let wrote = false;
+          for (const child of children) {
+            const has = ui.c.map.hasLayer(child);
+            if (op.value !== has) {
+              if (op.value) ui.c.map.addLayer(child);
+              else ui.c.map.removeLayer(child);
+              wrote = true;
+            }
+          }
+          return wrote;
+        }
         // Map membership. Written only when it differs from what is there —
         // `addLayer` on a live layer is a no-op at best and re-orders the
         // stacking at worst, so both halves collapse to one condition.

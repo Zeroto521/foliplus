@@ -10,7 +10,7 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { resolveChild } from "./groupExpand.js";
+import { resolveChild } from "./childRow.js";
 import {
   applyRowView,
   buildRowCell,
