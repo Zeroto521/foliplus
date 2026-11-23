@@ -2939,3 +2939,23 @@ describe("listbox engine: focused row stays visible (scrollIntoView guard)", () 
     expect(spy).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
   });
 });
+
+describe("listbox engine: refreshHead defensive paths", () => {
+  it("is a no-op while the list is closed", () => {
+    const { listbox } = makePicker([{ value: "a", label: "Alpha" }]);
+    expect(() => listbox.refreshHead()).not.toThrow();
+  });
+
+  it("is a no-op on an empty list (no head element to replace)", () => {
+    const { listbox } = makePicker([]);
+    listbox.open();
+    expect(() => listbox.refreshHead()).not.toThrow();
+  });
+
+  it("is a no-op after destroy", () => {
+    const { listbox } = makePicker([{ value: "a", label: "Alpha" }]);
+    listbox.open();
+    listbox.destroy();
+    expect(() => listbox.refreshHead()).not.toThrow();
+  });
+});

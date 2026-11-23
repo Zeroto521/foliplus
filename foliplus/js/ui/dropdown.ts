@@ -300,7 +300,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   // native change). A re-render follows so the options and the select-all row
   // answer the new selection.
   const selectAllValues = (): void => {
-    if (state.destroyed || !state.multiple) return;
     state.values = new Set(state.items.map(item => item.value));
     renderLabel(state);
     commit(state);
@@ -309,7 +308,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     if (listboxOf(state).isOpen()) listboxOf(state).refreshHead();
   };
   const clearValues = (): void => {
-    if (state.destroyed || !state.multiple) return;
     state.values = new Set();
     renderLabel(state);
     commit(state);

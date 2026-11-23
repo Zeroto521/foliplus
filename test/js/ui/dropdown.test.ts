@@ -1597,3 +1597,30 @@ describe("dropdown: single-mode ✓ lead repaint", () => {
     expect(leadsOf(dropdown)).toEqual(["", "\u2713"]);
   });
 });
+
+describe("dropdown: select-all row after destroy", () => {
+  it("ignores a press that lands after the dropdown is gone", () => {
+    const changes: string[][] = [];
+    const dropdown = createDropdown({
+      overlay: mockOverlay().overlay,
+      items: [
+        { value: "a", label: "Alpha" },
+        { value: "b", label: "Bee" },
+      ],
+      multiple: true,
+      onChange: (_value, values) => changes.push([...values]),
+    });
+    cleanup.push(() => dropdown.destroy());
+    document.body.appendChild(dropdown.element);
+    dropdown.trigger.click();
+    const row = dropdown
+      .getList()
+      ?.querySelector<HTMLElement>(".foliplus-dropdown-select-all");
+    expect(row).not.toBeNull();
+    dropdown.destroy();
+    // The row node survives in this test's hands; its handler must not write
+    // through a destroyed state.
+    row!.click();
+    expect(changes).toEqual([]);
+  });
+});

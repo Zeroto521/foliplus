@@ -399,7 +399,6 @@ const renderRows = (state: InternalState): void => {
 
 /** Re-build the head from a fresh read, keeping the rows and the open state. */
 const refreshHead = (state: InternalState): void => {
-  if (state.destroyed) return;
   const head = state.list.firstElementChild;
   if (head) state.list.removeChild(head);
   const next = state.spec.head?.();
