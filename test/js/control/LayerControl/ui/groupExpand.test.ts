@@ -198,6 +198,25 @@ describe("group expand", () => {
     expect(map.removeLayer).not.toHaveBeenCalledWith(fg);
     expect(map.addLayer).not.toHaveBeenCalledWith(fg);
   });
+
+  it("checking an empty group that is already on the map is a no-op", () => {
+    installLeafletGlobals();
+    const fg = makeGroup([]);
+    manager.registerLayer({ id: "fg", name: "Empty", role: "overlay", layer: fg });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    (map.hasLayer as ReturnType<typeof vi.fn>).mockImplementation(
+      (l: unknown) => l === fg,
+    );
+    const row = groupRow();
+    const cb = row!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    cb.checked = true;
+    cb.dispatchEvent(new Event("change", { bubbles: true }));
+    // Already on the map, so the empty-container branch writes nothing.
+    expect(map.addLayer).not.toHaveBeenCalledWith(fg);
+    expect(map.removeLayer).not.toHaveBeenCalledWith(fg);
+  });
 });
 
 describe("group expand — defensive rails", () => {

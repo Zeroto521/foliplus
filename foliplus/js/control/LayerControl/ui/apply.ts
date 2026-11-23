@@ -270,12 +270,10 @@ const dispatchStateOp = (
           // object on reload), so fall back to treating the group as the unit.
           if (children.length === 0) {
             const has = ui.c.map.hasLayer(layer);
-            if (op.value !== has) {
-              if (op.value) ui.c.map.addLayer(layer);
-              else ui.c.map.removeLayer(layer);
-              return true;
-            }
-            return false;
+            if (op.value === has) return false;
+            if (op.value) ui.c.map.addLayer(layer);
+            else ui.c.map.removeLayer(layer);
+            return true;
           }
           let wrote = false;
           const hasContainer = ui.c.map.hasLayer(layer);
