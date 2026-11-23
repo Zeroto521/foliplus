@@ -31,7 +31,7 @@ import {
   toggleFold,
   toggleFolderFold,
 } from "./listPanel/drag.js";
-import { toggleContainerExpand } from "./listPanel/containerExpand.js";
+import { toggleGroupExpand } from "./listPanel/groupExpand.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
@@ -233,19 +233,19 @@ const bindLayerEvents = (ui: LayerUI): void => {
       }
     }
 
-    // A container row's chevron is the expand entry (design: chevron, not
+    // A group row's chevron is the expand entry (design: chevron, not
     // the row body — the row body stays a selectable layer row). The chevron
     // is a .FOLD_BTN inside a .GROUP_ROW row; this branch must run before the
-    // folder-row branch (a container row is not a folder row).
-    const containerChevron = el.closest(
+    // folder-row branch (a group row is not a folder row).
+    const groupChevron = el.closest(
       `.${CONST.CLASSES.GROUP_ROW} .${CONST.CLASSES.FOLD_BTN}`,
     ) as HTMLElement | null;
-    if (containerChevron) {
-      const parentId = containerChevron
+    if (groupChevron) {
+      const parentId = groupChevron
         .closest(CONST.SEL.LAYER_ITEM)
         ?.getAttribute(CONST.DATA.LAYER_ID);
       if (parentId) {
-        toggleContainerExpand(ui, parentId);
+        toggleGroupExpand(ui, parentId);
       }
       return;
     }

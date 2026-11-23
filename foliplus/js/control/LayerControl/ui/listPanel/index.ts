@@ -25,9 +25,6 @@ import {
   syncListCursor,
 } from "./cursor.js";
 import {
-  toggleContainerExpand,
-} from "./containerExpand.js";
-import {
   clearDragState,
   handleDragEnd,
   handleDragLeave,
@@ -37,6 +34,7 @@ import {
   showReorderBlockedHint,
   toggleFold,
 } from "./drag.js";
+import { toggleGroupExpand } from "./groupExpand.js";
 import { handleDblClick, handleKeyDown, handleOutsideMousedown } from "./keyboard.js";
 import {
   colorLayerName,
@@ -103,13 +101,13 @@ class ListPanel {
    *  (foldedRoles) is checked first and this falls back under it. See
    *  control/LayerControl/declaredRole.ts. */
   authorDefaultFoldedRoles: Record<string, boolean> = {};
-  /** Per-container expand opinion. Record<parentLayerId, boolean>:
+  /** Per-group expand opinion. Record<parentLayerId, boolean>:
    *  true (expanded) / false (explicit collapsed); absent key = never
-   *  touched, so the container follows the built-in collapsed default.
-   *  Containers are the OPPOSITE of roles/folders: a fresh container is
+   *  touched, so the group follows the built-in collapsed default.
+   *  Groups are the OPPOSITE of roles/folders: a fresh group is
    *  collapsed, and only an explicit expand opens it. Persisted through the
    *  same channel as the fold state (state.ts saveFoldState). */
-  expandedContainers: Record<string, boolean> = {};
+  expandedGroups: Record<string, boolean> = {};
   /** Index of the currently-navigable row the cursor is parked on, or null
    *  when the cursor is cleared (Escape, outside press). */
   activeIdx: number | null = null;
@@ -154,7 +152,7 @@ export {
   initLayerItem,
 };
 export { ListPanel };
-export { toggleContainerExpand };
+export { toggleGroupExpand };
 export {
   applyRowView,
   buildRowCell,

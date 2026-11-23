@@ -1,14 +1,14 @@
-// LayerControl UI — container (layer group) expand: child rows.
+// LayerControl UI — group (layer group) expand: child rows.
 //
-// A container row (LayerGroup / FeatureGroup) carries a chevron. Expanding it
+// A group row (LayerGroup / FeatureGroup) carries a chevron. Expanding it
 // renders one row per DIRECT child, keyed by parentId + '::' + L.stamp(child);
 // collapsing removes them. Child rows are not registry rows — they have no
 // LayerInfo, so their checkbox talks to the map directly (addLayer /
-// removeLayer) and their count is never a role count. The container row's own
+// removeLayer) and their count is never a role count. The group row's own
 // count column stays the direct-child count, so expanding never changes it.
 //
-// State: expandedContainers: Record<parentLayerId, boolean> on ui.listPanel,
-// default false (containers start collapsed). Persisted through the same
+// State: expandedGroups: Record<parentLayerId, boolean> on ui.listPanel,
+// default false (groups start collapsed). Persisted through the same
 // channel as the fold state (see ../state.js saveFoldState).
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
@@ -21,14 +21,14 @@ import * as SVGs from "#control/LayerControl/icon.js";
  *  a huge group must not paint hundreds of rows on one expand. */
 const CHILD_RENDER_CAP = 50;
 
-/** Whether one container is currently expanded (default false = collapsed). */
-const isContainerExpanded = (ui: LayerUI, parentId: string): boolean =>
-  Boolean(ui.listPanel.expandedContainers[parentId]);
+/** Whether one group is currently expanded (default false = collapsed). */
+const isGroupExpanded = (ui: LayerUI, parentId: string): boolean =>
+  Boolean(ui.listPanel.expandedGroups[parentId]);
 
 /** The DOM identity of a child row: parentId + '::' + L.stamp(child). The
  *  stamp is stable for a layer's lifetime on one page, so a child row re-resolves
  *  to the same child across a rebuild; it is NOT persisted (only the parent's
- *  expanded flag is), so a reload collapses every container. */
+ *  expanded flag is), so a reload collapses every group. */
 const childRowId = (parentId: string, child: unknown): string =>
   `${parentId}::${L.stamp(child)}`;
 
@@ -69,8 +69,8 @@ const resolveChild = (
   return null;
 };
 
-/** The container layer's direct children, in Leaflet's own order. */
-const containerChildren = (ui: LayerUI, parentId: string): L.Layer[] => {
+/** The group layer's direct children, in Leaflet's own order. */
+const groupChildren = (ui: LayerUI, parentId: string): L.Layer[] => {
   const layerInfo = ui.c.layerRegistry.get(parentId);
   if (!layerInfo) return [];
   const layer = ui.c.findLayer(layerInfo) ?? layerInfo.layer;
@@ -80,7 +80,7 @@ const containerChildren = (ui: LayerUI, parentId: string): L.Layer[] => {
 
 /** Build one child row element (checkbox + label + type icon + more button),
  *  isomorphic to a leaf row but not a registry row. */
-/** Render one child row of an expanded container.
+/** Render one child row of an expanded group.
  *  v1 scope (lead decision): checkbox (map directly) + label + type icon only.
  *  The ⋮ menu (focus / rename / delete) is deferred to a later PR — a dead
  *  moreBtn would be a UX lie, so it is deliberately not rendered here. */
@@ -123,29 +123,26 @@ const renderChildItem = (
   );
 };
 
-/** Insert (or refresh) a container's child rows immediately after its own row.
+/** Insert (or refresh) a group's child rows immediately after its own row.
  *  Local DOM edit — no full rebuild, so a drag/interaction in progress is not
  *  interrupted. Removes stale child rows first (idempotent). */
-const renderContainerChildren = (
+const renderGroupChildren = (
   ui: LayerUI,
   parentId: string,
-  containerRow: HTMLElement,
+  groupRow: HTMLElement,
 ): void => {
-  removeContainerChildren(ui, parentId);
-  const children = containerChildren(ui, parentId);
+  removeGroupChildren(ui, parentId);
+  const children = groupChildren(ui, parentId).slice(0, CHILD_RENDER_CAP);
   if (children.length === 0) return;
   const frag = document.createDocumentFragment();
   for (const child of children) {
     frag.appendChild(renderChildItem(ui, parentId, child));
   }
-  containerRow.after(frag);
+  groupRow.after(frag);
 };
 
-/** Remove every child row of a container (contiguous after its row). */
-const removeContainerChildren = (
-  ui: LayerUI,
-  parentId: string,
-): void => {
+/** Remove every child row of a group (contiguous after its row). */
+const removeGroupChildren = (ui: LayerUI, parentId: string): void => {
   const sep = `${parentId}::`;
   const container = ui.uiContainer;
   if (!container) return;
@@ -156,13 +153,10 @@ const removeContainerChildren = (
   }
 };
 
-/** Toggle a container's expand state and patch the DOM locally. */
-const toggleContainerExpand = (
-  ui: LayerUI,
-  parentId: string,
-): void => {
-  const expanded = !isContainerExpanded(ui, parentId);
-  ui.listPanel.expandedContainers[parentId] = expanded;
+/** Toggle a group's expand state and patch the DOM locally. */
+const toggleGroupExpand = (ui: LayerUI, parentId: string): void => {
+  const expanded = !isGroupExpanded(ui, parentId);
+  ui.listPanel.expandedGroups[parentId] = expanded;
   const container = ui.uiContainer;
   if (!container) return;
   const row = container.querySelector<HTMLElement>(
@@ -175,21 +169,21 @@ const toggleContainerExpand = (
       foldBtn.title = ui.T(expanded ? "fold_tooltip" : "unfold_tooltip");
     }
     if (expanded) {
-      renderContainerChildren(ui, parentId, row);
+      renderGroupChildren(ui, parentId, row);
     } else {
-      removeContainerChildren(ui, parentId);
+      removeGroupChildren(ui, parentId);
     }
   }
   saveFoldState(ui);
 };
 
 export {
-  isContainerExpanded,
+  isGroupExpanded,
   childRowId,
   childDisplayName,
   resolveChild,
-  containerChildren,
+  groupChildren,
   renderChildItem,
-  removeContainerChildren,
-  toggleContainerExpand,
+  removeGroupChildren,
+  toggleGroupExpand,
 };

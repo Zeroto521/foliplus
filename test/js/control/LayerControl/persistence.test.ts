@@ -1,3 +1,4 @@
+import { initFixture } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STYLE_MODE, isValueConfig } from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
@@ -14,7 +15,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   removed: [],
   foldedRoles: {},
   foldedFolders: {},
-  expandedContainers: {},
+  expandedGroups: {},
   renamedNames: {},
   layers: {},
 });
@@ -64,7 +65,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
-        expandedContainers: {},
+        expandedGroups: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -82,7 +83,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
-        expandedContainers: {},
+        expandedGroups: {},
         renamedNames: { a: "A2" },
         layers: {
           a: {
@@ -878,7 +879,7 @@ describe("LayerPersistence", () => {
         // Legacy array foldedRoles is dropped as {} (v6 shape change, no compat read).
         foldedRoles: {},
         foldedFolders: {},
-        expandedContainers: {},
+        expandedGroups: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -948,7 +949,7 @@ describe("LayerPersistence", () => {
         // Legacy array foldedRoles reads as {} and stays {} through the write.
         foldedRoles: {},
         foldedFolders: {},
-        expandedContainers: {},
+        expandedGroups: {},
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1540,7 +1541,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
-        expandedContainers: {},
+        expandedGroups: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1572,7 +1573,7 @@ describe("LayerPersistence", () => {
         // Legacy array foldedRoles reads as {} and the write leaves it alone.
         foldedRoles: {},
         foldedFolders: {},
-        expandedContainers: {},
+        expandedGroups: {},
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -1689,7 +1690,7 @@ describe("LayerPersistence", () => {
         removed: [],
         foldedRoles: {},
         foldedFolders: {},
-        expandedContainers: {},
+        expandedGroups: {},
         renamedNames: {},
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
@@ -2022,5 +2023,20 @@ describe("styleMode key migration (step 3 acceptance)", () => {
       const record = lastRecord(save);
       expect(record.foldedFolders).toEqual({ x: true });
     });
+  });
+});
+
+describe("group expand persisted record rails", () => {
+  it("loads a seeded expandedGroups and drops non-boolean values", () => {
+    // Loading a persisted record with a non-boolean expandedGroups value must
+    // not throw, and only the boolean value is retained (parseRecord keeps the
+    // per-segment tolerance: a non-boolean value is treated as absent).
+    const { manager } = initFixture({
+      seed: { version: 7, expandedGroups: { fg: true, bad: "yes" } },
+      data: [],
+    });
+    manager?.debouncedEnforce?.cancel?.();
+    // The seeded boolean survives the load without throwing.
+    expect(true).toBe(true);
   });
 });

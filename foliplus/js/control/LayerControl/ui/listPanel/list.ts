@@ -13,6 +13,7 @@ import {
   restoreCursor,
   syncListCursor,
 } from "./cursor.js";
+import { groupChildren, isGroupExpanded, renderChildItem } from "./groupExpand.js";
 import {
   applyRowView,
   buildRowCell,
@@ -38,11 +39,6 @@ import {
   roleBlocks,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
-import {
-  containerChildren,
-  isContainerExpanded,
-  renderChildItem,
-} from "./containerExpand.js";
 import { ICON_GLOBE } from "#platform/icon.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -613,9 +609,9 @@ const renderInitialList = (ui: LayerUI) => {
         if (
           !roleFolded &&
           isGroupRow(block.layer, layer) &&
-          isContainerExpanded(ui, block.layer.id)
+          isGroupExpanded(ui, block.layer.id)
         ) {
-          for (const child of containerChildren(ui, block.layer.id)) {
+          for (const child of groupChildren(ui, block.layer.id)) {
             frag.appendChild(renderChildItem(ui, block.layer.id, child));
           }
         }
@@ -1065,7 +1061,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
 
   const layer = ui.c.findLayer(layerInfo);
   const isContainer = isGroupRow(layerInfo, layer);
-  const containerExpanded = isContainer && isContainerExpanded(ui, layerInfo.id);
+  const groupExpanded = isContainer && isGroupExpanded(ui, layerInfo.id);
   const withFolders = hasAnyFolder(ui);
   const railChildren: HTMLElement[] = [];
   if (isContainer) {
@@ -1077,9 +1073,9 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
         "button",
         {
           class: CONST.CLASSES.FOLD_BTN,
-          "aria-expanded": containerExpanded ? "true" : "false",
+          "aria-expanded": groupExpanded ? "true" : "false",
           "aria-label": name,
-          title: ui.T(containerExpanded ? "fold_tooltip" : "unfold_tooltip"),
+          title: ui.T(groupExpanded ? "fold_tooltip" : "unfold_tooltip"),
         },
         { html: SVGs.ICON_FOLD },
       ),

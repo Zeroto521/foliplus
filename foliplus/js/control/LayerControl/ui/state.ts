@@ -27,7 +27,7 @@ const loadPersistedState = (ui: LayerUI) => {
   // The author default is re-derived on every load so it stays fresh if the
   // author changes the declaration.
   ui.listPanel.foldedFolders = { ...state.foldedFolders };
-  ui.listPanel.expandedContainers = { ...state.expandedContainers };
+  ui.listPanel.expandedGroups = { ...state.expandedGroups };
   ui.listPanel.authorFoldedFolders = authorFoldedKeys(ui.config?.folders);
   ui.listPanel.authorDefaultFoldedRoles = authorDefaultRoleFolds(ui.config?.roles);
   // Intent values + provenance sink into the store. The label config is read
@@ -45,7 +45,7 @@ const saveFoldState = (ui: LayerUI) => {
   ui.c.persistence.schedule({
     foldedRoles: () => ({ ...ui.listPanel.foldedRoles }),
     foldedFolders: () => ({ ...ui.listPanel.foldedFolders }),
-    expandedContainers: () => ({ ...ui.listPanel.expandedContainers }),
+    expandedGroups: () => ({ ...ui.listPanel.expandedGroups }),
   });
 };
 

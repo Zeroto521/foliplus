@@ -13,8 +13,8 @@ import {
   setActiveItem,
   syncActiveItem,
 } from "./cursor.js";
-import { toggleContainerExpand } from "./containerExpand.js";
 import { toggleFold, toggleFolderFold } from "./drag.js";
+import { toggleGroupExpand } from "./groupExpand.js";
 import { isNativeControl } from "#core/interaction/index.js";
 import { ROLE } from "#core/layer/index.js";
 import { HINT_DURATION, isInsideOverlay } from "#core/overlay/index.js";
@@ -230,13 +230,13 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
           if (fk && role) {
             toggleFolderFold(ui, role, fk);
           } else {
-            // A container row's chevron expands/collapses the group.
-            const containerRow = (
-              document.activeElement as HTMLElement
-            ).closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
-            const parentId = containerRow?.getAttribute(CONST.DATA.LAYER_ID);
-            if (parentId && containerRow?.classList.contains(CONST.CLASSES.GROUP_ROW)) {
-              toggleContainerExpand(ui, parentId);
+            // A group row's chevron expands/collapses the group.
+            const groupRow = (document.activeElement as HTMLElement).closest(
+              CONST.SEL.LAYER_ITEM,
+            ) as HTMLElement | null;
+            const parentId = groupRow?.getAttribute(CONST.DATA.LAYER_ID);
+            if (parentId && groupRow?.classList.contains(CONST.CLASSES.GROUP_ROW)) {
+              toggleGroupExpand(ui, parentId);
             }
           }
         }

@@ -33,8 +33,8 @@ type LiveState = {
   foldedRoles?: () => Record<string, boolean>;
   /** User-folded folder identities (`role::name`). */
   foldedFolders?: () => Record<string, boolean>;
-  /** Container expand opinions (parentLayerId → expanded). */
-  expandedContainers?: () => Record<string, boolean>;
+  /** Group expand opinions (parentLayerId → expanded). */
+  expandedGroups?: () => Record<string, boolean>;
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
@@ -87,9 +87,9 @@ type LiveState = {
  *  loads but its fold state is dropped (read as `{}`), and the next write
  *  stamps v6.
  *
- *  6 → 7: `expandedContainers` landed as a Record<parentLayerId, boolean>
- *  (container expand opinions). A container defaults to collapsed, so an old
- *  v6 record (no such field) reads as `{}` — every container collapsed, the
+ *  6 → 7: `expandedGroups` landed as a Record<parentLayerId, boolean>
+ *  (group expand opinions). A group defaults to collapsed, so an old
+ *  v6 record (no such field) reads as `{}` — every group collapsed, the
  *  built-in default — and the next write stamps v7. No data loss: the field
  *  is new, so there is nothing old to migrate. */
 const RECORD_VERSION = 7;
@@ -100,7 +100,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   removed: [],
   foldedRoles: {},
   foldedFolders: {},
-  expandedContainers: {},
+  expandedGroups: {},
   renamedNames: {},
   layers: {},
 });
@@ -392,13 +392,13 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
     }
     record.foldedFolders = parsed;
   }
-  const containerMap = asObject(data.expandedContainers);
-  if (containerMap) {
+  const groupMap = asObject(data.expandedGroups);
+  if (groupMap) {
     const parsed: Record<string, boolean> = {};
-    for (const [key, value] of Object.entries(containerMap)) {
+    for (const [key, value] of Object.entries(groupMap)) {
       if (typeof value === "boolean") parsed[key] = value;
     }
-    record.expandedContainers = parsed;
+    record.expandedGroups = parsed;
   }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
@@ -433,9 +433,9 @@ const mergeFields = (
     removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
     foldedFolders: fields.foldedFolders ? fields.foldedFolders() : record.foldedFolders,
-    expandedContainers: fields.expandedContainers
-      ? fields.expandedContainers()
-      : record.expandedContainers,
+    expandedGroups: fields.expandedGroups
+      ? fields.expandedGroups()
+      : record.expandedGroups,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
   };

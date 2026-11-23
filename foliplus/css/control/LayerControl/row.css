@@ -618,7 +618,7 @@
      drag grip (no tree node, no chevron), the row keeps the same cells as a
      leaf, and the label reads one weight lighter than the group header. */
   .foliplus-layer-item-child {
-    grid-template-areas: "rail check label icon more";
+    grid-template-areas: "rail check label count icon";
     cursor: default;
 
     .foliplus-layer-label {
