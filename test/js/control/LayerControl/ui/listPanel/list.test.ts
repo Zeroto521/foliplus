@@ -2537,16 +2537,26 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
       data: [
-        { id: "rd1", name: "Roads", role: "overlay", folder: "roads", layer: polygonLayer() },
-        { id: "rd2", name: "Rivers", role: "overlay", folder: "roads", layer: polygonLayer() },
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
       ],
     });
     ui.listPanel.foldedFolders["overlay::roads"] = true;
     rebuildList(ui);
     const member = (id: string) =>
-      ui.uiContainer!.querySelector(
-        `[data-layer-id="${id}"]`,
-      ) as HTMLElement;
+      ui.uiContainer!.querySelector(`[data-layer-id="${id}"]`) as HTMLElement;
     expect(member("rd1").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
     expect(member("rd2").classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
     // Unfold the folder: the members drop the marker.
