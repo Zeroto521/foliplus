@@ -44,6 +44,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   const currentName = displayName(ui, layerId);
 
   ui.overlayPanel.activeRenameId = layerId;
+  ui.overlayPanel.activeRenameRow = item;
   // Flag the row so CSS can stretch the input across the label+count area
   // (matching the SearchControl field's full extent) while editing.
   item?.classList.add(CONST.CLASSES.RENAMING);
@@ -119,23 +120,25 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
  */
 
 const finishRename = (ui: LayerUI, restoreText = true): void => {
-  if (!ui.overlayPanel.activeRenameId) return;
+  // The row is the shared handle: a folder rename has no layer id, so keying
+  // the teardown on the id alone left the folder input and its row flag
+  // behind.
+  const item = ui.overlayPanel.activeRenameRow;
   const layerId = ui.overlayPanel.activeRenameId;
+  ui.overlayPanel.activeRenameRow = null;
   ui.overlayPanel.activeRenameId = null;
   ui.overlayPanel.renameRemovedUnsub?.();
   ui.overlayPanel.renameRemovedUnsub = null;
-  if (!ui.uiContainer) return;
+  if (!item) return;
 
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  if (!layerInfo) return;
-
-  const item = ui.uiContainer.querySelector(
-    `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
-  ) as HTMLElement | null;
-  const label = item?.querySelector("label") as HTMLLabelElement | null;
-  item?.classList.remove(CONST.CLASSES.RENAMING);
+  const label = item.querySelector("label") as HTMLLabelElement | null;
+  item.classList.remove(CONST.CLASSES.RENAMING);
   removeInlineEditInput(label);
-  if (restoreText) updateItemLabel(item, displayName(ui, layerId));
+  // Only a layer row has a label to restore from the registry; a folder row's
+  // label is rewritten by the rebuild its commit triggers.
+  if (restoreText && layerId && ui.c.layerRegistry.get(layerId)) {
+    updateItemLabel(item, displayName(ui, layerId));
+  }
 };
 
 /**

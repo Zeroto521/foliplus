@@ -6,7 +6,7 @@
 // in a single snapshot (same source, same write — one storage key, one
 // record, so order and members can never be observed half-written).
 //
-// The design is frozen at .foliplus/design/folder-layout-document.md (rev 2):
+// The design invariants this module implements:
 //   - identity key = (role, normalize(name)); normalize = NFC → whitespace
 //     fold → trim → casefold (locale-independent).
 //   - displayName = first-seen original (trim only) — never used for
@@ -104,10 +104,10 @@ const emptyFolderLayout = (): FolderLayout => ({
 
 /** Identity/merge/sort key for a folder name.
  *
- *  NFC → fold internal whitespace runs to one space → trim → casefold. The
- *  casefold is the JS layer #905 deliberately left to this card: Python emits
- *  the author's display spelling (NFC + trim + whitespace fold only), and the
- *  JS side folds case so `Roads` / `roads` / `  roads ` are one folder.
+ *  NFC → fold internal whitespace runs to one space → trim → lowercase. The
+ *  lowercasing is the JS layer #905 deliberately left to this card: Python
+ *  emits the author's display spelling (NFC + trim + whitespace fold only), and
+ *  the JS side folds case so `Roads` / `roads` / `  roads ` are one folder.
  *
  *  Locale-independent by construction: `toLowerCase()` uses the Unicode
  *  Default Case Conversion, not a locale table, and no `localeCompare` is
@@ -118,6 +118,24 @@ const normalizeFolderName = (name: string): string =>
 /** The display spelling for a folder: trim only, no NFC / casefold. The
  *  first-seen raw spelling wins and is never normalised for display. */
 const folderDisplayName = (name: string): string => name.trim();
+
+/** Prefix that marks a ROOT-LAYER entry in a role's block order.
+ *
+ *  A block order entry is either a folder key or `layer:<id>`. Root layers
+ *  used to be appended after every folder block, so a layer could never sit
+ *  between two folders; carrying the layer in the order is what makes that
+ *  position expressible. The prefix keeps the two namespaces apart — a folder
+ *  may legally be named like a layer id. */
+const ROOT_LAYER_PREFIX = "layer:";
+
+const rootLayerEntry = (layerId: string): string => ROOT_LAYER_PREFIX + layerId;
+
+const isRootLayerEntry = (entry: string): boolean =>
+  entry.startsWith(ROOT_LAYER_PREFIX);
+
+/** The folder keys of a block order, with the root-layer entries removed. */
+const folderEntries = (order: readonly string[]): string[] =>
+  order.filter(entry => !isRootLayerEntry(entry));
 
 /** The length a folder name is judged by, in Unicode code points.
  *
@@ -191,8 +209,58 @@ const writeFolderLayout = (layout: FolderLayout): void => {
  *  seed the assignment. */
 const folderOf = (layout: FolderLayout, layer: LayerInfo): string | null => {
   const assigned = layout.members[layer.id];
-  if (assigned !== undefined) return assigned.folder === "" ? null : assigned.folder;
-  return layer.folder ?? null;
+  const folder = assigned !== undefined ? assigned.folder : (layer.folder ?? "");
+  // The folder's IDENTITY is its normalised key: order, folders and every
+  // block map are keyed by it, so a raw author spelling ("Roads") must never
+  // leak out of here — a caller comparing it to a key would silently miss the
+  // layer.
+  return folder === "" ? null : normalizeFolderName(folder);
+};
+
+/** The display spelling for a folder key: the directory entry's name, or the
+ *  key itself when the folder has no directory entry yet. One reader for both
+ *  a member-bearing block and an empty folder that only owns an order key. */
+const folderDisplayNameOf = (layout: FolderLayout, key: string): string =>
+  layout.folders.find(f => f.key === key)?.name ?? key;
+
+/** Every folder key one role holds: its block order plus its live member
+ *  assignments, unioned. An empty folder (created but not yet holding a layer)
+ *  is in the order; an author-declared folder the user has not touched is only
+ *  in `members`. Reading one of the two would miss the other. */
+const folderKeysOfRole = (layout: FolderLayout, role: LayerRole): string[] => {
+  const keys = new Set<string>(folderEntries(layout.order[role] ?? []));
+  for (const m of Object.values(layout.members)) {
+    if (m.role === role && m.folder) keys.add(m.folder);
+  }
+  return [...keys];
+};
+
+/** The default name for a new folder: `base`, or the smallest free ordinal
+ *  suffix so a second create never collides with the first. */
+const nextFolderDefaultName = (
+  layout: FolderLayout,
+  role: LayerRole,
+  base: string,
+): string => {
+  const taken = new Set(folderKeysOfRole(layout, role));
+  if (!taken.has(normalizeFolderName(base))) return base;
+  // Bounded by construction: `taken.size + 1` distinct candidates cannot all
+  // be taken, so the loop provably terminates instead of relying on "it will
+  // run out eventually". The stem is shortened to leave room for the suffix —
+  // a base near FOLDER_NAME_MAX would otherwise produce an over-long candidate
+  // that createFolder rejects as `too-long`, and "new folder" would look like
+  // it did nothing.
+  for (let n = 2; n <= taken.size + 2; n += 1) {
+    const suffix = ` ${n}`;
+    const room = FOLDER_NAME_MAX - [...suffix].length;
+    const stem = [...base].slice(0, room).join("").trimEnd();
+    const candidate = `${stem}${suffix}`;
+    if (!taken.has(normalizeFolderName(candidate))) return candidate;
+  }
+  // unreachable: the range holds `taken.size + 1` distinct candidates while
+  // `taken` holds `taken.size` keys, so one candidate is always free.
+  /* v8 ignore next */
+  return base;
 };
 
 /** Group one role's folder members into blocks, keyed by normalize(name).
@@ -213,9 +281,11 @@ const groupByFolder = (
   const map = new Map<string, FolderBlock>();
   registryEntries.forEach((entry, globalIndex) => {
     if (entry.role !== role) return;
-    const folder = folderOf(layout, entry);
-    if (!folder) return;
-    const key = normalizeFolderName(folder);
+    // folderOf already returns the normalised key — normalising again would
+    // only re-run NFC + whitespace + lowercase on a value that is already in
+    // that form.
+    const key = folderOf(layout, entry);
+    if (!key) return;
     let block = map.get(key);
     if (!block) {
       // The directory entry's name is the current display spelling (a rename
@@ -224,7 +294,7 @@ const groupByFolder = (
       const named = layout.folders.find(f => f.key === key);
       block = {
         key,
-        displayName: named ? named.name : folderDisplayName(folder),
+        displayName: named ? named.name : key,
         anchor: globalIndex,
         members: [],
       };
@@ -250,28 +320,83 @@ const isRootLayer = (layout: FolderLayout, entry: LayerInfo): boolean => {
  *  folder) in anchor order at the end. `registryEntries` is the WHOLE
  *  registry in anchor (registration) order so the global array index is the
  *  anchor axis. Pure: never mutates its inputs. */
+/** One role's ordered blocks: folder blocks (empty ones included) and root
+ *  layers, in the order the panel paints them.
+ *
+ *  This is the single source for BOTH the panel's row sequence and the stacking
+ *  order. They used to be two implementations — the panel honoured the
+ *  `layer:<id>` entries of the block order, `roleOrder` did not and appended
+ *  every root layer after all blocks — so a root layer dragged between two
+ *  folders showed in the right place and stacked in the wrong one (it painted
+ *  under the folder below it). */
+type RoleBlock =
+  | { kind: "folder"; key: string; displayName: string; members: LayerInfo[] }
+  | { kind: "layer"; info: LayerInfo };
+
+const roleBlocks = (
+  role: LayerRole,
+  registryEntries: readonly LayerInfo[],
+  layout: FolderLayout,
+): RoleBlock[] => {
+  const folders = groupByFolder(registryEntries, role, layout);
+  const listed = layout.order[role] ?? [];
+  const listedKeys = new Set(listed);
+  const rootLayers = registryEntries.filter(
+    entry => entry.role === role && isRootLayer(layout, entry),
+  );
+  const rootById = new Map(rootLayers.map(entry => [entry.id, entry]));
+  const out: RoleBlock[] = [];
+  // 1. The listed block order. An entry is a folder key or `layer:<id>`, so a
+  //    root layer can sit between two folder blocks instead of only after all
+  //    of them.
+  for (const entry of listed) {
+    if (isRootLayerEntry(entry)) {
+      const info = rootById.get(entry.slice(ROOT_LAYER_PREFIX.length));
+      if (info) out.push({ kind: "layer", info });
+      continue;
+    }
+    const block = folders.get(entry);
+    // An empty folder (created but not yet holding a layer) has no members, so
+    // groupByFolder cannot see it. It still owns a row: the user names it right
+    // after creating it, and the row is the only handle for renaming/deleting
+    // it until a layer moves in.
+    out.push({
+      kind: "folder",
+      key: entry,
+      displayName: block?.displayName ?? folderDisplayNameOf(layout, entry),
+      members: block?.members ?? [],
+    });
+  }
+  // 2. Unlisted folders, by anchor.
+  const rest = [...folders.values()]
+    .filter(block => !listedKeys.has(block.key))
+    .sort((a, b) => a.anchor - b.anchor);
+  for (const block of rest) {
+    out.push({
+      kind: "folder",
+      key: block.key,
+      displayName: block.displayName,
+      members: block.members,
+    });
+  }
+  // 3. Root layers the order does not name, in registry order.
+  for (const info of rootLayers) {
+    if (!listedKeys.has(rootLayerEntry(info.id))) {
+      out.push({ kind: "layer", info });
+    }
+  }
+  return out;
+};
+
+/** One role's layer order (the stacking order): the block sequence flattened. */
 const roleOrder = (
   role: LayerRole,
   registryEntries: readonly LayerInfo[],
   layout: FolderLayout,
-): LayerInfo[] => {
-  const folders = groupByFolder(registryEntries, role, layout);
-  const listed = layout.order[role] ?? [];
-  const listedKeys = new Set(listed);
-  const blocks: FolderBlock[] = [];
-  for (const key of listed) {
-    const block = folders.get(key);
-    if (block) blocks.push(block);
-  }
-  const rest = [...folders.values()]
-    .filter(block => !listedKeys.has(block.key))
-    .sort((a, b) => a.anchor - b.anchor);
-  blocks.push(...rest);
-  const rootLayers = registryEntries.filter(
-    entry => entry.role === role && isRootLayer(layout, entry),
+): LayerInfo[] =>
+  roleBlocks(role, registryEntries, layout).flatMap(block =>
+    block.kind === "folder" ? block.members : [block.info],
   );
-  return [...blocks.flatMap(block => block.members), ...rootLayers];
-};
 
 /** The full panel display order: overlay role then base role, each in
  *  its own two-segment order. `registryEntries` is the WHOLE registry in
@@ -289,55 +414,96 @@ const fullDisplayOrder = (
  *  appended by anchor (min member global index); the frozen key is guaranteed
  *  present. The emptied folder's block then survives at its frozen position
  *  (the clean button can still reach it). Pure: returns a new layout. */
+const listedRoleOrder = (
+  layout: FolderLayout,
+  role: LayerRole,
+  registryEntries: readonly LayerInfo[],
+): string[] => {
+  const listed = folderEntries(layout.order[role] ?? []);
+  const folders = groupByFolder(registryEntries, role, layout);
+  const unlisted = [...folders.keys()]
+    .filter(k => !listed.includes(k))
+    .sort((a, b) => folders.get(a)!.anchor - folders.get(b)!.anchor);
+  return [...listed, ...unlisted];
+};
+
+/** The role's block order with every folder it holds listed, in anchor order.
+ *  Author-declared folders live in `members`, not in `order`, so a role whose
+ *  folders are all author-declared has an empty order; this is the one place
+ *  that turns "what the role holds" into "the order its blocks appear in". */
 const freezeRoleOrder = (
   layout: FolderLayout,
   role: LayerRole,
   registryEntries: readonly LayerInfo[],
   key: string,
 ): FolderLayout => {
-  const listed = layout.order[role] ?? [];
-  const folders = groupByFolder(registryEntries, role, layout);
-  const unlisted = [...folders.keys()]
-    .filter(k => !listed.includes(k))
-    .sort((a, b) => folders.get(a)!.anchor - folders.get(b)!.anchor);
-  const frozen = [...listed, ...unlisted];
+  const frozen = listedRoleOrder(layout, role, registryEntries);
   if (!frozen.includes(key)) frozen.push(key);
-  return { ...layout, order: { ...layout.order, [role]: frozen } };
+  // Root-layer entries are not folders: they keep their place at the tail of
+  // the frozen order rather than being dropped by the folder-only rebuild.
+  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
+  return { ...layout, order: { ...layout.order, [role]: [...frozen, ...roots] } };
 };
 
-/** Seed a layout from the current registry: folder directory from the author
- *  declarations (first-seen spelling wins, keyed by normalize), members from
- *  each registered layer's declared folder. Used when no layout exists yet —
- *  the first user action materialises the author's declared grouping as the
- *  persisted layout. */
-const seedFolderLayout = (registryEntries: readonly LayerInfo[]): FolderLayout => {
-  const layout = emptyFolderLayout();
+/** Merge the author's declared grouping into a layout: folder directory from
+ *  the declarations (first-seen spelling wins, keyed by normalize), members
+ *  from each registered layer's declared folder.
+ *
+ *  Only layers WITHOUT an assignment get one — a user pin (root or a different
+ *  folder) wins — and only new folder keys get a directory entry. The block
+ *  order is untouched: declarations do not force an order, freeze/create
+ *  materialises it.
+ *
+ *  Pure: returns the same layout when nothing changed, so the manager can skip
+ *  the write. This is the ONE seeding rule; the manager's `seed()` is a thin
+ *  wrapper over it, so a test that drives this function drives production. */
+const mergeDeclaredFolders = (
+  layout: FolderLayout,
+  registryEntries: readonly LayerInfo[],
+): FolderLayout => {
   const byKey = new Map<string, FolderEntry>();
+  for (const f of layout.folders) byKey.set(f.key, f);
+  const members = { ...layout.members };
+  let folders = layout.folders;
+  let changed = false;
   for (const entry of registryEntries) {
     const folder = entry.folder;
     if (!folder) continue;
     const key = normalizeFolderName(folder);
+    if (members[entry.id]) continue; // user pin or existing assignment wins
     if (!byKey.has(key)) {
       const name = folderDisplayName(folder);
       byKey.set(key, { key, name });
-      layout.folders.push({ key, name });
+      folders = [...folders, { key, name }];
     }
-    layout.members[entry.id] = { role: entry.role, folder: key };
+    members[entry.id] = { role: entry.role, folder: key };
+    changed = true;
   }
-  return layout;
+  return changed ? { ...layout, folders, members } : layout;
 };
 
 /** Create a folder: append the new key to the role's block order and add
  *  it to the identity directory. Same-role duplicates (directory, order or
- *  live member) are refused. Pure: returns the same layout on a no-op. */
+ *  live member) are refused. Pure: returns the same layout on a no-op.
+ *
+ *  Pass `registryEntries` to append after the folders the role already holds:
+ *  an author-declared folder lives in `members`, not in `order`, so appending
+ *  to an empty order would sort the new folder ahead of every existing one. */
 const createFolder = (
   layout: FolderLayout,
   role: LayerRole,
   name: string,
+  registryEntries?: readonly LayerInfo[],
 ): FolderLayout => {
   const key = normalizeFolderName(name);
   if (key === "") return layout;
-  const order = layout.order[role] ?? [];
+  const roots = (layout.order[role] ?? []).filter(isRootLayerEntry);
+  const order = [
+    ...(registryEntries
+      ? listedRoleOrder(layout, role, registryEntries)
+      : folderEntries(layout.order[role] ?? [])),
+    ...roots,
+  ];
   if (order.includes(key)) return layout; // same-role duplicate refused
   // A different role may already hold this key: base and overlay folders
   // with the same name are two different folders (role-scoped identity).
@@ -358,23 +524,34 @@ const createFolder = (
 const renameFolder = (
   layout: FolderLayout,
   role: LayerRole,
-  oldName: string,
+  key: string,
   newName: string,
 ): FolderLayout => {
-  const oldKey = normalizeFolderName(oldName);
+  // The key is the folder's identity — fold state, block order and every member
+  // assignment reference it — so a rename moves the DISPLAY name only. Taking
+  // the old display name here instead would break the identity the moment the
+  // two diverge: normalizeFolderName(displayName) is no longer the key, and the
+  // next rename / delete / drag-into would all miss the folder.
   const newKey = normalizeFolderName(newName);
   if (newKey === "") return layout;
-  if (oldKey === newKey) return layout; // normalisation-only rename: no-op
-  if (layout.folders.some(f => f.key === newKey)) return layout;
+  // A folder exists when the directory, the block order OR a live member
+  // assignment names it: an author-declared folder that the user has not
+  // touched yet lives only in `members`, and the controller's existence check
+  // already counts that. Reading only the first two would answer "renamed"
+  // while returning the layout unchanged.
   const hasOld =
-    layout.folders.some(f => f.key === oldKey) ||
-    (layout.order[role] ?? []).includes(oldKey);
+    layout.folders.some(f => f.key === key) ||
+    (layout.order[role] ?? []).includes(key) ||
+    Object.values(layout.members).some(m => m.role === role && m.folder === key);
   if (!hasOld) return layout;
-  const folders = layout.folders.some(f => f.key === oldKey)
+  // A rename to a name another folder already owns is refused; renaming to the
+  // folder's own normalised name is a display-only change and stays allowed.
+  if (newKey !== key && layout.folders.some(f => f.key === newKey)) return layout;
+  const folders = layout.folders.some(f => f.key === key)
     ? layout.folders.map(f =>
-        f.key === oldKey ? { ...f, name: folderDisplayName(newName) } : f,
+        f.key === key ? { ...f, name: folderDisplayName(newName) } : f,
       )
-    : [...layout.folders, { key: oldKey, name: folderDisplayName(newName) }];
+    : [...layout.folders, { key, name: folderDisplayName(newName) }];
   return { ...layout, folders };
 };
 
@@ -385,9 +562,10 @@ const renameFolder = (
 const deleteFolder = (
   layout: FolderLayout,
   role: LayerRole,
-  name: string,
+  key: string,
 ): FolderLayout => {
-  const key = normalizeFolderName(name);
+  // The key, not the display name: a renamed folder's display name no longer
+  // normalises to its key, so a name-keyed delete would silently miss it.
   const order = layout.order[role] ?? [];
   const members = { ...layout.members };
   for (const [id, a] of Object.entries(members)) {
@@ -401,6 +579,27 @@ const deleteFolder = (
     order: { ...layout.order, [role]: order.filter(k => k !== key) },
     members,
   };
+};
+
+/** Move one folder block to a new position in its role's block order. The
+ *  target is another folder key of the same role; `after` places the moved
+ *  block after the target, otherwise before it. A key or target the role does
+ *  not list is a no-op (returns the same layout), so a drag that outlived a
+ *  rename or a delete cannot corrupt the order. Pure: returns a new layout. */
+const moveFolder = (
+  layout: FolderLayout,
+  role: LayerRole,
+  key: string,
+  targetKey: string,
+  after: boolean,
+): FolderLayout => {
+  if (key === targetKey) return layout;
+  const listed = layout.order[role] ?? [];
+  if (!listed.includes(key) || !listed.includes(targetKey)) return layout;
+  const rest = listed.filter(k => k !== key);
+  const at = rest.indexOf(targetKey);
+  rest.splice(after ? at + 1 : at, 0, key);
+  return { ...layout, order: { ...layout.order, [role]: rest } };
 };
 
 /** Assign a layer to a folder. When the target folder has no block order key
@@ -418,8 +617,49 @@ const moveLayerToFolder = (
   const nextOrder = order.includes(key) ? order : [...order, key];
   return {
     ...layout,
-    order: { ...layout.order, [role]: nextOrder },
+    // The layer is no longer a root block: its order entry goes with the
+    // assignment, or the same layer would render twice.
+    order: {
+      ...layout.order,
+      [role]: nextOrder.filter(entry => entry !== rootLayerEntry(layerId)),
+    },
     members: { ...layout.members, [layerId]: { role, folder: key } },
+  };
+};
+
+/** The role's block order with every folder listed in anchor order, keeping
+ *  the existing root-layer entries. A move needs this first: an author-declared
+ *  folder lives only in `members`, so an empty order cannot address it by key
+ *  and the move would fall back to appending — which renders the folder (or the
+ *  moved layer) at the head of the role instead of where the user dropped it. */
+const seedBlockOrder = (
+  layout: FolderLayout,
+  role: LayerRole,
+  registryEntries: readonly LayerInfo[],
+): string[] =>
+  roleBlocks(role, registryEntries, layout).map(block =>
+    block.kind === "folder" ? block.key : rootLayerEntry(block.info.id),
+  );
+
+/** Move a layer to its role's root, positioned before `beforeEntry` in the
+ *  block order (null appends at the tail). `beforeEntry` is a block-order
+ *  entry — a folder key or `layer:<id>` — so a layer can be dropped between
+ *  two folder blocks, not only after all of them. */
+const moveLayerToRootAt = (
+  layout: FolderLayout,
+  layerId: string,
+  role: LayerRole,
+  beforeEntry: string | null,
+): FolderLayout => {
+  const entry = rootLayerEntry(layerId);
+  const order = (layout.order[role] ?? []).filter(k => k !== entry);
+  const at = beforeEntry === null ? -1 : order.indexOf(beforeEntry);
+  if (at === -1) order.push(entry);
+  else order.splice(at, 0, entry);
+  return {
+    ...layout,
+    order: { ...layout.order, [role]: order },
+    members: { ...layout.members, [layerId]: { role, folder: "" } },
   };
 };
 
@@ -444,20 +684,17 @@ const moveLayerToRoot = (
  *  SURVIVES (the automatic freeze), so the block stays put for the clean
  *  button. */
 const dropLayer = (layout: FolderLayout, layerId: string): FolderLayout => {
-  if (!(layerId in layout.members)) return layout;
+  const entry = rootLayerEntry(layerId);
+  const hasRootEntry = Object.values(layout.order).some(order => order.includes(entry));
+  if (!(layerId in layout.members) && !hasRootEntry) return layout;
   const members = { ...layout.members };
   delete members[layerId];
-  return { ...layout, members };
+  const order: FolderLayout["order"] = {};
+  for (const [role, entries] of Object.entries(layout.order)) {
+    order[role as LayerRole] = entries.filter(k => k !== entry);
+  }
+  return { ...layout, members, order };
 };
-
-/** Restore the author's declared layout: clear the block order and every
- *  member assignment, keeping the folder name directory (a reset would drop
- *  the user's display spellings). */
-const restoreAuthorLayout = (layout: FolderLayout): FolderLayout => ({
-  ...layout,
-  order: {},
-  members: {},
-});
 
 /** A per-map folder-layout manager: the in-memory layout plus the one
  *  debounced writer. One instance per map (see ensureFolderLayout). */
@@ -505,30 +742,11 @@ const createFolderLayoutManager = (): FolderLayoutManager => {
       return current;
     },
     seed(registryEntries: readonly LayerInfo[]): void {
-      // Merge the author's declared grouping into the current layout: only
-      // layers WITHOUT an assignment yet get one (a user pin — root or a
-      // different folder — wins), and only new folder keys get a directory
-      // entry. The block order is untouched (declarations do not force an
-      // order; freeze/create materialises it). This is safe to call every
-      // init, even when a persisted layout already exists.
-      const byKey = new Map<string, FolderEntry>();
-      for (const f of current.folders) byKey.set(f.key, f);
-      const members = { ...current.members };
-      let folders = current.folders;
-      let changed = false;
-      for (const entry of registryEntries) {
-        const folder = entry.folder;
-        if (!folder) continue;
-        const key = normalizeFolderName(folder);
-        if (members[entry.id]) continue; // user pin or existing assignment wins
-        if (!byKey.has(key)) {
-          byKey.set(key, { key, name: folderDisplayName(folder) });
-          folders = [...folders, { key, name: folderDisplayName(folder) }];
-        }
-        members[entry.id] = { role: entry.role, folder: key };
-        changed = true;
-      }
-      if (changed) current = { ...current, folders, members };
+      // Safe to call every init, even when a persisted layout already exists:
+      // the merge rule lives in `mergeDeclaredFolders` and returns the same
+      // layout when nothing changed, so an unchanged seed schedules no write.
+      const next = mergeDeclaredFolders(current, registryEntries);
+      if (next !== current) current = next;
     },
     isEmpty(): boolean {
       return (
@@ -562,18 +780,26 @@ export {
   readFolderLayout,
   writeFolderLayout,
   isFolderLayout,
-  seedFolderLayout,
+  mergeDeclaredFolders,
   folderOf,
+  folderDisplayNameOf,
+  folderKeysOfRole,
+  nextFolderDefaultName,
+  folderEntries,
   groupByFolder,
+  roleBlocks,
   roleOrder,
   fullDisplayOrder,
   freezeRoleOrder,
   createFolder,
+  moveLayerToRootAt,
+  rootLayerEntry,
+  seedBlockOrder,
   renameFolder,
   deleteFolder,
+  moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
   dropLayer,
-  restoreAuthorLayout,
 };
 export type { FolderLayout, FolderEntry, FolderMember, FolderLayoutManager };

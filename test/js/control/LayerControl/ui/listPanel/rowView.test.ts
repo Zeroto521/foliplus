@@ -487,7 +487,11 @@ describe("the four readers agree on a half-broken record", () => {
     // The sync counters agree: the overlay row counts as on, the base row
     // keeps the no-basemap hatch off.
     syncToggleAll(ui, ROLE.OVERLAY);
-    expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({ total: 1, on: 1 });
+    const all = ui.uiContainer!.querySelector(
+      `.foliplus-layer-toggle-all[data-role="${ROLE.OVERLAY}"] [data-role="toggle-all"]`,
+    ) as HTMLInputElement;
+    expect(all.checked).toBe(true);
+    expect(all.indeterminate).toBe(false);
     syncNoBasemap(ui);
     expect(ui.c.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
       false,
@@ -874,12 +878,12 @@ describe("container layer row", () => {
     ui = r.ui;
     const info = manager.layerRegistry.get("grp");
     const cell = buildRowCell(ui, info);
-    // Container type: the container glyph + type_container label. The glyph is
+    // Container type: the container glyph + type_group label. The glyph is
     // pinned off its single-sourced constant, not its markup — a two-square
     // group icon drawn from <rect> would still be the container glyph, so the
     // user contract is "which glyph", not "which shapes".
-    expect(cell.typeSvg).toBe(SVGs.ICON_CONTAINER);
-    expect(cell.typeLabel).toBe("LayerControl.type_container");
+    expect(cell.typeSvg).toBe(SVGs.ICON_GROUP);
+    expect(cell.typeLabel).toBe("LayerControl.type_group");
     // Child count in the count column.
     expect(cell.countText).toBe("2");
   });
@@ -910,8 +914,8 @@ describe("container layer row", () => {
     const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
     // Provider count wins over the child count.
     expect(cell.countText).toBe("8");
-    // Not a container row: no group icon, no type_container label.
-    expect(cell.typeLabel).not.toBe("LayerControl.type_container");
+    // Not a container row: no group icon, no type_group label.
+    expect(cell.typeLabel).not.toBe("LayerControl.type_group");
   });
 
   it("container delete and teardown are safe", () => {
@@ -941,12 +945,12 @@ describe("container layer row", () => {
     const cell = buildRowCell(ui, info);
     expect(cell.countText).toBe("2/3");
     // The fixture translator is a key-echo (T(key) = "LayerControl.<key>"), so the
-    // row's contract is that it picks the container_count_tooltip key.
-    expect(cell.containerTooltip).toBe("LayerControl.container_count_tooltip");
+    // row's contract is that it picks the sub_layers_count_tooltip key.
+    expect(cell.groupTooltip).toBe("LayerControl.sub_layers_count_tooltip");
   });
 
   it("container count tooltip speaks the shared {on}/{total} vocabulary", () => {
-    // Every group row spells its count out through groupCountTooltip, so the
+    // Every group row spells its count out through countTooltip, so the
     // placeholder names are one vocabulary: {on} and {total}. A second name for
     // the same number ({visible}) is the drift this pins down.
     const childA = { options: {}, visible: true };
@@ -962,11 +966,11 @@ describe("container layer row", () => {
     // Resolve the real sentence instead of the fixture's key echo.
     const realT = ui.T.bind(ui);
     ui.T = ((key: string) =>
-      key === "container_count_tooltip"
+      key === "sub_layers_count_tooltip"
         ? "{on} of {total} sub-layers visible"
         : realT(key)) as typeof ui.T;
     const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
-    expect(cell.containerTooltip).toBe("2 of 3 sub-layers visible");
+    expect(cell.groupTooltip).toBe("2 of 3 sub-layers visible");
   });
 
   it("container count column collapses to the bare total when all children are visible", () => {

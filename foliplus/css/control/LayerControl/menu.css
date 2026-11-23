@@ -54,6 +54,11 @@
      this block owns position/size and the action-menu specifics. */
   .foliplus-layer-more-menu {
     position: fixed;
+    /* The menu is a descendant of the row that owns it, so it would inherit
+       that row's weight — the role row is semibold, the folder row medium and
+       the layer row normal, which made the three menus look different. The
+       menu is a floating panel, not part of the row: it states its own. */
+    font-weight: var(--foliplus-font-weight-normal);
     /* left/top are written by placeMoreMenu (the computePlacement engine).
        fixed escapes the panel's scroll box, so a bottom-row menu is no longer
        clipped by it; the engine caps maxHeight to the clip box instead. */
@@ -64,12 +69,15 @@
        the owner row straight into its menu, so the owner stays lit the whole
        way: the menu is its descendant. */
     margin: 0;
-    /* Width: the menu sizes to its widest item (max-content) instead of a
-       fixed min-width, so a long label ("Confirm Delete") widens the menu
-       rather than clipping; max-width caps it at the shared menu cap. The
-       placement engine writes the frame cap as inline maxWidth, so a menu
-       near the viewport edge still fits. */
-    width: max-content;
+    /* Width: one fixed width for every overflow menu, so the role, folder,
+       layer-group and layer menus read as one surface instead of four widths.
+       Fixed rather than max-content because arming a destructive item swaps
+       the label ("Clean Empty" → "Confirm") and a content-sized menu
+       would jump mid-gesture; the token is wide enough for the widest label in
+       either language, so nothing clips. max-width still caps it at the shared
+       menu cap; the placement engine writes the frame cap as inline maxWidth,
+       so a menu near the viewport edge still fits. */
+    width: var(--foliplus-menu-width);
     max-width: var(--foliplus-menu-max-width);
     padding: var(--foliplus-space-xs) 0;
     display: none;
@@ -169,22 +177,23 @@
      uses as a surface and read as a foreign element.
      Every rule that touches the icon also carries the `:hover` leg:
      common/menu.css's `button:not([aria-disabled="true"]):hover svg` is (0,4,2) and would
-     otherwise outrank a plain `…delete-armed svg` (0,3,2) and paint a
+     otherwise outrank a plain `…delete-pending svg` (0,3,2) and paint a
      near-black stroke over this fill — that is what made the armed trash
      glyph unreadable. `stroke` is set here too rather than trusting
      `currentColor`, so a later `color` rule cannot desync the glyph. */
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed,
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:hover {
     background: var(--foliplus-accent-primary);
     color: var(--foliplus-on-accent);
   }
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:active,
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover:active {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:active,
+  .foliplus-layer-more-menu
+    button.foliplus-layer-more-menu-delete-pending:hover:active {
     background: var(--foliplus-accent-hover);
     color: var(--foliplus-on-accent);
   }
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed svg,
-  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-armed:hover svg {
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending svg,
+  .foliplus-layer-more-menu button.foliplus-layer-more-menu-delete-pending:hover svg {
     color: var(--foliplus-on-accent);
     stroke: var(--foliplus-on-accent);
   }

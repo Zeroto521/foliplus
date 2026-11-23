@@ -12,7 +12,7 @@
  *
  * Scope: production `foliplus/js/**\*.ts` ONLY (tests simulate DOM with
  * literals and are excluded; CSS files under foliplus/css are a different
- * tree and out of scope). Exclusions per audit §13:
+ * tree and out of scope). Exclusions:
  *   - the vocabulary file itself (it DEFINES the constants);
  *   - comments (stripped before matching);
  *   - `data-*` attribute values (data-heatmap-* etc. may carry a class

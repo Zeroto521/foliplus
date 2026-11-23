@@ -31,6 +31,8 @@ type LiveState = {
   order?: () => string[];
   removed?: () => string[];
   foldedRoles?: () => Record<string, boolean>;
+  /** User-folded folder identities (`role::name`). */
+  foldedFolders?: () => Record<string, boolean>;
   renamedNames?: () => Record<string, string>;
   layers?: () => Record<string, PersistedLayerState>;
 };
@@ -74,14 +76,14 @@ type LiveState = {
  *  record still loads but its label config is dropped, and the next write
  *  stamps v5.
  *
- *  5 → 6: `foldedFolders` (the per-folder fold set) landed. Version 6 is
- *  reserved for that task; there is no v6 read path here.
- *
- *  6 → 7: `foldedRoles` changed from a Set-shaped array (folded keys only)
- *  to a Record<role, boolean> (per-role user opinion, both directions). There
- *  is deliberately no compatibility read: the shape change is a breaking
- *  change accepted for this release, so an old v5 record still loads but its
- *  fold state is dropped (read as `{}`), and the next write stamps v7. */
+ *  5 → 6: `foldedRoles` changed from a Set-shaped array (folded keys only)
+ *  to a Record<role, boolean>, and `foldedFolders` landed as a
+ *  Record<key, boolean> — both per-item user opinions, both directions, so an
+ *  explicit EXPAND over an author default fold is distinguishable from "never
+ *  touched". There is deliberately no compatibility read: the shape change is
+ *  a breaking change accepted for this release, so an old v5 record still
+ *  loads but its fold state is dropped (read as `{}`), and the next write
+ *  stamps v6. */
 const RECORD_VERSION = 6;
 
 const emptyRecord = (): LayerPersistedRecord => ({
@@ -89,6 +91,7 @@ const emptyRecord = (): LayerPersistedRecord => ({
   order: null,
   removed: [],
   foldedRoles: {},
+  foldedFolders: {},
   renamedNames: {},
   layers: {},
 });
@@ -372,6 +375,14 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
       record.foldedRoles = parsed;
     }
   }
+  const folderMap = asObject(data.foldedFolders);
+  if (folderMap) {
+    const parsed: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(folderMap)) {
+      if (typeof value === "boolean") parsed[key] = value;
+    }
+    record.foldedFolders = parsed;
+  }
   for (const [id, name] of Object.entries(asObject(data.renamedNames) ?? {})) {
     if (typeof name === "string") record.renamedNames[id] = name;
   }
@@ -404,6 +415,7 @@ const mergeFields = (
     order: fields.order ? fields.order() : record.order,
     removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
+    foldedFolders: fields.foldedFolders ? fields.foldedFolders() : record.foldedFolders,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
     layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
   };

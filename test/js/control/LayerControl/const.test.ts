@@ -49,7 +49,7 @@ describe("CLASSES", () => {
   });
 
   it("defines grid column classes", () => {
-    expect(CONST.CLASSES.DRAG_CELL).toBe("foliplus-drag-cell");
+    expect(CONST.CLASSES.RAIL_CELL).toBe("foliplus-layer-rail");
     expect(CONST.CLASSES.CHECKBOX).toBe("foliplus-checkbox");
     expect(CONST.CLASSES.LAYER_LABEL).toBe("foliplus-layer-label");
     expect(CONST.CLASSES.COUNT_COL).toBe("foliplus-layer-count");

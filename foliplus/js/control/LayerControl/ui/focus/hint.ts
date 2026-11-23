@@ -1,6 +1,7 @@
 // Focus-layer disabled-state metadata: the reason codes, their locale keys,
 // and the shared hint shown when a keyboard / double-click / overflow path
 // tries to focus a row the surface cannot focus.
+import { ROW_NOUN, type RowNoun, withNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
 import { ROLE } from "#core/layer/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
@@ -15,9 +16,9 @@ type FocusDisabledReason = "hidden" | "base" | "no_bounds" | undefined;
 type FocusDisabled = Exclude<FocusDisabledReason, undefined>;
 
 const FOCUS_DISABLED_LOCALE: Record<FocusDisabled, string> = {
-  hidden: "focus_layer_hidden",
-  base: "focus_layer_base",
-  no_bounds: "focus_layer_no_bounds",
+  hidden: "focus_hidden",
+  base: "focus_base",
+  no_bounds: "focus_no_bounds",
 };
 
 /** The locale key explaining `reason`. Both the ⋮ menu item's title and the
@@ -25,6 +26,17 @@ const FOCUS_DISABLED_LOCALE: Record<FocusDisabled, string> = {
  *  never drift apart. */
 const focusDisabledLocaleKey = (reason: FocusDisabled): string =>
   FOCUS_DISABLED_LOCALE[reason];
+
+/** The text explaining `reason` for a row of `noun` kind.
+ *
+ *  `focus_hidden` and `focus_no_bounds` carry a `{noun}` placeholder so the
+ *  same sentence serves a layer, a folder and a layer group; `focus_base` has
+ *  no placeholder and the substitution is a no-op there. */
+const focusDisabledText = (
+  ui: LayerUI,
+  reason: FocusDisabled,
+  noun: RowNoun = ROW_NOUN.LAYER,
+): string => withNoun(ui, focusDisabledLocaleKey(reason), noun);
 
 /** Why the ⋮ menu / keyboard / double-click path should not focus `item`.
  *
@@ -52,12 +64,21 @@ const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReaso
 };
 
 /** Show the hint that matches a `focusDisabledReason` value. */
-const showFocusDisabledHint = (ui: LayerUI, reason: FocusDisabled): void => {
+const showFocusDisabledHint = (
+  ui: LayerUI,
+  reason: FocusDisabled,
+  noun: RowNoun = ROW_NOUN.LAYER,
+): void => {
   ui.c.map.foliplus!.showHint(
     ui.config.name,
-    ui.T(focusDisabledLocaleKey(reason)),
+    focusDisabledText(ui, reason, noun),
     HINT_DURATION.SHORT,
   );
 };
 
-export { focusDisabledLocaleKey, focusDisabledReason, showFocusDisabledHint };
+export {
+  focusDisabledLocaleKey,
+  focusDisabledReason,
+  focusDisabledText,
+  showFocusDisabledHint,
+};

@@ -47,9 +47,17 @@ const handleMoreClick = (ui: LayerUI, event: Event): void => {
   if (!btn) return;
   event.stopPropagation();
   event.preventDefault();
+  // Climb to the owning row: a layer/folder row is .foliplus-layer-item; a
+  // role row is .foliplus-layer-role (not .foliplus-layer-item). The menu
+  // builder dispatches on the row's kind (data-layer-id vs data-folder-key
+  // vs data-role), so a single trigger opens the right entry set.
   const item = btn.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
-  if (!item) return;
-  ui.openMoreMenu(item);
+  if (item) {
+    ui.openMoreMenu(item);
+    return;
+  }
+  const roleRow = btn.closest(CONST.SEL.ROLE_ROW) as HTMLElement | null;
+  if (roleRow) ui.openRoleMenu(roleRow);
 };
 
 export { registerInteractions, handleMoreClick };

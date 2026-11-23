@@ -6,8 +6,7 @@
   // Leaflet teardown path (map.removeLayer on the renderer), so after every
   // cancel the pane should hold exactly one SVG (the live one), never a
   // growing stack. We also verify the control-teardown path via the standard
-  // removeControl + addControl re-entry (the pattern already documented in
-  // CLAUDE.md).
+  // removeControl + addControl re-entry.
   const ctrl = window.__layerCtrl;
   if (!ctrl) return { ctrl: false };
 
