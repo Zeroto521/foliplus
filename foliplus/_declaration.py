@@ -97,6 +97,16 @@ BORDER_KEY = "border"
 #: (different hex values), so this chassis vocabulary is not expressible via
 #: folium kwargs - that is why it is a foliplus declaration.
 MARKER_COLOR_KEY = "marker_color"
+#: The CSS hex shapes a declared marker chassis colour may take (#rgb or
+#: #rrggbb). The shape is validated here so a malformed hex warns at
+#: collection time; the value is normalised here too (see
+#: normalise_marker_color) so both channels carry the same string.
+#: KEEP IN STEP with isHexColor / normalizeHexColor in
+#: foliplus/js/platform/color.ts - this regex is a hand-copied twin of
+#: the JS one (follow-up guard card pending); if one side widens the
+#: shape the other must widen too or a hex one side paints the other
+#: rejects.
+_HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
 #: The per-layer marker icon pixel-size declaration key: a whole-number pixel
 #: size for the marker icon. folium's Icon carries a fixed pixel size and
 #: exposes no scaling channel, so this too is a foliplus-only declaration.
@@ -678,18 +688,25 @@ def normalise_marker_color(
 ) -> str | None:
     """Normalise one declared marker chassis preset name.
 
-    Returns the stripped preset name when the declaration is a non-empty
-    string, else ``None``: "not declared" and "declared but invalid" are the
-    same state downstream - the marker keeps its derived chassis colour
-    rather than painting a name the author never saw validated.
+    Returns the stripped preset name, or the hex lowered to lowercase when the
+    declaration is a CSS hex (#rgb / #rrggbb), else ``None``: "not declared"
+    and "declared but invalid" are the same state downstream - the marker
+    keeps its derived chassis colour rather than painting a name the author
+    never saw validated.
 
-    Only the *shape* is gated here (a non-empty string). Whether the name is
-    one of the runtime's chassis presets is the JS reader's verdict: the
-    preset vocabulary lives in markerColorPreset.ts, and duplicating the
-    19-name closed set here would be a second list to keep in step with the
-    runtime's - the same split the enum filter uses (shape here, vocabulary
-    at the consumer). An unknown name therefore survives this reader and is
-    warned once by the JS panel, which owns the preset table.
+    The *shape* is gated here (a non-empty string in the preset vocabulary OR
+    a CSS hex). Whether a preset name is one of the runtime's chassis presets
+    is the JS reader's verdict: the preset vocabulary lives in
+    markerColorPreset.ts, and duplicating the 19-name closed set here would be
+    a second list to keep in step with the runtime's - the same split the enum
+    filter uses (shape here, vocabulary at the consumer). An unknown preset
+    name therefore survives this reader and is warned once by the JS panel,
+    which owns the preset table. A CSS hex shape is recognised here and
+    normalised exactly as the JS reader normalises it (#rgb is expanded to
+    #rrggbb and the value lowered), so the two channels carry the same
+    string for one chassis colour; a malformed hex is not a preset either
+    and also survives this reader, so the JS panel warns once for it - the
+    hex vocabulary is the JS reader's, not this module's.
 
     ``owner`` names the control and ``subject`` the specific subject (a layer
     name), so every message and de-duplication note is attributable.
@@ -717,6 +734,17 @@ def normalise_marker_color(
     if not name:
         reject("as an empty or whitespace-only string; expected a non-empty string")
         return None
+    # A hex shape must be a valid CSS hex (3 or 6 digits); anything else is a
+    # shape defect and warns at collection time (a malformed hex is not a
+    # preset the JS reader owns).
+    if _HEX_COLOR_RE.match(name):
+        # Expand #rgb to #rrggbb here too - the JS reader paints the expanded
+        # form (normalizeHexColor), so the two channels must agree on the
+        # string for one chassis colour (single source, not shape-only).
+        if len(name) == 4:  # "#rgb"
+            r, g, b = name[1], name[2], name[3]
+            return f"#{r}{r}{g}{g}{b}{b}".lower()
+        return name.lower()
     return name
 
 

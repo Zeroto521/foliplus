@@ -9,9 +9,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, SettledOperation, ensureEvents, publish } from "#core/event/index.js";
 import {
-  FILTER_STORE_KEY,
   type LayerFilter,
   extractMarkerFields,
+  filterStoreKey,
   getLayerAlpha,
   setLayerAlpha,
 } from "#core/layer/index.js";
@@ -172,7 +172,10 @@ describe("HeatmapManager — caching & lifecycle", () => {
     const handler = vi.fn();
     bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
     m.clearHeatmapCanvas();
-    expect(handler).toHaveBeenCalledWith({ id: m.layerId });
+    expect(handler).toHaveBeenCalledWith(
+      { id: m.layerId },
+      { origin: { kind: "programmatic", via: "refresh" } },
+    );
   });
 
   it("clearHeatmapCanvas drops the layer id from the stored order so a redraw lands on top", () => {
@@ -525,7 +528,10 @@ describe("renderFeatures", () => {
     const handler = vi.fn();
     bus.on(EVENTS.LAYER_ITEM_COUNT_CHANGE, handler);
     m.renderFeatures([{ type: "Feature" }] as any);
-    expect(handler).toHaveBeenCalledWith({ id: m.layerId });
+    expect(handler).toHaveBeenCalledWith(
+      { id: m.layerId },
+      { origin: { kind: "programmatic", via: "refresh" } },
+    );
   });
 
   it("count broadcast is settled — a thrower does not starve later consumers", () => {
@@ -1298,9 +1304,13 @@ describe("HeatmapManager — style delegation", () => {
     opts.styleSetters!.labelShow!(true);
 
     expect(touchLayer).toHaveBeenCalledWith(m.layerId);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
-      id: m.layerId,
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_STYLE_CHANGE,
+      {
+        id: m.layerId,
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 
   it("labelFormat setter touches the layer and emits LAYER_STYLE_CHANGE", () => {
@@ -1313,9 +1323,13 @@ describe("HeatmapManager — style delegation", () => {
     opts.styleSetters!.labelFormat!("comma");
 
     expect(touchLayer).toHaveBeenCalledWith(m.layerId);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
-      id: m.layerId,
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_STYLE_CHANGE,
+      {
+        id: m.layerId,
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 
   it("styleDefaultsProvider returns the Python CONFIG snapshot for the drawer Reset", () => {
@@ -1503,9 +1517,13 @@ describe("HeatmapManager — style delegation", () => {
     opts.styleSetters!.borderWeight!(2.5);
 
     expect(touchLayer).toHaveBeenCalledWith(m.layerId);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
-      id: m.layerId,
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_STYLE_CHANGE,
+      {
+        id: m.layerId,
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 
   it("borderColor setter updates state, re-renders and persists", () => {
@@ -1542,9 +1560,13 @@ describe("HeatmapManager — style delegation", () => {
     opts.styleSetters!.borderColor!("#00ff00");
 
     expect(touchLayer).toHaveBeenCalledWith(m.layerId);
-    expect(emitSpy).toHaveBeenCalledWith(EVENTS.LAYER_STYLE_CHANGE, {
-      id: m.layerId,
-    });
+    expect(emitSpy).toHaveBeenCalledWith(
+      EVENTS.LAYER_STYLE_CHANGE,
+      {
+        id: m.layerId,
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 });
 
@@ -2116,7 +2138,11 @@ describe("getBounds callback", () => {
 describe("NO_OP_ENV T fallback", () => {
   it("returns prefixed key when env is not provided", () => {
     const map = {
-      getContainer: vi.fn(),
+      getContainer: vi.fn(() => {
+        const c = document.createElement("div");
+        c.id = "heatmap-noop-map";
+        return c;
+      }),
       getBounds: vi.fn(),
       getZoom: vi.fn(),
       on: vi.fn(),
@@ -2427,7 +2453,10 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
       range: [5, 5],
     });
     expect(filterSpy).toHaveBeenCalledTimes(1);
-    expect(filterSpy).toHaveBeenCalledWith({ id: mgr.layerId });
+    expect(filterSpy).toHaveBeenCalledWith(
+      { id: mgr.layerId },
+      { origin: { kind: "user", via: "panel" } },
+    );
   });
 
   it("notifies a content change even when the stored filter survives", () => {
@@ -2959,7 +2988,7 @@ describe("HeatmapManager — declared filter guards", () => {
     // The old component key keeps only style fields — no filters, no flag.
     expect(manager.loadSavedConfig()?.filters).toBeUndefined();
     // The shared store key has no record either: nothing user-set.
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(manager.map))).toBeNull();
     manager.clearSavedConfig();
   });
 
@@ -3194,7 +3223,9 @@ describe("HeatmapManager — filter contract (range branch)", () => {
       // The user's choice persists under the shared store key.
       const saved = manager.loadSavedConfig();
       expect(saved?.filters).toBeUndefined();
-      const storeRecord = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+      const storeRecord = JSON.parse(
+        window.localStorage.getItem(filterStoreKey(manager.map))!,
+      );
       expect(storeRecord.layers[manager.layerId].sources.pts).toEqual({
         touched: true,
         value: USER_RANGE,
@@ -3471,7 +3502,10 @@ describe("HeatmapControl filter owner", () => {
     // The notification is id-only — observers pull the model, never read
     // the filter from the payload.
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ id: m.layerId });
+    expect(spy).toHaveBeenCalledWith(
+      { id: m.layerId },
+      { origin: { kind: "user", via: "panel" } },
+    );
   });
 
   it("setFilter is a no-op when the validated filter equals the stored one", () => {
@@ -3819,7 +3853,10 @@ describe("HeatmapControl filter owner", () => {
     expect(fsSize(m)).toBe(0);
     expect((m as any).cachedSnapshot).toBeNull();
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ id: m.layerId });
+    expect(spy).toHaveBeenCalledWith(
+      { id: m.layerId },
+      { origin: { kind: "user", via: "panel" } },
+    );
   });
 
   it("resetState without a filter does not publish", () => {
@@ -3852,7 +3889,10 @@ describe("HeatmapControl filter owner", () => {
     expect(fsSize(m)).toBe(0);
     expect((m as any).cachedFeatures).toBeNull();
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(spy).toHaveBeenCalledWith({ id: m.layerId });
+    expect(spy).toHaveBeenCalledWith(
+      { id: m.layerId },
+      { origin: { kind: "user", via: "panel" } },
+    );
   });
 
   it("a departing source without a filter does not publish", () => {
@@ -4420,7 +4460,9 @@ describe("HeatmapManager — versioned persisted config", () => {
       // The filter half lives under the shared store key, not the old key:
       // the old component key keeps only style fields now.
       expect(stored.filters).toBeUndefined();
-      const storeRecord = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+      const storeRecord = JSON.parse(
+        window.localStorage.getItem(filterStoreKey(m1.map))!,
+      );
       expect(storeRecord.layers[m1.layerId].sources.r1).toEqual({
         touched: true,
         value: { kind: "atom", field: "value", op: "between", range: [1, 2] },
@@ -4486,7 +4528,9 @@ describe("HeatmapManager — persisted per-source filters", () => {
     const stored = JSON.parse(window.localStorage.getItem(KEY)!);
     // The filter half lives under the shared store key.
     expect(stored.filters).toBeUndefined();
-    const storeRecord = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+    const storeRecord = JSON.parse(
+      window.localStorage.getItem(filterStoreKey(m1.map))!,
+    );
     expect(Object.keys(storeRecord.layers[m1.layerId].sources)).toEqual([
       "layer_a",
       "layer_b",

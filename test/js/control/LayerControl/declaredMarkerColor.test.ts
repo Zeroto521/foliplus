@@ -48,6 +48,36 @@ describe("readDeclaredMarkerColor", () => {
     expect(invalid[0]).toMatch(/unknown marker_color preset/);
   });
 
+  it("resolves a declared CSS hex (6-digit, lowercased)", () => {
+    const { declared, invalid } = readDeclaredMarkerColor(
+      layerWith({ marker_color: "#00A6A6" }),
+      "L",
+    );
+    expect(declared).toBe("#00a6a6");
+    expect(invalid).toEqual([]);
+  });
+
+  it("resolves a declared CSS hex (3-digit, expanded to 6)", () => {
+    const { declared, invalid } = readDeclaredMarkerColor(
+      layerWith({ marker_color: "#abc" }),
+      "L",
+    );
+    expect(declared).toBe("#aabbcc");
+    expect(invalid).toEqual([]);
+  });
+
+  it("reads a malformed hex as not-declared and warns once", () => {
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredMarkerColor(
+      layerWith({ marker_color: "#12345" }),
+      "L",
+      warn,
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0]).toMatch(/unknown marker_color/);
+  });
+
   it.each([7, ["red"], { name: "red" }, "   "])(
     "reads a malformed marker_color %j as not-declared",
     raw => {

@@ -42,7 +42,7 @@
      keeps its outer edge on the control's edge. The control therefore reads
      exactly as wide as the fields below — the circles do not overhang. */
   height: var(--foliplus-slider-thumb-size);
-  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
+  margin: 0 var(--foliplus-slider-inset);
   touch-action: none;
   cursor: pointer;
 }
@@ -182,14 +182,14 @@
 }
 
 /* ── The scale's numbers ────────────────────────────────────────
-   The end numbers are a width-adaptive pair keyed on display width (see
-   displayWidth in slider.ts): a label that fits one digit column (a bare
-   digit like "0" or "A") centres on the dot it names — a thumb parks at the
-   rail's end, so its centre is half a thumb in from the control's edge; a
-   label two columns or wider is an axis label and switches to the clamp
-   state (class is-clamp), which pins it to the track's end, clipping its
-   text toward the inside so it never paints past the track or overlaps its
-   sibling. */
+   The end numbers are a width-adaptive pair keyed on the label's RENDERED
+   width against the thumb's (see measureValuesFit in slider.ts): a label no
+   wider than the thumb (a bare digit like "0" or "A") centres on the dot it
+   names — a thumb parks at the rail's end, so its centre is half a thumb in
+   from the control's edge; a label wider than the thumb is an axis label and
+   switches to the clamp state (class is-clamp), which pins it to the
+   control's edge, clipping its text toward the inside so it never paints
+   past the painted bar or overlaps its sibling. */
 .foliplus-slider-values {
   /* The containing block for the drag-time readout and the dot-centred end
      numbers: their offsets resolve against this row (position: relative
@@ -213,11 +213,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The end labels are a width-adaptive pair keyed on display width (see
-   displayWidth in slider.ts): a label that fits one digit column is
-   dot-centred — its centre sits on the parked thumb's centre, which is a
-   half thumb in from the control's edge — and anything wider is an axis
-   label that pins to the slider's two painted ends (class is-clamp).
+/* The end labels are a width-adaptive pair keyed on the label's RENDERED
+   width against the thumb's (see measureValuesFit in slider.ts): a label no
+   wider than the thumb is dot-centred — its centre sits on the parked
+   thumb's centre, which is a half thumb in from the control's edge — and
+   anything wider is an axis label that pins to the slider's two painted
+   ends (class is-clamp).
 
    The pin is the CONTROL's edge, not the track element's: the track is
    inset half a thumb so a parked thumb's outer edge lands on the control's
@@ -254,12 +255,12 @@
    pushes the clamped sibling. */
 .foliplus-slider-value-min:not(.is-clamp) {
   position: absolute;
-  inset-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
+  inset-inline-start: var(--foliplus-slider-inset);
   transform: translateX(-50%);
 }
 .foliplus-slider-value-max:not(.is-clamp) {
   position: absolute;
-  inset-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
+  inset-inline-end: var(--foliplus-slider-inset);
   transform: translateX(50%);
 }
 /* RTL mirrors the dot-centre anchors explicitly (the transform flips): the
