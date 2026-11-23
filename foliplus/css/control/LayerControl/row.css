@@ -607,9 +607,6 @@
     &.foliplus-layer-folded {
       border-left-color: var(--foliplus-accent-primary);
 
-      .foliplus-layer-fold-btn svg {
-        transform: rotate(180deg);
-      }
       .foliplus-layer-fold-btn {
         color: var(--foliplus-accent-primary);
       }
