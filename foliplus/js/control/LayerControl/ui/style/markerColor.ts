@@ -27,15 +27,17 @@ import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { styleCapability } from "./styleCapability.js";
-import { DIM, walkLeaf } from "#core/layer/index.js";
+import { DIM } from "#core/layer/index.js";
 import {
   MARKER_COLOR_PRESET_HEX,
   applyMarkerColorToLeaves,
   authorGlyphName as authorGlyphNameOnLayer,
-  authorIconOf,
+  authorMarkerColor,
+  authorMarkerColorHex,
+  markerColorHexOf,
   resetIconLeaves,
+  resolveChassisPaint as resolveChassisPaintCore,
 } from "#core/leaflet/index.js";
-import { isHexColor, normalizeHexColor } from "#platform/color.js";
 import { withUnit } from "#platform/format.js";
 import {
   bindLiveNumber,
@@ -64,71 +66,21 @@ const declaredIconSizeOf = (layer: unknown): number | undefined =>
 const layerCanMarkerColor = (ui: LayerUI, layerId: string): boolean =>
   styleCapability(ui, layerId).dims.markerColor;
 
-/** The author's own chassis preset for the layer, read with the SAME walk the
- *  capability gate uses (walkLeaf — a nested group is descended, not read one
- *  level). The row and the gate must agree on the same tree: the bug this
- *  closes was a one-level read that answered "no preset" for a nested group
- *  while the gate admitted it and the map drew the author's chassis.
- *  First painted leaf wins (informational — the row shows one value for the
- *  whole layer; it is not a write intent, the write applies to every leaf). */
-const authorMarkerColor = (layer: unknown): string | null => {
-  let found: string | null = null;
-  walkLeaf(layer, leaf => {
-    if (found) return;
-    const icon = authorIconOf(leaf);
-    if (!icon) return;
-    const own = (
-      icon as {
-        options?: { markerColor?: unknown };
-      }
-    ).options?.markerColor;
-    if (typeof own === "string" && own) found = own;
-  });
-  return found;
-};
-
-/** The author's own chassis hex, or null when the author declares no chassis
- *  (or names a value that is neither a preset nor a 6-digit hex). The
- *  awesome-markers default blue is NOT conflated with the absence — the
- *  absence is a distinct state so a foliplus-declared chassis (or the
- *  derived default) can take the paint. A non-preset author value (a hex the
- *  author painted directly) is used as-is; a preset name is mapped forward
- *  through the preset table. */
-const authorMarkerColorHex = (layer: unknown): string | null => {
-  const author = authorMarkerColor(layer);
-  if (!author) return null;
-  if (/^#[0-9a-f]{6}$/i.test(author)) return author.toLowerCase();
-  const mapped = (MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[
-    author
-  ];
-  return mapped ?? null;
-};
-
 /** The chassis paint when the user has not picked one: the author's own
  *  chassis, else the author-declared foliplus marker_color, else the
- *  awesome-markers default blue. The declaration is a read-time default the
- *  paint and the row both read — a panel pick wins and Reset returns here. */
+ *  awesome-markers default blue. The priority chain and the hex/preset mapping
+ *  live in core (`resolveChassisPaint`, `markerColorHexOf`) — the same readers
+ *  the paint read uses — so this wrapper only supplies the declaration value,
+ *  which the control layer owns. A panel pick wins and Reset returns here. */
 const resolveChassisPaint = (layer: unknown): string =>
-  authorMarkerColorHex(layer) ??
-  declaredMarkerColorHex(layer) ??
-  MARKER_COLOR_PRESET_HEX.blue;
+  resolveChassisPaintCore(layer, readDeclaredMarkerColor(layer).declared ?? null);
 
-/** The chassis hex the AUTHOR DECLARED via foliplus={"marker_color": "<preset>"}
- *  or a CSS hex, or null when the layer declares nothing (or an
- *  out-of-vocabulary name, which declaredMarkerColor warns about and reads as
- *  not-declared). This is the lowest-priority chassis source: a panel pick
- *  (intent) or the author's own painted/preset colour both win over it, and it
- *  only replaces the derived default blue. A preset name maps forward through
- *  the same table a panel pick uses, so a declared chassis lands on the library
- *  sprite; a declared hex is used as-is (the flat mask path paints any hex). */
-const declaredMarkerColorHex = (layer: unknown): string | null => {
-  const { declared } = readDeclaredMarkerColor(layer);
-  if (!declared) return null;
-  if (isHexColor(declared)) return normalizeHexColor(declared).toLowerCase();
-  return (
-    (MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[declared] ?? null
-  );
-};
+/** The chassis hex the author DECLARED via foliplus marker_color, or null when
+ *  the layer declares nothing (or an out-of-vocabulary name, which the reader
+ *  warns about and reads as not-declared). The mapping is core's
+ *  `markerColorHexOf`, so the declared path and the author path cannot drift. */
+const declaredMarkerColorHex = (layer: unknown): string | null =>
+  markerColorHexOf(readDeclaredMarkerColor(layer).declared ?? null);
 
 /** Apply the layer's stored chassis color + opacity to every marker leaf,
  *  re-deriving the icon in ONE construction with the current glyph and icon
@@ -393,5 +345,6 @@ export {
   commitMarkerColorOpacity,
   layerCanMarkerColor,
   replayDeclaredMarkerColor,
+  resolveChassisPaint,
   resetLayerMarkerColor,
 };

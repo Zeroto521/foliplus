@@ -319,6 +319,7 @@ const ICON_COLOR_DIMENSION = registerDimension<{
 export {
   ICON_COLOR_DIMENSION,
   applyIconColorToLayer,
+  authorIconColor,
   buildIconColorRow,
   commitIconColor,
   commitIconColorOpacity,

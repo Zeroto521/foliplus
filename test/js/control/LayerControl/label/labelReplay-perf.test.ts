@@ -1,6 +1,6 @@
 // Wall-clock gate for LayerControl/label/index.ts — the label replay
 // (renderLabels) a content change runs. Attribution for `test/js/perf/` (the
-// boundary is spelled out in collision.test.ts): real elapsed time, vitest
+// boundary is spelled out in perf/collision.test.ts): real elapsed time, vitest
 // process. The functional half (coalescing, gates, teardown, flush) lives in
 // test/js/LayerControl/ui/style/label.test.ts, and the per-face coverage in
 // test/js/LayerControl/ui/lifecycle.test.ts.

@@ -29,6 +29,7 @@ import {
 import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { finalize } from "#platform/finalize.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
@@ -36,7 +37,6 @@ import {
   type CanvasLabelStyle,
   LABEL_CLASS,
   clampLabelSize,
-  normalizeHexColor,
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#ui/index.js";
@@ -266,6 +266,23 @@ class LabelManager {
       // would read the pre-export canvas.
       events.on(EVENTS.BEFORE_EXPORT, () => this.refresh(), "internal"),
       events.on(EVENTS.AFTER_EXPORT, () => this.refresh(), "internal"),
+      // A filter change rewrites which leaves the label walk may draw, so the
+      // changed layer's labels must be re-derived (and cleared when the filter
+      // now excludes every leaf). Per layer by the same argument as
+      // LAYER_CHANGE: only that layer's plan and collision decision change.
+      // A bare emit (no payload) falls back to a full refresh, matching the
+      // LAYER_CHANGE handler's third-party guard.
+      events.on(
+        EVENTS.LAYER_FILTER_CHANGE,
+        payload => {
+          if (!payload) {
+            this.refresh();
+            return;
+          }
+          this.renderLabels(payload.id);
+        },
+        "internal",
+      ),
     );
   }
 

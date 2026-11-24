@@ -379,27 +379,15 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-/** Write a checkbox's tri-state visual (checked / indeterminate /
- *  aria-checked) from a `{ total, on }` aggregate. This is a row visual
- *  write, so it lives in the single row-view writer (the charter that
- *  confines every row visual write to rowView.ts). Both the role row and the
- *  folder row compute their aggregate from the same visibility projection
- *  and call this to paint the checkbox — a layer row's own checkbox is
- *  always binary and never goes through here. */
-const writeTriState = (input: HTMLInputElement, total: number, on: number): void => {
-  const allChecked = total > 0 && on === total;
-  const noneChecked = on === 0;
-  input.checked = allChecked;
-  input.indeterminate = !allChecked && !noneChecked;
-  input.setAttribute(
-    "aria-checked",
-    allChecked ? "true" : noneChecked ? "false" : "mixed",
-  );
-};
+// The tri-state checkbox paint moved to the shared ui/checkbox primitive
+// (createCheckbox / setCheckboxState / triStateOf) so a checkbox created by
+// LayerControl and one created by any other consumer paint the identical
+// checked / indeterminate / aria-checked contract. rowView no longer owns a
+// second copy of the rule.
 
 /** Write the role row's count cell — text and tooltip — from the same
  *  `{ total, on }` aggregate the tri-state checkbox paints. A row visual
- *  write, so it lives in the single row-view writer alongside writeTriState. */
+ *  write, so it lives in the single row-view writer. */
 const writeRoleCount = (
   row: Element,
   total: number,
@@ -424,6 +412,5 @@ export {
   roleCountText,
   rowView,
   writeRoleCount,
-  writeTriState,
 };
 export type { RowCell, RowLabels, RowView };

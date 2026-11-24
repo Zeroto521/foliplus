@@ -64,6 +64,7 @@ import {
   isClassifyMethod,
 } from "#core/value/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
@@ -74,7 +75,6 @@ import {
   type CanvasLabelStyle,
   clampBorderWeight,
   clampLabelSize,
-  normalizeHexColor,
 } from "#ui/index.js";
 
 /** Adopt a method name only when it is one of the four the classifier

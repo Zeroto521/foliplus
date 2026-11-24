@@ -58,16 +58,16 @@ The attribute channel wins when present; the options channel is the fallback.
 
 The recognised keys are:
 
-| Key            | Type | Meaning                                          |
-| -------------- | ---- | ------------------------------------------------ |
-| `zoom_range`   | dict | visible zoom window (see {ref}`zoom_range`).     |
-| `folder`       | str  | layer folder (role) name (see {ref}`folder`).    |
-| `fill`         | dict | value-based fill (see {ref}`fill`).              |
-| `label`        | dict | text labels (see {ref}`label`).                  |
-| `filter`       | dict | value filter (see {ref}`filter`).                |
-| `border`       | dict | border default mode (see {ref}`border`).         |
-| `marker_color` | str  | marker chassis preset (see {ref}`marker_color`). |
-| `icon_size`    | int  | marker icon pixel size (see {ref}`icon_size`).   |
+| Key            | Type | Meaning                                                    |
+| -------------- | ---- | ---------------------------------------------------------- |
+| `zoom_range`   | dict | visible zoom window (see {ref}`zoom_range`).               |
+| `folder`       | str  | layer folder (role) name (see {ref}`folder`).              |
+| `fill`         | dict | value-based or solid fill (see {ref}`fill`).               |
+| `label`        | dict | text labels (see {ref}`label`).                            |
+| `filter`       | dict | value filter (see {ref}`filter`).                          |
+| `border`       | dict | border default mode / colour / weight (see {ref}`border`). |
+| `marker_color` | str  | marker chassis preset (see {ref}`marker_color`).           |
+| `icon_size`    | int  | marker icon pixel size (see {ref}`icon_size`).             |
 
 An unknown key warns once and is ignored:
 
@@ -157,34 +157,46 @@ This lands with the child-layer registration work.
 
 (fill)=
 
-## `fill` — value-based fill
+## `fill` — value-based or solid fill
 
-Declares the layer's value-based fill: each feature is classified by a field
-and painted from a palette at load.
+Declares the layer's fill default: either a value-based classification or a
+single solid colour with an opacity.
 
 ```python
+# value-based fill: classify each feature by a field and paint it from a palette
 gdf.explore(foliplus={"fill": {"field": "score", "scheme": "Reds"}})
+
+# solid fill: one colour (and optional opacity) for the whole layer
+gdf.explore(foliplus={"fill": {"mode": "solid", "color": "#ff0000", "opacity": 0.6}})
 ```
 
-**Shape**: a **flat** mapping. `field` is required; the optional keys are
-`method`, `classes`, `scheme` and `kind`. The old nested `fill.ramp`
-shell and the `fill.mode` switch are cancelled — those keys are now unknown
-and ignored one by one with a one-time warning.
+**Shape**: a **flat** mapping. A declaration names at most one mode: naming
+`field` means value-based fill, naming `color` / `opacity` means solid
+fill, and `mode` says which one explicitly — `"solid"`, `"value"` or
+`"original"`. Naming neither a field nor a colour/opacity nor a mode drops
+the declaration. The old nested `fill.ramp` shell is cancelled — it is now
+an unknown key and ignored with a one-time warning.
 
-| Key       | Default                                         | Meaning                                  |
-| --------- | ----------------------------------------------- | ---------------------------------------- |
-| `field`   | required — naming one turns value-based fill on | the feature property to classify         |
-| `kind`    | inferred from the layer's own values            | `numeric` / `category`                   |
-| `method`  | `jenks`                                         | `jenks` / `quantile` / `equal` / `heads` |
-| `classes` | `6`                                             | integer from 2 to 9                      |
-| `scheme`  | `Viridis` (`Set3` for a category)               | palette name                             |
+| Key       | Default                                                          | Meaning                                  |
+| --------- | ---------------------------------------------------------------- | ---------------------------------------- |
+| `mode`    | inferred: `value` from `field`, `solid` from `color` / `opacity` | `"solid"` / `"value"` / `"original"`     |
+| `field`   | required for value mode                                          | the feature property to classify         |
+| `kind`    | inferred from the layer's own values                             | `numeric` / `category`                   |
+| `method`  | `jenks`                                                          | `jenks` / `quantile` / `equal` / `heads` |
+| `classes` | `6`                                                              | integer from 2 to 9                      |
+| `scheme`  | `Viridis` (`Set3` for a category)                                | palette name                             |
+| `color`   | the author's own colour                                          | solid-mode fill colour (CSS hex)         |
+| `opacity` | the author's own opacity                                         | fill opacity from 0 to 1, on every mode  |
 
-**Behaviour**: a valid declaration classifies each feature by the field at
-load — it does not flatten the layer to a single colour. The panel row opens
-on the declaration and Reset returns to it. A user's stored mode always wins.
-When the declaration is invalid, it degrades key by key (each rejected key
-warns once, the rest survives); a declaration without a usable field drops
-whole and falls back to the per-feature paint / built-in.
+**Behaviour**: a value declaration classifies each feature by the field at
+load — it does not flatten the layer to a single colour. A solid declaration
+paints the one colour and opacity at load instead, and the solid row opens on
+those values. The panel row opens on the declaration and Reset returns to it.
+A user's stored mode always wins. When the declaration is invalid, it degrades
+key by key (each rejected key warns once, the rest survives); a declaration
+that contradicts itself (a value field with a solid colour, or the reverse)
+drops whole. A declaration whose value column the data no longer offers steps
+aside whole and falls back to the per-feature paint / built-in.
 
 Value-based fill needs an areal geometry. Polygons, MultiPolygons, Rectangles
 and circles repaint by value; a Polyline takes a stroke colour instead; a
@@ -257,10 +269,11 @@ in `values` surfaces at runtime rather than at declaration time.
 
 (border)=
 
-## `border` — border default mode
+## `border` — border default mode and stroke
 
-Declares the border mode default for the layer: the panel reads it as a
-read-time default under the user's stored choice.
+Declares the border mode default for the layer, and the solid stroke's colour
+and width: the panel and the map read them as read-time defaults under the
+user's stored choice.
 
 ```python
 # follow the fill mode (the author's border follows whatever the fill does)
@@ -268,24 +281,31 @@ gdf.explore(foliplus={"border": {"mode": "follow_fill"}})
 
 # value mode: paint the border by a field
 gdf.explore(foliplus={"border": {"field": "score"}})
+
+# solid stroke: one colour and width for the whole layer
+gdf.explore(foliplus={"border": {"mode": "solid", "color": "#ff0000", "weight": 3}})
 ```
 
 **Shape**: two declaration shapes converge to one canonical form:
 
-| Form       | Keys                                 | Meaning                           |
-| ---------- | ------------------------------------ | --------------------------------- |
-| mode-shell | `mode`: `"follow_fill"` or `"value"` | explicit mode                     |
-| flat       | `field` (implicit value mode)        | `{"mode": "value", "field": ...}` |
+| Form       | Keys                                                                       | Meaning                         |
+| ---------- | -------------------------------------------------------------------------- | ------------------------------- |
+| mode-shell | `mode`: `"follow_fill"` / `"value"` / `"solid"` / `"original"`             | explicit mode                   |
+| flat       | `field` (implicit value mode), or `color` / `weight` (implicit solid mode) | shorthand for the matching mode |
 
 `mode`, when present, is authoritative: a `mode` + `field` combination
-is contradictory and invalid. A `follow_fill` shell never carries a field;
-a `value` mode requires a field.
+(or a solid `mode` + `color` / `weight`) is contradictory and invalid.
+A `follow_fill` shell never carries a field; a `value` mode requires a
+field; `color` is a solid-mode value (CSS hex) and `weight` is a positive
+stroke width in pixels that rides every mode.
 
 **Behaviour**: a usable declaration paints the border in the declared mode by
-default. When the declaration is invalid it warns once and is ignored — the
-border stays on its derived default (original/solid). The flat value form
-reuses the same schema as `fill` (`field` plus optional `method` /
-`classes` / `scheme` / `kind`).
+default — a solid declaration's `color` / `weight` are also the border
+row's read-time defaults, so Reset returns to them. When the declaration is
+invalid it warns once and is ignored — the border stays on its derived
+default (original/solid). The flat value form reuses the same schema as
+`fill` (`field` plus optional `method` / `classes` / `scheme` /
+`kind`).
 
 (marker_color)=
 
