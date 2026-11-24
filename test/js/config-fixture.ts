@@ -35,7 +35,7 @@ const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
     method: "jenks",
     num_classes: 6,
     schemes: ["Blues", "Greens", "Reds", "Oranges", "Purples", "YlOrRd", "Viridis"],
-    zoomRange: null,
+    zoom_range: null,
   },
   LayerControl: {
     collapse_on_outside: false,
@@ -57,7 +57,7 @@ const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
     label_show: true,
     show_bearing: true,
     show_live_coords: true,
-    zoomRange: null,
+    zoom_range: null,
   },
   ScaleControl: {
     show_zoom: true,

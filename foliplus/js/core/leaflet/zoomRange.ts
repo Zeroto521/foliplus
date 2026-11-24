@@ -65,7 +65,7 @@ interface BindControlZoomRangeOptions {
   map: L.Map;
   /** The control's Leaflet container — the whole control is gated. */
   container: HTMLElement;
-  /** CONFIG.zoomRange: the normalised declaration, or null/undefined. */
+  /** CONFIG.zoom_range: the normalised declaration, or null/undefined. */
   range: unknown;
   /** The control's logger (its name is already in the prefix). */
   log: ZoomRangeLogger;

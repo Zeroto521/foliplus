@@ -2,7 +2,7 @@
 
 The author writes ``zoom_range={"min": 8, "max": 12}``; Python normalises it
 into the same ``{min, max}`` shape the layer declaration emits, under the
-shared CONF key ``zoomRange``. The declaration gates the toolbar only;
+shared CONF key ``zoom_range``. The declaration gates the toolbar only;
 measurements are never touched.
 """
 
@@ -27,13 +27,13 @@ def _conf(**kwargs: object) -> dict:
 def test_declared_zoom_range_reaches_conf():
     conf = _conf(zoom_range={"min": 8, "max": 12})
 
-    assert conf["zoomRange"] == {"min": 8, "max": 12}
-    # The author-facing argument never reaches CONF under its own key.
-    assert "zoom_range" not in conf
+    # The author-facing argument and the CONF key are one spelling now; the
+    # payload above is the whole contract (no second key to check).
+    assert conf["zoom_range"] == {"min": 8, "max": 12}
 
 
 def test_undeclared_zoom_range_is_null():
-    assert _conf()["zoomRange"] is None
+    assert _conf()["zoom_range"] is None
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ def test_invalid_zoom_range_warns_and_is_treated_as_undeclared(declaration):
     with pytest.warns(UserWarning, match="MeasureControl"):
         conf = _conf(zoom_range=declaration)
 
-    assert conf["zoomRange"] is None
+    assert conf["zoom_range"] is None
 
 
 def test_a_repeated_construction_repeats_no_declaration_warning():

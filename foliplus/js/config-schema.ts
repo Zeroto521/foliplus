@@ -20,8 +20,8 @@ type LayerData = {
   id: string;
   role: "base" | "overlay";
   show: boolean;
-  fillAuthor?: {
-    perFeature: boolean;
+  fill_author?: {
+    per_feature: boolean;
     distinct: number;
     stops: string[];
     capped?: boolean;
@@ -34,7 +34,7 @@ type LayerData = {
       method?: "equal" | null;
     };
   };
-  zoomRange?: { min: number; max: number };
+  zoom_range?: { min: number; max: number };
   /** Author's declared folder (per-layer, emitted by control.py from the
    *  author's `foliplus={"folder": ...}` declaration). Not a CONFIG field:
    *  the schema generator covers CONFIG fields only, so this per-layer
@@ -49,8 +49,8 @@ type LayerData = {
 }[];
 type ProviderConfig = {
   id: string;
-  baseUrl?: string;
-  throttleMs?: number;
+  base_url?: string;
+  throttle_ms?: number;
   headers?: Record<string, string>;
   suggest?: { url: string; params?: Record<string, string | number> };
   search?: { url: string; params?: Record<string, string | number> };
@@ -101,13 +101,13 @@ interface ConfigHeatmap extends ConfigCommon {
   label_format: NumberStyle; // Number format for hexagon value labels.
   collapse_on_outside: boolean;
   /** Declared zoom range: the control is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
-  zoomRange: ZoomRange | null;
+  zoom_range: ZoomRange | null;
 }
 
 interface ConfigLayer extends ConfigCommon {
   label_collide: boolean;
   collapse_on_outside: boolean;
-  icon_prefix: string;
+  icon_prefix: "fa-solid" | "fa-regular";
   folders: FolderDefaults | null; // Central folder-defaults config: author-declared default folded state per folder, keyed by role. Entries are {name, folded}; a name may be declared even with no members yet. A user manual fold always wins over the author default; same-name declarations merge (first spelling, folded last-wins).
   roles: RoleDefaults | null; // Central role-defaults config: author-declared default folded state per role. Entries are {folded}; an absent role keeps the built-in expanded default. A user manual fold or expand always wins over the author default.
   /** Layer list collected from the parent map at render time via _extra_config. */
@@ -129,7 +129,7 @@ interface ConfigMeasure extends ConfigCommon {
   export_format: "geojson" | "csv";
   collapse_on_outside: boolean;
   /** Declared zoom range: the toolbar is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
-  zoomRange: ZoomRange | null;
+  zoom_range: ZoomRange | null;
 }
 
 interface ConfigScale extends ConfigCommon {
@@ -180,9 +180,9 @@ interface ComponentConfig {
   label_format?: NumberStyle; // Number format for hexagon value labels.
   collapse_on_outside?: boolean;
   /** Declared zoom range: the control is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
-  zoomRange?: ZoomRange | null;
+  zoom_range?: ZoomRange | null;
   label_collide?: boolean;
-  icon_prefix?: string;
+  icon_prefix?: "fa-solid" | "fa-regular";
   folders?: FolderDefaults | null; // Central folder-defaults config: author-declared default folded state per folder, keyed by role. Entries are {name, folded}; a name may be declared even with no members yet. A user manual fold always wins over the author default; same-name declarations merge (first spelling, folded last-wins).
   roles?: RoleDefaults | null; // Central role-defaults config: author-declared default folded state per role. Entries are {folded}; an absent role keeps the built-in expanded default. A user manual fold or expand always wins over the author default.
   /** Layer list collected from the parent map at render time via _extra_config. */
