@@ -17,7 +17,7 @@ from conftest import (
 
 from foliplus import LayerControl
 
-from .helper_browser import LayerControlBrowserBase
+from ..helper_browser import LayerControlBrowserBase
 
 
 class TestLabelBrowser(LayerControlBrowserBase):

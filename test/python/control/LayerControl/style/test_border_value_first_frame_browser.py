@@ -31,7 +31,7 @@ from conftest import load_geojson, panel_ready, snippet, use_raw_page
 
 from foliplus import LayerControl
 
-from .helper import _expand_panel
+from ..helper import _expand_panel
 
 # The quickstart bake: folium writes color == fillColor == a per-feature plasma
 # colour, with stroke disabled in style_kwds. Three features, three colours, so

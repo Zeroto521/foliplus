@@ -39,7 +39,7 @@ _ROW = '.foliplus-layer-item[data-layer-type="overlay"]'
 _PANEL = ".foliplus-layer-style-panel"
 _READ = _js("LayerControl/read_row_hover_carveout")
 
-HERE = Path(__file__).resolve().parents[4]
+HERE = Path(__file__).resolve().parents[5]
 SHOTS = HERE / ".foliplus"
 
 # The probes live next to the other browser JS so they are formatted, reviewed

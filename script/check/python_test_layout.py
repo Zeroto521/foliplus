@@ -18,17 +18,19 @@ assertions:
 4. A control that is still a single test_<Name>.py may stay that way only while
    its whole suite is <= 800 code lines; past that it splits by dimension.
 5. Once a control has split into dimension files, no test_*.py exceeds 700 code
-   lines (the single-file shape has its own 800-line cap under rule 4).
+   lines (the single-file shape has its own 800-line cap under rule 4). Rule 4
+   owns that shape: a 750-line single test_<Name>.py passes, and an 801-line one
+   reports single-file-too-large only, never a second file-too-large.
 6. A subdirectory is a feature group, so it must hold at least 3 test files
    directly; fewer means the tests belong in the parent directory.
 
 code lines = non-blank lines that do not start with '#'; docstrings count, the
 same metric script/check/module_size_check.py uses for shipped modules.
 
-The current tree is mid-migration, so violations are grandfathered in
-ALLOWLIST: every entry names the rule, the temporary reason and the card that
-owns the split. The gate fails on a *new* violation AND on a *stale* entry, so
-the allowlist must drain to zero as the split cards land.
+Violations are grandfathered in ALLOWLIST: every entry names the rule, the
+temporary reason and the card that owns the split. The gate fails on a *new*
+violation AND on a *stale* entry, so the allowlist can only drain. It is empty
+now that the 2026-11 LayerControl split landed; keep it empty.
 
 Usage (called by pre-commit, or directly from the repo root):
     python script/check/python_test_layout.py
@@ -74,38 +76,7 @@ class Exemption:
 # Temporary exemptions while the layout migration drains. Every entry must be
 # removed by the split card it names; the gate fails on an entry that no longer
 # matches a violation so this list cannot silently rot.
-ALLOWLIST: tuple[Exemption, ...] = (
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test__fill_author.py",
-        "1010 code lines; split into the fill/icon style groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_icon.py",
-        "727 code lines; fold into the style icon/label groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_panel.py",
-        "3045 code lines; split into the panel/fold/filter groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_rendering.py",
-        "981 code lines; split into rendering lifecycle / registry groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_style.py",
-        "3219 code lines; split into the style groups (fill/border/icon/label/...).",
-        "python test layout phase 2",
-    ),
-)
+ALLOWLIST: tuple[Exemption, ...] = ()
 
 
 def code_lines(path: Path) -> int:

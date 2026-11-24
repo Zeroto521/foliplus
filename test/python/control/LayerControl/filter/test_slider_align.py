@@ -23,7 +23,7 @@ from conftest import _js, load_geojson, panel_ready, use_page
 
 from foliplus import LayerControl
 
-from .helper_browser import LayerControlBrowserBase
+from ..helper_browser import LayerControlBrowserBase
 
 
 class TestFilterRangeSliderLabelAlignment(LayerControlBrowserBase):
