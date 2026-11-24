@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { generateId } from "#core/lifecycle/index.js";
 import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/HeatmapControl/const.js";
+import * as SVGs from "#control/HeatmapControl/icon.js";
 
 describe("TIMING", () => {
   it("has expected debounce values", () => {
@@ -15,6 +16,14 @@ describe("TIMING", () => {
     expect(
       (CONST.TIMING as Record<string, unknown>).LOAD_SCRIPT_RETRIES,
     ).toBeUndefined();
+  });
+});
+
+describe("HEXAGON", () => {
+  it("is an SVG string", () => {
+    expect(SVGs.ICON_HEXAGON).toContain("<svg");
+    expect(SVGs.ICON_HEXAGON).toContain("</svg>");
+    expect(SVGs.ICON_HEXAGON).toContain("polygon");
   });
 });
 

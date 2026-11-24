@@ -11,7 +11,7 @@ import * as capabilityModule from "#foliplus/core/layer/capability.js";
 import * as carrierModule from "#foliplus/core/layer/carrier.js";
 
 // Minimal Leaflet shapes: the surface only reads `options`, `eachLayer`
-// (containers), `getElement` + `_map` (attached DOM) and the `instanceof`
+// (groups), `getElement` + `_map` (attached DOM) and the `instanceof`
 // identities the pane decision turns on. The move itself lives in
 // `PaneManager.pinLateContent`, which reads the same fields.
 class Path {
@@ -73,7 +73,7 @@ class ImageOverlay {
   options: Record<string, unknown> = {};
 }
 
-/** A container: `eachLayer` is what makes `pinLateContent` recurse instead of
+/** A group: `eachLayer` is what makes `pinLateContent` recurse instead of
  *  treating it as a leaf. */
 class Group {
   options: Record<string, unknown> = {};
@@ -610,7 +610,7 @@ describe("LayerSurface.materialize", () => {
     expect(surface.materialized).toBe(true);
   });
 
-  it("leaves a declared container's children to the caller's routing", () => {
+  it("leaves a declared group's children to the caller's routing", () => {
     // createLayers picks a sub-pane per leaf; pinning the tree here would
     // collapse every leaf onto the base pane.
     const { host } = makeMap();
@@ -638,7 +638,7 @@ describe("LayerSurface.materialize", () => {
     surface.materialize();
     const pane = surface.synthesizedPaneName!;
     expect(child.options.pane).toBe(pane);
-    // A container is not given options.pane — Leaflet ignores a group's pane
+    // A group is not given options.pane — Leaflet ignores a group's pane
     // for its children, which is why the pin walks the tree at all.
     expect(layer.options.pane).toBeUndefined();
     expect(host.discoverChildPanes(layer as unknown as L.Layer)).toEqual([]);
@@ -1824,7 +1824,7 @@ describe("kind declaration (cluster / tile|vector)", () => {
     expect(deriveLayerKind({ id: "u", layer: null, custom: {} } as any)).toBe("custom");
     // Pending Leaflet-layer registration is NOT custom (see hasUnresolvedLayers).
     expect(deriveLayerKind({ id: "p", layer: null } as any)).toBe("vector");
-    // L.LayerGroup is a vector-family container.
+    // L.LayerGroup is a vector-family group.
     (window as { L: Record<string, unknown> }).L.LayerGroup = Group;
     expect(
       deriveLayerKind({ id: "g2", layer: new Group([]) as unknown as L.Layer } as any),

@@ -22,6 +22,7 @@ import { styleCapability } from "./styleCapability.js";
 import { numberFormatOptions, resolveSelectedField } from "#core/label/index.js";
 import { DIM } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { NUMBER_FORMAT, withUnit } from "#platform/format.js";
 import { dropdownSurface } from "#platform/fullscreen.js";
@@ -37,7 +38,6 @@ import {
   numberInput as formNumberInput,
   formRow,
   inlineControls,
-  normalizeHexColor,
   selectInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

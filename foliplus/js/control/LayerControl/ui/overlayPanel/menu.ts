@@ -1,10 +1,20 @@
 // LayerControl UI — Overflow (⋮) menu.
-import { focusDisabledLocaleKey, focusDisabledReason } from "../focus/index.js";
+import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
+import { emptyFolderKeys, rebuildList } from "../listPanel/list.js";
+import { ROW_NOUN, type RowNoun, withNoun } from "../rowNoun.js";
+import { saveState } from "../state.js";
 import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
+import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
+import {
+  type LayerRole,
+  folderKeysOfRole,
+  isGroupRow,
+  nextFolderDefaultName as nextFolderDefaultNameInLayout,
+} from "#core/layer/index.js";
 import {
   type Dismiss,
   type PanelController,
@@ -12,11 +22,15 @@ import {
   createPanel,
 } from "#core/leaflet/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
-import { dom } from "#platform/dom.js";
+import { createInlineEditInput, dom } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 import { throttleRaf } from "#platform/throttle.js";
-import { PANEL_CLASS, placeSurface } from "#ui/index.js";
+import { FORM_CLASS, PANEL_CLASS, placeSurface } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import {
+  effectiveFolderFolded,
+  folderFoldKey,
+} from "#control/LayerControl/declaredFolder.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /**
@@ -35,7 +49,7 @@ import * as SVGs from "#control/LayerControl/icon.js";
  *                   to a long-lived inline editor.
  *   5. Attributes — opens the read-only detail panel. Display-only, never
  *                   disabled, so it closes the quiet part of the list.
- *   6. Delete     — behind a divider, the one destructive entry. Armed in
+ *   6. Delete     — behind a divider, the one destructive entry. Pending in
  *                   place on the first click and executed on the second; it is
  *                   rendered for every layer. The label varies by semantics:
  *                   "Delete Layer" for user-owned data layers, "Clear Data"
@@ -65,7 +79,7 @@ import * as SVGs from "#control/LayerControl/icon.js";
  *  container (`_isClickDisabled`); a detached target has no control ancestor
  *  left to find the `_leaflet_disable_click` marker on, so the press would land
  *  on the map as a real click — e.g. it drops a marker while a MeasureControl
- *  mode is armed. Swallowing it here keeps the "a click inside the control is
+ *  mode is pending. Swallowing it here keeps the "a click inside the control is
  *  not a map click" guarantee that `disableClickPropagation` gave us while the
  *  menu sat in the document. */
 const handleMenuClick = (ui: LayerUI, event: Event): void => {
@@ -103,6 +117,8 @@ const placeMoreMenu = (ui: LayerUI): void => {
   const open = ui.overlayPanel.activeMenu;
   if (!open) return;
   const { item, menu } = open;
+  // The width is fixed by CSS (`--foliplus-menu-width`), so confirming an item
+  // cannot resize the menu and no inline pin is needed here.
   const btn = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`);
   const anchor = (btn ?? item).getBoundingClientRect();
   const clip = item.closest<HTMLElement>(`.${PANEL_CLASS.CONTENT}`);
@@ -146,21 +162,34 @@ const scheduleMoreMenu = (ui: LayerUI): (() => void) => {
 };
 
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
+  // A folder row is a .foliplus-layer-item too, but its ⋮ menu is the
+  // folder entry set (rename / show / hide / delete), not the layer set.
+  if (item.hasAttribute(CONST.DATA.FOLDER_KEY)) {
+    openFolderMenu(ui, item);
+    return;
+  }
   // Tear down the competing overlays first. The rename teardown in
   // particular keeps the row's label text fresh before we read it below.
   closeOverlays(ui);
 
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+  // Row semantics come from the entry, not the Leaflet class: a logical layer
+  // backed by a group with a featureCountProvider (MeasureControl, Heatmap) is
+  // data, so its style and filter panels stay available.
+  const isGroup = isGroupRow(ui.c.layerRegistry.get(layerId), ui.c.findLayer(layerId));
   const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
   // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
   // layers whose surface reports no bounds carrier. The disabled li carries
   // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
   const focusReason = focusDisabledReason(ui, item);
   const focusDisabled = focusReason !== undefined;
+  // A container row is a layer group, so its sentences say "layer group"
+  // rather than "layer"; every other row is a plain layer.
+  const focusNoun: RowNoun = isGroup ? ROW_NOUN.GROUP : ROW_NOUN.LAYER;
   const focusDisabledTitle =
     focusReason !== undefined
-      ? ui.T(focusDisabledLocaleKey(focusReason))
-      : ui.T("focus_layer_tooltip");
+      ? focusDisabledText(ui, focusReason, focusNoun)
+      : withNoun(ui, "focus_tooltip", focusNoun);
 
   // Capability gate: only rows that declare the filter capability render the
   // entry. A capable row with no filterable field stays visible but disabled
@@ -172,7 +201,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // filter action (the panel would target an invisible layer), so the entry
   // is disabled for the same reason style is. Tooltip priority mirrors
   // style: the hidden reason first, then the no-fields reason.
-  const filterDisabled = focusReason === "hidden" || !filterHasFields;
+  const filterDisabled = isGroup || focusReason === "hidden" || !filterHasFields;
   if (filterInfo) {
     menu.appendChild(
       dom.el(
@@ -181,16 +210,17 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
           type: "button",
           "data-action": CONST.ACTION.FILTER_LAYER,
           role: "menuitem",
-          title:
-            focusReason === "hidden"
-              ? ui.T(focusDisabledLocaleKey("hidden"))
+          title: isGroup
+            ? ui.T("group_no_style_filter")
+            : focusReason === "hidden"
+              ? focusDisabledText(ui, "hidden", focusNoun)
               : filterHasFields
                 ? ui.T("filter_layer_tooltip")
                 : ui.T("filter_empty"),
           "aria-disabled": filterDisabled ? "true" : "false",
         },
         { html: SVGs.ICON_FILTER },
-        ui.T("filter_layer"),
+        menuLabel(ui.T("filter_layer")),
       ),
     );
   }
@@ -218,7 +248,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // (or vice versa) — and it cannot drift from the panel's dimension list.
   const cap = styleCapability(ui, layerId);
   const canConfigure = Object.values(cap.dims).some(Boolean) || cap.styleDelegation;
-  const styleDisabled = focusReason === "hidden" || !canConfigure;
+  const styleDisabled = isGroup || focusReason === "hidden" || !canConfigure;
 
   menu.appendChild(
     dom.el(
@@ -227,13 +257,15 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.STYLE_LAYER,
         role: "menuitem",
-        title: styleDisabled
-          ? ui.T("style_label_no_data")
-          : ui.T("style_layer_tooltip"),
+        title: isGroup
+          ? ui.T("group_no_style_filter")
+          : styleDisabled
+            ? ui.T("style_label_no_data")
+            : ui.T("style_layer_tooltip"),
         "aria-disabled": styleDisabled ? "true" : "false",
       },
       { html: SVGs.ICON_STYLE },
-      ui.T("style_layer"),
+      menuLabel(ui.T("style_layer")),
     ),
   );
 
@@ -244,12 +276,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     type: "button",
     "data-action": "focus-layer",
     role: "menuitem",
-    title: focusDisabled ? focusDisabledTitle : ui.T("focus_layer_tooltip"),
+    title: focusDisabledTitle,
     "aria-disabled": focusDisabled ? "true" : "false",
   };
 
   menu.appendChild(
-    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, ui.T("focus_layer")),
+    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, menuLabel(ui.T("focus"))),
   );
 
   // Rename writes to the layer itself, so it sits above the display-only
@@ -261,10 +293,10 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         type: "button",
         "data-action": CONST.ACTION.RENAME_LAYER,
         role: "menuitem",
-        title: ui.T("rename_layer_tooltip"),
+        title: withNoun(ui, "rename_tooltip", focusNoun),
       },
       { html: Icons.ICON_EDIT },
-      ui.T("rename_layer"),
+      menuLabel(ui.T("rename")),
     ),
   );
 
@@ -280,33 +312,13 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         title: ui.T("attributes_layer_tooltip"),
       },
       { html: Icons.ICON_INFO },
-      ui.T("attributes_layer"),
+      menuLabel(ui.T("attributes_layer")),
     ),
   );
-  // A row whose layer belongs to a folder block gets an explicit
-  // "delete folder" entry. The user-facing counterpart of the #911 auto-retain:
-  // freeze keeps an emptied folder key around; this entry removes it. Deleting a
-  // non-empty folder promotes every member to section root (folder = null,
-  // order preserved); the layers themselves are never touched.
-  // The folder is read from the layout's member assignment (the single
-  // source), not from the author declaration on the registry entry — a
-  // rename keeps the member, and a user move to root drops it.
-  const folderName = ui.c.folderNameOf(layerId);
-  if (folderName) {
-    menu.appendChild(
-      dom.el(
-        "button",
-        {
-          type: "button",
-          "data-action": CONST.ACTION.DELETE_FOLDER,
-          role: "menuitem",
-          title: ui.T("delete_folder_tooltip"),
-        },
-        { html: Icons.ICON_DELETE },
-        ui.T("delete_folder").replace("{name}", folderName),
-      ),
-    );
-  }
+  // Deleting the folder a layer belongs to is the folder row's own operation,
+  // not the layer's: each row type owns its entry set, and a layer menu with
+  // two entries both labelled "Delete" would make the user guess which one
+  // they are confirming.
 
   // Delete goes behind a divider: everything above it is reversible (view,
   // configure, rename, inspect), and this is the only entry that is not. Three
@@ -414,21 +426,26 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
  *  not "disabled delete". */
 type DeleteMode = "clear" | "delete" | "absent";
 
-/** How long an armed delete entry waits for its confirming click. Anything
- *  that closes the menu disarms it anyway, so this only covers the case where
+/** How long an pending delete entry waits for its confirming click. Anything
+ *  that closes the menu disconfirms it anyway, so this only covers the case where
  *  the entry stays focused and forgotten. */
-const DELETE_ARMED_TIMEOUT_MS = 3000;
+const DELETE_CONFIRM_TIMEOUT_MS = 3000;
 
-/** The one armed delete entry, if any: only one menu is open at a time, so a
- *  module-level pointer cannot refer to two rows at once. */
-let armedDelete: {
+/** The one pending delete entry, if any. Only one menu is open at a time, and
+ *  confirmDelete disconfirms the previous entry before confirming, so a module-level
+ *  pointer cannot refer to two rows at once. */
+let pendingDelete: {
   ui: LayerUI;
   label: HTMLElement;
   menuItem: HTMLElement;
-  isClear: boolean;
+  /** The entry's idle label text, captured before confirming so a label carrying a
+   *  placeholder (the empty-folder count) restores verbatim. */
+  idleText: string;
+  /** Locale key the entry shows while pending. */
+  confirmKey: string;
   originalTitle: string;
 } | null = null;
-let armedDeleteTimer: ReturnType<typeof setTimeout> | undefined;
+let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined;
 
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
@@ -472,6 +489,13 @@ const layerSupportsFilter = (ui: LayerUI, layerId: string): boolean => {
   return ui.c.hasFilterableFields(layerId) || layer.filterProvider() !== null;
 };
 
+/** A menu entry's label. Every entry wraps its text in a span so the flex
+ *  layout (icon left, label right) is identical across the role, folder and
+ *  layer menus — a bare text node is an anonymous flex item and the three
+ *  menus ended up laying their labels out differently. */
+const menuLabel = (text: string, cls?: string): HTMLElement =>
+  dom.el("span", cls ? { class: cls } : {}, text);
+
 const buildDeleteItem = (
   ui: LayerUI,
   mode: Exclude<DeleteMode, "absent">,
@@ -480,7 +504,7 @@ const buildDeleteItem = (
   const label = dom.el(
     "span",
     { class: CONST.CLASSES.MENU_DELETE_LABEL },
-    ui.T(isClear ? "clear_data" : "delete_layer"),
+    ui.T(isClear ? "clear_data" : "delete"),
   );
   const tooltip = ui.T(isClear ? "clear_data_tooltip" : "delete_layer_tooltip");
   const item = dom.el(
@@ -498,53 +522,93 @@ const buildDeleteItem = (
   return item;
 };
 
+/** The confirming locale key for a delete entry. One table for every kind of
+ *  delete entry — a layer, a component's data, a folder, a role's empty
+ *  folders — so the two-step confirm reads the same wherever it appears. The
+ *  idle label is captured from the entry itself, so an idle label carrying a
+ *  placeholder (the empty-folder count) restores verbatim. */
+const deleteConfirmKey = (menuItem: HTMLElement): string =>
+  menuItem.dataset.mode === "clear" ? "clear_data_confirm" : "delete_confirm";
+
 /** Turn the delete entry into its confirming state: the label swaps to the
  *  confirmation text and the entry fills, so the second click is unambiguous
  *  without borrowing the accent color (which already means hover and focus). */
-const armDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
+const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
   const label = menuItem.querySelector<HTMLElement>(
     `.${CONST.CLASSES.MENU_DELETE_LABEL}`,
   );
   if (!label) return;
-  disarmDelete();
-  const isClear = menuItem.dataset.mode === "clear";
-  // The title attribute is set by buildDeleteItem at entry construction, so
-  // there is no null to fall back to.
+  disconfirmDelete();
+  const confirmKey = deleteConfirmKey(menuItem);
+  // The title attribute is set by the entry builder at construction, so there
+  // is no null to fall back to.
   const originalTitle = menuItem.getAttribute("title")!;
-  armedDelete = { ui, label, menuItem, isClear, originalTitle };
-  label.textContent = ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm");
-  menuItem.classList.add(CONST.CLASSES.MENU_DELETE_ARMED);
-  menuItem.setAttribute(
-    "title",
-    ui.T(isClear ? "clear_data_confirm" : "delete_layer_confirm"),
-  );
-  armedDeleteTimer = setTimeout(disarmDelete, DELETE_ARMED_TIMEOUT_MS);
+  pendingDelete = {
+    ui,
+    label,
+    menuItem,
+    idleText: label.textContent ?? "",
+    confirmKey,
+    originalTitle,
+  };
+  label.textContent = ui.T(confirmKey);
+  menuItem.classList.add(CONST.CLASSES.MENU_DELETE_PENDING);
+  menuItem.setAttribute("title", ui.T(confirmKey));
+  pendingDeleteTimer = setTimeout(disconfirmDelete, DELETE_CONFIRM_TIMEOUT_MS);
 };
 
 /** Back out of the confirming state. Idempotent, and called on every path that
- *  closes the menu so an abandoned attempt never leaves an armed entry behind. */
-const disarmDelete = (): void => {
-  if (armedDeleteTimer) clearTimeout(armedDeleteTimer);
-  armedDeleteTimer = undefined;
-  const armed = armedDelete;
-  if (!armed) return;
-  armed.label.textContent = armed.ui.T(armed.isClear ? "clear_data" : "delete_layer");
-  armed.menuItem.setAttribute("title", armed.originalTitle);
-  armed.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_ARMED);
-  armedDelete = null;
+ *  closes the menu so an abandoned attempt never leaves an pending entry behind. */
+const disconfirmDelete = (): void => {
+  if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
+  pendingDeleteTimer = undefined;
+  const pending = pendingDelete;
+  if (!pending) return;
+  pending.label.textContent = pending.idleText;
+  pending.menuItem.setAttribute("title", pending.originalTitle);
+  pending.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_PENDING);
+  pendingDelete = null;
 };
 
 /** The two-step delete, shared by the click and the keyboard path. Returns
  *  true when the delete fired and the menu should close; false means the entry
- *  was only armed, so the menu stays open and the user sees what they are about
+ *  was only pending, so the menu stays open and the user sees what they are about
  *  to confirm. */
 const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
-  if (!menuItem.classList.contains(CONST.CLASSES.MENU_DELETE_ARMED)) {
-    armDelete(ui, menuItem);
+  if (!menuItem.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)) {
+    confirmDelete(ui, menuItem);
     return false;
   }
+  const action = menuItem.dataset.action;
+  disconfirmDelete();
+  if (action === CONST.ACTION.CLEAN_EMPTY_FOLDERS) {
+    // The role row owns the identity; the menu closes first because the action
+    // rerenders the list the menu is anchored to.
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) {
+      ui.closeMoreMenu(true);
+      ui.c.cleanEmptyFolders(role as LayerRole);
+    }
+    return true;
+  }
+  if (action === CONST.ACTION.DELETE_FOLDER) {
+    // The folder row owns the identity: it carries no data-layer-id, so the
+    // menu record's folderKey / role are the handles. The KEY, never the
+    // display name: after a rename the two diverge and a name-keyed delete
+    // silently misses the folder. The menu closes first (hard constraint 4a) —
+    // the action rerenders the list, and the menu anchors to the row being
+    // rebuilt.
+    const open = ui.overlayPanel.activeMenu;
+    const role = open?.role ?? open?.item.getAttribute(CONST.DATA.ROLE) ?? "";
+    const folderKey =
+      open?.folderKey ?? open?.item.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
+    if (role && folderKey) {
+      ui.closeMoreMenu(true);
+      ui.c.deleteFolder(role as LayerRole, folderKey);
+    }
+    return true;
+  }
   const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";
-  disarmDelete();
   ui.c.deleteLayer(layerId);
   return true;
 };
@@ -565,7 +629,7 @@ const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
   ui.overlayPanel.activeMenu = null;
-  disarmDelete();
+  disconfirmDelete();
   menu.remove();
   if (setFocus) item.focus();
 };
@@ -597,6 +661,79 @@ const menuLayerId = (ui: LayerUI): string => ui.overlayPanel.activeMenu?.layerId
  *  (keyboard knew three of the six actions and sent the rest to focus-layer).
  *  The `Record<MenuAction, …>` shape makes a new CONST.ACTION value fail
  *  typecheck until its branch exists here. */
+/** The role's folder keys, read from the layout (the owner of the arithmetic). */
+const roleFolderKeys = (ui: LayerUI, role: string): string[] =>
+  folderKeysOfRole(ui.c.folderLayoutView, role as LayerRole);
+
+/** The default name for a new folder, from the layout's own collision check. */
+const nextFolderDefaultName = (ui: LayerUI, role: string): string =>
+  nextFolderDefaultNameInLayout(
+    ui.c.folderLayoutView,
+    role as LayerRole,
+    ui.T("new_folder_default_name"),
+  );
+
+const setAllFoldersFolded = (ui: LayerUI, role: string, folded: boolean) => {
+  for (const key of roleFolderKeys(ui, role)) {
+    // An explicit opinion in both directions, so expand-all opens an
+    // author-folded folder instead of leaving it folded.
+    ui.listPanel.foldedFolders[folderFoldKey(role, key)] = folded;
+  }
+  rebuildList(ui);
+  saveState(ui);
+};
+
+/** Start an inline rename on a folder row's label. The folder identity is the
+ *  role + normalized key; the label shows the display name. Commit calls the
+ *  controller so the block key, member spellings and persistence stay single-
+ *  sourced. Escape/empty cancel silently (empty name = no-op). */
+const startFolderRename = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+  folderName: string,
+) => {
+  const item = ui.uiContainer?.querySelector<HTMLElement>(
+    `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
+  );
+  const label = item?.querySelector("label") as HTMLLabelElement | null;
+  if (!item || !label) return;
+  closeOverlays(ui);
+  // Same row flag the layer rename sets: it is what stretches the input across
+  // the label+count area, so both rename kinds render identically.
+  ui.overlayPanel.activeRenameRow = item;
+  item.classList.add(CONST.CLASSES.RENAMING);
+  createInlineEditInput({
+    label,
+    initialValue: folderName,
+    className: `${CONST.CLASSES.RENAME_INPUT} ${FORM_CLASS.INPUT}`,
+    ariaLabel: withNoun(ui, "rename_placeholder", ROW_NOUN.FOLDER),
+    isActive: () => ui.overlayPanel.activeRenameRow === item,
+    onCommit: trimmed => {
+      const next = trimmed.trim();
+      if (next && next !== folderName) {
+        // The key, not the display name: a rename moves the display name only,
+        // so the key is the one handle that survives repeated renames.
+        ui.c.renameFolder(role as LayerRole, folderKey, next);
+      }
+      finishRename(ui, true);
+    },
+    onCancel: () => finishRename(ui, true),
+  });
+};
+
+/** Start a new folder in a role: create it (controller), then open an inline
+ *  rename on its row so the user names it immediately. The row exists even
+ *  though the folder holds no layer yet, and the input opens focused with the
+ *  default name selected. Blank/escape leaves the default name (a silent
+ *  no-op on empty). */
+const startNewFolder = (ui: LayerUI, role: string) => {
+  const name = nextFolderDefaultName(ui, role);
+  const result = ui.c.createFolder(role as LayerRole, name);
+  if (!result.ok) return;
+  rebuildList(ui);
+  startFolderRename(ui, role, result.key, name);
+};
 const MENU_ACTIONS: Record<
   MenuAction,
   (ui: LayerUI, menuItem: HTMLElement) => MenuActionResult
@@ -624,27 +761,56 @@ const MENU_ACTIONS: Record<
     return { closeMenu: true, restoreRowFocus: true };
   },
   [CONST.ACTION.DELETE_LAYER]: (ui, menuItem) => {
-    // Armed in place: the first activation only arms, so the menu stays open
+    // Pending in place: the first activation only confirms, so the menu stays open
     // and the confirming label is visible; the second one deletes.
     if (activateDeleteItem(ui, menuItem)) {
       return { closeMenu: true, restoreRowFocus: true };
     }
     return { closeMenu: false, restoreRowFocus: false };
   },
-  [CONST.ACTION.DELETE_FOLDER]: ui => {
-    // The row's layer is the only handle: the menu does not carry the folder
-    // name, so resolve it from the registry at dispatch time. The menu closes
-    // first (hard constraint 4a) — the action rerenders the list, and the menu
-    // anchors to the row being rebuilt.
-    const layerId = menuLayerId(ui);
-    const member = ui.c.folderLayoutView.members[layerId];
-    const layerInfo = ui.c.layerRegistry.get(layerId);
-    const folderName = ui.c.folderNameOf(layerId);
-    if (layerInfo && folderName) {
-      ui.closeMoreMenu(true);
-      ui.c.deleteFolder(member ? member.role : layerInfo.role, folderName);
+  [CONST.ACTION.DELETE_FOLDER]: (ui, menuItem) => {
+    // Same two-step confirm as a layer delete: the first activation only confirms,
+    // so the menu stays open and the confirming label is visible.
+    if (activateDeleteItem(ui, menuItem)) {
+      return { closeMenu: true, restoreRowFocus: true };
     }
     return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.CLEAN_EMPTY_FOLDERS]: (ui, menuItem) => {
+    // Same two-step confirm as every other delete entry: the first activation
+    // only confirms, so the menu stays open and the confirming label is visible.
+    if (activateDeleteItem(ui, menuItem)) {
+      return { closeMenu: true, restoreRowFocus: true };
+    }
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.RENAME_FOLDER]: ui => {
+    const fk = ui.overlayPanel.activeMenu?.folderKey;
+    const role =
+      ui.overlayPanel.activeMenu?.role ??
+      ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.ROLE) ??
+      "";
+    const name =
+      ui.overlayPanel.activeMenu?.item.getAttribute(CONST.DATA.FOLDER_NAME) ?? "";
+    ui.closeMoreMenu(false);
+    if (fk && role && name) startFolderRename(ui, role, fk, name);
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.NEW_FOLDER]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    ui.closeMoreMenu(false);
+    startNewFolder(ui, role);
+    return { closeMenu: false, restoreRowFocus: false };
+  },
+  [CONST.ACTION.EXPAND_ALL]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) setAllFoldersFolded(ui, role, false);
+    return { closeMenu: true, restoreRowFocus: true };
+  },
+  [CONST.ACTION.COLLAPSE_ALL]: ui => {
+    const role = ui.overlayPanel.activeMenu?.role ?? "";
+    if (role) setAllFoldersFolded(ui, role, true);
+    return { closeMenu: true, restoreRowFocus: true };
   },
 };
 
@@ -684,11 +850,196 @@ const runMenuAction = (
   if (outcome.closeMenu) ui.closeMoreMenu(outcome.restoreRowFocus);
 };
 
+/** The shared menu-attach scaffold for the folder / role menus: create the
+ *  controller, wire focus-out dismissal + click dispatch, register the panel
+ *  and place + focus. `extras` extends the activeMenu record (folderKey or
+ *  role). Mirrors the layer menu's attach block - one authority per menu kind. */
+const attachRowMenu = (
+  ui: LayerUI,
+  item: HTMLElement,
+  menu: HTMLElement,
+  extras: { folderKey?: string; role?: string },
+) => {
+  const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+  const controller: PanelController = createPanel({
+    owner: "layer",
+    localId: "menu",
+    rank: 800,
+    exclusiveGroup: "map:panel",
+    clearsCursorOnClose: true,
+    dismiss: { outsidePress: "click" } satisfies Partial<Dismiss>,
+    root: () => ui.overlayPanel.activeMenu?.menu ?? null,
+    open: () => {
+      item.style.position = "relative";
+      item.appendChild(menu);
+    },
+    close: ({ restoreFocus }) => {
+      closeMoreMenu(ui, restoreFocus);
+      return true;
+    },
+  });
+  menu.addEventListener("focusout", event => {
+    const next = (event as FocusEvent).relatedTarget as Node | null;
+    if (next && (next === item || item.contains(next))) return;
+    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
+  });
+  menu.addEventListener("click", event => handleMenuClick(ui, event));
+  ui.overlayPanel.activeMenu = { item, menu, layerId, ...extras };
+  ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
+    closeMoreMenu(ui, false);
+  });
+  ui.overlayPanel.menuOverlayUnregister = attachPanel(ui.c.map, controller);
+  controller.open();
+  placeMoreMenu(ui);
+  ui.overlayPanel.menuReposition = scheduleMoreMenu(ui);
+  (
+    menu.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU} button`) as HTMLElement
+  ).focus();
+};
+
+/** Open the menu for a folder row. */
+const openFolderMenu = (ui: LayerUI, item: HTMLElement) => {
+  closeOverlays(ui);
+  const folderKey = item.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
+  const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.RENAME_FOLDER,
+        role: "menuitem",
+        title: withNoun(ui, "rename_tooltip", ROW_NOUN.FOLDER),
+      },
+      { html: Icons.ICON_EDIT },
+      menuLabel(ui.T("rename")),
+    ),
+  );
+  menu.appendChild(
+    dom.el("li", {
+      class: `${CONST.CLASSES.MENU_DIVIDER} ${PANEL_CLASS.SECTION_DIVIDER}`,
+      role: "separator",
+      "aria-hidden": "true",
+    }),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.DELETE_FOLDER,
+        role: "menuitem",
+        title: ui.T("delete_folder_tooltip"),
+      },
+      { html: Icons.ICON_DELETE },
+      dom.el("span", { class: CONST.CLASSES.MENU_DELETE_LABEL }, ui.T("delete")),
+    ),
+  );
+  attachRowMenu(ui, item, menu, { folderKey });
+};
+
+/** Open the menu for a role (section) row. */
+const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
+  closeOverlays(ui);
+  const role = item.getAttribute(CONST.DATA.ROLE) ?? "";
+  const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.NEW_FOLDER,
+        role: "menuitem",
+        title: ui.T("new_folder_tooltip"),
+      },
+      { html: SVGs.ICON_FOLDER },
+      menuLabel(ui.T("new_folder")),
+    ),
+  );
+  // Expand/collapse are disabled when they would do nothing: every folder is
+  // already in that state, or the role owns no folder at all. The reason is the
+  // tooltip, the same contract the empty-folder cleanup uses.
+  const folderKeys = roleFolderKeys(ui, role);
+  const foldedCount = folderKeys.filter(key =>
+    effectiveFolderFolded(
+      ui.listPanel.authorFoldedFolders,
+      ui.listPanel.foldedFolders,
+      role,
+      key,
+    ),
+  ).length;
+  const expandDisabled = folderKeys.length === 0 || foldedCount === 0;
+  const collapseDisabled = folderKeys.length === 0 || foldedCount === folderKeys.length;
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.EXPAND_ALL,
+        role: "menuitem",
+        title: expandDisabled ? ui.T("expand_all_none") : ui.T("expand_all_tooltip"),
+        "aria-disabled": expandDisabled ? "true" : "false",
+      },
+      { html: SVGs.ICON_EXPAND_ALL },
+      menuLabel(ui.T("expand_all")),
+    ),
+  );
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.COLLAPSE_ALL,
+        role: "menuitem",
+        title: collapseDisabled
+          ? ui.T("collapse_all_none")
+          : ui.T("collapse_all_tooltip"),
+        "aria-disabled": collapseDisabled ? "true" : "false",
+      },
+      { html: SVGs.ICON_COLLAPSE_ALL },
+      menuLabel(ui.T("collapse_all")),
+    ),
+  );
+  menu.appendChild(
+    dom.el("li", {
+      class: `${CONST.CLASSES.MENU_DIVIDER} ${PANEL_CLASS.SECTION_DIVIDER}`,
+      role: "separator",
+      "aria-hidden": "true",
+    }),
+  );
+  // The empty-folder cleanup sits at the destructive tail, behind the same
+  // divider and two-step confirm as every other delete entry. It is disabled
+  // (with the reason as its tooltip) when the role owns no empty folder.
+  const emptyCount = emptyFolderKeys(ui, role).length;
+  const cleanDisabled = emptyCount === 0;
+  menu.appendChild(
+    dom.el(
+      "button",
+      {
+        type: "button",
+        "data-action": CONST.ACTION.CLEAN_EMPTY_FOLDERS,
+        role: "menuitem",
+        title: cleanDisabled
+          ? ui.T("clean_empty_folders_none")
+          : ui.T("clean_empty_folders_tooltip"),
+        "aria-disabled": cleanDisabled ? "true" : "false",
+      },
+      { html: Icons.ICON_DELETE },
+      dom.el(
+        "span",
+        { class: CONST.CLASSES.MENU_DELETE_LABEL },
+        ui.T("clean_empty_folders"),
+      ),
+    ),
+  );
+  attachRowMenu(ui, item, menu, { role });
+};
 export {
   MENU_ACTIONS,
   activateDeleteItem,
   closeMoreMenu,
   handleMenuClick,
   openMoreMenu,
+  openRoleMenu,
   runMenuAction,
 };

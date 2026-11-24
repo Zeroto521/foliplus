@@ -15,6 +15,7 @@ forwards those kwargs onto a layer's options from 0.15 on.
 from __future__ import annotations
 
 import json
+import re
 import warnings
 from pathlib import Path
 
@@ -23,9 +24,10 @@ import pytest
 from conftest import feature_collection
 
 from foliplus import LayerControl
-from foliplus.control.LayerControl._layer_declaration import (
+from foliplus.control.LayerControl._layer import (
     FOLIPLUS_KEYS,
     declared_border,
+    declared_fill,
     declared_filter,
     declared_folder,
     declared_icon_size,
@@ -50,6 +52,35 @@ def _conf(html: str) -> dict:
     start = html.index(marker) + len(marker)
     end = html.index(";", start)
     return json.loads(html[start:end])
+
+
+def _declared_namespace(html: str) -> dict:
+    """The layer's own foliplus options as rendered into the JS config.
+
+    The declaration channel is the layer's JS options (the panel reads it off
+    layer.options.foliplus), so the rendered page is where a Python test can
+    see the payload the runtime will receive.
+    """
+    # folium 0.15 renders an unquoted `foliplus: {...}`; newer releases
+    # quote the key. Accept either spelling (the value is a JS literal).
+    match = re.search(r'["\']?foliplus["\']?\s*:\s*\{', html)
+    if match is None:
+        raise AssertionError("foliplus namespace not found in the rendered HTML")
+    start = match.end() - 1
+    depth = 0
+    for index in range(start, len(html)):
+        char = html[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                # folium renders the options as a JS object literal, so a
+                # nested object may carry a trailing comma; strip those
+                # before handing the slice to the JSON parser.
+                block = html[start : index + 1]
+                return json.loads(re.sub(r",(\s*[}\]])", r"\1", block))
+    raise AssertionError("unterminated foliplus namespace in rendered HTML")
 
 
 def _geo(name: str = "Declared", **options: object) -> folium.GeoJson:
@@ -525,7 +556,7 @@ def test_undeclared_border_is_none_without_a_warning():
 def test_invalid_border_warns_and_reads_none():
     with pytest.warns(UserWarning, match="border"):
         assert (
-            declared_border(_geo(foliplus={"border": {"mode": "solid"}}), "Declared")
+            declared_border(_geo(foliplus={"border": {"mode": "nope"}}), "Declared")
             is None
         )
 
@@ -538,11 +569,91 @@ def test_border_stays_out_of_conf():
     assert "border" not in entry
 
 
+def test_declared_border_solid_color_and_weight_are_read():
+    layer = _geo(
+        foliplus={"border": {"mode": "solid", "color": "#FF0000", "weight": 2}}
+    )
+    assert declared_border(layer, "Declared") == {
+        "mode": "solid",
+        "color": "#ff0000",
+        "weight": 2,
+    }
+
+
+def test_declared_fill_solid_color_is_read():
+    layer = _geo(foliplus={"fill": {"mode": "solid", "color": "#ff0000"}})
+    assert declared_fill(layer, "Declared") == {"mode": "solid", "color": "#ff0000"}
+
+
+def test_declared_fill_value_mode_is_read():
+    layer = _geo(foliplus={"fill": {"field": "score", "scheme": "Reds"}})
+    assert declared_fill(layer, "Declared") == {"mode": "value", "field": "score"}
+
+
+def test_undeclared_fill_is_none_without_a_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert declared_fill(_geo(), "Declared") is None
+
+    assert caught == []
+
+
+def test_invalid_fill_warns_and_reads_none():
+    with pytest.warns(UserWarning, match="fill"):
+        assert (
+            declared_fill(_geo(foliplus={"fill": {"mode": "nope"}}), "Declared") is None
+        )
+
+
+def test_fill_stays_out_of_conf():
+    # Same channel as border: the fill declaration is read by the JS panel off
+    # layer.options.foliplus, so CONF must not carry a fill key.
+    entry = _conf(
+        _render(_geo(foliplus={"fill": {"mode": "solid", "color": "#ff0000"}}))
+    )["data"][0]
+    assert "fill" not in entry
+
+
+def test_declared_fill_and_border_reach_the_rendered_layer_options():
+    # The declaration channel is the layer's own JS options (the rendered
+    # CONF): the panel reads it off layer.options.foliplus, so the new
+    # subkeys must survive the render verbatim.
+    html = _render(
+        _geo(
+            foliplus={
+                "fill": {"mode": "solid", "color": "#ff0000", "opacity": 0.5},
+                "border": {"mode": "solid", "color": "#00ff00", "weight": 2},
+            }
+        )
+    )
+    namespace = _declared_namespace(html)
+    assert namespace["fill"] == {
+        "mode": "solid",
+        "color": "#ff0000",
+        "opacity": 0.5,
+    }
+    assert namespace["border"] == {
+        "mode": "solid",
+        "color": "#00ff00",
+        "weight": 2,
+    }
+
+
 # ── marker_color declaration (audit #12: the chassis preset palette is not
 #    folium's named colours, so Python cannot express it via folium kwargs) ──
 def test_declared_marker_color_is_read():
     layer = _geo(foliplus={"marker_color": "darkred"})
     assert declared_marker_color(layer, "Declared") == "darkred"
+
+
+def test_declared_marker_color_accepts_a_css_hex():
+    layer = _geo(foliplus={"marker_color": "#00A6A6"})
+    assert declared_marker_color(layer, "Declared") == "#00a6a6"
+
+
+def test_declared_marker_color_accepts_a_short_hex():
+    layer = _geo(foliplus={"marker_color": "#abc"})
+    assert declared_marker_color(layer, "Declared") == "#aabbcc"
 
 
 def test_undeclared_marker_color_is_none_without_a_warning():

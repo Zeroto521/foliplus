@@ -60,6 +60,7 @@ interface LayerUI {
   onDragLeave: ((event: DragEvent) => void) | null;
   onDragEnd: ((event: DragEvent) => void) | null;
   onDrop: ((event: DragEvent) => void) | null;
+  onDblClick: ((event: MouseEvent) => void) | null;
   onMoreClick: ((event: Event) => void) | null;
   onMoreMapClick: ((event: L.LeafletEvent) => void) | null;
   onZoomEnd: (() => void) | null;
@@ -75,12 +76,15 @@ interface LayerUI {
   // ── delegates the modules call on the shell ──
   activeLayerItem(): HTMLElement | null;
   refreshAllCounts(): void;
+  refreshTreeConnectors(): void;
+  syncToggleAll(role: string): void;
   saveState(): void;
   applyUserState(id?: string): ProjectionBatch;
   initTypesAndVisibility(): ProjectionBatch;
   handleOutsideMousedown(event: MouseEvent): void;
   handleKeyDown(event: KeyboardEvent): void;
   openMoreMenu(item: HTMLElement): void;
+  openRoleMenu(item: HTMLElement): void;
   closeMoreMenu(setFocus: boolean): void;
   openAttrsPanel(item: HTMLElement): void;
   closeAttrsPanel(setFocus: boolean): void;
@@ -90,11 +94,12 @@ interface LayerUI {
   closeFilterPanel(setFocus: boolean): void;
   applyStyleLabelState(): void;
   renameLayer(layerId: string): void;
-  finishRename(cancel?: boolean): void;
+  finishRename(restoreText?: boolean): void;
   focusLayer(layerId: string): void;
   isFocusing(): boolean;
   cancelFocus(): void;
   syncNoBasemap(): void;
+  rebuildAfterLayoutChange(): void;
 }
 
 export type { LayerUI };

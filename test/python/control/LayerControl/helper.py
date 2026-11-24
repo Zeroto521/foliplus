@@ -9,6 +9,10 @@ from conftest import load_geojson
 from folium import Element
 
 _geo_mixed = load_geojson("LayerControl", "mixed")
+# A single polygon with name/value properties: the style and filter
+# panels need one geometry kind and at least one field, which the
+# mixed-geometry, property-less fixture cannot provide.
+_geo_zone = load_geojson("LayerControl", "polygon_zone_a")
 
 _tiny_png = (
     "data:image/png;base64,"

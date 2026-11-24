@@ -265,7 +265,7 @@ const buildOriginalDetail = (
  *  live options — the same priority `styleBaseOf` uses, so the row shows the
  *  author's paint rather than the last user drag that mutates `options` in
  *  place. Falls back to the documented constants only when no leaf declares a
- *  value (design §0: `leaf.options.fillColor ?? CONST.COLOR.DEFAULT`;
+ *  value (`leaf.options.fillColor ?? CONST.COLOR.DEFAULT`;
  *  `leaf.options.fillOpacity ?? VISIBLE_FILL_OPACITY`) — a layer the author
  *  left transparent still has a real 0% readout, and an empty/offscreen layer
  *  shows the default swatch + 20%. */
@@ -282,7 +282,7 @@ const authorFillPaint = (
 });
 
 /** The monochrome original-colors readout: ONE form-row holding the author's
- *  colour swatch and fill opacity side by side, both read-only (design §2.1).
+ *  colour swatch and fill opacity side by side, both read-only.
  *
  *  Mirrors the SOLID row's shape ([colour | opacity] on one line) so the two
  *  modes read as one grid; unlike SOLID neither half is editable — the

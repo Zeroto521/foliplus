@@ -44,6 +44,7 @@ const DEFAULT_THRESHOLD = 0.95;
 const DEFAULT_BASE = "origin/main";
 const DEFAULT_COVERAGE = "coverage/coverage-final.json";
 const DEFAULT_LCOV = "coverage/lcov.info";
+const DEFAULT_PY_COVERAGE = "coverage.xml";
 
 /** Normalize a Windows/Posix path to forward slashes. */
 const slash = p => p.replace(/\\/g, "/");
@@ -68,9 +69,10 @@ const toRel = (absPath, cwd) => {
 const isJsFile = rel => /\.(ts|tsx|js|jsx|mjs|cjs)$/.test(slash(rel));
 
 /**
- * A Python-scope file is excluded from the patch and reported as skipped.
- * Python is covered by pytest (`--cov=foliplus --cov=script`), not by the
- * vitest report this mirror reads, so a Python-only change must not fail here.
+ * A Python-scope file is scored against the pytest Cobertura report
+ * (`coverage.xml`), not skipped — see parseCobertura. It is no longer
+ * excluded from the patch; an uncovered added line in a Python file FAILs
+ * the check, mirroring codecov's patch gate for Python.
  * The rule covers foliplus/*.py and below, test/python/* and below, and
  * script/*.py — any .py file, plus any path under test/python/ (defensive
  * for future non-.py files).
@@ -231,6 +233,117 @@ const parseLcov = (text, cwd) => {
 };
 
 /**
+ * Parse a coverage.py Cobertura XML report (coverage.xml) into the same
+ * Map<relPath, { lines, partials }> shape as parseIstanbul/parseLcov.
+ *
+ * Cobertura <class filename="..."> paths are relative to each <source> root;
+ * the report lists one <source> per measured root (foliplus/, script/). A
+ * class's repo-relative path is the join of the FIRST source whose file exists
+ * on disk — this disambiguates the same relative name under different roots
+ * (e.g. check/changelog_check.py exists under script/, not foliplus/).
+ * `pathExists` is injectable for tests (defaults to fs.existsSync).
+ */
+const parseCobertura = (text, cwd, pathExists = p => fs.existsSync(p)) => {
+  const out = new Map();
+  const sources = [];
+  let file = null;
+  let lines = null;
+  let partials = null;
+  const flush = () => {
+    if (file !== null) {
+      out.set(file, { lines, partials });
+    }
+    file = null;
+    lines = null;
+    partials = null;
+  };
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    const srcMatch = line.match(/^<source>([^<]+)<\/source>$/);
+    if (srcMatch) {
+      sources.push(srcMatch[1]);
+      continue;
+    }
+    const classMatch = line.match(/^<class\b[^>]*\bfilename="([^"]+)"/);
+    if (classMatch) {
+      flush();
+      const filename = classMatch[1];
+      let rel = null;
+      for (const source of sources) {
+        const candidate = toRel(path.resolve(source, filename), cwd);
+        if (pathExists(path.resolve(cwd, candidate))) {
+          rel = candidate;
+          break;
+        }
+      }
+      if (rel === null) {
+        // No source resolves — fall back to the first source join (defensive).
+        rel = sources.length
+          ? toRel(path.resolve(sources[0], filename), cwd)
+          : slash(filename);
+      }
+      file = rel;
+      lines = new Map();
+      partials = [];
+      continue;
+    }
+    const lineMatch = line.match(/^<line\b([^>]*)\/?>$/);
+    if (lineMatch && file !== null) {
+      const attrs = lineMatch[1];
+      const num = attrs.match(/\bnumber="(\d+)"/);
+      const hits = attrs.match(/\bhits="(\d+)"/);
+      const branch = attrs.match(/\bbranch="true"/);
+      const cond = attrs.match(/condition-coverage="(\d+)% \((\d+)\/(\d+)\)"/);
+      if (num) {
+        const ln = parseInt(num[1], 10);
+        const covered = hits ? parseInt(hits[1], 10) > 0 : false;
+        if (covered) {
+          lines.set(ln, "covered");
+        } else if (!lines.has(ln)) {
+          lines.set(ln, "uncovered");
+        }
+        if (branch && cond) {
+          const taken = parseInt(cond[2], 10);
+          const total = parseInt(cond[3], 10);
+          if (taken < total) {
+            partials.push({ line: ln, untaken: total - taken, total });
+          }
+        }
+      }
+      continue;
+    }
+    if (line.startsWith("</class>")) {
+      flush();
+    }
+  }
+  flush();
+  return out;
+};
+
+/**
+ * Print one file's patch detail (no side prefix — keeps the JS line format
+ * stable). `side` labels the report the file was scored against.
+ */
+const reportFile = (f, side) => {
+  const covName = side === "Python" ? "Python coverage" : "coverage";
+  const nonLabel = side === "Python" ? "non-Python" : "non-JS";
+  if (f.status === "no-coverage") {
+    console.log(
+      `  ${f.file}: not in the ${covName} report (excluded or ${nonLabel}) — skipped`,
+    );
+  } else {
+    if (f.missing.length) {
+      console.log(`  ${f.file}: uncovered added lines ${f.missing.join(", ")}`);
+    }
+    for (const pr of f.partials) {
+      console.log(
+        `  ${f.file}:${pr.line}: branch partial — ${pr.total - pr.untaken}/${pr.total} targets taken`,
+      );
+    }
+  }
+};
+
+/**
  * Compute patch coverage.
  * @param diffAdded Map<relPath, Set<line>> (repo-relative, forward slashes)
  * @param covByRel Map<relPath, { lines, partials }> (repo-relative keys)
@@ -283,6 +396,7 @@ const parseArgs = argv => {
     base: DEFAULT_BASE,
     threshold: DEFAULT_THRESHOLD,
     coverage: DEFAULT_COVERAGE,
+    pyCoverage: DEFAULT_PY_COVERAGE,
     cwd: process.cwd(),
     help: false,
   };
@@ -295,6 +409,8 @@ const parseArgs = argv => {
       opts.threshold = parseFloat(a.slice(12));
     } else if (a.startsWith("--coverage=")) {
       opts.coverage = a.slice(11);
+    } else if (a.startsWith("--py-coverage=")) {
+      opts.pyCoverage = a.slice(14);
     } else if (a.startsWith("--cwd=")) {
       opts.cwd = a.slice(6);
     } else {
@@ -315,13 +431,18 @@ const printHelp = () => {
       "  --base=<ref>       diff base (default origin/main); the patch is",
       "                     `git diff --unified=0 <base>...HEAD`",
       "  --threshold=<0-1>  minimum patch coverage (default 0.95)",
-      "  --coverage=<path>  coverage report (default coverage/coverage-final.json;",
+      "  --coverage=<path>  JS coverage report (default coverage/coverage-final.json;",
       "                     falls back to coverage/lcov.info when absent)",
+      "  --py-coverage=<path> Python coverage report (default coverage.xml;",
+      "                     Cobertura XML from make test-python-fast)",
       "  --cwd=<root>       repository root (default process.cwd())",
       "  -h, --help         show this help",
       "",
-      "The patch is the PR's committed diff against <base>. The coverage report is",
-      "produced by `npx vitest run --coverage` (json preferred, lcov fallback).",
+      "The patch is the PR's committed diff against <base>. JS coverage is",
+      "produced by `npx vitest run --coverage` (json preferred, lcov fallback);",
+      "Python coverage by `make test-python-fast` (coverage.xml). A mixed",
+      "JS+Python patch needs both reports. Uncovered added lines are scored",
+      "per side and the patch fails when either side is below the threshold.",
       "Exit 0 when the patch meets the threshold, 1 when it does not (uncovered",
       "added lines listed), 2 on an environment error.",
     ].join("\n"),
@@ -378,63 +499,90 @@ const main = (opts = parseArgs(process.argv.slice(2))) => {
     console.log(`[patch-coverage] no diff against ${opts.base}; patch is empty — pass`);
     return 0;
   }
-  // Scope split: only JS/TS files count toward the patch. Python files are
-  // skipped (covered by pytest, not this mirror); other non-JS files are
-  // skipped too (excluded from the vitest report).
+  // Scope split: JS/TS files are scored against the vitest report; Python
+  // files (.py, test/python/) are scored against the pytest Cobertura report.
+  // Other files (markdown, yaml, configs) are out of scope and skipped.
   const jsFiles = new Map();
-  const pythonFiles = [];
+  const pythonFiles = new Map();
   const otherFiles = [];
   for (const [rel, lines] of diffAdded) {
     if (isPythonFile(rel)) {
-      pythonFiles.push(rel);
+      pythonFiles.set(rel, lines);
     } else if (isJsFile(rel)) {
       jsFiles.set(rel, lines);
     } else {
       otherFiles.push(rel);
     }
   }
-  const loaded = loadCoverage(opts);
-  if (!loaded) {
-    console.error(
-      `[patch-coverage] no coverage report at ${path.resolve(opts.cwd, opts.coverage)}` +
-        ` or ${path.resolve(opts.cwd, DEFAULT_LCOV)}. Run "npx vitest run --coverage" first.`,
-    );
-    return 2;
-  }
-  const res = computePatch(jsFiles, loaded.covByRel);
   const target = (threshold * 100).toFixed(1);
-  const got = (res.pct * 100).toFixed(1);
-  // Report out-of-scope files first so a Python-only change is visibly a skip,
+
+  // Report out-of-scope files first so a non-code change is visibly a skip,
   // not a silent pass.
-  for (const f of pythonFiles) {
-    console.log(`  ${f}: skipped: Python (covered by pytest, not this mirror)`);
-  }
   for (const f of otherFiles) {
-    console.log(`  ${f}: skipped: not in the coverage report (excluded or non-JS)`);
+    console.log(`  ${f}: skipped: not in a coverage report (excluded or non-code)`);
   }
-  console.log(
-    `[patch-coverage] ${got}% patch (${res.covered}/${res.total} added executable lines covered); target ${target}%`,
-  );
-  for (const f of res.files) {
-    if (f.status === "no-coverage") {
-      console.log(
-        `  ${f.file}: not in the coverage report (excluded or non-JS) — skipped`,
+
+  // ---- JS side ----
+  const jsLoaded = loadCoverage(opts);
+  const hasJsPatch = jsFiles.size > 0;
+  let jsRes = null;
+  if (hasJsPatch) {
+    if (!jsLoaded) {
+      console.error(
+        `[patch-coverage] no JS coverage report at ${path.resolve(opts.cwd, opts.coverage)}` +
+          ` or ${path.resolve(opts.cwd, DEFAULT_LCOV)}. Run "npx vitest run --coverage" first.`,
       );
-    } else {
-      if (f.missing.length) {
-        console.log(`  ${f.file}: uncovered added lines ${f.missing.join(", ")}`);
-      }
-      for (const pr of f.partials) {
-        console.log(
-          `  ${f.file}:${pr.line}: branch partial — ${pr.total - pr.untaken}/${pr.total} targets taken`,
-        );
-      }
+      return 2;
+    }
+    jsRes = computePatch(jsFiles, jsLoaded.covByRel);
+    const got = (jsRes.pct * 100).toFixed(1);
+    console.log(
+      `[patch-coverage] JS: ${got}% patch (${jsRes.covered}/${jsRes.total} added executable lines covered); target ${target}%`,
+    );
+    for (const f of jsRes.files) {
+      reportFile(f, "JS");
     }
   }
-  if (res.pct < threshold) {
+
+  // ---- Python side ----
+  const pyPath = path.resolve(opts.cwd, opts.pyCoverage);
+  const hasPyPatch = pythonFiles.size > 0;
+  let pyRes = null;
+  if (hasPyPatch) {
+    if (!fs.existsSync(pyPath)) {
+      console.error(
+        `[patch-coverage] no Python coverage report at ${pyPath}. Run "make test-python-fast" (or pytest --cov-report=xml) first.`,
+      );
+      return 2;
+    }
+    const pyText = fs.readFileSync(pyPath, "utf8");
+    const pyCov = parseCobertura(pyText, opts.cwd);
+    pyRes = computePatch(pythonFiles, pyCov);
+    const got = (pyRes.pct * 100).toFixed(1);
     console.log(
-      `[patch-coverage] FAIL: ${res.uncovered} added ${res.uncovered === 1 ? "line" : "lines"} not covered; below ${target}%`,
+      `[patch-coverage] Python: ${got}% patch (${pyRes.covered}/${pyRes.total} added executable lines covered); target ${target}%`,
     );
+    for (const f of pyRes.files) {
+      reportFile(f, "Python");
+    }
+  }
+
+  // ---- verdict ----
+  const failed = [];
+  if (jsRes && jsRes.pct < threshold) {
+    failed.push("JS");
+  }
+  if (pyRes && pyRes.pct < threshold) {
+    failed.push("Python");
+  }
+  if (failed.length) {
+    for (const side of failed) {
+      const res = side === "JS" ? jsRes : pyRes;
+      console.log(
+        `[patch-coverage] ${side} FAIL: ${res.uncovered} added ${res.uncovered === 1 ? "line" : "lines"} not covered; below ${target}%`,
+      );
+    }
+    console.log(`[patch-coverage] FAIL: ${failed.join(" and ")} below ${target}%`);
     return 1;
   }
   console.log("[patch-coverage] OK");
@@ -453,11 +601,13 @@ export {
   parseAddedLines,
   parseIstanbul,
   parseLcov,
+  parseCobertura,
   computePatch,
   parseArgs,
   loadCoverage,
   isJsFile,
   isPythonFile,
+  reportFile,
   main,
   runCli,
 };

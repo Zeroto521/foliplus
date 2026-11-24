@@ -9,6 +9,8 @@
 //     non-preset hex takes the flat mask).
 // Kept in core/leaflet (same cluster as markerIcon.ts) so the reverse lookup
 // does not import the layer barrel and close the LayerFactory ↔ leaflet cycle.
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
+
 const MARKER_COLOR_PRESET_HEX: Readonly<Record<string, string>> = {
   red: "#d63e2a",
   darkred: "#a23336",
@@ -41,4 +43,16 @@ const presetNameOfHex = (hex: string): string | null => {
   return null;
 };
 
-export { MARKER_COLOR_PRESET_HEX, presetNameOfHex };
+/** Resolve a `marker_color` value to its chassis hex: a preset name maps
+ *  forward through the table, a 3/6-digit CSS hex is expanded and lowercased,
+ *  and every other value (a typo, a named colour, a non-string) answers null.
+ *  The single mapping point for author, declared and rendered chassis colors —
+ *  the panel rows and the paint read both go through it. */
+const markerColorHexOf = (value: unknown): string | null => {
+  if (typeof value !== "string" || value === "") return null;
+  const preset = MARKER_COLOR_PRESET_HEX[value];
+  if (preset) return preset;
+  if (!isHexColor(value)) return null;
+  return normalizeHexColor(value).toLowerCase();
+};
+export { MARKER_COLOR_PRESET_HEX, markerColorHexOf, presetNameOfHex };

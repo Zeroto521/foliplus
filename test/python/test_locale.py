@@ -40,10 +40,22 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     # the component prefix for shared modules.
     "ExportControl.no_layercontrol",
     "MeasureControl.no_layercontrol",
-    # focusDisabledLocaleKey map (focus.ts) — reason → key lookup.
-    "LayerControl.focus_layer_base",
-    "LayerControl.focus_layer_hidden",
-    "LayerControl.focus_layer_no_bounds",
+    # focusDisabledLocaleKey map (focus/hint.ts) — reason → key lookup.
+    "LayerControl.focus_base",
+    "LayerControl.focus_hidden",
+    "LayerControl.focus_no_bounds",
+    # withNoun(ui, key, noun) in ui/noun.ts — the sentence key is a parameter,
+    # and the noun itself is built as `noun_${noun}`.
+    "LayerControl.focus_tooltip",
+    "LayerControl.rename_tooltip",
+    "LayerControl.rename_placeholder",
+    "LayerControl.noun_layer",
+    "LayerControl.noun_role",
+    # withNoun(ui, "more_tooltip", noun) — the sentence key is a parameter.
+    "LayerControl.more_tooltip",
+    # showDragHint(ui, key) in ui/listPanel/drag.ts — the key is a parameter.
+    "LayerControl.same_role_only",
+    "LayerControl.no_nest",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
     "LayerControl.type_tile_map",
     "LayerControl.type_color_map",
@@ -55,7 +67,11 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line",
     "LayerControl.type_polygon",
     "LayerControl.type_empty",
-    "LayerControl.type_container",
+    "LayerControl.type_group",
+    # countTooltip(ui, key, on, total) in rowView.ts — the locale key is a
+    # parameter, so the scanner cannot see the T() call behind it.
+    "LayerControl.sub_layers_count_tooltip",
+    "LayerControl.layers_count_tooltip",
     # labelKey / titleKey passed as function parameters.
     "LayerControl.data_layer_label",
     "LocateControl.popup_title_geo",
@@ -77,7 +93,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.type_line_short",
     "LayerControl.type_polygon_short",
     "LayerControl.type_empty_short",
-    "LayerControl.type_container_short",
+    "LayerControl.type_group_short",
     # Filter panel dynamic labels (filter.ts) — the result readout composes
     # its sentence from the {kept} / {total} template literals.
     # styleModeKey.ts — STYLE_MODE keys are object literals, not T() calls;
@@ -88,6 +104,11 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     # border.ts — FOLLOW_FILL resolves through STYLE_MODE_KEY.FOLLOW_FILL
     # (ui/styleModeKey.ts), so the literal scanner cannot see the key.
     "LayerControl.style_border_follow_fill",
+    # menu.ts — deleteLabelKeys() returns the idle/confirm pair per entry kind
+    # as a table, so the confirming labels are reached through a lookup rather
+    # than a T("...") literal.
+    "LayerControl.delete_confirm",
+    "LayerControl.clear_data_confirm",
 }
 
 
@@ -178,6 +199,19 @@ class TestRowTooltipVocabulary:
         en, zh = _TABLES["en"], _TABLES["zh"]
         assert en["LayerControl.filter_layer_tooltip"] == "Filter this layer's data"
         assert zh["LayerControl.filter_layer_tooltip"] == "筛选该图层的数据"
+
+    def test_container_says_group_not_container(self):
+        """The container type is user language, not the jargon "容器".
+
+        folium's API is LayerGroup/FeatureGroup; the user mental model is
+        "组" (group), and "图层组" maps directly to LayerGroup. The short
+        word stays distinct from the folder (user-dragged) vocabulary.
+        """
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        assert en["LayerControl.type_group"] == "Layer Group"
+        assert zh["LayerControl.type_group"] == "图层组"
+        assert en["LayerControl.type_group_short"] == "Group"
+        assert zh["LayerControl.type_group_short"] == "组"
 
 
 class TestLocaleConfig:

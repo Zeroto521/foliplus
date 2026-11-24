@@ -8,6 +8,7 @@
 // ============================================================================
 import type { ExportImageFormat } from "./type.js";
 import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
+import { scopedStorageKey } from "#platform/storage.js";
 
 /** Per-format descriptor. */
 interface FormatSpec {
@@ -44,7 +45,7 @@ const CROP = {
 const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 
 /** Persistent storage key for the last crop rectangle. */
-const STORAGE = { KEY: `foliplus_export_rect_${map.getContainer().id}` };
+const STORAGE = { KEY: scopedStorageKey(map, "export_rect") };
 
 /** Timing / delay constants. */
 const TIMING = {

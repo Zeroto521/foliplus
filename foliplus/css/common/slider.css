@@ -42,7 +42,7 @@
      keeps its outer edge on the control's edge. The control therefore reads
      exactly as wide as the fields below — the circles do not overhang. */
   height: var(--foliplus-slider-thumb-size);
-  margin: 0 calc(var(--foliplus-slider-thumb-size) / 2);
+  margin: 0 var(--foliplus-slider-inset);
   touch-action: none;
   cursor: pointer;
 }
@@ -182,14 +182,14 @@
 }
 
 /* ── The scale's numbers ────────────────────────────────────────
-   The end numbers are a width-adaptive pair: a label that fits on its half
-   is centred on the dot it names (a thumb parks at the rail's end, so its
-   centre is half a thumb in from the control's edge); a label too wide to
-   fit centred without crossing the row's middle switches to the clamp state
-   (class is-clamp) and pins to the row's own edge, clipping its text toward
-   the inside so it never paints past the container or overlaps its sibling.
-   The row spans the control's width (no inset), so the dot-centre anchor is
-   a half thumb in from the row edge on each side. */
+   The end numbers are a width-adaptive pair keyed on the label's RENDERED
+   width against the thumb's (see measureValuesFit in slider.ts): a label no
+   wider than the thumb (a bare digit like "0" or "A") centres on the dot it
+   names — a thumb parks at the rail's end, so its centre is half a thumb in
+   from the control's edge; a label wider than the thumb is an axis label and
+   switches to the clamp state (class is-clamp), which pins it to the
+   control's edge, clipping its text toward the inside so it never paints
+   past the painted bar or overlaps its sibling. */
 .foliplus-slider-values {
   /* The containing block for the drag-time readout and the dot-centred end
      numbers: their offsets resolve against this row (position: relative
@@ -213,36 +213,63 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The end numbers default to dot-centred: each is anchored a half thumb in
-   from the row edge (the parked dot's centre) and shifted back half its own
-   width, so the label's centre sits on the dot. The flex direction follows
-   the document direction, so in RTL the logical anchors mirror the row. */
+/* The end labels are a width-adaptive pair keyed on the label's RENDERED
+   width against the thumb's (see measureValuesFit in slider.ts): a label no
+   wider than the thumb is dot-centred — its centre sits on the parked
+   thumb's centre, which is a half thumb in from the control's edge — and
+   anything wider is an axis label that pins to the slider's two painted
+   ends (class is-clamp).
+
+   The pin is the CONTROL's edge, not the track element's: the track is
+   inset half a thumb so a parked thumb's outer edge lands on the control's
+   edge, which means the painted bar (rail + the two parked thumbs) spans
+   the full control width. Pinning the label to the track element instead
+   leaves it half a thumb inside the bar's visible end — the misalignment
+   this rule exists to prevent. */
+.foliplus-slider-value-min.is-clamp {
+  flex: 0 1 auto;
+  text-align: start;
+  /* Pin to the control's left edge — the painted bar's left end. */
+  margin-inline-start: 0;
+
+  /* When the opposite end label is out of flow (no longer possible, but the
+     rule is kept as the flex fallback) an auto end margin pushes this label
+     back to its own edge instead of collapsing to the row start. */
+  margin-inline-end: auto;
+}
+.foliplus-slider-value-max.is-clamp {
+  flex: 0 1 auto;
+  text-align: end;
+  /* Mirror of the min rule: the max label's outer edge sits on the
+     control's right edge — the painted bar's right end. */
+  margin-inline-end: 0;
+
+  /* Mirror of the min rule: a lone clamped max must pin to its own edge,
+     not collapse to the row start when the min is out of flow. */
+  margin-inline-start: auto;
+}
+/* A single-column label (a bare digit like "0" or "A") stays dot-centred: it
+   is absolutely anchored a half thumb in (the parked thumb's centre) and
+   shifted back half its own width, so its centre sits on the dot. The flex
+   row is space-between; position absolute takes it out of flow so it never
+   pushes the clamped sibling. */
 .foliplus-slider-value-min:not(.is-clamp) {
   position: absolute;
-  inset-inline-start: calc(var(--foliplus-slider-thumb-size) / 2);
+  inset-inline-start: var(--foliplus-slider-inset);
   transform: translateX(-50%);
 }
 .foliplus-slider-value-max:not(.is-clamp) {
   position: absolute;
-  inset-inline-end: calc(var(--foliplus-slider-thumb-size) / 2);
+  inset-inline-end: var(--foliplus-slider-inset);
   transform: translateX(50%);
 }
+/* RTL mirrors the dot-centre anchors explicitly (the transform flips): the
+   min dot sits on the right edge, so the min label shifts right. */
 :dir(rtl) .foliplus-slider-value-min:not(.is-clamp) {
   transform: translateX(50%);
 }
 :dir(rtl) .foliplus-slider-value-max:not(.is-clamp) {
   transform: translateX(-50%);
-}
-/* The clamp state returns the label to the flex row: it pins to the row's
-   edge (space-between) and clips its text toward the inside so the long
-   content truncates instead of overflowing the container. */
-.foliplus-slider-value-min.is-clamp {
-  flex: 0 1 auto;
-  text-align: start;
-}
-.foliplus-slider-value-max.is-clamp {
-  flex: 0 1 auto;
-  text-align: end;
 }
 .foliplus-slider-values > span.foliplus-slider-value-current {
   /* The drag-time readout is centred over the track and must not take part in

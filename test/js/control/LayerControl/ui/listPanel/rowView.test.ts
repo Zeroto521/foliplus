@@ -4,6 +4,7 @@ import { join, resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
 import * as Icons from "#platform/icon.js";
+import { setCheckboxState, triStateOf } from "#ui/checkbox.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -13,6 +14,7 @@ import {
   type RowCell,
   applyRowView,
   buildRowCell,
+  roleCountText,
   rowView,
   syncNoBasemap,
   syncToggleAll,
@@ -306,6 +308,30 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
   });
 });
 
+describe("tri-state over-count boundary (via ui/checkbox triStateOf)", () => {
+  // The aggregate -> tri-state rule moved to the shared ui/checkbox primitive
+  // (triStateOf + setCheckboxState); these pin the same boundary LayerControl
+  // relies on, now exercised through the shared vocabulary.
+  it("an on count above total stays unchecked and indeterminate", () => {
+    // The tri-state aggregate guards on === total, so a stale over-count
+    // (more rows marked on than the aggregate counts) must NOT paint as
+    // all-checked. allChecked is false; indeterminate stays true.
+    const input = document.createElement("input");
+    setCheckboxState(input, triStateOf(3, 4));
+    expect(input.checked).toBe(false);
+    expect(input.indeterminate).toBe(true);
+    expect(input.getAttribute("aria-checked")).toBe("mixed");
+  });
+
+  it("an on count of zero paints none-checked (not indeterminate)", () => {
+    const input = document.createElement("input");
+    setCheckboxState(input, triStateOf(3, 0));
+    expect(input.checked).toBe(false);
+    expect(input.indeterminate).toBe(false);
+    expect(input.getAttribute("aria-checked")).toBe("false");
+  });
+});
+
 describe("applyRowView (the single DOM write point)", () => {
   const ui: LayerUI = { T: vi.fn((k: string) => k) } as unknown as LayerUI;
 
@@ -424,7 +450,7 @@ describe("applyRowView (the single DOM write point)", () => {
       intentStore: new LayerIntentStore(),
       runtimeStore: new LayerRuntimeStore(),
       focusController: { focusingLayerId: null },
-      listPanel: { checkedCount: {}, foldedRoles: new Set<string>() },
+      listPanel: { checkedCount: {}, foldedRoles: {} },
       T: (k: string) => k,
       config: { locale_code: "en" },
     } as unknown as LayerUI;
@@ -486,7 +512,11 @@ describe("the four readers agree on a half-broken record", () => {
     // The sync counters agree: the overlay row counts as on, the base row
     // keeps the no-basemap hatch off.
     syncToggleAll(ui, ROLE.OVERLAY);
-    expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({ total: 1, on: 1 });
+    const all = ui.uiContainer!.querySelector(
+      `.foliplus-layer-toggle-all[data-role="${ROLE.OVERLAY}"] [data-role="toggle-all"]`,
+    ) as HTMLInputElement;
+    expect(all.checked).toBe(true);
+    expect(all.indeterminate).toBe(false);
     syncNoBasemap(ui);
     expect(ui.c.map.getContainer().classList.contains(CONST.CLASSES.NO_BASE_MAP)).toBe(
       false,
@@ -624,6 +654,12 @@ const OUT_OF_CHARTER: ReadonlyArray<{
     n: 1,
     reason: `momentary flip: checkbox.checked = !checkbox.checked → dispatchEvent('change') → applyUserState → applyRowView redraws the row from corrected intent`,
   },
+  {
+    file: "ui/checkbox.ts",
+    slot: "checkbox.checked",
+    n: 1,
+    reason: `the shared tri-state checkbox primitive owns the paint: paint() writes input.checked alongside indeterminate and aria-checked as one source, so a checkbox created by LayerControl and one by any other consumer carry the identical contract. This is the charter owner for every checkbox that is not a layer row's own binary box (which stays in rowView.ts).`,
+  },
 ];
 
 // ── Path resolution and scanning ───────────────────────────────
@@ -682,11 +718,12 @@ describe("applyRowView is the only module writing row visual slots", () => {
   });
 
   it("confines every row visual write to the writer or to a counted exception", () => {
-    // The exception list holds exactly one entry (focus/index.ts). That is the
-    // state the guard asserts on, so a
-    // new allowance shows up as an edit to the array and to this assertion
-    // together, not as a quietly widened scan.
-    expect(OUT_OF_CHARTER).toHaveLength(1);
+    // The exception list holds exactly two entries: focus/index.ts (the
+    // momentary toggle flip) and ui/checkbox.ts (the shared tri-state
+    // primitive that owns the non-row checkbox paint). That is the state the
+    // guard asserts on, so a new allowance shows up as an edit to the array
+    // and to this assertion together, not as a quietly widened scan.
+    expect(OUT_OF_CHARTER).toHaveLength(2);
 
     const problems: string[] = [];
     for (const file of sources) {
@@ -847,7 +884,7 @@ describe("container layer row", () => {
     ui?.uiContainer?.remove();
   });
 
-  const makeContainer = (children: unknown[] = []) => {
+  const makeGroup = (children: unknown[] = []) => {
     const c: any = {
       options: {},
       clearLayers: vi.fn(),
@@ -865,7 +902,7 @@ describe("container layer row", () => {
 
   it("row shows the container type icon and the child count", () => {
     const leaf: any = { options: {} };
-    const container = makeContainer([leaf, leaf]);
+    const container = makeGroup([leaf, leaf]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -873,24 +910,24 @@ describe("container layer row", () => {
     ui = r.ui;
     const info = manager.layerRegistry.get("grp");
     const cell = buildRowCell(ui, info);
-    // Container type: the container glyph + type_container label. The glyph is
+    // Container type: the container glyph + type_group label. The glyph is
     // pinned off its single-sourced constant, not its markup — a two-square
     // group icon drawn from <rect> would still be the container glyph, so the
     // user contract is "which glyph", not "which shapes".
-    expect(cell.typeSvg).toBe(SVGs.ICON_CONTAINER);
-    expect(cell.typeLabel).toBe("LayerControl.type_container");
+    expect(cell.typeSvg).toBe(SVGs.ICON_GROUP);
+    expect(cell.typeLabel).toBe("LayerControl.type_group");
     // Child count in the count column.
     expect(cell.countText).toBe("2");
   });
 
   it("a logical layer backed by a group with a featureCountProvider is NOT a container", () => {
     // Regression: the browser filter test registers a layer backed by an empty
-    // L.layerGroup() with a provider-driven count. isContainerLayer(empty group)
+    // L.layerGroup() with a provider-driven count. isGroupLayer(empty group)
     // is true (group-like + child registry), so the row misclassified it as a
     // container and showed the child count (0) instead of the provider count.
     // The group is the layer's Leaflet REPRESENTATION, not a folder of
     // sub-layers — a provider-carrying layer keeps its provider count.
-    const group = makeContainer([]);
+    const group = makeGroup([]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: group }],
     });
@@ -909,12 +946,12 @@ describe("container layer row", () => {
     const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
     // Provider count wins over the child count.
     expect(cell.countText).toBe("8");
-    // Not a container row: no group icon, no type_container label.
-    expect(cell.typeLabel).not.toBe("LayerControl.type_container");
+    // Not a container row: no group icon, no type_group label.
+    expect(cell.typeLabel).not.toBe("LayerControl.type_group");
   });
 
   it("container delete and teardown are safe", () => {
-    const container = makeContainer([{ options: {} }]);
+    const container = makeGroup([{ options: {} }]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -923,5 +960,123 @@ describe("container layer row", () => {
     // Delete the layer; the container's clearLayers should be called and no throw.
     expect(() => manager.deleteLayer("grp")).not.toThrow();
     expect(container.clearLayers).toHaveBeenCalled();
+  });
+
+  it("container count column shows the 三态 visible/total with a tooltip", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeGroup([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const info = manager.layerRegistry.get("grp")!;
+    const cell = buildRowCell(ui, info);
+    expect(cell.countText).toBe("2/3");
+    // The fixture translator is a key-echo (T(key) = "LayerControl.<key>"), so the
+    // row's contract is that it picks the sub_layers_count_tooltip key.
+    expect(cell.groupTooltip).toBe("LayerControl.sub_layers_count_tooltip");
+  });
+
+  it("container count tooltip speaks the shared {on}/{total} vocabulary", () => {
+    // Every group row spells its count out through countTooltip, so the
+    // placeholder names are one vocabulary: {on} and {total}. A second name for
+    // the same number ({visible}) is the drift this pins down.
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeGroup([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    // Resolve the real sentence instead of the fixture's key echo.
+    const realT = ui.T.bind(ui);
+    ui.T = ((key: string) =>
+      key === "sub_layers_count_tooltip"
+        ? "{on} of {total} sub-layers visible"
+        : realT(key)) as typeof ui.T;
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.groupTooltip).toBe("2 of 3 sub-layers visible");
+  });
+
+  it("container count column collapses to the bare total when all children are visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const container = makeGroup([childA, childB]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe("2");
+  });
+
+  it("container count column shows 0/3 when no child is on the map", () => {
+    const childA = { options: {}, visible: false };
+    const childB = { options: {}, visible: false };
+    const childC = { options: {}, visible: false };
+    const container = makeGroup([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe("0/3");
+  });
+  it("container count equals roleCountText(total, on) — all children visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: true };
+    const container = makeGroup([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+
+    expect(cell.countText).toBe(roleCountText(3, 3));
+    expect(roleCountText(3, 3)).toBe("3");
+  });
+  it("container count equals roleCountText(total, on) — partial visible", () => {
+    const childA = { options: {}, visible: true };
+    const childB = { options: {}, visible: true };
+    const childC = { options: {}, visible: false };
+    const container = makeGroup([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe(roleCountText(3, 2));
+    expect(roleCountText(3, 2)).toBe("2/3");
+  });
+  it("container count equals roleCountText(total, on) — none visible", () => {
+    const childA = { options: {}, visible: false };
+    const childB = { options: {}, visible: false };
+    const childC = { options: {}, visible: false };
+    const container = makeGroup([childA, childB, childC]);
+    const r = initFixture({
+      data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
+    });
+    manager = r.manager;
+    ui = r.ui;
+    ui.c.map.hasLayer = vi.fn((child: any) => child.visible === true);
+    const cell = buildRowCell(ui, manager.layerRegistry.get("grp")!);
+    expect(cell.countText).toBe(roleCountText(3, 0));
+    expect(roleCountText(3, 0)).toBe("0/3");
   });
 });

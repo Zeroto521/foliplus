@@ -165,10 +165,10 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
   },
   {
     f: "control/LayerControl/ui/overlayPanel/menu.ts",
-    n: 4,
+    n: 6,
     pairedOff: 0,
     reason:
-      "menu-local item click dispatch + focusout; outside-click moved to core/overlay/overlayRegistry in M2-C4. The placement pair (window scroll capture + resize) re-places the open menu against its clip container \u2014 the same free-standing singleton pattern as core/leaflet/panel.ts's row-panel placement (no BaseControl instance in scope; scheduleMoreMenu owns the teardown and returns it to the caller)",
+      "menu-local item click dispatch + focusout (layer, folder and role menus); outside-click moved to core/overlay/overlayRegistry in M2-C4. The placement pair (window scroll capture + resize) re-places the open menu against its clip container \u2014 the same free-standing singleton pattern as core/leaflet/panel.ts's row-panel placement (no BaseControl instance in scope; scheduleMoreMenu owns the teardown and returns it to the caller)",
   },
   {
     f: "control/LayerControl/ui/style/index.ts",
@@ -239,6 +239,14 @@ const BARE_ADD_EVENT_LISTENER: ReadonlyArray<AllowEntry> = [
     pairedOff: 0,
     reason:
       "numberInput's own wrapper: the unit-suffix group toggles the editing state on focus/blur of the input it just created. The listener is bound to the element this factory returns (or its immediate wrapper), collected with it, and the factory is a pure DOM builder — no control instance or mounting signal is in scope, so this.on / listenDOM is unreachable; the pair is one focus + one blur on the same element",
+  },
+
+  {
+    f: "ui/checkbox.ts",
+    n: 1,
+    pairedOff: 0,
+    reason:
+      "the shared tri-state checkbox primitive binds one 'change' listener on the input it owns (the returned host element owns teardown, not a BaseControl). The input is created and returned in one factory call with no rebind and no external removal path, so the listener cannot outlive the element.",
   },
 ];
 

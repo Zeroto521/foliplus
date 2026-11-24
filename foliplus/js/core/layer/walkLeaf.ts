@@ -34,7 +34,7 @@ const DEFAULT_MAX_DEPTH = CONST.RECURSION.LAYER_DEPTH;
 /** A hostile node can throw on an `eachLayer` read, and a walk is a query,
  *  not a write: it must never die for that. Catch the read so a throwing node
  *  simply reads as "no child registry" instead of aborting the caller. */
-const isContainerNode = (node: UnknownLayer): boolean => {
+const isGroupNode = (node: UnknownLayer): boolean => {
   try {
     return (
       node != null && typeof (node as { eachLayer?: unknown }).eachLayer === "function"
@@ -59,7 +59,7 @@ const safeGroupLike = (node: TreeNode): boolean => {
  *  eachLayer. */
 const childrenOf = (node: UnknownLayer): L.Layer[] => {
   try {
-    if (isContainerNode(node)) {
+    if (isGroupNode(node)) {
       const out: L.Layer[] = [];
       (node as L.LayerGroup).eachLayer(c => out.push(c));
       return out;
@@ -174,10 +174,11 @@ const someLeaf = (
 };
 
 export {
+  childrenOf,
   countChildLayers,
   findLeaf,
   findNode,
-  isContainerNode,
+  isGroupNode,
   someLeaf,
   walkLeaf,
   walkTree,

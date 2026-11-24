@@ -14,8 +14,14 @@
 //   buildRowCell / applyRowView        — gather the cell, then paint the row
 import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
+import { ROW_NOUN, withNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
-import { ROLE, countChildLayersOf, isContainerLayer } from "#core/layer/index.js";
+import {
+  ROLE,
+  countChildLayersOf,
+  countVisibleChildLayers,
+  isGroupRow,
+} from "#core/layer/index.js";
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
@@ -49,6 +55,11 @@ interface RowCell {
   filtered?: boolean;
   /** Hover title used while filtered: kept / total filtered · type. */
   filterTitle?: string;
+  /** Hover title for a group row: N visible / M sub-layers. */
+  groupTooltip?: string;
+  /** True when the row is a layer group shown as one row (drives the noun its
+   *  sentences use and the grouping weight of its name). */
+  group?: boolean;
 }
 
 /** What one row element should look like. */
@@ -97,11 +108,11 @@ const rowView = (cell: RowCell, labels: RowLabels): RowView => ({
   typeLabel: cell.typeLabel,
   filtered: Boolean(cell.filtered),
   countIconSvg: cell.filtered ? SVGs.ICON_FILTER : "",
-  title: cell.filtered
-    ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
-    : cell.countText
-      ? `${cell.countText} · ${cell.titleTypeLabel ?? cell.typeLabel}`
-      : (cell.titleTypeLabel ?? cell.typeLabel),
+  title: cell.groupTooltip
+    ? cell.groupTooltip
+    : cell.filtered
+      ? (cell.filterTitle ?? cell.titleTypeLabel ?? cell.typeLabel)
+      : countLabelTitle(cell.countText, cell.titleTypeLabel ?? cell.typeLabel),
 });
 
 /**
@@ -144,19 +155,19 @@ const rowType = (
   if (layerInfo.iconSvg) {
     return { svg: layerInfo.iconSvg, key: "type_custom" };
   }
-  // A container layer (folium FeatureGroup / LayerGroup) is its own row: it is
+  // A group layer (folium FeatureGroup / LayerGroup) is its own row: it is
   // not a vector face, so its type icon is the group glyph and its type word
-  // is the container label — never the geometry of its buried leaves.
-  // A container row is a group of sub-layers shown as one row. A registered
+  // is the group label — never the geometry of its buried leaves.
+  // A group row is a group of sub-layers shown as one row. A registered
   // logical layer can also be backed by a group (an L.layerGroup()) but expose
   // a featureCountProvider — that layer's count is provider-driven, so it is
-  // not a sub-layer container.
-  if (layer && !layerInfo.featureCountProvider && isContainerLayer(layer)) {
-    // Materialize the surface before the container answer: a container whose
+  // not a sub-layer group.
+  if (isGroupRow(layerInfo, layer)) {
+    // Materialize the surface before the group answer: a group whose
     // leaves expose labelable properties still needs its label pane, and the
     // surface is what declares it (withLabelSpec runs inside surfaceFor).
     ui.c.surfaceFor(layerInfo);
-    return { svg: SVGs.ICON_CONTAINER, key: "type_container" };
+    return { svg: SVGs.ICON_GROUP, key: "type_group" };
   }
   if (layer) {
     const gtype = ui.c.surfaceFor(layerInfo).geometryType();
@@ -164,6 +175,40 @@ const rowType = (
   }
   return { svg: SVGs.ICON_UNKNOWN, key: "type_unknown" };
 };
+
+/** The count · label sentence every row's type cell and row title uses: the
+ *  count first, then the word for what the row is. A row with no count shows
+ *  the word alone. One builder, so the four call sites cannot drift into
+ *  "3 · 文件夹" on one row and "文件夹 · 3" on the next.
+ *
+ *  @param {string} countText - The row's count, or "" when it publishes none.
+ *  @param {string} label - The word for what the row is.
+ *  @returns {string} The hover sentence. */
+const countLabelTitle = (countText: string, label: string): string =>
+  countText ? `${countText} · ${label}` : label;
+
+/** The count column's text rule: one number when the whole group agrees, a
+ *  kept-of-total pair otherwise. Shared by role rows, folder rows and
+ *  group rows so the three can never drift — the count column's fixed
+ *  track was sized against this one shape. */
+const roleCountText = (total: number, on: number): string =>
+  on === total ? String(total) : on === 0 ? `0/${total}` : `${on}/${total}`;
+
+/** The count column's tooltip rule: one sentence, one placeholder vocabulary.
+ *
+ *  Every group row that shows a visible-of-total count spells it out through
+ *  this builder, so the role header, a folder header and a group row can
+ *  never drift into two formats or two names for the same number. Only the
+ *  unit noun differs, and it is the caller's key: a folder counts registered
+ *  layers, a group counts its unregistered Leaflet sub-layers.
+ *
+ *  @param {LayerUI} ui - Layer UI (owns the translator).
+ *  @param {string} key - Locale key carrying the sentence.
+ *  @param {number} on - Visible count.
+ *  @param {number} total - Total count.
+ *  @returns {string} The resolved tooltip. */
+const countTooltip = (ui: LayerUI, key: string, on: number, total: number): string =>
+  ui.T(key).replace("{on}", String(on)).replace("{total}", String(total));
 
 /**
  * One layer's inputs to the row visual: the projection input builder.
@@ -189,21 +234,39 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
   const filterModel =
     typeof layerInfo.filterProvider === "function" ? layerInfo.filterProvider() : null;
   const filtered = Boolean(filterModel?.filter);
-  // A container's count column is its DIRECT child count (sub-layers), not a
+  // A group's count column is its DIRECT child count (sub-layers), not a
   // deep feature census — the row says "3 layers", not "12 features". A logical
   // layer backed by a group with a featureCountProvider keeps the provider
   // count (the group is its representation, not a folder of sub-layers).
-  const containerCount =
-    layer && !layerInfo.featureCountProvider && isContainerLayer(layer)
-      ? countChildLayersOf(layer)
+  const isGroup = isGroupRow(layerInfo, layer);
+  const totalChildren = isGroup ? countChildLayersOf(layer!) : null;
+  const visibleChildren =
+    isGroup && layer ? countVisibleChildLayers(layer, ui.c.map) : null;
+  // 三态 count for a group row: all children visible → the bare total
+  // ("3"), some → "visible/total" ("2/3"), none → "0/3". The tooltip spells
+  // it out with the same pair. A group's count is a display string, NOT a
+  // number through formatNumber.
+  const groupCount =
+    totalChildren != null && visibleChildren != null
+      ? roleCountText(totalChildren, visibleChildren)
       : null;
+  const groupTooltip =
+    isGroup && totalChildren != null && visibleChildren != null
+      ? countTooltip(ui, "sub_layers_count_tooltip", visibleChildren, totalChildren)
+      : "";
   const rawCount = filtered
     ? filterModel!.kept
-    : containerCount != null
-      ? containerCount
+    : groupCount != null
+      ? groupCount
       : ui.c.getFeatureCount(layerInfo.id);
   const countText =
-    rawCount != null ? formatNumber(rawCount, "auto", ui.config.locale_code) : "";
+    // A group's count is already the display string ("2/3"); pass it
+    // through verbatim. Numeric counts keep the auto format.
+    typeof groupCount === "string"
+      ? groupCount
+      : rawCount != null
+        ? formatNumber(rawCount as number, "auto", ui.config.locale_code)
+        : "";
   const filterTitle = filtered
     ? ui
         .T("filter_row_title")
@@ -223,6 +286,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     checked,
     filtered,
     filterTitle,
+    groupTooltip,
     // Read the projection: focus overrides the range, the range never
     // overrides the intent. Focus dims the other rows visually without
     // removing them from the map, so while it holds every checked layer is
@@ -233,6 +297,7 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
     typeSvg: type.svg,
     typeLabel,
     titleTypeLabel,
+    group: isGroup,
   };
 };
 
@@ -260,6 +325,15 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     input.setAttribute("aria-label", cell.name);
   }
   item.classList.toggle(CONST.CLASSES.ACTIVE, view.active);
+  // A group row is a grouping, not an item: its name reads one weight
+  // heavier than a leaf's, and its sentences call it a layer group.
+  item.classList.toggle(CONST.CLASSES.GROUP_ROW, Boolean(cell.group));
+  const moreBtn = item.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_BTN}`);
+  if (moreBtn && cell.group) {
+    const label = withNoun(ui, "more_tooltip", ROW_NOUN.GROUP);
+    moreBtn.title = label;
+    moreBtn.setAttribute("aria-label", label);
+  }
 
   const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
   if (countCol) {
@@ -281,7 +355,15 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   }
   if (view.typeSvg) {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
-    if (typeCol) typeCol.innerHTML = view.typeSvg;
+    if (typeCol) {
+      typeCol.innerHTML = view.typeSvg;
+      // A group row's icon names the row the way a folder's and a role's
+      // do (count · what it is). A leaf row needs no icon title: its row title
+      // already carries the same sentence and bubbles to the icon.
+      if (cell.group) {
+        typeCol.title = countLabelTitle(cell.countText, ui.T("noun_group"));
+      }
+    }
   }
   // The label always carries the full layer name: long names are clipped
   // visually and styles can shorten the text, so the title is the one place
@@ -297,5 +379,38 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+// The tri-state checkbox paint moved to the shared ui/checkbox primitive
+// (createCheckbox / setCheckboxState / triStateOf) so a checkbox created by
+// LayerControl and one created by any other consumer paint the identical
+// checked / indeterminate / aria-checked contract. rowView no longer owns a
+// second copy of the rule.
+
+/** Write the role row's count cell — text and tooltip — from the same
+ *  `{ total, on }` aggregate the tri-state checkbox paints. A row visual
+ *  write, so it lives in the single row-view writer. */
+const writeRoleCount = (
+  row: Element,
+  total: number,
+  on: number,
+  tooltip?: string,
+): void => {
+  const countEl = row.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
+  if (!countEl) return;
+  countEl.textContent = roleCountText(total, on);
+  // A group row that carries no tooltip keeps none: writing an empty title
+  // would suppress the row's own tooltip bubbling.
+  if (tooltip !== undefined) countEl.setAttribute("title", tooltip);
+};
+
+export {
+  applyRowView,
+  buildRowCell,
+  countLabelTitle,
+  countTooltip,
+  displayName,
+  inZoomRange,
+  roleCountText,
+  rowView,
+  writeRoleCount,
+};
 export type { RowCell, RowLabels, RowView };

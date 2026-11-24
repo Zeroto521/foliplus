@@ -26,12 +26,20 @@ import {
 } from "./filter.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { createLogger } from "#platform/log.js";
-import { loadRecord, removeRecord, saveRecord } from "#platform/storage.js";
+import {
+  type MapLike,
+  loadRecord,
+  removeRecord,
+  saveRecord,
+  scopedStorageKey,
+} from "#platform/storage.js";
 
-/** The single storage key every layer's filter record lives under. One key,
- *  indexed by layer id inside the record — never a per-surface or per-layer
- *  key assembled at the call site. */
-const FILTER_STORE_KEY = "foliplus_filter_store";
+/** The per-map storage key for a layer's filter record, scoped to its map
+ *  container (multi-map pages keep filters separate; the record itself is one
+ *  key indexed by layer id inside it — never a per-surface or per-layer key
+ *  assembled at the call site). Single-sourced from scopedStorageKey so the
+ *  key shape cannot drift from the other per-map records. */
+const filterStoreKey = (map: MapLike): string => scopedStorageKey(map, "filter_store");
 
 /** The well-known source names a surface registers under. A control whose
  *  filter surface is a single fixed slot (MeasureControl's type filter) names
@@ -167,7 +175,9 @@ interface FilterStore {
   ): boolean;
 }
 
-const createFilterStore = (): FilterStore => {
+const createFilterStore = (map: MapLike): FilterStore => {
+  /** The scoped key for this store's map, captured once. */
+  const key = filterStoreKey(map);
   /** (layerId, name) -> host, per registration order. One registry serves
    *  every layer and every control; the per-layer state lives in the
    *  persisted record. */
@@ -176,7 +186,7 @@ const createFilterStore = (): FilterStore => {
   const declarations = new Map<string, Map<string, LayerFilter>>();
 
   const readRecord = (): FilterStoreRecord => {
-    const loaded = loadRecord<unknown>(FILTER_STORE_KEY);
+    const loaded = loadRecord<unknown>(key);
     // A corrupt or non-record payload (an array, a string, a record missing
     // the layers map) reads back as an empty record — it is not a persistence
     // channel and must never be trusted as one.
@@ -194,7 +204,7 @@ const createFilterStore = (): FilterStore => {
   };
 
   const writeRecord = (record: FilterStoreRecord): void => {
-    saveRecord(FILTER_STORE_KEY, record);
+    saveRecord(key, record);
   };
 
   /** Read one source entry WITHOUT mutating the record. Reads must never
@@ -244,7 +254,7 @@ const createFilterStore = (): FilterStore => {
     // per-surface clear removed the key it wrote). A record with sibling
     // layers keeps its other entries.
     if (Object.keys(record.layers).length === 0) {
-      removeRecord(FILTER_STORE_KEY);
+      removeRecord(key);
     } else {
       writeRecord(record);
     }
@@ -253,20 +263,20 @@ const createFilterStore = (): FilterStore => {
 
   const store: FilterStore = {
     registerHost(layerId, name, host) {
-      const key = keyOf(layerId, name);
-      if (hosts.has(key)) {
+      const hostKey = keyOf(layerId, name);
+      if (hosts.has(hostKey)) {
         // A control rebuild re-registers the same (layerId, name); the host
         // object is fresh but the stored value must survive. This is the
         // idempotent-overwrite contract, not an error.
         log.debug(`re-register host ${layerId}/${name}`);
       }
-      hosts.set(key, host);
+      hosts.set(hostKey, host);
     },
     sources: layerId => {
       const names: string[] = [];
       const prefix = `${layerId}\u0000`;
-      for (const key of hosts.keys()) {
-        if (key.startsWith(prefix)) names.push(key.slice(prefix.length));
+      for (const hostKey of hosts.keys()) {
+        if (hostKey.startsWith(prefix)) names.push(hostKey.slice(prefix.length));
       }
       // A restored record carries source names that were never registered as
       // hosts (a migration restores into the record before any host exists).
@@ -334,7 +344,7 @@ const createFilterStore = (): FilterStore => {
         // Whole-layer reset: a layer delete. Every surface on this layer goes.
         delete record.layers[layerId];
         if (Object.keys(record.layers).length === 0) {
-          removeRecord(FILTER_STORE_KEY);
+          removeRecord(key);
         } else {
           writeRecord(record);
         }
@@ -407,9 +417,9 @@ const createFilterStore = (): FilterStore => {
  *  declarations are single-sourced across Measure / Heatmap / LayerControl. */
 const ensureFilterStore = (map: L.Map): FilterStore => {
   const api = ensureMapFoliplus(map);
-  api.filterStore ??= createFilterStore();
+  api.filterStore ??= createFilterStore(map);
   return api.filterStore;
 };
 
-export { createFilterStore, ensureFilterStore, FILTER_SOURCE, FILTER_STORE_KEY };
+export { createFilterStore, ensureFilterStore, filterStoreKey, FILTER_SOURCE };
 export type { FilterSourceHost, FilterStore };

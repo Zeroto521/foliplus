@@ -173,7 +173,7 @@ class MeasureManager {
   /** Cursor-following coordinate readout, live for the manager's lifetime.
    *  null when `show_live_coords` is off. */
   private coordReadoutEl: HTMLElement | null = null;
-  /** The readout is only created while a mode is armed (setMode), so its
+  /** The readout is only created while a mode is active (setMode), so its
    *  map listeners are only ever live inside that window. */
   private coordReadoutEvents: [string, L.LeafletEventHandlerFn][] = [];
   ctrl: HTMLElement | null;
@@ -228,7 +228,12 @@ class MeasureManager {
       normalize: filter => this.normalizeMeasureFilter(filter),
       apply: () => this.applyFilterVisibility(),
       publish: () =>
-        publish(this.events, EVENTS.LAYER_FILTER_CHANGE, { id: this.layerId }),
+        publish(
+          this.events,
+          EVENTS.LAYER_FILTER_CHANGE,
+          { id: this.layerId },
+          { kind: "programmatic", via: "self" },
+        ),
       dimensions: () => [this.filterDimension()],
       counts: () => this.filterCounts(),
     });
@@ -682,7 +687,7 @@ class MeasureManager {
     );
 
     this.map.getContainer().classList.add(CONST.CLASSES.MEASURING);
-    // The readout tracks the cursor for as long as a mode is armed, including
+    // The readout tracks the cursor for as long as a mode is active, including
     // before the first click: the operator wants the coordinate they are about
     // to place, not only the ones already placed.
     this.showCoordReadout();
@@ -757,7 +762,7 @@ class MeasureManager {
 
   /** Build the cursor-following readout chip, appended to the map container.
    *  It lives outside the Leaflet panes, so panning and zooming never move it.
-   *  Hidden until a drawing mode is armed — nothing is measured while idle. */
+   *  Hidden until a drawing mode is active — nothing is measured while idle. */
   private buildCoordReadout(): HTMLElement {
     const container = document.createElement("div");
     container.className = CONST.READOUT.CLASS_PREFIX;
@@ -769,7 +774,7 @@ class MeasureManager {
   }
 
   /** Start tracking the pointer. Only called from setMode, so the listeners
-   *  are live exactly while a drawing mode is armed. The handler reads only
+   *  are live exactly while a drawing mode is active. The handler reads only
    *  `event.latlng` — it is the one field present on both browser-driven and
    *  programmatically dispatched mousemove events. */
   private showCoordReadout(): void {
@@ -868,14 +873,24 @@ class MeasureManager {
       if (chip) chip.style.visibility = visible ? "" : "hidden";
     }
     if (visible) this.scheduleLabelPlan();
-    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    publish(
+      this.events,
+      EVENTS.LAYER_STYLE_CHANGE,
+      { id: this.layerId },
+      { kind: "user", via: "panel" },
+    );
   };
 
   /** Runtime toggle for collision (the drawer's avoid-overlap switch). */
   setLabelCollide = (on: boolean): void => {
     this.labelCollide = on;
     this.scheduleLabelPlan();
-    publish(this.events, EVENTS.LAYER_STYLE_CHANGE, { id: this.layerId });
+    publish(
+      this.events,
+      EVENTS.LAYER_STYLE_CHANGE,
+      { id: this.layerId },
+      { kind: "user", via: "panel" },
+    );
   };
 
   /**
@@ -1006,7 +1021,7 @@ class MeasureManager {
     this.layers.unregister();
   }
 
-  /** Transient-only cleanup: drop every live layer, cancel the armed mode,
+  /** Transient-only cleanup: drop every live layer, cancel the active mode,
    *  run each measurement's dispose, and collapse the panel — but leave the
    *  store's persisted list untouched. Called by destroy(), which runs on
    *  control removal and must not wipe localStorage (only an explicit

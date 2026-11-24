@@ -20,6 +20,10 @@ import {
   LABEL_DIM_ORDER,
   getDimension,
 } from "#control/LayerControl/ui/style/registry.js";
+import {
+  registerFaceReplay,
+  replayFace,
+} from "#control/LayerControl/ui/style/replay.js";
 import { commitSize } from "#control/LayerControl/ui/style/size.js";
 import {
   FACE,
@@ -1227,5 +1231,23 @@ describe("needsDerivation — per-feature gate (checklist B)", () => {
     // must NOT derive and write the author stroke as a user override.
     const ui = layerReg({ perFeature: false, distinct: 1, stops: ["#334455"] });
     expect(needsDerivation(ui, "overlay1", FACE.STROKE)).toBe(false);
+  });
+});
+
+describe("style replay bridge", () => {
+  const ui = { id: "ui-1" } as any;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("no-ops when no owner has registered the face (writer before owner)", () => {
+    expect(() => replayFace(ui, "poly1", FACE.STROKE)).not.toThrow();
+  });
+
+  it("runs the registered replay for the face", () => {
+    const run = vi.fn();
+    registerFaceReplay(ui, FACE.STROKE, run);
+    expect(() => replayFace(ui, "poly1", FACE.STROKE)).not.toThrow();
   });
 });

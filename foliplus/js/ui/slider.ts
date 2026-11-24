@@ -648,12 +648,15 @@ class Slider {
     this.valuesRow.appendChild(label);
   }
 
-  /** Width-adaptive end labels: a label that fits on its half stays
-   *  dot-centred (its centre on the parked dot's centre); a label too wide
-   *  to fit centred without crossing the row's middle switches to the clamp
-   *  state (class is-clamp), which pins it to the row's edge and clips its
-   *  text inward. Measured on render / open / resize — never on a drag
-   *  frame, so a pointermove cannot churn the layout. */
+  /** Width-adaptive end labels: the alignment rule keys on the label's
+   *  RENDERED width against the thumb's width. A label no wider than the
+   *  thumb is dot-centred (its centre sits on the parked thumb's centre, a
+   *  half thumb in from the control edge); anything wider is an axis label
+   *  and pins to the slider's painted ends (class is-clamp, the control's two
+   *  edges — where the parked thumbs' outer edges land), clipping its text
+   *  toward the inside. The switch is decided per label on render / open /
+   *  resize — never on a drag frame, so a pointermove cannot churn the
+   *  layout. */
   private measureValuesFit(): void {
     if (!this.minEl || !this.maxEl || !this.opts.values) return;
     const rowWidth = this.valuesRow.clientWidth;
@@ -661,19 +664,21 @@ class Slider {
     // laid-out width; skip and let the deferred measure or the resize observer
     // decide once the row is in the document.
     if (rowWidth === 0) return;
-    const thumb =
-      parseFloat(
-        getComputedStyle(this.root).getPropertyValue("--foliplus-slider-thumb-size"),
-      ) || 14;
-    const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
-    // A label may stay dot-centred while it does not cross the row's middle:
-    // half the row, minus the half-thumb anchor and the gap to its sibling.
-    const half = rowWidth / 2 - thumb / 2 - gap;
-    const fits = (el: HTMLElement) => el.scrollWidth <= half + 1;
-    const minClamp = !fits(this.minEl);
-    const maxClamp = !fits(this.maxEl);
-    this.minEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, minClamp);
-    this.maxEl.classList.toggle(SLIDER_CLASS.VALUE_CLAMP, maxClamp);
+    // The rule keys on the RENDERED label width vs the thumb width — not on
+    // a character count. A label no wider than the thumb fits its dot-centred
+    // slot (its centre sits on the parked thumb's centre, a half thumb in
+    // from the control edge); a label wider than the thumb clamps to the
+    // painted bar ends (class is-clamp, the control's two edges). Reading the
+    // rendered box makes the rule immune to font changes, new glyphs and
+    // emoji — the character-count table it replaces drifted silently.
+    const thumbWidth = this.thumbs[0]?.getBoundingClientRect().width ?? 0;
+    const fits = (el: HTMLElement) => el.getBoundingClientRect().width <= thumbWidth;
+    const fit = (el: HTMLElement) =>
+      fits(el)
+        ? el.classList.remove(SLIDER_CLASS.VALUE_CLAMP)
+        : el.classList.add(SLIDER_CLASS.VALUE_CLAMP);
+    fit(this.minEl);
+    fit(this.maxEl);
     // The deferred fit measure runs after the first layout, so the current
     // label can finally read its dot's real centre (the constructor's own
     // sync saw zero-width boxes and deferred).
@@ -696,17 +701,14 @@ class Slider {
     if (centre === null) return;
     const gap = parseFloat(getComputedStyle(this.valuesRow).gap) || 4;
     // The end numbers own the row's two edges; the current number may use
-    // the space strictly between their inner edges. A dot-centred end label
-    // overhangs inward, so its box edge is the real boundary.
+    // the space strictly between their inner edges. A clamped end label is
+    // pinned to the edge, so its box edge is the real boundary.
     const minBox = this.minEl?.getBoundingClientRect();
     const maxBox = this.maxEl?.getBoundingClientRect();
     const leftBound = minBox ? minBox.right - row.left + gap : gap;
     const rightBound = maxBox ? maxBox.left - row.left - gap : row.width - gap;
-    // A dot-centred label may grow room/2 on either side of the dot (the
-    // dot sits at the centre of the label), so the cap is twice the nearer
-    // distance to an end label's inner edge.
-    // A dot-centred label may grow room/2 on either side of the dot (the
-    // dot sits at the centre of the label), so the cap is twice the nearer
+    // The current number may grow room/2 on either side of the dot (the dot
+    // sits at the centre of the label), so the cap is twice the nearer
     // distance to an end label's inner edge.
     const room = Math.min(centre - leftBound, rightBound - centre) * 2;
     if (this.currentEl.scrollWidth <= room + 1) return;

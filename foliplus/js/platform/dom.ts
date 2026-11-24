@@ -268,6 +268,11 @@ const removeInlineEditInput = (
   if (!label) return null;
   const input = label.querySelector("input") as HTMLInputElement | null;
   if (input) label.removeChild(input);
+  const original = inlineEditOriginal.get(label);
+  if (original !== undefined) {
+    label.textContent = original;
+    inlineEditOriginal.delete(label);
+  }
   return input;
 };
 
@@ -280,6 +285,12 @@ const removeInlineEditInput = (
  *
  * Returns the created input element (already focused and selected).
  */
+/** The text an inline edit replaced. The input takes the label's place, so
+ *  removing it has to put the text back — otherwise a commit that changes
+ *  nothing (Enter on the default name) leaves the label blank until some
+ *  unrelated rebuild repaints the row. */
+const inlineEditOriginal = new WeakMap<HTMLLabelElement, string>();
+
 const createInlineEditInput = (opts: {
   label: HTMLLabelElement;
   initialValue: string;
@@ -329,6 +340,12 @@ const createInlineEditInput = (opts: {
   });
   input.addEventListener("blur", () => commit(input.value));
 
+  // Record the text only on the first open: a second open without an
+  // intervening removeInlineEditInput would otherwise capture the empty string
+  // the first open left behind, and the teardown would blank the label.
+  if (!inlineEditOriginal.has(opts.label)) {
+    inlineEditOriginal.set(opts.label, opts.label.textContent ?? "");
+  }
   opts.label.textContent = "";
   opts.label.appendChild(input);
   input.focus();

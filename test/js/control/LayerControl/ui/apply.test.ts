@@ -1827,6 +1827,18 @@ describe("membership invariants: only intent + author snapshot authorise members
   });
 });
 
+/** The role header's tri-state as the panel paints it. The panel keeps no
+ *  separate counter: the header checkbox IS the aggregate, so reading it is
+ *  reading the same number the user sees. */
+const headerState = (root: ParentNode, role: string) => {
+  const row = root.querySelector(`.foliplus-layer-toggle-all[data-role="${role}"]`);
+  const cb = row?.querySelector('[data-role="toggle-all"]') as HTMLInputElement | null;
+  return {
+    checked: cb?.checked ?? null,
+    indeterminate: cb?.indeterminate ?? null,
+  };
+};
+
 // ── Notification-contract cases, moved from the former
 // ── notifyContract.test.ts so they live with the script they drive. ──
 it("a later subscriber observes the state the earlier subscriber left", () => {
@@ -1866,9 +1878,9 @@ it("a later subscriber observes the state the earlier subscriber left", () => {
   expect(secondSaw).toEqual([true]);
   expect(intentVisibleOf(ui, id)).toBe(true);
   expect(onMap.current).toBe(true);
-  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-    total: 1,
-    on: 1,
+  expect(headerState(ui.uiContainer!, ROLE.OVERLAY)).toEqual({
+    checked: true,
+    indeterminate: false,
   });
 });
 
@@ -1935,8 +1947,8 @@ it("the group count reflects the intent a reentrant correction left", () => {
       { id: "two", name: "Two", role: "overlay", layer: polygonLayer() },
     ],
   });
-  const count = () => ui.listPanel.checkedCount[ROLE.OVERLAY];
-  expect(count()).toEqual({ total: 2, on: 2 });
+  const count = () => headerState(ui.uiContainer!, ROLE.OVERLAY);
+  expect(count()).toEqual({ checked: true, indeterminate: false });
 
   // A subscriber that disagrees with the uncheck and pushes the layer back
   // on, synchronously, inside the notify.
@@ -1946,9 +1958,9 @@ it("the group count reflects the intent a reentrant correction left", () => {
 
   ui.applyVisibility("one", false);
 
-  // The count is the final intent, not the delta the outer operation
+  // The header is the final intent, not the delta the outer operation
   // computed against the state it started from.
-  expect(count()).toEqual({ total: 2, on: 2 });
+  expect(count()).toEqual({ checked: true, indeterminate: false });
   expect(intentVisibleOf(ui, "one")).toBe(true);
 });
 
@@ -1971,9 +1983,9 @@ it("a subscriber that throws leaves every side effect applied", () => {
   expect(
     (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
   ).toBe(false);
-  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-    total: 1,
-    on: 0,
+  expect(headerState(ui.uiContainer!, ROLE.OVERLAY)).toEqual({
+    checked: false,
+    indeterminate: false,
   });
 });
 
@@ -1986,6 +1998,9 @@ it("a subscriber that destroys the control leaves no null deref", () => {
   // non-null assertion.
   const { ui } = initFixture();
   const id = "overlay1";
+  // Hold the panel root: the teardown nulls `ui.c.uiContainer`, but the DOM
+  // the operation already painted is still there to read.
+  const root = ui.uiContainer!;
   ui.events.on(EVENTS.LAYER_CHANGE, () => {
     // The container half of `LayerController.destroy()`.
     ui.c.uiContainer = null;
@@ -1994,9 +2009,9 @@ it("a subscriber that destroys the control leaves no null deref", () => {
   expect(() => ui.applyVisibility(id, false)).not.toThrow();
   expect(ui.c.map.removeLayer).toHaveBeenCalled();
   expect(intentVisibleOf(ui, id)).toBe(false);
-  expect(ui.listPanel.checkedCount[ROLE.OVERLAY]).toEqual({
-    total: 1,
-    on: 0,
+  expect(headerState(root, ROLE.OVERLAY)).toEqual({
+    checked: false,
+    indeterminate: false,
   });
 });
 
@@ -2325,4 +2340,82 @@ it("notifyDelta raises a single layer's consumer failure after its fan-out", () 
   ).toThrow("single boom");
 
   expect(seen).toEqual([entry.id]);
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// Nested groups: the executor removes the WHOLE group in one call and lets
+// Leaflet cascade, so a grandchild leaves the map with its parent. A future
+// change that switches the group-row write to a per-child walk (the #1284
+// container-expand shape) would leave grandchildren on the map while the
+// parent checkbox reads unchecked — this pins the cascade.
+// ────────────────────────────────────────────────────────────────────────
+
+/** A membership-tracking map that emulates Leaflet's recursive cascade:
+ *  removing a container removes every descendant it owns. */
+const makeCascadeMap = () => {
+  installLeafletGlobals();
+  const members = new Set<unknown>();
+  const parents = new Map<unknown, unknown[]>();
+  const map = {
+    on: vi.fn(),
+    off: vi.fn(),
+    eachLayer: vi.fn(),
+    invalidateSize: vi.fn(),
+    hasLayer: vi.fn((l: unknown) => members.has(l)),
+    addLayer: vi.fn((l: any) => {
+      members.add(l);
+      for (const kid of parents.get(l) ?? []) map.addLayer(kid);
+    }),
+    removeLayer: vi.fn((l: any) => {
+      members.delete(l);
+      for (const kid of parents.get(l) ?? []) map.removeLayer(kid);
+    }),
+    fitBounds: vi.fn(),
+    flyTo: vi.fn(),
+    getZoom: vi.fn(() => 5),
+  };
+  return {
+    map,
+    register: (parent: unknown, kids: unknown[]) => parents.set(parent, kids),
+  };
+};
+
+/** A group node exposing its kids through eachLayer (Leaflet LayerGroup shape). */
+const cascadeGroup = (kids: unknown[]) => ({
+  options: {},
+  eachLayer: (fn: (c: unknown) => void) => {
+    for (const k of kids) fn(k);
+  },
+});
+
+it("unchecking a nested group hides its grandchild (Leaflet cascade)", () => {
+  const { map, register } = makeCascadeMap();
+  const marker = { options: {}, eachLayer: undefined };
+  const inner = cascadeGroup([marker]);
+  const outer = cascadeGroup([inner]);
+  register(outer, [inner]);
+  register(inner, [marker]);
+
+  const layerInfo = {
+    id: "a",
+    layer: outer,
+    canvas: undefined,
+  } as unknown as Parameters<typeof dispatchStateOp>[1];
+  const ui = {
+    c: {
+      map,
+      surfaceFor: () => ({ capabilities: { visibility: "native" } }),
+      findLayer: vi.fn(),
+    },
+  } as unknown as LayerUI;
+
+  map.addLayer(outer);
+  expect(map.hasLayer(marker)).toBe(true);
+
+  dispatchStateOp(ui, layerInfo, { type: "visible", value: false });
+  // The control removes the WHOLE group in one call and lets Leaflet cascade;
+  // a per-child loop would call removeLayer for the inner group and the marker
+  // too. The first call is the control's own: the whole group, not a child.
+  expect(map.removeLayer.mock.calls[0][0]).toBe(outer);
+  expect(map.hasLayer(marker)).toBe(false);
 });
