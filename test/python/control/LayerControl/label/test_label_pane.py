@@ -1,4 +1,4 @@
-"""Browser tests for foliplus.LayerControl — label & label canvas."""
+"""Browser tests for label panes: visibility, ordering and click-through."""
 
 from __future__ import annotations
 
@@ -19,8 +19,10 @@ from foliplus import LayerControl
 
 from ..helper_browser import LayerControlBrowserBase
 
+
 class TestLabelBrowser(LayerControlBrowserBase):
     """Browser-level interaction checks — label & label canvas."""
+
     def test_add_label_sets_pane(self, browser, tmp_path):
         """addLabel sets pane on the marker."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):

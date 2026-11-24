@@ -1,4 +1,4 @@
-"""Browser tests for foliplus.LayerControl — label & label canvas."""
+"""Browser tests for row titles and label rename announcements."""
 
 from __future__ import annotations
 
@@ -19,8 +19,10 @@ from foliplus import LayerControl
 
 from ..helper_browser import LayerControlBrowserBase
 
+
 class TestLabelBrowser(LayerControlBrowserBase):
     """Browser-level interaction checks — label & label canvas."""
+
     def test_rename_keeps_checkbox_title_and_sets_aria_label(self, browser, tmp_path):
         """Renaming a layer updates the label and aria-label, not the tooltip."""
         with use_page(

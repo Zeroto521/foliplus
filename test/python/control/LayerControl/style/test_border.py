@@ -27,8 +27,10 @@ from conftest import (
 )
 
 from foliplus import HeatmapControl, LayerControl
+
 from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_vector_border_writes_the_stroke_and_survives_reload(

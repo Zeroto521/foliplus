@@ -1,21 +1,4 @@
-"""The shared scheme-picker dropdown, driven through both of its consumers.
-
-LayerControl's style drawer and HeatmapControl's panel mount the same
-``ui/schemePicker``, so every behaviour here is a contract both must honour,
-measured in Chromium against the real DOM rather than a class:
-
-* placement — the list is portalled, paints below by default, flips above when
-  the room below cannot hold it, and scrolls inside its cap (and re-places on
-  resize);
-* lifetime — the list never outlives the panel that opened it: collapse, the
-  clear button, an outside press, control removal and pseudo-fullscreen all put
-  it away, Escape closes only the list, and the press after a choice still
-  lands;
-* host — the list mounts into whatever surface covers the trigger, so it stays
-  clickable under both native and pseudo fullscreen;
-* geometry — the item strip lines up with the trigger strip in both list
-  states, with a real (non-hidden) scrollbar and at DPR1/DPR2.
-"""
+"""Scheme-picker lifetime: every path that dismisses the shared list."""
 
 from __future__ import annotations
 
@@ -53,6 +36,7 @@ _WARN_PRELUDE = """
   })();
 """
 
+
 def _make_close_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     _polygon_layer().add_to(m)
@@ -61,6 +45,7 @@ def _make_close_page(browser, tmp_path):
     HeatmapControl(position="bottomleft").add_to(m)
     html = _expose_heatmap(m.get_root().render())
     return make_browser_page(browser, tmp_path, html, "picker_close")
+
 
 def _make_order_page(browser, tmp_path, layer_first: bool):
     """Build a page with LayerControl + HeatmapControl in a chosen order.
@@ -85,16 +70,20 @@ def _make_order_page(browser, tmp_path, layer_first: bool):
         browser, tmp_path, html, "picker_close", prelude=_WARN_PRELUDE
     )
 
+
 def _state(page) -> dict:
     return page.evaluate(_js("platform/read_picker_panel_state"))
+
 
 def _wait_closed(page) -> None:
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="detached", timeout=3000
     )
 
+
 def _close_centre(page, selector: str) -> dict:
     return page.evaluate(_js("platform/read_element_centre"), selector)
+
 
 def _open_heatmap_dropdown(page) -> None:
     expanded = page.evaluate(_js("HeatmapControl/panel_is_open"))
@@ -114,6 +103,7 @@ def _open_heatmap_dropdown(page) -> None:
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
     )
+
 
 def _open_style_dropdown(page) -> None:
     page.evaluate(_js("LayerControl/open_panel"))
@@ -136,8 +126,10 @@ def _open_style_dropdown(page) -> None:
     # the drawer. Only the committed state guarantees the picker owns Escape.
     page.wait_for_function(_js("LayerControl/wait_picker_committed"), timeout=3000)
 
+
 class TestPickerCloseBrowser:
     """One rule for both consumers: put the panel away, the list goes with it."""
+
     def test_heatmap_affordances_close_the_list(self, browser, tmp_path):
         with use_page(_make_close_page, browser, tmp_path) as (page, errors):
             # The close button in the panel header.

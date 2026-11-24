@@ -1,4 +1,4 @@
-"""Split of test_style.py by dimension."""
+"""Zoom-range application: native gate, bubbles, drag commits and layer/canvas reload behaviour."""
 
 from __future__ import annotations
 
@@ -27,8 +27,10 @@ from conftest import (
 )
 
 from foliplus import HeatmapControl, LayerControl
+
 from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_native_gate_range_slider_arrowdown(self, browser, tmp_path):

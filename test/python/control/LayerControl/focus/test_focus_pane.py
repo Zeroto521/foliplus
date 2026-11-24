@@ -1,4 +1,4 @@
-"""Split of test_panel.py by dimension."""
+"""Browser tests for the focus pane: spotlight visibility, click-through and native UI hiding."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ from foliplus import HeatmapControl, LayerControl
 
 from ..helper import _expand_panel, _geo_mixed, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):

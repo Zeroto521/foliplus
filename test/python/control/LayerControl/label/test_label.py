@@ -1,4 +1,4 @@
-"""Browser tests for foliplus.LayerControl — label & label canvas."""
+"""Browser tests for layer labels: canvas drawing, collision and declared colour/size."""
 
 from __future__ import annotations
 
@@ -19,8 +19,10 @@ from foliplus import LayerControl
 
 from ..helper_browser import LayerControlBrowserBase
 
+
 class TestLabelBrowser(LayerControlBrowserBase):
     """Browser-level interaction checks — label & label canvas."""
+
     def test_label_canvas_draws(self, browser, tmp_path):
         """Enabling labels draws text onto the shared label canvas."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):

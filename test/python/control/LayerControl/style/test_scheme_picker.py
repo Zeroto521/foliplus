@@ -53,6 +53,7 @@ _WARN_PRELUDE = """
   })();
 """
 
+
 def _make_flip_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     # Polygon first: it is the first overlay row, so the style drawer opens on a
@@ -68,6 +69,7 @@ def _make_flip_page(browser, tmp_path):
     html = _expose_heatmap(m.get_root().render())
     page, errors = make_browser_page(browser, tmp_path, html, "scheme_flip")
     return page, errors
+
 
 def _open_layer_list(page) -> dict:
     """Open the style drawer's by-value scheme list and measure it."""
@@ -92,6 +94,7 @@ def _open_layer_list(page) -> dict:
     # pre-layout box, making the flip verdict disagree with the rule on timing.
     page.wait_for_function(_js("platform/wait_scheme_dropdown_settled"), timeout=5000)
     return page.evaluate(_js("platform/read_scheme_dropdown_placement"))
+
 
 def _open_heatmap_list(page) -> dict:
     """Open the heatmap panel's scheme list and measure it."""
@@ -119,9 +122,11 @@ def _open_heatmap_list(page) -> dict:
     page.wait_for_function(_js("platform/wait_scheme_dropdown_settled"), timeout=5000)
     return page.evaluate(_js("platform/read_scheme_dropdown_placement"))
 
+
 def _close(page) -> None:
     page.keyboard.press("Escape")
     page.wait_for_timeout(50)
+
 
 def _make_host_page(browser, tmp_path, *, pseudo: bool):
     """Build the map page; `pseudo` disables the native API before scripts run.
@@ -140,6 +145,7 @@ def _make_host_page(browser, tmp_path, *, pseudo: bool):
         "scheme_host_pseudo" if pseudo else "scheme_host_native",
     )
 
+
 def _open_ramp(page) -> None:
     """Expand the layer control, open the style drawer and settle the ramp mode."""
     page.evaluate(_js("LayerControl/open_panel"))
@@ -150,6 +156,7 @@ def _open_ramp(page) -> None:
     opened = page.evaluate(_js("LayerControl/open_style_panel"))
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+
 
 def _open_list(page) -> dict:
     """Press the scheme trigger and return the live list geometry."""
@@ -164,6 +171,7 @@ def _open_list(page) -> dict:
     assert host["dropdownPresent"], host
     return host
 
+
 @pytest.fixture(scope="module")
 def scrollbar_browser(browser):
     """Chromium with real scrollbars: Playwright hides them by default.
@@ -177,6 +185,7 @@ def scrollbar_browser(browser):
         headless=True, ignore_default_args=["--hide-scrollbars"]
     ) as real:
         yield _CdnBrowserProxy(real)
+
 
 def _make_strip_page(browser, tmp_path, dpr: int, schemes: list[str] | None = None):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -206,6 +215,7 @@ def _make_strip_page(browser, tmp_path, dpr: int, schemes: list[str] | None = No
     page.goto(html_path.as_uri(), wait_until="domcontentloaded")
     return page, errors
 
+
 def _open_strip_heatmap_list(page) -> None:
     if not page.evaluate(_js("HeatmapControl/panel_is_open")):
         page.evaluate(_js("HeatmapControl/click_toggle_button"))
@@ -224,6 +234,7 @@ def _open_strip_heatmap_list(page) -> None:
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
     )
 
+
 def _open_strip_layer_list(page) -> None:
     page.evaluate(_js("LayerControl/open_panel"))
     page.wait_for_selector(
@@ -239,6 +250,7 @@ def _open_strip_layer_list(page) -> None:
     page.wait_for_selector(
         ".foliplus-scheme-picker-portal", state="attached", timeout=3000
     )
+
 
 def _measure(page, trigger: str) -> dict:
     """Sample the strip geometry once the picker width has settled.
@@ -258,6 +270,7 @@ def _measure(page, trigger: str) -> dict:
     settled = page.evaluate(_js("platform/wait_scheme_picker_settled"), trigger)
     assert settled is True, f"picker width did not settle: {settled}"
     return page.evaluate(_js("platform/measure_scheme_strip"), trigger)
+
 
 def _assert_invariant(sample: dict) -> None:
     """Strip right == min(padding-box right - inset, scrollport right).
@@ -293,8 +306,10 @@ def _assert_invariant(sample: dict) -> None:
             sample,
         )
 
+
 class TestSchemeDropdownFlipBrowser:
     """One flip rule, verified on both real consumers."""
+
     def test_both_consumers_flip_by_one_rule(self, browser, tmp_path):
         with use_page(_make_flip_page, browser, tmp_path) as (page, errors):
             sweep = [(900, 900), (900, 620), (900, 470), (900, 360)]
@@ -367,8 +382,10 @@ class TestSchemeDropdownFlipBrowser:
             _close(page)
             assert not errors, f"JS errors: {errors}"
 
+
 class TestSchemePickerHostBrowser:
     """The portalled list follows the surface that covers the trigger."""
+
     def test_pseudo_fullscreen_mounts_the_list_in_the_covering_container(
         self, browser, tmp_path
     ):
@@ -465,8 +482,10 @@ class TestSchemePickerHostBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+
 class TestSchemeStripAlignmentBrowser:
     """One strip geometry for the trigger and every list row, both states."""
+
     @pytest.mark.parametrize("dpr", [1, 2])
     def test_heatmap_strips_match_with_a_layout_scrollbar(
         self, scrollbar_browser, tmp_path, dpr

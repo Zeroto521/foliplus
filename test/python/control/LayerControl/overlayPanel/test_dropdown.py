@@ -1,7 +1,8 @@
-"""Split of test_panel.py by dimension."""
+"""Browser tests for the overlay dropdown: outside-press lifetime, drawer nesting, row geometry and touch drag."""
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import time
@@ -35,19 +36,6 @@ from foliplus import HeatmapControl, LayerControl
 from ..helper import _expand_panel, _geo_mixed, _write_html
 from ..helper_browser import LayerControlBrowserBase
 
-import copy
-from conftest import (
-    _js,
-    assert_map_unchanged,
-    load_geojson,
-    make_browser_page,
-    map_center_zoom,
-    panel_ready,
-    snippet,
-    snippet_fn,
-    touch_drag,
-    use_page,
-)
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_panel_stays_open_on_outside_press_by_default(self, browser, tmp_path):

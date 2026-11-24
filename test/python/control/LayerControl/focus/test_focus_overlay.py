@@ -1,4 +1,4 @@
-"""Split of test_panel.py by dimension."""
+"""Browser tests for the focus overlay: dim direction, base-pane visibility and popup handling."""
 
 from __future__ import annotations
 
@@ -34,6 +34,7 @@ from foliplus import HeatmapControl, LayerControl
 
 from ..helper import _expand_panel, _geo_mixed, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_keydown_escape_keeps_focus_in_row(self, browser, tmp_path):

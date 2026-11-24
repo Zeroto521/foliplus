@@ -1,4 +1,4 @@
-"""Split of test_style.py by dimension."""
+"""Border value priority: declared border over follow-fill, author round-trip and the swatch."""
 
 from __future__ import annotations
 
@@ -27,8 +27,10 @@ from conftest import (
 )
 
 from foliplus import HeatmapControl, LayerControl
+
 from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_border_original_roundtrip_restores_computed_style(self, browser, tmp_path):

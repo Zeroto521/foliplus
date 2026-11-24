@@ -1,4 +1,4 @@
-"""Browser tests for foliplus.LayerControl — enum filter, funnel, shared dropdown."""
+"""Browser tests for the filter row: folded funnel, enum and range bodies, apply and slider alignment."""
 
 from __future__ import annotations
 
@@ -8,6 +8,9 @@ import re
 import folium
 from conftest import (
     _js,
+    leaflet_path,
+    load_geojson,
+    make_browser_page,
     panel_ready,
     snippet,
     use_page,
@@ -18,8 +21,6 @@ from foliplus import LayerControl
 from ..helper import _geo_zone
 from ..helper_browser import LayerControlBrowserBase
 
-from conftest import _js, leaflet_path, make_browser_page, use_page
-from conftest import _js, load_geojson, panel_ready, use_page
 
 class TestFilterBrowser(LayerControlBrowserBase):
     """Browser-level interaction checks — enum filter, funnel, shared dropdown."""
