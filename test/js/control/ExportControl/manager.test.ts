@@ -727,4 +727,48 @@ describe("ExportManager — export progress", () => {
       renderSpy.mockRestore();
     }
   });
+
+  it("drops a canvas that lands after abortExport", async () => {
+    // abortExport() bumps the render generation: a canvas already in flight is
+    // retired, so it must not reach onRenderSuccess (that downloads) even though
+    // the renderer eventually resolves.
+    let deliver!: (canvas: HTMLCanvasElement) => void;
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockImplementation(
+        () => new Promise<HTMLCanvasElement>(resolve => (deliver = resolve)),
+      );
+    manager.onRenderSuccess = vi.fn();
+    manager.onRenderError = vi.fn();
+
+    try {
+      // SEL.CONTROL matches the Leaflet control container, so this is one of
+      // the surfaces the hide-pass takes away during a render.
+      const hidden = document.createElement("div");
+      hidden.className = "leaflet-control-container";
+      manager.mapContainer.appendChild(hidden);
+
+      const pending = manager.doRender(
+        { left: 0, top: 0, width: 10, height: 10 },
+        1,
+        undefined,
+        undefined,
+      );
+      // The hide-pass runs before the render, so the control is invisible while
+      // the canvas is being drawn.
+      expect(hidden.classList.contains("foliplus-hidden")).toBe(true);
+
+      manager.abortExport();
+      deliver(document.createElement("canvas"));
+      await pending;
+
+      expect(manager.onRenderSuccess).not.toHaveBeenCalled();
+      expect(manager.onRenderError).not.toHaveBeenCalled();
+      // The hide-pass is undone, so a retired render does not leave the control
+      // invisible on the map.
+      expect(hidden.classList.contains("foliplus-hidden")).toBe(false);
+    } finally {
+      renderSpy.mockRestore();
+    }
+  });
 });

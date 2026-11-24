@@ -108,6 +108,23 @@ describe("sessionMethods — export events", () => {
     );
   });
 
+  it("ignores progress reported by a retired render", () => {
+    // abortExport() bumps the render generation, so the progress closure doExport
+    // handed to the renderer is stale and must not keep repainting the hint.
+    manager.doRender = vi.fn();
+    manager.doExport();
+
+    const onProgress = vi.mocked(manager.doRender).mock.calls[0][4]!;
+    manager.abortExport();
+    onProgress(42);
+
+    expect(manager.showGlobalHint).not.toHaveBeenCalledWith(
+      expect.stringContaining("42%"),
+      0,
+      true,
+    );
+  });
+
   it("records a BEFORE_EXPORT consumer failure and the export start continues", () => {
     const events = ensureEvents(manager.map);
     const seen: string[] = [];
