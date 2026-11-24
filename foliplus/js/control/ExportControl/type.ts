@@ -99,7 +99,6 @@ interface TileLoadStats {
 }
 
 export type {
-  AssetFailure,
   CropRect,
   ExportImageFormat,
   ExportPhase,

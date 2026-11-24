@@ -223,8 +223,6 @@ class ExportRenderer {
       sw,
       sh,
       onProgress: reportProgress,
-      failedAssets: [],
-      paintedBackgrounds: new WeakSet<HTMLElement>(),
     };
 
     // 2. All layers — iterate in LayerControl API order bottom-to-top.

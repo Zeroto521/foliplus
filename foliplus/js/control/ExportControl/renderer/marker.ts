@@ -335,11 +335,12 @@ const renderMarkers = async (
  *  corner radius the marker pucks actually use. */
 const radiusOf = (radius: string, dw: number, dh: number): number => {
   if (!radius) return 0;
-  const first = radius.trim().split(/\s+/)[0] ?? "";
-  if (first.endsWith("%")) {
-    return (Math.min(dw, dh) * (parseFloat(first) || 0)) / 100;
-  }
-  return parseFloat(first) || 0;
+  // parseFloat reads the leading length and ignores a shorthand's other
+  // corners ("8px 4px" → 8), which is the radius the marker pucks use.
+  const first = parseFloat(radius);
+  // A non-length keyword ("auto") has no pixel radius: square corners.
+  if (!Number.isFinite(first)) return 0;
+  return radius.includes("%") ? (Math.min(dw, dh) * first) / 100 : first;
 };
 
 /** Paint the flat background/border of marker roots AND their descendants.
@@ -368,8 +369,9 @@ const renderIconBackgrounds = (
     if (root.matches(CONST.SEL.LABEL)) continue;
     const elements: HTMLElement[] = [root];
     for (const sub of root.querySelectorAll("*")) {
+      // An SVG element is not an HTMLElement, so the instanceof check above
+      // already drops it; it has its own painter (renderRemaining/pane SVG).
       if (!(sub instanceof HTMLElement)) continue;
-      if (sub.namespaceURI === CONST.SVG_NS) continue;
       if (sub.closest(CONST.SEL.LABEL)) continue;
       elements.push(sub);
     }

@@ -3,6 +3,7 @@
 // file stays under the test-size cap; both mirror renderer/marker.ts.
 import { makeRenderer, pinBox, positionedRC, textCtx, withStyle } from "./fixture.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#control/ExportControl/const.js";
 import {
   renderIconBackgrounds,
   renderMarkers,
@@ -119,6 +120,109 @@ describe("renderIconBackgrounds", () => {
     expect(ctx.fillRect).toHaveBeenCalledTimes(1);
     expect(ctx.fillRect).toHaveBeenCalledWith(60, 60, 12, 12);
   });
+
+  it("leaves a label root to the label painter", () => {
+    const ctx = textCtx();
+    const root = boxOf(document.createElement("div"), 10, 10, 60, 20);
+    root.setAttribute("data-foliplus-export", "label");
+    mockStyles(
+      new Map<Element, StyleMap>([
+        [root, { ...BASE, backgroundColor: "rgb(20, 20, 20)" }],
+      ]),
+    );
+
+    renderIconBackgrounds(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(ctx.fillRect).not.toHaveBeenCalled();
+    expect(ctx.roundRect).not.toHaveBeenCalled();
+  });
+
+  it("skips svg, excluded, empty and off-crop children", () => {
+    // None of these can be a flat paint: an SVG element is not an HTMLElement
+    // (it has its own painter), the opt-out is the author's call, a zero-size
+    // box has nothing to fill, and an off-crop box would draw nothing.
+    const ctx = textCtx();
+    const root = boxOf(document.createElement("div"), 10, 10, 200, 200);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    boxOf(svg, 12, 12, 10, 10);
+    const excluded = boxOf(document.createElement("div"), 20, 20, 10, 10);
+    excluded.setAttribute("data-foliplus-export", "exclude");
+    const empty = boxOf(document.createElement("div"), 30, 30, 0, 0);
+    const offCrop = boxOf(document.createElement("div"), 5000, 5000, 10, 10);
+    const visible = boxOf(document.createElement("div"), 40, 40, 10, 10);
+    root.append(svg, excluded, empty, offCrop, visible);
+    mockStyles(
+      new Map<Element, StyleMap>([
+        [excluded, { ...BASE, backgroundColor: "rgb(1, 1, 1)" }],
+        [empty, { ...BASE, backgroundColor: "rgb(2, 2, 2)" }],
+        [offCrop, { ...BASE, backgroundColor: "rgb(3, 3, 3)" }],
+        [visible, { ...BASE, backgroundColor: "rgb(4, 5, 6)" }],
+      ]),
+    );
+
+    renderIconBackgrounds(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(ctx.fillRect).toHaveBeenCalledTimes(1);
+    expect(ctx.fillRect).toHaveBeenCalledWith(40, 40, 10, 10);
+  });
+
+  it("paints a square border with rect primitives when there is no radius", () => {
+    // An empty and a "0px" radius both resolve to 0 corners: the fill and the
+    // stroke use fillRect/strokeRect, not the path-based roundRect.
+    const ctx = textCtx();
+    const root = boxOf(document.createElement("div"), 10, 10, 40, 40);
+    const chip = boxOf(document.createElement("div"), 12, 12, 24, 16);
+    const keyword = boxOf(document.createElement("div"), 40, 12, 10, 10);
+    root.append(chip, keyword);
+    mockStyles(
+      new Map<Element, StyleMap>([
+        [
+          chip,
+          {
+            ...BASE,
+            backgroundColor: "rgb(0, 128, 255)",
+            borderStyle: "solid",
+            borderWidth: "1px",
+            borderColor: "rgb(0, 0, 0)",
+            borderRadius: "",
+          },
+        ],
+        [keyword, { ...BASE, backgroundColor: "rgb(7, 7, 7)", borderRadius: "auto" }],
+      ]),
+    );
+
+    renderIconBackgrounds(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(ctx.fillRect).toHaveBeenCalledWith(12, 12, 24, 16);
+    expect(ctx.strokeRect).toHaveBeenCalledWith(12, 12, 24, 16);
+    // A keyword radius ("auto") has no pixel value: square corners, no path.
+    expect(ctx.fillRect).toHaveBeenCalledWith(40, 12, 10, 10);
+    expect(ctx.roundRect).not.toHaveBeenCalled();
+  });
+
+  it("uses the first component of a shorthand radius", () => {
+    const ctx = textCtx();
+    const root = boxOf(document.createElement("div"), 10, 10, 40, 40);
+    const child = boxOf(document.createElement("div"), 10, 10, 20, 20);
+    root.appendChild(child);
+    mockStyles(
+      new Map<Element, StyleMap>([
+        [child, { ...BASE, backgroundColor: "rgb(9, 9, 9)", borderRadius: "8px 4px" }],
+      ]),
+    );
+
+    renderIconBackgrounds(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(ctx.roundRect).toHaveBeenCalledWith(10, 10, 20, 20, 8);
+  });
 });
 
 describe("renderRemaining — painted backgrounds and asset failures", () => {
@@ -165,6 +269,23 @@ describe("renderRemaining — painted backgrounds and asset failures", () => {
     expect(rc.failedAssets).toEqual([
       { src: "https://example.test/icon.png", reason: "network down" },
     ]);
+  });
+
+  it("reports an inline svg it could not rasterise", async () => {
+    // The clone becomes a blob image; a decode failure is a real omission and
+    // is counted with the element's class (or a stable label) as its source.
+    const ctx = textCtx();
+    const root = boxOf(document.createElement("div"), 10, 10, 24, 24);
+    const svg = document.createElementNS(CONST.SVG_NS, "svg");
+    boxOf(svg, 0, 0, 24, 24);
+    svg.appendChild(document.createElementNS(CONST.SVG_NS, "path"));
+    root.appendChild(svg);
+    vi.spyOn(UTIL, "loadImage").mockRejectedValue("decode failed");
+    const rc = positionedRC(1000, 1000, ctx) as RenderCtx;
+
+    await renderRemaining(makeRenderer().container, rc, [root]);
+
+    expect(rc.failedAssets).toEqual([{ src: "inline-svg", reason: "decode failed" }]);
   });
 });
 
