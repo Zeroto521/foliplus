@@ -758,6 +758,31 @@ describe("MeasureManager — global events", () => {
     );
     expect(spy).toHaveBeenCalled();
   });
+  it("Escape keydown returns early when the mode finalized the drawing", () => {
+    // The finish path ends the mode itself; routing must not clear it again.
+    const { manager } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => true;
+    const spy = vi.spyOn(manager, "clearActiveMode");
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("Escape keydown leaves edit mode when no draw mode is active", () => {
+    const { manager } = makeManager();
+    manager.isEditMode = true;
+    const spy = vi.spyOn(manager, "applyEditMode");
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
 
   it("Escape while a distance draw is in flight drops the empty measure row", () => {
     // clearActiveMode hands the surface back to the factory via unregister();
