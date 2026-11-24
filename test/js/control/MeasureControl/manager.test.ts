@@ -758,6 +758,19 @@ describe("MeasureManager — global events", () => {
     );
     expect(spy).toHaveBeenCalled();
   });
+  it("onKeyDown returns early when the mode finalized the drawing", () => {
+    // The document-level shortcut (interaction.ts) is the primary Escape
+    // entry; this pins the manager-level handler too, so the early return
+    // cannot rot into a second clearActiveMode call.
+    const { manager } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => true;
+    const spy = vi.spyOn(manager, "clearActiveMode");
+
+    manager.onKeyDown(new KeyboardEvent("keydown", { key: "Escape" }));
+
+    expect(spy).not.toHaveBeenCalled();
+  });
   it("Escape keydown returns early when the mode finalized the drawing", () => {
     // The finish path ends the mode itself; routing must not clear it again.
     const { manager } = makeManager();
