@@ -46,6 +46,9 @@ export default defineConfig({
         "foliplus/js/control/*/index.ts",
         // MeasureControl mode subclasses — need L.polyline/L.polygon/L.circle.
         // Glob so a newly added mode is excluded without editing this list.
+        // `*.ts` matches mode/ directly but NOT mode/<sub>/*.ts; no subdirectory
+        // exists today (verified: base/circle/distance/index/marker/polygon).
+        // If a mode ever moves under a subdirectory, widen to mode/**/*.ts here.
         "foliplus/js/control/MeasureControl/mode/*.ts",
       ],
       reporter: ["text", "lcov"],

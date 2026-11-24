@@ -2,7 +2,7 @@
 //
 // Five factories build that namespace piecemeal (ensureHint / ensureEvents /
 // ensureModes / ensureLayerAPI / ensureInteraction), each adding only its own
-// member, yet the rest of the codebase calls `map.foliplus!.showHint(...)`
+// member, yet the rest of the codebase calls `map.foliplus!.hint.set(...)`
 // without narrowing. Keeping the interface's members required is what makes
 // those call sites sound — making them optional would turn every one into a
 // TS2722. This module is where the one necessary lie lives, and it is a leaf:

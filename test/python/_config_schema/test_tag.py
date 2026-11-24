@@ -124,6 +124,13 @@ class TestValidateShape:
         with pytest.raises(ValueError, match=message):
             validate_shape(shape, "T")
 
+    def test_object_unknown_is_a_leaf_for_open_value_bags(self) -> None:
+        # LayerData[].filter carries the normalised filter AST, whose inner shape
+        # is arbitrary. The grammar has no inline open-object tag, so the leaf
+        # renders as Record<string, unknown> (mirrored by SHAPE_PRIMITIVES in
+        # script/build/emit-config-schema.mjs).
+        validate_shape({"filter": (("object_unknown", "null"), "?")}, "T")
+
     def test_none_is_a_no_op(self) -> None:
         # None is only reachable from callers that guard first; it must not
         # raise, so a descriptor that resolves to None is harmless.
