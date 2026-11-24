@@ -5,7 +5,9 @@ import {
   findItem,
   initFixture,
   installLeafletGlobals,
+  makeAuthorIcon,
   makeDerivedUI,
+  makePlainDivIconAuthor,
   polygonLayer,
   trackMembership,
 } from "./ui/fixture.js";
@@ -8681,6 +8683,87 @@ describe("LayerAPI.getStyle", () => {
     expect(solo.icon?.glyph).toBeUndefined();
     expect(solo.icon?.markerColor).toBeUndefined();
     expect(solo.icon?.markerColorOpacity).toBeUndefined();
+  });
+
+  it("a point layer the user never touched reports the author's declared icon paint", () => {
+    // The snapshot is the public read API: a host must see the value the map
+    // actually paints, not only the panel's stored intent. A layer the user
+    // never edited has no intent, so every icon dimension must fall back to
+    // the author's declaration (and report provenance "author").
+    const author = makeAuthorIcon({ markerColor: "#d63e2a", iconColor: "#123456" });
+    author.options.icon = "star";
+    const marker = {
+      feature: { properties: { value: 1 } },
+      options: { icon: author },
+      setIcon: vi.fn(),
+    };
+    const layer = {
+      options: {},
+      eachLayer: vi.fn((fn: (l: unknown) => void) => fn(marker)),
+    };
+    const { manager } = initFixture({
+      data: [{ id: "auth1", name: "Author", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    const snap = manager.getStyle("auth1")!;
+    expect(snap.icon?.markerColor).toBe("#d63e2a");
+    expect(snap.provenance.markerColor).toBe("author");
+    expect(snap.icon?.color).toBe("#123456");
+    expect(snap.provenance.iconColor).toBe("author");
+    expect(snap.icon?.glyph).toBe("star");
+    expect(snap.provenance.icon).toBe("author");
+  });
+
+  it("a vector layer the user never touched reports the author's fill and stroke", () => {
+    // Same contract for the vector paint dimensions: fill / border already
+    // resolve the author face in their value() readers, so the snapshot must
+    // carry the declared paint with provenance "author" before any user write.
+    const leaf = new window.L.CircleMarker() as any;
+    leaf.options = {
+      fillColor: "#123456",
+      fillOpacity: 0.5,
+      color: "#654321",
+      weight: 3,
+    };
+    leaf.feature = { properties: { value: 1 } };
+    const layer = {
+      options: {},
+      eachLayer: vi.fn((fn: (l: unknown) => void) => fn(leaf)),
+    };
+    const { manager } = initFixture({
+      data: [{ id: "vec1", name: "Vec", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    const snap = manager.getStyle("vec1")!;
+    expect(snap.fill?.color).toBe("#123456");
+    expect(snap.fill?.opacity).toBe(0.5);
+    expect(snap.provenance.fill).toBe("author");
+    expect(snap.border?.color).toBe("#654321");
+    expect(snap.border?.weight).toBe(3);
+    expect(snap.provenance.border).toBe("author");
+  });
+
+  it("a gate-rejected marker surface reports no fabricated chassis", () => {
+    // The author fallback must not invent a dimension the surface cannot
+    // carry: a plain divIcon has no awesome-markers chassis, so the snapshot
+    // stays empty and provenance reads "none" (the map paints nothing to
+    // report).
+    const marker = {
+      feature: { properties: { value: 1 } },
+      options: { icon: makePlainDivIconAuthor() },
+      setIcon: vi.fn(),
+    };
+    const layer = {
+      options: {},
+      eachLayer: vi.fn((fn: (l: unknown) => void) => fn(marker)),
+    };
+    const { manager } = initFixture({
+      data: [{ id: "plain1", name: "Plain", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    const snap = manager.getStyle("plain1")!;
+    expect(snap.icon).toBeUndefined();
+    expect(snap.provenance.markerColor).toBe("none");
   });
 
   it("SNAPSHOT_READERS keys == STYLE_DIM_TABLE keys (P2-2 source-scan guard)", async () => {
