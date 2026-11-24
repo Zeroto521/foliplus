@@ -387,8 +387,8 @@ def read_css_dir(path: str, name: str) -> str:
 # instead of product behaviour: online, a cross-origin fetch whose response
 # lacks Access-Control-Allow-Origin logs "blocked by CORS policy" as a console
 # error; offline, the same fetch fails differently. Both variants have already
-# reddened a browser round that looked like a product regression (the task-106
-# geocode round: 17 CORS failures, one cause).
+# reddened a browser round that looked like a product regression (the
+# geocode-flake round: 17 CORS failures, one cause).
 #
 # So no http(s) request may leave the page. Every one is answered here,
 # deterministically:

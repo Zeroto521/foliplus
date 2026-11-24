@@ -4,7 +4,7 @@ A browser test page is a file:// document, so its origin is "null". Any
 request that reaches the runner's network makes the suite depend on runner
 connectivity: online, a cross-origin fetch without a CORS header logs a
 console error that fails every "assert not errors" test; offline, the same
-request fails a different way. That is how the task-106 geocode round turned
+request fails a different way. That is how the geocode-flake round turned
 into 17 CORS failures that looked like product regressions.
 
 The policy in conftest.py answers every http(s) request deterministically
