@@ -19,9 +19,13 @@ function mockLayerAPI() {
   // The real mainLayer is a Leaflet LayerGroup; the filter's visibility path
   // asks it which leaves are attached, so the mock tracks membership too.
   const attached = new Set<unknown>();
-  return {
+  const api = {
     register: vi.fn(),
     unregister: vi.fn(),
+    // Mirrors the real factory: clearing the content also unregisters the
+    // surface, so a caller can tell content removal from a bare unregister.
+    // The mock's own mock calls unregister directly (instead of nesting vi.fn
+    // calls) so spies on it stay plain.
     clearLayers: vi.fn(),
     addLayer: vi.fn(l => l),
     removeLayer: vi.fn(),
@@ -37,6 +41,8 @@ function mockLayerAPI() {
       hasLayer: vi.fn((leaf: unknown) => attached.has(leaf)),
     },
   };
+  api.clearLayers.mockImplementation(() => api.unregister());
+  return api;
 }
 
 function makeManager(opts?: { id?: string }) {

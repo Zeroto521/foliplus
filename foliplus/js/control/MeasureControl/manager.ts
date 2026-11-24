@@ -1017,8 +1017,12 @@ class MeasureManager {
     // NOTE: the low-priority Escape (interactionCleanup) stays registered for
     // the manager's lifetime (unregistered only in destroy()); it also drives
     // edit-mode Escape, so unregistering here would break Escape after the
-    // first measurement.
-    this.layers.unregister();
+    // first measurement. The layer registration is a separate matter and
+    // must stay put: ending a drawing mode is not removing the layer, and the
+    // measurements already drawn belong to it. Deregistering here dropped the
+    // measure row from the LayerControl panel on Escape — clearLayers (the
+    // CLEAR mode, destroy, unload) is the one path that owns that, because it
+    // also removes the content.
   }
 
   /** Transient-only cleanup: drop every live layer, cancel the active mode,

@@ -750,6 +750,25 @@ describe("MeasureManager — global events", () => {
     expect(spy).toHaveBeenCalled();
   });
 
+  it("Escape during a mode keeps the measure layer registered", () => {
+    // The measure row in the LayerControl panel is the registry entry that
+    // setMode registers. Ending the mode is not removing the layer — the
+    // measurements already drawn belong to it, and the row must survive so a
+    // measurement drawn before the Escape is still listed. unregister is owned
+    // by clearLayers (CLEAR / destroy / unload), which removes the content
+    // the registration is there for.
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.register).toHaveBeenCalled();
+    expect(layers.unregister).not.toHaveBeenCalled();
+    expect(layers.clearLayers).not.toHaveBeenCalled();
+  });
+
   it("Escape keydown does nothing when no mode is active", () => {
     const { manager } = makeManager();
     const spy = vi.spyOn(manager, "clearActiveMode");

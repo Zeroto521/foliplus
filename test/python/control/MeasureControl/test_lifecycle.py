@@ -179,6 +179,41 @@ class TestMeasureModeBrowser:
             assert mode is None, f"expected mode to be None after Escape, got {mode}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_escape_keeps_the_measure_row_in_the_panel(self, browser, tmp_path):
+        """Pressing Escape ends the mode without dropping the measure layer row.
+
+        `setMode` registers the measure layer so its row shows in the
+        LayerControl panel. `clearActiveMode` used to unregister it too, which
+        is a no-op while a measurement exists (the factory only drops the
+        entry once the content is gone) but a real deregistration while the
+        layer is empty, so an Escape before drawing took the row away.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/click_distance_button"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            before = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert before["registered"], f"row missing before Escape: {before}"
+            assert before["row"], f"row not rendered before Escape: {before}"
+
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after Escape, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert after == before, (
+                f"Escape dropped the measure row: before={before}, after={after}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
     def test_measure_mode_disables_other_layer_interaction(self, browser, tmp_path):
         """Activating a measure mode disables interactivity on other map layers
         (so clicks fall through to the map), and exiting restores it."""
