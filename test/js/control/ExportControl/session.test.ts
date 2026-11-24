@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as downloadMod from "#platform/download.js";
 import { ExportManager, canvasToBlob } from "#control/ExportControl/manager.js";
+import { ExportRenderer } from "#control/ExportControl/renderer/index.js";
 
 const modeMocks = vi.hoisted(() => ({
   guardBlocked: vi.fn(() => false),
@@ -212,6 +213,59 @@ describe("sessionMethods — export events", () => {
     );
     expect(manager.isExporting).toBe(false);
     modeMocks.guardBlocked.mockReturnValue(false);
+  });
+
+  it("drops a render failure that lands after abortExport", async () => {
+    // The failure half of the render generation: a rejection delivered after
+    // teardown must not reach onRenderError (which shows a fail hint and
+    // publishes AFTER_EXPORT on a control that is going away).
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockRejectedValue(new Error("tile boom"));
+    manager.onRenderError = vi.fn();
+    const hidden = document.createElement("div");
+    hidden.className = "leaflet-control-container";
+    manager.mapContainer.appendChild(hidden);
+
+    try {
+      const pending = manager.doRender(
+        { left: 0, top: 0, width: 10, height: 10 },
+        1,
+        undefined,
+        undefined,
+      );
+      manager.abortExport();
+      await pending;
+
+      expect(manager.onRenderError).not.toHaveBeenCalled();
+      expect(hidden.classList.contains("foliplus-hidden")).toBe(false);
+    } finally {
+      renderSpy.mockRestore();
+    }
+  });
+
+  it("routes a live render failure to onRenderError", async () => {
+    // The other side of the generation guard: a failure with no teardown in
+    // between must still reach onRenderError (fail hint + AFTER_EXPORT).
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockRejectedValue(new Error("tile boom"));
+    manager.onRenderError = vi.fn();
+
+    try {
+      await manager.doRender(
+        { left: 0, top: 0, width: 10, height: 10 },
+        1,
+        undefined,
+        undefined,
+      );
+      expect(manager.onRenderError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.anything(),
+      );
+    } finally {
+      renderSpy.mockRestore();
+    }
   });
 
   it("onRenderSuccess emits after:export event", async () => {
