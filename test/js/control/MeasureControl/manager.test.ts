@@ -62,6 +62,15 @@ const filter = (values: string[]): any => ({
   values,
 });
 
+/** Finalize one distance measurement on the manager. registerItemLayers is
+ *  the real manager method that finalizes a measurement's leaves, so it keeps
+ *  the measure surface non-empty across the Escape that ends the mode — the
+ *  content-driven shouldUnregister() in the factory checks exactly this. */
+const finalizeDistance = (manager: any): void => {
+  const finalPoly = { _finalizedDistancePoly: true };
+  manager.layers.registerItemLayers("d1", [finalPoly]);
+};
+
 /** Read the shared filter store record for a manager's map. */
 const readStoreRecord = (manager: any): any => {
   const raw = window.localStorage.getItem(filterStoreKey(manager.map));
@@ -750,13 +759,10 @@ describe("MeasureManager — global events", () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it("Escape during a mode keeps the measure layer registered", () => {
-    // The measure row in the LayerControl panel is the registry entry that
-    // setMode registers. Ending the mode is not removing the layer — the
-    // measurements already drawn belong to it, and the row must survive so a
-    // measurement drawn before the Escape is still listed. unregister is owned
-    // by clearLayers (CLEAR / destroy / unload), which removes the content
-    // the registration is there for.
+  it("Escape while a distance draw is in flight drops the empty measure row", () => {
+    // clearActiveMode hands the surface back to the factory via unregister();
+    // an in-flight draw holds nothing finalized, so the empty measure row
+    // leaves the LayerControl panel with the cancel.
     const { manager, layers } = makeManager();
     manager.setMode(CONST.MEASURE_MODE.DISTANCE);
 
@@ -765,8 +771,25 @@ describe("MeasureManager — global events", () => {
     );
 
     expect(layers.register).toHaveBeenCalled();
-    expect(layers.unregister).not.toHaveBeenCalled();
+    expect(layers.unregister).toHaveBeenCalled();
+    expect(layers.registered).toBe(false);
     expect(layers.clearLayers).not.toHaveBeenCalled();
+  });
+
+  it("Escape after a finalized distance keeps the measure row registered", () => {
+    // The finalized leaves belong to this measurement's registerItemLayers
+    // entry, so the surface still holds content when Escape ends the mode and
+    // the content-driven unregister keeps the row. clearLayers (CLEAR /
+    // destroy / unload) is the path that removes the content outright.
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    finalizeDistance(manager);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.registered).toBe(true);
   });
 
   it("Escape keydown does nothing when no mode is active", () => {

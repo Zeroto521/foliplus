@@ -20,8 +20,21 @@ function mockLayerAPI() {
   // asks it which leaves are attached, so the mock tracks membership too.
   const attached = new Set<unknown>();
   const api = {
-    register: vi.fn(),
-    unregister: vi.fn(),
+    register: vi.fn(() => {
+      api.registered = true;
+    }),
+    unregister: vi.fn(() => {
+      // The real factory's shouldUnregister() is content-driven: it only drops
+      // the registration when the surface holds nothing. registerItemLayers
+      // below is what makes the surface non-empty, so a finalized measurement
+      // keeps its row and an in-flight draw loses the empty one.
+      if (api.content.size > 0) return;
+      api.registered = false;
+    }),
+    registered: true,
+    // Finalized measurement leaves (registerItemLayers) that keep the surface
+    // non-empty across an Escape-cancelled clearActiveMode.
+    content: new Set<unknown>(),
     // Mirrors the real factory: clearing the content also unregisters the
     // surface, so a caller can tell content removal from a bare unregister.
     // The mock's own mock calls unregister directly (instead of nesting vi.fn
@@ -42,6 +55,12 @@ function mockLayerAPI() {
     },
   };
   api.clearLayers.mockImplementation(() => api.unregister());
+  // Finalizing a measurement hands its leaves here, which is what keeps the
+  // surface non-empty so a later clearActiveMode unregister() is guarded by
+  // the real shouldUnregister(). Tests read the registered flag to assert.
+  api.registerItemLayers = vi.fn((_id: unknown, leaves: unknown[]) => {
+    leaves.filter(Boolean).forEach(l => api.content.add(l));
+  });
   return api;
 }
 

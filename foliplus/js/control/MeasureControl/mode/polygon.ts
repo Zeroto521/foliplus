@@ -233,22 +233,28 @@ class PolygonMode extends PreviewMode {
           });
         },
       });
-      // Replace the drawing-phase cleanup with a no-op (it would remove the
-      // finalized polygon/nodes).
-      // eslint-disable-next-line @typescript-eslint/no-empty-function -- neutralizes the drawing-phase cleanup
-      this._cleanup = () => {};
-
-      // Cleanup drawing mode
-      unbindMapEvents(this.map, polyEvents);
-      this.layers.removeLayer(previewPoly);
-      this.layers.removeLayer(confirmedPoly);
-      this.layers.removeLayer(poly);
-      this.clearCursorNode();
-      if (previewDistLabel) {
-        this.layers.removeLayer(previewDistLabel);
-        previewDistLabel = null;
-      }
-      this.mgr.clearActiveMode();
+      // Restore the drawing-phase teardown (it was replaced with a no-op that
+      // leaked the finalized polygon/nodes on an Escape cancel): clear the
+      // in-flight previews, but leave finalPoly / nodeMarkers / segLabels — they
+      // belong to this measurement's registerItemLayers entry, not to the drawing
+      // phase. Keeping them keeps the measure row's content non-empty, so the
+      // content-driven shouldUnregister() in LayerFactory retains the row when
+      // clearActiveMode hands the surface back via unregister().
+      this._cleanup = () => {
+        unbindMapEvents(this.map, polyEvents);
+        this.layers.removeLayer(previewPoly);
+        this.layers.removeLayer(confirmedPoly);
+        this.clearCursorNode();
+        if (previewDistLabel) {
+          this.layers.removeLayer(previewDistLabel);
+          previewDistLabel = null;
+        }
+        this.layers.removeLayer(poly);
+      };
+      // Run the in-flight teardown now (it only clears the previews + cursor
+      // node), so the finalized leaves left on the surface are the row's
+      // content when clearActiveMode hands it back to the factory.
+      this._cleanup();
     };
 
     const onPolyMove = (event: L.LeafletMouseEvent) => {
