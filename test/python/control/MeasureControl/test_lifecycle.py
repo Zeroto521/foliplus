@@ -311,13 +311,7 @@ class TestMeasureModeBrowser:
             page.wait_for_timeout(300)
 
             # Two clicks: center + radius → finishCircle fires (async delay).
-            page.evaluate(
-                """() => {
-                  const map = window.__map;
-                  map.fire("click", { latlng: L.latLng(26.08, 119.3) });
-                  map.fire("click", { latlng: L.latLng(26.09, 119.31) });
-                }"""
-            )
+            page.evaluate(_js("MeasureControl/draw_circle_two_points"))
             page.wait_for_timeout(800)  # wait for FINALIZE_DELAY setTimeout
 
             page.evaluate(_js("MeasureControl/press_escape"))
