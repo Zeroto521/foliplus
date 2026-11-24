@@ -497,6 +497,17 @@ class TestSchemaDump:
         # foliplus._config_schema` usage); ``--dump`` is the explicit form of it.
         assert schema_to_json().strip().endswith("}")
 
+    def test_main_out_and_dump_go_through_the_cli_parser(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from foliplus._config_schema.__main__ import main
+
+        out = tmp_path / "config-schema.json"
+        assert main(["--out", str(out)]) == 0
+        assert out.read_text(encoding="utf-8") == schema_to_json()
+        assert main(["--dump"]) == 0
+        assert capsys.readouterr().out == schema_to_json()
+
 
 class TestRuntimeZeroChange:
     """Rendering CONFIG must not consult the schema at runtime.
@@ -542,7 +553,8 @@ class TestRuntimeZeroChange:
         assert SearchControl.default_js == []
 
     def test_schema_module_does_not_touch_basecontrol(self) -> None:
-        # _config_schema.py imports nothing from foliplus.* at module level;
+        # the `_config_schema` package imports nothing from foliplus.* at module
+        # level;
         # importing it must not alter BaseControl's behavior. Verified in a
         # subprocess so this test cannot mutate the test-runner's module state
         # (importlib.reload would redefine BaseControl in place and split class
@@ -566,33 +578,21 @@ class TestRuntimeZeroChange:
             f"stdout: {result.stdout}\nstderr: {result.stderr}"
         )
 
-    def test_script_dir_stripped_when_run_as_script(self) -> None:
-        # When run as ``python foliplus/_config_schema.py`` the script's
-        # directory is prepended to ``sys.path``, which shadows stdlib
-        # ``locale``. The module strips it on import so ``argparse``'s gettext
-        # import still resolves. Verified in a subprocess so this test cannot
-        # mutate the test-runner's ``sys.path``.
+    def test_module_entry_point_dumps_the_schema(self) -> None:
+        # The dump is consumed through ``python -m foliplus._config_schema``;
+        # the entry point must resolve argparse's gettext import and print the
+        # same JSON the in-process call produces. Verified in a subprocess so
+        # the test does not depend on the test-runner's ``sys.path``.
         repo_root = Path(__file__).resolve().parents[2]
-        src = repo_root / "foliplus" / "_config_schema.py"
-        probe = (
-            "import sys\n"
-            f"sys.argv = [r'{src}', '--help']\n"
-            "import runpy\n"
-            "try:\n"
-            "    runpy.run_path(r'%s', run_name='__main__')\n"
-            "except SystemExit as e:\n"
-            "    assert e.code == 0\n"
-            "print('stripped:', r'%s' not in sys.path)\n" % (src, src.parent)
-        )
         result = subprocess.run(
-            [sys.executable, "-X", "utf8", "-c", probe],
+            [sys.executable, "-X", "utf8", "-m", "foliplus._config_schema", "--dump"],
             cwd=repo_root,
             capture_output=True,
             text=True,
             check=False,
         )
         assert result.returncode == 0, result.stderr
-        assert "stripped: True" in result.stdout
+        assert json.loads(result.stdout)["version"] == 1
 
 
 # ── JS↔Python contract: field-set parity, not byte parity ────────────────

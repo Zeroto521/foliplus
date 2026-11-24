@@ -14,9 +14,9 @@ because they are prose a reader navigates.
 Usage (called by pre-commit with the changed files, or directly):
     python script/check/module_size_check.py [FILE ...]
 
-With no FILE arguments every module under `foliplus/control` is checked; with
-FILE arguments only those files are checked (pre-commit passes the changed
-paths). Exit 1 lists every offender with its count.
+With no FILE arguments every module under `foliplus/` is checked; with FILE
+arguments only those files are checked (pre-commit passes the changed paths).
+Exit 1 lists every offender with its count.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-CONTROL_ROOT = _REPO_ROOT / "foliplus" / "control"
+PACKAGE_ROOT = _REPO_ROOT / "foliplus"
 
 # The documented threshold. It does not move to fit the code.
 LIMIT = 300
@@ -61,9 +61,9 @@ def _display(path: Path) -> Path:
 
 
 def main() -> int:
-    """Check the requested modules (or every control module) and report."""
+    """Check the requested modules (or every package module) and report."""
     args = sys.argv[1:]
-    paths = [Path(arg) for arg in args] if args else sorted(CONTROL_ROOT.rglob("*.py"))
+    paths = [Path(arg) for arg in args] if args else sorted(PACKAGE_ROOT.rglob("*.py"))
     bad = oversized(paths)
     for path, count in bad:
         print(f"{_display(path)}: {count} code lines (limit {LIMIT}); split the module")
