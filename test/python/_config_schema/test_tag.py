@@ -49,6 +49,7 @@ from .helper import (
     _walk_specs,
 )
 
+
 class TestShapeConvention:
     """A shape-driven alias carries its descriptor in the schema.
 
@@ -67,6 +68,7 @@ class TestShapeConvention:
             if spec.name is not None and not spec.shape and not spec.values:
                 bad.append(f"{name}.{field}: name={spec.name!r} with no shape")
         assert not bad, "\n".join(bad)
+
 
 class TestValidateShape:
     """The shape-descriptor grammar: valid shapes pass, bad ones fail loudly.

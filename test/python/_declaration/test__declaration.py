@@ -27,6 +27,7 @@ def _first_definition_line(tree: ast.Module) -> int | None:
         None,
     )
 
+
 def _module_binding_names(node: ast.AST) -> list[str]:
     """Names a module-level node binds, for the placement guard.
 
@@ -48,6 +49,7 @@ def _module_binding_names(node: ast.AST) -> list[str]:
     if isinstance(node, ast.ImportFrom):
         return [alias.asname or alias.name for alias in node.names]
     return []
+
 
 def _late_module_bindings(tree: ast.Module) -> list[tuple[str, int]]:
     """Module-level bindings that land after the first definition."""
@@ -72,7 +74,6 @@ def _late_module_bindings(tree: ast.Module) -> list[tuple[str, int]]:
         "test/python/_declaration/test__declaration.py",
     ],
 )
-
 def test_module_constants_precede_the_first_definition(module_path: str) -> None:
     module = Path(__file__).resolve().parents[3] / module_path
     tree = ast.parse(module.read_text(encoding="utf-8"))
@@ -96,7 +97,6 @@ def test_module_constants_precede_the_first_definition(module_path: str) -> None
         ),
     ],
 )
-
 def test_guard_catches_late_module_bindings(source: str, shape: str) -> None:
     """Negative fixtures: each late-binding shape must actually be caught.
 

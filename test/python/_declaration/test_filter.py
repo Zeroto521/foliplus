@@ -30,6 +30,7 @@ from foliplus._declaration import (
     zoom_level,
 )
 
+
 class TestJsonNumber:
     def test_integral_values_become_plain_int(self) -> None:
         assert json_number(3) == 3
@@ -40,6 +41,7 @@ class TestJsonNumber:
 
         assert value == 0.5
         assert type(value) is float
+
 
 class TestRangeAtom:
     def test_a_valid_range_is_a_between_atom_on_the_bound_field(self) -> None:
@@ -79,6 +81,7 @@ class TestRangeAtom:
 
         assert reason in str(record[0].message)
 
+
 class TestEnumAtom:
     def test_values_are_deduplicated_in_first_seen_order(self) -> None:
         assert enum_atom(
@@ -105,6 +108,7 @@ class TestEnumAtom:
             assert enum_atom(raw, "MeasureControl", MEASURE_TYPE_FIELD) is None
 
         assert reason in str(record[0].message)
+
 
 class TestNormalizeDeclaredFilter:
     def test_absent_is_none_without_a_warning(self) -> None:
@@ -167,6 +171,7 @@ class TestNormalizeDeclaredFilter:
 
 # ── Folder declaration ───────────────────────────────────────────────────
 
+
 def test_normalise_layer_filter_forms():
     assert normalise_layer_filter(
         {"field": "pop", "min": 0, "max": 100}, owner="Owner"
@@ -184,6 +189,7 @@ def test_normalise_layer_filter_forms():
         "values": ["A", "B"],
     }
     assert normalise_layer_filter(None, owner="Owner") is None
+
 
 def test_normalise_layer_filter_invalid_warns():
     # Non-mapping and malformed shapes warn once and read as undeclared. The
@@ -209,6 +215,7 @@ def test_normalise_layer_filter_invalid_warns():
                 raw,
                 [str(w.message) for w in caught],
             )
+
 
 def test_normalise_layer_filter_extra_shape_branches():
     # Branches the forms/invalid tests above do not reach: a 'values' payload

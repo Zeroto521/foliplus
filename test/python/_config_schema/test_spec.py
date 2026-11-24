@@ -49,6 +49,7 @@ from .helper import (
     _walk_specs,
 )
 
+
 class TestFieldSpecValidation:
     """FieldSpec rejects contradictory declarations at construction time.
 

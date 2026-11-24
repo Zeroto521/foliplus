@@ -35,9 +35,9 @@ from foliplus._config_schema import (
 )
 
 from .helper import (
+    _JS_CONFIG_READ_RE,
     CONF_COMMON,
     CONTROL_CLASSES,
-    _JS_CONFIG_READ_RE,
     _default_literal,
     _derived,
     _js_files,
@@ -50,6 +50,7 @@ from .helper import (
     _ts_short_to_control,
     _walk_specs,
 )
+
 
 class TestSchemaDump:
     """The JSON dump must be deterministic, valid JSON, and name-checked."""
@@ -120,6 +121,7 @@ class TestSchemaDump:
         assert main(["--dump"]) == 0
         assert capsys.readouterr().out == schema_to_json()
 
+
 class TestJSSchemaParity:
     """The committed ``config-schema.ts`` must agree with the Python schema."""
 
@@ -165,6 +167,7 @@ class TestJSSchemaParity:
                 )
         assert not problems, "\n".join(problems)
 
+
 class TestJSReadsPythonExports:
     """Every ``CONFIG.field`` JS reads must be exported by some Python control.
 
@@ -198,6 +201,7 @@ class TestJSReadsPythonExports:
 # so `npx vitest` spawned Python (which imports branca via `foliplus`). The
 # fixture is committed to git and the drift check lives here instead — same
 # shape as `TestJSSchemaParity` above for `config-schema.ts`.
+
 
 class TestConfigFixtureParity:
     """The committed ``config-fixture.ts`` must reflect the schema's defaults.
