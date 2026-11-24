@@ -132,8 +132,9 @@ const readLayerPaint = (layer: unknown): LayerPaint => {
   const colors = [...new Set(paints.map(p => p.color).filter(Boolean))].sort();
   const primary = paints.find(p => p.color !== "") ?? paints[0];
   const faces = new Set(paints.map(p => p.kind));
+  const [first] = paints;
   return {
-    kind: faces.size === 1 ? (paints[0]?.kind ?? "mixed") : "mixed",
+    kind: faces.size === 1 && first ? first.kind : "mixed",
     color: primary?.color ?? "",
     border: paints.find(p => p.border !== "")?.border ?? "",
     opacity: primary?.opacity ?? 1,

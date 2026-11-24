@@ -77,6 +77,29 @@ describe("readLayerPaint — areal", () => {
 
     expect(paint.color).toBe("#aabbcc");
   });
+
+  it("falls back to the stroke when the fill color is blank", () => {
+    const paint = readLayerPaint(arealOf({ fillColor: "", color: "#123456" }));
+
+    expect(paint.color).toBe("#123456");
+    expect(paint.border).toBe("#123456");
+  });
+
+  it("passes a named colour through and clamps an out-of-range fill opacity", () => {
+    const named = readLayerPaint(arealOf({ color: "red" }));
+    expect(named.color).toBe("red");
+
+    const clamped = readLayerPaint(arealOf({ fillColor: "#222222", fillOpacity: 2 }));
+    expect(clamped.opacity).toBe(1);
+  });
+
+  it("answers an empty colour when the areal leaf declares none", () => {
+    const paint = readLayerPaint(arealOf({}));
+
+    expect(paint.kind).toBe("areal");
+    expect(paint.color).toBe("");
+    expect(paint.opacity).toBe(1);
+  });
 });
 
 describe("readLayerPaint — line", () => {
@@ -89,6 +112,20 @@ describe("readLayerPaint — line", () => {
     expect(paint.color).toBe("#ff0000");
     expect(paint.border).toBe("#ff0000");
     expect(paint.opacity).toBe(0.6);
+  });
+
+  it("passes a named stroke colour through", () => {
+    const paint = readLayerPaint(pathOf({ color: "rebeccapurple" }));
+
+    expect(paint.color).toBe("rebeccapurple");
+  });
+
+  it("answers an empty paint for a style leaf that declares no options", () => {
+    const paint = readLayerPaint({ setStyle: () => undefined });
+
+    expect(paint.kind).toBe("line");
+    expect(paint.color).toBe("");
+    expect(paint.border).toBe("");
   });
 });
 
@@ -108,6 +145,22 @@ describe("readLayerPaint — marker", () => {
 
     expect(paint.color).toBe("#ff0000");
     expect(paint.opacity).toBe(0.4);
+  });
+
+  it("falls back to the panel chassis chain when the icon declares none", () => {
+    const paint = readLayerPaint(new Marker({}));
+
+    expect(paint.kind).toBe("marker");
+    // resolveChassisPaint's floor: the awesome-markers default blue.
+    expect(paint.color).toBe("#38aadd");
+  });
+
+  it("treats a non-number chassis opacity as the default", () => {
+    const paint = readLayerPaint(
+      markerOf({ markerColor: "green", markerColorOpacity: "40" }),
+    );
+
+    expect(paint.opacity).toBe(1);
   });
 });
 
