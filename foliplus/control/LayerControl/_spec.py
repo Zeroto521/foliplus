@@ -28,9 +28,9 @@ LAYER_DATA_FIELDS = {
                     # per-feature paint (explore's baked colors). The panel
                     # reads it as the author default behind fill by value;
                     # absent on a layer with no author paint.
-                    "fillAuthor": (
+                    "fill_author": (
                         {
-                            "perFeature": "bool",
+                            "per_feature": "bool",
                             "distinct": "number",
                             "stops": "array_string",
                             "capped": ("bool", "?"),
@@ -54,7 +54,7 @@ LAYER_DATA_FIELDS = {
                     # normalised from foliplus={"zoom_range": {...}}.
                     # Absent when the layer declares none - the
                     # visibility policy then keeps the map range.
-                    "zoomRange": (
+                    "zoom_range": (
                         {"min": "number", "max": "number"},
                         "?",
                     ),

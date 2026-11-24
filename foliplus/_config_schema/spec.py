@@ -77,12 +77,12 @@ class FieldSpec:
 
     config_key
         CONFIG key to emit this constructor parameter under, when it differs
-        from the parameter name. The constructor keeps its caller-facing name
-        (``zoom_range``) while CONF carries the normalised contract name
-        (``zoomRange``), matching the layer payload's spelling. ``None`` uses
-        the parameter name. The `_config_fields` tuple and the generated schema
-        both use the CONFIG key, which is the name ``_build_config`` resolves
-        with ``getattr``.
+        from the parameter name. Both spellings are snake_case today; the
+        field still states the emitted contract name explicitly so the
+        generated schema and the layer payload (``data[].zoom_range``) cannot
+        drift apart. ``None`` uses the parameter name. The `_config_fields` tuple
+        and the generated schema both use the CONFIG key, which is the name
+        ``_build_config`` resolves with ``getattr``.
     """
 
     ts: str = ""

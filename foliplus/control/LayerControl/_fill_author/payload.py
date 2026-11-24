@@ -1,6 +1,6 @@
 """The fill-author payload: the record the panel reads, plus its strip.
 
-Assembles one layer's ``fillAuthor`` fact: the author's distinct colors, the
+Assembles one layer's ``fill_author`` fact: the author's distinct colors, the
 paired scale (when the caption and the colors prove one) and the strip the
 panel draws. The entry point shipped to CONF lives here.
 """
@@ -102,7 +102,7 @@ def fill_author(
         return None
     per_feature = len(colors) >= 2
     payload: dict[str, Any] = {
-        "perFeature": per_feature,
+        "per_feature": per_feature,
         "distinct": len(colors),
         "stops": colors,
     }

@@ -26,8 +26,8 @@ class ProviderEndpoint(TypedDict):
 class ProviderConfig(TypedDict, total=False):
     """Overrides allowed for a built-in string provider."""
 
-    baseUrl: str
-    throttleMs: int
+    base_url: str
+    throttle_ms: int
     headers: Mapping[str, str]
 
 
@@ -42,8 +42,8 @@ class CustomProvider(_CustomProviderRequired, total=False):
     keys are optional endpoint templates and tuning knobs.
     """
 
-    baseUrl: str
-    throttleMs: int
+    base_url: str
+    throttle_ms: int
     headers: Mapping[str, str]
     suggest: ProviderEndpoint
     search: ProviderEndpoint
@@ -61,8 +61,8 @@ class CustomProvider(_CustomProviderRequired, total=False):
 # strings would reject a numeric value the runtime already handles.
 _PROVIDER_CONFIG_SHAPE = {
     "id": "string",
-    "baseUrl": ("string", "?"),
-    "throttleMs": ("number", "?"),
+    "base_url": ("string", "?"),
+    "throttle_ms": ("number", "?"),
     "headers": ({"*": "string"}, "?"),
     "suggest": (
         {
@@ -139,25 +139,25 @@ class SearchControl(BaseControl):
         Geocode provider. A built-in id (``"nominatim"``, ``"photon"``,
         ``"pelias"``) or a custom provider dict with keys:
 
-        +----------------+----------+------------------------------------------------------------------+
-        | Key            | Required | Meaning                                                          |
-        +================+==========+==================================================================+
-        | ``id``         | yes      | Unique provider id.                                              |
-        +----------------+----------+------------------------------------------------------------------+
-        | ``baseUrl``    | no       | API root, e.g. ``"https://api.example.com"``.                    |
-        +----------------+----------+------------------------------------------------------------------+
-        | ``throttleMs`` | no       | Minimum ms between requests (default 1000).                      |
-        +----------------+----------+------------------------------------------------------------------+
-        | ``headers``    | no       | Extra request headers.                                           |
-        +----------------+----------+------------------------------------------------------------------+
-        | ``suggest`` /  | no       | ``{"url": ..., "params": ...}`` — ``url`` supports the ``{q}``   |
-        | ``search`` /   |          | ``{limit}`` ``{lon}`` ``{lat}`` placeholders.                    |
-        | ``reverse``    |          |                                                                  |
-        +----------------+----------+------------------------------------------------------------------+
-        | ``normalize``  | no       | ``{"suggest"/"search"/"reverse": "<arrow fn source>"}`` mapping  |
-        |                |          | a raw API response to foliplus' internal shape (evaluated in     |
-        |                |          | the browser; set when the map is built, never by end users).     |
-        +----------------+----------+------------------------------------------------------------------+
+        +-----------------+----------+------------------------------------------------------------------+
+        | Key             | Required | Meaning                                                          |
+        +=================+==========+==================================================================+
+        | ``id``          | yes      | Unique provider id.                                              |
+        +-----------------+----------+------------------------------------------------------------------+
+        | ``base_url``    | no       | API root, e.g. ``"https://api.example.com"``.                    |
+        +-----------------+----------+------------------------------------------------------------------+
+        | ``throttle_ms`` | no       | Minimum ms between requests (default 1000).                      |
+        +-----------------+----------+------------------------------------------------------------------+
+        | ``headers``     | no       | Extra request headers.                                           |
+        +-----------------+----------+------------------------------------------------------------------+
+        | ``suggest`` /   | no       | ``{"url": ..., "params": ...}`` — ``url`` supports the ``{q}``   |
+        | ``search`` /    |          | ``{limit}`` ``{lon}`` ``{lat}`` placeholders.                    |
+        | ``reverse``     |          |                                                                  |
+        +-----------------+----------+------------------------------------------------------------------+
+        | ``normalize``   | no       | ``{"suggest"/"search"/"reverse": "<arrow fn source>"}`` mapping  |
+        |                 |          | a raw API response to foliplus' internal shape (evaluated in     |
+        |                 |          | the browser; set when the map is built, never by end users).     |
+        +-----------------+----------+------------------------------------------------------------------+
 
         The provider applies to suggestions **and** to the address search /
         reverse geocode this control triggers — SearchControl forwards the
@@ -167,14 +167,14 @@ class SearchControl(BaseControl):
         Nominatim provider.
 
     provider_config : dict, optional
-        Overrides for a built-in ``provider``: ``baseUrl``, ``throttleMs``,
+        Overrides for a built-in ``provider``: ``base_url``, ``throttle_ms``,
         ``headers``. Only valid when ``provider`` is a string.
 
         Rate limiting is shared per provider id, page-globally: all callers
         of the same id (this control, the runtime geocoder, suggestions) go
-        through one throttle queue, and the strictest ``throttleMs`` declared
+        through one throttle queue, and the strictest ``throttle_ms`` declared
         for the id wins. Give each distinct API instance (different
-        ``baseUrl`` or throttle) its own ``id`` / provider string.
+        ``base_url`` or throttle) its own ``id`` / provider string.
 
     collapse_on_outside : bool, default True
         Whether a press outside the panel collapses it.
@@ -194,7 +194,7 @@ class SearchControl(BaseControl):
 
     >>> SearchControl(
     ...     provider="pelias",
-    ...     provider_config={"baseUrl": "https://geocode.example.com"},
+    ...     provider_config={"base_url": "https://geocode.example.com"},
     ... ).add_to(m)
     """
 

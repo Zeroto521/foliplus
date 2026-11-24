@@ -92,25 +92,25 @@ class TestSearchControlConstructor:
 
     def test_provider_config_passthrough(self):
         ctrl = SearchControl(
-            provider="photon", provider_config={"baseUrl": "https://x"}
+            provider="photon", provider_config={"base_url": "https://x"}
         )
-        assert ctrl.provider_config == {"baseUrl": "https://x"}
+        assert ctrl.provider_config == {"base_url": "https://x"}
 
     def test_provider_config_non_dict_raises(self):
         with pytest.raises(ValueError, match="provider_config must be a dict"):
             SearchControl(provider="photon", provider_config="nope")
 
     def test_custom_provider_dict(self):
-        ctrl = SearchControl(provider={"id": "myapi", "baseUrl": "https://x"})
-        assert ctrl.provider == {"id": "myapi", "baseUrl": "https://x"}
+        ctrl = SearchControl(provider={"id": "myapi", "base_url": "https://x"})
+        assert ctrl.provider == {"id": "myapi", "base_url": "https://x"}
 
     def test_custom_provider_dict_missing_id_raises(self):
         with pytest.raises(ValueError, match="must contain an 'id' key"):
-            SearchControl(provider={"baseUrl": "https://x"})
+            SearchControl(provider={"base_url": "https://x"})
 
     def test_provider_config_with_dict_provider_raises(self):
         with pytest.raises(ValueError, match="only valid with a built-in"):
-            SearchControl(provider={"id": "myapi"}, provider_config={"baseUrl": "x"})
+            SearchControl(provider={"id": "myapi"}, provider_config={"base_url": "x"})
 
     def test_provider_not_str_or_dict_raises(self):
         with pytest.raises(ValueError, match="provider must be a str or dict"):
@@ -127,18 +127,18 @@ class TestSearchControlProviderConfig:
     def test_provider_config_serialized_in_config(self):
         ctrl = SearchControl(
             provider="pelias",
-            provider_config={"baseUrl": "https://geocode.example.com"},
+            provider_config={"base_url": "https://geocode.example.com"},
         )
         assert_config_block(
             ctrl,
             {
                 "provider": "pelias",
-                "provider_config": {"baseUrl": "https://geocode.example.com"},
+                "provider_config": {"base_url": "https://geocode.example.com"},
             },
         )
 
     def test_custom_provider_serialized_in_config(self):
-        provider = {"id": "myapi", "baseUrl": "https://x.example.com"}
+        provider = {"id": "myapi", "base_url": "https://x.example.com"}
         ctrl = SearchControl(provider=provider)
         assert_config_block(ctrl, {"provider": provider})
 

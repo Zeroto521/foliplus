@@ -2,7 +2,7 @@
 
 The author writes ``zoom_range={"min": 8, "max": 12}``; Python normalises it
 into the same ``{min, max}`` shape the layer declaration emits, under the
-shared CONF key ``zoomRange``. These tests pin the shipped payload, the
+shared CONF key ``zoom_range``. These tests pin the shipped payload, the
 absent/null state, and the "warn once, treat as undeclared" rule shared with
 the other declaration sites.
 """
@@ -28,13 +28,13 @@ def _conf(**kwargs: object) -> dict:
 def test_declared_zoom_range_reaches_conf():
     conf = _conf(zoom_range={"min": 8, "max": 12})
 
-    assert conf["zoomRange"] == {"min": 8, "max": 12}
-    # The author-facing argument never reaches CONF under its own key.
-    assert "zoom_range" not in conf
+    # The author-facing argument and the CONF key are one spelling now; the
+    # payload above is the whole contract (no second key to check).
+    assert conf["zoom_range"] == {"min": 8, "max": 12}
 
 
 def test_undeclared_zoom_range_is_null():
-    assert _conf()["zoomRange"] is None
+    assert _conf()["zoom_range"] is None
 
 
 def test_numpy_integer_bounds_are_accepted_as_plain_ints():
@@ -44,8 +44,8 @@ def test_numpy_integer_bounds_are_accepted_as_plain_ints():
     np = pytest.importorskip("numpy")
     conf = _conf(zoom_range={"min": np.int64(8), "max": np.int32(12)})
 
-    assert conf["zoomRange"] == {"min": 8, "max": 12}
-    assert all(type(value) is int for value in conf["zoomRange"].values())
+    assert conf["zoom_range"] == {"min": 8, "max": 12}
+    assert all(type(value) is int for value in conf["zoom_range"].values())
 
 
 @pytest.mark.parametrize(
@@ -64,7 +64,7 @@ def test_invalid_zoom_range_warns_and_is_treated_as_undeclared(declaration):
     with pytest.warns(UserWarning, match="HeatmapControl"):
         conf = _conf(zoom_range=declaration)
 
-    assert conf["zoomRange"] is None
+    assert conf["zoom_range"] is None
 
 
 def test_a_repeated_construction_repeats_no_declaration_warning():

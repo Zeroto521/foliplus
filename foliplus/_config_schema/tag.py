@@ -60,7 +60,7 @@ UNSET = object()
 #   because an all-string list is a union by content and ``["string"]`` would
 #   read as the literal ``"string"`` (the one-element-tuple rule below). This
 #   is the general "list of strings" leaf for any shape field, not a
-#   fillAuthor special case: today ``LayerData[].fillAuthor.scale.stops`` is
+#   fill_author special case: today ``LayerData[].fill_author.scale.stops`` is
 #   its only use point, and a future shape with a string array should reuse it
 #   instead of inventing a second spelling.
 # * ``None`` — TS ``null``.

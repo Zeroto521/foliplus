@@ -234,7 +234,7 @@ describe("searchAddress", () => {
       ...ctx(),
       config: {
         ...ctx().config,
-        provider: { id: "myapi", baseUrl: "https://x.example.com" },
+        provider: { id: "myapi", base_url: "https://x.example.com" },
         provider_config: null,
       },
       cachedAddress: {},
@@ -249,7 +249,7 @@ describe("searchAddress", () => {
       map,
       "X",
       "en",
-      { id: "myapi", baseUrl: "https://x.example.com" },
+      { id: "myapi", base_url: "https://x.example.com" },
       null,
     );
   });
