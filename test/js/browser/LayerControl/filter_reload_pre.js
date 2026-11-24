@@ -53,7 +53,16 @@
   const persistedKey = Object.keys(localStorage).find(key =>
     key.startsWith("foliplus_filter_store_"),
   );
-  const persisted = persistedKey ? localStorage.getItem(persistedKey) : null;
+  const persistedRaw = persistedKey ? localStorage.getItem(persistedKey) : null;
+  let persisted = persistedRaw;
+  if (persistedRaw) {
+    try {
+      const parsed = JSON.parse(persistedRaw);
+      persisted = JSON.stringify(parsed && parsed.data ? parsed.data : parsed);
+    } catch {
+      persisted = persistedRaw;
+    }
+  }
 
   return {
     id,

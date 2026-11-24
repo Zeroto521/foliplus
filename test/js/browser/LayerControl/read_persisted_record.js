@@ -14,7 +14,9 @@
     if (!raw) continue;
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") return parsed;
+      if (parsed && typeof parsed === "object") {
+        return parsed.data && typeof parsed.data === "object" ? parsed.data : parsed;
+      }
     } catch (e) {
       // A broken record is not a signal; fall through to the next key.
     }

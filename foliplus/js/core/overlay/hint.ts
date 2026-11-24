@@ -341,4 +341,4 @@ const ensureHint = (map: L.Map): HintManager => {
 };
 
 export { ensureHint, HINT_DURATION, HintManager, registerHintIcon };
-export type { HintAPI, HintIcon, HintOptions };
+export type { HintAPI };
