@@ -1,5 +1,6 @@
 // Tests for the shared select replacement (ui/dropdown.ts).
 import { repoPath } from "#test/path.js";
+import { makeCell } from "./fixture.js";
 import type * as L from "leaflet";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -55,29 +56,6 @@ afterEach(() => {
   while (cleanup.length > 0) cleanup.pop()?.();
   document.body.innerHTML = "";
 });
-
-/** A panel-shaped form cell with the native select the panels render. */
-const makeCell = (
-  value: string,
-  options: readonly { value: string; label: string; disabled?: boolean }[],
-): { select: HTMLSelectElement; cell: HTMLElement } => {
-  const cell = document.createElement("div");
-  cell.className = "foliplus-form-control";
-  const select = document.createElement("select");
-  select.className = "foliplus-form-select";
-  select.setAttribute("aria-label", "Pick a thing");
-  for (const option of options) {
-    const el = document.createElement("option");
-    el.value = option.value;
-    el.textContent = option.label;
-    if (option.disabled) el.disabled = true;
-    select.appendChild(el);
-  }
-  select.value = value;
-  cell.appendChild(select);
-  document.body.appendChild(cell);
-  return { select, cell };
-};
 
 const bridged = (
   value: string,

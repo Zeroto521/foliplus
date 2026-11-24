@@ -3,7 +3,7 @@
 // each pass's implementation lives in its own module and is delegated to by
 // the class method of the same name.
 import * as CONST from "../const.js";
-import type { RenderCtx, TileDesc, TileLoadStats } from "../type.js";
+import type { RenderCtx, RenderStats, TileDesc, TileLoadStats } from "../type.js";
 import {
   type PaneSnapshot,
   renderCanvasElement,
@@ -15,6 +15,7 @@ import {
   collectLayerShadows,
   collectPaneRoots,
   renderFontAwesome,
+  renderIconBackgrounds,
   renderMarkers,
   renderRemaining,
   renderTextLabels,
@@ -106,11 +107,12 @@ class ExportRenderer {
    *  painted, and how many label canvases had to be left out. Internal to the
    *  JS side — the manager may report on it, but it is not part of the
    *  Python-facing result contract. */
-  lastStats: {
-    layers: number;
-    drawn: number;
-    labelCanvasesMissing: number;
-  } = { layers: 0, drawn: 0, labelCanvasesMissing: 0 };
+  lastStats: RenderStats = {
+    layers: 0,
+    drawn: 0,
+    labelCanvasesMissing: 0,
+    failedAssets: 0,
+  };
 
   constructor(map: L.Map) {
     this.map = map;
@@ -389,6 +391,12 @@ class ExportRenderer {
             .filter(root => !drawnShadowRoots.has(root));
           for (const root of shadowRoots) drawnShadowRoots.add(root);
           if (shadowRoots.length) {
+            // A shadow's paint can live in either channel: Leaflet's default
+            // shadow is an <img> (remaining pass), while an awesome-marker
+            // shadow is a DIV whose body is a background-image sprite. Running
+            // both passes keeps the shadow channel complete — the sprite pass
+            // previously never ran here, so those shadows were silently absent.
+            await this.renderMarkers(rc, shadowRoots);
             await this.renderRemaining(rc, shadowRoots, warnShadowLoadFailure);
           }
 
@@ -438,6 +446,10 @@ class ExportRenderer {
           // admitted as a marker root — it would paint on top of its icon.
           const markerRoots = this.collectPaneRoots(contentPanes);
           if (markerRoots.length) {
+            // Flat backgrounds/borders of the root and its descendants go
+            // down first: a DivIcon's pin body is a child element, and the
+            // glyph/text passes have to paint on top of it.
+            this.renderIconBackgrounds(rc, markerRoots);
             await this.renderMarkers(rc, markerRoots);
             await this.renderFontAwesome(rc, markerRoots);
             await this.renderTextLabels(rc, markerRoots);
@@ -465,10 +477,22 @@ class ExportRenderer {
       }
     }
 
+    // Images the canvas could not read back (sprites, icons, inline-SVG
+    // blobs) used to disappear from the picture without a word. Report each
+    // one with its URL and reason, and count them in the render stats so a
+    // test (or a caller) can tell a complete image from a holed one.
+    const failedAssets = rc.failedAssets ?? [];
+    for (const { src, reason } of failedAssets) {
+      log.warn(
+        `image left out of the export: "${src}" could not be loaded (${reason})`,
+      );
+    }
+
     this.lastStats = {
       layers: entries.length,
       drawn,
       labelCanvasesMissing: labelCanvasesMissing.length,
+      failedAssets: failedAssets.length,
     };
     return canvas;
   }
@@ -530,6 +554,11 @@ class ExportRenderer {
    *  admission filter, shared by the content and shadow walks. */
   collectPaneRoots(paneNames: readonly string[]): HTMLElement[] {
     return collectPaneRoots(paneNames);
+  }
+
+  /** Paint the flat background/border of marker roots and their descendants. */
+  renderIconBackgrounds(rc: RenderCtx, markerRoots: HTMLElement[]): void {
+    renderIconBackgrounds(this.container, rc, markerRoots);
   }
 
   /** Render markers with background-image sprites. */

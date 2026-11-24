@@ -6,7 +6,7 @@
 // They cover the behaviour matrix below plus the idempotency / rollback /
 // destroy contracts, and one negative control per behaviour (each mutation
 // turns a test red; the matrix below names the mutation).
-import type * as L from "leaflet";
+import { makeUnloadMap } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type Dismiss,
@@ -16,18 +16,6 @@ import {
   createPanel,
 } from "#core/leaflet/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
-
-/** A map stand-in: the registry only needs the unload hook. */
-const makeMap = () => {
-  let unload: () => void = () => undefined;
-  const on = vi.fn((event: string, handler: () => void) => {
-    if (event === "unload") unload = handler;
-  });
-  return {
-    map: { on } as unknown as L.Map,
-    fireUnload: () => unload(),
-  };
-};
 
 /** A live fixture panel: a dialog root with a close button and a plain inside
  *  element, plus a record of every open/close call the spec makes. The root
@@ -102,7 +90,7 @@ const pressMouse = (target: Node): MouseEvent => {
 };
 
 describe("PanelController", () => {
-  let maps: ReturnType<typeof makeMap>[] = [];
+  let maps: ReturnType<typeof makeUnloadMap>[] = [];
 
   beforeEach(() => {
     maps = [];
@@ -115,7 +103,7 @@ describe("PanelController", () => {
     document.body.innerHTML = "";
   });
 
-  const track = (m: ReturnType<typeof makeMap>) => {
+  const track = (m: ReturnType<typeof makeUnloadMap>) => {
     maps.push(m);
     return m;
   };
@@ -278,7 +266,7 @@ describe("PanelController", () => {
   // ───────────────────────────── attachPanel / registry ─────────────────────
 
   it("registers the entry so the registry owns dispatch (idempotent detach)", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec } = makeFixture();
     const controller = createPanel(spec);
     const detach = attachPanel(map, controller);
@@ -290,7 +278,7 @@ describe("PanelController", () => {
   });
 
   it("throws on a duplicate owner+localId while still attached", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const first = createPanel(makeFixture().spec);
     attachPanel(map, first);
     const second = createPanel(makeFixture().spec);
@@ -298,7 +286,7 @@ describe("PanelController", () => {
   });
 
   it("coexists across owners with the same localId, ranks honored (#820)", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const layerPicker = createPanel(
       makeFixture({
         owner: "layer",
@@ -326,7 +314,7 @@ describe("PanelController", () => {
   });
 
   it("destroy unregisters, so a second attach round does not throw", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const first = createPanel(makeFixture().spec);
     attachPanel(map, first);
     first.destroy();
@@ -338,7 +326,7 @@ describe("PanelController", () => {
   });
 
   it("closes the exclusive group before opening a sibling", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const a = createPanel(
       makeFixture({
         localId: "attrs",
@@ -363,7 +351,7 @@ describe("PanelController", () => {
   });
 
   it("Escape dispatch closes the topmost open surface only (A)", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const top = createPanel(makeFixture({ localId: "attrs", rank: 600 }).spec);
     const below = createPanel(makeFixture({ localId: "style", rank: 500 }).spec);
     attachPanel(map, top);
@@ -378,7 +366,7 @@ describe("PanelController", () => {
   });
 
   it("outside press closes only the surface it is outside of (B)", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec: topSpec, state: topState } = makeFixture({
       localId: "attrs",
       rank: 600,
@@ -400,7 +388,7 @@ describe("PanelController", () => {
   });
 
   it("a fold panel with dismiss.escape=false survives a registry Escape", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec, state } = makeFixture({
       localId: "menu",
       rank: 800,
@@ -415,7 +403,7 @@ describe("PanelController", () => {
   });
 
   it("an outsidePress:false entry is not dismissed by an outside press", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec, state } = makeFixture({
       localId: "menu",
       rank: 800,
@@ -448,7 +436,7 @@ describe("PanelController", () => {
   it("an internal plain click does not self-close and does not bubble to the map", () => {
     // Negative control 5: the panel's own content must not dismiss it, and a click inside
     // the panel must not reach the map either (the panel swallows the press).
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec, state, inside } = makeFixture({ localId: "attrs", rank: 600 });
     const controller = createPanel(spec);
     attachPanel(map, controller);
@@ -469,7 +457,7 @@ describe("PanelController", () => {
     // INSIDE press for it (it stays) and an OUTSIDE press for the higher layer
     // (it closes). One press dismisses at most one surface, and it is the one
     // the press is outside of — never the one that happens to be topmost.
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const topFixture = makeFixture({ localId: "attrs", rank: 600 });
     const bottomFixture = makeFixture({ localId: "style", rank: 500 });
     const top = createPanel(topFixture.spec);
@@ -487,7 +475,7 @@ describe("PanelController", () => {
   it("destroy after a refused close still unregisters", () => {
     // destroy is terminal: even when the spec refuses to close, destroy must
     // still unregister (the surface is going away regardless).
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec, state } = makeFixture();
     state.canClose = () => false;
     const controller = createPanel(spec);
@@ -503,7 +491,7 @@ describe("PanelController", () => {
 
   it("attachPanel maps outsidePress click to dismissOn click", () => {
     // Covers the outsidePress === "click" branch in attachPanel's dismissOn.
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec } = makeFixture({
       localId: "focus",
       rank: 400,
@@ -527,7 +515,7 @@ describe("PanelController", () => {
     // With no root, panels() is empty, so EVERY press is outside and the
     // registry dismisses the surface on an outside press — observable through
     // the close call rather than through an unexposed entry.
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const root = () => null as unknown as HTMLElement;
     const { spec, state } = makeFixture({ root });
     const controller = createPanel(spec);
@@ -605,7 +593,7 @@ describe("PanelController", () => {
   });
 
   it("attachPanel throws for a destroyed controller", () => {
-    const { map } = track(makeMap());
+    const { map } = track(makeUnloadMap());
     const { spec } = makeFixture();
     const controller = createPanel(spec);
     attachPanel(map, controller);
