@@ -8,8 +8,9 @@
      (`index.ts`) and type-collection files (`type.ts` / `types.ts`) are
      exempt.
 
-  2. Singular file names. Applies to `foliplus/js/*.ts` and build-tool
-     modules (`script/**/*.{mjs,cjs,js}`). Whitelist: pelias, focus, canvas,
+  2. Singular file names. Applies to `foliplus/js/*.ts`, every Python module
+     under (`foliplus/**/*.py`) and build-tool modules
+     (`script/**/*.{mjs,cjs,js,py}`). Whitelist: pelias, focus, canvas,
      EventBus, base, index, args, css, compress (proper nouns,
      abbreviations, or verbs — not plurals).
 
@@ -321,7 +322,7 @@ def check_export_blocks(lines: list[str], filepath: str) -> list[tuple[int, str]
 
 
 # Extensions whose basenames are checked for plural names (rule 2).
-NAME_CHECK_EXTS = (".ts", ".mjs", ".cjs", ".js")
+NAME_CHECK_EXTS = (".ts", ".mjs", ".cjs", ".js", ".py")
 
 
 def check_plural_names(filepath: str) -> list[tuple[int, str]]:
@@ -431,9 +432,9 @@ def main() -> int:
     for filepath in sys.argv[1:]:
         if filepath.endswith(".css") or filepath.endswith(".ts"):
             violations = check_file(filepath)
-        elif filepath.endswith((".mjs", ".cjs", ".js")):
-            # Build-tool modules: singular names only. Export/spelling/custom
-            # property rules stay scoped to foliplus JS/TS and CSS.
+        elif filepath.endswith((".mjs", ".cjs", ".js", ".py")):
+            # Script and Python modules: singular names only. Export/spelling/
+            # custom-property rules stay scoped to foliplus JS/TS and CSS.
             violations = check_plural_names(filepath)
         else:
             continue

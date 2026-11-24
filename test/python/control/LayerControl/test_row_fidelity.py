@@ -24,7 +24,7 @@ import json
 import folium
 from conftest import _js, load_geojson, use_page
 
-from ._browser_base import LayerControlBrowserBase
+from .helper_browser import LayerControlBrowserBase
 
 _POINT = json.dumps(load_geojson("LayerControl", "point_11934_2611"))
 

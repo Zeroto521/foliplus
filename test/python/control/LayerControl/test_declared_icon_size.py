@@ -32,7 +32,7 @@ import json
 import folium
 from conftest import _js, load_geojson, use_page
 
-from ._browser_base import LayerControlBrowserBase
+from .helper_browser import LayerControlBrowserBase
 
 GLYPH = "map-pin"
 
