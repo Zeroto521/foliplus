@@ -39,6 +39,14 @@ interface RenderCtx {
   sh: number;
   /** Reports how far the render has progressed, 0..90.  Never decreases. */
   onProgress?: (percent: number) => void;
+  /** Images (sprites, icons, inline-SVG blobs) the export could not read
+   *  back. Optional so a pass-level test can build a bare context; a real
+   *  render initialises it and the renderer aggregates it into RenderStats. */
+  failedAssets?: AssetFailure[];
+  /** Elements whose flat background/border was already painted by the
+   *  icon-background pass, so the remaining pass does not paint them twice
+   *  (a second fill under alpha would deepen the paint). */
+  paintedBackgrounds?: WeakSet<HTMLElement>;
 }
 
 /** A tile descriptor computed by calcTiles. */
@@ -58,6 +66,30 @@ interface TileDesc {
   dh?: number;
 }
 
+/** One image the export could not read back, with the reason it failed.
+ *  Reported on the console and counted in RenderStats so a missing asset is
+ *  never a silent hole in the picture. */
+interface AssetFailure {
+  /** The image URL (or a stable label for a synthetic source, e.g. a blob). */
+  src: string;
+  /** Human-readable failure reason (HTTP status, network/CORS error). */
+  reason: string;
+}
+
+/** What the last render drew — diagnostics and test surface. The manager
+ *  exposes it as lastRenderStats; it is not part of the Python-facing
+ *  result contract. */
+interface RenderStats {
+  /** Layer entries the export snapshot saw. */
+  layers: number;
+  /** Layers whose content was actually painted. */
+  drawn: number;
+  /** Layers whose label canvas was lost mid-export. */
+  labelCanvasesMissing: number;
+  /** Images the canvas could not read back. */
+  failedAssets: number;
+}
+
 /** Per-layer tile load statistics, for the post-export CORS warning. */
 interface TileLoadStats {
   /** Tiles the draw pass attempted to fetch. */
@@ -71,6 +103,7 @@ export type {
   ExportImageFormat,
   ExportPhase,
   RenderCtx,
+  RenderStats,
   SavedBounds,
   TileDesc,
   TileLoadStats,

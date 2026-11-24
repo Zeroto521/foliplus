@@ -4,7 +4,7 @@
 import * as CONST from "../const.js";
 import type { RenderCtx } from "../type.js";
 import { loadImage } from "../util.js";
-import { effectiveOpacity, withAlpha } from "./util.js";
+import { effectiveOpacity, inlineSVGComputedStyles, withAlpha } from "./util.js";
 
 /** Render SVG content from a single pane. */
 const renderPaneSVG = async (
@@ -13,19 +13,6 @@ const renderPaneSVG = async (
   pane: HTMLElement,
 ): Promise<void> => {
   const { ctx, rect, contRect, sw, sh } = rc;
-  const props = [
-    "fill",
-    "stroke",
-    "stroke-width",
-    "stroke-dasharray",
-    "stroke-linecap",
-    "stroke-linejoin",
-    "opacity",
-    "fill-opacity",
-    "stroke-opacity",
-    "visibility",
-    "display",
-  ];
   for (const svgEl of pane.querySelectorAll("svg")) {
     const svgG = svgEl.querySelector("g");
     const hasContent =
@@ -63,39 +50,15 @@ const renderPaneSVG = async (
       clone.setAttribute("width", String(svgRect.width));
       clone.setAttribute("height", String(svgRect.height));
 
-      const allEls = clone.querySelectorAll("*");
-      const originals = svgEl.querySelectorAll("*");
-
-      // Three exclusion mechanisms operate at different stages:
+      // Two exclusion mechanisms operate at different stages:
       // 1. data-foliplus-export="exclude" / .foliplus-skip-export — declarative,
       //    checked below via SKIP_EXPORT after all props are set (clone prune).
       // 2. computed display:"none" — derived from the live DOM's computed
-      //    style, checked per-element in this loop. The <img>
-      //    pipeline ignores inline display, so removal is the only reliable
-      //    exclusion. Kept separate from SKIP_EXPORT: different data source
-      //    (getComputedStyle vs querySelectorAll) and different semantics
-      //    (layout-driven hiding vs explicit opt-out).
-      for (let i = 0; i < allEls.length && i < originals.length; i++) {
-        const cs = window.getComputedStyle(originals[i]);
-        // An element whose own computed display is "none" must not appear in
-        // the export — the pipeline serialises to an <img>, which ignores
-        // inline display, so the only reliable exclusion is removal.
-        if (cs.getPropertyValue("display") === "none") {
-          (allEls[i] as Element).remove();
-          continue;
-        }
-        const inline = allEls[i] as HTMLElement;
-        for (const p of props) {
-          const v = cs.getPropertyValue(p);
-          if (!v) continue;
-          // fill: none and stroke: none mean "unpainted", and the standalone
-          // clone carries no stylesheet to express that — skipping them
-          // leaves the default black fill, so those skips stay.
-          if (v === "none") continue;
-          if (p === "fill" && v === "rgb(0, 0, 0)") continue;
-          inline.style.setProperty(p, v);
-        }
-      }
+      //    style and removed inside the shared inliner. Kept separate from
+      //    SKIP_EXPORT: different data source (getComputedStyle vs
+      //    querySelectorAll) and different semantics (layout-driven hiding vs
+      //    explicit opt-out).
+      inlineSVGComputedStyles(svgEl, clone);
 
       // Content a component opted out of — prune the clone, never the live
       // DOM, since the map still needs the preview while drawing continues.
