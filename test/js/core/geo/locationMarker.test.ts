@@ -27,6 +27,9 @@ describe("createLocationMarker", () => {
     map = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(),
+      // The continuation's liveness gate: a fresh marker is on its map.
+      // Tests that exercise removal flip this back off.
+      hasLayer: vi.fn(() => true),
     } as unknown as LeafletMap;
     window.L.marker = vi.fn(() => ({
       ...mockMarker,
@@ -300,5 +303,106 @@ describe("createLocationMarker", () => {
     await Promise.resolve();
     expect(reverseGeocode).toHaveBeenCalled();
     expect(marker.setPopupContent).not.toHaveBeenCalled();
+  });
+
+  /** A marker stub whose popup is open, plus a map whose hasLayer flips with
+   *  the returned setter — the liveness fact the continuation must consult. */
+  const pendingAddress = () => {
+    const marker = {
+      bindPopup: vi.fn().mockReturnThis(),
+      openPopup: vi.fn(),
+      setPopupContent: vi.fn(),
+      getPopup: () => ({ _closeButton: null, isOpen: vi.fn(() => true) }),
+    };
+    window.L.marker = vi.fn(() => marker);
+    let release: (addr: string) => void = () => {};
+    vi.mocked(reverseGeocode).mockReturnValue(
+      new Promise<string>(resolve => {
+        release = resolve;
+      }),
+    );
+    let live = true;
+    (map as unknown as { hasLayer: (m: unknown) => boolean }).hasLayer = vi.fn(
+      () => live,
+    );
+    return {
+      marker,
+      release: async (addr: string) => {
+        release(addr);
+        await Promise.resolve();
+        await Promise.resolve();
+      },
+      detach: () => {
+        live = false;
+      },
+      attach: () => {
+        live = true;
+      },
+    };
+  };
+
+  it("drops a resolved address for a pin that is no longer on the map", async () => {
+    // The lookup outlives the click that asked for it the way a geolocation
+    // permission prompt does. Removing the pin is the liveness fact: a marker
+    // that is not on the map has no owner left to repaint — the control was
+    // destroyed (destroy() -> removeMarker()) or the pin was replaced — so the
+    // address is dropped before it reaches onAddress.
+    const { marker, release, detach } = pendingAddress();
+    const onAddress = vi.fn();
+
+    createLocationMarker(
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      null,
+      null,
+      onAddress,
+      false,
+    );
+
+    detach();
+    await release("Resolved Address");
+
+    expect(
+      onAddress,
+      "a late address must not reach a marker nobody owns",
+    ).not.toHaveBeenCalled();
+    expect(marker.setPopupContent).not.toHaveBeenCalled();
+  });
+
+  it("still repaints the popup while the pin is on the map", async () => {
+    // The gate is liveness, not a blanket drop: a marker that is still on the
+    // map must receive its resolved address.
+    const { marker, release } = pendingAddress();
+    const onAddress = vi.fn();
+
+    createLocationMarker(
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      null,
+      null,
+      onAddress,
+      false,
+    );
+
+    await release("Resolved Address");
+
+    expect(onAddress).toHaveBeenCalledWith("Resolved Address");
+    expect(marker.setPopupContent).toHaveBeenCalled();
   });
 });
