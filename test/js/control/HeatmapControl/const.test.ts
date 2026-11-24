@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { generateId } from "#core/lifecycle/index.js";
-import * as SVGs from "#control/HeatmapControl/icon.js";
 import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/HeatmapControl/const.js";
+import * as SVGs from "#control/HeatmapControl/icon.js";
 
 describe("TIMING", () => {
   it("has expected debounce values", () => {

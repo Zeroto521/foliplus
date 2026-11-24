@@ -37,8 +37,6 @@ import {
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import { LayerPersistence } from "#control/LayerControl/persistence.js";
 import { LayerUI } from "#control/LayerControl/ui/index.js";
-import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
-import { commitGlyph } from "#control/LayerControl/ui/style/icon.js";
 import { getIntent, setIntent } from "#control/LayerControl/ui/intent.js";
 import {
   applyUserState,
@@ -46,6 +44,8 @@ import {
   saveNamesState,
   saveState,
 } from "#control/LayerControl/ui/state.js";
+import { commitGlyph } from "#control/LayerControl/ui/style/icon.js";
+import { FACE, flushStyleDimApply } from "#control/LayerControl/ui/style/styleBag.js";
 
 /** Build a v2 folder-layout document from a v1 order shape, for tests
  *  that seed a persisted block order. Each key also gets a folder entry with a
@@ -9545,4 +9545,3 @@ describe("filter hidden-class survives a glyph rebuild (controller-side)", () =>
     expect(m.hiddenSets.get("flt1")).toBeUndefined();
   });
 });
-
