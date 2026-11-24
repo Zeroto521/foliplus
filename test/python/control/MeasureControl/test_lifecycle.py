@@ -247,9 +247,7 @@ class TestMeasureModeBrowser:
             assert after["row"], f"finalized row not rendered after Escape: {after}"
             assert not errors, f"JS errors: {errors}"
 
-    def test_escape_with_circle_center_only_drops_the_row(
-        self, browser, tmp_path
-    ):
+    def test_escape_with_circle_center_only_drops_the_row(self, browser, tmp_path):
         """Escape after only the circle center is placed drops the row.
 
         A circle requires a second click to confirm the radius; after only the
@@ -259,9 +257,7 @@ class TestMeasureModeBrowser:
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             # Activate circle mode via the tool button.
-            page.evaluate(
-                "() => document.querySelector('[data-mode=circle]').click()"
-            )
+            page.evaluate("() => document.querySelector('[data-mode=circle]').click()")
             page.wait_for_timeout(500)
             page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
             page.wait_for_selector(
@@ -287,9 +283,7 @@ class TestMeasureModeBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_escape_after_circle_two_clicks_keeps_the_row(
-        self, browser, tmp_path
-    ):
+    def test_escape_after_circle_two_clicks_keeps_the_row(self, browser, tmp_path):
         """Escape after a fully-confirmed circle (two clicks) keeps its row.
 
         The circle's finish path fires on the second click (synchronously
@@ -298,9 +292,7 @@ class TestMeasureModeBrowser:
         driven unregister keeps the row.
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
-            page.evaluate(
-                "() => document.querySelector('[data-mode=circle]').click()"
-            )
+            page.evaluate("() => document.querySelector('[data-mode=circle]').click()")
             page.wait_for_timeout(500)
             page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
             page.wait_for_selector(
