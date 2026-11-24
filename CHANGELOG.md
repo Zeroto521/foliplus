@@ -72,6 +72,7 @@
 - `LayerControl` / `HeatmapControl`: a jenks or quantile classification degrades to equal breaks with a user-visible hint when simple-statistics is not loaded, instead of silently leaving the layer uncolored ([#1223](https://github.com/Zeroto521/foliplus/pull/1223), [#1227](https://github.com/Zeroto521/foliplus/pull/1227), [#1231](https://github.com/Zeroto521/foliplus/pull/1231))
 - `LayerControl`: the folder layout and the filter store are scoped to the map container like every other record, so two maps on one page keep their own folders and filters instead of sharing one global key ([#1281](https://github.com/Zeroto521/foliplus/pull/1281))
 - `LayerControl`: derived-state projections (role counts, tree connectors, select-all) replay through one invalidateDerived barrier, pinned by a new static guard test ([#1292](https://github.com/Zeroto521/foliplus/pull/1292))
+- `ExportControl`: an exported image keeps a point marker's custom chassis colour instead of losing the pin body, because the sprite pass now reads the mask+colour channel as well as the background-image sprite ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
 
 ## [v0.4.1] (2026-10-18)
 
