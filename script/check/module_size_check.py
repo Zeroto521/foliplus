@@ -63,11 +63,7 @@ def _display(path: Path) -> Path:
 def main() -> int:
     """Check the requested modules (or every package module) and report."""
     args = sys.argv[1:]
-    paths = (
-        [Path(arg) for arg in args]
-        if args
-        else sorted(PACKAGE_ROOT.rglob("*.py"))
-    )
+    paths = [Path(arg) for arg in args] if args else sorted(PACKAGE_ROOT.rglob("*.py"))
     bad = oversized(paths)
     for path, count in bad:
         print(f"{_display(path)}: {count} code lines (limit {LIMIT}); split the module")
