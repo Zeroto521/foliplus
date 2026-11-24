@@ -23,6 +23,14 @@ type SurfaceListener = () => void;
 
 const surfaceListeners = new Set<SurfaceListener>();
 
+/** A surface host must still be attached to the document. closest() resolves
+ *  through detached subtrees too, so a container that kept the pseudo class
+ *  after its map was torn down would otherwise host an overlay the page never
+ *  paints. (The unscoped querySelector only matches connected nodes, but the
+ *  same predicate keeps both branches honest if that lookup ever changes.) */
+const connectedHost = (el: HTMLElement | null): el is HTMLElement =>
+  el?.isConnected === true;
+
 /** The covering surface for *scope*: the native fullscreen element when it
  *  relates to the scope, else a pseudo-fullscreen container in the scope's
  *  ancestor chain, else <body>. <html> as the fullscreen element is
@@ -42,11 +50,11 @@ const fullscreenSurface = (scope?: Element | null): HTMLElement => {
   if (scope) {
     // Scoped lookup: only a container that owns this scope may host its
     // overlays. A pseudo surface on another map does not cover this one.
-    return scope.closest<HTMLElement>(`.${PSEUDO_FULLSCREEN_CLASS}`) ?? document.body;
+    const host = scope.closest<HTMLElement>(`.${PSEUDO_FULLSCREEN_CLASS}`);
+    return connectedHost(host) ? host : document.body;
   }
-  return (
-    document.querySelector<HTMLElement>(`.${PSEUDO_FULLSCREEN_CLASS}`) ?? document.body
-  );
+  const host = document.querySelector<HTMLElement>(`.${PSEUDO_FULLSCREEN_CLASS}`);
+  return connectedHost(host) ? host : document.body;
 };
 
 /** Native transitions are the third source of a surface change (alongside

@@ -3,6 +3,7 @@ import { PANEL_CLASS } from "#ui/panelClassName.js";
 import { CLASSES } from "#control/FullscreenControl/const.js";
 import {
   buildFullscreenChangeHandler,
+  releasePseudo,
   toggleFullscreen,
   updateUI,
 } from "#control/FullscreenControl/logic.js";
@@ -65,9 +66,11 @@ const makeNativeMapMock = (container: HTMLElement): L.Map => {
 // translator so tests can still compare on the raw key.
 const makeEnv = (
   overrides: Partial<ComponentConfig> = {},
-): { config: ComponentConfig; T: (k: string) => string } => ({
+  extra: { signal?: AbortSignal } = {},
+): { config: ComponentConfig; T: (k: string) => string; signal?: AbortSignal } => ({
   config: { name: "FullscreenControl", ...overrides } as ComponentConfig,
   T: (k: string) => k,
+  ...extra,
 });
 
 describe("updateUI", () => {
@@ -208,6 +211,34 @@ describe("toggleFullscreen — pseudo path", () => {
     toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
     expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+  });
+});
+
+describe("releasePseudo", () => {
+  it("strips a pseudo session left behind by a removed mounting", () => {
+    const container = makeContainer();
+    container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+    const mapMock = makeMapMock(container);
+
+    releasePseudo(mapMock);
+
+    expect(container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(false);
+    expect(mapMock.invalidateSize).toHaveBeenCalled();
+    expect(mapMock.isFullscreen).toBe(false);
+  });
+
+  it("leaves a live native session alone (nothing pseudo to release)", () => {
+    // Removing the control while the browser owns fullscreen must not tell the
+    // map it left fullscreen — only the pseudo class is this control's to strip.
+    const container = makeContainer();
+    const mapMock = makeMapMock(container);
+    mapMock.isFullscreen = true;
+
+    releasePseudo(mapMock);
+
+    expect(container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(false);
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(mapMock.invalidateSize).not.toHaveBeenCalled();
   });
 });
 
@@ -382,6 +413,30 @@ describe("toggleFullscreen — native API path", () => {
     expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
       false,
     );
+  });
+
+  it("does not fall back when the mounting was removed mid-request", async () => {
+    // The rejection lands after map.removeControl(): falling back to pseudo
+    // would re-enter with the toggle already gone, and nothing would ever
+    // strip the class — every body-level overlay would keep resolving its host
+    // to a container no control owns.
+    mapMock.getContainer().requestFullscreen = vi.fn(() =>
+      Promise.reject(new Error("denied")),
+    );
+    const ac = new AbortController();
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv({}, { signal: ac.signal }));
+    ac.abort();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
+    expect(mapMock.isFullscreen).toBe(false);
+    // The fallback hint explains an in-page fallback; a removed mounting must
+    // not announce one.
+    expect(mapMock.foliplus.showHint).not.toHaveBeenCalled();
   });
 
   it("does not exit a sibling map's native fullscreen; requests its own", async () => {

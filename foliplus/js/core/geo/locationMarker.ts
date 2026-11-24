@@ -24,21 +24,13 @@ const PIN: {
 };
 const POPUP_MAX_WIDTH = 300;
 
-/**
- * Whether a marker is still mounted on the map.
- *
- * Single-source liveness predicate for the async geocode continuations: a
- * marker can be removed (its pin deleted, or the whole control destroyed)
- * while a reverse-geocode lookup is still in flight. Once it is no longer on
- * the map, every write — the caller's `onAddress` (which lands in the store)
- * and the popup content — must be skipped, or a resolved address lands on a
- * marker nobody can see. LocateControl, MeasureControl and SearchControl (the
- * three callers of `createLocationMarker`) share this one guard instead of
- * each re-deriving its own.
- *
- * Pure reader — never writes, never touches the DOM.
- */
-const isLiveMarker = (map: L.Map, marker: L.Marker | null | undefined): boolean =>
+/** The liveness fact for a location pin: it is still on its map. A pin that was
+ *  removed — control destroy (LocateControl's removeMarker), a replacement pin,
+ *  an explicit close — has no owner left, so an async continuation must not
+ *  write to it. A pin that was re-added to the same map is live again: the
+ *  check is "on the map", not "never removed". Shared with MeasureControl's
+ *  reverse-geocode path; do not re-derive map.hasLayer at a call site. */
+const isLiveMarker = (map: L.Map, marker: L.Layer | null | undefined): boolean =>
   !!marker && map.hasLayer(marker);
 
 /**
@@ -84,18 +76,15 @@ const createLocationMarker = (
   // not yet built) is a no-op inside the adapter.
   setPopupCloseTitle(marker.getPopup(), closeLabelText || "");
   if (!addr) {
-    // Reverse-geocode the location to resolve an address label.
+    // Reverse-geocode the location to resolve an address label. The lookup
+    // outlives the call that asked for it, so the continuation re-checks the
+    // pin's own liveness before writing anything: a pin removed while the
+    // lookup was in flight (control destroy -> removeMarker(), a replacement
+    // pin, an explicit close) has no owner left to repaint.
     void reverseGeocode(map, lng, lat, code)
       .then((resolved: string) => {
-        // Liveness guard: the marker can be removed (its pin deleted, or the
-        // whole control destroyed) while this lookup is still in flight. Once
-        // it is no longer on the map, every write — the caller's onAddress
-        // (which lands in the store) and the popup content — must be skipped,
-        // or a resolved address lands on a marker nobody can see. This is the
-        // same liveness rule MeasureControl's drag handler applies; putting it
-        // here makes LocateControl, MeasureControl and SearchControl (the three
-        // callers of createLocationMarker) share one guard instead of each
-        // re-deriving its own.
+        // Liveness guard: one predicate for every async geocode continuation
+        // (see `isLiveMarker`); a removed pin has no owner left to write to.
         if (!isLiveMarker(map, marker)) return;
         if (onAddress) onAddress(resolved);
         if (marker?.getPopup?.()?.isOpen()) {
