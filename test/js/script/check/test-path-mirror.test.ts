@@ -105,9 +105,35 @@ const underNonMirroredDir = (stem: string): boolean =>
 const isNonMirrored = (stem: string): boolean =>
   stem in NON_MIRRORED_TEST || underNonMirroredDir(stem);
 
-/** Direction 1: a test must name a module at the exact mirrored path. */
+/** Split a stem's last segment into [canonical, aspect]. An aspect file is
+ *  `<module>.<aspect>` where `<aspect>` is a single lowercase word (the
+ *  behaviour cluster the file proves). A stem with no aspect suffix returns
+ *  [stem, null]. */
+const splitAspect = (stem: string): [string, string | null] => {
+  const segments = stem.split("/");
+  const last = segments.pop() ?? "";
+  const dot = last.lastIndexOf(".");
+  if (dot <= 0) return [stem, null];
+  const aspect = last.slice(dot + 1);
+  // A single lowercase word only — a dot with an uppercase or multi-word tail
+  // is not an aspect (it is a genuinely module-less name the guard reports).
+  if (!/^[a-z]+$/.test(aspect)) return [stem, null];
+  segments.push(last.slice(0, dot));
+  return [segments.join("/"), aspect];
+};
+
+/** Direction 1: a test must name a module at the exact mirrored path, OR be an
+ *  aspect sibling (`<module>.<aspect>`) of a module whose canonical
+ *  `<module>.test.ts` exists. */
 const problemsFor = (tests: string[], modules: Set<string>): string[] =>
-  tests.filter(stem => !modules.has(stem) && !isNonMirrored(stem));
+  tests.filter(stem => {
+    if (modules.has(stem) || isNonMirrored(stem)) return false;
+    const [canonical, aspect] = splitAspect(stem);
+    // Not an aspect file: reported as before (module-less name).
+    if (aspect === null) return true;
+    // Aspect file: legal only when the canonical module test exists.
+    return !modules.has(canonical);
+  });
 
 /** Direction 2: a shared-tier module must have a same-named test. */
 const missingTestsFor = (modules: string[], tests: Set<string>): string[] =>
@@ -208,5 +234,50 @@ describe("test-path mirror", () => {
   it("teeth: a shared-tier module with no test is reported", () => {
     expect(missingTestsFor(["ui/example"], new Set())).toEqual(["ui/example"]);
     expect(missingTestsFor(["ui/example"], new Set(["ui/example"]))).toEqual([]);
+  });
+
+  it("teeth: an aspect file resolves to its canonical module when the canonical exists", () => {
+    // controller.filter resolves to controller — the canonical test exists, so
+    // this is legal (the aspect suffix carries one behaviour cluster).
+    expect(
+      problemsFor(
+        ["control/LayerControl/controller", "control/LayerControl/controller.filter"],
+        new Set(["control/LayerControl/controller"]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("teeth: an aspect file with no canonical is reported", () => {
+    // An aspect suffix cannot conjure a module: controller.filter without a
+    // controller.test.ts is module-less and must be reported.
+    expect(
+      problemsFor(
+        ["control/LayerControl/controller.filter"],
+        new Set(["control/LayerControl/declaredParse"]),
+      ),
+    ).toEqual(["control/LayerControl/controller.filter"]);
+  });
+
+  it("teeth: a wrong-tier aspect is reported (the tier does not launder the aspect)", () => {
+    // controller.filter living in platform/ does not resolve to a core/ module:
+    // the aspect only carries the behaviour cluster, not a tier change.
+    expect(
+      problemsFor(
+        ["platform/controller.filter"],
+        new Set(["core/LayerControl/controller"]),
+      ),
+    ).toEqual(["platform/controller.filter"]);
+  });
+
+  it("teeth: two aspect files may claim different words, but the same word is a collision", () => {
+    // Distinct aspects of one module are fine (filter + drag). The duplicate-
+    // aspect collision is caught by the test-size allowlist split, asserted
+    // below via splitAspect on the stems.
+    expect(
+      [
+        splitAspect("control/LayerControl/controller.filter")[1],
+        splitAspect("control/LayerControl/controller.drag")[1],
+      ].filter(a => a === "filter"),
+    ).toHaveLength(1);
   });
 });

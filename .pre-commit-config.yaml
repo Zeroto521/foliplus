@@ -82,6 +82,16 @@ repos:
         language: python
         types: [text]
 
+      # Every JS test file stays at or under the 1200-line threshold; oversized
+      # files must be on the burn-down allowlist inside the guard, each entry
+      # naming its split card.
+      - id: test-size
+        name: test-size
+        entry: node script/check/test_size.mjs
+        language: system
+        pass_filenames: false
+        files: ^test/js/.*\.test\.ts$
+
       # Enforces code-style rules on foliplus/js/*.ts, build-tool
       # modules under script/ (all subdirs), and the CSS custom-property
       # namespace on foliplus/css/*.css:
