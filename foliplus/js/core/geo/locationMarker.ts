@@ -25,6 +25,23 @@ const PIN: {
 const POPUP_MAX_WIDTH = 300;
 
 /**
+ * Whether a marker is still mounted on the map.
+ *
+ * Single-source liveness predicate for the async geocode continuations: a
+ * marker can be removed (its pin deleted, or the whole control destroyed)
+ * while a reverse-geocode lookup is still in flight. Once it is no longer on
+ * the map, every write — the caller's `onAddress` (which lands in the store)
+ * and the popup content — must be skipped, or a resolved address lands on a
+ * marker nobody can see. LocateControl, MeasureControl and SearchControl (the
+ * three callers of `createLocationMarker`) share this one guard instead of
+ * each re-deriving its own.
+ *
+ * Pure reader — never writes, never touches the DOM.
+ */
+const isLiveMarker = (map: L.Map, marker: L.Marker | null | undefined): boolean =>
+  !!marker && map.hasLayer(marker);
+
+/**
  * Create a location marker with a popup and add it to the map.
  */
 const createLocationMarker = (
@@ -79,7 +96,7 @@ const createLocationMarker = (
         // here makes LocateControl, MeasureControl and SearchControl (the three
         // callers of createLocationMarker) share one guard instead of each
         // re-deriving its own.
-        if (!map.hasLayer(marker)) return;
+        if (!isLiveMarker(map, marker)) return;
         if (onAddress) onAddress(resolved);
         if (marker?.getPopup?.()?.isOpen()) {
           marker.setPopupContent(
@@ -100,4 +117,4 @@ const createLocationMarker = (
   return marker;
 };
 
-export { createLocationMarker };
+export { createLocationMarker, isLiveMarker };
