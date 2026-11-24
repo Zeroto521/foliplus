@@ -216,6 +216,23 @@ class CircleMode extends PreviewMode {
       );
     };
 
+    // Escape with a center + a radius preview (phase 1) commits the circle
+    // rather than discarding it. The click path finalizes via a delayed
+    // setTimeout, but Escape must commit synchronously so the row survives.
+    // No center yet (phase 0) returns false so the caller discards the empty
+    // draw and drops the row.
+    this.finishOnExit = () => {
+      if (phase !== 1 || !center) return false;
+      const r = Util.distance(center, previews.node?.getLatLng() ?? center);
+      if (r < 1) return false;
+      phase = 2;
+      lastFinishTime = Date.now();
+      this.cleanup();
+      this.mgr.clearActiveMode();
+      finishCircle(center, r, previews.node?.getLatLng() ?? center);
+      return true;
+    };
+
     const onContext = (event: L.LeafletMouseEvent) => {
       stopEvent(event);
       this.mgr.clearActiveMode();

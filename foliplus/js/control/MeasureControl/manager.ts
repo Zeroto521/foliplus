@@ -601,8 +601,15 @@ class MeasureManager {
 
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (this.currentMode) this.clearActiveMode();
-      else if (this.isEditMode) this.applyEditMode(false);
+      if (this.currentMode) {
+        // A complete in-flight drawing commits on Escape; its finish path ends
+        // the mode, so only fall through to clearActiveMode when nothing was
+        // finalized (sparse geometry is discarded and the empty row drops).
+        if (this.modeInstance?.finishOnExit() === true) return;
+        this.clearActiveMode();
+      } else if (this.isEditMode) {
+        this.applyEditMode(false);
+      }
     };
     this.interactionCleanup = registerInteractions(this);
 

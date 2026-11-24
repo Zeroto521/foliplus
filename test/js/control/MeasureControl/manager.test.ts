@@ -776,6 +776,42 @@ describe("MeasureManager — global events", () => {
     expect(layers.clearLayers).not.toHaveBeenCalled();
   });
 
+  it("Escape with a complete in-flight distance (2 points) finalizes and keeps the row", () => {
+    // finishOnExit returns true for a geometry-complete in-flight draw (2+
+    // points); the finish path itself ends the mode and populates content, so
+    // the ESC routing must NOT call clearActiveMode again (that would be a
+    // no-op on content — this test pins that routing via a stub finishOnExit
+    // because the fixture L mocks cannot drive real finishDist internals).
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => {
+      layers.registerItemLayers("d1", [{ _finalPoly: true }]);
+      manager.clearActiveMode();
+      return true;
+    };
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.registered).toBe(true);
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("Escape with an incomplete in-flight distance (1 point) drops the row", () => {
+    // 1 point is too sparse to finalize; finishOnExit returns false and the
+    // caller calls clearActiveMode → unregister sees no content → row drops.
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => false;
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.registered).toBe(false);
+  });
+
   it("Escape after a finalized distance keeps the measure row registered", () => {
     // The finalized leaves belong to this measurement's registerItemLayers
     // entry, so the surface still holds content when Escape ends the mode and

@@ -210,6 +210,43 @@ class TestMeasureModeBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_escape_with_complete_inflight_distance_finalizes_and_keeps_row(
+        self, browser, tmp_path
+    ):
+        """Escape with two placed points (geometry complete, mode still active)
+        commits the measurement and keeps its row.
+
+        finishOnExit finalizes a drawing whose geometry is already complete, so
+        the row survives; only a sparse (0-1 point) draw is discarded.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/click_distance_button"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            # Place two points (geometry complete) but do NOT contextmenu-finalize.
+            page.evaluate(_js("MeasureControl/draw_distance_two_points"))
+            page.wait_for_timeout(300)
+            before = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert before["registered"], f"row missing before Escape: {before}"
+
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after Escape, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert after["registered"], (
+                f"Escape on a complete in-flight distance dropped the row: "
+                f"before={before}, after={after}"
+            )
+            assert after["row"], f"finalized row not rendered after Escape: {after}"
+            assert not errors, f"JS errors: {errors}"
+
     def test_escape_after_finalized_distance_keeps_the_measure_row(
         self, browser, tmp_path
     ):

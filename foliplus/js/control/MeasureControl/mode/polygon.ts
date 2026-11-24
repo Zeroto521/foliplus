@@ -256,6 +256,15 @@ class PolygonMode extends PreviewMode {
       // content when clearActiveMode hands it back to the factory.
       this._cleanup();
     };
+    // Escape with a complete in-flight polygon (>=3 points) commits it rather
+    // than discarding it; sparse geometry returns false so the caller discards
+    // it and drops the empty row.
+    this.finishOnExit = () => {
+      if (this.isFinished) return false;
+      if (points.length < 3) return false;
+      finishPoly();
+      return true;
+    };
 
     const onPolyMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;
