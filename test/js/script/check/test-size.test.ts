@@ -8,7 +8,13 @@
 // allowlisted oversized file is quiet, and the guard's path normalisation maps
 // an absolute path back to its test/js/ key.
 import { describe, expect, it } from "vitest";
-import { LIMIT, checkSize } from "#script/check/test-size.mjs";
+import {
+  LIMIT,
+  checkSize,
+  listTestFiles,
+  main,
+  remainingAllowlist,
+} from "#script/check/test-size.mjs";
 
 describe("checkSize", () => {
   it("reports an unlisted oversized file as red", () => {
@@ -63,5 +69,28 @@ describe("checkSize", () => {
       {},
     );
     expect(bad.map(b => b.file)).toEqual(["a.test.ts", "c.test.ts"]);
+  });
+});
+
+describe("the real tree", () => {
+  it("walks every test/js file with its raw line count", () => {
+    const files = listTestFiles();
+    expect(files.length).toBeGreaterThan(200);
+    expect(files.every(f => f.file.endsWith(".test.ts"))).toBe(true);
+    expect(files.every(f => f.lines > 0)).toBe(true);
+  });
+
+  it("reports only allowlist entries that still exist on disk", () => {
+    // The burn-down view: an entry whose split landed must be deleted, so the
+    // list is the set of entries still owed a split.
+    const remaining = remainingAllowlist();
+    expect(remaining.length).toBeGreaterThan(0);
+    expect(remaining.every(stem => stem.endsWith(".test.ts"))).toBe(true);
+  });
+
+  it("exits 0 on the current tree", () => {
+    // The guard must be green on the tree it ships with; a red here means an
+    // oversized file landed without an allowlist entry.
+    expect(main()).toBe(0);
   });
 });

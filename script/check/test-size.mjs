@@ -122,11 +122,10 @@ const listTestFiles = () => {
   return out;
 };
 
-/** The allowlist entries still present on disk (the burn-down view). */
+/** The allowlist entries still present on disk (the burn-down view). The keys
+ *  already carry the `.test.ts` suffix, so they are joined as-is. */
 const remainingAllowlist = () =>
-  Object.keys(OVERSIZED).filter(stem =>
-    fs.existsSync(path.join(TEST_ROOT, `${stem}.test.ts`)),
-  );
+  Object.keys(OVERSIZED).filter(stem => fs.existsSync(path.join(TEST_ROOT, stem)));
 
 const main = () => {
   if (process.argv.includes("--list")) {
@@ -150,4 +149,4 @@ if (process.argv[1] && process.argv[1].endsWith("test-size.mjs")) {
   process.exit(main());
 }
 
-export { LIMIT, checkSize };
+export { LIMIT, checkSize, listTestFiles, main, remainingAllowlist };

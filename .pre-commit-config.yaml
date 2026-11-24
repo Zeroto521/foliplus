@@ -91,6 +91,11 @@ repos:
         language: system
         pass_filenames: false
         files: ^test/js/.*\.test\.ts$
+        # pre-commit.ci's runner image has no `node` on PATH, so the hook is
+        # local-only; CI still enforces the cap through the vitest suite
+        # (test/js/script/check/test-size.test.ts runs in the `js` job).
+        ci:
+          skip: [test-size]
 
       # Enforces code-style rules on foliplus/js/*.ts, build-tool
       # modules under script/ (all subdirs), and the CSS custom-property
