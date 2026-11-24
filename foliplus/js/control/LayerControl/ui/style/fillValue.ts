@@ -124,7 +124,6 @@ export {
   declaredValue,
   effectiveFillValue,
   hasDeclaredFill,
-  hasDeclaredValue,
   hasValueField,
   resolvedValue,
   valueFields,
@@ -391,11 +390,6 @@ const declaredValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
  *  the stored intent, else the author's declared value fill. */
 const effectiveFillValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   getIntent(ui, layerId, INTENT.FILL_VALUE) ?? declaredValue(ui, layerId);
-
-/** Whether the declaration names a value mode — the cheap form for gates that
- *  run before an apply allocates its scheduler box (no field resolution). */
-const hasDeclaredValue = (ui: LayerUI, layerId: string): boolean =>
-  declaredFillRecord(ui, layerId)?.mode === STYLE_MODE.VALUE;
 
 /** The value config a first switch to the by-value mode starts from. The field
  *  is the caller's seed field; method/classes/scheme come from the shared
