@@ -44,7 +44,7 @@ async () => {
     },
   });
   await wait(30);
-  const rowSelector = ".foliplus-layer-item[data-layer-id=\"" + ID + "\"]";
+  const rowSelector = '.foliplus-layer-item[data-layer-id="' + ID + '"]';
   const row = document.querySelector(rowSelector);
   if (!row) return false;
   const more = row.querySelector(".foliplus-layer-more-btn");
@@ -55,9 +55,7 @@ async () => {
   );
   if (!menuItem) return false;
   menuItem.click();
-  const panel = await until(() =>
-    row.querySelector(".foliplus-layer-filter-panel"),
-  );
+  const panel = await until(() => row.querySelector(".foliplus-layer-filter-panel"));
   if (!panel) return false;
   // A reference row built from the same primitive, to compare geometry against.
   const ref = document.createElement("div");
