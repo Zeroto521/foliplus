@@ -1,10 +1,10 @@
-import { testPathAliases } from "./script/build-path.mjs";
+import { testPathAliases } from "./script/build/build-path.mjs";
 import { resolve } from "path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   resolve: {
-    // Single source: script/build-path.mjs (shared with esbuild alias).
+    // Single source: script/build/build-path.mjs (shared with esbuild alias).
     alias: {
       ...testPathAliases(resolve(".")),
       // Test-local alias so deep test files reach the shared path helper

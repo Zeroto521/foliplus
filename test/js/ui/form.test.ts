@@ -12,7 +12,6 @@ import {
   colorInput,
   formRow,
   inlineControls,
-  normalizeHexColor,
   numberInput,
   selectInput,
 } from "#ui/index.js";
@@ -26,15 +25,6 @@ describe("LABEL_SIZE / clampLabelSize", () => {
     expect(clampLabelSize(99)).toBe(32);
     expect(clampLabelSize(1)).toBe(6);
     expect(clampLabelSize(14)).toBe(14);
-  });
-});
-
-describe("normalizeHexColor", () => {
-  it("expands #rgb to #rrggbb and leaves other values alone", () => {
-    expect(normalizeHexColor("#fff")).toBe("#ffffff");
-    expect(normalizeHexColor("#AbC")).toBe("#aabbcc");
-    expect(normalizeHexColor("#ff0000")).toBe("#ff0000");
-    expect(normalizeHexColor("red")).toBe("red");
   });
 });
 
@@ -174,15 +164,6 @@ describe("bindLiveNumber / bindLiveColor", () => {
     input.value = "#00ff00";
     input.dispatchEvent(new Event("input"));
     expect(onCommit).toHaveBeenCalledWith("#00ff00");
-  });
-});
-
-describe("normalizeHexColor", () => {
-  it("expands #rgb to #rrggbb and leaves other values alone", () => {
-    expect(normalizeHexColor("#fff")).toBe("#ffffff");
-    expect(normalizeHexColor("#AbC")).toBe("#aabbcc");
-    expect(normalizeHexColor("#ff0000")).toBe("#ff0000");
-    expect(normalizeHexColor("red")).toBe("red");
   });
 });
 

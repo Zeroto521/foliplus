@@ -28,7 +28,6 @@
  * When GITHUB_STEP_SUMMARY is set, also writes a Markdown summary.
  */
 import { help } from "../args.mjs";
-import { FAIL, OK, STATUS, WARN } from "../glyph.mjs";
 import {
   EXIT_FUSE,
   EXIT_NO_BASELINE,
@@ -40,6 +39,7 @@ import {
   parseArgsWithBase,
   readSizes,
 } from "./bundle-size-lib.mjs";
+import { FAIL, OK, STATUS, WARN } from "./glyph.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";
 import { pathToFileURL } from "url";

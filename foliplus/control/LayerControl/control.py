@@ -1,27 +1,16 @@
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, get_args
-
-from branca.element import Element
-from folium.map import Layer
+from typing import Annotated, Any, Literal
 
 from foliplus._config_schema import FieldSpec
-from foliplus._declaration import FILTER_KEY
 from foliplus._typing import ControlPosition
 from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
-from ._fill_author import fill_author, map_colormaps
-from ._folder import _folder_key, normalise_folders, warn_unclaimed_folders
-from ._layer import (
-    declared_border,
-    declared_filter,
-    declared_folder,
-    declared_icon_size,
-    declared_marker_color,
-    declared_zoom_range,
-)
-from ._role import LayerRole, layer_role, normalise_role_defaults
+from ._collect import collect_layer_data
+from ._folder import normalise_folders
+from ._role import normalise_role_defaults
+from ._spec import LAYER_DATA_FIELDS
 
 
 class LayerControl(BaseControl):
@@ -177,7 +166,9 @@ class LayerControl(BaseControl):
          - Meaning
        * - ``fill``
          - dict
-         - the layer's value-based fill (field + optional method/classes/scheme/kind).
+         - the fill default: a value mode (field + optional
+           method/classes/scheme/kind) or a solid mode (color + opacity);
+           ``mode`` may name ``solid`` / ``value`` / ``original``.
        * - ``label``
          - dict
          - the layer's text labels (field + optional format/color/size/collide/show).
@@ -189,7 +180,9 @@ class LayerControl(BaseControl):
          - the layer's folder (role) name.
        * - ``border``
          - dict
-         - the border default mode (mode-shell or flat value form).
+         - the border default: a mode-shell (``follow_fill`` / ``value`` /
+           ``solid`` / ``original``) or the flat value form, plus optional
+           ``color`` (solid mode) and ``weight`` (any mode).
        * - ``marker_color``
          - str
          - the marker chassis preset name.
@@ -228,56 +221,7 @@ class LayerControl(BaseControl):
     # Emitted by _extra_config at render time rather than set by a constructor
     # parameter, so it is declared here instead of in __init__ — declared the
     # same way a parameter is, with its alias name and shape in the FieldSpec.
-    _dynamic_fields = {
-        "data": Annotated[
-            list,
-            FieldSpec(
-                name="LayerData",
-                shape=[
-                    {
-                        "name": "string",
-                        "id": "string",
-                        "role": get_args(LayerRole),
-                        "show": "bool",
-                        # Optional: what Python computed for the author's
-                        # per-feature paint (explore's baked colors). The panel
-                        # reads it as the author default behind fill by value;
-                        # absent on a layer with no author paint.
-                        "fillAuthor": (
-                            {
-                                "perFeature": "bool",
-                                "distinct": "number",
-                                "stops": "array_string",
-                                "capped": ("bool", "?"),
-                                # The scale the author mounted (continuous) or
-                                # the classified blocks they drew (stepped).
-                                "scale": (
-                                    {
-                                        "kind": ("continuous", "stepped"),
-                                        "column": ("string", "?"),
-                                        "vmin": ("number", "?"),
-                                        "vmax": ("number", "?"),
-                                        "levels": ("number", "?"),
-                                        "method": (("equal", "null"), "?"),
-                                    },
-                                    "?",
-                                ),
-                            },
-                            "?",
-                        ),
-                        # Optional: the author-declared zoom range,
-                        # normalised from foliplus={"zoom_range": {...}}.
-                        # Absent when the layer declares none - the
-                        # visibility policy then keeps the map range.
-                        "zoomRange": (
-                            {"min": "number", "max": "number"},
-                            "?",
-                        ),
-                    }
-                ],
-            ),
-        ]
-    }
+    _dynamic_fields = LAYER_DATA_FIELDS
 
     def __init__(
         self,
@@ -360,75 +304,4 @@ class LayerControl(BaseControl):
             ``fillAuthor`` / ``zoomRange`` — the ``data`` key is merged into the JS
             ``CONFIG`` object by :meth:`BaseControl._build_config`.
         """
-        data: list[dict[str, object]] = []
-        seen: set[str] = set()
-        claimed_folders: set[tuple[str, str]] = set()
-        candidates: list[Element] = [*self._children.values()]
-        if (parent := self._parent) is not None:
-            candidates += [*parent._children.values()]
-        # The explore scales live on the map, not on the layer: read them once
-        # for the whole pass, from the control's own parent chain (see
-        # map_colormaps). ``claimed`` keeps one scale per layer.
-        colormaps = map_colormaps(self)
-        claimed: set[int] = set()
-
-        for item in candidates:
-            # isinstance first — the control itself is a child but not a Layer
-            # (and has no `.control` attribute).
-            if not isinstance(item, Layer) or not item.control:
-                continue
-            if (name := item.get_name()) in seen:
-                continue
-            seen.add(name)
-
-            entry: dict[str, object] = {
-                "name": item.layer_name,
-                "id": name,
-                # folium.overlay <-> foliplus role: the single mapping point
-                # (see _role.py). overlay=True is a data layer, False a basemap.
-                "role": layer_role(item),
-                "show": bool(item.show),
-            }
-            author = fill_author(item, colormaps, claimed)
-            if author is not None:
-                entry["fillAuthor"] = author
-            zoom_range = declared_zoom_range(item, item.layer_name)
-            if zoom_range is not None:
-                entry["zoomRange"] = zoom_range
-            folder = declared_folder(item, item.layer_name)
-            if folder is not None:
-                entry["folder"] = folder
-                claimed_folders.add((layer_role(item), _folder_key(folder)))
-            filter_decl = declared_filter(item, item.layer_name)
-            if filter_decl is not None:
-                entry[FILTER_KEY] = filter_decl
-            # A border declaration is read by the JS panel straight off
-            # layer.options.foliplus (same channel as fill/label). Python's
-            # only job here is the shape validation + one-time warning: a
-            # malformed border warns at collection time instead of silently
-            # painting a mode the author never saw validated.
-            declared_border(item, item.layer_name)
-            # Marker chassis colour and icon pixel size ride the same channel
-            # as border: the JS panel reads them straight off
-            # layer.options.foliplus (via the shared declared-key reader), so
-            # Python's only job is shape validation + one-time warning at
-            # collection time - a malformed declaration warns here instead of
-            # silently scaling/painting a value the author never saw
-            # validated. Neither emits a CONF fact; each is read per layer.
-            declared_marker_color(item, item.layer_name)
-            declared_icon_size(item, item.layer_name)
-            data.append(entry)
-
-        # A folder name shared by several layers is a grouping intent, not a
-        # conflict: the JS side merges same-name declarations of the same role
-        # into one authorFolderId (folder = role name, one role may
-        # hold many member rows). Each declaring layer simply emits the name.
-
-        # A central folders= declaration no layer claims never reaches the
-        # panel, so its folded default silently fails: warn once per miss so
-        # the author can fix the name (never raise, never drop the entry).
-        warn_unclaimed_folders(self.folders, claimed_folders)
-
-        # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
-        data.sort(key=lambda d: d["role"] == "base")
-        return {"data": data}
+        return collect_layer_data(self)

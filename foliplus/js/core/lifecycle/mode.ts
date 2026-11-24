@@ -4,9 +4,9 @@
 // No DOM / CONFIG dependency.
 import { EVENTS, type EventBus, ensureEvents, publish } from "../event/index.js";
 import { suspendMapInteractions } from "../layer/index.js";
-import { HINT_DURATION } from "../overlay/hint.js";
 import { COMPONENTS, assertComponentName } from "./component.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 
 interface ModeChangePayload {
   component: string;

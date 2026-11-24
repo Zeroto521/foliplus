@@ -16,6 +16,11 @@ interface CropRect {
 /** Export format key — mirrors Python's `ExportControl.FORMAT` Literal type. */
 type ExportImageFormat = "png" | "jpeg" | "webp" | "geotiff";
 
+/** Export session phase — the single owner of the component's mode claim.
+ *  `idle`: no session; `crop`: the crop box holds "selecting"; `exporting`:
+ *  the render holds "exporting". */
+type ExportPhase = "idle" | "crop" | "exporting";
+
 /** Loaded saved bounds from storage. */
 interface SavedBounds {
   nw: LatLngPoint;
@@ -64,6 +69,7 @@ interface TileLoadStats {
 export type {
   CropRect,
   ExportImageFormat,
+  ExportPhase,
   RenderCtx,
   SavedBounds,
   TileDesc,

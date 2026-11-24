@@ -3,6 +3,7 @@ import { CLASSES, MODE, PARAM } from "./const.js";
 import {
   fetchSuggestions,
   positionPanel,
+  releaseMarkerLayers,
   removePanel,
   searchAddress,
   searchCoord,
@@ -104,14 +105,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
   // listener-exempt: clear button handler; control-DOM, removed with the control
   ctrl.clearBtn.onclick = () => {
     ctrl.inp.value = "";
-    if (ctrl.marker) {
-      map.removeLayer(ctrl.marker);
-      ctrl.marker = null;
-    }
-    if (ctrl.delIcon) {
-      map.removeLayer(ctrl.delIcon);
-      ctrl.delIcon = null;
-    }
+    releaseMarkerLayers(ctrl);
     ctrl.inp.focus();
   };
 

@@ -5,7 +5,7 @@ import { cropMethods } from "./crop.js";
 import { registerInteractions } from "./interaction.js";
 import { persistenceMethods } from "./persistence.js";
 import { canvasToBlob, sessionMethods } from "./session.js";
-import type { CropRect, SavedBounds, TileLoadStats } from "./type.js";
+import type { CropRect, ExportPhase, SavedBounds, TileLoadStats } from "./type.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -80,6 +80,11 @@ class ExportManager {
   exportToolBar: HTMLElement | null;
   exportOverlay: HTMLElement | null;
   isExporting: boolean;
+  /** Explicit export session phase — the one owner of the mode claim. */
+  exportPhase: ExportPhase;
+  /** Generation of the render in flight; teardown bumps it so a canvas or
+   *  progress callback from a retired pipeline is dropped (see doRender). */
+  renderToken: number;
   pixelOverLimit: boolean;
   lastScreenRect: CropRect | null;
   savedBounds: SavedBounds | null;
@@ -165,6 +170,7 @@ class ExportManager {
   declare downloadGeoTiff: (canvas: HTMLCanvasElement, name: string) => void;
   declare onRenderError: (err: Error, hideEls: NodeListOf<Element>) => void;
   declare removeExportOverlay: () => void;
+  declare abortExport: () => void;
 
   constructor(
     mapInstance: L.Map,
@@ -186,6 +192,8 @@ class ExportManager {
     this.exportToolBar = null;
     this.exportOverlay = null;
     this.isExporting = false;
+    this.exportPhase = "idle";
+    this.renderToken = 0;
     this.pixelOverLimit = false;
     this.lastScreenRect = null;
     this.savedBounds = null;
@@ -218,6 +226,23 @@ class ExportManager {
   attachUI(ctrl: HTMLElement, toolBar: HTMLElement) {
     this.exportCtrl = ctrl;
     this.exportToolBar = toolBar;
+  }
+
+  /**
+   * Move the export session to `phase` and write the mode claim in the same
+   * call. Single entry point: the crop box, the export pipeline and teardown
+   * all route their mode registration through here, so the phase and the
+   * ModeManager can never disagree (the P1-1 "exporting then immediately
+   * null" state collapse).
+   */
+  setExportPhase(phase: ExportPhase) {
+    this.exportPhase = phase;
+    // Derived, never written independently: an in-flight render and the mode
+    // claim are the same fact.
+    this.isExporting = phase === "exporting";
+    const mode =
+      phase === "exporting" ? "exporting" : phase === "crop" ? "selecting" : null;
+    this.modes.setMode(this.config.name, mode);
   }
 
   registerShortcuts(): void {
