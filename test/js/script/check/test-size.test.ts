@@ -7,7 +7,7 @@
 // disk and pin the three verdicts: an unlisted oversized file is red, an
 // allowlisted oversized file is quiet, and the guard's path normalisation maps
 // an absolute path back to its test/js/ key.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   LIMIT,
   checkSize,
@@ -92,5 +92,23 @@ describe("the real tree", () => {
     // The guard must be green on the tree it ships with; a red here means an
     // oversized file landed without an allowlist entry.
     expect(main()).toBe(0);
+  });
+
+  it("reports an oversized file and exits 1", () => {
+    // The reporting branch: one line per offending file, non-zero exit.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const code = main([
+      { file: "test/js/ui/not-allowlisted.test.ts", lines: LIMIT + 1 },
+    ]);
+    expect(code).toBe(1);
+    expect(log.mock.calls.flat().join(" ")).toContain("ui/not-allowlisted.test.ts");
+    log.mockRestore();
+  });
+
+  it("prints the burn-down view under --list", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(main([], ["node", "test-size.mjs", "--list"])).toBe(0);
+    expect(log.mock.calls.flat().join(" ")).toContain("allowlist:");
+    log.mockRestore();
   });
 });

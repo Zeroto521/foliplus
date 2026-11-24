@@ -127,8 +127,15 @@ const listTestFiles = () => {
 const remainingAllowlist = () =>
   Object.keys(OVERSIZED).filter(stem => fs.existsSync(path.join(TEST_ROOT, stem)));
 
-const main = () => {
-  if (process.argv.includes("--list")) {
+/**
+ * The CLI body. `entries` is injectable so the reporting branches can be
+ * exercised without an oversized file on disk.
+ *
+ * @param {{ file: string, lines: number }[]} [entries]
+ * @param {string[]} [argv]
+ */
+const main = (entries = listTestFiles(), argv = process.argv) => {
+  if (argv.includes("--list")) {
     const remaining = remainingAllowlist();
     console.log(
       `allowlist: ${Object.keys(OVERSIZED).length} entries, ${remaining.length} still on disk`,
@@ -136,7 +143,7 @@ const main = () => {
     remaining.forEach(stem => console.log(`  ${stem} — ${OVERSIZED[stem]}`));
     return 0;
   }
-  const bad = checkSize(listTestFiles());
+  const bad = checkSize(entries);
   for (const { file, lines } of bad) {
     console.log(
       `${file}: ${lines} lines (limit ${LIMIT}); split by aspect or add an allowlist entry naming its split card`,
