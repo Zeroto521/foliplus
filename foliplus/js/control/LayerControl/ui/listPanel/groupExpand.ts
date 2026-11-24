@@ -18,7 +18,7 @@ import {
   registerAutoCancel,
   showFocusDisabledHint,
 } from "../focus/index.js";
-import { hideOtherLayers } from "../focus/pane.js";
+import { bringFocusedLayerToFront, hideOtherLayers } from "../focus/pane.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
@@ -288,6 +288,13 @@ const focusChildLayer = (ui: LayerUI, parentId: string, childId: string): void =
   }
   closeOverlays(ui);
   hideOtherLayers(ui);
+  // The child paints inside its container's pane. Without marking that pane as
+  // the focus pane, the focus-hide CSS would swallow the very layer being
+  // focused (the child's probe-only surface has no panes of its own, so the
+  // shared writer falls back to discovering the panes the child paints
+  // through and lifts/marks those).
+  const childInfo = ui.c.layerRegistry.get(childId);
+  if (childInfo) bringFocusedLayerToFront(ui, childInfo);
   ui.c.label.setFocusFilter(childId);
   const itemEl =
     ui.uiContainer?.querySelector<HTMLElement>(

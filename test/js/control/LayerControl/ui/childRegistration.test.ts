@@ -10,7 +10,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
-import { childRowId } from "#control/LayerControl/ui/listPanel/groupExpand.js";
+import {
+  childRowId,
+  focusChildLayer,
+} from "#control/LayerControl/ui/listPanel/groupExpand.js";
 import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.js";
 
 describe("child layer registration", () => {
@@ -273,6 +276,33 @@ describe("child layer registration", () => {
       'input[type="checkbox"]',
     ) as HTMLInputElement;
     expect(childBox.checked).toBe(false);
+  });
+
+  it("keeps a focused child visible by marking the pane it paints through", () => {
+    installLeafletGlobals();
+    const child = makeChild();
+    const paneEl = document.createElement("div");
+    paneEl.className = "foliplus-layer-pane";
+    map.getPane = vi.fn((name: string) =>
+      name === "child-pane" ? paneEl : document.createElement("div"),
+    );
+    registerGroup([child]);
+    expandGroup();
+    // A real focusable child carries bounds; the fixture's Polygon has none.
+    child.getBounds = () => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 40, lng: 110 }),
+      getCenter: () => ({ lat: 35, lng: 105 }),
+    });
+    // The child declares its own pane (a third-party layer can). Focus must
+    // mark it, or the focus-hide CSS swallows the very layer being focused.
+    child.options.pane = "child-pane";
+    expect(ui.c.getLayerPanes(child)).toContain("child-pane");
+
+    focusChildLayer(ui, "fg", childRowId("fg", child));
+
+    expect(paneEl.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
   });
 
   it("offers style and filter in the child row's ⋮ menu", () => {
