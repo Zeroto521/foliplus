@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from ..helper import _expand_panel, _geo_mixed, _write_html
-
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_cross_group_drag_shows_hint(self, browser, tmp_path):
@@ -76,6 +70,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             # so a cross-role drag answers "same section" (the user-facing word
             # for a role) rather than naming the two roles.
             assert ("same section" in hint_text.lower()) or ("同分组" in hint_text)
+
     def test_probe_leak_listener_control_group_grows(self, browser, tmp_path):
         """A single bare map.on() must register as a +1 in the listener sum.
 
@@ -91,6 +86,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 f"Leak control group: expected a positive delta, got {result!r}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_rename_input_fills_row_height(self, browser, tmp_path):
         """The inline rename input spans the full row height (not a 19.6px line).
 
@@ -133,6 +129,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert abs(m["inputH"] - m["rowH"]) <= 1, (
                 f"input height {m['inputH']} != row height {m['rowH']}"
             )
+
     def test_unregister_layer_in_browser(self, browser, tmp_path):
         """unregisterLayer removes a dynamically registered layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -143,6 +140,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result is not None
             assert result["before"] is True
             assert result["after"] is False
+
     def test_click_one_overlay_no_sibling_checkbox_flash(self, browser, tmp_path):
         """Clicking one overlay row's checkbox must not flash its role siblings'
         checkboxes to an intermediate state.
@@ -190,6 +188,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 f"a sibling's checkbox flipped to an unexpected value during "
                 f"the click -- checkbox flash. Samples: {sibling_flips}"
             )
+
     def test_render_initial_list_incremental(self, browser, tmp_path):
         """registerLayer on an existing UI must not rebuild the whole list.
 
@@ -208,6 +207,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["afterSecond"] <= 1, (
                 f"registerLayer triggered full rebuilds: {result['afterSecond']}"
             )
+
     def test_toggle_performance(self, browser, tmp_path):
         """Layer toggle and toggle-all operations complete within 100ms."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -227,6 +227,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert results is not None, "performance_toggle failed"
             for r in results:
                 assert r["ms"] < 100, f"{r['op']} took {r['ms']}ms (threshold: 100ms)"
+
     def test_layers_view_is_readonly(self, browser, tmp_path):
         """api.layers is a read-only view — direct mutation is blocked.
 
@@ -243,6 +244,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["spliceThrew"] is True, "splice should throw"
             assert result["assignThrew"] is True, "index assign should throw"
             assert result["shiftThrew"] is True, "shift should throw"
+
     def test_outside_mousedown_clears_cursor(self, browser, tmp_path):
         """Clicking outside the panel drops the keyboard cursor.
 
@@ -271,6 +273,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["after"] is False, (
                 f"outside mousedown must clear the cursor, got {result}"
             )
+
     def test_keydown_space_toggles_visibility(self, browser, tmp_path):
         """Space toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -286,6 +289,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["toggled"] is True, (
                 f"Space should toggle visibility, got {result}"
             )
+
     def test_keydown_enter_toggles_visibility(self, browser, tmp_path):
         """Enter toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -301,6 +305,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["toggled"] is True, (
                 f"Enter should toggle visibility, got {result}"
             )
+
     def test_keydown_left_toggles_visibility(self, browser, tmp_path):
         """ArrowLeft toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -316,6 +321,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["toggled"] is True, (
                 f"ArrowLeft should toggle visibility, got {result}"
             )
+
     def test_keydown_right_toggles_visibility(self, browser, tmp_path):
         """ArrowRight toggles the focused layer's checkbox."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -331,6 +337,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["toggled"] is True, (
                 f"ArrowRight should toggle visibility, got {result}"
             )
+
     def test_keydown_after_label_click_targets_clicked_row(self, browser, tmp_path):
         """Mouse-selecting a row moves the keyboard cursor to that row."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -354,6 +361,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["toggled"] is True, (
                 f"Enter after clicking a row label should toggle that row, got {result}"
             )
+
     def test_keydown_ctrl_up_moves_layer(self, browser, tmp_path):
         """Ctrl+ArrowUp moves the focused layer one position up."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -373,6 +381,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["moved"] is True, (
                 f"Ctrl+ArrowUp should move layer up, got {result}"
             )
+
     def test_keydown_ctrl_down_moves_layer(self, browser, tmp_path):
         """Ctrl+ArrowDown moves the focused layer one position down."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -392,6 +401,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["moved"] is True, (
                 f"Ctrl+ArrowDown should move layer down, got {result}"
             )
+
     def test_keydown_escape_restores_rest_state(self, browser, tmp_path):
         """Escape leaves the row indistinguishable from a never-touched row.
 
@@ -463,6 +473,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 + " vs "
                 + str(unchecked)
             )
+
     def test_plain_marker_layers_count_and_stay_stable(self, browser, tmp_path):
         """A leaf point layer counts as a point feature.
 
@@ -530,6 +541,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                     f"{info['name']!r}: count column changed to {info['countText']!r} "
                     f"after an unrelated checkbox click"
                 )
+
     def test_initlayeritem_updates_only_the_id_match_row(self, browser, tmp_path):
         """initLayerItem stamps the row named by data-layer-id, not the one at
         the layer's registry index."""
@@ -557,6 +569,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             # Ids the registry does not know about are declined.
             assert state["unknownReturnsFalse"] is False
             assert not errors, f"JS errors: {errors}"
+
     def test_dragdrop_relocates_only_the_id_match_row(self, browser, tmp_path):
         """handleDrop resolves the drop target by data-layer-id: a DOM-position
         read would have seen a self-drop and left the registry behind the

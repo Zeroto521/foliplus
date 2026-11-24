@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import base64
-
 import json
-
 import re
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_config_value,
@@ -28,10 +23,10 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
+
 
 def _rule(css: str, tail: str) -> str:
     """Body of the first rule whose selector ends with *tail*.
@@ -42,7 +37,8 @@ def _rule(css: str, tail: str) -> str:
     start = css.index(tail)
     return css[start : css.index("}", start)]
 
-class TestLayerControlRendering():
+
+class TestLayerControlRendering:
     @staticmethod
     def _assert_no_bg_transition(css, selector_fragment, must_not, may):
         """Assert the CSS rule whose *selector_fragment* is the base selector
@@ -115,6 +111,7 @@ class TestLayerControlRendering():
                 f"{selector_fragment} should still transition {prop} — "
                 "it is pointer/state-driven, not rebuild-driven"
             )
+
     def test_role_divider_lives_in_the_label_column_flex_cell(self):
         """The role divider is not a grid item: it sits inside .foliplus-role-head,
         one flex cell in the label column, so it starts at the name's edge and
@@ -136,6 +133,7 @@ class TestLayerControlRendering():
         # The pre-folder rule that placed a divider by grid-column is gone: the
         # role row owns count/icon/more now, so nothing spans 4 / -1.
         assert "grid-column: 4 / -1" not in css
+
     def test_role_divider_cannot_overflow_the_track(self):
         """The divider is a flex child of the label cell, not a grid item, so it
         cannot be pushed to an implicit row when the anonymous slot count
@@ -188,6 +186,7 @@ class TestLayerControlRendering():
         assert "grid-column" not in div and "grid-area" not in div, (
             "the divider must not be placed on the grid at all"
         )
+
     def test_toggle_all_align_self_center_removed(self):
         """Divider no longer declares a redundant align-self: center — the
         row already aligns items to center via align-items: center."""
@@ -196,12 +195,14 @@ class TestLayerControlRendering():
         assert idx != -1
         block = css[idx : css.index("}", idx) + 1]
         assert "align-self" not in block
+
     def test_toggle_all_label_semibold_primary(self):
         """Section header label is semibold and text-primary so it reads as a real header."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert "foliplus-layer-toggle-all .foliplus-layer-sep-label" in css
         assert "font-weight: var(--foliplus-font-weight-semibold)" in css
         assert "color: var(--foliplus-text-primary)" in css
+
     def test_toggle_all_hover_shares_row_cursor_recipe(self):
         """Toggle-all row joins the shared Row-cursor recipe: hover uses
         accent-primary (not accent-light) and the fold row cannot drift into a
@@ -235,6 +236,7 @@ class TestLayerControlRendering():
         assert "border-left-color: var(--foliplus-accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
         assert "border-left-color: var(--foliplus-accent-light)" not in css
+
     def test_open_overlay_lifts_owner_row_above_sibling_wake(self):
         """While a row overlay is open the owner row is lifted to the floating
         index, so no sibling hover wake can paint over the menu or a row
@@ -262,6 +264,7 @@ class TestLayerControlRendering():
         # The shell declares the whole margin (not just margin-top) so a host
         # framework's bare `ol,ul` margin reset cannot leak a bottom gap.
         assert "margin: 0" in css
+
     def test_folded_fold_btn_turns_accent(self):
         """Fold button color becomes accent-primary when row is folded."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
@@ -273,11 +276,13 @@ class TestLayerControlRendering():
         )
         assert match, "folded fold-btn rule not found"
         assert "var(--foliplus-accent-primary)" in match.group(1)
+
     def test_section_divider_fades_when_folded(self):
         """Section divider fades to opacity 0 when the role is folded."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert "foliplus-section-divider" in css
         assert "opacity: 0" in css
+
     def test_form_label_right_aligned_no_section_heading(self):
         """Row labels are right-aligned; the shared section heading is gone.
 
@@ -292,6 +297,7 @@ class TestLayerControlRendering():
         label = _rule(css, ".foliplus-form-label {")
         assert "text-align: right" in label
         assert "padding-right: var(--foliplus-space-xs)" in label
+
     def test_slider_component_css(self):
         """One shared slider primitive carries the whole geometry.
 
@@ -403,6 +409,7 @@ class TestLayerControlRendering():
         # States: parked is small, held and focused grow.
         assert "scale(1.1)" in css
         assert "scale(1.15)" in css
+
     def test_rows_declare_no_slider_geometry(self):
         """The rows may only state their own coverage, never geometry.
 
@@ -420,6 +427,7 @@ class TestLayerControlRendering():
             assert "::-webkit-slider-thumb" not in raw, rel
             assert "::-moz-range-thumb" not in raw, rel
             assert "--foliplus-slider-rail-height" not in raw, rel
+
     def test_zoom_range_row_css(self):
         """The row adds only its own coverage cue.
 
@@ -433,16 +441,19 @@ class TestLayerControlRendering():
         assert "--foliplus-slider-thumb-ring" not in css
         assert "foliplus-zoom-range-out-of-range .foliplus-slider-fill" not in css
         assert ".foliplus-slider-value-current" in css
+
     def test_style_panel_locale_keys_present(self):
         """Opacity key is injected into the LayerControl bundle."""
         html = render_control(LayerControl())
         assert "LayerControl.style_opacity" in html
+
     def test_fold_btn_hover_color(self):
         """Fold button hover shows accent color (no bg/radius on fold-btn itself)."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "&:hover" in css
         assert "color: var(--foliplus-accent-primary)" in css
+
     def test_more_btn_press_scales(self):
         """Row more-button answers :active with the button-family press scale.
 
@@ -455,6 +466,7 @@ class TestLayerControlRendering():
         block = css[idx : css.index(".foliplus-layer-item:hover", idx)]
         assert "&:active" in block
         assert "scale(var(--foliplus-scale-press))" in block
+
     def test_layer_row_press_uses_soft_wash(self):
         """Layer rows answer :active with the soft accent wash, no scale.
 
@@ -486,6 +498,7 @@ class TestLayerControlRendering():
         assert m, "press-wash rule not found"
         assert "scale" not in m.group(0)
         assert "transition" not in m.group(0)
+
     def test_fold_btn_hover_bidirectional_preview(self):
         """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
 
@@ -502,6 +515,7 @@ class TestLayerControlRendering():
         # Folded row interaction: red → black (preview expanded)
         assert "foliplus-layer-toggle-all.foliplus-layer-folded:is(" in css
         assert "color: var(--foliplus-text-primary)" in css
+
     def test_fold_btn_background_transition(self):
         """Fold button transitions color and transform (background removed — no bg to transition)."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
@@ -517,12 +531,14 @@ class TestLayerControlRendering():
         assert "background var(--foliplus-transition-fast)" not in trans_val
         assert "color var(--foliplus-transition-fast)" in trans_val
         assert "transform var(--foliplus-transition-fast)" in trans_val
+
     def test_fold_btn_svg_fill_none(self):
         """fold-btn svg rule includes fill:none so chevrons render as outlines."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert ".foliplus-layer-fold-btn" in css
         assert "svg {" in css
         assert "fill: none" in css
+
     def test_drag_handle_block_and_size(self):
         """drag-handle is a block sized to the checkbox so its dot grip centers
         with the other row glyphs; no bold stroke (dots match MORE at 3px)."""
@@ -531,10 +547,12 @@ class TestLayerControlRendering():
         assert "display: block" in css
         assert "width: var(--foliplus-space-xl)" in css
         assert "height: var(--foliplus-space-xl)" in css
+
     def test_icon_svg_in_render_list(self, base_map: folium.Map):
         """Custom iconSvg is rendered in type-icon-col during initial render."""
         html = render_control(LayerControl())
         assert "type-icon-col" in html
+
     def test_drag_pulse_css_keyframes(self):
         """CSS defines drag-pulse keyframes with variable-driven values."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
@@ -543,6 +561,7 @@ class TestLayerControlRendering():
         assert "var(--foliplus-drag-border-to" in css
         assert "var(--foliplus-drag-shadow-from" in css
         assert "var(--foliplus-drag-shadow-to" in css
+
     def test_drag_over_css_variables(self):
         """Drag-over drop indicators use CSS custom properties for all parameters."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
@@ -551,11 +570,13 @@ class TestLayerControlRendering():
         assert "--foliplus-drag-bottom-shadow" in css
         assert "--foliplus-drag-pulse-count" in css
         assert "--foliplus-motion-slow" in css
+
     def test_focus_glow_reads_motion_quick(self):
         """The focus-pane glow entrance reads its duration from the motion
         ladder."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert "animation: foliplus-focus-glow-in var(--foliplus-motion-quick)" in css
+
     def test_indeterminate_css_style_present(self):
         """:indeterminate CSS style exists for partial selection state."""
         # Only LayerControl renders this checkbox (CONST.CLASSES.CHECKBOX), so
@@ -565,6 +586,7 @@ class TestLayerControlRendering():
         assert ":indeterminate::after" in css
         # Should use a dash/minus icon (not a checkmark)
         assert "x1='6' y1='12' x2='18' y2='12'" in css
+
     def test_no_rebuild_flash_transitions_on_rebuilt_elements(self):
         """renderInitialList() destroys and re-creates every panel element on a
         fold click. Any element whose rebuild changes a transitioned property
@@ -610,6 +632,7 @@ class TestLayerControlRendering():
             css = read_css(css_path)
             for sel, must_not, may in targets:
                 self._assert_no_bg_transition(css, sel, must_not, may)
+
     def test_focus_hide_rule_excludes_active_basemap(self):
         """The focus-mode hide rule keeps the active basemap visible via a dedicated tag.
 

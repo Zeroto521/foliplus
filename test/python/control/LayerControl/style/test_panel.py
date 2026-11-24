@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_reset_keeps_style_panel_open_and_focus_inside(self, browser, tmp_path):
@@ -122,6 +117,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert state["focusInPanel"] is True, (
                 f"Reset must leave focus inside the panel: {state}"
             )
+
     def test_unit_suffix_sits_inside_the_field_and_hides_on_focus(
         self, browser, tmp_path
     ):
@@ -230,6 +226,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert focus["suffixOpacityOff"] > 0.5, (
                 f"the suffix must return on blur: {focus}"
             )
+
     def test_style_panel_scheme_dropdown_clears_the_panel(self, browser, tmp_path):
         """The style panel's scheme dropdown is fully visible and hit-testable.
 
@@ -286,6 +283,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"{result['dropdownHitClass']} (z={result['dropdownZ']})"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_style_scheme_portal_pick_keeps_the_drawer(self, browser, tmp_path):
         """A real press on the portalled color list keeps the drawer open.
 
@@ -367,6 +365,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert settled["hiddenValue"] == target, settled
             assert not errors, f"JS errors: {errors}"
+
     def test_style_scheme_portal_survives_a_scroll(self, browser, tmp_path):
         """Scrolling while the list is open re-pins it and keeps the drawer.
 
@@ -449,6 +448,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"scrolling must re-pin the portalled list, not close it: {state}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_style_scheme_portal_outside_press_still_dismisses(self, browser, tmp_path):
         """A press outside the drawer and its portalled list still dismisses it.
 
@@ -481,6 +481,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not state["dropdownPresent"], state
             assert not errors, f"JS errors: {errors}"
+
     def test_style_scheme_portal_rehosts_under_fullscreen(self, browser, tmp_path):
         """Fullscreen re-hosts the portalled list; a pick there keeps the drawer.
 
@@ -526,6 +527,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             assert not errors, f"JS errors: {errors}"
             page.evaluate(_js("LayerControl/exit_fullscreen"))
+
     @pytest.mark.parametrize("how", ["outside", "escape"])
     def test_style_mode_dropdown_outside_press_dismisses(self, browser, tmp_path, how):
         """Both mode dropdowns (fill and border) close on a dismissal.
@@ -577,6 +579,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"fill mode dropdown did not close on {how}: {fill}"
             )
             assert not errors, f"JS errors: {errors}"
+
     @pytest.mark.parametrize("which", ["border", "fill"])
     @pytest.mark.parametrize("how", ["outside", "escape"])
     def test_style_mode_dropdown_overlay_contract(self, browser, tmp_path, which, how):
@@ -624,6 +627,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"{which} trigger did not regain focus after {how}: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_style_panel_opens_downward_and_scrolls_inside(self, browser, tmp_path):
         """The pinned style card opens downward and scrolls its own content.
 

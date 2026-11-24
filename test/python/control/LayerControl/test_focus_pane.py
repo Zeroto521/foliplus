@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from .helper import _expand_panel, _geo_mixed, _write_html
-
 from .helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_keydown_escape_keeps_focus_in_row(self, browser, tmp_path):
@@ -71,6 +65,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["suppressLeft"] is False, (
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
+
     def test_base_basemap_quiet_focus(self, browser, tmp_path):
         """Base basemap / color rows show no cursor glow; overlay rows still do.
 
@@ -114,6 +109,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 assert result["colorAfter"]["glow"] is False, (
                     "color picker row must not show the cursor glow, got " + str(result)
                 )
+
     def test_focus_overlay_pane_keeps_spotlight_visible(self, browser, tmp_path):
         """The focus overlay pane carries both the base and exclusion classes.
 
@@ -186,6 +182,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["restored"] == "visible", (
                 f"restoring the tag must make the pane visible again: {result}"
             )
+
     def test_focus_overlay_pane_click_through(self, browser, tmp_path):
         """The focus overlay pane must not intercept pointer events.
 
@@ -223,6 +220,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "the focus overlay pane div must inherit pointer-events: none "
                 f"from the base class, got {result['panePointerEvents']!r}"
             )
+
     def test_focus_keeps_base_panes_visible(self, browser, tmp_path):
         """Basemaps stay visible during focus — they are dimmed, not hidden.
 
@@ -313,6 +311,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                     f"be hidden during focus so the focused layer stands out: "
                     f"{pane}"
                 )
+
     def test_focus_basemap_dim_direction(self, browser, tmp_path):
         """The focused basemap interior must NOT be darker than unfocused.
 
@@ -422,6 +421,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                     f"(which blends toward the container background), not "
                     f"`filter` (which darkens uniformly)"
                 )
+
     def test_focus_closes_map_popup(self, browser, tmp_path):
         """A feature-bound Leaflet popup (folium GeoJsonPopup) closes when
         focusLayer runs — closeOverlays sweeps eachLayer so the popup
@@ -462,6 +462,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             # Focus must be active — proves closeOverlays ran, not a no-op.
             assert result["focusing"] is True, f"focus did not activate: {result}"
             assert not errors, f"JS errors: {errors}"
+
     def test_focus_hides_native_ui_panes(self, browser, tmp_path):
         """Focus-mode CSS hides Leaflet's remaining UI panes: hover tooltips
         and popups — and, through the layer-pane rule, every non-focused

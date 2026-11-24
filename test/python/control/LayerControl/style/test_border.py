@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_vector_border_writes_the_stroke_and_survives_reload(
@@ -151,6 +146,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert entry, f"border state never persisted: {record}"
             assert entry["borderColor"] == "#ff0000", f"stored the wrong color: {entry}"
             assert entry["borderWeight"] == 6, f"stored the wrong width: {entry}"
+
     def test_heatmap_keeps_its_own_border_row_only(self, browser, tmp_path):
         """The delegated drawer owns the heatmap's border, so one row total.
 
@@ -199,6 +195,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert panel["labels"].count("Border") == 1, (
                 f"expected exactly one border row, got: {panel['labels']}"
             )
+
     def test_border_original_roundtrip_restores_computed_style(self, browser, tmp_path):
         """A solid → ORIGINAL round trip repaints the author's stroke.
 
@@ -331,6 +328,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert entry["borderWeight"] == 6, (
                 f"the user's width was erased on return: {entry}"
             )
+
     def test_declared_border_follow_fill_is_the_default(self, browser, tmp_path):
         """A layer stamped foliplus={"border": {"mode": "follow_fill"}} opens its
         border mode on followFill with NO stored intent, and the map paints the
@@ -405,6 +403,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert after["mode"] == "solid", after
             for stroke in after["strokes"]:
                 assert stroke["stroke"] == "rgb(255, 0, 0)", after
+
     def test_border_swatch_shows_a_named_color_as_hex(self, browser, tmp_path):
         """The swatch agrees with the map for a named authored color.
 
@@ -463,6 +462,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert "#e74c3c" in strokes, (
                 f"the neighbouring line lost its own stroke\n{row['strokes']}"
             )
+
     def test_circlemarker_stroke_false_border_write_is_visible_and_resettable(
         self, browser, tmp_path
     ):
@@ -539,6 +539,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 assert stroke["stroke"] in (None, "none"), (
                     f"reset must restore the author's stroke:false\n{reset}"
                 )
+
     def test_circlemarker_size_row_writes_radius_and_reset_restores_authored(
         self, browser, tmp_path
     ):
@@ -673,6 +674,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert polygon["storage"] is None or "size" not in polygon["storage"], (
                 f"reading the polygon stored a size: {polygon}"
             )
+
     @pytest.mark.parametrize(
         "fill_mode,border_mode",
         [

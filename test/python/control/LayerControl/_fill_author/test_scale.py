@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 import importlib
-
 import json
 
 import branca.colormap as branca_cm
-
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -63,6 +59,7 @@ _payload_mod = importlib.import_module(
     "foliplus.control.LayerControl._fill_author.payload"
 )
 
+
 def _collection(
     colors: list[str | None],
     *,
@@ -79,6 +76,7 @@ def _collection(
         features.append(point_feature(119.30 + i * 0.01, 26.08, props))
     return feature_collection(*features)
 
+
 def _geo(
     colors: list[str | None],
     *,
@@ -94,6 +92,7 @@ def _geo(
         }
     return layer
 
+
 def _linear(
     colors: tuple[str, ...] = ("#0d0887", "#f0f921"),
     *,
@@ -107,6 +106,7 @@ def _linear(
     dense = [str(base(vmin + (vmax - vmin) * step / 255))[:7] for step in range(256)]
     return branca_cm.LinearColormap(dense, vmin=vmin, vmax=vmax, caption=caption)
 
+
 def _stepped(
     colors: tuple[str, ...] = ("#440154", "#3b528b", "#21918c", "#fde725"),
     *,
@@ -114,6 +114,7 @@ def _stepped(
     caption: str = "score",
 ) -> branca_cm.StepColormap:
     return branca_cm.StepColormap(list(colors), index=list(index), caption=caption)
+
 
 def _render(*layers: folium.Layer, scales: tuple[object, ...] = ()) -> str:
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -124,21 +125,25 @@ def _render(*layers: folium.Layer, scales: tuple[object, ...] = ()) -> str:
     LayerControl().add_to(m)
     return m.get_root().render()
 
+
 def _conf(html: str) -> dict:
     marker = "CONFIG = "
     start = html.index(marker) + len(marker)
     end = html.index(";", start)
     return json.loads(html[start:end])
 
+
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
     return _conf(html)["data"][0]["fillAuthor"]
+
 
 def _scale() -> branca_cm.LinearColormap:
     """A continuous scale with the 256-point resolution explore produces."""
     base = branca_cm.LinearColormap(["#0d0887", "#f0f921"], vmin=10, vmax=15)
     dense = [str(base(10 + 5 * step / 255))[:7] for step in range(256)]
     return branca_cm.LinearColormap(dense, vmin=10, vmax=15, caption="score")
+
 
 def _layer(scale: branca_cm.LinearColormap) -> folium.GeoJson:
     colors = [str(scale(score))[:7] for score in _SCORES]
@@ -157,6 +162,7 @@ def _layer(scale: branca_cm.LinearColormap) -> folium.GeoJson:
         },
     )
 
+
 def _make_author_page(browser, tmp_path):
     scale = _scale()
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -165,12 +171,14 @@ def _make_author_page(browser, tmp_path):
     LayerControl(locale="en").add_to(m)
     return make_browser_page(browser, tmp_path, m.get_root().render(), "fill_author")
 
+
 def _open_author_style_panel(page):
     """Open the row's style drawer: the more menu, then the style entry."""
     page.evaluate(_js("LayerControl/open_panel"))
     opened = page.evaluate(_ARM)
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+
 
 def _declared_layer() -> folium.GeoJson:
     data = load_geojson("common", "polygons_fuzhou_6offset")
@@ -194,11 +202,13 @@ def _declared_layer() -> folium.GeoJson:
         },
     )
 
+
 def _make_declared_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     _declared_layer().add_to(m)
     LayerControl(locale="en").add_to(m)
     return make_browser_page(browser, tmp_path, m.get_root().render(), "declared_fill")
+
 
 def _open_declared_style_panel(page) -> None:
     page.evaluate(_js("LayerControl/open_panel"))
@@ -212,6 +222,7 @@ def _open_declared_style_panel(page) -> None:
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
 
+
 def test_multi_color_layer_carries_the_distinct_colors():
     meta = _meta(_geo(["#0d0887", "#f0f921"]))
 
@@ -220,10 +231,12 @@ def test_multi_color_layer_carries_the_distinct_colors():
     assert meta["stops"] == ["#0d0887", "#f0f921"]
     assert "scale" not in meta
 
+
 def test_layer_without_the_property_has_no_fill_author():
     data = _conf(_render(_geo([None, None])))["data"][0]
 
     assert "fillAuthor" not in data
+
 
 def test_continuous_scale_is_read_from_the_map():
     scale = _linear()
@@ -246,6 +259,7 @@ def test_continuous_scale_is_read_from_the_map():
     # not a claim about the author's scheme argument.
     assert meta["scale"]["method"] is None
 
+
 def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
     scale = _stepped()
     values = [10.0, 40.0, 90.0]
@@ -263,6 +277,7 @@ def test_stepped_scale_ships_the_authors_own_blocks_and_breaks():
     # is provable from the shipped breaks alone.
     assert meta["scale"]["method"] == "equal"
 
+
 def test_stepped_scale_with_uneven_breaks_has_no_provable_method():
     # A quantiles/jenks classification produces unequal class widths; the
     # panel must not guess a method for it, so Python records None. The
@@ -276,6 +291,7 @@ def test_stepped_scale_with_uneven_breaks_has_no_provable_method():
     assert scale_payload["kind"] == "stepped"
     assert scale_payload["breaks"] == index
     assert scale_payload["method"] is None
+
 
 def test_provable_equal_interval_is_math_only():
     provable = _layer_control_mod.provable_equal_interval
@@ -294,6 +310,7 @@ def test_provable_equal_interval_is_math_only():
     # Uneven: never provable.
     assert provable([0.0, 10.0, 30.0, 60.0, 100.0]) is False
 
+
 def test_a_scale_is_claimed_only_through_its_caption():
     scale = _linear(caption="自定义")
     values = [10.0, 40.0, 90.0]
@@ -305,6 +322,7 @@ def test_a_scale_is_claimed_only_through_its_caption():
     assert "scale" not in meta
     assert meta["perFeature"] is True
     assert meta["stops"] == colors
+
 
 def test_a_plain_layer_does_not_claim_another_layers_scale():
     scale = _linear(("#440154", "#fde725"), caption="value", vmin=0, vmax=100)
@@ -330,6 +348,7 @@ def test_a_plain_layer_does_not_claim_another_layers_scale():
     assert data["Explore"]["fillAuthor"]["scale"]["column"] == "value"
     assert "_column" not in data["Plain"]["fillAuthor"]
 
+
 def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
     scale = _linear(("#440154", "#fde725"), caption="value", vmin=0, vmax=100)
     # The layer carries the property the caption names, but its features are
@@ -345,12 +364,14 @@ def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
 
     assert "scale" not in meta
 
+
 def test_no_scale_falls_back_to_the_color_set():
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90"]))
 
     assert meta["perFeature"] is True
     assert "scale" not in meta
     assert meta["stops"] == ["#0d0887", "#6a00a8", "#b12a90"]
+
 
 def test_two_layers_sharing_a_caption_keep_their_own_scale():
     first = _linear(("#0d0887", "#f0f921"))
@@ -368,6 +389,7 @@ def test_two_layers_sharing_a_caption_keep_their_own_scale():
     # The two folds must not collapse onto one scale: the stored strips differ.
     assert data["A"]["fillAuthor"]["stops"] != data["B"]["fillAuthor"]["stops"]
 
+
 def test_a_scale_does_not_depend_on_the_layer_style_function():
     # explore writes __folium_color AND a style_function; the record reads the
     # property, so a layer that lost the style function keeps its record.
@@ -378,6 +400,7 @@ def test_a_scale_does_not_depend_on_the_layer_style_function():
     assert meta["perFeature"] is True
     assert meta["distinct"] == 2
 
+
 def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
     monkeypatch.setattr(_scale_mod, "FILL_AUTHOR_SCAN_LIMIT", 2)
     # A layer sorted by the painted value: a head-only scan would see one class
@@ -387,6 +410,7 @@ def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
     assert meta["perFeature"] is True
     assert meta["stops"] == ["#0d0887", "#b12a90"]
     assert "capped" not in meta
+
 
 def test_a_caption_sample_skips_values_the_scale_cannot_draw(monkeypatch):
     scale = _linear()
@@ -405,6 +429,7 @@ def test_a_caption_sample_skips_values_the_scale_cannot_draw(monkeypatch):
     # One feature could not be sampled: it neither counts nor breaks agreement.
     assert (hits, total) == (2, 2)
 
+
 def test_stepped_agreement_skips_rows_without_the_column_value():
     scale = _stepped()
     rows = [
@@ -419,6 +444,7 @@ def test_stepped_agreement_skips_rows_without_the_column_value():
     # on the rows that do carry the column.
     assert (hits, total) == (2, 2)
 
+
 def test_stepped_agreement_counts_every_row_when_all_have_the_value():
     scale = _stepped()
     rows = [
@@ -429,6 +455,7 @@ def test_stepped_agreement_counts_every_row_when_all_have_the_value():
     hits, total = _layer_control_mod.stepped_agreement(scale, rows, "score")
 
     assert (hits, total) == (3, 3)
+
 
 def test_a_stepped_scale_missing_a_value_still_measures_the_rest():
     scale = _stepped()
@@ -444,6 +471,7 @@ def test_a_stepped_scale_missing_a_value_still_measures_the_rest():
     assert meta["scale"]["column"] == "score"
     assert meta["stops"] == ["#440154", "#3b528b", "#21918c", "#fde725"]
 
+
 def test_a_short_scale_strip_keeps_every_stop():
     scale = branca_cm.LinearColormap(
         ["#0d0887", "#6a00a8", "#f0f921"], vmin=0, vmax=100, caption="score"
@@ -456,10 +484,12 @@ def test_a_short_scale_strip_keeps_every_stop():
     # Fewer stops than the strip samples: the strip is the whole palette.
     assert meta["stops"] == ["#0d0887", "#6a00a8", "#f0f921"]
 
+
 def test_pair_scale_needs_a_sampled_color_row():
     scale = _linear()
 
     assert _layer_control_mod.pair_scale([scale], [{"properties": {}}], set()) is None
+
 
 def test_a_caption_that_names_a_text_property_claims_nothing():
     scale = _linear(caption="cat")
@@ -473,12 +503,14 @@ def test_a_caption_that_names_a_text_property_claims_nothing():
     # The caption is a property, but not a numeric one: no column to claim.
     assert "scale" not in meta
 
+
 def test_continuous_stops_degrades_for_an_unreadable_index():
     class Scale:
         index = None
         colors = ()
 
     assert _layer_control_mod.continuous_stops(Scale()) == []
+
 
 def test_continuous_stops_returns_empty_for_an_empty_index():
     class Scale:
@@ -487,6 +519,7 @@ def test_continuous_stops_returns_empty_for_an_empty_index():
 
     assert _layer_control_mod.continuous_stops(Scale()) == []
 
+
 def test_continuous_stops_drops_unreadable_stops():
     class Scale:
         index = [0.0, 50.0, 100.0]
@@ -494,12 +527,14 @@ def test_continuous_stops_drops_unreadable_stops():
 
     assert _layer_control_mod.continuous_stops(Scale()) == ["#0d0887", "#f0f921"]
 
+
 def test_scale_walk_ignores_nodes_without_children():
     class Node:
         _children = None
         _parent = None
 
     assert _layer_control_mod.map_colormaps(Node()) == []
+
 
 def test_a_scale_without_stops_is_not_shipped(monkeypatch):
     scale = _linear()
@@ -515,12 +550,14 @@ def test_a_scale_without_stops_is_not_shipped(monkeypatch):
 
     assert "scale" not in meta
 
+
 def test_more_than_the_strip_cap_is_capped(monkeypatch):
     monkeypatch.setattr(_scale_mod, "FILL_AUTHOR_STOPS", 2)
     meta = _meta(_geo(["#0d0887", "#f0f921", "#6a00a8"]))
 
     assert meta["capped"] is True
     assert len(meta["stops"]) == 2
+
 
 def test_numpy_backed_values_can_validate_a_caption():
     np = pytest.importorskip("numpy")
@@ -530,6 +567,7 @@ def test_numpy_backed_values_can_validate_a_caption():
     meta = _meta(_geo(colors, values=[float(v) for v in values]), scale)
 
     assert meta["scale"]["column"] == "score"
+
 
 def test_a_stepped_scale_accepts_its_own_blocks_across_a_bin_edge():
     scale = _stepped()
@@ -546,6 +584,7 @@ def test_a_stepped_scale_accepts_its_own_blocks_across_a_bin_edge():
     assert meta["scale"]["levels"] == 4
     assert meta["scale"]["breaks"] == [0, 25, 50, 75, 100]
 
+
 def test_a_stepped_scale_is_refused_when_a_color_is_not_one_of_its_blocks():
     scale = _stepped()
     # Same property name, other palette: no block of this scale paints them.
@@ -553,6 +592,7 @@ def test_a_stepped_scale_is_refused_when_a_color_is_not_one_of_its_blocks():
     meta = _meta(_geo(colors, values=[20.0] * len(colors)), scale)
 
     assert "scale" not in meta
+
 
 def test_a_refused_stepped_caption_reports_block_membership(caplog):
     # The stepped variant tests exact block membership, so the refusal message
@@ -567,6 +607,7 @@ def test_a_refused_stepped_caption_reports_block_membership(caplog):
 
     assert "carry one of its blocks" in caplog.text
     assert "match its colors" not in caplog.text
+
 
 def test_a_refused_continuous_caption_reports_color_match(caplog):
     # The continuous variant tests the color-match ratio, so the refusal message
@@ -583,6 +624,7 @@ def test_a_refused_continuous_caption_reports_color_match(caplog):
 
     assert "match its colors" in caplog.text
     assert "carry one of its blocks" not in caplog.text
+
 
 def test_affine_equivalent_columns_are_claimed_by_render_order():
     scale = _linear(("#440154", "#fde725"), caption="score", vmin=0, vmax=100)
@@ -608,6 +650,7 @@ def test_affine_equivalent_columns_are_claimed_by_render_order():
 
     assert data["Plain"]["fillAuthor"]["scale"]["column"] == "score"
     assert "scale" not in data["Explore"]["fillAuthor"]
+
 
 @pytest.mark.parametrize("k", [7, 8, 9])
 def test_a_fisherjenks_caption_survives_the_bin_edges(k):
@@ -638,6 +681,7 @@ def test_a_fisherjenks_caption_survives_the_bin_edges(k):
     assert payload["scale"]["levels"] == k
     assert all(isinstance(edge, float) for edge in payload["scale"]["breaks"])
 
+
 def test_no_scale_many_distinct_colors_reads_as_continuous():
     # A legend=False explore layer mounts no colormap, so no scale pairs. A
     # per-feature layer painting more distinct colors than the panel's 9-class
@@ -662,6 +706,7 @@ def test_no_scale_many_distinct_colors_reads_as_continuous():
     # The sampled strip stays the author's colors.
     assert meta["stops"] == colors
 
+
 def test_no_scale_at_the_continuous_threshold_boundary():
     # 9 distinct colors = the panel's class maximum (CLASS_COUNT.MAX): a
     # small-step classification the panel can still describe from its own
@@ -671,6 +716,7 @@ def test_no_scale_at_the_continuous_threshold_boundary():
     assert "scale" not in _meta(_geo(nine))
     ten = ["#%06x" % (i * 0x111111) for i in range(10)]
     assert _meta(_geo(ten))["scale"] == {"kind": "continuous", "ordered": False}
+
 
 def test_real_scale_high_cardinality_still_pairs():
     # A real linear scale (legend=True) paired with a >9-distinct layer keeps

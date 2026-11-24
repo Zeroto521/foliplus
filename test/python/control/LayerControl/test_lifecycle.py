@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from .helper import _expand_panel, _geo_mixed, _write_html
-
 from .helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_remove_readd_restores_layer_api(self, browser, tmp_path):
@@ -54,6 +48,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert state["panelAttached"] is True
             panel_ready(page)  # rebuilt panel completes its init pass again
             assert not errors, f"JS errors: {errors}"
+
     def test_remove_readd_leaves_no_listener_residue(self, browser, tmp_path):
         """N=3 remove → add cycles must not grow map._events listener sum.
 
@@ -81,6 +76,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 )
             panel_ready(page)
             assert not errors, f"JS errors: {errors}"
+
     def test_create_managed_layers_api(self, browser, tmp_path):
         """layers() returns expected convenience methods."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -92,6 +88,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert api["hasRegistered"], "registered missing"
             assert api["hasMainLayer"], "mainLayer missing"
             assert api["hasBringToFront"], "bringToFront missing"
+
     def test_add_graph_sets_pane(self, browser, tmp_path):
         """addGraph sets pane on the layer and calls register."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -103,6 +100,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["pane"] == "__pane_test_graph__", f"got {result['pane']}"
             assert result["hasRenderer"] is True, "renderer not set"
             assert result["registered"] is True, "not registered after addLayer"
+
     def test_clear_all_unregisters(self, browser, tmp_path):
         """clearAll clears content and unregisters the layer."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -113,6 +111,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result is not None
             assert result["beforeRegistered"] is True
             assert result["afterRegistered"] is False
+
     def test_geojson_group_pins_children_to_declared_pane(self, browser, tmp_path):
         """A GeoJSON group's child paths render into the declared data pane.
 
@@ -145,6 +144,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                     f"{kid['parentClass']}): {kid}"
                 )
             assert not errors, f"JS errors: {errors}"
+
     def test_create_canvas_basic_api(self, browser, tmp_path):
         """createCanvas returns canvas API object with expected methods."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -161,6 +161,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert api["canvasClass"], "canvas should carry foliplus-canvas-layer"
             assert api["parentIsPane"], "canvas should live in a foliplus-layer-pane"
             assert api["paneRegistered"], "canvas pane should be on the map"
+
     def test_canvas_register_unregister(self, browser, tmp_path):
         """Canvas register() creates a layer item; unregister() removes it.
 
@@ -186,6 +187,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "unregister keeps the pane for re-register"
             )
             assert not result["paneAfterDestroy"], "destroy drops the pane"
+
     def test_migrate_layers_marker_pane(self, browser, tmp_path):
         """pinLateContent moves Markers to per-layer panes."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -195,6 +197,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             )
             assert result is not None
             assert result["pane"] == "__test_marker_pane_graph__"
+
     def test_migrate_layers_path_pane(self, browser, tmp_path):
         """pinLateContent moves Path layers to the target pane."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -204,12 +207,14 @@ class TestPanelBrowser(LayerControlBrowserBase):
             )
             assert result is not None
             assert result["pane"] == "__test_path_pane_graph__"
+
     def test_register_reentry_after_hide(self, browser, tmp_path):
         """registerLayer can be re-called after a layer is hidden by checkbox."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
             result = page.evaluate(_js("LayerControl/register_reentry_after_hide"))
             assert result is not None
             assert result["found"] is True
+
     def test_register_readds_hidden_layer(self, browser, tmp_path):
         """register() re-adds mainLayer to map when layer was unchecked."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -225,6 +230,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["checkboxChecked"] is True, (
                 "Checkbox should be checked after re-activation"
             )
+
     def test_bring_layer_to_front_runtime(self, browser, tmp_path):
         """bringLayerToFront moves the layer to front of z-order."""
         with use_page(
@@ -240,6 +246,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["newIdx"] == 0, (
                 f"Expected layer B at index 0 after bringToFront, got {result['newIdx']} (was {result['initialIdx']})"
             )
+
     def test_unregister_layer_removes_dom(self, browser, tmp_path):
         """unregisterLayer removes the DOM item from the panel."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -251,6 +258,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["existsAfter"] is False, (
                 "DOM item should be removed after unregisterLayer"
             )
+
     def test_base_basemap_reorder_repaints_z(self, browser, tmp_path):
         """Every base basemap repaints when its row moves.
 
@@ -302,6 +310,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             last_z2 = moved[-1]["z"]
             # The tile that moved to the top must now sit above the other.
             assert first_z2 > last_z2, f"reordered tile panes did not flip z: {moved}"
+
     def test_register_layer_preserves_visible_on_reentry(self, browser, tmp_path):
         """registerLayer preserves the visible state from a previous registration.
 
@@ -319,6 +328,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "the hide recorded by setVisible must survive unregister/re-register; "
                 f"got {result}"
             )
+
     def test_canvas_setvisible_emits_layer_change(self, browser, tmp_path):
         """setVisible on a canvas layer emits LAYER_CHANGE, matching native layers.
 
@@ -360,6 +370,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
 
             # Re-hide flips the class again: still one event per flip.
             assert result["eventsAfterSecondFalse"] == 3, result
+
     def test_register_re_register_preserves_fields(self, browser, tmp_path):
         """A partial re-register never drops previously registered fields.
 
@@ -385,6 +396,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 # The value must be the registered icon, unchanged by the
                 # partial re-register.
                 assert r["iconSvg"] == svg, f"{phase}: iconSvg lost"
+
     def test_extract_points_api(self, browser, tmp_path):
         """extractPoints returns geo points from registered layers."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -395,6 +407,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert abs(result["lng0"] - 119.30) < 0.001
             assert abs(result["lat1"] - 26.09) < 0.001
             assert abs(result["lng1"] - 119.31) < 0.001
+
     def test_paneset_reset_after_hide_show(self, browser, tmp_path):
         """Hiding and re-showing a layer re-pins the leaf marker to its sub-pane.
 
@@ -437,6 +450,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert paneset, (
                 f"Expected non-empty pane on leaf after re-show, got {paneset}"
             )
+
     def test_enforce_order_end_to_end(self, browser, tmp_path):
         """enforceOrder applies correct z-index to layers and migrates panes."""
         with use_page(
@@ -455,6 +469,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "overlay pane should have z-index"
             )
             assert result["markerZ"], "marker pane should have z-index"
+
     def test_pane_zindex_hierarchy(self, browser, tmp_path):
         """LayerControl keeps data < marker < tooltip < popup z-index ordering.
 
@@ -490,6 +505,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 f"({result['tooltipZ']})"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_bring_layer_to_front_guard(self, browser, tmp_path):
         """bringLayerToFront is a no-op for base layers or when already at front."""
         with use_page(
@@ -505,6 +521,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["unknownOk"] is True, (
                 "bringToFront should be safe for unknown id"
             )
+
     def test_migrate_container_keeps_clean_options(self, browser, tmp_path):
         """Container layers are not re-migrated to fallback panes.
 
@@ -528,6 +545,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             )
             # Leaf path must be rendered
             assert result["leafHasPath"] is True, "Leaf path not rendered"
+
     def test_register_idempotent_keeps_order(self, browser, tmp_path):
         """Re-registering an existing layer must not reorder the list.
 
@@ -545,6 +563,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert not result["moved"], (
                 f"Re-register reordered layers: {result['orderBefore']} -> {result['orderAfter']}"
             )
+
     def test_handle_change_resets_paneset_on_show(self, browser, tmp_path):
         """Checkbox toggle triggers handleChange which re-pins layers."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -558,6 +577,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             result = page.evaluate(_js("LayerControl/handle_change_resets_paneset"))
             assert result is not None
             assert result["clicked"] is True, "checkbox should be clickable"
+
     def test_hidden_base_does_not_raise_max_zoom(self, browser, tmp_path):
         """A hidden base layer must not raise ``map.getMaxZoom()``.
 
