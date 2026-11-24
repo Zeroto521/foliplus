@@ -1,4 +1,4 @@
-// core/event/ensureEvents — one EventBus per map, attached to map.foliplus.events.
+// core/event/eventBusInstance — one EventBus per map, attached to map.foliplus.events.
 import { EventBus } from "./EventBus.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 

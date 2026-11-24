@@ -1,7 +1,7 @@
-// core/event/subscribeLayers — layer-scoped semantic events, merged per frame.
+// core/event/layerSubscription — layer-scoped semantic events, merged per frame.
 import type { ListenerPhase } from "./EventBus.js";
 import { EVENTS } from "./const.js";
-import { ensureEvents } from "./ensureEvents.js";
+import { ensureEvents } from "./eventBusInstance.js";
 import type { EventMeta, EventPayloadMap } from "./type.js";
 import { throttleRaf } from "#platform/throttle.js";
 
@@ -111,4 +111,3 @@ const subscribeLayers = <K extends keyof EventPayloadMap = typeof EVENTS.LAYER_C
 };
 
 export { subscribeLayers };
-export type { LayerEventDelivery, LayerSelector, SubscribeLayersOptions };
