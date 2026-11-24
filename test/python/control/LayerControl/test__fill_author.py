@@ -63,12 +63,12 @@ _DECLARED_READ = _js("LayerControl/fill_declared_read")
 _layer_control_mod = importlib.import_module(
     "foliplus.control.LayerControl._fill_author"
 )
-_scale_mod = importlib.import_module("foliplus.control.LayerControl._fill_author_scale")
+_scale_mod = importlib.import_module("foliplus.control.LayerControl._fill_author.scale")
 _colormap_mod = importlib.import_module(
-    "foliplus.control.LayerControl._fill_author_colormap"
+    "foliplus.control.LayerControl._fill_author.colormap"
 )
 _payload_mod = importlib.import_module(
-    "foliplus.control.LayerControl._fill_author_payload"
+    "foliplus.control.LayerControl._fill_author.payload"
 )
 
 
