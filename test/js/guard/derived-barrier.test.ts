@@ -12,7 +12,7 @@
 // missing connector) shows up in a build. This guard pins every production
 // call site of the three projections to the barrier (or to an explicit
 // whitelist with the reason each site is legitimate).
-import { initFixture, polygonLayer } from "../../control/LayerControl/ui/fixture.js";
+import { initFixture, polygonLayer } from "../control/LayerControl/ui/fixture.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

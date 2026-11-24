@@ -25,7 +25,7 @@ const ALLOWED_WORDS = new Set([
 const EXEMPT_DIRS = new Set(["node_modules", ".git", "dist", "coverage", ".agents"]);
 // The guard must not scan itself: its own regex literals and string-stripping
 // patterns leave a mangled `section` token after the crude comment/string strip.
-const EXEMPT_FILES = new Set(["test/js/script/check/vocabulary.test.ts"]);
+const EXEMPT_FILES = new Set(["test/js/guard/vocabulary.test.ts"]);
 
 function* walk(dir: string): Generator<string> {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
