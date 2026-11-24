@@ -11,6 +11,7 @@
   "core/layer/filter",
   "core/layer/filterFeature",
   "core/layer/filterStore",
+  "core/layer/paint",
   "core/layer/role",
   "core/layer/snapshot",
   "core/layer/type",

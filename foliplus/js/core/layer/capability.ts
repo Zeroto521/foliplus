@@ -15,7 +15,7 @@
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
 import { isMigratableLeaf } from "./carrier.js";
-import { someLeaf, walkLeaf } from "./walkLeaf.js";
+import { isGroupNode, someLeaf, walkLeaf } from "./walkLeaf.js";
 import { isPixelRadiusLeaf } from "#core/leafletAdapter.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
@@ -166,13 +166,23 @@ const hasMarkerColorLeaf = (node: unknown): boolean =>
  *  surface needs a marker-shadow pane. Guarded the same way as the native
  *  setter checks in `LayerSurface`: a stripped Leaflet mock (no `Marker`)
  *  must read as "no marker", not throw on `instanceof undefined`. */
-const hasMarkerLeaf = (node: unknown): boolean =>
-  someLeaf(
-    node,
-    leaf =>
-      typeof L.Marker !== "undefined" &&
-      safeRead(() => leaf instanceof L.Marker) === true,
-  );
+/** One node is a Leaflet Marker — the marker geometry predicate. Guarded so a
+ *  stripped Leaflet mock (no `Marker`) reads as "no marker" instead of throwing
+ *  on `instanceof undefined`. */
+const isMarkerLeaf = (node: unknown): boolean =>
+  typeof L.Marker !== "undefined" && safeRead(() => node instanceof L.Marker) === true;
+
+/** Whether any leaf is a Leaflet Marker — the probe that decides whether a
+ *  surface needs a marker-shadow pane. The single-leaf test is `isMarkerLeaf`. */
+const hasMarkerLeaf = (node: unknown): boolean => someLeaf(node, isMarkerLeaf);
+
+/** Whether one leaf is a stroke-only Path leaf — a runtime `setStyle` with no
+ *  areal geometry (a Polyline / MultiPolyline / GeoJSON LineString leaf). The
+ *  geometry predicates stay declarations, never coordinate guesses: a line ring
+ *  and a polygon ring share `getLatLngs()`, so only `isArealStyleLeaf` decides
+ *  the areal face, and every setStyle-shaped leaf it does not claim is a line. */
+const isPathLeaf = (node: unknown): boolean =>
+  hasSetStyle(node) && !isGroupNode(node) && !isArealStyleLeaf(node);
 
 /** Whether any leaf is an areal fill carrier — see `isArealStyleLeaf`. */
 const hasFillLeaf = (node: unknown): boolean => someLeaf(node, isArealStyleLeaf);
@@ -281,6 +291,8 @@ export {
   hasFillLeaf,
   hasMarkerLeaf,
   hasMarkerColorLeaf,
+  isMarkerLeaf,
+  isPathLeaf,
   hasRadiusLeaf,
   hasSetStyleLeaf,
   isArealStyleLeaf,
