@@ -13,7 +13,7 @@ import type { Floating } from "#platform/floating.js";
 /**
  * Subset of SearchControl state used by the logic functions (decouples the
  * types). The request gate (`RequestGates`) and the owned-layer registry
- * (`OwnedLayers`) are composed rather than re-declared: one source for the
+ * (`OwnedLayers`) are composed rather than redeclared: one source for the
  * fields every async read and every layer reclaim reads.
  */
 interface SearchControlState extends RequestGates, OwnedLayers {
