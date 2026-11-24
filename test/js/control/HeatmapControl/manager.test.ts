@@ -316,6 +316,21 @@ describe("HeatmapManager — caching & lifecycle", () => {
     expect(fields).toContain("price");
   });
 
+  it("collectFields excludes folium/geopandas __-prefixed keys even when numeric", () => {
+    // geopandas' explore output carries a numeric __id (and folium a __folium_color
+    // render channel) in feature.properties. Without the internal-key guard the
+    // numeric one is indistinguishable from a business column and would appear in
+    // the aggregation field list; the guard drops it before the number check.
+    const m = makeManager();
+    mockMarkers({
+      feature: { properties: { price: 1, __id: 42, __folium_color: "#22a06b" } },
+    });
+    const fields = m.collectFields([{ id: "a" }]);
+    expect(fields).toContain("price");
+    expect(fields).not.toContain("__id");
+    expect(fields).not.toContain("__folium_color");
+  });
+
   it("collectFields deduplicates value and options.value across markers", () => {
     const m = makeManager();
     mockMarkers(

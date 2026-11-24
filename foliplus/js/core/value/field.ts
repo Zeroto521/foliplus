@@ -42,6 +42,7 @@ const numericPropertiesKeys = (layer: L.Layer): string[] => {
     if (!props) return;
     for (const [name, value] of Object.entries(props)) {
       if (seen.has(name)) continue;
+      if (isInternalProperty(name)) continue;
       if (!isNumericValue(value)) continue;
       seen.add(name);
       keys.push(name);
@@ -61,6 +62,25 @@ const numericPropertiesKeys = (layer: L.Layer): string[] => {
 const isCategoryValue = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
 
+/** Whether a property key is folium/geopandas internal bookkeeping rather than
+ *  business data the user should see.
+ *
+ *  folium's documented recipes (and geopandas' explore output) carry per-feature
+ *  render state in `__`-prefixed keys — `__folium_color` is the per-feature fill
+ *  color a recipe colors through, `__geojson_properties` / `__id` are geopandas'
+ *  own. They arrive as ordinary properties, so a field picker would offer them
+ *  as columns: `__folium_color` is a `#hex` string, which the categorical rule
+ *  alone would accept. Filter them at every field-collection point.
+ *
+ *  Single source: the label field list, the filter panel's field dropdown, the
+ *  value-fill field pickers and any future consumer all read this one predicate,
+ *  so no consumer can re-derive a second, drifting notion of "internal".
+ *
+ *  Deliberately NOT stripped from the data — `authorFill.ts` reads
+ *  `__folium_color` for the author's declarative fill, so the value must stay on
+ *  the feature; this only keeps it out of the user-facing field lists. */
+const isInternalProperty = (key: string): boolean => key.startsWith("__");
+
 /** Collect distinct categorical property keys across a layer's leaves, in
  *  first-seen order. A field is offered only if at least one leaf carries a
  *  non-empty string under it (the same "type upgrade" rule
@@ -75,6 +95,7 @@ const categoricalPropertiesKeys = (layer: L.Layer): string[] => {
     if (!props) return;
     for (const [name, value] of Object.entries(props)) {
       if (seen.has(name)) continue;
+      if (isInternalProperty(name)) continue;
       if (!isCategoryValue(value)) continue;
       seen.add(name);
       keys.push(name);
@@ -201,6 +222,7 @@ export {
   categoryDomain,
   inferFieldKind,
   isCategoryValue,
+  isInternalProperty,
   isNumericValue,
   numericPropertiesKeys,
   resolveField,

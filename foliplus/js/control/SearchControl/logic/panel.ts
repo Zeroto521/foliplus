@@ -8,6 +8,7 @@
 // same mechanism as ./search.ts; declared in type/global.d.ts.
 import { CLASSES } from "../const.js";
 import type { ResultItem } from "../type.js";
+import { ownLayer, releaseMarkerLayers } from "./owned.js";
 import { type SearchControlCtx } from "./util.js";
 import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#platform/cssvar.js";
@@ -28,30 +29,23 @@ type CursorAware = SearchControlCtx & {
  * clears the search input, mirroring MeasureControl / LocateControl UX.
  */
 const attachSearchDelIcon = (ctrl: SearchControlCtx, latlng: L.LatLngExpression) => {
-  if (ctrl.delIcon) {
-    map.removeLayer(ctrl.delIcon);
-    ctrl.delIcon = null;
-  }
   const clearSearch = () => {
-    if (ctrl.marker) {
-      map.removeLayer(ctrl.marker);
-      ctrl.marker = null;
-    }
-    if (ctrl.delIcon) {
-      map.removeLayer(ctrl.delIcon);
-      ctrl.delIcon = null;
-    }
+    releaseMarkerLayers(ctrl);
     ctrl.inp.value = "";
     ctrl.inp.focus();
   };
   // The ✕ is hidden by default and only appears while the popup is open,
   // matching MeasureControl / LocateControl marker UX.
-  ctrl.delIcon = mountDelIcon(
-    latlng,
-    { title: ctrl._("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
-    m => map.addLayer(m),
-    clearSearch,
-    ctrl.marker,
+  ownLayer(
+    ctrl,
+    "delIcon",
+    mountDelIcon(
+      latlng,
+      { title: ctrl._("foliplus.close_label"), iconAnchor: DEL_ICON_MARKER_ANCHOR },
+      m => map.addLayer(m),
+      clearSearch,
+      ctrl.marker,
+    ),
   );
 };
 

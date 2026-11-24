@@ -8,6 +8,7 @@
 // ============================================================================
 import type { ExportImageFormat } from "./type.js";
 import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
+import { COMPONENTS } from "#core/lifecycle/index.js";
 import { scopedStorageKey } from "#platform/storage.js";
 
 /** Per-format descriptor. */
@@ -245,6 +246,19 @@ const resolveFormat = (raw: unknown): ExportImageFormat =>
 const currentFormat = (): FormatSpec =>
   EXPORT_FORMAT_SPEC[resolveFormat(CONFIG.format)];
 
+/**
+ * Components that can hold a mode an export session conflicts with. The one
+ * source for the four-entry blocker tuple: `showCropBox` and `doExport` both
+ * read it, so the two entries into the same mode cannot claim different
+ * owners (P2-10).
+ */
+const EXPORT_BLOCKERS = (T: (key: string) => string) => [
+  { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
+  { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
+  { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
+  { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
+];
+
 // ============================================================================
 // Public API — every consumer reads CONST.<name>; add nothing to this block
 // without declaring it above.
@@ -265,4 +279,5 @@ export {
   MIME_LOSSLESS,
   resolveFormat,
   currentFormat,
+  EXPORT_BLOCKERS,
 };
