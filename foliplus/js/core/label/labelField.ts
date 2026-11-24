@@ -4,7 +4,7 @@
 // offers, and which one to fall back to when the user has not chosen — so the
 // answers live here rather than drifting apart per component.
 import { walkLeaf } from "../layer/walkLeaf.js";
-import { isInternalProperty } from "../value/field.js";
+import { isInternalProperty } from "../value/index.js";
 
 /**
  * One labelable field found on a layer's features.
