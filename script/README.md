@@ -37,7 +37,7 @@ Two `.py` files inspect the JS tree. They are intentional, not oversights:
 A third file joins that group for the CONFIG contract specifically:
 `check/config_key_style.py` reads the generated `foliplus/js/config-schema.ts`
 declaration (and, with `--dump`, the Python schema dump) to prove every
-Python→JS payload key is snake_case. It is stdlib-only on purpose, so the
+Python-to-JS payload key is snake_case. It is stdlib-only on purpose, so the
 pre-commit hook runs in the isolated hook env; the generation-drift half needs
 Python plus Node and lives in `make config-schema-verify` (wired into the CI
 python job).

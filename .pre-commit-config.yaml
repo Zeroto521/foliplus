@@ -165,7 +165,7 @@ repos:
         files: ^test/python/control/.*\.py$
         pass_filenames: false
 
-      # Gate: every key of the Python→JS CONFIG contract is snake_case
+      # Gate: every key of the Python-to-JS CONFIG contract is snake_case
       # (zoom_range, fill_author, per_feature, base_url, throttle_ms). The two
       # sides spell the same payload, and a camelCase key that lands on one side
       # only still type-checks on both — that was #1341's failure mode. Zero
