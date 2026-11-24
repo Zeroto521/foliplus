@@ -347,7 +347,7 @@ class LayerInfoRegistry {
 
   /** Live array position of an id, or -1. Identity still belongs to `at()`:
    *  an id that now names a replacement resolves to a position, not to the
-   *  entry a gesture armed with. */
+   *  entry a gesture started with. */
   indexOfId(id: string): number {
     return this.indexById.get(id) ?? -1;
   }

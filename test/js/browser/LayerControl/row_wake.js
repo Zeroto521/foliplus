@@ -4,7 +4,7 @@
   const r = document.querySelectorAll(rowSel)[idx];
   if (!r) return null;
   const cs = getComputedStyle(r);
-  const g = r.querySelector(".foliplus-drag-cell .drag-handle");
+  const g = r.querySelector(".foliplus-layer-rail .drag-handle");
   return {
     glow: cs.boxShadow !== "none",
     grip: g ? getComputedStyle(g).opacity : null,

@@ -35,6 +35,7 @@ import {
   authorIconOf,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
 import { withUnit } from "#platform/format.js";
 import {
   bindLiveNumber,
@@ -112,16 +113,18 @@ const resolveChassisPaint = (layer: unknown): string =>
   declaredMarkerColorHex(layer) ??
   MARKER_COLOR_PRESET_HEX.blue;
 
-/** The chassis hex the AUTHOR DECLARED via foliplus={"marker_color": "<preset>"},
- *  or null when the layer declares nothing (or an out-of-vocabulary name, which
- *  declaredMarkerColor warns about and reads as not-declared). This is the
- *  lowest-priority chassis source: a panel pick (intent) or the author's own
- *  painted/preset colour both win over it, and it only replaces the derived
- *  default blue. A preset name maps forward through the same table a panel pick
- *  uses, so a declared chassis lands on the library sprite. */
+/** The chassis hex the AUTHOR DECLARED via foliplus={"marker_color": "<preset>"}
+ *  or a CSS hex, or null when the layer declares nothing (or an
+ *  out-of-vocabulary name, which declaredMarkerColor warns about and reads as
+ *  not-declared). This is the lowest-priority chassis source: a panel pick
+ *  (intent) or the author's own painted/preset colour both win over it, and it
+ *  only replaces the derived default blue. A preset name maps forward through
+ *  the same table a panel pick uses, so a declared chassis lands on the library
+ *  sprite; a declared hex is used as-is (the flat mask path paints any hex). */
 const declaredMarkerColorHex = (layer: unknown): string | null => {
   const { declared } = readDeclaredMarkerColor(layer);
   if (!declared) return null;
+  if (isHexColor(declared)) return normalizeHexColor(declared).toLowerCase();
   return (
     (MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[declared] ?? null
   );
@@ -390,5 +393,6 @@ export {
   commitMarkerColorOpacity,
   layerCanMarkerColor,
   replayDeclaredMarkerColor,
+  resolveChassisPaint,
   resetLayerMarkerColor,
 };

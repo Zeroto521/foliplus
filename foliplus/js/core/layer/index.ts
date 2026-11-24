@@ -42,7 +42,7 @@ export {
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
-  LAYOUT_DOC_KEY,
+  folderLayoutKey,
   FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,
@@ -54,19 +54,27 @@ export {
   readFolderLayout,
   writeFolderLayout,
   isFolderLayout,
-  seedFolderLayout,
+  mergeDeclaredFolders,
   folderOf,
+  folderDisplayNameOf,
+  folderKeysOfRole,
+  nextFolderDefaultName,
+  folderEntries,
   groupByFolder,
+  roleBlocks,
   roleOrder,
   fullDisplayOrder,
   freezeRoleOrder,
+  moveLayerToRootAt,
+  rootLayerEntry,
+  seedBlockOrder,
   createFolder,
   renameFolder,
   deleteFolder,
+  moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
   dropLayer,
-  restoreAuthorLayout,
 } from "./folderLayout.js";
 export type {
   FolderLayout,
@@ -90,8 +98,10 @@ export {
   suspendMapInteractions,
   getGeometryType,
   countFeatureGeometry,
-  isContainerLayer,
+  isGroupLayer,
+  isGroupRow,
   countChildLayersOf,
+  countVisibleChildLayers,
 } from "./util.js";
 export {
   drawAlpha,
@@ -101,7 +111,7 @@ export {
   withLayerAlpha,
 } from "./canvasAlpha.js";
 export {
-  isContainerNode,
+  isGroupNode,
   someLeaf,
   walkLeaf,
   walkTree,
@@ -165,8 +175,8 @@ export type { IconKind } from "./intent.js";
 export {
   createFilterStore,
   ensureFilterStore,
+  filterStoreKey,
   FILTER_SOURCE,
-  FILTER_STORE_KEY,
 } from "./filterStore.js";
 export type { FilterSourceHost, FilterStore } from "./filterStore.js";
 export type { AppliedProjection } from "./LayerRuntimeStore.js";

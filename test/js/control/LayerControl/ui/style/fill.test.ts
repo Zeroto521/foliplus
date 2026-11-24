@@ -2521,7 +2521,7 @@ describe("buildFillRow", () => {
 
     // documented default swatch (#cccccc, CONST.COLOR.DEFAULT) + 20%, the
 
-    // "no leaf declares a value" fallback (design §0).
+    // "no leaf declares a value" fallback.
 
     const row = buildFillRow(ui, "ghost");
 
@@ -2551,7 +2551,7 @@ describe("buildFillRow", () => {
 
     // ORIGINAL monochrome readout (no intent): with no leaf declaring a fill
 
-    // value at all, the documented defaults apply (design §0).
+    // value at all, the documented defaults apply.
 
     const row = buildFillRow(fixture.ui, "overlay1");
 
@@ -5683,7 +5683,7 @@ describe("fill row — original colors option", () => {
 
     // An empty layer has no leaf to read, but it is still fill-capable and
 
-    // the baseline readout is ORIGINAL (design §0 empty-layer fallback).
+    // the baseline readout is ORIGINAL (empty-layer fallback).
 
     expect(select.value).toBe("original");
 

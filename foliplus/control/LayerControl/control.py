@@ -12,8 +12,8 @@ from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._folder import normalise_folders
-from ._layer_declaration import (
+from ._folder import _folder_key, normalise_folders, warn_unclaimed_folders
+from ._layer import (
     declared_border,
     declared_filter,
     declared_folder,
@@ -21,7 +21,7 @@ from ._layer_declaration import (
     declared_marker_color,
     declared_zoom_range,
 )
-from ._role import LayerRole, layer_role
+from ._role import LayerRole, layer_role, normalise_role_defaults
 
 
 class LayerControl(BaseControl):
@@ -164,19 +164,38 @@ class LayerControl(BaseControl):
 
     Notes
     -----
-    Recognised keys:
 
-    +----------------+------+------------------------------------------------------------------+
-    | Key            | Type | Meaning                                                          |
-    +================+======+==================================================================+
-    | ``fill``       | dict | the layer's value-based fill (see the fill table below).         |
-    +----------------+------+------------------------------------------------------------------+
-    | ``label``      | dict | The layer's text labels (see the label table below).             |
-    +----------------+------+------------------------------------------------------------------+
-    | ``zoom_range`` | dict | The layer's visible zoom range (see the zoom range table below). |
-    +----------------+------+------------------------------------------------------------------+
-    | ``folder``     | str  | The layer's folder (role) name; see the note below.              |
-    +----------------+------+------------------------------------------------------------------+
+    The per-layer declaration namespace is documented in :doc:`/guide/declaration`.
+    The keys are:
+
+    .. list-table::
+       :widths: 16 6 62
+       :header-rows: 1
+
+       * - Key
+         - Type
+         - Meaning
+       * - ``fill``
+         - dict
+         - the layer's value-based fill (field + optional method/classes/scheme/kind).
+       * - ``label``
+         - dict
+         - the layer's text labels (field + optional format/color/size/collide/show).
+       * - ``zoom_range``
+         - dict
+         - the layer's visible zoom range (``min`` / ``max``).
+       * - ``folder``
+         - str
+         - the layer's folder (role) name.
+       * - ``border``
+         - dict
+         - the border default mode (mode-shell or flat value form).
+       * - ``marker_color``
+         - str
+         - the marker chassis preset name.
+       * - ``icon_size``
+         - int
+         - the marker icon pixel size.
 
     Two layers declaring the same ``folder`` name in the same role (for
     example ``foliplus={"folder": "底图"}``) are grouped into one
@@ -190,108 +209,16 @@ class LayerControl(BaseControl):
     A folder keeps its group row after its last layer is removed, so you
     can still drag more layers into it.
 
-    Third-party layers and components:
-
-    A third-party or custom :class:`folium.map.Layer` subclass can declare a
-    folder the same way foliplus layers do, through the same
-    ``foliplus={"folder": "..."}`` namespace:
-
-    >>> gdf.explore(foliplus={"folder": "底图"})
-
-    The same rules apply: a non-string or blank ``folder`` warns once and is
-    ignored (the layer stays at the role root), and two layers declaring
-    the same folder name in the same role are grouped into one
-    folder. On the JavaScript side, a third-party component can declare its
-    folder through ``LayerAPI.registerLayer``.
-
-    The ``fill`` declaration keys:
-
-    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | Key         | Default                                         | Meaning                                                                                                                                                            |
-    +=============+=================================================+====================================================================================================================================================================+
-    | ``field``   | required — naming one turns value-based fill on | the numeric or categorical feature property to classify                                                                                                            |
-    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``kind``    | inferred from the layer's own values            | the variant (``numeric`` / ``category``); when omitted the layer's values are sampled, and a field that mixes value kinds or has no usable value drops it          |
-    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``method``  | ``jenks``                                       | classification method (``jenks`` / ``quantile`` / ``equal`` / ``heads``)                                                                                           |
-    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``classes`` | ``6``                                           | number of classes, an integer from 2 to 9 (the panel's maximum)                                                                                                    |
-    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``scheme``  | ``Viridis`` (``Set3`` for a category variant)   | palette name (the style panel's own candidates)                                                                                                                    |
-    +-------------+-------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
-    How a ``fill`` declaration is resolved:
-
-    +-------------------------------+--------------------------------------------------------------+
-    | Condition                     | Behaviour                                                    |
-    +===============================+==============================================================+
-    | User stored mode              | The row shows the stored mode; it always wins.               |
-    +-------------------------------+--------------------------------------------------------------+
-    | Valid declaration             | The declared ramp classifies each feature by field at load   |
-    |                               | (it does not flatten the layer to a single color); the row   |
-    |                               | opens on it and Reset returns to it.                         |
-    +-------------------------------+--------------------------------------------------------------+
-    | No declaration                | The row shows the detected per-feature state, else the       |
-    |                               | built-in fallback.                                           |
-    +-------------------------------+--------------------------------------------------------------+
-    | Invalid declaration           | Degrades key by key (each rejected key warns once, the rest  |
-    |                               | survives); a declaration without a usable field drops whole  |
-    |                               | and falls back to the per-feature paint / built-in.          |
-    +-------------------------------+--------------------------------------------------------------+
-
-    Value-based fill needs an areal geometry. Polygons (``Polygon``,
-    ``MultiPolygon``, ``Rectangle``) and circles (``Circle``,
-    ``CircleMarker``) repaint by value; a ``Polyline`` takes a stroke
-    colour instead, so value-based stroke is a known gap; and a marker is
-    an icon, which has no fill to repaint.
-
-    The ``label`` declaration keys:
-
-    +-------------+-------------------------------------+--------------------------------------------------------------+
-    | Key         | Default                             | Meaning                                                      |
-    +=============+=====================================+==============================================================+
-    | ``field``   | labels stay off                     | the feature property to label; declaring it turns labels on  |
-    +-------------+-------------------------------------+--------------------------------------------------------------+
-    | ``format``  | ``auto``                            | number format (``auto`` / ``int`` / ``comma`` / ``percent``) |
-    +-------------+-------------------------------------+--------------------------------------------------------------+
-    | ``color``   | ``#ffffff``                         | label color; hex only, ``#rgb`` is normalised to ``#rrggbb`` |
-    +-------------+-------------------------------------+--------------------------------------------------------------+
-    | ``size``    | ``11`` px                           | label font size in px, clamped to the panel's 6-32 range     |
-    +-------------+-------------------------------------+--------------------------------------------------------------+
-    | ``collide`` | page-level ``label_collide``        | whether this layer's labels take part in overlap avoidance   |
-    +-------------+-------------------------------------+--------------------------------------------------------------+
-    | ``show``    | ``True`` once ``field`` is declared | explicit on/off, so a field can be named without drawing     |
-    +-------------+-------------------------------------+--------------------------------------------------------------+
-
-    The ``zoom_range`` declaration keys:
-
-    +---------+------+----------+--------------------------------------------------------------+
-    | Key     | Type | Required | Meaning                                                      |
-    +=========+======+==========+==============================================================+
-    | ``min`` | int  | yes      | Lowest zoom at which the layer is visible (inclusive).       |
-    +---------+------+----------+--------------------------------------------------------------+
-    | ``max`` | int  | yes      | Highest zoom at which the layer is visible (inclusive).      |
-    +---------+------+----------+--------------------------------------------------------------+
-
     How a ``zoom_range`` declaration is resolved:
 
-    +-------------------------------+--------------------------------------------------------------+
-    |Condition                      |Behaviour                                                     |
-    +===============================+==============================================================+
-    |User stored range              |The row shows the stored range; it always wins.               |
-    +-------------------------------+--------------------------------------------------------------+
-    |Valid declaration              |The row opens on it and Reset returns to it.                  |
-    +-------------------------------+--------------------------------------------------------------+
-    |No declaration                 |The row opens on the map's own range.                         |
-    +-------------------------------+--------------------------------------------------------------+
-    |Declared range cannot meet the |Treated as undeclared: the layer stays visible at every level,|
-    |map's zoom levels              |the degradation warns once, and the row stays editable (it    |
-    |                               |shows the stored value, else the map's range).                |
-    +-------------------------------+--------------------------------------------------------------+
-    |Malformed declaration (missing |Warns once and is treated as undeclared; never hides the      |
-    |key, non-int, inverted, unknown|layer.                                                        |
-    |key)                           |                                                              |
-    +-------------------------------+--------------------------------------------------------------+
+    - A user stored range always wins: the row shows it and it never changes.
+    - A valid declaration: the row opens on it and Reset returns to it.
+    - No declaration: the row opens on the map's own range.
+    - A declared range the map cannot meet: Treated as undeclared, the layer
+      stays visible at every level, the degradation warns once, and the row
+      stays editable (it shows the stored value, else the map's range).
+    - A malformed declaration (missing key, non-int, inverted, unknown key):
+      Warns once and is treated as undeclared; never hides the layer.
 
     A declaration is a default, never a rewrite: it does not modify the
     layer's own data.
@@ -379,6 +306,24 @@ class LayerControl(BaseControl):
                 ),
             ),
         ] = None,
+        roles: Annotated[
+            dict[str, Any] | None,
+            FieldSpec(
+                ts="RoleDefaults",
+                name="RoleDefaults",
+                shape={
+                    "overlay": {"folded": ("bool", "?")},
+                    "base": {"folded": ("bool", "?")},
+                },
+                config_key="roles",
+                note=(
+                    "Central role-defaults config: author-declared default "
+                    "folded state per role. Entries are {folded}; an absent "
+                    "role keeps the built-in expanded default. A user manual "
+                    "fold or expand always wins over the author default.",
+                ),
+            ),
+        ] = None,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
@@ -390,6 +335,11 @@ class LayerControl(BaseControl):
         # `folders` key. Invalid declarations warn once and stay None (every
         # folder keeps the built-in expanded default).
         self.folders = normalise_folders(folders)
+        # The author writes roles={"overlay": {"folded": True}, ...}; CONF
+        # carries the normalised {folded} mappings under the shared `roles`
+        # key. Invalid declarations warn once and stay None (every role keeps
+        # the built-in expanded default).
+        self.roles = normalise_role_defaults(roles)
 
     def _extra_config(self) -> dict[str, object]:
         """Collect layers from the parent map at render time.
@@ -412,6 +362,7 @@ class LayerControl(BaseControl):
         """
         data: list[dict[str, object]] = []
         seen: set[str] = set()
+        claimed_folders: set[tuple[str, str]] = set()
         candidates: list[Element] = [*self._children.values()]
         if (parent := self._parent) is not None:
             candidates += [*parent._children.values()]
@@ -447,6 +398,7 @@ class LayerControl(BaseControl):
             folder = declared_folder(item, item.layer_name)
             if folder is not None:
                 entry["folder"] = folder
+                claimed_folders.add((layer_role(item), _folder_key(folder)))
             filter_decl = declared_filter(item, item.layer_name)
             if filter_decl is not None:
                 entry[FILTER_KEY] = filter_decl
@@ -471,6 +423,11 @@ class LayerControl(BaseControl):
         # conflict: the JS side merges same-name declarations of the same role
         # into one authorFolderId (folder = role name, one role may
         # hold many member rows). Each declaring layer simply emits the name.
+
+        # A central folders= declaration no layer claims never reaches the
+        # panel, so its folded default silently fails: warn once per miss so
+        # the author can fix the name (never raise, never drop the entry).
+        warn_unclaimed_folders(self.folders, claimed_folders)
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: d["role"] == "base")

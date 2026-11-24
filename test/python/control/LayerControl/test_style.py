@@ -40,7 +40,7 @@ def _method_labels() -> tuple[str, str]:
 
 
 from ._browser_base import LayerControlBrowserBase
-from .helper import _expand_panel, _geo_mixed, _tiny_png, _write_html
+from .helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
 
 class TestStyleBrowser(LayerControlBrowserBase):
@@ -380,7 +380,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
         untouched checkbox is the evidence. Both color inputs are covered: a
         data layer's Fill Color row and the solid-color basemap's fill row.
         """
-        geo = folium.GeoJson(_geo_mixed, name="Point layer")
+        geo = folium.GeoJson(_geo_zone, name="Point layer")
         with use_page(
             self._make_page, browser, tmp_path, geo, slug="fill_color_keys"
         ) as (page, errors):
@@ -449,11 +449,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         not touch the record at all.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
-            json.dumps(feature_collection(point_feature(119.30, 26.08, {"val": 26.08})))
-        ).add_to(fg)
-        fg.add_to(m)
+            json.dumps(
+                feature_collection(point_feature(119.30, 26.08, {"val": 26.08}))
+            ),
+            name="Points",
+            show=True,
+        ).add_to(m)
         LayerControl().add_to(m)
         HeatmapControl().add_to(m)
         _expand_panel(m)
@@ -559,13 +561,14 @@ class TestStyleBrowser(LayerControlBrowserBase):
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
         # The polygon rides inside a named, visible FeatureGroup: that is how a
         # data layer earns a panel row (a bare vector has no control of its own).
-        fg = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
-        folium.Polygon(
-            leaflet_path("LayerControl", "polygon_hangzhou_triangle"),
-            color="#0000ff",
-            weight=2,
-        ).add_to(fg)
-        fg.add_to(m)
+        layer = folium.GeoJson(
+            load_geojson("LayerControl", "polygon_hangzhou_triangle")["features"][0],
+            overlay=True,
+            show=True,
+            style_function=lambda f: {"color": "#0000ff", "weight": 2},
+        )
+        layer.layer_name = "Test Region"
+        layer.add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -658,11 +661,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         # The heatmap only earns a panel row once it has a point layer to
         # aggregate, so give it one — its id is the stable component id.
-        fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
-            json.dumps(feature_collection(point_feature(119.30, 26.08, {"val": 26.08})))
-        ).add_to(fg)
-        fg.add_to(m)
+            json.dumps(
+                feature_collection(point_feature(119.30, 26.08, {"val": 26.08}))
+            ),
+            name="Points",
+            show=True,
+        ).add_to(m)
         # The border row label is read in English, so pin the page locale.
         LayerControl(locale="en").add_to(m)
         HeatmapControl().add_to(m)
@@ -919,16 +924,17 @@ class TestStyleBrowser(LayerControlBrowserBase):
         map does with it.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Region", overlay=True, show=True)
         folium.GeoJson(
             json.dumps(load_geojson("LayerControl", "face_polygon_line_hangzhou")),
+            name="Region",
+            overlay=True,
+            show=True,
             style_function=lambda f: (
                 {"color": "gray", "weight": 1.5}
                 if f["properties"]["kind"] == "face"
                 else {"color": "#e74c3c", "weight": 6}
             ),
-        ).add_to(fg)
-        fg.add_to(m)
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -968,16 +974,20 @@ class TestStyleBrowser(LayerControlBrowserBase):
         the focus contract is "inside the panel", not "on the (now disabled)
         trigger": a disabled button cannot take focus."""
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        fg.add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(120.0, 30.0))),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [30.0, 120.0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+            ),
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1044,17 +1054,21 @@ class TestStyleBrowser(LayerControlBrowserBase):
         author's ``stroke: False`` back so the border disappears again.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-            stroke=False,
-        ).add_to(fg)
-        fg.add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(120.0, 30.0))),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [30.0, 120.0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+                stroke=False,
+            ),
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1120,33 +1134,41 @@ class TestStyleBrowser(LayerControlBrowserBase):
         panel must not render the row at all.
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        folium.CircleMarker(
-            [30.02, 120.02],
-            radius=9,
-            color="#e74c3c",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        fg.add_to(m)
-        region = folium.FeatureGroup(name="Test Region", overlay=True, show=True)
-        folium.Polygon(
-            leaflet_path("LayerControl", "polygon_hangzhou_square"),
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.2,
-        ).add_to(region)
-        region.add_to(m)
+        folium.GeoJson(
+            json.dumps(
+                feature_collection(
+                    point_feature(120.0, 30.0, {"radius": 5, "color": "#3388ff"}),
+                    point_feature(120.02, 30.02, {"radius": 9, "color": "#e74c3c"}),
+                )
+            ),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [0, 0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+            ),
+            style_function=lambda f: {
+                "radius": f["properties"]["radius"],
+                "color": f["properties"]["color"],
+            },
+        ).add_to(m)
+        folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_hangzhou_square")),
+            name="Test Region",
+            overlay=True,
+            show=True,
+            style_function=lambda f: {
+                "color": "#3388ff",
+                "weight": 2,
+                "fill": True,
+                "fillOpacity": 0.2,
+            },
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1245,24 +1267,20 @@ class TestStyleBrowser(LayerControlBrowserBase):
         width, size radius) and % (fill opacity, icon/marker opacity).
         """
         m = folium.Map(location=[30.0, 120.0], zoom_start=6, tiles=None)
-        fg = folium.FeatureGroup(name="Facility Points", overlay=True, show=True)
-        folium.CircleMarker(
-            [30.0, 120.0],
-            radius=5,
-            color="#3388ff",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        folium.CircleMarker(
-            [30.02, 120.02],
-            radius=9,
-            color="#e74c3c",
-            weight=2,
-            fill=True,
-            fill_opacity=0.8,
-        ).add_to(fg)
-        fg.add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(120.0, 30.0))),
+            name="Facility Points",
+            overlay=True,
+            show=True,
+            marker=folium.CircleMarker(
+                [30.0, 120.0],
+                radius=5,
+                color="#3388ff",
+                weight=2,
+                fill=True,
+                fill_opacity=0.8,
+            ),
+        ).add_to(m)
         LayerControl().add_to(m)
         _expand_panel(m)
 
@@ -1356,7 +1374,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
         LayerControl().add_to(m)
-        folium.FeatureGroup(name="Overlay A", overlay=True, show=True).add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay A",
+            overlay=True,
+            show=True,
+        ).add_to(m)
         _expand_panel(m)
 
         html_path = tmp_path / "test_unregister_keeps_opacity.html"
@@ -1647,7 +1670,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         actually stepped, and the row cursor did not follow the keypress.
         Synthetic ``dispatchEvent`` cannot prove either.
         """
-        overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
+        overlay = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay A",
+            overlay=True,
+            show=True,
+        )
         with use_page(self._make_page, browser, tmp_path, overlay) as (page, errors):
             panel_ready(page)
             page.evaluate(_js("LayerControl/open_panel"))
@@ -2847,7 +2875,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         unconditionally added a layer the author left off the map, while the
         checkbox stayed unchecked. The one-way gate must leave it alone.
         """
-        fg = folium.FeatureGroup(name="ZROffProbe", overlay=True, show=False)
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="ZROffProbe",
+            overlay=True,
+            show=False,
+        )
         with use_page(self._make_page, browser, tmp_path, fg, slug="zr_off") as (
             page,
             errors,
@@ -2892,7 +2925,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
             attr="© OpenStreetMap",
             max_zoom=19,
         ).add_to(m)
-        folium.FeatureGroup(name="ZROffReload", overlay=True, show=False).add_to(m)
+        folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="ZROffReload",
+            overlay=True,
+            show=False,
+        ).add_to(m)
         _expand_panel(m)
 
         html_path = tmp_path / "test_zr_off_reload.html"
@@ -2954,7 +2992,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
         ``!li.canvas`` early return stood in for that distinction.
         """
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-        fg = folium.FeatureGroup(name="Points", show=True)
         folium.GeoJson(
             json.dumps(
                 feature_collection(
@@ -2963,9 +3000,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         for i in range(3)
                     ]
                 )
-            )
-        ).add_to(fg)
-        fg.add_to(m)
+            ),
+            name="Points",
+            show=True,
+        ).add_to(m)
         LayerControl().add_to(m)
         HeatmapControl().add_to(m)
         _expand_panel(m)
@@ -3032,21 +3070,26 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_slider_scale_ends_centered_on_their_thumbs(self, browser, tmp_path):
-        """The end numbers of a slider scale centre on the dots they name.
+        """The end numbers align by rendered width: narrower centres, wider clamps.
 
-        A label that fits on its half stays centred on the dot (the thumb
-        parked at the rail's end): its centre sits on the thumb's centre, so
-        a short number (0/100, 0/19) reads as aligned with its dot. The
-        values row spans the control's width (no half-thumb inset), so the
-        dot-centre anchor is a half thumb in from the row edge on each side.
-        A label too wide to fit centred would switch to the clamp state (see
-        the ellipsis test); the live panel's numbers are short, so this pass
-        asserts the centred invariant. The row must not be widened by the
-        labels, the two numbers must not overlap, and each label stays inside
-        the row's own box. The dual zoom-range row also owns the
-        current-level number, which the centred layout keeps over the track.
+        The alignment rule keys on the label's rendered width against the
+        thumb's width: a label no wider than the thumb (a bare digit like
+        "0") centres on the dot it names (its centre sits on the parked
+        thumb's centre, a half thumb in from the control edge); a label wider
+        than the thumb is an axis label that pins to the slider's painted
+        end (its outer edge sits on the control edge, where the parked
+        thumb's outer edge lands). The values row spans the control's width
+        (no half-thumb inset). The row must not be widened by the labels,
+        the two numbers must not overlap, and each label stays inside the
+        row's own box. The dual zoom-range row also owns the current-level
+        number, which the centred layout keeps over the track.
         """
-        overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
+        overlay = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay",
+            overlay=True,
+            show=True,
+        )
         with use_page(
             self._make_page, browser, tmp_path, overlay, slug="slider_label_center"
         ) as (page, errors):
@@ -3064,6 +3107,14 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 assert row.get("error") is None, f"{name} row: {row}"
                 assert len(row["thumbs"]) == thumbs, (
                     f"the {name} row does not have {thumbs} thumb(s): {row}"
+                )
+                # A zero-width row would pass every alignment assertion below
+                # (zero-vs-zero), so the geometry guards come first.
+                assert row["values"]["width"] > 0, (
+                    f"{name} slider row has no width: {row['values']}"
+                )
+                assert row["track"]["width"] > 0, (
+                    f"{name} track has no width: {row['track']}"
                 )
                 labels = row["labels"]
                 # A mirrored row keeps the logical anchors, so the minimum
@@ -3090,8 +3141,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         f"{max_label['box']}"
                     )
 
-                # The min names the first thumb, the max the last. Each label
-                # centre sits on its thumb's centre (dot-centred, <= 1px).
+                # The min names the first thumb, the max the last. The width rule
+                # decides the label's alignment: a label no wider than the thumb
+                # (a bare digit) centres on its dot (<= 1px); anything wider is
+                # an axis label and pins to the row's edge (its outer box sits
+                # on the values row's edge).
                 def centre(box):
                     return (box["left"] + box["right"]) / 2
 
@@ -3106,19 +3160,44 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 else:
                     min_dot = row["track"]["right"]
                     max_dot = row["track"]["left"]
-                min_drift = abs(centre(min_label["box"]) - min_dot)
-                max_drift = abs(centre(max_label["box"]) - max_dot)
-                assert min_drift <= 1.0, (
-                    f"{name} min number is not centred on its dot: "
-                    f"{centre(min_label['box']):.2f}px vs "
-                    f"{min_dot:.2f}px (drift {min_drift:.2f}px)"
-                )
-                assert max_drift <= 1.0, (
-                    f"{name} max number is not centred on its dot: "
-                    f"{centre(max_label['box']):.2f}px vs "
-                    f"{max_dot:.2f}px (drift {max_drift:.2f}px)"
-                )
-                # A dot-centred label may overhang the values row by half its
+                thumb_width = row["thumbs"][0]["box"]["width"]
+                # The alignment rule keys on the label's rendered width
+                # against the thumb's width: a label no wider than the thumb
+                # (a bare digit like "0") centres on its dot; anything wider
+                # is an axis label and pins to the slider's painted end. The
+                # two states read different references: a dot-centred label's
+                # centre sits on the track edge (the parked thumb's centre),
+                # while a pinned label's outer edge sits on the control edge
+                # (where the parked thumb's outer edge lands). The dot already
+                # encodes the mirror.
+                # A clamped label pins to the slider's PAINTED end, which is
+                # the control edge (the values row's edge), not the track
+                # element's edge: the track is inset half a thumb so a parked
+                # thumb's outer edge lands on the control edge, and the painted
+                # bar (rail plus the two parked thumbs) therefore spans the
+                # full control width. Pinning to the track edge instead leaves
+                # the label half a thumb inside the bar's visible end.
+                # The alignment state is decided by the same width comparison
+                # the slider performs: label width vs thumb width.
+                for label, dot, side in (
+                    (min_label, min_dot, "min"),
+                    (max_label, max_dot, "max"),
+                ):
+                    if label["box"]["width"] <= thumb_width:
+                        drift = abs(centre(label["box"]) - dot)
+                        assert drift <= 1.0, (
+                            f"{name} {side} number is not centred on its dot: "
+                            f"{centre(label['box']):.2f}px vs "
+                            f"{dot:.2f}px (drift {drift:.2f}px)"
+                        )
+                    else:
+                        flush_edge = "left" if (side == "min") != mirrored else "right"
+                        label_edge = label["box"][flush_edge]
+                        dot = row["values"][flush_edge]
+                        assert abs(label_edge - dot) <= 1.0, (
+                            f"{name} {side} axis label is not flush the control edge ({flush_edge}): "
+                            f"{label['box']} vs dot {dot:.2f}px"
+                        )
                 # own width (that is the layout's design: the anchor is a half
                 # thumb in from the row edge). The panel's clip box is the real
                 # boundary; the live panel's numbers are short, so each label
@@ -3143,7 +3222,6 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 # inset on each side, and the values row spans the control's
                 # width (it no longer takes the inset).
                 slider, track = row["slider"], row["track"]
-                thumb_width = row["thumbs"][0]["box"]["width"]
                 assert abs(slider["width"] - (track["width"] + thumb_width)) <= 1.0, (
                     f"the {name} slider was widened: {slider} vs track {track}"
                 )
@@ -3218,17 +3296,24 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert not errors, f"JS errors: {errors}"
 
     def test_slider_end_labels_ellipsize_not_overflow(self, browser, tmp_path):
-        """A long value label truncates, a short one does not.
+        """A long value label truncates, a short one keeps its text.
 
-        The end numbers are a flex row pinned to the values row's edges, so a
-        label's content must not paint past the row's own box: a long value
-        ellipsizes (its intrinsic scroll width exceeds the box it is given)
-        while a short value keeps its full text. Both end labels stay inside
-        the values row's box and never overlap each other. The labels are
-        built as a bare slider appended into the live style panel so the
-        clip ancestor is the real panel content, not a synthetic wrapper.
+        The end numbers align by rendered width: a label no wider than the
+        thumb (a bare digit) stays dot-centred; a wider label clamps to the
+        control's edge (class is-clamp). A clamped label's content must not
+        paint past the control's box: a long value ellipsizes (its intrinsic
+        scroll width exceeds the box it is given) while a short value keeps
+        its full text (it fits its box). Both end labels stay inside the
+        values row's box and never overlap each other. The labels are built
+        as a bare slider appended into the live style panel so the clip
+        ancestor is the real panel content, not a synthetic wrapper.
         """
-        overlay = folium.FeatureGroup(name="Overlay", overlay=True, show=True)
+        overlay = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Overlay",
+            overlay=True,
+            show=True,
+        )
         with use_page(
             self._make_page, browser, tmp_path, overlay, slug="slider_label_center"
         ) as (page, errors):
@@ -3242,6 +3327,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result.get("error") is None, f"setup failed: {result}"
             for name, group in result["result"].items():
                 assert group["values"] is not None, f"{name}: no values row: {group}"
+                # A zero-width row would pass the overlap assertions below
+                # (zero-vs-zero), so the geometry guard comes first.
+                assert group["values"]["width"] > 0, (
+                    f"{name} slider row has no width: {group['values']}"
+                )
                 for side in ("min", "max"):
                     label = group[side]
                     assert label is not None, f"{name}: no {side} label: {group}"
@@ -3282,15 +3372,19 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"long max did not ellipsize: scrollWidth {long_max['scrollWidth']} "
                 f"<= clientWidth {long_max['clientWidth']}"
             )
-            for name in ("short",):
-                for side in ("min", "max"):
-                    label = result["result"][name][side]
-                    assert not label["clamp"], f"{name} {side} clamped: {label}"
-                    assert label["scrollWidth"] == label["clientWidth"], (
-                        f"{name} {side} was truncated: scrollWidth "
-                        f"{label['scrollWidth']} != clientWidth "
-                        f"{label['clientWidth']}"
-                    )
+            # The short pair is a narrow min ("1", dot-centred) and a wider
+            # max ("100", clamped): each keeps its full text because it fits
+            # the box it is given.
+            short_min = result["result"]["short"]["min"]
+            short_max = result["result"]["short"]["max"]
+            assert not short_min["clamp"], f"short min clamped: {short_min}"
+            assert short_max["clamp"], f"short max did not clamp: {short_max}"
+            for side, label in (("min", short_min), ("max", short_max)):
+                assert label["scrollWidth"] == label["clientWidth"], (
+                    f"short {side} was truncated: scrollWidth "
+                    f"{label['scrollWidth']} != clientWidth "
+                    f"{label['clientWidth']}"
+                )
             assert not errors, f"JS errors: {errors}"
 
     # ── Row lookup by data-layer-id, not by registry / DOM position ──
@@ -3313,12 +3407,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
         natural folium render order, so the JS global genuinely lands
         after the control's script. No test-only reordering.
         """
-        fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
-        folium.Polygon(
-            locations=leaflet_path("LayerControl", "polygon_focus_box"),
-            fill_color="#ffa500",
-            fill=True,
-        ).add_to(fg)
+        fg = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_focus_box")),
+            name="Zone",
+            overlay=True,
+            show=True,
+            style_function=lambda f: {"fillColor": "#ffa500", "fill": True},
+        )
         with use_page(
             self._make_page,
             browser,
@@ -3545,9 +3640,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         non-empty background after the write, and Reset must restore the
         author icon.
         """
-        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
-        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
-            fg
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Points",
+            overlay=True,
+            show=True,
+            marker=folium.Marker([26.08, 119.30], icon=folium.Icon(color="red")),
         )
 
         with use_page(
@@ -3613,9 +3711,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
         setIcon is called once for the glyph write and ZERO additional times
         for the colour write. A glyph write still rebuilds (one setIcon).
         """
-        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
-        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
-            fg
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Points",
+            overlay=True,
+            show=True,
+            marker=folium.Marker([26.08, 119.30], icon=folium.Icon(color="red")),
         )
 
         with use_page(
@@ -3662,9 +3763,12 @@ class TestStyleBrowser(LayerControlBrowserBase):
             sprite as mask-image) + flat background-color, glyph opaque
             (acceptance ②).
         """
-        fg = folium.FeatureGroup(name="Points", overlay=True, show=True)
-        folium.Marker([26.08, 119.30], name="P1", icon=folium.Icon(color="red")).add_to(
-            fg
+        fg = folium.GeoJson(
+            json.dumps(feature_collection(point_feature(119.30, 26.08))),
+            name="Points",
+            overlay=True,
+            show=True,
+            marker=folium.Marker([26.08, 119.30], icon=folium.Icon(color="red")),
         )
 
         with use_page(

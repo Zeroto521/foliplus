@@ -118,7 +118,11 @@ function installHeatmapGlobals(confOverrides: Partial<ComponentConfig> = {}) {
 function makeManager(confOverrides: Partial<ComponentConfig> = {}) {
   installHeatmapGlobals(confOverrides);
   const map = {
-    getContainer: vi.fn(),
+    getContainer: vi.fn(() => {
+      const c = document.createElement("div");
+      c.id = "heatmap-test-map";
+      return c;
+    }),
     getBounds: vi.fn(),
     getZoom: vi.fn(),
     on: vi.fn(),

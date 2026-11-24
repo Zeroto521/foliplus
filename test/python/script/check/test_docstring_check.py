@@ -151,13 +151,16 @@ class TestScan:
             assert not mod.find_errors(messages), f"{name} has ERROR/3"
 
     def test_layercontrol_has_expected_tables(self):
-        """LayerControl's docstring has 7 grid tables and 0 non-artifact ERROR/3.
+        """LayerControl's docstring has 2 grid tables and 0 non-artifact ERROR/3.
 
         #869 (merged into main) restored the two Notes-section tables that the
-        docs were silently dropping; this pins that state. A regression that
-        drops a table again surfaces as a table-count mismatch or an ERROR/3.
-        A later docs change added the fill-resolution table that follows the
-        fill declaration keys.
+        docs were silently dropping; this pins that state. A later docs change
+        added the fill-resolution table, then the declaration-guide convergence
+        (the per-layer declaration reference moved to doc/source/guide/
+        declaration.md) collapsed the four key tables into one 8-key summary
+        table plus the cross-link, so the count is 2 (the shortcuts table and
+        the declaration-key summary). A regression that drops a table again
+        surfaces as a table-count mismatch or an ERROR/3.
         """
         source = (
             REPO_ROOT / "foliplus" / "control" / "LayerControl" / "control.py"
@@ -167,7 +170,7 @@ class TestScan:
 
         tree = publish_doctree(docstring)
         table_count = sum(1 for n in tree.findall() if n.tagname == "table")
-        assert table_count == 7, f"expected 7 tables, got {table_count}"
+        assert table_count == 2, f"expected 2 tables, got {table_count}"
         assert mod.find_errors(mod._docutils_messages(docstring)) == []
 
     def test_restricts_to_only_files(self):

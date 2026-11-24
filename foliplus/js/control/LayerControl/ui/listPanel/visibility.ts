@@ -10,14 +10,25 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { applyRowView, buildRowCell } from "./rowView.js";
-import { ROLE, paintsAtZoom } from "#core/layer/index.js";
-import { selectAllStateOf } from "#ui/index.js";
+import {
+  applyRowView,
+  buildRowCell,
+  countTooltip,
+  writeRoleCount,
+  writeTriState,
+} from "./rowView.js";
+import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the
  *  callers are all reconcile paths that run at least once against a torn-down
  *  control (a timer, a queued bulk toggle). */
+/** The one rule a group checkbox follows: a press selects every member only
+ *  when none is selected; any partial or full selection is cleared. The role
+ *  header and the folder header both read it, so an indeterminate box cannot
+ *  mean "complete the selection" on one row and "clear it" on the other. */
+const toggleTarget = (on: number): boolean => on === 0;
+
 const getLayerItems = (ui: LayerUI, role: string): Element[] => {
   const container = ui.uiContainer;
   if (!container) return [];
@@ -25,7 +36,10 @@ const getLayerItems = (ui: LayerUI, role: string): Element[] => {
     role === ROLE.BASE
       ? `[data-layer-type="${ROLE.BASE}"]`
       : `:not([data-layer-type="${ROLE.BASE}"])`;
-  return Array.from(container.querySelectorAll(`${CONST.SEL.LAYER_ITEM}${inGroup}`));
+  // Folder rows and role rows carry .foliplus-layer-item too,
+  // but are group rows, not leaf layers — LEAF_ITEM excludes both so a role
+  // count never counts a group as a layer.
+  return Array.from(container.querySelectorAll(`${CONST.SEL.LEAF_ITEM}${inGroup}`));
 };
 
 /** Whether a base layer actually paints right now: on the map, inside its own
@@ -102,17 +116,22 @@ const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
   syncNoBasemap(ui);
   ui.c.debouncedEnforce();
 
-  // Announce last, in registry order: the loop above walked the DOM, which can
-  // diverge from the registry on a late registration, and a subscriber that
-  // re-enters during this notify must see the finished count and hatch.
-  //
-  // Order by walking the registry against the Map, not by sorting — a
-  // comparator needs an `indexOf` per call and that is a linear identity scan
-  // of the registry, so sorting pays a full scan for every comparison. The
-  // entry travels with the delta: `notifyDeltas` re-checks the live registry at
-  // delivery, so a layer a subscriber unregistered — or re-registered under the
-  // same id — inside an earlier delivery here is not announced on behalf of
-  // the entry that now holds that id.
+  announceMoved(ui, moved);
+};
+
+/** Announce a batch of projection deltas, in registry order: the caller's loop
+ *  may have walked the DOM, which can diverge from the registry on a late
+ *  registration, and a subscriber that re-enters during this notify must see
+ *  the finished count and hatch.
+ *
+ *  Order by walking the registry against the Map, not by sorting — a
+ *  comparator needs an `indexOf` per call and that is a linear identity scan
+ *  of the registry, so sorting pays a full scan for every comparison. The
+ *  entry travels with the delta: `notifyDeltas` re-checks the live registry at
+ *  delivery, so a layer a subscriber unregistered — or re-registered under the
+ *  same id — inside an earlier delivery here is not announced on behalf of
+ *  the entry that now holds that id. */
+const announceMoved = (ui: LayerUI, moved: Map<string, ProjectionDelta>): void => {
   const announced: ProjectionDeltaItem[] = [];
   for (const layerInfo of ui.c.layers) {
     const delta = moved.get(layerInfo.id);
@@ -121,11 +140,43 @@ const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
   notifyDeltas(ui, announced);
 };
 
-/** Full rescan that populates `ui.listPanel.checkedCount[role]` from the DOM + intent,
- *  then writes the toggle-all checkbox off the fresh count. Called only at
- *  reconcile points (attach, insert, delete, reload, bulk toggleAll) — the
- *  single-row click path uses `bumpCheckedCount` + `syncToggleAllFromCount`
- *  to keep the update O(1). */
+/** Repaint each folder header of one role from its own aggregate: the
+ *  tri-state checkbox and the count cell. The folder row is a group row like
+ *  the role header, so it reconciles on the same cadence — a member toggled
+ *  from anywhere (its own checkbox, the folder checkbox, the role checkbox, a
+ *  host `setVisible`) leaves both group rows agreeing with the members. */
+const syncFolderRows = (
+  ui: LayerUI,
+  role: string,
+  aggregates?: RoleAggregates,
+): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  const rows = container.querySelectorAll(
+    `${CONST.SEL.FOLDER_ROW}[data-role="${role}"]`,
+  );
+  if (rows.length === 0) return;
+  const agg = aggregates ?? roleAggregates(ui, role);
+  for (const row of Array.from(rows)) {
+    const folderKey = row.getAttribute(CONST.DATA.FOLDER_KEY);
+    if (!folderKey) continue;
+    const vis = agg.folders.get(folderKey) ?? { total: 0, on: 0 };
+    const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (box) writeTriState(box, vis.total, vis.on);
+    row.classList.toggle(CONST.CLASSES.ACTIVE, vis.on > 0);
+    writeRoleCount(row, vis.total, vis.on);
+  }
+};
+
+/** Repaint every group row of one role — the role header and each folder
+ *  header — from one visibility aggregate. One pass, one source: a group row's
+ *  checkbox and its count always come from the same table, so a folder header
+ *  can never disagree with the role header it sits under.
+ *
+ *  Called at every reconcile point, including the single-row click path. The
+ *  aggregate is one compact registry loop; a cached copy of it would be a
+ *  second source that can drift, and it would not save the loop anyway — the
+ *  folder rows need the same table. */
 const syncToggleAll = (ui: LayerUI, role: string) => {
   const row = ui.uiContainer?.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
@@ -135,80 +186,45 @@ const syncToggleAll = (ui: LayerUI, role: string) => {
     `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
   ) as HTMLInputElement | null;
   if (!allCb) return;
-  const items = getLayerItems(ui, role);
-  let total = 0;
-  let on = 0;
-  // Count intent, not the painted box: a row whose checkbox is painted from
-  // a stale state must not skew the role state it is about to set.
-  for (const item of Array.from(items)) {
-    total++;
-    const id = item.getAttribute(CONST.DATA.LAYER_ID);
-    if (!id) continue;
-    const layerInfo = ui.c.layerRegistry.get(id);
-    if (!layerInfo) continue;
-    if (intentVisibleOf(ui, id)) on++;
-  }
-  // Tolerate a caller that constructs a thin LayerUI stub without
-  // initializing the counter map (tests, late-attached panels).
-  ui.listPanel.checkedCount ??= {};
-  ui.listPanel.checkedCount[role] = { total, on };
-  writeToggleAllCheckbox(ui, allCb, role);
-};
-
-/** Write the toggle-all checkbox straight from the cached `checkedCount`.
- *  O(1) — no querySelectorAll scan. Called by `bumpCheckedCount` on the
- *  single-row click path so the tri-state is fresh in the same frame. */
-const syncToggleAllFromCount = (ui: LayerUI, role: string): void => {
-  const row = ui.uiContainer?.querySelector(
-    `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
-  );
-  if (!row) return;
-  const allCb = row.querySelector(
-    `[data-role="${CONST.TOGGLE_ALL_ROLE}"]`,
-  ) as HTMLInputElement | null;
-  if (!allCb) return;
-  writeToggleAllCheckbox(ui, allCb, role);
+  writeToggleAllCheckbox(ui, allCb, role, roleAggregates(ui, role));
 };
 
 const writeToggleAllCheckbox = (
   ui: LayerUI,
   allCb: HTMLInputElement,
   role: string,
+  c: RoleAggregates,
 ): void => {
-  const c = ui.listPanel.checkedCount?.[role] ?? { total: 0, on: 0 };
-  // The tri-state verdict comes from the shared helper the dropdown select-all
-  // row uses, so the two cannot disagree about when a box is half-full.
-  const { state, allChecked } = selectAllStateOf(c.total, c.on);
-  allCb.checked = allChecked;
-  allCb.indeterminate = state === "indeterminate";
-  // The `"none"` literal must not appear inside a ui.T() argument: the
-  // locale-key scanner extracts every string literal in the call and would
-  // invent a LayerControl.none key. Compare outside the call instead.
-  const isNone = state === "none";
+  // One tri-state writer for every group row: the role header and the folder
+  // headers paint checked / indeterminate / aria-checked from the same rule.
+  writeTriState(allCb, c.total, c.on);
   allCb.title = ui.T(
-    isNone ? "toggle_all_select_tooltip" : "toggle_all_deselect_tooltip",
+    allCb.checked || allCb.indeterminate
+      ? "toggle_all_deselect_tooltip"
+      : "toggle_all_select_tooltip",
   );
-};
-
-/** Incrementally update the role's `checkedCount.on` by `delta` (typically
- *  +1 or -1 for a single-row toggle), then refresh the toggle-all checkbox
- *  off the fresh count. O(1) per call — the hot path `applyVisibility`
- *  uses this instead of the full rescan.
- *
- *  If the counter is not yet populated (first access before the attach-time
- *  `initTypesAndVisibility` has fired its setTimeout(0)), fall back to a
- *  full `syncToggleAll` rescan: the rescan reads the current intent, which
- *  already reflects the transition this caller just recorded, so no delta
- *  needs applying. After the first reconcile the counter is populated and
- *  every later call is O(1). */
-const bumpCheckedCount = (ui: LayerUI, role: string, delta: number): void => {
-  if (!ui.listPanel.checkedCount?.[role]) {
-    syncToggleAll(ui, role);
-    return;
+  // The count column is the row's other half of the same aggregate. It used
+  // to be written once by the initial render and never again, so a layer
+  // registered after that render (the solid basemap registers in the
+  // initTypesAndVisibility pass, one tick later) left the count stale —
+  // "3" beside four rows. Writing it here keeps it on the same source and
+  // the same cadence as the checkbox.
+  const row =
+    allCb.closest(CONST.SEL.TOGGLE_ALL_ROW) ?? allCb.closest(CONST.SEL.TOGGLE_ALL);
+  // The icon wake follows the same aggregate as the checkbox and the count.
+  row?.classList.toggle(CONST.CLASSES.ACTIVE, c.on > 0);
+  if (row) {
+    writeRoleCount(
+      row,
+      c.total,
+      c.on,
+      countTooltip(ui, "layers_count_tooltip", c.on, c.total),
+    );
   }
-  const c = ui.listPanel.checkedCount[role];
-  c.on += delta;
-  syncToggleAllFromCount(ui, role);
+  // Every group row of the role repaints on the same cadence: both the click
+  // path and the full rescan funnel through here, so a folder header can never
+  // lag the role header it sits under.
+  syncFolderRows(ui, role, c);
 };
 
 /**
@@ -245,7 +261,6 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(id)}"]`,
   ) as HTMLElement | null;
 
-  const oldChecked = intentVisibleOf(ui, id);
   setVisibleIntent(ui, id, visible);
   const ownDelta = applyProjection(ui, id);
 
@@ -253,11 +268,11 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
 
-  // Incremental tri-state: O(1) count update rather than a full rescan.
-  const newChecked = intentVisibleOf(ui, id);
-  const role = layerInfo.role;
-  const delta = newChecked === oldChecked ? 0 : newChecked ? 1 : -1;
-  bumpCheckedCount(ui, role, delta);
+  // One aggregate pass repaints the role header and every folder row of the
+  // role from the same table. The old path kept a cached count and nudged it
+  // by ±1, which was a second source for the same number — and it did not save
+  // the registry loop, because the folder rows need the aggregate anyway.
+  syncToggleAll(ui, layerInfo.role);
 
   // Overlay toggles cannot change the visible-basemap count (syncNoBasemap
   // only reads `role === ROLE.BASE`), so skip for overlay: the call was pure O(n) waste
@@ -297,9 +312,92 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   return true;
 };
 
+/** One role's visibility aggregates: the role total plus a per-folder map.
+ *  Produced once per reconcile point and threaded down to every consumer
+ *  (role header, folder rows) so a single click
+ *  never recomputes the same table. */
+type RoleAggregates = {
+  total: number;
+  on: number;
+  folders: Map<string, { total: number; on: number }>;
+};
+
+/** One role's visibility aggregates in a single pass: the role total plus a
+ *  per-folder map. Every group row of the role — the header and each folder
+ *  header — reads this one table, so a click repaints F rows for O(L) work
+ *  instead of F scans of L layers. The folder row's checkbox and count come
+ *  from the same entry, so a role count and a folder count can never disagree
+ *  about a member. */
+const roleAggregates = (ui: LayerUI, role: string): RoleAggregates => {
+  const layout = ui.c.folderLayoutView;
+  const folders = new Map<string, { total: number; on: number }>();
+  let total = 0;
+  let on = 0;
+  for (const info of ui.c.layerRegistry.items) {
+    if (info.role !== role) continue;
+    total += 1;
+    const visible = intentVisibleOf(ui, info.id);
+    if (visible) on += 1;
+    const key = folderOf(layout, info);
+    if (!key) continue;
+    const agg = folders.get(key) ?? { total: 0, on: 0 };
+    agg.total += 1;
+    if (visible) agg.on += 1;
+    folders.set(key, agg);
+  }
+  return { total, on, folders };
+};
+
+/** Set every live member of one folder visible/hidden. The same incremental
+ *  path as toggleAll — one intent write per layer (persist=false), one
+ *  projection apply, one row repaint — then one save and a reconcile of the
+ *  two group rows. A full list rebuild here would throw away the DOM the
+ *  gesture is anchored to and repaint every row of the role for a change that
+ *  touched one folder. */
+const setFolderVisible = (
+  ui: LayerUI,
+  role: string,
+  folderKey: string,
+  visible: boolean,
+): void => {
+  const layout = ui.c.folderLayoutView;
+  const moved = new Map<string, ProjectionDelta>();
+  for (const info of ui.c.layerRegistry.items) {
+    if (info.role !== role) continue;
+    if (folderOf(layout, info) !== folderKey) continue;
+    setVisibleIntent(ui, info.id, visible, false);
+    const delta = applyProjection(ui, info.id);
+    if (delta.wroteVisible || delta.intentMoved) moved.set(info.id, delta);
+    const row = ui.uiContainer?.querySelector<HTMLElement>(
+      `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}="${info.id}"]`,
+    );
+    if (row) applyRowView(ui, row, buildRowCell(ui, info));
+  }
+  saveState(ui);
+  // One aggregate pass for the whole tail: the role header and every folder
+  // row repaint from this table.
+  syncToggleAll(ui, role);
+  syncNoBasemap(ui);
+  ui.c.debouncedEnforce();
+  announceMoved(ui, moved);
+};
+
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
+  // A folder row's checkbox is a group toggle for every member: the folder
+  // row has no data-layer-id (it is a group row, not a leaf), so the layer
+  // change path below would no-op. Climb to the folder row by its key.
+  const folderRow = target.closest(CONST.SEL.FOLDER_ROW) as HTMLElement | null;
+  if (folderRow) {
+    const fk = folderRow.getAttribute(CONST.DATA.FOLDER_KEY);
+    const role = folderRow.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (fk && role) {
+      const vis = roleAggregates(ui, role).folders.get(fk) ?? { total: 0, on: 0 };
+      setFolderVisible(ui, role, fk, toggleTarget(vis.on));
+    }
+    return;
+  }
 
   // The row carries the identity: data-layer-id, not a positional index — a
   // late registration can sit anywhere in the DOM, so an index-based lookup
@@ -310,12 +408,13 @@ const handleChange = (ui: LayerUI, event: Event) => {
   applyVisibility(ui, id, target.checked);
 };
 
+export type { RoleAggregates };
 export {
   getLayerItems,
+  roleAggregates,
+  toggleTarget,
   toggleAll,
   syncToggleAll,
-  syncToggleAllFromCount,
-  bumpCheckedCount,
   basePaints,
   syncNoBasemap,
   applyVisibility,

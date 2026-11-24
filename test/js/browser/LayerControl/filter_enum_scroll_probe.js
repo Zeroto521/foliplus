@@ -30,7 +30,7 @@ async () => {
     api.registerLayer({
       id: ID,
       name: "Enum scroll",
-      layer: L.layerGroup(),
+      layer: L.circleMarker([0, 0]),
       filterProvider: model,
       filterSetter: next => {
         filter = next;

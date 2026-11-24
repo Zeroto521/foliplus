@@ -55,10 +55,14 @@ describe("ModeManager", () => {
     const bus = makeBus();
     const mm = new ModeManager(bus, makeMap());
     mm.setMode("SearchControl", "addr");
-    expect(bus.publish).toHaveBeenCalledWith("foliplus:mode:change", {
-      component: "SearchControl",
-      mode: "addr",
-    });
+    expect(bus.publish).toHaveBeenCalledWith(
+      "foliplus:mode:change",
+      {
+        component: "SearchControl",
+        mode: "addr",
+      },
+      { kind: "user", via: "panel" },
+    );
   });
 
   it("a throwing MODE_CHANGE consumer is recorded, not raised, and the lock stays applied", () => {

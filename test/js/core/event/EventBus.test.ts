@@ -26,8 +26,8 @@ describe("EventBus", () => {
     const bus = new EventBus();
     const handler = vi.fn();
     bus.on("evt", handler);
-    bus.emit("evt", 1, 2);
-    expect(handler).toHaveBeenCalledWith(1, 2);
+    bus.emit("evt", 1);
+    expect(handler).toHaveBeenCalledWith(1, undefined);
   });
 
   it("rejects an omitted payload on a data-bearing event (typed emit contract)", () => {
@@ -347,7 +347,7 @@ describe("EventBus", () => {
     });
 
     const operation = new SettledOperation(bus);
-    operation.emit("first", { id: "a" });
+    operation.emit("first", { id: "a", kind: "vector" as const });
     operation.emit("second", { id: "b" });
 
     // Both events were attempted; the failure surfaces only at the boundary.
@@ -530,6 +530,176 @@ describe("EventBus", () => {
     bus.on("evt", fn, "internal"); // upgrade — must not stay behind the observer
     bus.emit("evt");
     expect(seen).toEqual(["fn", "ext"]);
+  });
+
+  it("a void event carries no payload (the void contract)", () => {
+    // The void-event branch of every emit variant: the payload slot stays
+    // empty no matter how many rest args the call site passes.
+    const bus = new EventBus();
+    const emitHandler = vi.fn();
+    const supersedingHandler = vi.fn();
+    const settledHandler = vi.fn();
+    const publishHandler = vi.fn();
+    // LAYER_LIST_REBUILD is void *and* terminal — the void contract without
+    // the notification fail-fast gate. OVERLAY_CLEAR is void too, but its
+    // notification policy routes it through publish (covered by publish below).
+    bus.on(EVENTS.LAYER_LIST_REBUILD, emitHandler);
+    bus.on(EVENTS.LAYER_LIST_REBUILD, supersedingHandler, "external");
+    bus.on(EVENTS.LAYER_LIST_REBUILD, settledHandler, "external");
+    bus.on(EVENTS.OVERLAY_CLEAR, publishHandler, "external");
+    bus.emit(EVENTS.LAYER_LIST_REBUILD);
+    bus.emitSuperseding(EVENTS.LAYER_LIST_REBUILD, "rebuild");
+    bus.emitSettled(EVENTS.LAYER_LIST_REBUILD);
+    bus.publish(EVENTS.OVERLAY_CLEAR);
+    for (const h of [emitHandler, supersedingHandler, settledHandler, publishHandler]) {
+      expect(h).toHaveBeenCalledWith(undefined, undefined);
+    }
+  });
+
+  it("a payload-only emit (no origin) leaves the origin slot empty", () => {
+    // The origin branch of every emit variant when only the payload is
+    // given: the delivery meta carries no origin.
+    const bus = new EventBus();
+    const seen: unknown[] = [];
+    const readOrigin = (_payload: unknown, meta?: { origin?: unknown }) =>
+      seen.push(meta?.origin);
+    bus.on("evt", readOrigin);
+    bus.on("evt", readOrigin, "external");
+    bus.emit("evt", 1);
+    bus.emitSuperseding("evt", "layer-a", 1);
+    bus.emitSettled("evt", 1);
+    bus.emitSupersedingSettled("evt", "layer-a", 1);
+    bus.publish("evt", 1);
+    expect(seen).toEqual([undefined, undefined, undefined, undefined, undefined]);
+  });
+
+  it("a void event carries its origin in the meta when one is given", () => {
+    // The void+origin arm: a void event's single rest arg is read as the
+    // origin (there is no payload slot to fill), so the delivery meta names
+    // the origin the producer declared.
+    const bus = new EventBus();
+    const seen: unknown[] = [];
+    const readMeta = (_payload: unknown, meta?: { origin?: unknown }) =>
+      seen.push(meta?.origin);
+    const origin = { kind: "user", via: "panel" } as const;
+    bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta);
+    bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta, "external");
+    bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta, "external");
+    bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta, "external");
+    bus.on(EVENTS.LAYER_LIST_REBUILD, readMeta, "external");
+    bus.emit(EVENTS.LAYER_LIST_REBUILD, origin);
+    bus.emitSuperseding(EVENTS.LAYER_LIST_REBUILD, "rebuild", origin);
+    bus.emitSettled(EVENTS.LAYER_LIST_REBUILD, origin);
+    bus.emitSupersedingSettled(EVENTS.LAYER_LIST_REBUILD, "rebuild", origin);
+    bus.publish(EVENTS.LAYER_LIST_REBUILD, origin);
+    expect(seen).toEqual([origin, origin, origin, origin, origin]);
+  });
+
+  it("a data-bearing emit without an origin leaves the origin slot empty in every variant", () => {
+    // The data-bearing + no-origin arm across all five emit variants: the
+    // origin resolution falls through to `undefined` because only the
+    // payload is on the rest tuple. Custom event names bypass the policy
+    // gate (unregistered events carry no policy), so a single bus drives
+    // every variant without tripping the notification fail-fast.
+    const bus = new EventBus();
+    const seen: unknown[] = [];
+    const readMeta = (_payload: unknown, meta?: { origin?: unknown }) =>
+      seen.push(meta?.origin);
+    for (let i = 0; i < 5; i++) bus.on("evt", readMeta, "external");
+    bus.emit("evt", { n: 1 });
+    bus.emitSuperseding("evt", "layer-a", { n: 1 });
+    bus.emitSettled("evt", { n: 1 });
+    bus.emitSupersedingSettled("evt", "layer-a", { n: 1 });
+    bus.publish("evt", { n: 1 });
+    expect(seen).toEqual([undefined, undefined, undefined, undefined, undefined]);
+  });
+
+  it("a data-bearing emit with an origin names it in the meta across every variant", () => {
+    // The data-bearing + origin arm: the origin rides after the payload as
+    // the second rest arg, so the delivery meta names who initiated the
+    // change. Every variant reads that slot; none can drop it silently.
+    const bus = new EventBus();
+    const seen: unknown[] = [];
+    const readMeta = (_payload: unknown, meta?: { origin?: unknown }) =>
+      seen.push(meta?.origin);
+    for (let i = 0; i < 5; i++) bus.on(EVENTS.LAYER_CHANGE, readMeta, "external");
+    const origin = { kind: "user", via: "panel" } as const;
+    bus.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }, origin);
+    bus.emitSuperseding(
+      EVENTS.LAYER_CHANGE,
+      "a",
+      { id: "a", kind: "vector" as const },
+      origin,
+    );
+    bus.emitSettled(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }, origin);
+    bus.emitSupersedingSettled(
+      EVENTS.LAYER_CHANGE,
+      "a",
+      { id: "a", kind: "vector" as const },
+      origin,
+    );
+    bus.publish(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }, origin);
+    expect(seen).toEqual([origin, origin, origin, origin, origin]);
+  });
+
+  it("a data-bearing emit with no arguments leaves both slots empty", () => {
+    // The `args.length === 0` arm of a data-bearing event: an out-of-tree
+    // producer that emits with no rest args at all cannot strand the delivery
+    // — the payload and origin both fall through to `undefined`. The typed
+    // emit contract rejects this at compile time, so the test casts to the
+    // rest-tuple form to pin the runtime behaviour.
+    const bus = new EventBus();
+    const seen: unknown[] = [];
+    const readBoth = (payload: unknown, meta?: { origin?: unknown }) =>
+      seen.push([payload, meta?.origin]);
+    for (let i = 0; i < 4; i++) bus.on(EVENTS.LAYER_CHANGE, readBoth, "external");
+    // Bind each method to the bus so the cast to a bare function shape does
+    // not drop the receiver — the cast is only about the rest-tuple contract.
+    const noArgs = bus.emit.bind(bus) as (event: string) => void;
+    noArgs(EVENTS.LAYER_CHANGE);
+    const noArgsSuperseding = bus.emitSuperseding.bind(bus) as (
+      event: string,
+      key: string,
+    ) => void;
+    noArgsSuperseding(EVENTS.LAYER_CHANGE, "a");
+    const noArgsSettled = bus.emitSettled.bind(bus) as (event: string) => void;
+    noArgsSettled(EVENTS.LAYER_CHANGE);
+    // A void event's emitSupersedingSettled no-args arm: the supersede key
+    // is the only arg, so the payload slot stays empty.
+    const noArgsVoidSuperseding = bus.emitSupersedingSettled.bind(bus) as (
+      event: string,
+      key: string,
+    ) => void;
+    const voidSeen: unknown[] = [];
+    bus.on(
+      EVENTS.LAYER_LIST_REBUILD,
+      (payload: unknown, meta?: { origin?: unknown }) =>
+        voidSeen.push([payload, meta?.origin]),
+      "external",
+    );
+    noArgsVoidSuperseding(EVENTS.LAYER_LIST_REBUILD, "rebuild");
+    expect(voidSeen).toEqual([[undefined, undefined]]);
+    const noArgsPublish = bus.publish.bind(bus) as (event: string) => void;
+    noArgsPublish(EVENTS.LAYER_CHANGE);
+    expect(seen).toEqual([
+      [undefined, undefined],
+      [undefined, undefined],
+      [undefined, undefined],
+      [undefined, undefined],
+    ]);
+  });
+
+  it("publish raises the first failure of a terminal event", () => {
+    // The resolveByPolicy throw arm: a terminal event that a handler fails
+    // collects the first failure through the collect dispatch, and publish
+    // raises it once the fan-out is done.
+    const bus = new EventBus();
+    bus.on(EVENTS.LAYER_CHANGE, () => {
+      throw new Error("terminal boom");
+    });
+    expect(() =>
+      bus.publish(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" as const }),
+    ).toThrow("terminal boom");
   });
 
   it("listenerCount counts every listener across events", () => {

@@ -27,7 +27,7 @@ describe("LayerUI attrs", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -956,7 +956,7 @@ describe("container layer attrs", () => {
     ui?.uiContainer?.remove();
   });
 
-  const makeContainer = (children: unknown[] = []) => {
+  const makeGroup = (children: unknown[] = []) => {
     const c: any = {
       options: {},
       clearLayers: vi.fn(),
@@ -975,7 +975,7 @@ describe("container layer attrs", () => {
   it("attrs panel names a container by its child count", () => {
     // The attrs panel for a container layer reports the direct child count
     // with the attr_child_count label (container != null arm in attr.ts).
-    const container = makeContainer([{ options: {} }, { options: {} }]);
+    const container = makeGroup([{ options: {} }, { options: {} }]);
     const r = initFixture({
       data: [{ id: "grp", name: "Group", role: "overlay", layer: container }],
     });
@@ -992,7 +992,7 @@ describe("container layer attrs", () => {
     // The type row names the container, the count row names the child count.
     const typeRow = rows.find(([label]) => label === "LayerControl.attr_type");
     const countRow = rows.find(([label]) => label === "LayerControl.attr_child_count");
-    expect(typeRow?.[1]).toBe("LayerControl.type_container");
+    expect(typeRow?.[1]).toBe("LayerControl.type_group");
     expect(countRow?.[1]).toBe("2");
   });
 

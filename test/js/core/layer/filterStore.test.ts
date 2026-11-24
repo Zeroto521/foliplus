@@ -10,11 +10,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FILTER_SOURCE,
-  FILTER_STORE_KEY,
   type FilterSourceHost,
   type LayerFilter,
   createFilterStore,
+  filterStoreKey,
 } from "#core/layer/index.js";
+
+/** A minimal fake map for the storage-key argument: the store only reads
+ *  `getContainer().id`, so a plain object suffices. */
+const fakeMap = (id = "test-map"): { getContainer: () => { id: string } } => ({
+  getContainer: () => ({ id }),
+});
 
 /** A host over a closed enum domain (mirrors a measurement type filter). */
 const makeEnumHost = (domain: readonly string[]): FilterSourceHost => {
@@ -42,14 +48,14 @@ describe("filterStore", () => {
   });
 
   it("registered surfaces are reported in registration order", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.registerHost("L1", "measure", makeEnumHost(["distance"]));
     expect(store.sources("L1")).toEqual(["filter", "measure"]);
   });
 
   it("a user write takes the slot: normalized value is applied, persisted under the one key, and ownership is set", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const host = makeEnumHost(["marker", "distance"]);
     store.registerHost("L1", "filter", host);
     const applied = vi.mocked(host.apply);
@@ -61,11 +67,11 @@ describe("filterStore", () => {
     // The carrier got the normalized value, not the raw candidate.
     expect(applied).toHaveBeenCalledWith(enumFilter("marker"));
     // Persistence is the store's job: the value survives under the one key.
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).not.toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).not.toBeNull();
   });
 
   it("reset(layerId, source) clears only that source and leaves siblings", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.registerHost("L1", "measure", makeEnumHost(["distance"]));
 
@@ -86,7 +92,7 @@ describe("filterStore", () => {
   });
 
   it("reset(layerId) drops the whole layer record (a layer delete)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.registerHost("L1", "measure", makeEnumHost(["distance"]));
 
@@ -102,7 +108,7 @@ describe("filterStore", () => {
     // The whole layer entry is gone from the persisted record. With the
     // record now empty the store removes the key entirely (a reset of the
     // only layer leaves no residue).
-    const raw = window.localStorage.getItem(FILTER_STORE_KEY);
+    const raw = window.localStorage.getItem(filterStoreKey(fakeMap()));
     if (raw) {
       expect(JSON.parse(raw).layers.L1).toBeUndefined();
     } else {
@@ -111,7 +117,7 @@ describe("filterStore", () => {
   });
 
   it("never routes persistence through a host callback (no clearPersist channel)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     // Smuggle a persist/clearPersist-shaped pair onto the host. The contract
     // does not declare them, and the store must never call them — if it ever
     // does, the per-surface teardown channel this module removed has grown
@@ -134,7 +140,7 @@ describe("filterStore", () => {
   });
 
   it("a publish side effect cannot substitute for the store's persistence", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     // A surface that tries to own persistence from inside publish, writing a
     // rogue per-surface key the way the old hand-rolled code did. The store
     // neither reads nor relies on that key, so the surface gains nothing: the
@@ -168,7 +174,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("a single-source measure-shaped slot restores from the declaration and resets back to it", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
     const declared = enumFilter("distance");
     // Never owned: the declaration seeds.
@@ -183,23 +189,23 @@ describe("filterStore — invariants", () => {
     expect(store.resolve("L1", "measure", declared)).toEqual(declared);
   });
   it("setFilter on an unregistered source is a no-op that writes nothing", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     expect(store.setFilter("L1", "ghost", enumFilter("marker"))).toBe(false);
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
   });
 
   it("re-affirming an owned slot writes nothing new (a choice already made is not re-recorded)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.setFilter("L1", "filter", enumFilter("marker"));
-    const before = window.localStorage.getItem(FILTER_STORE_KEY);
+    const before = window.localStorage.getItem(filterStoreKey(fakeMap()));
     // Same value again, and the user already owns the slot: no second record.
     expect(store.setFilter("L1", "filter", enumFilter("marker"))).toBe(false);
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBe(before);
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBe(before);
   });
 
   it("a restored slot shows the declaration when the user never took it, their value when they did", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     const declared = enumFilter("distance");
     // Never taken -> the declaration seeds.
@@ -210,16 +216,16 @@ describe("filterStore — invariants", () => {
   });
 
   it("clearing a slot that is already empty and un-owned is a no-op, so the declaration can still seed", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     // No user write has happened: the slot holds nothing and is not owned.
     expect(store.setFilter("L1", "filter", undefined)).toBe(false);
     expect(store.isOwned("L1", "filter")).toBe(false);
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
   });
 
   it("reset of a layer that was never persisted is a safe no-op", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     // No setFilter ever ran for L1: there is no layer entry to drop.
     expect(() => store.reset("L1")).not.toThrow();
@@ -227,7 +233,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("reset of an unregistered source on a known layer is a no-op", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.setFilter("L1", "filter", enumFilter("marker"));
     // A layer exists, but this source never wrote into it.
@@ -236,8 +242,8 @@ describe("filterStore — invariants", () => {
   });
 
   it("a corrupt persisted record is discarded, not trusted (fresh state, not a throw)", () => {
-    window.localStorage.setItem(FILTER_STORE_KEY, "{not json");
-    const store = createFilterStore();
+    window.localStorage.setItem(filterStoreKey(fakeMap()), "{not json");
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     // The unreadable record falls back to empty: nothing is owned, nothing leaked.
     expect(store.isOwned("L1", "filter")).toBe(false);
@@ -250,17 +256,17 @@ describe("filterStore — invariants", () => {
   it("a persisted record missing fields is treated as un-owned rather than trusted", () => {
     // A record whose layer entry lost its sources map: the slot reads un-owned.
     window.localStorage.setItem(
-      FILTER_STORE_KEY,
+      filterStoreKey(fakeMap()),
       JSON.stringify({ version: 1, layers: { L1: {} } }),
     );
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     expect(store.isOwned("L1", "filter")).toBe(false);
     expect(store.getFilter("L1", "filter")).toBeUndefined();
   });
 
   it("a captured declaration re-seeds a reset slot immediately (the factory reset contract)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
     store.setDeclaration("L1", "measure", enumFilter("distance"));
     // Reset with no user write yet: the slot returns to the declaration.
@@ -275,7 +281,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("reset of a layer with a captured declaration clears the declaration too (a layer delete)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
     store.setDeclaration("L1", "measure", enumFilter("distance"));
     store.setFilter("L1", "measure", enumFilter("time"));
@@ -295,7 +301,7 @@ describe("filterStore — invariants", () => {
     // write path ever drops the flag, reset must still hand the surface its
     // stored value rather than silently clearing to undefined.
     window.localStorage.setItem(
-      FILTER_STORE_KEY,
+      filterStoreKey(fakeMap()),
       JSON.stringify({
         version: 1,
         layers: {
@@ -304,7 +310,7 @@ describe("filterStore — invariants", () => {
       }),
     );
     const applied: LayerFilter[] = [];
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", {
       ...makeEnumHost(["marker"]),
       apply: f => applied.push(f),
@@ -316,7 +322,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("filterModel carries the host dimensions and kept/total when the host provides them", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", {
       ...makeEnumHost(["marker"]),
       dimensions: () => [{ key: "type", caption: "type" }] as never,
@@ -331,7 +337,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("filterModel degrades to no dimensions and a zero kept/total when the host declares neither", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     const model = store.filterModel("L1", "filter");
     expect(model.dimensions).toEqual([]);
@@ -347,7 +353,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("restore writes the value and ownership without normalising or applying (the recovery path)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const applied: LayerFilter[] = [];
     const host: FilterSourceHost = {
       ...makeEnumHost(["marker"]),
@@ -364,24 +370,26 @@ describe("filterStore — invariants", () => {
   });
 
   it("a seeded declaration is readable after load but is never written to persistence by an unrelated save", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.setDeclaration("L1", "measure", enumFilter("distance"));
     // (a) The declaration is readable, and the slot is not owned.
     expect(store.getFilter("L1", "measure")).toEqual(enumFilter("distance"));
     expect(store.isOwned("L1", "measure")).toBe(false);
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
     // (b) An unrelated save (the filter surface) must not write the
     // declaration into persistence — only user-set values persist.
     store.setFilter("L1", "filter", enumFilter("marker"));
-    const persisted = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+    const persisted = JSON.parse(
+      window.localStorage.getItem(filterStoreKey(fakeMap()))!,
+    );
     expect(persisted.layers.L1.sources.measure).toBeUndefined();
     expect(persisted.layers.L1.sources.filter.value).toEqual(enumFilter("marker"));
   });
 
   it("same name on different layers never cross-affects (the owner dimension guard)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     // Two heatmap-style controls, both registering a source named "points"
     // against different canvas layers — the name alone must not collide.
     store.registerHost("H1", "points", makeEnumHost(["marker", "distance"]));
@@ -397,7 +405,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("re-registering the same (layerId, name) is idempotent and keeps the stored value", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.setFilter("L1", "filter", enumFilter("marker"));
     // A control rebuild re-registers the same key with a fresh host object.
@@ -410,7 +418,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("revalidate transforms a committed value without applying or publishing", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const applied: LayerFilter[] = [];
     const published: LayerFilter[] = [];
     store.registerHost("L1", "filter", {
@@ -435,7 +443,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("revalidate on an un-owned slot keeps the declaration-owned flag and returns false on no change", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
     store.setDeclaration("L1", "measure", enumFilter("distance"));
     // No change: declaration intact, not owned, not persisted.
@@ -447,7 +455,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("revalidate dropping a declaration's value clears it so the seed can re-establish", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
     store.setDeclaration("L1", "measure", enumFilter("distance"));
     // A content change removed the field: the transform yields undefined.
@@ -457,7 +465,7 @@ describe("filterStore — invariants", () => {
     );
   });
   it("drop removes a source's persisted value and declaration without applying or publishing", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const applied: unknown[] = [];
     const published: unknown[] = [];
     store.registerHost("L1", "filter", {
@@ -483,12 +491,12 @@ describe("filterStore — invariants", () => {
   });
 
   it("drop is a no-op on an unregistered or empty source", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     expect(store.drop("L1", "ghost")).toBeUndefined();
     expect(store.sources("L1")).toEqual([]);
   });
   it("drop removes the registered host so a departed surface cannot answer probes (the host registry guard)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const host = makeEnumHost(["marker"]);
     store.registerHost("L1", "filter", host);
     // Before drop, the host answers.
@@ -513,7 +521,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("drop leaves a sibling source's host registered", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.registerHost("L1", "measure", makeEnumHost(["distance"]));
     store.drop("L1", "filter");
@@ -528,7 +536,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("hasFields is optional and absent on a host that does not declare it (default-false semantics)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     // The store never calls hasFields itself — it is a caller-side probe.
     // The interface is optional, so a host without it compiles and the store
@@ -538,7 +546,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("eager registration never touches data: registering a host performs no read or write", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const apply = vi.fn();
     const host: FilterSourceHost = {
       ...makeEnumHost(["marker"]),
@@ -549,11 +557,11 @@ describe("filterStore — invariants", () => {
     store.registerHost("L1", "filter", host);
     expect(apply).not.toHaveBeenCalled();
     expect(store.sources("L1")).toEqual(["filter"]);
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
   });
 
   it("drop removes the registered host so a departed surface cannot answer probes (the host registry guard)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const host = makeEnumHost(["marker"]);
     store.registerHost("L1", "filter", host);
     // Before drop, the host answers.
@@ -578,7 +586,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("drop leaves a sibling source's host registered", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.registerHost("L1", "measure", makeEnumHost(["distance"]));
     store.drop("L1", "filter");
@@ -593,7 +601,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("hasFields is optional and absent on a host that does not declare it (default-false semantics)", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     // The store never calls hasFields itself — it is a caller-side probe.
     // The interface is optional, so a host without it compiles and the store
@@ -603,7 +611,7 @@ describe("filterStore — invariants", () => {
   });
 
   it("eager registration never touches data: registering a host performs no read or write", () => {
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     const apply = vi.fn();
     const host: FilterSourceHost = {
       ...makeEnumHost(["marker"]),
@@ -614,14 +622,14 @@ describe("filterStore — invariants", () => {
     store.registerHost("L1", "filter", host);
     expect(apply).not.toHaveBeenCalled();
     expect(store.sources("L1")).toEqual(["filter"]);
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
   });
 
   it("whole-layer reset keeps sibling layers and rewrites the record", () => {
     // The removeRecord-vs-writeRecord branch: a reset of one layer while
     // another layer's record survives must keep the key and rewrite, not
     // remove it.
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "filter", makeEnumHost(["marker"]));
     store.registerHost("L2", "filter", makeEnumHost(["marker"]));
     store.setFilter("L1", "filter", enumFilter("marker"));
@@ -633,7 +641,7 @@ describe("filterStore — invariants", () => {
     expect(store.isOwned("L1", "filter")).toBe(false);
     expect(store.isOwned("L2", "filter")).toBe(true);
     expect(store.getFilter("L2", "filter")).toEqual(enumFilter("marker"));
-    const raw = JSON.parse(window.localStorage.getItem(FILTER_STORE_KEY)!);
+    const raw = JSON.parse(window.localStorage.getItem(filterStoreKey(fakeMap()))!);
     expect(raw.layers.L1).toBeUndefined();
     expect(raw.layers.L2.sources.filter.value).toEqual(enumFilter("marker"));
   });
@@ -642,7 +650,7 @@ describe("filterStore — invariants", () => {
     // The declarations.set branch: a declaration-only slot whose transform
     // yields a NEW non-empty value (not undefined — that's the drop branch)
     // updates the declaration in place, stays un-owned, and is not persisted.
-    const store = createFilterStore();
+    const store = createFilterStore(fakeMap());
     store.registerHost("L1", "measure", makeEnumHost(["distance", "time"]));
     store.setDeclaration("L1", "measure", enumFilter("distance"));
 
@@ -654,12 +662,12 @@ describe("filterStore — invariants", () => {
     // fallback, not the store's state).
     expect(store.getFilter("L1", "measure")).toEqual(enumFilter("time"));
     // Never persisted: a declaration is a construction-time constant.
-    expect(window.localStorage.getItem(FILTER_STORE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(filterStoreKey(fakeMap()))).toBeNull();
   });
 
   describe("filterStore — generic vs measure source isolation", () => {
     it("generic and measure sources on the same layer never cross-affect (G2)", () => {
-      const store = createFilterStore();
+      const store = createFilterStore(fakeMap());
       store.registerHost("L1", FILTER_SOURCE.GENERIC, {
         normalize: filter => filter,
         apply: vi.fn(),
@@ -692,7 +700,7 @@ describe("filterStore — invariants", () => {
       ]);
     });
     it("a generic reset clears only the generic slot and keeps the declaration (G2)", () => {
-      const store = createFilterStore();
+      const store = createFilterStore(fakeMap());
       const apply = vi.fn();
       store.registerHost("L1", FILTER_SOURCE.GENERIC, {
         normalize: filter => filter,

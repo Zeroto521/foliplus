@@ -144,7 +144,7 @@ describe("LayerUI filter panel", () => {
     ({ manager, ui, map: _map } = initFixture());
     // Folded-group state is persisted to localStorage and would leak across
     // tests — same cleanup attr.test.ts applies.
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 
@@ -2265,7 +2265,7 @@ describe("LayerUI filter panel — result, Clear and row state", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     window.localStorage.removeItem(CONST.STORAGE.KEY);
   });
 

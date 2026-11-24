@@ -151,7 +151,7 @@ describe("layerCanBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -308,7 +308,7 @@ describe("authoredBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -390,7 +390,7 @@ describe("commit pipeline", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -571,7 +571,7 @@ describe("bindBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -635,7 +635,7 @@ describe("resetLayerBorder", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -839,7 +839,7 @@ describe("highlight restore", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1012,7 +1012,7 @@ describe("applyBorderToLayer", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1214,7 +1214,7 @@ describe("buildBorderRow", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1489,7 +1489,7 @@ describe("border apply scheduler (drag coalesce)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -1898,7 +1898,7 @@ describe("content-change replay", () => {
   });
 });
 
-// ── C1–C7: value-based stroke wiring (spec §5) ──────────────────────────────────────────────
+// ── C1–C7: value-based stroke wiring ────────────────────────────────────────────────────────
 //
 // These exercise the WIRING, not the engine (strokeValue.test.ts owns the
 // engine): applyBorderToLayer must dispatch to applyValueStroke when the
@@ -1982,7 +1982,7 @@ describe("value-stroke wiring (C1–C7)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -2165,7 +2165,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -2501,7 +2501,7 @@ describe("value-detail and shell wiring coverage", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -2629,7 +2629,7 @@ describe("follow-fill border mode", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -3007,6 +3007,197 @@ describe("follow-fill border mode", () => {
     replayDeclaredBorder(ui, "drep4");
     expect(leaves[0].setStyle).not.toHaveBeenCalled();
   });
+  it("replayDeclaredBorder paints a declared value (colormap) border on attach", () => {
+    // A declared value border is a read-time default like follow_fill: the
+    // attach sweep is the only pass that reaches it, so without a replay arm
+    // the map opens on the author's flat stroke and only a style-mode round
+    // trip paints the ramp .. The replay must apply the classified
+    // stroke, not skip it.
+    const leaves = [makeLineLeaf(1), makeLineLeaf(5)];
+    registerDeclared(
+      "dval1",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    // Registration itself must not paint the border: the ramp reaches the map
+    // only through the attach replay, so assert on the delta not the absolute.
+    const before = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "dval1");
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before);
+    // The classified stroke carries a real colour (the ramp), not the flat
+    // author stroke the leaf was created with.
+    // The classified stroke carries a real ramp colour, not the flat author
+    // stroke the leaf was created with — assert the concrete Reds values
+    // (leaf0=#010101, leaf1=#020202) so a solid or no-op paint cannot pass.
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
+  it("replayDeclaredBorder paints a declared value border on a CircleMarker (point) at attach", () => {
+    // The reported case: a CircleMarker declares a value (colormap) border and
+    // the author expects the ramp on the stroke at attach. Point geometry is
+    // value-carrying like a line — the border is the marker's own outline and
+    // classifies per marker (polygon stays follow-fill-only by contract).
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      leaf.feature.properties.count = i + 1;
+    });
+    registerDeclared(
+      "dval_point",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    replayDeclaredBorder(ui, "dval_point");
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before0);
+    // The ramp lands on the stroke, not the flat author colour — assert the
+    // concrete Reds scheme values
+    // (marker 0=#010101, marker 1=#020202) so a solid or no-op paint cannot pass.
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
+  it("a layer registered after the sweep still gets its declared value border", () => {
+    // #1285 leg 1: the declared-value attach replay runs once over the layers
+    // already in the registry. A CircleMarker layer that lands AFTER that sweep
+    // (component first, layer added later -- the late-registration family) must still
+    // reach the map with its ramp, either through a content-change replay or a
+    // registration-time replay. Before the fix it opened on the author's flat
+    // stroke and only a style-mode toggle recovered it.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      leaf.feature.properties.count = i + 1;
+    });
+    // Register the layer AFTER the one-shot sweep has already run for the
+    // initial registry (nothing else registered yet, so the sweep is a no-op).
+    ui.applyUserState();
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    registerDeclared(
+      "dval_late",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    // The late layer gets its declared value border through the registration
+    // or content-change replay (not left on the author's flat stroke).
+    ui.applyUserState("dval_late");
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before0);
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
+  it("geometryKindOf falls back to the surface answer when the layer is absent", () => {
+    // Lines 973-974: when the surface answers UNKNOWN and the layer object is
+    // absent from both the registry entry and findLayer, geometryKindOf
+    // returns the surface answer (UNKNOWN) rather than throwing.
+    const leaves = [makeLayerForGeometry("point")];
+    leaves.forEach(leaf => {
+      delete leaf.feature;
+    });
+    manager.registerLayer({
+      id: "no_layer_obj",
+      name: "no_layer_obj",
+      layer: makeFeatureGroup(...leaves),
+      fillAuthor: {
+        perFeature: true,
+        distinct: 1,
+        stops: ["#0d0887"],
+        scale: { kind: "continuous", column: "count" },
+      },
+    });
+    // Overwrite the registry entry to strip the layer object so the
+    // !layer early return fires.
+    const li = ui.c.layerRegistry.get("no_layer_obj");
+    if (li) (li as any).layer = undefined;
+    // buildBorderRow reads geometryKindOf: with the layer object absent it
+    // falls through 973-974 and the row still renders a mode select.
+    const row = buildBorderRow(ui, "no_layer_obj") as HTMLElement;
+    expect(row).not.toBeNull();
+  });
+  it("borderCarriesValue is true for a CircleMarker the surface reads as unknown", () => {
+    // An unenveloped marker (no .feature) makes the surface answer UNKNOWN.
+    // geometryKindOf then walks the leaves and infers POINT from the
+    // CircleMarker, so a declared value border still carries value on such a
+    // layer instead of stepping aside.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach(leaf => {
+      delete leaf.feature;
+    });
+    registerDeclared(
+      "unknown_geom",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    const row = buildBorderRow(ui, "unknown_geom") as HTMLElement;
+    document.body.appendChild(row);
+    const select = row.querySelector(
+      ".foliplus-style-border-mode-select",
+    ) as HTMLSelectElement | null;
+    // POINT inferred -> by_value is offered, proving the leaf inference ran.
+    expect(select).not.toBeNull();
+    expect(Array.from(select!.options).map(o => o.value)).toContain("value");
+  });
+  it("hasBorderProvenance is true from a declaration alone (no intent)", () => {
+    // The right arm of hasBorderProvenance: a declared border with no stored
+    // intent still counts as provenance, so the attach sweep repaints it.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    registerDeclared(
+      "decl_only",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    ui.applyUserState("decl_only");
+    expect(leaves[0].setStyle.mock.calls.length).toBeGreaterThan(before0);
+  });
+
+  it("authorStrokeDisabled treats weight:0 as no outline even with stroke unset", () => {
+    // The right arm of the stroke/weight check: weight 0 alone (stroke left at
+    // its default) is still "no outline", so the gate holds.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      delete leaf.options.stroke;
+      leaf.options.weight = 0;
+      leaf.options.color = ["#0d0887", "#7e03a8"][i];
+      leaf.options.fillColor = leaf.options.color;
+    });
+    registerDeclared("w0_nostroke", undefined, leaves);
+    ui.c.layerRegistry.get("w0_nostroke")!.fillAuthor = {
+      perFeature: true,
+      distinct: 2,
+      stops: ["#0d0887", "#7e03a8"],
+      scale: { kind: "continuous", column: "count" },
+    };
+    const before0 = leaves[0].setStyle.mock.calls.length;
+    ui.applyUserState("w0_nostroke");
+    expect(leaves[0].setStyle.mock.calls.length).toBe(before0);
+  });
+
+  it("applyUserState attach sweep paints a declared value border on first frame", () => {
+    // The reported quickstart: a CircleMarker layer declares foliplus.border
+    // value and the map must open on the ramp, not the author's flat stroke.
+    // Drive the REAL attach entry (applyUserState with no id = the full sweep)
+    // rather than replayDeclaredBorder directly, so the test reproduces the
+    // attach ordering and the geometry/materialisation state the sweep sees.
+    const leaves = [makeLayerForGeometry("point"), makeLayerForGeometry("point")];
+    leaves.forEach((leaf, i) => {
+      leaf.feature.properties.count = i + 1;
+    });
+    registerDeclared(
+      "dval_attach",
+      { mode: "value", field: "count", scheme: "Reds" },
+      leaves,
+    );
+    // Attach sweep (no id = the full-sweep half): the final stroke on every
+    // leaf must be the classified ramp colour, not the author's flat stroke.
+    ui.applyUserState();
+    const painted0 = leaves[0].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    const painted1 = leaves[1].setStyle.mock.calls.at(-1)?.[0] as { color?: string };
+    expect(painted0.color).toBe("#010101");
+    expect(painted1.color).toBe("#020202");
+  });
   // declared value (foliplus.border value mode)
   // The declaration is a read-time value default: no stored intent - the
   // border shows and classifies by the author's declared field/config.
@@ -3123,7 +3314,7 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#010101", "#020202", "#030303"]);
   });
@@ -3353,7 +3544,7 @@ describe("border options per geometry", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
@@ -3412,23 +3603,29 @@ describe("border options per geometry", () => {
     ]);
   });
 
-  // Polygon and point share one rule: a border that outlines a filled face
-  // offers follow-fill, and never by-value. One table drives both so a change
-  // to the outline contract cannot be applied to one geometry and forgotten on
-  // the other (the drift that made this matrix red after follow-fill landed).
-  it.each(["polygon", "point"] as const)(
-    "%s: { original, single, follow-fill } — never by-value",
-    kind => {
-      const id = `g_${kind}`;
-      registerGeometryLayer(id, kind);
-      expectGeometryType(id, kind);
-      expect(modeValues(openBorderRow(id))).toEqual([
-        STYLE_MODE.ORIGINAL,
-        STYLE_MODE.SOLID,
-        STYLE_MODE.FOLLOW_FILL,
-      ]);
-    },
-  );
+  // Polygon only: a border that outlines a filled face offers follow-fill and
+  // never by-value (the fill behind it classifies; the outline does not).
+  it("polygon: { original, single, follow-fill } — never by-value", () => {
+    registerGeometryLayer("g_polygon", "polygon");
+    expectGeometryType("g_polygon", "polygon");
+    expect(modeValues(openBorderRow("g_polygon"))).toEqual([
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.FOLLOW_FILL,
+    ]);
+  });
+  // Point carries value like a line: a CircleMarker's stroke is the marker's
+  // own outline and classifies per marker, so by-value IS offered (the
+  // reported colormap-border case).
+  it("point: { original, single, value } — a marker stroke classifies", () => {
+    registerGeometryLayer("g_point", "point");
+    expectGeometryType("g_point", "point");
+    expect(modeValues(openBorderRow("g_point"))).toEqual([
+      STYLE_MODE.ORIGINAL,
+      STYLE_MODE.SOLID,
+      STYLE_MODE.VALUE,
+    ]);
+  });
   it("the column is the DIM single source (border)", () => {
     expect(DIM.BORDER).toBe("border");
     registerGeometryLayer("g_dim", "line");
@@ -3563,7 +3760,7 @@ describe("border solid derivation invariants", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#111111", "#222222"]);
   });
@@ -3689,7 +3886,7 @@ describe("border category value wiring", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     installChroma(["#111111", "#222222"]);
   });
@@ -3928,7 +4125,7 @@ describe("border VALUE mode with no value field (defensive fallbacks)", () => {
 
   beforeEach(() => {
     ({ manager, ui } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
   });
 
