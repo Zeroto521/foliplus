@@ -1,7 +1,7 @@
 // script/check/crossLangLiteral — shared locator for Python↔JS twin-literal guards.
 //
 // Several constants exist as hand-copied twins, one per language: a regex in
-// foliplus/_declaration.py and the same regex in foliplus/js/platform/color.ts;
+// foliplus/_declaration/paint.py and the same regex in foliplus/js/platform/color.ts;
 // the role words in foliplus/control/LayerControl/_role.py and the same words in
 // foliplus/js/core/layer/const.ts; a folder-name bound in each. When one side
 // widens or renames its copy and the other stays, a value the author declares

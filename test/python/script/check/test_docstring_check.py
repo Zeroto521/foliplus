@@ -87,7 +87,7 @@ class TestControlsToCheck:
 
     def test_non_control_file_returns_empty(self):
         # A declaration module is not a control source -> no control class matches.
-        assert mod._controls_to_check([Path("foliplus/_declaration.py")]) == {}
+        assert mod._controls_to_check([Path("foliplus/_asset.py")]) == {}
         # A control-package __init__ re-exports the class but is not its source file.
         assert (
             mod._controls_to_check([Path("foliplus/control/LayerControl/__init__.py")])
