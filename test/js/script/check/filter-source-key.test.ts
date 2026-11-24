@@ -138,6 +138,24 @@ describe("main() return codes", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it("ignores a scopedStorageKey suffix (a storage key, not a filter source)", () => {
+    // The per-map storage key spells the same word as the filterStore source
+    // ("measure"), but the two live in different records. The scanner must not
+    // confuse them: scopedStorageKey(map, "measure") is the storage suffix.
+    const dir = mkdtempSync(join(TMP_BASE, "filter-source-scoped-"));
+    mkdirSync(join(dir, "foliplus", "js", "control", "MeasureControl"), {
+      recursive: true,
+    });
+    writeFileSync(
+      join(dir, "foliplus", "js", "control", "MeasureControl", "ok.ts"),
+      'const STORAGE = { KEY: scopedStorageKey(map, "measure") };\n' +
+        "const src = FILTER_SOURCE.MEASURE;\n",
+    );
+    expect(main(dir)).toBe(0);
+    expect(findBareFilterSourceKeys(dir)).toEqual([]);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it("returns 1 and logs each hit when a bare literal is present", () => {
     const dir = mkdtempSync(join(TMP_BASE, "filter-source-main-"));
     mkdirSync(join(dir, "foliplus", "js", "control", "MeasureControl"), {
