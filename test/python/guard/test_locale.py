@@ -32,7 +32,7 @@ from foliplus.locale import (
 #   listed in _DYNAMIC_SUPPLEMENT below.
 # ---------------------------------------------------------------------------
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCANNER = _REPO_ROOT / "script" / "check" / "scan-locale-key.mjs"
 
 _DYNAMIC_SUPPLEMENT: set[str] = {
