@@ -76,9 +76,9 @@
 - `SearchControl`: a slow response for an older address no longer overwrites a newer result, and removing the control no longer leaves its result marker and delete icon on the map ([#1315](https://github.com/Zeroto521/foliplus/pull/1315))
 - `LayerControl` / `HeatmapControl`: the filter panel and heatmap field lists no longer offer folium/geopandas internal keys such as `__folium_color` and `__id` as data fields, and the data itself is untouched ([#1320](https://github.com/Zeroto521/foliplus/pull/1320))
 - `ExportControl`: an export keeps its `exporting` mode for the whole render instead of the crop-box cleanup clearing it, and destroying the control reclaims the blocker and the map lock and retires an in-flight render instead of downloading to a removed control ([#1322](https://github.com/Zeroto521/foliplus/pull/1322))
-- `FullscreenControl`: a sibling map's native transition no longer unhides this map's controls or announces an exit here ([#1344](https://github.com/Zeroto521/foliplus/pull/1344))
 - `ExportControl`: an exported image keeps a point marker's custom chassis colour instead of losing the pin body, because the sprite pass now reads the mask+colour channel as well as the background-image sprite ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
 - `ExportControl`: a DivIcon's HTML pin and an awesome-marker shadow sprite now reach the exported image, and an image the canvas cannot read back is reported and counted instead of silently leaving a hole ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
+- `FullscreenControl`: a sibling map's native transition no longer unhides this map's controls or announces an exit here ([#1344](https://github.com/Zeroto521/foliplus/pull/1344))
 
 ## [v0.4.1] (2026-10-18)
 

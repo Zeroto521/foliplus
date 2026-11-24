@@ -23,7 +23,6 @@ class TestFullscreenControlConstructor:
     def test_custom_hide_self(self):
         assert FullscreenControl(hide_self=False).hide_self is False
 
-
     def test_default_locale(self):
         assert FullscreenControl()._locale_code == ""
 
