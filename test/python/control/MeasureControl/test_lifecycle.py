@@ -247,6 +247,89 @@ class TestMeasureModeBrowser:
             assert after["row"], f"finalized row not rendered after Escape: {after}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_escape_with_circle_center_only_drops_the_row(
+        self, browser, tmp_path
+    ):
+        """Escape after only the circle center is placed drops the row.
+
+        A circle requires a second click to confirm the radius; after only the
+        center, the radius follows the cursor and was never confirmed. ESC
+        cancels (finishOnExit always returns false for circle), discards the
+        center and preview, and the empty layer row drops.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            # Activate circle mode via the tool button.
+            page.evaluate(
+                "() => document.querySelector('[data-mode=circle]').click()"
+            )
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            before = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert before["registered"], f"row missing before ESC: {before}"
+
+            page.evaluate(_js("MeasureControl/draw_circle_center_only"))
+            page.wait_for_timeout(300)
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after ESC, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert not after["registered"], (
+                f"ESC on circle center-only kept the row: before={before}, after={after}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_after_circle_two_clicks_keeps_the_row(
+        self, browser, tmp_path
+    ):
+        """Escape after a fully-confirmed circle (two clicks) keeps its row.
+
+        The circle's finish path fires on the second click (synchronously
+        via setTimeout in the click handler), so by the time ESC arrives the
+        mode is already cleared and the content is in the store. The content-
+        driven unregister keeps the row.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(
+                "() => document.querySelector('[data-mode=circle]').click()"
+            )
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            # Two clicks: center + radius → finishCircle fires (async delay).
+            page.evaluate(
+                """() => {
+                  const map = window.__map;
+                  map.fire("click", { latlng: L.latLng(26.08, 119.3) });
+                  map.fire("click", { latlng: L.latLng(26.09, 119.31) });
+                }"""
+            )
+            page.wait_for_timeout(800)  # wait for FINALIZE_DELAY setTimeout
+
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert after["registered"], (
+                f"ESC after a two-click circle dropped the row: after={after}"
+            )
+            assert after["row"], f"circle row not rendered after ESC: {after}"
+            assert not errors, f"JS errors: {errors}"
+
     def test_escape_after_finalized_distance_keeps_the_measure_row(
         self, browser, tmp_path
     ):

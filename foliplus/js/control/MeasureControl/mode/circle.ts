@@ -216,22 +216,14 @@ class CircleMode extends PreviewMode {
       );
     };
 
-    // Escape with a center + a radius preview (phase 1) commits the circle
-    // rather than discarding it. The click path finalizes via a delayed
-    // setTimeout, but Escape must commit synchronously so the row survives.
-    // No center yet (phase 0) returns false so the caller discards the empty
-    // draw and drops the row.
-    this.finishOnExit = () => {
-      if (phase !== 1 || !center) return false;
-      const r = Util.distance(center, previews.node?.getLatLng() ?? center);
-      if (r < 1) return false;
-      phase = 2;
-      lastFinishTime = Date.now();
-      this.cleanup();
-      this.mgr.clearActiveMode();
-      finishCircle(center, r, previews.node?.getLatLng() ?? center);
-      return true;
-    };
+    // A circle requires a second click to confirm the radius. After only the
+    // center is placed (phase 1), the radius follows the cursor and was never
+    // confirmed by the user — finalizing here would freeze an arbitrary mouse
+    // position as a measurement result. Distance (2 points) and polygon
+    // (3 points) differ: each vertex is a discrete click, so the geometry is
+    // fully user-confirmed. finishOnExit therefore always returns false; ESC
+    // cancels, drops the preview and the row, and only a second click commits.
+    this.finishOnExit = () => false;
 
     const onContext = (event: L.LeafletMouseEvent) => {
       stopEvent(event);
