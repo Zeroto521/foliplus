@@ -158,6 +158,34 @@ describe("child layer registration", () => {
     expect(manager.layerRegistry.get(id)).toBeDefined();
   });
 
+  it("removes the child rows when a group is unregistered", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    const b = makeChild();
+    registerGroup([a, b]);
+    expandGroup();
+    expect(childRows().length).toBe(2);
+
+    manager.unregisterLayer("fg");
+
+    expect(childRows().length).toBe(0);
+    expect(attachedPanel(ui).querySelector('[data-layer-id="fg"]')).toBeNull();
+  });
+
+  it("removes the child rows and entries when a group is deleted", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    registerGroup([a]);
+    expandGroup();
+    const id = childRowId("fg", a);
+    expect(manager.layerRegistry.get(id)).toBeDefined();
+
+    expect(manager.deleteLayer("fg")).toBe(true);
+
+    expect(childRows().length).toBe(0);
+    expect(manager.layerRegistry.get(id)).toBeUndefined();
+  });
+
   it("cascades a parent unregister to its child entries", () => {
     installLeafletGlobals();
     const a = makeChild();
