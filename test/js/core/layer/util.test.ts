@@ -796,6 +796,27 @@ describe("core/layer util: countVisibleChildLayers", () => {
     expect(countVisibleChildLayers(layer, map)).toBe(0);
   });
 
+  it("counts visible grandchildren when asked for maxDepth 2", () => {
+    const leaf1 = { options: {} };
+    const leaf2 = { options: {} };
+    const inner = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => fn(leaf1),
+    };
+    const outer = {
+      options: {},
+      eachLayer: (fn: (child: unknown) => void) => {
+        fn(inner);
+        fn(leaf2);
+      },
+    } as unknown as L.Layer;
+    const map = makeMap(new Set([inner, leaf1, leaf2]));
+    // The default stays direct-child: the inner group and leaf2.
+    expect(countVisibleChildLayers(outer, map)).toBe(2);
+    // maxDepth 2 reaches the grandchild, so all three descendants count.
+    expect(countVisibleChildLayers(outer, map, 2)).toBe(3);
+  });
+
   it("returns 0 when the map cannot answer membership", () => {
     // A stub map without hasLayer cannot say which children are on the map, so
     // the visible count is 0 rather than a throw.

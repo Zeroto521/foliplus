@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  childrenOf,
   countChildLayers,
   countChildLayersOf,
   findLeaf,
@@ -299,6 +300,36 @@ describe("countChildLayers", () => {
     expect(countChildLayersOf(outer)).toBe(2);
     expect(countChildLayersOf(inner)).toBe(1);
     expect(countChildLayersOf(makeGroup([]))).toBe(0);
+  });
+
+  it("childrenOf keeps the direct-child default (maxDepth 1)", () => {
+    const leaf1 = leaf("l1");
+    const leaf2 = leaf("l2");
+    const inner = group(leaf1);
+    const outer = group(inner, leaf2);
+    expect(childrenOf(outer)).toEqual([inner, leaf2]);
+    expect(childrenOf(outer)).toHaveLength(2);
+  });
+
+  it("childrenOf(maxDepth) flattens descendants in tree order", () => {
+    const leaf1 = leaf("l1");
+    const leaf2 = leaf("l2");
+    const inner = group(leaf1);
+    const outer = group(inner, leaf2);
+    // Depth-first pre-order: each child, then that child's own children.
+    expect(childrenOf(outer, 2)).toEqual([inner, leaf1, leaf2]);
+    expect(childrenOf(outer, 3)).toHaveLength(3);
+    // The inner group's own ceiling: one level below it is the leaf.
+    expect(childrenOf(inner, 2)).toEqual([leaf1]);
+  });
+
+  it("countChildLayers(maxDepth) counts to the requested depth", () => {
+    const inner = group(leaf("l1"));
+    const outer = group(inner, leaf("l2"));
+    expect(countChildLayers(outer)).toBe(2);
+    expect(countChildLayers(outer, 2)).toBe(3);
+    expect(countChildLayersOf(outer, 2)).toBe(3);
+    expect(countChildLayersOf(outer)).toBe(2);
   });
 
   it("countChildLayers: a missing layer counts zero", () => {

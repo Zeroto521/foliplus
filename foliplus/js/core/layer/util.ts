@@ -258,24 +258,33 @@ const isGroupRow = (
 ): boolean =>
   Boolean(layer && layerInfo && !layerInfo.featureCountProvider && isGroupLayer(layer));
 
-/** Count a group's DIRECT children (its own sub-layers, not deep leaves).
+/** Count a group's children to a requested depth (default: its DIRECT
+ *  sub-layers, not deep leaves — see `countChildLayers`).
  *  @param {L.Layer} layer - Leaflet group.
- *  @returns {number} Number of direct children. */
-const countChildLayersOf = (layer: L.Layer): number => countChildLayers(layer);
-/** Count a group's DIRECT children currently added to the map (visible
- *  sub-layers). A direct child is counted only when the map still owns it
- *  (map.hasLayer(child)); a child removed from the map is not a visible
- *  sub-layer even though it remains in the group's registry.
+ *  @param {number} [maxDepth=1] - Levels to descend; 1 is direct children.
+ *  @returns {number} Number of children at the requested depth. */
+const countChildLayersOf = (layer: L.Layer, maxDepth = 1): number =>
+  countChildLayers(layer, maxDepth);
+/** Count a group's children currently added to the map (visible sub-layers),
+ *  to a requested depth (default: DIRECT children).
+ *
+ *  A child is counted only when the map still owns it (map.hasLayer(child)); a
+ *  child removed from the map is not a visible sub-layer even though it remains
+ *  in the group's registry. Pass `maxDepth` (see `childrenOf`) for the nested
+ *  census — e.g. a container whose visible-of-total figure must agree with the
+ *  recursive hide cascade uses 2, so a hidden grandchild counts as hidden.
+ *
  *  @param {L.Layer} layer - Leaflet group.
  *  @param {L.Map} map - Leaflet map (owner of the membership fact).
- *  @returns {number} Number of direct children on the map. */
-const countVisibleChildLayers = (layer: L.Layer, map: L.Map): number => {
+ *  @param {number} [maxDepth=1] - Levels to descend; 1 is direct children.
+ *  @returns {number} Number of children at the requested depth on the map. */
+const countVisibleChildLayers = (layer: L.Layer, map: L.Map, maxDepth = 1): number => {
   // The child enumeration is walkLeaf's childrenOf — the same read
   // countChildLayers uses, so "how many children" and "how many are visible"
   // can never disagree about what a child is.
   if (typeof map.hasLayer !== "function") return 0;
   let visible = 0;
-  for (const child of childrenOf(layer)) {
+  for (const child of childrenOf(layer, maxDepth)) {
     if (map.hasLayer(child)) visible++;
   }
   return visible;

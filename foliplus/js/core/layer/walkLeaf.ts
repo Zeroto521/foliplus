@@ -57,7 +57,7 @@ const safeGroupLike = (node: TreeNode): boolean => {
  *  containers. `eachLayer` wins (Leaflet containers); the layer registry is a
  *  fallback for window globals and ad-hoc wrappers that don't implement
  *  eachLayer. */
-const childrenOf = (node: UnknownLayer): L.Layer[] => {
+const directChildrenOf = (node: UnknownLayer): L.Layer[] => {
   try {
     if (isGroupNode(node)) {
       const out: L.Layer[] = [];
@@ -71,16 +71,47 @@ const childrenOf = (node: UnknownLayer): L.Layer[] => {
   }
 };
 
-/** How many DIRECT children a node holds.
+/** A node's children to a requested depth, flattened depth-first.
  *
- *  Shallow on purpose: the row's "how many sub-layers" figure is the
- *  container's own unit, not a deep feature census. A group holding two
- *  groups reads 2, not the leaves buried inside them — that count belongs to
- *  those children. O(children), so a hostile getter costs one caught read
- *  and nothing more (`childrenOf` never throws).
+ *  `maxDepth` counts levels: **1 (the default) is the direct children** — the
+ *  shallow read every existing caller relies on and the row's own unit; 2 adds
+ *  the direct children's own children; and so on. A nested group's children are
+ *  therefore opt-in, not silently counted twice: the default answers exactly
+ *  what it answered before this parameter existed.
+ *
+ *  Flatten order is depth-first pre-order (each child, then that child's own
+ *  descendants), so a caller that renders or counts the result sees the tree in
+ *  its natural order. The walk is capped at `RECURSION.LAYER_DEPTH` so a
+ *  malformed or cyclic layer graph cannot recurse to the stack; the same
+ *  hostile-node guard as the direct read applies (`eachLayer` / registry reads
+ *  never throw).
  */
-const countChildLayers = (layer: UnknownLayer): number =>
-  layer ? childrenOf(layer).length : 0;
+const childrenOf = (node: UnknownLayer, maxDepth = 1): L.Layer[] => {
+  const direct = directChildrenOf(node);
+  if (!(maxDepth > 1) || direct.length === 0) return direct;
+  const limit = Math.min(Math.floor(maxDepth), DEFAULT_MAX_DEPTH);
+  const out: L.Layer[] = [];
+  const collect = (kids: L.Layer[], level: number): void => {
+    for (const kid of kids) {
+      out.push(kid);
+      if (level < limit) collect(directChildrenOf(kid), level + 1);
+    }
+  };
+  collect(direct, 1);
+  return out;
+};
+
+/** How many children a node holds, to a requested depth.
+ *
+ *  The default is DIRECT children on purpose: the row's "how many sub-layers"
+ *  figure is the container's own unit, not a deep feature census. A group
+ *  holding two groups reads 2, not the leaves buried inside them — that count
+ *  belongs to those children. Pass `maxDepth` (see `childrenOf`) when a
+ *  consumer needs the nested census instead. O(children at the requested
+ *  depth), so a hostile getter costs one caught read and nothing more.
+ */
+const countChildLayers = (layer: UnknownLayer, maxDepth = 1): number =>
+  layer ? childrenOf(layer, maxDepth).length : 0;
 
 /** Exhaustive walk over every leaf. A node that declares a child registry
  *  (even when empty) is never visited as a leaf. */
