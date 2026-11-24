@@ -158,7 +158,10 @@ describe("readDeclaredBorder", () => {
   });
 
   it("rejects an explicit value mode without a field", () => {
-    const read = readDeclaredBorder(layerWith({ border: { mode: "value" } }), "overlay1");
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "value" } }),
+      "overlay1",
+    );
     expect(read.declared).toBeUndefined();
     expect(read.invalid[0]).toContain("requires border.field");
   });
