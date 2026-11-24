@@ -79,31 +79,31 @@ ALLOWLIST: tuple[Exemption, ...] = (
         "file-too-large",
         "test/python/control/LayerControl/test__fill_author.py",
         "1010 code lines; split into the fill/icon style groups.",
-        "task-99 phase-2 split",
+        "python test layout phase 2",
     ),
     Exemption(
         "file-too-large",
         "test/python/control/LayerControl/test_icon.py",
         "727 code lines; fold into the style icon/label groups.",
-        "task-99 phase-2 split",
+        "python test layout phase 2",
     ),
     Exemption(
         "file-too-large",
         "test/python/control/LayerControl/test_panel.py",
         "3045 code lines; split into the panel/fold/filter groups.",
-        "task-99 phase-2 split",
+        "python test layout phase 2",
     ),
     Exemption(
         "file-too-large",
         "test/python/control/LayerControl/test_rendering.py",
         "981 code lines; split into rendering lifecycle / registry groups.",
-        "task-99 phase-2 split",
+        "python test layout phase 2",
     ),
     Exemption(
         "file-too-large",
         "test/python/control/LayerControl/test_style.py",
         "3219 code lines; split into the style groups (fill/border/icon/label/...).",
-        "task-99 phase-2 split",
+        "python test layout phase 2",
     ),
 )
 
