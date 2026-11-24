@@ -22,7 +22,7 @@ import {
   repoRoot,
   resolveJsRoot,
   testPathAliases,
-} from "#script/build-path.mjs";
+} from "#script/build/build-path.mjs";
 
 const ROOT = resolve(".");
 // ALIAS_TO_REL is a plain JS object from build-path.mjs; index it through a

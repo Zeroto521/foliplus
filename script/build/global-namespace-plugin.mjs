@@ -17,7 +17,7 @@
 // are never declared, so they cannot appear in the bundle. The scan itself
 // lives in script/build/import-scan.mjs — the same engine
 // script/build/scan-registry.mjs uses, so publishing and reading cannot drift.
-import { SHARED_SPEC_REGEX_SOURCE, namespacePrefixRules } from "../build-path.mjs";
+import { SHARED_SPEC_REGEX_SOURCE, namespacePrefixRules } from "./build-path.mjs";
 import {
   collectSources,
   scanSharedImports as scanSharedImportsEngine,

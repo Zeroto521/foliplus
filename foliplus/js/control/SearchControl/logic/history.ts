@@ -2,6 +2,7 @@
 // from logic.ts; search/suggestions live in ./search.ts.
 import { HISTORY, MODE, RECORD_VERSION, SOURCE, ZOOM } from "../const.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
+import { ownLayer } from "./owned.js";
 import { attachSearchDelIcon, removePanel, renderResults } from "./panel.js";
 import { type SearchControlCtx } from "./util.js";
 import { createLocationMarker, fromWgs84 } from "#core/geo/index.js";
@@ -195,18 +196,22 @@ const renderHistory = (ctrl: SearchControlCtx, mode: SearchType) => {
         const lng = converted[0];
         const lat = converted[1];
         map.flyTo([lat, lng], ctrl.config.zoom ?? ZOOM.MAX);
-        ctrl.marker = createLocationMarker(
-          map,
-          lng,
-          lat,
-          display,
-          isAddr ? ctrl.T("popup_title_addr") : ctrl.T("popup_title_coord"),
-          ctrl.T("popup_loading"),
-          ctrl.T("popup_loc_label"),
-          ctrl.T("popup_addr_label"),
-          ctrl._("foliplus.close_label"),
-          ctrl.config.locale_code,
-          ctrl.marker,
+        ownLayer(
+          ctrl,
+          "marker",
+          createLocationMarker(
+            map,
+            lng,
+            lat,
+            display,
+            isAddr ? ctrl.T("popup_title_addr") : ctrl.T("popup_title_coord"),
+            ctrl.T("popup_loading"),
+            ctrl.T("popup_loc_label"),
+            ctrl.T("popup_addr_label"),
+            ctrl._("foliplus.close_label"),
+            ctrl.config.locale_code,
+            ctrl.marker,
+          ),
         );
         attachSearchDelIcon(ctrl, [lat, lng]);
         return true;
