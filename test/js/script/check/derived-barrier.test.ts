@@ -14,7 +14,13 @@
 // whitelist with the reason each site is legitimate).
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  initFixture,
+  polygonLayer,
+} from "../../control/LayerControl/ui/fixture.js";
+import type { LayerController } from "#control/LayerControl/controller.js";
+import type { LayerUI } from "#control/LayerControl/ui/index.js";
 
 const REPO_ROOT = process.cwd();
 
@@ -226,5 +232,38 @@ describe("derived-state barrier", () => {
       }
     }
     expect(failures).toEqual([]);
+  });
+});
+
+describe("ui derived-state mechanism — the barrier re-derives every dimension", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("registerLayer schedules a barrier that re-derives tree connectors", () => {
+    const spy = vi.spyOn(ui, "refreshTreeConnectors");
+    manager.registerLayer({
+      id: "overlay2",
+      name: "Late",
+      role: "overlay",
+      layer: polygonLayer(),
+    });
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("deleteLayer schedules a barrier that re-derives tree connectors", () => {
+    const spy = vi.spyOn(ui, "refreshTreeConnectors");
+    manager.deleteLayer("overlay1");
+    expect(spy).toHaveBeenCalled();
   });
 });
