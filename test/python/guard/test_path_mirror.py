@@ -408,7 +408,9 @@ PY_GUARD = TESTS / "guard"
 
 def test_python_guard_dir_exists() -> None:
     """The Python invariant-guard home must exist and hold at least one test."""
-    assert PY_GUARD.is_dir(), "test/python/guard/ missing -- invariant guards have nowhere to live"
+    assert PY_GUARD.is_dir(), (
+        "test/python/guard/ missing -- invariant guards have nowhere to live"
+    )
     tests = [f for f in PY_GUARD.glob("test_*.py") if f.name != "__init__.py"]
     assert tests, "test/python/guard/ holds no test_*.py -- it is an empty shell"
 
@@ -427,6 +429,7 @@ def test_python_guard_tests_are_not_module_mirrors() -> None:
         if f.stem in {f"test_{c}" for c in controls}
     ]
     assert offenders == [], (
-        "module-mirror test(s) in test/python/guard/: " + ", ".join(offenders)
+        "module-mirror test(s) in test/python/guard/: "
+        + ", ".join(offenders)
         + " -- move them to test/python/control/<Control>/"
     )
