@@ -10,14 +10,9 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import {
-  applyRowView,
-  buildRowCell,
-  countTooltip,
-  writeRoleCount,
-} from "./rowView.js";
-import { setCheckboxState, triStateOf } from "#ui/checkbox.js";
+import { applyRowView, buildRowCell, countTooltip, writeRoleCount } from "./rowView.js";
 import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
+import { setCheckboxState, triStateOf } from "#ui/checkbox.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the

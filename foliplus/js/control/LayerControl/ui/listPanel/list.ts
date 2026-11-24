@@ -35,9 +35,9 @@ import {
   groupByFolder,
   roleBlocks,
 } from "#core/layer/index.js";
-import { createCheckbox, triStateOf } from "#ui/checkbox.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
+import { createCheckbox, triStateOf } from "#ui/checkbox.js";
 import { finishSlidersIn, sectionDivider } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";

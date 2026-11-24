@@ -1,7 +1,7 @@
-import { CHECKBOX_CLASS } from "#ui/checkboxClassName.js";
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { scopedStorageKey } from "#platform/storage.js";
+import { CHECKBOX_CLASS } from "#ui/checkboxClassName.js";
 import {
   DEFAULT_LABEL_COLOR,
   LABEL_CLASS,
