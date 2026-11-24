@@ -257,7 +257,7 @@ class TestMeasureModeBrowser:
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             # Activate circle mode via the tool button.
-            page.evaluate("() => document.querySelector('[data-mode=circle]').click()")
+            page.evaluate(_js("MeasureControl/click_circle_button"))
             page.wait_for_timeout(500)
             page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
             page.wait_for_selector(
@@ -292,7 +292,7 @@ class TestMeasureModeBrowser:
         driven unregister keeps the row.
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
-            page.evaluate("() => document.querySelector('[data-mode=circle]').click()")
+            page.evaluate(_js("MeasureControl/click_circle_button"))
             page.wait_for_timeout(500)
             page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
             page.wait_for_selector(
