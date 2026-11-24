@@ -9545,4 +9545,3 @@ describe("filter hidden-class survives a glyph rebuild (controller-side)", () =>
     expect(m.hiddenSets.get("flt1")).toBeUndefined();
   });
 });
-
