@@ -955,6 +955,52 @@ describe("LabelManager — render & plan", () => {
     expect(canvasB!.paint).not.toHaveBeenCalled();
   });
 
+  it("repaints only the layer whose filter changed", () => {
+    // The generic filter's hidden-leaf walk is consulted during renderLabels;
+    // a LAYER_FILTER_CHANGE must re-run that walk for the changed layer so a
+    // slider write (which publishes per drag) drops the now-hidden labels
+    // instead of leaving them painted over the hidden geometry. Only the
+    // changed layer repaints; the other layer's plan and collision stand.
+    const { map } = makeMap();
+    const layerA = oneLabel();
+    const layerB = mkGroup([
+      mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
+    ]);
+    const mgr = new LabelManager({
+      map,
+      layerFind: id => (id === "a" ? layerA : layerB),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.setConfig("b", CONFIG);
+    // Wire the generic filter's hidden-leaf check (the controller calls
+    // setHiddenCheck once after construction). Not hidden: the label walk
+    // draws the leaf while the check is false.
+    const check = vi.fn(() => false);
+    mgr.setHiddenCheck(check);
+    mgr.renderLabels("a");
+    mgr.renderLabels("b");
+    const [canvasA, canvasB] = mocks.instances;
+    canvasA!.paint.mockClear();
+    canvasB!.paint.mockClear();
+    check.mockClear();
+
+    (
+      map as unknown as {
+        foliplus: {
+          events: {
+            publish: (e: string, p: unknown) => void;
+          };
+        };
+      }
+    ).foliplus.events.publish(EVENTS.LAYER_FILTER_CHANGE, { id: "a" });
+
+    // The filter change re-consults the hidden-leaf check for that layer
+    // only and repaints its canvas; the other layer is untouched.
+    expect(check).toHaveBeenCalled();
+    expect(canvasA!.paint).toHaveBeenCalled();
+    expect(canvasB!.paint).not.toHaveBeenCalled();
+  });
+
   it("repaints every layer on a bare LAYER_CHANGE (third-party payload-less emit)", () => {
     // Defense branch for the handler's `!payload` fallback: when an emit arrives
     // with no payload (legacy / third-party code, or a pre-refactor emit), the
