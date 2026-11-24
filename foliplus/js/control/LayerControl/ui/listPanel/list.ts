@@ -20,7 +20,6 @@ import {
   countTooltip,
   displayName,
   roleCountText,
-  writeTriState,
 } from "./rowView.js";
 import {
   type RoleAggregates,
@@ -38,7 +37,12 @@ import {
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
-import { finishSlidersIn, sectionDivider } from "#ui/index.js";
+import {
+  createCheckbox,
+  finishSlidersIn,
+  sectionDivider,
+  triStateOf,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
@@ -809,20 +813,15 @@ const renderToggleAllRow = (
       },
       { html: SVGs.ICON_FOLD },
     ),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.CHECKBOX },
-      (() => {
-        const input = dom.el("input", {
-          type: "checkbox",
-          "data-role": CONST.TOGGLE_ALL_ROLE,
-          checked: "",
-          title: ui.T("toggle_all_deselect_tooltip"),
-        }) as HTMLInputElement;
-        writeTriState(input, vis.total, vis.on);
-        return input;
-      })(),
-    ),
+    // Shared tri-state primitive: the aggregate { total, on } maps to a state
+    // and the primitive paints checked/indeterminate/aria-checked together.
+    createCheckbox({
+      triState: triStateOf(vis.total, vis.on),
+      attributes: {
+        "data-role": CONST.TOGGLE_ALL_ROLE,
+        title: ui.T("toggle_all_deselect_tooltip"),
+      },
+    }).host,
     // The label and the divider share one flex cell: as two grid items in the
     // same column they overlapped, and the divider's left fade started under
     // the name instead of after it.
@@ -947,20 +946,12 @@ const renderFolderRow = (
       },
       { html: SVGs.ICON_FOLD },
     ),
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.CHECKBOX },
-      (() => {
-        const input = dom.el("input", {
-          type: "checkbox",
-          checked: "",
-          "aria-label": folderName,
-          title: ui.T(vis.on > 0 ? "deselect_tooltip" : "select_tooltip"),
-        }) as HTMLInputElement;
-        writeTriState(input, vis.total, vis.on);
-        return input;
-      })(),
-    ),
+    // Shared tri-state primitive (same paint as the role header above).
+    createCheckbox({
+      triState: triStateOf(vis.total, vis.on),
+      ariaLabel: folderName,
+      attributes: { title: ui.T(vis.on > 0 ? "deselect_tooltip" : "select_tooltip") },
+    }).host,
     dom.el(
       "label",
       {
@@ -1074,19 +1065,12 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   railCell.insertAdjacentHTML("beforeend", SVGs.ICON_DRAG_HANDLE);
   const children: HTMLElement[] = [
     railCell,
-    dom.el(
-      "div",
-      { class: CONST.CLASSES.CHECKBOX },
-      dom.el("input", {
-        type: "checkbox",
-        checked: "",
-        // The name reaches assistive tech via aria-label. `title` is the
-        // Select/Deselect slot — initLayerItem sets it per checked state
-        // before this row can be hovered, so leave it unseeded rather than
-        // flashing the layer name.
-        "aria-label": name,
-      }),
-    ),
+    // Shared checkbox primitive; a layer row's own box is always binary.
+    // The name reaches assistive tech via aria-label. `title` is the
+    // Select/Deselect slot — initLayerItem sets it per checked state before
+    // this row can be hovered, so leave it unseeded rather than flashing the
+    // layer name.
+    createCheckbox({ checked: true, ariaLabel: name }).host,
     dom.el("label", { class: CONST.CLASSES.LAYER_LABEL }, name),
     dom.el("span", {
       class: CONST.CLASSES.COUNT_COL,

@@ -927,6 +927,12 @@ type SurfaceHandle =
  * state — no panel visibility, no row positions, no toggle-all state, no
  * focus rectangles. Those live inside LayerUI and are reached via the
  * event bus, not through this interface.
+ *
+ * Any future read accessor added to this interface (visibility, role,
+ * folder, …) must report the effective map state — registry membership,
+ * pane membership, the map's own layer state — never the panel's stored
+ * UI intent. getStyle sets the precedent: it reports what the map paints,
+ * not what a panel happens to have stored.
  */
 interface LayerAPI {
   /**
@@ -1165,7 +1171,10 @@ interface LayerStyleSnapshot {
      *  declares no chassis opacity. */
     markerColorOpacity?: number;
   };
-  /** Label config (content dimension, no provenance tiers). */
+  /** Label config. Label is the content dimension of the Label role — it
+   *  carries no capability gate and always reports the effective config
+   *  (built-in default ⊕ author declaration ⊕ user intent), unlike the paint
+   *  dimensions whose value comes from the style reader table. */
   label?: {
     show?: boolean;
     field?: string;
