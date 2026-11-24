@@ -158,3 +158,9 @@ repos:
       # dimension file <= 700, a group directory >= 3 test files. Today's
       # oversized files are grandfathered in the script's ALLOWLIST, which fails
       # on a stale entry so it must drain to zero. Check-only.
+      - id: python-test-layout
+        name: python test layout (two-level control test tree)
+        entry: python script/check/python_test_layout.py
+        language: system
+        files: ^test/python/control/.*\.py$
+        pass_filenames: false
