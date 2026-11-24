@@ -221,10 +221,31 @@ const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
 const declaredBorderValue = (ui: LayerUI, layerId: string): ValueConfig | undefined => {
   if (getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined) return undefined;
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  const read = readDeclaredBorder(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId);
+  const read = declaredBorderRecord(ui, layerId);
   return read.declared === STYLE_MODE.VALUE ? read.declaredValue : undefined;
 };
+
+/** One layer's raw border declaration read (the reader caches per layer
+ *  object; this helper only resolves the carrier, registry first with the
+ *  controller's live lookup as the late-binding fallback). */
+const declaredBorderRecord = (ui: LayerUI, layerId: string) => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  return readDeclaredBorder(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId);
+};
+
+/** The declared solid colour, unless the user owns the colour intent. A
+ *  read-time default the solid row and the paint both read. */
+const declaredBorderColor = (ui: LayerUI, layerId: string): string | undefined =>
+  getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined
+    ? undefined
+    : declaredBorderRecord(ui, layerId).declaredColor;
+
+/** The declared stroke width, unless the user owns the weight intent. It rides
+ *  every mode, which is why it is read on its own axis. */
+const declaredBorderWeight = (ui: LayerUI, layerId: string): number | undefined =>
+  getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined
+    ? undefined
+    : declaredBorderRecord(ui, layerId).declaredWeight;
 
 /** The value config in force on the border face: the user's stored intent
  *  first, then the author's declared value mode (foliplus.border value
@@ -258,6 +279,12 @@ const declaredBorderMode = (ui: LayerUI, layerId: string): StyleMode | undefined
   // that cannot paint it, the same honest degradation a stored value gets.
   if (declared === STYLE_MODE.VALUE) {
     return borderCarriesValue(ui, layerId) ? declared : undefined;
+  }
+  // A solid/original declaration is the panel row's own read-time default: it
+  // is applicable on every border-capable channel (the border is either the
+  // element's primary colour or its outline, and both paint one stroke).
+  if (declared === STYLE_MODE.SOLID || declared === STYLE_MODE.ORIGINAL) {
+    return declared;
   }
   return undefined;
 };
@@ -455,7 +482,7 @@ const applyValueStrokeToLayer = (ui: LayerUI, layerId: string): void => {
     stored => resolvedValue(ui, layerId, stored)!,
     () => effectiveBorderValue(ui, layerId),
     () => effectiveBorderMode(ui, layerId),
-    getIntent(ui, layerId, INTENT.BORDER_WEIGHT),
+    getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? declaredBorderWeight(ui, layerId),
   );
 };
 
@@ -486,13 +513,15 @@ const applySolidStrokeToLayer = (
   // authoritative source instead of an advisory dead parameter.
   const solidColor =
     getIntent(ui, layerId, INTENT.BORDER_COLOR) ??
+    declaredBorderColor(ui, layerId) ??
     (deriveSolidBase ? (base ?? solidColorOf(ui, layerId, FACE.STROKE)) : undefined);
   const color = original
     ? undefined
     : followFill
       ? undefined // per-leaf derived below (no single intent to read)
       : solidColor;
-  const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
+  const weight =
+    getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? declaredBorderWeight(ui, layerId);
   const layer = ui.c.findLayer(layerId) as StyleCarrier | null;
   if (!layer) return;
   // Follow-fill always owns an override even though no colour intent is
@@ -547,7 +576,9 @@ const applySolidStrokeToLayer = (
       // The author's own stroke is the paint in ORIGINAL: folium's mouseout
       // restore already put it back, so there is no user face to replay.
       if (effectiveBorderMode(ui, layerId) === STYLE_MODE.ORIGINAL) return null;
-      const w = getIntent(ui, layerId, INTENT.BORDER_WEIGHT);
+      const w =
+        getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ??
+        declaredBorderWeight(ui, layerId);
       // Follow-fill replays this leaf's CURRENT derived colour, so a fill
       // change followed by a highlight restore keeps the border in step.
       // For solid, replay the derived base only when the user owns the paint:
@@ -558,7 +589,9 @@ const applySolidStrokeToLayer = (
         getIntent(ui, layerId, INTENT.BORDER_COLOR) !== undefined ||
         getIntent(ui, layerId, INTENT.BORDER_WEIGHT) !== undefined ||
         getIntent(ui, layerId, INTENT.BORDER_VALUE) !== undefined ||
-        getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined;
+        getIntent(ui, layerId, INTENT.BORDER_STYLE_MODE) !== undefined ||
+        declaredBorderColor(ui, layerId) !== undefined ||
+        declaredBorderWeight(ui, layerId) !== undefined;
       const c = followFill
         ? derivedFillColor(node)
         : ownIntent
@@ -820,7 +853,10 @@ const buildBorderWidthOnlyRow = (
   layerId: string,
   author: { weight: number },
 ): HTMLElement => {
-  const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
+  const weight =
+    getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ??
+    declaredBorderWeight(ui, layerId) ??
+    author.weight;
   return buildBorderRowShell({
     rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW} ${CONST.CLASSES.STYLE_SIZE_ROW}`,
     label: ui.T("border"),
@@ -873,7 +909,10 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
       ];
     }
     const color = displayColor(author.color);
-    const weight = getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight;
+    const weight =
+      getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ??
+      declaredBorderWeight(ui, layerId) ??
+      author.weight;
     // Same colour control as the single-color mode (buildBorderRowShell ->
     // colorInput), only inert: the author's stroke is not the user's to change.
     // Reusing the real input keeps the ORIGINAL row pixel-identical to SINGLE
@@ -899,8 +938,15 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
     buildBorderRowShell({
       rowClass: `${PANEL_CLASS.FORM_ROW} ${CONST.CLASSES.STYLE_BORDER_ROW}`,
       label: ui.T("border"),
-      color: displayColor(getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color),
-      weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
+      color: displayColor(
+        getIntent(ui, layerId, INTENT.BORDER_COLOR) ??
+          declaredBorderColor(ui, layerId) ??
+          author.color,
+      ),
+      weight:
+        getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ??
+        declaredBorderWeight(ui, layerId) ??
+        author.weight,
       hasColorInput: true,
       hasWeightInput: true,
       className: CONST.CLASSES.STYLE_BORDER_COLOR_INPUT,
@@ -1269,8 +1315,14 @@ const BORDER_DIMENSION = registerDimension<{
     const author = authoredBorder(ui, layerId);
     const value = effectiveBorderValue(ui, layerId);
     return {
-      color: getIntent(ui, layerId, INTENT.BORDER_COLOR) ?? author.color,
-      weight: getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ?? author.weight,
+      color:
+        getIntent(ui, layerId, INTENT.BORDER_COLOR) ??
+        declaredBorderColor(ui, layerId) ??
+        author.color,
+      weight:
+        getIntent(ui, layerId, INTENT.BORDER_WEIGHT) ??
+        declaredBorderWeight(ui, layerId) ??
+        author.weight,
       mode: effectiveBorderMode(ui, layerId),
       value: value === undefined ? undefined : resolvedValue(ui, layerId, value),
     };
@@ -1304,7 +1356,7 @@ const BORDER_DIMENSION = registerDimension<{
     // user's intent must reveal the author's declared border (follow the
     // fill), not the per-feature stroke beneath. Applying here reads the
     // declaration from the layer (no intent left) — mirror of fill's reset.
-    if (declaredBorderMode(ui, layerId) === STYLE_MODE.FOLLOW_FILL) {
+    if (declaredBorderRecord(ui, layerId).declared !== undefined) {
       applyBorderToLayer(ui, layerId);
       return;
     }
@@ -1332,8 +1384,7 @@ const BORDER_DIMENSION = registerDimension<{
       // never reach a leaf added after the panel opened. The value arm is
       // what recovers a CircleMarker whose geometry/fields read unknown at
       // the one-shot attach sweep (#1285).
-      declaredBorderMode(ui, layerId) === STYLE_MODE.FOLLOW_FILL ||
-      declaredBorderMode(ui, layerId) === STYLE_MODE.VALUE,
+      declaredBorderRecord(ui, layerId).declared !== undefined,
     run: (ui, layerId) => applyBorderToLayer(ui, layerId),
   },
 });
@@ -1358,7 +1409,7 @@ const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
   // carries value) inside declaredBorderMode, so applying here is a no-op
   // there — same honest degradation a stored value gets.
   const declared = declaredBorderMode(ui, layerId);
-  if (declared !== STYLE_MODE.FOLLOW_FILL && declared !== STYLE_MODE.VALUE) return;
+  if (declared === undefined) return;
   let painted = declaredReplayed.get(ui);
   if (painted?.has(layerId)) return;
   applyBorderToLayer(ui, layerId);

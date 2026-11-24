@@ -6534,20 +6534,25 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     expect(mode.value).toBe("original");
   });
 
-  it("a declared mode=solid ignores a ramp given beside it", () => {
+  it("a declared mode=solid ignores a ramp shell given beside it", () => {
     const { ui } = declaredRampFixture({
       mode: "solid",
 
       value: { field: "count" },
     });
 
-    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("original");
+    // The solid mode is the author's read-time default; the nested value shell
+    // is not a known fill key, so the reader warns and drops it rather than
+    // turning the declaration into a ramp (solid is a real mode).
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.mode).toBe("solid");
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.value).toBeUndefined();
 
     const mode = buildFillRow(ui, "overlay1").querySelector(
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
 
-    expect(mode.value).toBe("original");
+    expect(mode.value).toBe("solid");
   });
 
   it("takes the declared ramp over the detected per-feature paint", () => {
@@ -6719,7 +6724,7 @@ describe("declared fill — foliplus={'fill': ...}", () => {
     ).toEqual(["#0d0887", "#f0f921"]);
   });
 
-  it("a declared mode=solid leaves the per-feature display alone", () => {
+  it("a declared mode=solid surfaces over the detected per-feature display", () => {
     installLeafletGlobals();
 
     const layer = makePerFeatureLayer(["#0d0887", "#f0f921"]);
@@ -6756,7 +6761,10 @@ describe("declared fill — foliplus={'fill': ...}", () => {
       `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
     ) as HTMLSelectElement;
 
-    expect(mode.value).toBe("original");
+    // The explicit declaration outranks the detected per-feature
+    // presentation; the hint still explains what the authored original
+    // colors are, so the per-feature sentence stays on the control.
+    expect(mode.value).toBe("solid");
 
     expect(mode.title).toBe("LayerControl.style_fill_per_feature_note");
   });
@@ -7487,6 +7495,76 @@ describe("declared fill — foliplus={'fill': ...}", () => {
         value: { kind: "category", field: "cat", scheme: "Set3" },
       });
     });
+  });
+
+  // ── declared solid (fill.color / fill.opacity) ───────────────────────
+  // The solid mode's colour and opacity are read-time defaults like the
+  // ramp's mode: the row shows them, the dimension readout carries them (the
+  // getStyle snapshot reads the same value()), and the attach sweep paints
+  // them — none of it writes user intent.
+
+  it("a declared solid colour and opacity are the row's read-time defaults", () => {
+    const { ui } = declaredRampFixture({
+      mode: "solid",
+
+      color: "#FF0000",
+
+      opacity: 0.4,
+    });
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")).toMatchObject({
+      mode: "solid",
+
+      color: "#ff0000",
+
+      opacity: 0.4,
+    });
+
+    const block = buildFillRow(ui, "overlay1");
+
+    const mode = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_MODE_SELECT}`,
+    ) as HTMLSelectElement;
+
+    expect(mode.value).toBe("solid");
+
+    const color = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_COLOR_INPUT}`,
+    ) as HTMLInputElement;
+
+    expect(color.value).toBe("#ff0000");
+
+    const opacity = block.querySelector(
+      `.${CONST.CLASSES.STYLE_FILL_OPACITY_NUMBER}`,
+    ) as HTMLInputElement;
+
+    // The fill-opacity row is a percent input (0-100).
+    expect(Number(opacity.value)).toBe(40);
+
+    // A read-time default is not a user intent: Reset must still reveal it.
+    expect(getIntent(ui, "overlay1", "fillColor")).toBeUndefined();
+
+    expect(getIntent(ui, "overlay1", "fillOpacity")).toBeUndefined();
+  });
+
+  it("a declared solid colour paints at attach without writing intent", () => {
+    const { rampLayer } = declaredRampFixture({
+      mode: "solid",
+
+      color: "#ff0000",
+
+      opacity: 0.4,
+    });
+
+    expect(paintedColors(rampLayer)).toEqual(["#ff0000", "#ff0000", "#ff0000"]);
+  });
+
+  it("a stored solid colour still beats the declared one", () => {
+    const { ui } = declaredRampFixture({ mode: "solid", color: "#ff0000" });
+
+    setIntent(ui, "overlay1", "fillColor", "#00ff00");
+
+    expect(FILL_DIMENSION.value!(ui, "overlay1")?.color).toBe("#00ff00");
   });
 });
 

@@ -5,19 +5,26 @@
 // label declaration uses. This module turns that raw declaration into a
 // validated, cached {@link DeclaredFill}: the fill mode's author default.
 //
-// The declaration is FLAT: `fill` accepts only `field` (required) plus the
-// optional `method` / `classes` / `scheme` / `kind`. The old nested
-// `fill.ramp` shell and the `fill.mode` switch are cancelled — those keys
-// are now unknown, ignored one by one with a one-time warning, never re-read
-// as a compat shape (no compat read, no version bump). A declaration that
-// names a usable `field` turns the "color by value" mode on; one without is
-// dropped whole rather than painted as a misleading solid face.
+// The declaration is FLAT and names one of the fill row's three modes:
 //
-// `kind` selects the internal mode — `"numeric"` or `"category"` — and is an
-// optional override. Absent, it reads as `"numeric"` here, but the parse
-// layer deliberately leaves it out of the returned record so `fill.ts` can
-// infer it from the layer's own values first (`inferFieldKind`, slice ②): the
-// parse layer does not sample, it only validates what the author wrote.
+//   * value    — a usable `field` (required) plus optional `method` /
+//                `classes` / `scheme` / `kind`; the pre-existing reclassify
+//                instruction.
+//   * solid    — a `color` (CSS hex) and/or an `opacity`; the "one declared
+//                colour" default the panel's solid row can set.
+//   * original — the author's own per-feature paint (no colour of its own).
+//
+// `mode` may name one explicitly; absent, a field implies value and a colour
+// or opacity implies solid. `opacity` (0-1, Leaflet's fillOpacity unit) rides
+// EVERY mode — it is the sub-dimension the panel shows beside the swatch in
+// all three modes — so it is validated and returned on its own axis, never
+// folded into the mode switch. `color` belongs to the solid mode: a colour on
+// a value/original declaration is a contradiction and drops the declaration.
+//
+// The old nested `fill.ramp` shell is cancelled — that key is unknown, ignored
+// with a one-time warning, never re-read as a compat shape (no compat read, no
+// version bump). A declaration that names no mode, field, colour or opacity is
+// dropped whole rather than painted as a misleading face.
 //
 // It is NOT user intent: nothing here touches the intent store. `fill.ts`
 // merges the declaration under the user's stored choice (intent > declaration
@@ -25,14 +32,13 @@
 // always wins and Reset — which clears the intent — shows the declaration
 // through again.
 //
-// The declaration is a PURE ADDITIVE key, the same contract the per-feature
-// `fillAuthor` payload follows: a layer that declares no `foliplus.fill` has
-// no CONF change, no panel mode and no behaviour difference from before this
-// reader existed; only a layer that names one gets the read-time default.
+// The declaration is a PURE ADDITIVE key, the same contract `fillAuthor`
+// follows: a layer that declares no `foliplus.fill` has no CONF change, no
+// panel mode and no behaviour difference from before this reader existed.
 // Invalid keys degrade one by one (each rejected key is warned once and the
-// rest of the declaration survives), and a declaration that names a ramp but
-// no usable field is dropped whole rather than painted as a misleading solid
-// face.
+// rest of the declaration survives), except a contradiction (a field on a
+// solid/original face, a colour on a value/original face) or an unusable mode,
+// which drops the declaration whole.
 //
 // The read/cache/warn-once skeleton lives in {@link readDeclaredKey}: this
 // module supplies only the fill parse — the business logic that validates what
@@ -40,7 +46,7 @@
 // of re-implementing it.
 import * as CONST from "./const.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
-import type { ValueConfig } from "#core/layer/index.js";
+import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import {
   CLASS_COUNT,
   METHOD_ORDER,
@@ -48,17 +54,19 @@ import {
   isClassifyMethod,
   isValueKind,
 } from "#core/value/index.js";
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
 
 /** A validated fill declaration for one layer.
  *
- *  The declaration is FLAT — there is no `mode`/ramp` shell. A present
- *  declaration always names a usable `field`, which is what turns the
- *  "color by value" mode on; `kind` is the optional override `fill.ts`
- *  resolves against the layer's own values when absent (the inference happens
- *  there, never in the parse layer). `method` / `classes` / `scheme` took
- *  the panel defaults where the author stayed silent, so a declaration and a
- *  later panel edit compare on the same shape. */
-type DeclaredFill = ValueConfig;
+ *  `mode` is the row mode the declaration asks for; `value` is present exactly
+ *  when that mode is VALUE. `color` is the solid mode's colour (already
+ *  expanded/lowercased) and `opacity` rides every mode. */
+type DeclaredFill = {
+  mode: StyleMode;
+  value?: ValueConfig;
+  color?: string;
+  opacity?: number;
+};
 
 type DeclaredFillRead = {
   declared?: DeclaredFill;
@@ -69,18 +77,26 @@ type DeclaredFillRead = {
 const EMPTY: DeclaredFillRead = { invalid: [] };
 
 /** The flat keys the declaration recognizes. Anything else — including the
- *  cancelled nested `ramp` shell and the `mode` switch — is an unknown key,
- *  ignored one by one with a one-time warning. */
+ *  cancelled nested `ramp` shell — is an unknown key, ignored one by one with
+ *  a one-time warning. */
 const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "field",
   "method",
   "classes",
   "scheme",
   "kind",
+  "mode",
+  "color",
+  "opacity",
 ]);
 
 const isName = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
+
+/** A fill opacity is Leaflet's 0-1 unit; a bool is an object in JS but never
+ *  an opacity, and a non-finite value has no paint. */
+const isUnitOpacity = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 
 /** Parse a flat value-mode declaration (the fill schema) into a validated
  *  {@link ValueConfig}.
@@ -99,7 +115,7 @@ const isName = (value: unknown): value is string =>
  *  Returns the validated config, or `undefined` when the declaration is
  *  unbuildable (no `field`, an unknown `kind`, or an explicit category without
  *  a `scheme`) — the caller then drops the whole declaration rather than
- *  painting a misleading solid face. `method`/`classes`/`scheme` take the panel
+ *  painting a misleading face. `method`/`classes`/`scheme` take the panel
  *  defaults where the author stayed silent. `kind` is omitted from the numeric
  *  record (absent = numeric, inferred by the caller against the layer's own
  *  values); an explicit category is returned with its kind and a required
@@ -190,20 +206,20 @@ const parseValueDeclaration = (
 
 /** Parse the flat `fill` declaration into a validated {@link DeclaredFill}.
  *
- *  One declaration, one "color by value" instruction: naming a usable `field`
- *  turns the mode on, and the remaining keys configure it. Invalid keys degrade
- *  one by one (each rejected key is warned once and the rest survives), except
- *  where a missing piece makes the declaration unbuildable — no `field`, an
- *  unknown `kind`, or an explicit category without a `scheme` — in which case
- *  the whole declaration is dropped rather than painted as a misleading solid
- *  face. `classes` is kept exactly as declared, never clamped: "declared 12,
- *  painted 6" is the silent deviation this reader exists to prevent, so the
- *  editable 2..9 vocabulary is a panel constraint, not an author one.
+ *  One declaration, one mode: an explicit `mode` wins; absent, a usable
+ *  `field` turns the value mode on and a `color`/`opacity` turns the solid
+ *  mode on. Invalid keys degrade one by one (each rejected key is warned once
+ *  and the rest survives), except an unusable mode or a contradiction (a field
+ *  on a solid/original face, a colour on a value/original face), which drops
+ *  the whole declaration. `classes` is kept exactly as declared, never
+ *  clamped: "declared 12, painted 6" is the silent deviation this reader
+ *  exists to prevent, so the editable 2..9 vocabulary is a panel constraint,
+ *  not an author one.
  *
  *  @param reject one rejected key: record it for the caller (tests) and warn
  *    once per (declared-key, layer, key) — the skeleton owns the dedup, the
  *    parse owns the message and the `invalid` accumulation. */
-const parse = (
+const parseFillDeclaration = (
   raw: unknown,
   layerId: string | undefined,
   reject: RejectFn,
@@ -224,25 +240,107 @@ const parse = (
   }
   const data = raw as Record<string, unknown>;
 
-  // Unknown keys (the cancelled `ramp` shell, the `mode` switch, a typo) are
-  // ignored one by one; the rest of the declaration survives.
+  // Unknown keys (the cancelled `ramp` shell, a typo) are ignored one by one;
+  // the rest of the declaration survives.
   for (const key of Object.keys(data)) {
     if (!KNOWN_KEYS.has(key)) {
       rejectKey(
         key,
-        `an unknown fill key ${JSON.stringify(key)} (expected field/method/classes/scheme/kind)`,
+        `an unknown fill key ${JSON.stringify(key)} (expected field/method/classes/scheme/kind/mode/color/opacity)`,
       );
     }
   }
 
-  // The flat value fields are validated by the shared parser: the one
-  // declaration schema fill and border reuse (field required; method/classes/
-  // scheme/kind optional). A hard drop (no field, unknown kind, category
-  // without scheme) returns undefined and drops the whole declaration; the
-  // config is the declared read-time default.
-  const config = parseValueDeclaration(data, rejectKey, "fill");
-  if (config === undefined) return { invalid };
-  return { declared: config, invalid };
+  const hasField = data.field !== undefined;
+  let mode: StyleMode;
+  if (data.mode !== undefined) {
+    if (
+      data.mode !== STYLE_MODE.SOLID &&
+      data.mode !== STYLE_MODE.VALUE &&
+      data.mode !== STYLE_MODE.ORIGINAL
+    ) {
+      rejectKey(
+        "mode",
+        `invalid fill.mode ${JSON.stringify(data.mode)} (expected "solid", "value" or "original")`,
+      );
+      return { invalid };
+    }
+    mode = data.mode;
+  } else if (hasField) {
+    mode = STYLE_MODE.VALUE;
+  } else if (data.color !== undefined || data.opacity !== undefined) {
+    mode = STYLE_MODE.SOLID;
+  } else {
+    rejectKey(
+      "mode",
+      "a fill declaration without fill.mode, fill.field, fill.color or fill.opacity",
+    );
+    return { invalid };
+  }
+
+  // A mode and a key belonging to another mode is a contradiction, not a
+  // silent merge: the author must see why the declaration cannot stand.
+  if (mode !== STYLE_MODE.VALUE) {
+    if (hasField) {
+      rejectKey("field", `fill.mode "${mode}" contradicts fill.field`);
+      return { invalid };
+    }
+    for (const key of ["method", "classes", "scheme", "kind"] as const) {
+      if (data[key] !== undefined) {
+        rejectKey(key, `fill.mode "${mode}" does not classify by value`);
+        return { invalid };
+      }
+    }
+  } else if (!hasField) {
+    rejectKey("field", "a fill declaration without a fill.field");
+    return { invalid };
+  }
+  if (mode !== STYLE_MODE.SOLID && data.color !== undefined) {
+    rejectKey("color", `fill.mode "${mode}" contradicts a solid color`);
+    return { invalid };
+  }
+
+  let color: string | undefined;
+  if (data.color !== undefined) {
+    if (isHexColor(data.color)) color = normalizeHexColor(data.color).toLowerCase();
+    else {
+      rejectKey(
+        "color",
+        `invalid fill.color ${JSON.stringify(data.color)} (expected a CSS hex)`,
+      );
+    }
+  }
+  let opacity: number | undefined;
+  if (data.opacity !== undefined) {
+    if (isUnitOpacity(data.opacity)) opacity = data.opacity;
+    else {
+      rejectKey(
+        "opacity",
+        `invalid fill.opacity ${JSON.stringify(data.opacity)} (expected a number from 0 to 1)`,
+      );
+    }
+  }
+
+  if (mode === STYLE_MODE.VALUE) {
+    // The flat value fields are validated by the shared parser: the one
+    // declaration schema fill and border reuse. A hard drop (no field, unknown
+    // kind, category without scheme) returns undefined and drops the whole
+    // declaration; the config is the declared read-time default.
+    const config = parseValueDeclaration(data, rejectKey, "fill");
+    if (config === undefined) return { invalid };
+    return {
+      declared: { mode, value: config, ...(opacity === undefined ? {} : { opacity }) },
+      invalid,
+    };
+  }
+  return {
+    declared: {
+      mode,
+      ...(color === undefined ? {} : { color }),
+      ...(opacity === undefined ? {} : { opacity }),
+    },
+    invalid,
+  };
 };
 
 /** Read (and cache) the fill declaration on one layer.
@@ -263,7 +361,7 @@ const parse = (
  */
 const readDeclaredFill = (layer: unknown, layerId?: string): DeclaredFillRead => {
   if (layer === null || typeof layer !== "object") return EMPTY;
-  return readDeclaredKey(layer, layerId, "fill", parse);
+  return readDeclaredKey(layer, layerId, "fill", parseFillDeclaration);
 };
 
 export { readDeclaredFill, parseValueDeclaration };
