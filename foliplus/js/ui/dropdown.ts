@@ -299,8 +299,9 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   // then commit through the same write path a row press uses (onChange +
   // native change). A re-render follows so the options and the select-all row
   // answer the new selection.
+  // The select-all row only exists in multiple mode, so these two set actions
+  // are multiple-only by construction — no mode guard to carry.
   const selectAllValues = (): void => {
-    if (state.destroyed || !state.multiple) return;
     state.values = new Set(state.items.map(item => item.value));
     renderLabel(state);
     commit(state);
@@ -309,7 +310,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     if (listboxOf(state).isOpen()) listboxOf(state).refreshHead();
   };
   const clearValues = (): void => {
-    if (state.destroyed || !state.multiple) return;
     state.values = new Set();
     renderLabel(state);
     commit(state);
@@ -357,11 +357,12 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     row: HTMLElement,
     item: DropdownItem,
     ctx: { selected: boolean; index: number },
-    st: InternalState,
   ): void => {
-    if (!st.multiple) return;
-    const box = row.querySelector<HTMLInputElement>("input[type=checkbox]");
-    if (box) box.checked = ctx.selected;
+    // The row's indicator is its checkbox, which multiple mode always renders:
+    // ui/listbox only calls paintRow from its multiple-only branches (single
+    // mode closes the list instead), so there is no non-checkbox row to skip.
+    const box = row.querySelector<HTMLInputElement>("input[type=checkbox]")!;
+    box.checked = ctx.selected;
   };
 
   const selectAllRowOf = (): HTMLElement => {
@@ -424,7 +425,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       renderRow: (item, ctx) => renderOptionRow(item, ctx, state),
       // Repaint the row's own indicator after a state change without a full
       // rebuild (ui/listbox calls this from the row-toggle and refreshHead).
-      paintRow: (row, item, ctx) => paintOptionRow(row, item, ctx, state),
+      paintRow: (row, item, ctx) => paintOptionRow(row, item, ctx),
     },
     classes: {
       list: DROPDOWN_CLASS.LIST,

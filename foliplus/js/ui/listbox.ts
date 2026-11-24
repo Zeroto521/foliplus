@@ -400,8 +400,9 @@ const renderRows = (state: InternalState): void => {
 /** Re-build the head from a fresh read, keeping the rows and the open state. */
 const refreshHead = (state: InternalState): void => {
   if (state.destroyed) return;
-  const head = state.list.firstElementChild;
-  if (head) state.list.removeChild(head);
+  // renderRows always appends the head first, so a refresh (only reached
+  // after a render) always has one to replace.
+  state.list.removeChild(state.list.firstElementChild!);
   const next = state.spec.head?.();
   if (next) state.list.insertBefore(next, state.list.firstElementChild);
   // Re-read each row's picked state without recreating it: the row nodes are
