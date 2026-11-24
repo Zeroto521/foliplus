@@ -61,7 +61,7 @@ export { Slider, finishSlidersIn, sliderOf } from "./slider.js";
 export { SLIDER_CLASS } from "./sliderClassName.js";
 export { CHECKBOX_CLASS } from "./checkboxClassName.js";
 export { createCheckbox, setCheckboxState, triStateOf } from "./checkbox.js";
-export type { Checkbox, CheckboxOptions, TriState } from "./checkbox.js";
+export type { TriState } from "./checkbox.js";
 export { LABEL_CLASS } from "./labelClassName.js";
 export { ensureActiveVisible } from "./scrollIntoView.js";
 export { STYLE_MODE_KEY } from "./styleModeKey.js";

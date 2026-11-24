@@ -26,6 +26,7 @@ import { dom } from "#platform/dom.js";
 /** The three painted states of an aggregating checkbox. */
 type TriState = "checked" | "unchecked" | "indeterminate";
 
+/** Internal: the factory's options. Not exported — no consumer names the type. */
 interface CheckboxOptions {
   /** Binary state when the box is not aggregating. Ignored when `triState`
    *  is given. */
@@ -43,6 +44,7 @@ interface CheckboxOptions {
   onChange?: (preClick: TriState) => void;
 }
 
+/** Internal: the factory's return. Not exported — consumers use the inferred shape. */
 interface Checkbox {
   /** The layout wrapper (`foliplus-checkbox`) — mount this in the row/header. */
   host: HTMLElement;
@@ -144,5 +146,4 @@ const createCheckbox = (opts: CheckboxOptions = {}): Checkbox => {
 };
 
 export { createCheckbox, setCheckboxState, triStateOf };
-export type { Checkbox, CheckboxOptions, TriState };
-export { CHECKBOX_CLASS } from "./checkboxClassName.js";
+export type { TriState };

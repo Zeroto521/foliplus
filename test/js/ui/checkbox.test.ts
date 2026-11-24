@@ -1,6 +1,7 @@
 // test/js/ui/checkbox.test.ts — the shared tri-state checkbox primitive.
 import { describe, expect, it, vi } from "vitest";
-import { CHECKBOX_CLASS, type TriState, createCheckbox } from "#ui/checkbox.js";
+import { CHECKBOX_CLASS } from "#ui/checkboxClassName.js";
+import { type TriState, createCheckbox } from "#ui/checkbox.js";
 
 const stateOf = (input: HTMLInputElement): TriState =>
   input.indeterminate ? "indeterminate" : input.checked ? "checked" : "unchecked";
