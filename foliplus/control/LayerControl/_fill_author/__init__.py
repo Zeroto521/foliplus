@@ -2,15 +2,15 @@
 
 The fill-author code is four modules, one concern each:
 
-- ``_fill_author_scale`` — the feature property read, color sampling and the
+- ``scale`` — the feature property read, color sampling and the
   ``FILL_AUTHOR_*`` thresholds;
-- ``_fill_author_colormap`` — branca scale reads (mounted scales, samples,
+- ``colormap`` — branca scale reads (mounted scales, samples,
   agreement counts, continuous stops);
-- ``_fill_author_caption`` — pairing a scale to its layer through the caption
+- ``caption`` — pairing a scale to its layer through the caption
   and the color veto;
-- ``_fill_author_payload`` — the ``fillAuthor`` record and its strip.
+- ``payload`` — the ``fillAuthor`` record and its strip.
 
-This module is the facade the rest of the control imports. It re-exports every
+This package is the facade the rest of the control imports. It re-exports every
 public name so ``from ._fill_author import fill_author, map_colormaps`` (and the
 tests that read the module surface) stay stable while the code lives in four
 navigable modules.
@@ -18,12 +18,12 @@ navigable modules.
 
 from __future__ import annotations
 
-from ._fill_author_caption import (
+from .caption import (
     caption_names_a_value,
     pair_scale,
     warn_refused_caption,
 )
-from ._fill_author_colormap import (
+from .colormap import (
     colormap_sample,
     column_agreement,
     continuous_stops,
@@ -33,8 +33,8 @@ from ._fill_author_colormap import (
     rgba_hex,
     stepped_agreement,
 )
-from ._fill_author_payload import fill_author, scale_payload
-from ._fill_author_scale import (
+from .payload import fill_author, scale_payload
+from .scale import (
     FILL_AUTHOR_AGREE,
     FILL_AUTHOR_CONTINUOUS_THRESHOLD,
     FILL_AUTHOR_RGB_SLACK,

@@ -14,7 +14,7 @@ from typing import Any, cast
 
 from branca.colormap import LinearColormap, StepColormap
 
-from ._fill_author_scale import FILL_AUTHOR_STOPS, numeric_value, same_color
+from .scale import FILL_AUTHOR_STOPS, numeric_value, same_color
 
 
 def map_colormaps(node: Any) -> list[Any]:

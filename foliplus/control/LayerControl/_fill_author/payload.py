@@ -12,9 +12,9 @@ from typing import Any
 from branca.colormap import StepColormap
 from folium.map import Layer
 
-from ._fill_author_caption import pair_scale
-from ._fill_author_colormap import continuous_stops, provable_equal_interval, rgba_hex
-from ._fill_author_scale import (
+from .caption import pair_scale
+from .colormap import continuous_stops, provable_equal_interval, rgba_hex
+from .scale import (
     FILL_AUTHOR_CONTINUOUS_THRESHOLD,
     FILL_AUTHOR_STOPS,
     author_colors,

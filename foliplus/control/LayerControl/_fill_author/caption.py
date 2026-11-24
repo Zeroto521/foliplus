@@ -14,8 +14,8 @@ from branca.colormap import StepColormap
 
 from foliplus._declaration import refused_captions, should_report
 
-from ._fill_author_colormap import column_agreement, stepped_agreement
-from ._fill_author_scale import (
+from .colormap import column_agreement, stepped_agreement
+from .scale import (
     FILL_AUTHOR_AGREE,
     author_rows,
     numeric_value,

@@ -2,7 +2,7 @@
 
 The gate exists because the package layout hid module growth: a package can be
 "a directory package" and still hold a 457-code-line module. It counts code
-lines per file (non-blank, non-`#`; docstrings count) against the AGENTS.md
+lines per file (non-blank, non-`#`; docstrings count) against the documented
 300-line limit, and exits 1 listing every offender.
 
 Coverage target: full branch coverage of ``code_lines``, ``oversized``,
