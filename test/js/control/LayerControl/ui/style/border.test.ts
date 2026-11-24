@@ -2981,6 +2981,52 @@ describe("follow-fill border mode", () => {
     expect(leaves[0].setStyle.mock.calls.length).toBe(calls);
   });
 
+  // ── declared solid colour + weight ───────────────────────────────────
+  // The solid declaration's colour/weight are the border row's read-time
+  // defaults, and the attach sweep paints them — no user intent is written.
+
+  it("a declared solid colour and weight are the border row's read-time defaults", () => {
+    const leaves = [makeAreaLeaf(1)];
+    registerDeclared("dsolid1", { mode: "solid", color: "#FF0000", weight: 5 }, leaves);
+    const block = buildBorderRow(ui, "dsolid1") as HTMLElement;
+    document.body.appendChild(block);
+    expect(selectOf(block)!.value).toBe("solid");
+    expect(
+      (block.querySelector(".foliplus-style-border-color-input") as HTMLInputElement).value,
+    ).toBe("#ff0000");
+    expect(
+      (block.querySelector(".foliplus-style-border-weight-input") as HTMLInputElement).value,
+    ).toBe("5");
+    // The dimension readout (what getStyle's snapshot reads) carries the same.
+    expect(BORDER_DIMENSION.value!(ui, "dsolid1")).toMatchObject({
+      mode: "solid",
+      color: "#ff0000",
+      weight: 5,
+    });
+    expect(getIntent(ui, "dsolid1", "borderColor")).toBeUndefined();
+    expect(getIntent(ui, "dsolid1", "borderWeight")).toBeUndefined();
+  });
+
+  it("replayDeclaredBorder paints a declared solid colour and weight", () => {
+    const leaves = [makeAreaLeaf(1)];
+    registerDeclared("dsolid2", { mode: "solid", color: "#ff0000", weight: 5 }, leaves);
+    replayDeclaredBorder(ui, "dsolid2");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0]).toMatchObject({
+      color: "#ff0000",
+      weight: 5,
+    });
+  });
+
+  it("a stored colour still beats the declared solid colour", () => {
+    const leaves = [makeAreaLeaf(1)];
+    registerDeclared("dsolid3", { mode: "solid", color: "#ff0000", weight: 5 }, leaves);
+    setIntent(ui, "dsolid3", "borderColor", "#00ff00");
+    applyBorderToLayer(ui, "dsolid3");
+    expect(leaves[0].setStyle.mock.calls.at(-1)?.[0]).toMatchObject({
+      color: "#00ff00",
+    });
+  });
+
   it("replayDeclaredBorder shares the per-ui paint set across layers (second layer first paint)", () => {
     // The dedupe set is per-ui, not per-layer: a second declared layer on the
     // SAME ui must paint once too, even though the set already exists (the

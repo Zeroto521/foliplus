@@ -33,10 +33,13 @@ import {
   bindValueDetail,
   buildValueDetail,
   declaredFill,
+  declaredFillColor,
+  declaredFillMode,
+  declaredFillOpacity,
   declaredValue,
   disposeFillRow,
   effectiveFillValue,
-  hasDeclaredValue,
+  hasDeclaredFill,
   hasValueField,
   resolvedValue,
   valueFields,
@@ -194,6 +197,7 @@ const applySolidFillToLayer = (
     solid && !isColorBasemap(layerInfo) && needsDerivation(ui, layerId, FACE.FILL);
   const solidColor =
     getIntent(ui, layerId, INTENT.FILL_COLOR) ??
+    declaredFillColor(ui, layerId) ??
     (deriveSolidBase
       ? solidColorOf(ui, layerId, FACE.FILL, { excludeBasemap: true })
       : undefined);
@@ -202,7 +206,8 @@ const applySolidFillToLayer = (
   // transparency is a real face the map must paint (the colour stays the
   // author's). The original-guard would silently drop an
   // opacity-only override the moment the mode reads ORIGINAL.
-  const opacity = getIntent(ui, layerId, INTENT.FILL_OPACITY);
+  const opacity =
+    getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? declaredFillOpacity(ui, layerId);
 
   // Solid-color basemap: the fill is the pane's paint, not a vector style.
   // Route to showSolidBasemap instead of walking leaves (the basemap has none).
@@ -272,7 +277,9 @@ const applySolidFillToLayer = (
         // restore already put them back, so there is no colour face to replay
         // over it. An opacity override still rides the mode (#953) and must
         // survive the hover — replay that alone.
-        const o = getIntent(ui, layerId, INTENT.FILL_OPACITY);
+        const o =
+          getIntent(ui, layerId, INTENT.FILL_OPACITY) ??
+          declaredFillOpacity(ui, layerId);
         return o === undefined ? null : styleDimPayload({ fillOpacity: o }, FACE.FILL);
       }
       // Same derivation as the apply: a solid mode with no FILL_COLOR intent
@@ -287,9 +294,13 @@ const applySolidFillToLayer = (
         getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined ||
         getIntent(ui, layerId, INTENT.FILL_OPACITY) !== undefined ||
         getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined ||
-        getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined;
+        getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined ||
+        declaredFillColor(ui, layerId) !== undefined ||
+        declaredFillOpacity(ui, layerId) !== undefined;
       const c = ownIntent ? solidColor : undefined;
-      const o = getIntent(ui, layerId, INTENT.FILL_OPACITY);
+      const o =
+        getIntent(ui, layerId, INTENT.FILL_OPACITY) ??
+        declaredFillOpacity(ui, layerId);
       if (c === undefined && o === undefined) return null;
       // fill:true rides the replay too — folium's resetStyle would otherwise
       // re-apply the author's fill:false on mouseout and hide the fill.
@@ -387,6 +398,7 @@ const displayFillMode = (ui: LayerUI, layerId: string): StyleMode => {
   const value = getIntent(ui, layerId, INTENT.FILL_VALUE);
   return resolveDisplayMode({
     stored: getIntent(ui, layerId, INTENT.FILL_MODE),
+    declaredMode: declaredFillMode(ui, layerId),
     declaredValue: declaredValue(ui, layerId) !== undefined,
     colorIntent: getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined,
     valueIntent: value !== undefined,
@@ -401,14 +413,17 @@ const displayFillMode = (ui: LayerUI, layerId: string): StyleMode => {
  *  means — so the mode stays on a single line instead of two stacked rows. */
 const buildSolidDetail = (ui: LayerUI, layerId: string): HTMLElement[] => {
   const base = styleBaseOf(ui, layerId);
-  const storedColor = getIntent(ui, layerId, INTENT.FILL_COLOR);
+  const storedColor =
+    getIntent(ui, layerId, INTENT.FILL_COLOR) ?? declaredFillColor(ui, layerId);
   const colorInput = formColorInput({
     value: toHexColor(storedColor ?? base.fillColor),
     className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
     ariaLabel: ui.T("style_fill"),
   }) as HTMLInputElement;
 
-  const opacityInput = buildFillOpacityInput(ui, layerId, base);
+  const opacityInput = buildFillOpacityInput(ui, layerId, {
+    fillOpacity: declaredFillOpacity(ui, layerId) ?? base.fillOpacity,
+  });
 
   return [
     formRow(
@@ -454,7 +469,11 @@ const fillDetailBuilder = (
  *  swatch row (no modes, no per-feature values to classify). */
 const buildFillBasemapRow = (ui: LayerUI, layerId: string): HTMLElement => {
   const colorInput = formColorInput({
-    value: toHexColor(getIntent(ui, layerId, INTENT.FILL_COLOR) ?? CONST.COLOR.DEFAULT),
+    value: toHexColor(
+      getIntent(ui, layerId, INTENT.FILL_COLOR) ??
+        declaredFillColor(ui, layerId) ??
+        CONST.COLOR.DEFAULT,
+    ),
     className: CONST.CLASSES.STYLE_FILL_COLOR_INPUT,
     ariaLabel: ui.T("style_fill"),
   }) as HTMLInputElement;
@@ -623,6 +642,7 @@ const FILL_ADAPTER: PaintDimension = {
   needsDerivation: (ui, layerId) => needsDerivation(ui, layerId, FACE.FILL),
   displaySpec: (ui, layerId) => ({
     stored: getIntent(ui, layerId, INTENT.FILL_MODE),
+    declaredMode: declaredFillMode(ui, layerId),
     declaredValue: declaredValue(ui, layerId) !== undefined,
     colorIntent: getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined,
     valueIntent: getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined,
@@ -721,8 +741,14 @@ const FILL_DIMENSION = registerDimension<{
     // doubled the findLayer + firstStyleLeaf traversal per paint.
     const base = styleBaseOf(ui, layerId);
     return {
-      color: getIntent(ui, layerId, INTENT.FILL_COLOR) ?? base.fillColor,
-      opacity: getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? base.fillOpacity,
+      color:
+        getIntent(ui, layerId, INTENT.FILL_COLOR) ??
+        declaredFillColor(ui, layerId) ??
+        base.fillColor,
+      opacity:
+        getIntent(ui, layerId, INTENT.FILL_OPACITY) ??
+        declaredFillOpacity(ui, layerId) ??
+        base.fillOpacity,
       // The same resolver the row and apply use: "solid" is derived, not
       // authored, so the readout defers to whether a value config exists (and,
       // on an explore layer, to the author's own colors) rather than claiming
@@ -816,7 +842,7 @@ const FILL_DIMENSION = registerDimension<{
     face: FACE.FILL,
     when: (ui, layerId) =>
       FILL_INTENT_KEYS.some(key => getIntent(ui, layerId, key) !== undefined) ||
-      hasDeclaredValue(ui, layerId),
+      hasDeclaredFill(ui, layerId),
     run: (ui, layerId) => applyFillToLayer(ui, layerId),
   },
 });

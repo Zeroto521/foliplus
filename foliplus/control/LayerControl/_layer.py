@@ -14,6 +14,7 @@ from foliplus._declaration import (
     MARKER_COLOR_KEY,
     ZOOM_RANGE_KEY,
     normalise_border,
+    normalise_fill,
     normalise_folder,
     normalise_icon_size,
     normalise_layer_filter,
@@ -174,10 +175,11 @@ def declared_filter(item: Layer, layer_name: str) -> dict[str, object] | None:
     )
 
 
-def declared_border(item: Layer, layer_name: str) -> dict[str, str] | None:
+def declared_border(item: Layer, layer_name: str) -> dict[str, object] | None:
     """Normalise one layer ``foliplus={"border": {"mode": "follow_fill"}}``.
 
-    Returns ``{"mode": "follow_fill"}`` when the declaration is usable, else
+    Returns the normalised record (``mode`` plus an optional declared
+    ``color`` / ``weight``) when the declaration is usable, else
     ``None``: "not declared" and "declared but invalid" are the same state
     downstream - the border stays on its derived default (original/solid)
     rather than painting a mode the author never saw validated.
@@ -196,6 +198,31 @@ def declared_border(item: Layer, layer_name: str) -> dict[str, str] | None:
         owner="LayerControl",
         subject=f"layer {layer_name!r}",
         source="foliplus['border']",
+    )
+
+def declared_fill(item: Layer, layer_name: str) -> dict[str, object] | None:
+    """Normalise one layer `foliplus={"fill": {"mode": "solid", ...}}`.
+
+    Returns the normalised record when the declaration is usable, else
+    `None`: "not declared" and "declared but invalid" are the same state
+    downstream - the fill stays on its derived default rather than painting a
+    face the author never saw validated.
+
+    Mirrors :func:`declared_border`: the same namespace read, the same
+    unknown-key warning family, and the same single read point that owns the
+    warning for layers. The shared reader in :mod:`foliplus._declaration` owns
+    the `fill` shape, so the layer channel and any other reader cannot drift on
+    what an author may write; the JS panel reads the raw namespace and validates
+    the value-mode fields (the same split border follows).
+    """
+    namespace = foliplus_namespace(item, layer_name)
+    if namespace is None:
+        return None
+    return normalise_fill(
+        namespace.get(FILL_KEY),
+        owner="LayerControl",
+        subject=f"layer {layer_name!r}",
+        source="foliplus['fill']",
     )
 
 

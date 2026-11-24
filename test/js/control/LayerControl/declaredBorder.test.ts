@@ -3,8 +3,8 @@ import { STYLE_MODE } from "#core/layer/index.js";
 import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";
 
 /** A linked carrier carrying a foliplus border declaration. Fresh object per
- *  test: the reader caches per layer object, the way a folium layer's
- *  options are final once it exists. */
+ *  test: the reader caches per layer object, the way a folium layer's options
+ *  are final once it exists. */
 const layerWith = (foliplus: unknown) => ({ options: { foliplus } }) as never;
 
 describe("readDeclaredBorder", () => {
@@ -41,7 +41,7 @@ describe("readDeclaredBorder", () => {
     expect(read.invalid.length).toBeGreaterThan(0);
   });
 
-  it("rejects a border without a mode", () => {
+  it("rejects a border without a mode, field, colour or weight", () => {
     const read = readDeclaredBorder(layerWith({ border: {} }), "overlay1");
     expect(read.declared).toBeUndefined();
     expect(read.invalid.length).toBeGreaterThan(0);
@@ -49,22 +49,100 @@ describe("readDeclaredBorder", () => {
 
   it("rejects an unknown border mode", () => {
     const read = readDeclaredBorder(
-      layerWith({ border: { mode: "solid" } }),
+      layerWith({ border: { mode: "rainbow" } }),
       "overlay1",
     );
     expect(read.declared).toBeUndefined();
     expect(read.invalid.length).toBeGreaterThan(0);
   });
 
-  it("warns on an unknown key but keeps the valid mode (one-by-one warn)", () => {
+  it("reads a solid declaration with a colour and a weight", () => {
     const read = readDeclaredBorder(
-      layerWith({ border: { mode: "follow_fill", weight: 3 } }),
+      layerWith({ border: { mode: "solid", color: "#FF0000", weight: 2 } }),
       "overlay1",
     );
-    // The valid mode survives; the extra key is a typo to surface, never a
-    // reason to drop the author's follow_fill intent.
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.SOLID);
+    expect(read.declaredColor).toBe("#ff0000");
+    expect(read.declaredWeight).toBe(2);
+  });
+
+  it("a colour alone implies the solid mode", () => {
+    const read = readDeclaredBorder(layerWith({ border: { color: "#abc" } }), "overlay1");
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.SOLID);
+    expect(read.declaredColor).toBe("#aabbcc");
+  });
+
+  it("a weight alone implies the solid mode", () => {
+    const read = readDeclaredBorder(layerWith({ border: { weight: 3 } }), "overlay1");
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.SOLID);
+    expect(read.declaredWeight).toBe(3);
+  });
+
+  it("reads an explicit original declaration (weight still rides it)", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "original", weight: 1.5 } }),
+      "overlay1",
+    );
+    expect(read.invalid).toEqual([]);
+    expect(read.declared).toBe(STYLE_MODE.ORIGINAL);
+    expect(read.declaredWeight).toBe(1.5);
+  });
+
+  it("weight rides the follow_fill mode", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "follow_fill", weight: 2 } }),
+      "overlay1",
+    );
+    expect(read.invalid).toEqual([]);
     expect(read.declared).toBe(STYLE_MODE.FOLLOW_FILL);
-    expect(read.invalid.length).toBeGreaterThan(0);
+    expect(read.declaredWeight).toBe(2);
+  });
+
+  it("rejects an invalid weight and keeps the mode", () => {
+    for (const weight of [0, -1, "2", true, Number.NaN]) {
+      const read = readDeclaredBorder(
+        layerWith({ border: { mode: "solid", weight } }),
+        "overlay1",
+      );
+      expect(read.declared).toBe(STYLE_MODE.SOLID);
+      expect(read.declaredWeight).toBeUndefined();
+      expect(read.invalid.length).toBeGreaterThan(0);
+      expect(read.invalid[0]).toContain("invalid border.weight");
+    }
+  });
+
+  it("rejects an invalid colour and keeps the mode", () => {
+    for (const color of ["red", "#12", 7, ""]) {
+      const read = readDeclaredBorder(
+        layerWith({ border: { mode: "solid", color } }),
+        "overlay1",
+      );
+      expect(read.declared).toBe(STYLE_MODE.SOLID);
+      expect(read.declaredColor).toBeUndefined();
+      expect(read.invalid.length).toBeGreaterThan(0);
+      expect(read.invalid[0]).toContain("invalid border.color");
+    }
+  });
+
+  it("drops a solid declaration that carries a value-mode field", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "solid", field: "count" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.join(" ")).toContain("contradicts");
+  });
+
+  it("drops a value declaration that carries a solid colour", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "value", field: "count", color: "#ff0000" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.join(" ")).toContain("contradicts");
   });
 
   it("caches per layer object: a second read does not re-validate", () => {
@@ -83,13 +161,11 @@ describe("readDeclaredBorder", () => {
   });
 
   it("warns with the unregistered scope when no layerId is known (undefined layerId)", () => {
-    // A declaration read before the layer is linked has no id; the warn scope
-    // falls back to an empty label and "<unregistered>" in the message — the
-    // nullish arms of reject(). Both arms are part of the public reader contract.
-    const read = readDeclaredBorder(layerWith({ border: { mode: "solid" } }));
+    const read = readDeclaredBorder(layerWith({ border: { mode: "rainbow" } }));
     expect(read.declared).toBeUndefined();
     expect(read.invalid.length).toBeGreaterThan(0);
   });
+
   it("reads a value-mode shell declaration", () => {
     const read = readDeclaredBorder(
       layerWith({ border: { mode: "value", field: "score", scheme: "Reds" } }),
