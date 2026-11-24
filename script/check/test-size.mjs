@@ -39,17 +39,17 @@ const OVERSIZED = {
   "control/MeasureControl/manager.test.ts": "split pending",
   "ui/listbox.test.ts": "split pending",
   "control/LayerControl/ui/focus/index.test.ts": "split pending — blocked by #1284",
-  "control/LayerControl/ui/listPanel/list.test.ts":
-    "split pending — blocked by #1284",
+  "control/LayerControl/ui/listPanel/list.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/ui/overlayPanel/menu.test.ts":
     "split pending — blocked by #1284",
   "control/LayerControl/ui/overlayPanel/filter.test.ts":
     "split pending — blocked by #1284",
-  "control/LayerControl/ui/listPanel/drag.test.ts":
-    "split pending — blocked by #1284",
+  "control/LayerControl/ui/listPanel/drag.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/ui/apply.test.ts": "split pending — blocked by #1284",
   "ui/slider.test.ts": "split pending",
   "control/ExportControl/renderer/index.test.ts": "split pending",
+  "control/ExportControl/renderer/marker.test.ts":
+    "split pending — the marker export cases were folded into the canonical file",
   "control/LayerControl/ui/state.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/persistence.test.ts": "split pending — blocked by #1284",
   "core/layer/LayerFactory.test.ts": "split pending",
@@ -73,10 +73,8 @@ const OVERSIZED = {
   "control/LayerControl/ui/listPanel/keyboard.test.ts":
     "split pending — blocked by #1284",
   "ui/dropdown.test.ts": "split pending",
-  "control/LayerControl/ui/style/fillValue.test.ts":
-    "split pending — blocked by #1284",
-  "control/LayerControl/ui/style/styleBag.test.ts":
-    "split pending — blocked by #1284",
+  "control/LayerControl/ui/style/fillValue.test.ts": "split pending — blocked by #1284",
+  "control/LayerControl/ui/style/styleBag.test.ts": "split pending — blocked by #1284",
   "core/layer/folderLayout.test.ts": "split pending",
 };
 

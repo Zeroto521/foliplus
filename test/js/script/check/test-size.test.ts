@@ -7,8 +7,8 @@
 // disk and pin the three verdicts: an unlisted oversized file is red, an
 // allowlisted oversized file is quiet, and the guard's path normalisation maps
 // an absolute path back to its test/js/ key.
-import { LIMIT, checkSize } from "#script/check/test-size.mjs";
 import { describe, expect, it } from "vitest";
+import { LIMIT, checkSize } from "#script/check/test-size.mjs";
 
 describe("checkSize", () => {
   it("reports an unlisted oversized file as red", () => {
