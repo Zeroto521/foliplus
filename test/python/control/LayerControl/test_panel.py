@@ -32,7 +32,7 @@ from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
-from ._browser_base import LayerControlBrowserBase
+from .helper_browser import LayerControlBrowserBase
 from .helper import _expand_panel, _geo_mixed, _write_html
 
 

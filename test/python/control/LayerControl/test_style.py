@@ -39,7 +39,7 @@ def _method_labels() -> tuple[str, str]:
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
 
-from ._browser_base import LayerControlBrowserBase
+from .helper_browser import LayerControlBrowserBase
 from .helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
 
