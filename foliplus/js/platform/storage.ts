@@ -144,6 +144,82 @@ const loadVersioned = <T>(
 };
 
 /**
+ * Persist an OBJECT record behind the versioned envelope `{ version, data }`.
+ *
+ * {@link saveVersioned} cannot carry an object: its reader tolerates rows, and
+ * that tolerance is exactly what an object record must not have — a payload of
+ * the wrong shape can decode into a silently wrong state instead of into
+ * "fewer rows". The envelope therefore keeps the version next to the payload,
+ * and {@link loadVersionedObject} refuses a payload it was not written for.
+ *
+ * @param key - localStorage key.
+ * @param opts.data - The object to persist (must be JSON-serializable).
+ * @param opts.version - Shape version the component stamps on its records.
+ * @param opts.name - Caller component name, used as the log prefix.
+ * @returns Whether the value was actually written.
+ */
+const saveVersionedObject = <T>(
+  key: string,
+  { data, version, name = "foliplus" }: { data: T; version: number; name?: string },
+): boolean => saveRecord(key, { version, data }, name);
+
+/**
+ * Read and unwrap a versioned OBJECT record.
+ *
+ * One rule: a payload is only returned for the shape it claims.
+ *   - `{ version: n, data }` with `n` equal to `opts.version` → `data`;
+ *   - the same envelope with another `n` → `opts.migrate(data, n)` when a
+ *     migrator is supplied, otherwise `null` (the record is discarded);
+ *   - a legacy flat record (the version stamped on the record itself, no
+ *     `data` field) → `opts.migrate(record, storedVersion)` when a migrator
+ *     is supplied — this is how a consumer whose record shape predates the
+ *     envelope upgrades its own writes without a second version reader;
+ *   - a bare value (a string/number/array) → `opts.migrate(stored, null)`;
+ *   - absent or unreadable → `null`.
+ *
+ * A migrator that cannot reconstruct the record returns `null`, which the
+ * caller reads as "no usable saved state" and falls back to its default — the
+ * helper never half-applies a partially understood object.
+ *
+ * @param key - localStorage key.
+ * @param opts.version - Shape version this component writes today.
+ * @param opts.migrate - Upgrades an older/unversioned payload, or returns null.
+ * @param opts.name - Caller component name, used as the log prefix.
+ * @returns The payload, or null when absent, unreadable, or not migratable.
+ */
+const loadVersionedObject = <T>(
+  key: string,
+  {
+    version,
+    migrate,
+    name = "foliplus",
+  }: {
+    version: number;
+    migrate?: (data: unknown, version: number | null) => T | null;
+    name?: string;
+  },
+): T | null => {
+  const stored = loadRecord<unknown>(key, name);
+  if (stored === null) return null;
+  const record =
+    typeof stored === "object" && !Array.isArray(stored)
+      ? (stored as Record<string, unknown>)
+      : null;
+  const storedVersion =
+    record && typeof record.version === "number" && Number.isInteger(record.version)
+      ? record.version
+      : null;
+  if (record && "data" in record) {
+    if (storedVersion === version) return record.data as T;
+    return migrate ? migrate(record.data, storedVersion) : null;
+  }
+  if (!migrate) return null;
+  // A legacy flat record (its own `version` field) and a bare value both hand
+  // the migrator the record itself, so the consumer owns its old shape.
+  return migrate(stored, storedVersion);
+};
+
+/**
  * The write surface a persisted binding hands back to its caller. The helper
  * owns the lifecycle (debounce, flush, cancel); the component owns the data
  * (what to write, how to restore, how to surface a failure).
@@ -209,10 +285,12 @@ const createPersisted = ({
 export {
   loadRecord,
   loadVersioned,
+  loadVersionedObject,
   createPersisted,
   removeRecord,
   saveRecord,
   saveVersioned,
+  saveVersionedObject,
   scopedStorageKey,
 };
 export type { MapLike, Persisted, PersistedOpts };

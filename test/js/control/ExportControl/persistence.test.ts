@@ -68,7 +68,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       nw: { lat: 50, lng: 50 },
       se: { lat: 40, lng: 60 },
     };
-    vi.spyOn(Storage, "loadRecord").mockReturnValue(null);
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue(null);
     manager.loadSavedBounds();
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
@@ -79,7 +79,9 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       nw: { lat: 50, lng: 50 },
       se: { lat: 40, lng: 60 },
     };
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({ se: { lat: 40, lng: 60 } });
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
+      se: { lat: 40, lng: 60 },
+    });
     manager.loadSavedBounds();
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
@@ -90,7 +92,9 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       nw: { lat: 50, lng: 50 },
       se: { lat: 40, lng: 60 },
     };
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({ nw: { lat: 50, lng: 50 } });
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
+      nw: { lat: 50, lng: 50 },
+    });
     manager.loadSavedBounds();
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
@@ -102,7 +106,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       se: { lat: 40, lng: 60 },
     };
     // 120 exceeds ±90 lat cap; lat check trips.
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 120, lng: 100 },
       se: { lat: 100, lng: 110 },
     });
@@ -117,7 +121,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       se: { lat: 40, lng: 60 },
     };
     // -200 exceeds ±180 lng cap; lng check trips while lat passes.
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 20, lng: -200 },
       se: { lat: 10, lng: -190 },
     });
@@ -139,7 +143,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       getEast: () => 180,
       getWest: () => -180,
     });
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 20, lng: 100 },
       se: { lat: 10, lng: 110 },
     });
@@ -150,7 +154,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
   it("loadSavedBounds accepts a record with valid lat/lng overlapping the map", () => {
     const manager = makeManager();
     manager.savedBounds = null;
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 20, lng: 100 },
       se: { lat: 10, lng: 110 },
     });
@@ -165,19 +169,19 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
 describe("persistenceMethods — saveBounds", () => {
   it("saveBounds persists the geo bounds under the component's storage key", () => {
     const manager = makeManager();
-    const saveSpy = vi.spyOn(Storage, "saveRecord");
+    const saveSpy = vi.spyOn(Storage, "saveVersionedObject");
     manager.saveBounds({
       nw: { lat: 26.1, lng: 119.2 },
       se: { lat: 26.0, lng: 119.4 },
     });
-    expect(saveSpy).toHaveBeenCalledWith(
-      CONST.STORAGE.KEY,
-      {
+    expect(saveSpy).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      version: CONST.STORAGE.VERSION,
+      data: {
         nw: { lat: 26.1, lng: 119.2 },
         se: { lat: 26.0, lng: 119.4 },
       },
-      "ExportControl",
-    );
+      name: "ExportControl",
+    });
   });
 });
 
@@ -268,11 +272,11 @@ describe("persistenceMethods — restoreFromSavedBounds", () => {
     // restoreFromSavedBounds reads the IIFE free variable `map` (window.map in
     // tests), not the manager instance's map — the hint routes through the
     // per-map HintManager attached there, not this.map.foliplus.
-    expect(window.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "ExportControl",
+      "restore",
       expect.any(String),
-      expect.any(Number),
-      true,
+      { duration: expect.any(Number) },
     );
   });
 });

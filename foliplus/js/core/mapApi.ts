@@ -17,7 +17,16 @@
  * null — nothing reads the seed value. See `MapFoliplus` in type/global.d.ts.
  */
 const ensureMapFoliplus = (map: L.Map): MapFoliplus => {
-  map.foliplus ??= { LayerAPI: null! } as unknown as MapFoliplus;
+  map.foliplus ??= {
+    LayerAPI: null!,
+    // Inert until `ensureHint` replaces it: a hint call before the control
+    // bootstrap (or on a map whose control never ran) is a no-op, not a crash.
+    hint: {
+      set: () => void 0,
+      clear: () => void 0,
+      registerIcon: () => void 0,
+    },
+  } as unknown as MapFoliplus;
   return map.foliplus;
 };
 

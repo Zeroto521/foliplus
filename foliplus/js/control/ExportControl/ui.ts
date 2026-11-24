@@ -87,40 +87,34 @@ const showGlobalHint = (
   duration = HINT_DURATION.PERSIST,
   withLoadingIcon = false,
 ) => {
-  mgr.map.foliplus!.showHint(
-    mgr.config.name,
-    text,
-    duration || HINT_DURATION.PERSIST,
-    undefined,
-    undefined,
-    withLoadingIcon,
-  );
+  mgr.map.foliplus!.hint.set(mgr.config.name, "", text, {
+    duration: duration || HINT_DURATION.PERSIST,
+    icon: withLoadingIcon ? "loading" : undefined,
+  });
 };
 
 /** Show a hint with crop box size info. */
 const showHintWithInfo = (mgr: ExportManager, r: CropRect, instruction?: string) => {
   mgr.checkPixelLimit(r);
-  mgr.map.foliplus!.showHint(
+  mgr.map.foliplus!.hint.set(
     mgr.config.name,
-    `${mgr.T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ${mgr.T("label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
-    HINT_DURATION.PERSIST,
-    undefined,
     "size",
+    `${mgr.T("label_size_prefix")}${Math.round(r.width)} × ${Math.round(r.height)} ${mgr.T("label_size_suffix")}${instruction ? ` — ${instruction}` : ""}`,
+    { duration: HINT_DURATION.PERSIST },
   );
   if (mgr.pixelOverLimit) {
-    mgr.map.foliplus!.showHint(
+    mgr.map.foliplus!.hint.set(
       mgr.config.name,
+      "limit",
       mgr
         .T("err_too_large")
         .replace(
           "{limit}",
           formatNumber(mgr.config.max_pixels!, "auto", mgr.config.locale_code),
         ),
-      HINT_DURATION.PERSIST,
-      undefined,
-      "limit",
+      { duration: HINT_DURATION.PERSIST },
     );
-  } else mgr.map.foliplus!.hideHint(mgr.config.name, "limit");
+  } else mgr.map.foliplus!.hint.clear(mgr.config.name, "limit");
 };
 
 /** Build the crop box DOM and attach events. */
@@ -344,7 +338,7 @@ const removeCropBox = (mgr: ExportManager) => {
   // "exporting" before it removes the box, so an unconditional release here
   // would collapse the export's own mode (P1-1).
   if (mgr.exportPhase === "crop") mgr.setExportPhase("idle");
-  mgr.map.foliplus!.hideHint(mgr.config.name);
+  mgr.map.foliplus!.hint.clear(mgr.config.name);
 };
 
 export {

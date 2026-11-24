@@ -9,19 +9,22 @@ import mapApiSource from "#core/mapApi?raw";
 // placeholder LayerAPI value is a load-bearing sentinel that the factories are
 // expected to replace rather than read.
 
-// Pinned deliberately: every member of MapFoliplus is required, so a literal
-// carrying only the LayerAPI sentinel must cross one double-step to be
-// assigned. That is the whole reason the other four factories can `!`-assert a
-// member they did not set without a TS2722. If the type ever gains optional
-// members this pin stops being true — in which case the cast is also wrong and
-// the 42 call sites would start failing on their own.
+// Pinned deliberately: every member of MapFoliplus is required, so the seed
+// literal must cross one double-step to be assigned. That is the whole reason
+// the other factories can `!`-assert a member they did not set without a
+// TS2722. If the type ever gains optional members this pin stops being true —
+// in which case the cast is also wrong and the call sites would start failing
+// on their own.
 
 type StubMap = { foliplus?: Record<string, unknown> };
 
 describe("source pins", () => {
   it("mapApi.ts: one `as unknown as`, in the seed literal", () => {
     expect(mapApiSource.match(/as unknown as/g)).toHaveLength(1);
-    expect(mapApiSource).toContain("{ LayerAPI: null! } as unknown as MapFoliplus");
+    expect(mapApiSource).toContain("LayerAPI: null!");
+    // The inert hint API makes a pre-bootstrap hint call a no-op, not a crash.
+    expect(mapApiSource).toContain("hint: {");
+    expect(mapApiSource).toContain("as unknown as MapFoliplus");
   });
 });
 
@@ -65,8 +68,11 @@ describe("ensureMapFoliplus", () => {
     // frozen. Read it back as a record of whatever the factories put there —
     // the point under test is writability, not that the values typecheck.
     const writable = api as Record<keyof MapFoliplus, unknown>;
-    writable.showHint = () => {};
-    writable.hideHint = () => {};
+    writable.hint = {
+      set: () => {},
+      clear: () => {},
+      registerIcon: () => {},
+    };
     writable.events = "bus";
     writable.modes = "modes";
     writable.interaction = "interaction";

@@ -45,6 +45,40 @@ const HINT_DURATION = { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 };
 interface HintEntry {
   element: HTMLElement;
   timer: ReturnType<typeof setTimeout> | null;
+  /** The text the entry currently paints. This — together with `icon` — is the
+   *  dedupe source: a caller that pushes its state every apply re-sends the
+   *  same pair and must not rebuild the DOM or restart the timer. */
+  text: string;
+  /** The icon markup the entry currently paints ("" = no icon). */
+  icon: string;
+}
+
+/** Icon choice for {@link HintManager.set}. Omitted = the key's registered
+ *  icon; `"loading"` = the built-in spinner; another string = that registry
+ *  key's icon; `null` = no icon. */
+type HintIcon = "loading" | string | null;
+
+interface HintOptions {
+  /** Auto-dismiss delay in ms (see HINT_DURATION); 0 keeps the hint until it is
+   *  cleared. Defaults to HINT_DURATION.MEDIUM. */
+  duration?: number;
+  /** Icon override; see {@link HintIcon}. */
+  icon?: HintIcon;
+}
+
+/** The per-map public hint API, attached as `map.foliplus.hint`.
+ *
+ *  Two members, one registry: `set`/clear` address a (key, slot) pair in the
+ *  manager's own `hintMap` — there is no second store to keep in sync, and a
+ *  caller that re-applies its state every frame is a no-op instead of a DOM
+ *  rebuild (see {@link HintManager.set}). */
+interface HintAPI {
+  /** Set the hint in one slot; identical text + icon is a no-op. */
+  set: (key: string, slot: string, text: string, opts?: HintOptions) => void;
+  /** Clear one slot, or every slot of the key when `slot` is omitted. */
+  clear: (key: string, slot?: string) => void;
+  /** Register an SVG icon for a hint key (sanitised; propagates to live maps). */
+  registerIcon: (key: string, iconSvg: string) => void;
 }
 
 // Module-level icon registry seeded by createControlEnv; every HintManager
@@ -122,86 +156,99 @@ class HintManager {
     Object.assign(this.hintIcons, hintIconRegistry);
   }
 
-  showHint(
-    key: string,
-    text: string,
-    duration: number,
-    append?: boolean,
-    subkey?: string,
-    withLoadingIcon = false,
-  ) {
-    if (subkey) this.hideHint(key, subkey);
-    else if (!append) this.hideHint(key);
+  /** Resolve the icon markup for a `set` call.
+   *
+   *  The icon is the only HTML in a hint (`registerHintIcon` sanitises at
+   *  entry); the text stays a TextNode, so a rogue locale value cannot turn a
+   *  hint into markup. */
+  private iconMarkup(key: string, icon?: HintIcon): string {
+    if (icon === "loading") return ICON_LOADING;
+    if (icon === null) return "";
+    return this.hintIcons?.[icon ?? key] ?? "";
+  }
 
-    // Re-seat live hints first: a PERSIST hint shown inside a surface that
-    // has since exited (pseudo-fullscreen toggled off) would otherwise stay
-    // stranded in the map container. The new hint then appends to the same
-    // target reattachHints resolved.
+  /** Set the hint in one slot — the single public write entry.
+   *
+   *  A slot is the unit of identity under a key: two surfaces of one component
+   *  use two slots and never clobber each other, and the same slot pushed with
+   *  the same text + icon is a true no-op (no DOM rebuild, no timer restart).
+   *  A changed text/icon rebuilds the entry in place, so the stack order of the
+   *  other hints is preserved.
+   *
+   *  @param key - Owning component name (also selects its registered icon).
+   *  @param slot - Slot within the key; `""` is the key's default slot.
+   *  @param text - Hint text (a TextNode, never markup).
+   *  @param opts.duration - Auto-dismiss delay; 0 persists until cleared.
+   *  @param opts.icon - Icon override; see {@link HintIcon}.
+   */
+  set(key: string, slot: string, text: string, opts: HintOptions = {}) {
+    const { duration = HINT_DURATION.MEDIUM, icon } = opts;
+    const storeKey = slot ? `${key}|${slot}` : key;
+    const iconMarkup = this.iconMarkup(key, icon);
+    const previous = this.hintMap.get(storeKey);
+    if (previous?.text === text && previous.icon === iconMarkup) {
+      // Identical push: the caller is re-applying its state, not changing it.
+      // Dom and timer stay exactly as they are.
+      return;
+    }
+
+    // Re-seat live hints first: a PERSIST hint shown inside a surface that has
+    // since exited (pseudo-fullscreen toggled off) would otherwise stay
+    // stranded in the map container.
     this.reattachHints();
     const hintTarget = this.surface();
-
-    const cls = subkey
-      ? `${CLASS} ${CLASS}-${key}-${subkey}`
-      : append
-        ? `${CLASS} ${CLASS}-${key}-${Date.now()}`
-        : `${CLASS} ${CLASS}-${key}`;
-
-    // The spinner is a hint shape, not a registered icon: withLoadingIcon
-    // swaps in the built-in loader (a trusted repo constant) in place of the
-    // control's registered icon. The icon — whichever it is — is the only HTML
-    // in a hint (`registerHintIcon` sanitises at entry); the text stays a
-    // TextNode, so a rogue locale value cannot turn a hint into markup.
     // `{ html }` must be a CHILD, not an attr — `dom.el` sets an attr for any
     // unrecognised key.
-    const icon = withLoadingIcon ? ICON_LOADING : (this.hintIcons?.[key] ?? "");
     const el = dom.el(
       "div",
-      { class: `${cls} ${CLASS}`, parent: hintTarget },
-      ...(icon ? [dom.el("span", { class: HINT_CLASS.ICON }, { html: icon })] : []),
+      {
+        class: slot ? `${CLASS} ${CLASS}-${key}-${slot}` : `${CLASS} ${CLASS}-${key}`,
+        parent: hintTarget,
+      },
+      ...(iconMarkup
+        ? [dom.el("span", { class: HINT_CLASS.ICON }, { html: iconMarkup })]
+        : []),
       text,
     );
+    if (previous) {
+      if (previous.timer) clearTimeout(previous.timer);
+      // Replace in place so a re-rendered slot keeps its stack position.
+      if (previous.element.parentElement) previous.element.replaceWith(el);
+    }
     anchorRelative(hintTarget);
-    const storeKey = subkey
-      ? `${key}|${subkey}`
-      : append
-        ? `${key}-${Date.now()}`
-        : key;
-    this.hintMap.set(storeKey, { element: el, timer: null });
-
+    this.hintMap.set(storeKey, { element: el, timer: null, text, icon: iconMarkup });
     this.repositionHints();
 
     if (duration !== 0) {
       const entry = this.hintMap.get(storeKey)!;
-      entry.timer = setTimeout(
-        () => (subkey ? this.hideHint(key, subkey) : this.hideHint(storeKey)),
-        duration || HINT_DURATION.MEDIUM,
-      );
+      entry.timer = setTimeout(() => this.clear(key, slot), duration);
     }
   }
 
-  /** Clear a hint: drop its element and pending timer (not just hide).
-   *  Without a subkey, every variant under `key` is dropped. */
-  hideHint(key: string, subkey?: string) {
-    if (subkey) {
-      const storeKey = `${key}|${subkey}`;
-      const entry = this.hintMap.get(storeKey);
-      if (entry) {
-        if (entry.timer) clearTimeout(entry.timer);
-        if (entry.element) entry.element.remove();
-        this.hintMap.delete(storeKey);
-      }
+  /** Drop the hint in one slot, or every slot of a key when `slot` is omitted.
+   *  Removes the node and its pending timer, then re-stacks what is left. */
+  clear(key: string, slot?: string) {
+    if (slot) {
+      this.dropEntry(`${key}|${slot}`);
       this.repositionHints();
       return;
     }
-    for (const k of this.hintMap.keys()) {
-      if (k === key || k.startsWith(`${key}-`) || k.startsWith(`${key}|`)) {
-        const entry = this.hintMap.get(k)!;
-        if (entry.timer) clearTimeout(entry.timer);
-        if (entry.element) entry.element.remove();
-        this.hintMap.delete(k);
+    for (const storeKey of [...this.hintMap.keys()]) {
+      if (storeKey === key || storeKey.startsWith(`${key}|`)) {
+        this.dropEntry(storeKey);
       }
     }
     this.repositionHints();
+  }
+
+  /** Drop one entry by its store key. Guards a malformed entry (no element or
+   *  timer) so external mutation cannot make teardown throw. */
+  private dropEntry(storeKey: string) {
+    const entry = this.hintMap.get(storeKey);
+    if (!entry) return;
+    if (entry.timer) clearTimeout(entry.timer);
+    if (entry.element) entry.element.remove();
+    this.hintMap.delete(storeKey);
   }
 
   private repositionHints() {
@@ -257,11 +304,13 @@ class HintManager {
 const destroyManager = (map: L.Map, mgr: HintManager): void => {
   mgr.destroy();
   instances.delete(map);
-  map.foliplus!.showHint = () => log.warn("showHint called after the map unloaded");
-  /* eslint-disable @typescript-eslint/no-empty-function -- post-unload: hide/register are harmless, showHint warns */
-  map.foliplus!.hideHint = () => {};
-  map.foliplus!.registerHintIcon = () => {};
-  /* eslint-enable @typescript-eslint/no-empty-function */
+  map.foliplus!.hint = {
+    set: () => log.warn("hint.set called after the map unloaded"),
+    /* eslint-disable-next-line @typescript-eslint/no-empty-function -- post-unload: clear/register are harmless, set warns */
+    clear: () => {},
+    /* eslint-disable-next-line @typescript-eslint/no-empty-function -- post-unload: clear/register are harmless, set warns */
+    registerIcon: () => {},
+  };
 };
 
 /** Ensure `map.foliplus` has a per-map HintManager.  Idempotent. */
@@ -275,10 +324,12 @@ const ensureHint = (map: L.Map): HintManager => {
   );
   instances.set(map, mgr);
   const api = ensureMapFoliplus(map);
-  api.showHint = mgr.showHint.bind(mgr);
-  api.hideHint = mgr.hideHint.bind(mgr);
-  api.registerHintIcon = (key: string, svg: string) => {
-    registerHintIcon(key, svg); // syncs every active manager
+  api.hint = {
+    set: mgr.set.bind(mgr),
+    clear: mgr.clear.bind(mgr),
+    registerIcon: (key: string, svg: string) => {
+      registerHintIcon(key, svg); // syncs every active manager
+    },
   };
   // On map unload, tear down hints and drop the surface subscription. Without
   // this the manager outlives its map: the WeakMap entry frees the instance,
@@ -290,3 +341,4 @@ const ensureHint = (map: L.Map): HintManager => {
 };
 
 export { ensureHint, HINT_DURATION, HintManager, registerHintIcon };
+export type { HintAPI, HintIcon, HintOptions };

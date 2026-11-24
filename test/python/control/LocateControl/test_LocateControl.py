@@ -277,7 +277,7 @@ class TestLocateControlBrowser:
     def test_hint_icon_is_sanitised_in_the_dom(self, browser, tmp_path):
         """A registered hint icon is gated before it reaches the DOM.
 
-        ``registerHintIcon`` is a public runtime API, so a hostile icon string
+        ``hint.registerIcon`` is a public runtime API, so a hostile icon string
         lands in an innerHTML sink on every hint carrying that key. The gate
         runs at registration and the browser re-parses whatever it serialises
         — jsdom's DOMParser and insertion model disagree with a real browser's,

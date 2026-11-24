@@ -123,7 +123,9 @@ const requireLayerAPI = (
   const api = map.foliplus?.LayerAPI;
   if (!isRealLayerControl(api)) {
     const msg = T("no_layercontrol");
-    if (map.foliplus?.showHint) map.foliplus!.showHint(componentName, msg, 0); // PERSIST
+    // PERSIST: the message must outlive the thrown error; a partial namespace
+    // without the hint API still throws the real error below.
+    map.foliplus?.hint?.set(componentName, "", msg, { duration: 0 });
     throw new Error(log.msg(msg));
   }
   // isRealLayerControl returned true, so `api` is non-null (a real

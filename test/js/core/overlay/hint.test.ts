@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   HINT_DURATION,
+  type HintAPI,
   HintManager,
   ensureHint,
   registerHintIcon,
@@ -18,17 +19,7 @@ beforeEach(() => {
  *  exercise a real handler — recording and invoking here keeps that failure
  *  mode loud instead of invisible. */
 type StubMap = {
-  foliplus?: {
-    showHint?: (
-      key: string,
-      text: string,
-      duration: number,
-      append?: boolean,
-      subkey?: string,
-    ) => void;
-    hideHint?: (key: string, sub?: string) => void;
-    registerHintIcon?: (key: string, svg: string) => void;
-  };
+  foliplus?: { hint: HintAPI };
   on: (type: string, fn: unknown) => void;
   handlers: Record<string, Array<() => void>>;
 };
@@ -56,13 +47,7 @@ const fire = (map: StubMap, type: string): number => {
 const unloadMap = (map: StubMap) => {
   fire(map, "unload");
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-  return {
-    showHint: map.foliplus?.showHint as (() => void) | undefined,
-    hideHint: map.foliplus?.hideHint as (() => void) | undefined,
-    registerHintIcon: map.foliplus?.registerHintIcon as
-      ((key: string, svg: string) => void) | undefined,
-    warn,
-  };
+  return { hint: map.foliplus!.hint!, warn };
 };
 
 describe("HINT_DURATION", () => {
@@ -75,27 +60,27 @@ describe("HINT_DURATION", () => {
 });
 
 describe("HintManager", () => {
-  it("showHint appends a hint element to the body", () => {
+  it("hint.set appends a hint element to the body", () => {
     const mgr = new HintManager();
-    mgr.showHint("key", "hello", 0);
+    mgr.set("key", "", "hello", { duration: 0 });
     const el = document.querySelector(".foliplus-hint");
     expect(el).not.toBeNull();
     expect(el!.textContent).toBe("hello");
   });
 
-  it("hideHint removes the hint element", () => {
+  it("hint.clear removes the hint element", () => {
     const mgr = new HintManager();
-    mgr.showHint("key", "hello", 0);
+    mgr.set("key", "", "hello", { duration: 0 });
     expect(document.querySelector(".foliplus-hint")).not.toBeNull();
-    mgr.hideHint("key");
+    mgr.clear("key");
     expect(document.querySelector(".foliplus-hint")).toBeNull();
   });
 
-  it("hideHint(key) clears a hint shown in append mode (<key>-<ts> store key)", () => {
+  it("hint.clear(key) clears every slot for that key", () => {
     const mgr = new HintManager();
-    mgr.showHint("key", "one", 0, true); // append
+    mgr.set("key", "append", "one", { duration: 0 }); // append
     expect(document.querySelector(".foliplus-hint")).not.toBeNull();
-    mgr.hideHint("key");
+    mgr.clear("key");
     expect(document.querySelector(".foliplus-hint")).toBeNull();
   });
 
@@ -105,7 +90,7 @@ describe("HintManager", () => {
       '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
     );
     const mgr = new HintManager();
-    mgr.showHint("key", "text", 0, undefined, undefined, true);
+    mgr.set("key", "", "text", { duration: 0, icon: "loading" });
     const icon = document.querySelector(".foliplus-hint-icon");
     expect(icon).not.toBeNull();
     const svg = icon!.querySelector("svg");
@@ -119,7 +104,7 @@ describe("HintManager", () => {
       '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
     );
     const mgr = new HintManager();
-    mgr.showHint("key", "text", 0);
+    mgr.set("key", "", "text", { duration: 0 });
     const icon = document.querySelector(".foliplus-hint-icon");
     expect(icon).not.toBeNull();
     expect(icon!.querySelector("svg")!.classList.contains("foliplus-spin")).toBe(false);
@@ -128,7 +113,7 @@ describe("HintManager", () => {
   it("auto-dismisses after the duration elapses", () => {
     vi.useFakeTimers();
     const mgr = new HintManager();
-    mgr.showHint("key", "hello", 100);
+    mgr.set("key", "", "hello", { duration: 100 });
     expect(document.querySelector(".foliplus-hint")).not.toBeNull();
     vi.advanceTimersByTime(101);
     expect(document.querySelector(".foliplus-hint")).toBeNull();
@@ -137,8 +122,8 @@ describe("HintManager", () => {
 
   it("stacks multiple hints with increasing offsets", () => {
     const mgr = new HintManager();
-    mgr.showHint("a", "one", 0);
-    mgr.showHint("b", "two", 0);
+    mgr.set("a", "", "one", { duration: 0 });
+    mgr.set("b", "", "two", { duration: 0 });
     const els = document.querySelectorAll<HTMLElement>(".foliplus-hint");
     expect(els.length).toBe(2);
     expect(els[1].style.bottom).not.toBe(els[0].style.bottom);
@@ -150,7 +135,7 @@ describe("HintManager", () => {
       '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
     );
     const mgr = new HintManager();
-    mgr.showHint("with_icon", "text", 0);
+    mgr.set("with_icon", "", "text", { duration: 0 });
     const icon = document.querySelector(".foliplus-hint-icon");
     expect(icon).not.toBeNull();
   });
@@ -158,8 +143,8 @@ describe("HintManager", () => {
   it("destroy removes all hints and clears timers", () => {
     vi.useFakeTimers();
     const mgr = new HintManager();
-    mgr.showHint("a", "one", 1000);
-    mgr.showHint("b", "two", 1000);
+    mgr.set("a", "", "one", { duration: 1000 });
+    mgr.set("b", "", "two", { duration: 1000 });
     mgr.destroy();
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
     vi.useRealTimers();
@@ -177,8 +162,8 @@ describe("HintManager", () => {
 
   it("destroy keeps detaching after a node that refuses to be removed", () => {
     const mgr = new HintManager();
-    mgr.showHint("a", "one", 0);
-    mgr.showHint("b", "two", 0);
+    mgr.set("a", "", "one", { duration: 0 });
+    mgr.set("b", "", "two", { duration: 0 });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const reattach = vi.spyOn(mgr, "reattachHints" as any);
     const stuck = mgr.hintMap.get("a")!.element;
@@ -209,7 +194,7 @@ describe("HintManager", () => {
 
   it("migrates hints to the fullscreen element on fullscreenchange", () => {
     const mgr = new HintManager();
-    mgr.showHint("key", "hello", 0);
+    mgr.set("key", "", "hello", { duration: 0 });
     const el = document.querySelector(".foliplus-hint")!;
     expect(el.parentElement).toBe(document.body);
 
@@ -236,7 +221,7 @@ describe("HintManager", () => {
 
   it("does not migrate hints when fullscreenElement is documentElement", () => {
     const mgr = new HintManager();
-    mgr.showHint("key", "hello", 0);
+    mgr.set("key", "", "hello", { duration: 0 });
     const el = document.querySelector(".foliplus-hint")!;
     expect(el.parentElement).toBe(document.body);
 
@@ -268,7 +253,7 @@ describe("HintManager", () => {
       get: () => container,
     });
 
-    mgr.showHint("key", "hello", 0);
+    mgr.set("key", "", "hello", { duration: 0 });
 
     expect(document.querySelector(".foliplus-hint")!.parentElement).toBe(container);
     expect(container.style.position).toBe("relative");
@@ -290,7 +275,7 @@ describe("HintManager", () => {
     container.className = "leaflet-container leaflet-pseudo-fullscreen";
     document.body.appendChild(container);
 
-    mgr.showHint("key", "hello", 0);
+    mgr.set("key", "", "hello", { duration: 0 });
 
     const el = document.querySelector(".foliplus-hint")!;
     expect(el.parentElement).toBe(container);
@@ -301,7 +286,7 @@ describe("HintManager", () => {
     // Stranded re-seat: a PERSIST hint shown during pseudo mode must land
     // back on body once the surface is gone and the next hint fires.
     container.classList.remove("leaflet-pseudo-fullscreen");
-    mgr.showHint("key2", "second", 0);
+    mgr.set("key2", "", "second", { duration: 0 });
     expect(el.parentElement).toBe(document.body);
     expect(document.querySelector(".foliplus-hint")!.parentElement).toBe(document.body);
 
@@ -318,7 +303,7 @@ describe("HintManager", () => {
     container.className = "leaflet-container";
     document.body.appendChild(container);
 
-    mgr.showHint("persist", "already open", HINT_DURATION.PERSIST);
+    mgr.set("persist", "", "already open", { duration: HINT_DURATION.PERSIST });
     const el = document.querySelector(".foliplus-hint")!;
     expect(el.parentElement).toBe(document.body);
 
@@ -339,7 +324,7 @@ describe("HintManager", () => {
     document.body.append(mapA, mapB);
 
     const mgr = new HintManager(mapB);
-    mgr.showHint("persist", "map B", HINT_DURATION.PERSIST);
+    mgr.set("persist", "", "map B", { duration: HINT_DURATION.PERSIST });
     const el = document.querySelector(".foliplus-hint")!;
     expect(el.parentElement).toBe(document.body);
 
@@ -356,23 +341,23 @@ describe("HintManager", () => {
     mgr.destroy();
   });
 
-  it("hideHint with a subkey removes only that sub-hint", () => {
+  it("hint.clear(key, slot) removes only that slot", () => {
     const mgr = new HintManager();
-    mgr.showHint("key", "one", 0, false, "sub");
+    mgr.set("key", "sub", "one", { duration: 0 });
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
 
-    mgr.hideHint("key", "sub");
+    mgr.clear("key", "sub");
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
   });
 
-  it("hideHint with a subkey and duration clears the timer", () => {
+  it("hint.clear(key, slot) clears the timer", () => {
     vi.useFakeTimers();
     const mgr = new HintManager();
-    mgr.showHint("key", "one", 100, false, "sub");
+    mgr.set("key", "sub", "one", { duration: 100 });
     const els = document.querySelectorAll(".foliplus-hint");
     expect(els.length).toBe(1);
 
-    mgr.hideHint("key", "sub");
+    mgr.clear("key", "sub");
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
 
     vi.advanceTimersByTime(1000);
@@ -383,7 +368,7 @@ describe("HintManager", () => {
   it("auto-dismisses a hint with duration and no subkey", () => {
     vi.useFakeTimers();
     const mgr = new HintManager();
-    mgr.showHint("key", "hello", 100);
+    mgr.set("key", "", "hello", { duration: 100 });
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
 
     vi.advanceTimersByTime(101);
@@ -391,40 +376,180 @@ describe("HintManager", () => {
     vi.useRealTimers();
   });
 
-  it("hideHint is defensive against entries missing a timer or element", () => {
+  it("hint.clear is defensive against entries missing a timer or element", () => {
     // Same guards as destroy — a malformed entry must not throw.
     const mgr = new HintManager();
     mgr.hintMap.set("ghost", { element: undefined, timer: null } as any);
-    expect(() => mgr.hideHint("ghost")).not.toThrow();
+    expect(() => mgr.clear("ghost")).not.toThrow();
     expect(mgr.hintMap.has("ghost")).toBe(false);
   });
 
-  it("hideHint with subkey is defensive against entries missing an element", () => {
+  it("hint.clear(key, slot) is defensive against entries missing an element", () => {
     // The subkey branch has its own element guard — a malformed entry with no
     // element must not throw when hideHint(key, subkey) is called.
     const mgr = new HintManager();
     mgr.hintMap.set("key|sub", { element: undefined, timer: null } as any);
-    expect(() => mgr.hideHint("key", "sub")).not.toThrow();
+    expect(() => mgr.clear("key", "sub")).not.toThrow();
     expect(mgr.hintMap.has("key|sub")).toBe(false);
   });
 
   it("zIndexBase lazy-initialises on first call and reuses on subsequent calls", () => {
     // The `hintZIndex ??=` lazy-init reads the CSS token once; the second call
-    // must skip the assignment. Two showHint calls in sequence exercise both
+    // must skip the assignment. Two hint.set calls in sequence exercise both
     // branches of the `??=`.
     const mgr = new HintManager();
-    mgr.showHint("a", "first", HINT_DURATION.PERSIST);
-    mgr.showHint("b", "second", HINT_DURATION.PERSIST);
+    mgr.set("a", "", "first", { duration: HINT_DURATION.PERSIST });
+    mgr.set("b", "", "second", { duration: HINT_DURATION.PERSIST });
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(2);
   });
 });
 
+describe("hint.set / hint.clear", () => {
+  it("paints a hint in its key's default slot", () => {
+    const mgr = new HintManager();
+    mgr.set("key", "", "hello", { duration: 0 });
+    const el = document.querySelector(".foliplus-hint");
+    expect(el).not.toBeNull();
+    expect(el!.textContent).toBe("hello");
+  });
+
+  it("does not touch the DOM when the same text is set again", () => {
+    // The caller is expected to push its state every frame/apply; an identical
+    // push must be a true no-op, not a teardown-and-rebuild.
+    const mgr = new HintManager();
+    mgr.set("key", "", "hello", { duration: 0 });
+    const first = document.querySelector(".foliplus-hint")!;
+    mgr.set("key", "", "hello", { duration: 0 });
+    expect(document.querySelectorAll(".foliplus-hint")).toHaveLength(1);
+    expect(document.querySelector(".foliplus-hint")).toBe(first);
+    expect(first.isConnected).toBe(true);
+  });
+
+  it("rebuilds the element when the text changes", () => {
+    const mgr = new HintManager();
+    mgr.set("key", "", "one", { duration: 0 });
+    const first = document.querySelector(".foliplus-hint")!;
+    mgr.set("key", "", "two", { duration: 0 });
+    expect(document.querySelectorAll(".foliplus-hint")).toHaveLength(1);
+    const second = document.querySelector(".foliplus-hint")!;
+    expect(second).not.toBe(first);
+    expect(first.isConnected).toBe(false);
+    expect(second.textContent).toBe("two");
+  });
+
+  it("keeps the pending timer when the text does not change", () => {
+    // Re-setting the same text is not a new hint: restarting the timer would
+    // make a caller that pushes every frame keep the toast alive forever.
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.set("key", "", "hello", { duration: 100 });
+    vi.advanceTimersByTime(60);
+    mgr.set("key", "", "hello", { duration: 100 });
+    vi.advanceTimersByTime(41);
+    expect(document.querySelectorAll(".foliplus-hint")).toHaveLength(0);
+    vi.useRealTimers();
+  });
+
+  it("replaces the timer when the text changes", () => {
+    vi.useFakeTimers();
+    const mgr = new HintManager();
+    mgr.set("key", "", "one", { duration: 100 });
+    vi.advanceTimersByTime(80);
+    mgr.set("key", "", "two", { duration: 100 });
+    vi.advanceTimersByTime(60);
+    // The old timer was cleared; the new one still has 40ms to run.
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("two");
+    vi.advanceTimersByTime(50);
+    expect(document.querySelectorAll(".foliplus-hint")).toHaveLength(0);
+    vi.useRealTimers();
+  });
+
+  it("keeps slots of the same key independent", () => {
+    const mgr = new HintManager();
+    mgr.set("key", "a", "one", { duration: 0 });
+    mgr.set("key", "b", "two", { duration: 0 });
+    expect(document.querySelectorAll(".foliplus-hint")).toHaveLength(2);
+
+    mgr.clear("key", "a");
+    expect(document.querySelectorAll(".foliplus-hint")).toHaveLength(1);
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("two");
+  });
+
+  it("clear(key) drops every slot of that key", () => {
+    const mgr = new HintManager();
+    mgr.set("key", "a", "one", { duration: 0 });
+    mgr.set("key", "b", "two", { duration: 0 });
+    mgr.set("other", "", "three", { duration: 0 });
+    mgr.clear("key");
+    expect(document.querySelectorAll(".foliplus-hint")).toHaveLength(1);
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("three");
+  });
+
+  it("clear on a missing key is a no-op", () => {
+    const mgr = new HintManager();
+    expect(() => mgr.clear("missing")).not.toThrow();
+  });
+
+  it("supports an explicit registered icon and the loading spinner", () => {
+    registerHintIcon(
+      "key",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    registerHintIcon("other_icon", '<svg viewBox="0 0 8 8"><circle r="2"/></svg>');
+    const mgr = new HintManager();
+    mgr.set("key", "", "default", { duration: 0 });
+    expect(
+      document.querySelector(".foliplus-hint")!.querySelector("svg rect"),
+    ).not.toBeNull();
+
+    mgr.set("key", "", "explicit", { duration: 0, icon: "other_icon" });
+    expect(
+      document.querySelector(".foliplus-hint")!.querySelector("svg circle"),
+    ).not.toBeNull();
+
+    mgr.set("key", "", "spinner", { duration: 0, icon: "loading" });
+    expect(
+      document
+        .querySelector(".foliplus-hint")!
+        .querySelector("svg")!
+        .classList.contains("foliplus-spin"),
+    ).toBe(true);
+
+    mgr.set("key", "", "no icon", { duration: 0, icon: null });
+    expect(
+      document.querySelector(".foliplus-hint")!.querySelector(".foliplus-hint-icon"),
+    ).toBeNull();
+  });
+
+  it("does not rebuild when only the same icon is re-set", () => {
+    registerHintIcon(
+      "key",
+      '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
+    );
+    const mgr = new HintManager();
+    mgr.set("key", "", "text", { duration: 0 });
+    const first = document.querySelector(".foliplus-hint")!;
+    mgr.set("key", "", "text", { duration: 0 });
+    expect(document.querySelector(".foliplus-hint")).toBe(first);
+  });
+
+  it("replaces the element in place, keeping the stack order of other hints", () => {
+    const mgr = new HintManager();
+    mgr.set("a", "", "first", { duration: 0 });
+    mgr.set("b", "", "second", { duration: 0 });
+    mgr.set("a", "", "first updated", { duration: 0 });
+    const els = document.querySelectorAll<HTMLElement>(".foliplus-hint");
+    expect(els).toHaveLength(2);
+    expect(els[0].textContent).toBe("first updated");
+    expect(els[1].textContent).toBe("second");
+  });
+});
 describe("ensureHint", () => {
-  it("attaches showHint/hideHint to map.foliplus", () => {
+  it("attaches hint.set/hint.clear to map.foliplus", () => {
     const map = makeMap();
     ensureHint(map);
-    expect(typeof map.foliplus?.showHint).toBe("function");
-    expect(typeof map.foliplus?.hideHint).toBe("function");
+    expect(typeof map.foliplus?.hint?.set).toBe("function");
+    expect(typeof map.foliplus?.hint?.clear).toBe("function");
   });
 
   it("is idempotent — repeated calls return the same instance", () => {
@@ -434,15 +559,15 @@ describe("ensureHint", () => {
     expect(b).toBe(a);
   });
 
-  it("exposes registerHintIcon on map.foliplus", () => {
+  it("exposes hint.registerIcon on map.foliplus", () => {
     const map = makeMap();
     ensureHint(map);
-    expect(typeof map.foliplus!.registerHintIcon).toBe("function");
-    map.foliplus!.registerHintIcon!(
+    expect(typeof map.foliplus!.hint.registerIcon).toBe("function");
+    map.foliplus!.hint.registerIcon(
       "via_map",
       '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
     );
-    map.foliplus!.showHint!("via_map", "text", 0);
+    map.foliplus!.hint.set("via_map", "", "text", { duration: 0 });
     expect(document.querySelector(".foliplus-hint-icon")).not.toBeNull();
   });
 
@@ -452,12 +577,12 @@ describe("ensureHint", () => {
     const a = ensureHint(mapA);
     const b = ensureHint(mapB);
     expect(a).not.toBe(b);
-    a.showHint("key", "A", 0);
-    b.showHint("key", "B", 0);
+    a.set("key", "", "A", { duration: 0 });
+    b.set("key", "", "B", { duration: 0 });
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(2);
-    a.hideHint("key");
+    a.clear("key");
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
-    b.hideHint("key");
+    b.clear("key");
   });
 
   it("syncs icons registered AFTER an existing manager was created (regression)", () => {
@@ -469,7 +594,7 @@ describe("ensureHint", () => {
       "late_icon",
       '<svg viewBox="0 0 8 8"><rect width="4" height="4"/></svg>',
     );
-    map.foliplus!.showHint!("late_icon", "text", 0);
+    map.foliplus!.hint.set("late_icon", "", "text", { duration: 0 });
     const icon = document.querySelector(".foliplus-hint-icon");
     expect(icon).not.toBeNull();
     expect(document.querySelector(".foliplus-hint")!.textContent).toBe("text");
@@ -507,7 +632,7 @@ describe("ensureHint", () => {
       );
       // Clear any previously shown hint so only the current one exists.
       document.body.innerHTML = "";
-      map.foliplus!.showHint!(name, `${name} msg`, 0);
+      map.foliplus!.hint.set(name, "", `${name} msg`, { duration: 0 });
       const icon = document.querySelector(".foliplus-hint-icon");
       expect(icon, `${name} hint should have an icon`).not.toBeNull();
       expect(icon!.innerHTML, `${name} icon should match`).toContain(name);
@@ -515,14 +640,14 @@ describe("ensureHint", () => {
   });
 
   it("sanitises a registered icon and keeps the hint text as a TextNode", () => {
-    // registerHintIcon is a public runtime API (`map.foliplus.registerHintIcon`)
+    // hint.registerIcon is a public runtime API (`map.foliplus.hint.registerIcon`)
     // whose value reaches an innerHTML sink — it must not be trusted.
     registerHintIcon(
       "dirty",
       '<svg viewBox="0 0 8 8"><rect width="4" height="4" onmouseover="alert(1)"/></svg>',
     );
     const mgr = new HintManager();
-    mgr.showHint("dirty", "<img src=x onerror=alert(1)>msg", 0);
+    mgr.set("dirty", "", "<img src=x onerror=alert(1)>msg", { duration: 0 });
     const hint = document.querySelector(".foliplus-hint")!;
     const iconSpan = hint.querySelector(".foliplus-hint-icon")!;
     // The attribute is stripped from the serialised SVG.
@@ -535,7 +660,7 @@ describe("ensureHint", () => {
   it("drops a registered icon that is not SVG", () => {
     registerHintIcon("not_svg", "<img src=x onerror=alert(1)>");
     const mgr = new HintManager();
-    mgr.showHint("not_svg", "msg", 0);
+    mgr.set("not_svg", "", "msg", { duration: 0 });
     expect(document.querySelector(".foliplus-hint-icon")).toBeNull();
     expect(document.querySelector(".foliplus-hint img")).toBeNull();
     expect(document.querySelector(".foliplus-hint")!.textContent).toBe("msg");
@@ -547,10 +672,10 @@ describe("map unload teardown", () => {
     vi.useFakeTimers();
     const map = makeMap();
     const mgr = ensureHint(map);
-    mgr.showHint("persist", "still open", HINT_DURATION.PERSIST);
+    mgr.set("persist", "", "still open", { duration: HINT_DURATION.PERSIST });
     // reattachHints is called through a bound arrow, so spying the class
     // method is the only way to observe the surface subscription afterwards.
-    // The spy is created AFTER the seeding showHint — showHint itself calls
+    // The spy is created AFTER the seeding hint.set — hint.set itself calls
     // reattachHints to re-seat stranded entries, which must not count here.
     const reattachSpy = vi.spyOn(mgr, "reattachHints" as any);
     // Grab the element this manager just created. A global selector would
@@ -572,9 +697,9 @@ describe("map unload teardown", () => {
     // it still receives newly registered icons, and icon propagation does not
     // reach the destroyed manager.
     const other = new HintManager();
-    other.showHint("persist", "other map", HINT_DURATION.PERSIST);
+    other.set("persist", "", "other map", { duration: HINT_DURATION.PERSIST });
     registerHintIcon("late", "<svg></svg>");
-    other.showHint("late", "late", HINT_DURATION.PERSIST);
+    other.set("late", "", "late", { duration: HINT_DURATION.PERSIST });
     expect(other.hintMap.size).toBe(2);
     expect(mgr.hintMap.size).toBe(0); // dead manager untouched
 
@@ -595,22 +720,22 @@ describe("map unload teardown", () => {
     // instead of handing back the destroyed one.
     const second = ensureHint(map);
     expect(second).not.toBe(first);
-    second.showHint("key", "again", HINT_DURATION.PERSIST);
+    second.set("key", "", "again", { duration: HINT_DURATION.PERSIST });
     expect(second.hintMap.size).toBe(1);
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(1);
     second.destroy();
   });
 
-  it("detaches the bound showHint closure so a call after unload warns without adding a node", () => {
+  it("detaches the bound hint.set closure so a call after unload warns without adding a node", () => {
     vi.useFakeTimers();
     const map = makeMap();
     const mgr = ensureHint(map);
-    const { showHint, warn } = unloadMap(map);
+    const { hint, warn } = unloadMap(map);
 
-    expect(showHint).toBeDefined();
+    expect(hint.set).toBeDefined();
 
-    showHint!();
-    showHint!();
+    hint.set("key", "", "late", { duration: 0 });
+    hint.set("key", "", "late", { duration: 0 });
     expect(warn).toHaveBeenCalledTimes(2);
     expect(warn.mock.calls[0]?.[0]).toContain("after the map unloaded");
 
@@ -624,31 +749,31 @@ describe("map unload teardown", () => {
     vi.useRealTimers();
   });
 
-  it("keeps hideHint after unload as a silent no-op", () => {
+  it("keeps hint.clear after unload as a silent no-op", () => {
     const map = makeMap();
     const mgr = ensureHint(map);
-    const { hideHint, warn } = unloadMap(map);
+    const { hint, warn } = unloadMap(map);
 
-    hideHint!();
+    hint.clear("key");
     expect(warn).not.toHaveBeenCalled();
     expect(mgr.hintMap.size).toBe(0);
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
     warn.mockRestore();
   });
 
-  it("severs registerHintIcon after unload so no global registry write survives", () => {
+  it("severs hint.registerIcon after unload so no global registry write survives", () => {
     // `registerHintIcon` writes into the module-level registry, which every
     // other live map reads. A post-unload call would still mutate that global
-    // while the dead manager's showHint (a copied hintIcons) never rendered
+    // while the dead manager's hint.set (a copied hintIcons) never rendered
     // it — a silent half-failure, so the closure is replaced like the other two.
     // The registry itself is module-private, so assert through the public
     // seeding path: a manager built after the call would inherit the write.
     const map = makeMap();
     ensureHint(map);
-    const { registerHintIcon: seal } = unloadMap(map);
-    expect(typeof seal).toBe("function");
+    const { hint } = unloadMap(map);
+    expect(typeof hint.registerIcon).toBe("function");
 
-    seal!("@unloaded", '<svg viewBox="0 0 8 8"><rect/></svg>');
+    hint.registerIcon("@unloaded", '<svg viewBox="0 0 8 8"><rect/></svg>');
     expect(new HintManager().hintIcons["@unloaded"]).toBeUndefined();
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
   });
@@ -658,8 +783,8 @@ describe("map unload teardown", () => {
     const mapB = makeMap();
     const a = ensureHint(mapA);
     const b = ensureHint(mapB);
-    a.showHint("key", "A", HINT_DURATION.PERSIST);
-    b.showHint("key", "B", HINT_DURATION.PERSIST);
+    a.set("key", "", "A", { duration: HINT_DURATION.PERSIST });
+    b.set("key", "", "B", { duration: HINT_DURATION.PERSIST });
 
     unloadMap(mapA);
 
@@ -674,7 +799,7 @@ describe("map unload teardown", () => {
     // The dead manager no longer receives icons through activeManagers.
     expect(a.hintIcons["sibling_icon"]).toBeUndefined();
     // mapA's closures were replaced, mapB's were not.
-    expect(mapA.foliplus?.showHint).not.toBe(mapB.foliplus?.showHint);
+    expect(mapA.foliplus?.hint?.set).not.toBe(mapB.foliplus?.hint?.set);
 
     b.destroy();
   });

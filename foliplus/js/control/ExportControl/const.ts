@@ -46,7 +46,7 @@ const CROP = {
 const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 
 /** Persistent storage key for the last crop rectangle. */
-const STORAGE = { KEY: scopedStorageKey(map, "export_rect") };
+const STORAGE = { KEY: scopedStorageKey(map, "export_rect"), VERSION: 1 };
 
 /** Timing / delay constants. */
 const TIMING = {

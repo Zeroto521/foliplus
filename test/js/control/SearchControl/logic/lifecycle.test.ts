@@ -132,7 +132,7 @@ describe("destroyControl — late async results", () => {
     const ctrl = makeControl();
     searchAddress(ctrl, "B");
     destroyControl(ctrl);
-    (window.map.foliplus.hideHint as any).mockClear();
+    (window.map.foliplus.hint.clear as any).mockClear();
     (map.flyTo as any).mockClear();
 
     pending[0]({ lat: 2, lng: 2, display_name: "B place" });
@@ -141,7 +141,7 @@ describe("destroyControl — late async results", () => {
 
     expect(map.flyTo).not.toHaveBeenCalled();
     expect(ctrl.marker).toBeNull();
-    expect(window.map.foliplus.hideHint).not.toHaveBeenCalled();
+    expect(window.map.foliplus.hint.clear).not.toHaveBeenCalled();
   });
 
   it("ignores a suggestion response that arrives after destroy", async () => {
@@ -178,12 +178,12 @@ describe("request gates — retired and superseded branches", () => {
     const ctrl = makeControl({ inp: { value: "B", focus: vi.fn() } });
     destroyControl(ctrl);
     (window.foliplus.geocode as any).mockClear();
-    (window.map.foliplus.showHint as any).mockClear();
+    (window.map.foliplus.hint.set as any).mockClear();
 
     searchAddress(ctrl, "B");
 
     expect(window.foliplus.geocode).not.toHaveBeenCalled();
-    expect(window.map.foliplus.showHint).not.toHaveBeenCalled();
+    expect(window.map.foliplus.hint.set).not.toHaveBeenCalled();
   });
 
   it("does not start a suggestion fetch after destroy", () => {
@@ -225,15 +225,15 @@ describe("request gates — retired and superseded branches", () => {
     const ctrl = makeControl({ inp: { value: "B", focus: vi.fn() } });
     searchAddress(ctrl, "A");
     searchAddress(ctrl, "B");
-    (window.map.foliplus.showHint as any).mockClear();
-    (window.map.foliplus.hideHint as any).mockClear();
+    (window.map.foliplus.hint.set as any).mockClear();
+    (window.map.foliplus.hint.clear as any).mockClear();
 
     pending[0].reject(new Error("late failure"));
     await tick();
     await tick();
 
-    expect(window.map.foliplus.showHint).not.toHaveBeenCalled();
-    expect(window.map.foliplus.hideHint).not.toHaveBeenCalled();
+    expect(window.map.foliplus.hint.set).not.toHaveBeenCalled();
+    expect(window.map.foliplus.hint.clear).not.toHaveBeenCalled();
   });
 
   it("ignores a rejection from a suggestion fetch a newer query superseded", async () => {

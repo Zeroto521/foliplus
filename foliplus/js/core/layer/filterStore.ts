@@ -28,9 +28,9 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 import { createLogger } from "#platform/log.js";
 import {
   type MapLike,
-  loadRecord,
+  loadVersionedObject,
   removeRecord,
-  saveRecord,
+  saveVersionedObject,
   scopedStorageKey,
 } from "#platform/storage.js";
 
@@ -185,26 +185,30 @@ const createFilterStore = (map: MapLike): FilterStore => {
   /** layerId -> source -> declaration. In-memory only (see setDeclaration). */
   const declarations = new Map<string, Map<string, LayerFilter>>();
 
-  const readRecord = (): FilterStoreRecord => {
-    const loaded = loadRecord<unknown>(key);
-    // A corrupt or non-record payload (an array, a string, a record missing
-    // the layers map) reads back as an empty record — it is not a persistence
-    // channel and must never be trusted as one.
-    if (
-      !loaded ||
-      typeof loaded !== "object" ||
-      Array.isArray(loaded) ||
-      !("layers" in loaded) ||
-      typeof (loaded as { layers?: unknown }).layers !== "object" ||
-      (loaded as { layers?: unknown }).layers === null
-    ) {
-      return { version: RECORD_VERSION, layers: {} };
-    }
-    return loaded as FilterStoreRecord;
-  };
+  /** Coerce a stored payload into a usable record. A corrupt or non-record
+   *  payload (an array, a string, a record missing the layers map) reads back
+   *  as an empty record — it is not a persistence channel and must never be
+   *  trusted as one. */
+  const asRecord = (loaded: unknown): FilterStoreRecord | null =>
+    loaded &&
+    typeof loaded === "object" &&
+    !Array.isArray(loaded) &&
+    "layers" in loaded &&
+    typeof (loaded as { layers?: unknown }).layers === "object" &&
+    (loaded as { layers?: unknown }).layers !== null
+      ? (loaded as FilterStoreRecord)
+      : null;
+
+  const readRecord = (): FilterStoreRecord =>
+    // The record was a flat v1 document before the versioned envelope; the
+    // migrator accepts that shape so a pre-envelope write still reads back.
+    loadVersionedObject<FilterStoreRecord>(key, {
+      version: RECORD_VERSION,
+      migrate: asRecord,
+    }) ?? { version: RECORD_VERSION, layers: {} };
 
   const writeRecord = (record: FilterStoreRecord): void => {
-    saveRecord(key, record);
+    saveVersionedObject(key, { version: RECORD_VERSION, data: record });
   };
 
   /** Read one source entry WITHOUT mutating the record. Reads must never

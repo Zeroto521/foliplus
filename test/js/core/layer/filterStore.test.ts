@@ -384,8 +384,8 @@ describe("filterStore — invariants", () => {
     const persisted = JSON.parse(
       window.localStorage.getItem(filterStoreKey(fakeMap()))!,
     );
-    expect(persisted.layers.L1.sources.measure).toBeUndefined();
-    expect(persisted.layers.L1.sources.filter.value).toEqual(enumFilter("marker"));
+    expect(persisted.data.layers.L1.sources.measure).toBeUndefined();
+    expect(persisted.data.layers.L1.sources.filter.value).toEqual(enumFilter("marker"));
   });
 
   it("same name on different layers never cross-affects (the owner dimension guard)", () => {
@@ -642,8 +642,8 @@ describe("filterStore — invariants", () => {
     expect(store.isOwned("L2", "filter")).toBe(true);
     expect(store.getFilter("L2", "filter")).toEqual(enumFilter("marker"));
     const raw = JSON.parse(window.localStorage.getItem(filterStoreKey(fakeMap()))!);
-    expect(raw.layers.L1).toBeUndefined();
-    expect(raw.layers.L2.sources.filter.value).toEqual(enumFilter("marker"));
+    expect(raw.data.layers.L1).toBeUndefined();
+    expect(raw.data.layers.L2.sources.filter.value).toEqual(enumFilter("marker"));
   });
 
   it("revalidate follows a changed declaration value on an un-owned slot", () => {

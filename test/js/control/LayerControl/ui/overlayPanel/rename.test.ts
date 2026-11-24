@@ -148,9 +148,9 @@ describe("LayerUI rename", () => {
     });
 
     it("Escape cancels and restores the original label text", () => {
-      // map.foliplus.showHint may be bound to the real HintManager on init;
+      // map.foliplus.hint.set may be bound to the real HintManager on init;
       // spy on it to observe calls.
-      const showHint = vi.spyOn(map.foliplus!, "showHint");
+      const showHint = vi.spyOn(map.foliplus!.hint, "set");
       const item = findItem(ui, "overlay1");
       ui.renameLayer("overlay1");
 
@@ -726,7 +726,7 @@ describe("LayerUI rename", () => {
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
-      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data;
       expect(stored.renamedNames).toEqual({ overlay1: "Persisted" });
     });
 
@@ -767,13 +767,15 @@ describe("LayerUI rename", () => {
 
       const namesCall = setItem.mock.calls.find((c: any) => {
         try {
-          return "overlay1" in (JSON.parse(c[1]).renamedNames ?? {});
+          return "overlay1" in (JSON.parse(c[1]).data.renamedNames ?? {});
         } catch {
           return false;
         }
       });
       expect(namesCall).toBeDefined();
-      expect(JSON.parse(namesCall![1]).renamedNames).toEqual({ overlay1: "Third" });
+      expect(JSON.parse(namesCall![1]).data.renamedNames).toEqual({
+        overlay1: "Third",
+      });
 
       vi.useRealTimers();
       Object.defineProperty(window, "localStorage", {

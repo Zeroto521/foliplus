@@ -110,7 +110,7 @@ describe("bindEvents", () => {
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
     expect(ctrl.ctrl.classList.contains("foliplus-is-collapsed")).toBe(true);
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.hint.clear).toHaveBeenCalledWith("SearchControl");
   });
 
   it("removes floating panel when container is collapsed", async () => {
@@ -751,7 +751,7 @@ describe("bindEvents", () => {
     );
     // The coord display is parsed as coordinates and searched — no coord_error.
     expect(map.flyTo).toHaveBeenCalled();
-    expect(window.foliplus.showHint).not.toHaveBeenCalledWith(
+    expect(window.foliplus.hint.set).not.toHaveBeenCalledWith(
       "SearchControl",
       expect.stringContaining("coord"),
     );

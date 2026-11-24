@@ -21,7 +21,9 @@ describe("ensureLayerAPI", () => {
   let map: any;
 
   beforeEach(() => {
-    vi.stubGlobal("foliplus", { showHint: mockShowHint });
+    vi.stubGlobal("foliplus", {
+      hint: { set: mockShowHint, clear: vi.fn(), registerIcon: vi.fn() },
+    });
     vi.stubGlobal("L", {
       layerGroup: vi.fn(() => ({
         addLayer: vi.fn(),
@@ -314,12 +316,16 @@ describe("requireLayerAPI", () => {
   const T = (s: string) => s;
 
   it("throws when LayerAPI is missing", () => {
-    const map = { foliplus: { showHint: mockShowHint } } as any;
+    const map = {
+      foliplus: {
+        hint: { set: mockShowHint, clear: vi.fn(), registerIcon: vi.fn() },
+      },
+    } as any;
     expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
     expect(mockShowHint).toHaveBeenCalled();
   });
 
-  it("throws when LayerAPI is missing even without showHint", () => {
+  it("throws when LayerAPI is missing even without the hint API", () => {
     const map = { foliplus: {} } as any;
     expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
   });
@@ -339,7 +345,12 @@ describe("requireLayerAPI", () => {
     // foliplus subsystem (hint/mode/interaction) would silently pass
     // requireLayerAPI, letting Export run without a real LayerControl.
     const api = { layers: [] } as any; // data property, no getter
-    const map = { foliplus: { showHint: mockShowHint, LayerAPI: api } } as any;
+    const map = {
+      foliplus: {
+        hint: { set: mockShowHint, clear: vi.fn(), registerIcon: vi.fn() },
+        LayerAPI: api,
+      },
+    } as any;
     expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
     expect(mockShowHint).toHaveBeenCalled();
   });
@@ -348,7 +359,12 @@ describe("requireLayerAPI", () => {
     // Capability assertion is the authority; the self-report flag alone
     // cannot bypass the guard.
     const api = { layers: [], isLayerControl: true } as any;
-    const map = { foliplus: { showHint: mockShowHint, LayerAPI: api } } as any;
+    const map = {
+      foliplus: {
+        hint: { set: mockShowHint, clear: vi.fn(), registerIcon: vi.fn() },
+        LayerAPI: api,
+      },
+    } as any;
     expect(() => requireLayerAPI("Test", T, map)).toThrow("no_layercontrol");
   });
 });

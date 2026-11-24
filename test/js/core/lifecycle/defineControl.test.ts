@@ -11,7 +11,9 @@ const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig =
   ({ name: "TestControl", locale_code: "en", ...overrides }) as ComponentConfig;
 
 beforeEach(() => {
-  vi.stubGlobal("foliplus", { showHint: vi.fn() });
+  vi.stubGlobal("foliplus", {
+    hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
+  });
 });
 
 describe("defineControl — bare shell", () => {
