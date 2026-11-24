@@ -1,5 +1,5 @@
 import { repoPath } from "#test/path.js";
-import type * as L from "leaflet";
+import { makeUnloadMap } from "../fixture.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -80,18 +80,6 @@ const registeredEscapeIds = (): Set<string> => {
   }
 
   return registered;
-};
-
-/** A map stand-in: the registry only needs the unload hook. */
-const makeMap = () => {
-  let unload: () => void = () => undefined;
-  const on = vi.fn((event: string, handler: () => void) => {
-    if (event === "unload") unload = handler;
-  });
-  return {
-    map: { on } as unknown as L.Map,
-    fireUnload: () => unload(),
-  };
 };
 
 const panel = (className = "panel"): HTMLElement => {
@@ -187,7 +175,7 @@ describe("OverlayRegistry", () => {
     removeSpy.mock.calls.filter((call: unknown[]) => call[0] === type).length;
 
   beforeEach(() => {
-    registry = ensureOverlayRegistry(makeMap().map);
+    registry = ensureOverlayRegistry(makeUnloadMap().map);
     addSpy = vi.spyOn(document, "addEventListener");
     removeSpy = vi.spyOn(document, "removeEventListener");
   });
@@ -375,7 +363,7 @@ describe("OverlayRegistry", () => {
     });
 
     it("shares one registry per map and tears it down on map unload", () => {
-      const { map, fireUnload } = makeMap();
+      const { map, fireUnload } = makeUnloadMap();
       const shared = ensureOverlayRegistry(map);
       expect(ensureOverlayRegistry(map)).toBe(shared);
       shared.register(makeEntry({ id: OVERLAY_IDS.LAYER_ATTRS }).entry);
@@ -1732,7 +1720,7 @@ describe("press channel: mousedown/click only (no pointer events)", () => {
     addSpy.mock.calls.filter((call: unknown[]) => call[0] === type).length;
 
   beforeEach(() => {
-    registry = ensureOverlayRegistry(makeMap().map);
+    registry = ensureOverlayRegistry(makeUnloadMap().map);
     addSpy = vi.spyOn(document, "addEventListener");
   });
 
