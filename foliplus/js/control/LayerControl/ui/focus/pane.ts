@@ -8,6 +8,7 @@ import {
   PANE_ROLE,
   ROLE,
   focusLayerZ,
+  isGroupLayer,
   zFor,
 } from "#core/layer/index.js";
 import type { FinalizeStep } from "#platform/finalize.js";
@@ -155,6 +156,25 @@ const bringFocusedLayerToFront = (ui: LayerUI, layerInfo: LayerInfo): void => {
           surface.restoreZ();
         },
       ]);
+      // A container's children may paint into custom panes the surface did
+      // not discover (e.g. a child added after reconcile, or a nested group
+      // with its own declared pane). Lift any such pane too so focusing the
+      // container lifts every sub-layer, not just the surface's own panes.
+      if (layer && isGroupLayer(layer)) {
+        const covered = new Set(surface.paneNames);
+        let childPanes: string[] = [];
+        try {
+          childPanes = ui.c.getLayerPanes(layer);
+        } catch {
+          childPanes = [];
+        }
+        for (const name of childPanes) {
+          if (covered.has(name)) continue;
+          if (ui.c.panes.defaultPanes.has(name)) continue;
+          const pane = ui.c.map.getPane(name);
+          if (pane) lift(`pane:${name}`, pane);
+        }
+      }
     } else {
       // A surface with no pane of its own: fall back to pane discovery.
       // Best-effort — some third-party layers expose children without a pane,

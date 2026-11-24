@@ -55,7 +55,7 @@ async () => {
     api.registerLayer({
       id: ID,
       name: "Range overlay probe",
-      layer: L.layerGroup(),
+      layer: L.circleMarker([0, 0]),
       featureCountProvider: () => 10,
       filterProvider: model,
       filterSetter: next => {

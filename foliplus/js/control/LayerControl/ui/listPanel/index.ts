@@ -42,6 +42,7 @@ import {
   insertLayerItem,
   markSettled,
   rebuildList,
+  refreshTreeConnectors,
   renderInitialList,
   renderLayerItem,
   renderToggleAllRow,
@@ -54,18 +55,18 @@ import {
   type RowView,
   applyRowView,
   buildRowCell,
+  countTooltip,
   displayName,
   inZoomRange,
+  roleCountText,
   rowView,
 } from "./rowView.js";
 import {
   applyVisibility,
-  bumpCheckedCount,
   getLayerItems,
   handleChange,
   syncNoBasemap,
   syncToggleAll,
-  syncToggleAllFromCount,
   toggleAll,
 } from "./visibility.js";
 import type { ListCursor } from "#core/interaction/index.js";
@@ -77,29 +78,48 @@ import type { LayerInfo } from "#core/layer/index.js";
  *  persist across page reloads except what `state.ts` writes through the
  *  `ui.c.persistence` channel. */
 class ListPanel {
-  /** Per-role fold state. Persisted through `ui.c.persistence` on change. */
-  foldedRoles: Set<string> = new Set();
+  /** Per-role user fold opinion. Record<role, boolean>: key = role, value =
+   *  true (fold) / false (explicit expand); absent key = no user opinion.
+   *  Persisted through `ui.c.persistence` on change. The tri-state (not a
+   *  Set) is what lets a user expand an author-folded role and keep it
+   *  expanded across a reload. */
+  foldedRoles: Record<string, boolean> = {};
+  /** Per-folder fold state: `role::normalizedFolderName` → folded. A
+   *  tri-state user opinion (absent = never touched), so an explicit EXPAND
+   *  over an author default fold survives. Author defaults sit below it,
+   *  built-in "all expanded" below that. Persisted through the same channel. */
+  foldedFolders: Record<string, boolean> = {};
   /** The author's declared default folded-folder key set, derived from
    *  `CONF.folders` (never persisted — it is author config baked into the
    *  page, so a reload always re-derives it). This is the "default" layer of
-   *  the fold state: the user override (foldedRoles) is checked
+   *  the fold state: the user override (foldedFolders) is checked
    *  first and this falls back under it. See control/LayerControl/declaredFolder.ts. */
   authorFoldedFolders: Set<string> = new Set();
-  /** Per-role tri-state checkbox counts. Rebuilt by the full-scan
-   *  `syncToggleAll` at reconcile points; kept in sync by
-   *  `bumpCheckedCount` on each single-row toggle. */
-  checkedCount: Record<string, { total: number; on: number }> = {};
+  /** The author's declared default folded role map, derived from
+   *  `CONF.roles` (never persisted — it is author config baked into the
+   *  page, so a reload always re-derives it). The user override
+   *  (foldedRoles) is checked first and this falls back under it. See
+   *  control/LayerControl/declaredRole.ts. */
+  authorDefaultFoldedRoles: Record<string, boolean> = {};
   /** Index of the currently-navigable row the cursor is parked on, or null
    *  when the cursor is cleared (Escape, outside press). */
   activeIdx: number | null = null;
   /** Shared ARIA roving-tabindex controller on the panel's row set. */
   listCursor: ListCursor | null = null;
-  /** The registry entry the in-flight drag armed with, or null. Identity,
+  /** The registry entry the in-flight drag started with, or null. Identity,
    *  not position: the gesture spans events and timers, and reordering in
    *  between would re-point a saved index at a neighbor — the entry is
    *  re-resolved through the registry at every use, which also retires the
    *  session when the entry is unregistered or replaced under its id. */
   dragEntry: LayerInfo | null = null;
+  /** The folder block the in-flight drag started with, or null. A folder drag
+   *  moves the whole block (row + members), so it carries the block identity
+   *  (role + normalized key) instead of a registry entry. */
+  dragFolder: { role: string; key: string } | null = null;
+  /** Whether the dragged folder was already folded when the gesture began, so
+   *  dragend restores the pre-drag state instead of unfolding a folder the
+   *  user had folded themselves. */
+  dragFolderWasFolded: boolean = false;
   /** Wall-clock timestamp of the last drag hint shown; used to enforce the
    *  hint cooldown so a fast drag does not spam the tooltip. */
   lastDragHintAt: number = 0;
@@ -123,9 +143,18 @@ export {
   renderLayerItem,
   colorLayerName,
   initLayerItem,
+  refreshTreeConnectors,
 };
 export { ListPanel };
-export { applyRowView, buildRowCell, displayName, inZoomRange, rowView };
+export {
+  applyRowView,
+  buildRowCell,
+  displayName,
+  countTooltip,
+  inZoomRange,
+  roleCountText,
+  rowView,
+};
 export type { RowCell, RowLabels, RowView };
 export {
   toggleFold,
@@ -157,8 +186,6 @@ export {
   getLayerItems,
   toggleAll,
   syncToggleAll,
-  syncToggleAllFromCount,
-  bumpCheckedCount,
   syncNoBasemap,
   applyVisibility,
   handleChange,

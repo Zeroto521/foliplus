@@ -3,7 +3,8 @@
 () => {
   const r = document.querySelector(".foliplus-layer-item.foliplus-active");
   return {
-    grip: getComputedStyle(r.querySelector(".foliplus-drag-cell .drag-handle")).opacity,
+    grip: getComputedStyle(r.querySelector(".foliplus-layer-rail .drag-handle"))
+      .opacity,
     more: getComputedStyle(r.querySelector(".foliplus-layer-more-btn")).color,
     glow: getComputedStyle(r).boxShadow !== "none",
   };

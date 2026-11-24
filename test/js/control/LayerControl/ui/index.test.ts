@@ -3,11 +3,13 @@
 // per-module suites (list/keyboard/focus/...); this file pins the wiring.
 import {
   TEST_ENV,
+  TileLayer,
   attachedPanel,
   findItem,
   initFixture,
   installLeafletGlobals,
   makePane,
+  polygonLayer,
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
@@ -175,15 +177,17 @@ describe("LayerUI shell — delegates", () => {
     vi.useRealTimers();
   });
 
-  it("saveFoldState persists the folded-group set", () => {
+  it("saveFoldState persists the folded-role opinion map", () => {
     const save = vi.spyOn(manager.persistence, "schedule");
-    ui.listPanel.foldedRoles = new Set(["overlays"]);
+    ui.listPanel.foldedRoles = { overlays: true };
 
     ui.saveFoldState();
 
     expect(save).toHaveBeenCalled();
-    const fields = save.mock.calls[0][0] as { foldedRoles: () => string[] };
-    expect(fields.foldedRoles()).toEqual(["overlays"]);
+    const fields = save.mock.calls[0][0] as {
+      foldedRoles: () => Record<string, boolean>;
+    };
+    expect(fields.foldedRoles()).toEqual({ overlays: true });
   });
 
   it("saveNamesState persists the rename map", () => {
@@ -241,8 +245,8 @@ describe("LayerUI shell — delegates", () => {
     expect(enforce).toHaveBeenCalled();
   });
 
-  it("reindexAfterMove rebuilds the list without dropping rows", () => {
-    ui.reindexAfterMove();
+  it("rebuildAfterLayoutChange rebuilds the list without dropping rows", () => {
+    ui.rebuildAfterLayoutChange();
 
     expect(ui.uiContainer!.querySelector("[data-layer-id='overlay1']")).not.toBeNull();
     expect(ui.uiContainer!.querySelector("[data-layer-id='base1']")).not.toBeNull();
@@ -329,5 +333,198 @@ describe("LayerUI shell — delegates", () => {
 
   it("dropStyleDimApplies delegates to the style bag", () => {
     expect(() => ui.dropStyleDimApplies("overlay1")).not.toThrow();
+  });
+});
+
+// ui derived-state coherence guard (moved from derivedState.test.ts).
+// Every registration path must leave the derived states — role tri-state,
+// container row type, fold class, role header count — in agreement with the
+// registry.
+describe("ui derived-state coherence — B-path (runtime registerLayer)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  beforeEach(() => {
+    ({ manager, ui } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  const toggleAllCheckbox = (role: string): HTMLInputElement =>
+    attachedPanel(ui).querySelector(
+      `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"] input[type="checkbox"]`,
+    ) as HTMLInputElement;
+
+  const rowCount = (role: string): number =>
+    attachedPanel(ui).querySelectorAll(
+      role === ROLE.BASE
+        ? `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`
+        : `${CONST.SEL.LAYER_ITEM}:not([data-layer-type="${ROLE.BASE}"])`,
+    ).length;
+
+  const coherenceTable: Array<{
+    name: string;
+    register: () => void;
+    check: () => void;
+  }> = [
+    {
+      name: "role tri-state total tracks the registry",
+      register: () =>
+        manager.registerLayer({
+          id: "overlay2",
+          name: "Late",
+          role: "overlay",
+          layer: polygonLayer(),
+        }),
+      check: () => {
+        const cb = toggleAllCheckbox(ROLE.OVERLAY);
+        expect(cb).not.toBeNull();
+        expect(cb.checked).toBe(true);
+        expect(cb.indeterminate).toBe(false);
+        const row = attachedPanel(ui).querySelector(
+          `${CONST.SEL.LAYER_ITEM}[data-layer-id="overlay2"] input[type="checkbox"]`,
+        ) as HTMLInputElement;
+        row.checked = false;
+        row.dispatchEvent(new Event("change", { bubbles: true }));
+        const after = toggleAllCheckbox(ROLE.OVERLAY);
+        expect(after.indeterminate).toBe(true);
+        expect(after.checked).toBe(false);
+      },
+    },
+    {
+      name: "container row renders the group glyph + child count",
+      register: () => {
+        const fg = {
+          options: {},
+          eachLayer: vi.fn((cb: (c: unknown) => void) => {
+            cb({ options: {} });
+            cb({ options: {} });
+          }),
+          addLayer: vi.fn(),
+          getLayers: vi.fn(() => [{ options: {} }, { options: {} }]),
+          getBounds: vi.fn(),
+          _layers: {},
+        };
+        manager.registerLayer({
+          id: "fg_late",
+          name: "Late Group",
+          role: "overlay",
+          layer: fg as never,
+        });
+      },
+      check: () => {
+        const row = attachedPanel(ui).querySelector(
+          `${CONST.SEL.LAYER_ITEM}[data-layer-id="fg_late"]`,
+        ) as HTMLElement | null;
+        expect(row).not.toBeNull();
+        const typeCol = row!.querySelector(
+          `.${CONST.CLASSES.TYPE_ICON_COL}`,
+        ) as HTMLElement | null;
+        expect(typeCol?.innerHTML).toContain("<svg");
+        expect(row!.querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("2");
+      },
+    },
+    {
+      name: "base role header reflects a base registered at runtime",
+      register: () =>
+        manager.registerLayer({
+          id: "base_late",
+          name: "Late Base",
+          role: "base",
+          layer: new TileLayer(),
+          paneName: "tilePane",
+        }),
+      check: () => {
+        expect(rowCount(ROLE.BASE)).toBeGreaterThanOrEqual(2);
+        const cb = toggleAllCheckbox(ROLE.BASE);
+        expect(cb).not.toBeNull();
+      },
+    },
+  ];
+
+  it.each(coherenceTable)("$name", ({ register, check }) => {
+    installLeafletGlobals();
+    register();
+    check();
+  });
+});
+
+describe("ui derived-state coherence — tree connector (delete path)", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+
+  const layoutFromRoles = (sections: Record<string, string[]>) => {
+    const keys = new Set<string>();
+    for (const list of Object.values(sections)) for (const k of list) keys.add(k);
+    return {
+      version: 2,
+      folders: [...keys].map(k => ({ key: k, name: k })),
+      order: sections,
+      members: {},
+    };
+  };
+
+  const tree = (id: string): HTMLElement | null =>
+    attachedPanel(ui).querySelector(
+      `[data-layer-id="${id}"] .${CONST.CLASSES.FOLD_TREE}`,
+    );
+
+  beforeEach(() => {
+    installLeafletGlobals();
+    ({ manager, ui } = initFixture({
+      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+      ],
+    }));
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  it("deleting the folder's last member flips the prior member to LAST", () => {
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(false);
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(true);
+    expect(tree("rd2")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    manager.deleteLayer("rd2");
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(false);
+  });
+
+  it("registering a new member computes the new row's connector and leaves prior rows coherent", () => {
+    expect(tree("rd2")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    manager.registerLayer({
+      id: "rd3",
+      name: "Lakes",
+      role: "overlay",
+      folder: "roads",
+      layer: polygonLayer(),
+    });
+    expect(tree("rd3")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(true);
+    expect(tree("rd3")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(false);
+    expect(tree("rd2")?.classList.contains(CONST.CLASSES.FOLD_TREE_LAST)).toBe(true);
+    expect(tree("rd1")?.classList.contains(CONST.CLASSES.FOLD_TREE_MID)).toBe(true);
   });
 });

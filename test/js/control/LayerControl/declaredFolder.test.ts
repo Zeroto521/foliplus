@@ -85,27 +85,35 @@ describe("authorFoldedKeys", () => {
 describe("effectiveFolderFolded", () => {
   it("lets the user override (folded) win over the author default", () => {
     const author = new Set(["overlay::业务数据"]);
-    const user = new Set(["overlay::业务数据"]);
+    const user = { "overlay::业务数据": true };
     // Author default folded, user keeps it folded → folded.
     expect(effectiveFolderFolded(author, user, "overlay", "业务数据")).toBe(true);
   });
 
-  it("falls back to the author default when the user has no override", () => {
+  it("lets an explicit EXPAND win over the author default", () => {
+    // The whole point of the tri-state: an author-folded folder has to be
+    // openable by hand, and the choice has to survive a reload.
     const author = new Set(["overlay::业务数据"]);
-    const user = new Set<string>();
-    // No user override → author default applies.
+    const user = { "overlay::业务数据": false };
+    expect(effectiveFolderFolded(author, user, "overlay", "业务数据")).toBe(false);
+  });
+
+  it("falls back to the author default when the user has no opinion", () => {
+    const author = new Set(["overlay::业务数据"]);
+    const user: Record<string, boolean> = {};
+    // No user opinion → author default applies.
     expect(effectiveFolderFolded(author, user, "overlay", "业务数据")).toBe(true);
   });
 
   it("returns expanded when neither the user nor the author folds it", () => {
     const author = new Set(["overlay::业务数据"]);
-    const user = new Set<string>();
+    const user: Record<string, boolean> = {};
     expect(effectiveFolderFolded(author, user, "overlay", "未声明组")).toBe(false);
   });
 
   it("normalizes the name before the key lookup", () => {
     const author = new Set(["overlay::业务数据"]);
-    const user = new Set<string>();
+    const user: Record<string, boolean> = {};
     expect(effectiveFolderFolded(author, user, "overlay", "  业务数据  ")).toBe(true);
   });
 });

@@ -25,7 +25,7 @@ repos:
 
   # ── Lint & Format (ruff) ──
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.5
+    rev: v0.17.6
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
@@ -135,4 +135,17 @@ repos:
         language: python
         additional_dependencies: [docutils]
         files: ^foliplus/.*\.py$
+        pass_filenames: true
+
+      # Gate: no control module crosses the 300-code-line criterion. The old
+      # criterion was per control, so splitting a control into helper modules
+      # hid two 400+/300+ modules behind a package that looked small. This gate
+      # counts every `foliplus/control/**/*.py` module (non-blank non-`#` lines;
+      # docstrings count) and fails on >300, so a helper module must split too.
+      # Check-only.
+      - id: module-size-check
+        name: module-size-check
+        entry: python script/check/module_size_check.py
+        language: python
+        files: ^foliplus/control/.*\.py$
         pass_filenames: true

@@ -1,4 +1,4 @@
-// LayerIntentStore — unit surface + serialization-compatibility (COMPARE.md).
+// LayerIntentStore — unit surface + serialization compatibility.
 //
 // PR① acceptance: toPersisted vs old buildLayerStates field-by-field,
 // loadFromPersisted vs parseLayerState + PARSE_OVERRIDE, overrides array ↔

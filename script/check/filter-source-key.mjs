@@ -47,6 +47,14 @@ const walk = (dir, out = []) => {
 };
 
 /**
+ * A storage-key suffix is not a filterStore source name. `scopedStorageKey(map,
+ * "measure")` spells the measure record's own key suffix, not the filterStore
+ * source that lands inside `foliplus_filter_store_<mapId>` — the two only share
+ * the word. Strip the balanced call so the scanner cannot confuse the two.
+ */
+const SCOPED_KEY_CALL = /scopedStorageKey\s*\([^)]*\)/g;
+
+/**
  * Find bare `"measure"` string literals in the MeasureControl source tree.
  * @param root repo root; MeasureControl is scanned under `<root>/foliplus/js`
  *   and `<root>/test/js`.
@@ -63,7 +71,7 @@ const findBareFilterSourceKeys = (root = process.cwd()) => {
     const rel = path.relative(root, file).split(path.sep).join("/");
     const lines = fs.readFileSync(file, "utf8").split(/\r?\n/);
     lines.forEach((line, i) => {
-      if (line.includes(needle)) {
+      if (line.replace(SCOPED_KEY_CALL, "").includes(needle)) {
         hits.push({
           file: rel,
           line: i + 1,

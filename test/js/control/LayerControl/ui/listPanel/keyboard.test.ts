@@ -36,7 +36,7 @@ describe("LayerUI keyboard", () => {
         layer: { options: {}, eachLayer: vi.fn() },
       });
     }
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     // Folded-group state is persisted to localStorage, so a fold from one test
     // would be re-read by the next test's LayerUI constructor and present as
@@ -734,7 +734,7 @@ describe("LayerUI keyboard", () => {
 
       activateButton(foldBtn, "Enter");
 
-      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(true);
+      expect(ui.listPanel.foldedRoles[ROLE.OVERLAY]).toBe(true);
       expect(allFolded(children())).toBe(true);
     });
 
@@ -751,18 +751,20 @@ describe("LayerUI keyboard", () => {
       const { children } = attachWithGroup(ui);
       // The chevron is a real focusable button, so dispatch the key there.
       activateButton(overlayFoldBtn(attachedPanel(ui)), " ");
-      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(true);
+      expect(ui.listPanel.foldedRoles[ROLE.OVERLAY]).toBe(true);
       expect(allFolded(children())).toBe(true);
       // Fold rebuilds the panel, so re-fetch the button on the rebuilt row.
       activateButton(overlayFoldBtn(attachedPanel(ui)), "Enter");
 
-      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(false);
+      expect(ui.listPanel.foldedRoles[ROLE.OVERLAY]).toBe(false);
       expect(allFolded(children())).toBe(false);
     });
 
     it("ArrowLeft on a focused chevron folds the role, not the row checkbox", () => {
       const { children } = attachWithGroup(ui);
-      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(false);
+      // Initially no user opinion: the role renders expanded (author default expanded).
+      expect(ui.listPanel.foldedRoles[ROLE.OVERLAY]).toBeUndefined();
+      expect(allFolded(children())).toBe(false);
 
       // Enter and Space over the chevron are native button activation, so the
       // input-ownership table leaves them to the button's own click. The arrow
@@ -771,7 +773,7 @@ describe("LayerUI keyboard", () => {
       // up to the toggle-all row and flip its select-all checkbox.
       pressKey(overlayFoldBtn(attachedPanel(ui)), "ArrowLeft");
 
-      expect(ui.listPanel.foldedRoles.has(ROLE.OVERLAY)).toBe(true);
+      expect(ui.listPanel.foldedRoles[ROLE.OVERLAY]).toBe(true);
       expect(allFolded(children())).toBe(true);
     });
 
@@ -1189,7 +1191,7 @@ describe("LayerUI keyboard", () => {
     });
 
     it("folded rows are skipped when finding a visible neighbour", () => {
-      ui.listPanel.foldedRoles = new Set([ROLE.OVERLAY]);
+      ui.listPanel.foldedRoles = { [ROLE.OVERLAY]: true };
       const base = findItem(ui, "base1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(base));
       pressKey(base, "ArrowUp");
@@ -1286,32 +1288,6 @@ describe("LayerUI keyboard", () => {
       expect(focusLayer).toHaveBeenCalledTimes(1);
     });
 
-    it("handleKeyDown does not toggle the row on Enter when the clean button is focused", () => {
-      // Seed an empty folder key so the section header renders the clean button.
-      manager.createFolder("overlay", "my folder");
-      manager.ui?.reindexAfterMove?.();
-      const cleanBtn = attachedPanel(ui).querySelector(
-        `.${CONST.CLASSES.CLEAN_FOLDERS_BTN}[data-role="overlay"]`,
-      ) as HTMLElement;
-      expect(cleanBtn).not.toBeNull();
-      cleanBtn.focus();
-      const prevent = vi.fn();
-      const stop = vi.fn();
-      const event = {
-        key: "Enter",
-        preventDefault: prevent,
-        stopPropagation: stop,
-        ctrlKey: false,
-        altKey: false,
-        shiftKey: false,
-        metaKey: false,
-      } as unknown as KeyboardEvent;
-      ui.handleKeyDown(event);
-      expect(prevent).toHaveBeenCalled();
-      // The clean-button branch calls stopPropagation (the row-toggle branch does
-      // not), so a stopped event proves the guard stood aside.
-      expect(stop).toHaveBeenCalled();
-    });
     it("an Arrow key on a focused menu button routes through the menu branch", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);

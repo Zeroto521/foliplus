@@ -79,7 +79,7 @@ describe("LayerUI style panel", () => {
   beforeEach(() => {
     restoreBubble();
     ({ manager, ui, map } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     // Seed the field cache so the panel builds: collectFields walks the
@@ -4333,7 +4333,7 @@ describe("LayerUI style panel — zoom range", () => {
   beforeEach(() => {
     restoreBubble();
     ({ manager, ui, map } = initFixture());
-    ui.listPanel.foldedRoles = new Set();
+    ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
     ui.runtimeStore.setFields("overlay1", [{ name: "count", numeric: true }]);

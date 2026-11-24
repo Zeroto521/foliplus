@@ -520,6 +520,7 @@ class TestRuntimeZeroChange:
             "collapse_on_outside",
             "icon_prefix",
             "folders",
+            "roles",
         )
         # The full tuple for MeasureControl is asserted in the parametrized
         # derivation test above; this is a targeted snapshot for spot-check.

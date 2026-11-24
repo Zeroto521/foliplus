@@ -2,13 +2,22 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
-import { EVENT_POLICY, EVENT_POLICY_KIND, type EventPolicy } from "./const.js";
-import type { EventPayloadMap } from "./type.js";
+import {
+  EVENT_POLICY,
+  EVENT_POLICY_KIND,
+  type EventPolicy,
+  isVoidEvent,
+} from "./const.js";
+import type { EventMeta, EventOrigin, EventPayloadMap } from "./type.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger("EventBus");
 
-type EventHandler = (...args: unknown[]) => void;
+/** A subscriber. Receives the payload first (the contract every in-tree
+ *  emit passes) and the delivery metadata second — `meta.origin` answers
+ *  "who initiated this change" when the producer declared one. A handler that
+ *  only reads the payload ignores `meta` and keeps working unchanged. */
+type EventHandler = (payload?: unknown, meta?: EventMeta) => void;
 
 /** Who owns a subscription. Internal (the control that owns the event) always
  *  runs before external observers, regardless of subscription order — a
@@ -178,6 +187,7 @@ class EventBus {
     payload: unknown[],
     mode: "failfast" | "collect",
     supersedeKey?: string,
+    meta?: EventMeta,
   ): DispatchFailure | undefined {
     const e = this.entries.get(event);
     if (!e) return undefined;
@@ -194,7 +204,9 @@ class EventBus {
         if (this.generation !== generation) break;
         if (token !== undefined && e.inFlight.get(key) !== token) break;
         try {
-          listener.fn(...payload);
+          // Payload first, meta second. The payload is the contract; a
+          // handler that only reads it ignores meta and keeps working.
+          listener.fn(payload[0] ?? undefined, meta);
         } catch (error) {
           if (mode === "failfast") throw error;
           failure ??= { error };
@@ -206,6 +218,18 @@ class EventBus {
       }
     }
     return failure;
+  }
+
+  /** Resolve the trailing origin argument the way every emit/publish variant
+   *  must: a void event takes args[0] as its origin (no payload slot), a
+   *  payload event takes the trailing args[1]. Shared so the five variants
+   *  cannot drift apart. */
+  private resolveOrigin(event: string, args: unknown[]): EventOrigin | undefined {
+    return isVoidEvent(event)
+      ? (args[0] as EventOrigin | undefined)
+      : args.length > 1
+        ? (args[1] as EventOrigin | undefined)
+        : undefined;
   }
 
   /** Emit an event. A known event (in `EventPayloadMap`) requires its payload
@@ -233,13 +257,21 @@ class EventBus {
     event: K,
     ...args: K extends keyof EventPayloadMap
       ? EventPayloadMap[K] extends void
-        ? []
-        : [NonNullable<EventPayloadMap[K]>]
-      : unknown[]
+        ? [origin?: EventOrigin]
+        : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+      : [unknown?, origin?: EventOrigin]
   ): void;
-  emit(event: string, ...payload: unknown[]): void {
+  emit(event: string, ...args: unknown[]): void {
     this.assertPublishable(event);
-    this.dispatch(event, payload, "failfast");
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = this.resolveOrigin(event, args);
+    this.dispatch(
+      event,
+      payload,
+      "failfast",
+      undefined,
+      origin === undefined ? undefined : { origin },
+    );
   }
 
   /** Emit an event whose payload is one layer's current state, superseding any
@@ -258,15 +290,23 @@ class EventBus {
   emitSuperseding<K extends string>(
     event: K,
     supersedeKey: string,
-    ...payload: K extends keyof EventPayloadMap
+    ...args: K extends keyof EventPayloadMap
       ? EventPayloadMap[K] extends void
-        ? []
-        : [NonNullable<EventPayloadMap[K]>]
-      : unknown[]
+        ? [origin?: EventOrigin]
+        : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+      : [unknown?, origin?: EventOrigin]
   ): void;
-  emitSuperseding(event: string, supersedeKey: string, ...payload: unknown[]): void {
+  emitSuperseding(event: string, supersedeKey: string, ...args: unknown[]): void {
     this.assertPublishable(event);
-    this.dispatch(event, payload, "failfast", supersedeKey);
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = this.resolveOrigin(event, args);
+    this.dispatch(
+      event,
+      payload,
+      "failfast",
+      supersedeKey,
+      origin === undefined ? undefined : { origin },
+    );
   }
 
   /** Emit without letting a throwing handler cut the delivery short.
@@ -282,14 +322,22 @@ class EventBus {
    *  legal and must not read as "nothing failed". */
   emitSettled<K extends string>(
     event: K,
-    ...payload: K extends keyof EventPayloadMap
+    ...args: K extends keyof EventPayloadMap
       ? EventPayloadMap[K] extends void
-        ? []
-        : [NonNullable<EventPayloadMap[K]>]
-      : unknown[]
+        ? [origin?: EventOrigin]
+        : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+      : [unknown?, origin?: EventOrigin]
   ): DispatchFailure | undefined;
-  emitSettled(event: string, ...payload: unknown[]): DispatchFailure | undefined {
-    return this.dispatch(event, payload, "collect");
+  emitSettled(event: string, ...args: unknown[]): DispatchFailure | undefined {
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = this.resolveOrigin(event, args);
+    return this.dispatch(
+      event,
+      payload,
+      "collect",
+      undefined,
+      origin === undefined ? undefined : { origin },
+    );
   }
 
   /** Emit without letting a throwing handler cut the delivery short.
@@ -304,18 +352,26 @@ class EventBus {
   emitSupersedingSettled<K extends string>(
     event: K,
     supersedeKey: string,
-    ...payload: K extends keyof EventPayloadMap
+    ...args: K extends keyof EventPayloadMap
       ? EventPayloadMap[K] extends void
-        ? []
-        : [NonNullable<EventPayloadMap[K]>]
-      : unknown[]
+        ? [origin?: EventOrigin]
+        : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+      : [unknown?, origin?: EventOrigin]
   ): DispatchFailure | undefined;
   emitSupersedingSettled(
     event: string,
     supersedeKey: string,
-    ...payload: unknown[]
+    ...args: unknown[]
   ): DispatchFailure | undefined {
-    return this.dispatch(event, payload, "collect", supersedeKey);
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = this.resolveOrigin(event, args);
+    return this.dispatch(
+      event,
+      payload,
+      "collect",
+      supersedeKey,
+      origin === undefined ? undefined : { origin },
+    );
   }
 
   /** Publish one broadcast and resolve the first failure by the event's
@@ -324,14 +380,22 @@ class EventBus {
    *  is done. */
   publish<K extends string>(
     event: K,
-    ...payload: K extends keyof EventPayloadMap
+    ...args: K extends keyof EventPayloadMap
       ? EventPayloadMap[K] extends void
-        ? []
-        : [NonNullable<EventPayloadMap[K]>]
-      : unknown[]
+        ? [origin?: EventOrigin]
+        : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+      : [unknown?, origin?: EventOrigin]
   ): void;
-  publish(event: string, ...payload: unknown[]): void {
-    const failure = this.dispatch(event, payload, "collect");
+  publish(event: string, ...args: unknown[]): void {
+    const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
+    const origin = this.resolveOrigin(event, args);
+    const failure = this.dispatch(
+      event,
+      payload,
+      "collect",
+      undefined,
+      origin === undefined ? undefined : { origin },
+    );
     if (failure) this.resolveByPolicy(event, failure);
   }
 
@@ -407,17 +471,17 @@ class SettledOperation {
 
   emit<K extends string>(
     event: K,
-    ...payload: K extends keyof EventPayloadMap
+    ...args: K extends keyof EventPayloadMap
       ? EventPayloadMap[K] extends void
-        ? []
-        : [NonNullable<EventPayloadMap[K]>]
-      : unknown[]
+        ? [origin?: EventOrigin]
+        : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+      : [unknown?, origin?: EventOrigin]
   ): this;
-  emit(event: string, ...payload: unknown[]): this {
+  emit(event: string, ...args: unknown[]): this {
     // Dispatch first, then keep the first failure: `??=` on the call would
     // skip every event queued after the first failure, which is the very
     // truncation this operation exists to prevent.
-    const observed = this.bus.emitSettled(event, ...payload);
+    const observed = this.bus.emitSettled(event, ...args);
     this.failure ??= this.bus.consumeByPolicy(event, observed);
     return this;
   }
@@ -425,14 +489,14 @@ class SettledOperation {
   emitSuperseding<K extends string>(
     event: K,
     supersedeKey: string,
-    ...payload: K extends keyof EventPayloadMap
+    ...args: K extends keyof EventPayloadMap
       ? EventPayloadMap[K] extends void
-        ? []
-        : [NonNullable<EventPayloadMap[K]>]
-      : unknown[]
+        ? [origin?: EventOrigin]
+        : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+      : [unknown?, origin?: EventOrigin]
   ): this;
-  emitSuperseding(event: string, supersedeKey: string, ...payload: unknown[]): this {
-    const observed = this.bus.emitSupersedingSettled(event, supersedeKey, ...payload);
+  emitSuperseding(event: string, supersedeKey: string, ...args: unknown[]): this {
+    const observed = this.bus.emitSupersedingSettled(event, supersedeKey, ...args);
     this.failure ??= this.bus.consumeByPolicy(event, observed);
     return this;
   }
@@ -471,13 +535,13 @@ class SettledOperation {
 const publish = <K extends string>(
   bus: EventBus,
   event: K,
-  ...payload: K extends keyof EventPayloadMap
+  ...args: K extends keyof EventPayloadMap
     ? EventPayloadMap[K] extends void
-      ? []
-      : [NonNullable<EventPayloadMap[K]>]
-    : unknown[]
+      ? [origin?: EventOrigin]
+      : [NonNullable<EventPayloadMap[K]>, origin?: EventOrigin]
+    : [unknown?, origin?: EventOrigin]
 ): void => {
-  bus.publish(event, ...payload);
+  bus.publish(event, ...args);
 };
 
 export { EventBus, SettledOperation, publish };

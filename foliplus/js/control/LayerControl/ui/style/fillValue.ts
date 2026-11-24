@@ -118,9 +118,12 @@ export {
   bindValueDetail,
   disposeFillRow,
   declaredFill,
+  declaredFillColor,
+  declaredFillMode,
+  declaredFillOpacity,
   declaredValue,
   effectiveFillValue,
-  hasDeclaredValue,
+  hasDeclaredFill,
   hasValueField,
   resolvedValue,
   valueFields,
@@ -271,50 +274,107 @@ const warnDeclaredFillInference = (
   );
 };
 
-/** The author's fill declaration in force on this layer, or undefined.
+/** One layer's raw fill declaration record, or undefined.
+ *
+ *  The reader caches per layer object; this helper only resolves the carrier
+ *  (the registry reference first, the controller's live lookup as the
+ *  late-binding fallback). No intent gate lives here: each sub-dimension
+ *  helper below applies its own, so a user who owns only the colour still
+ *  sees the declared mode. */
+const declaredFillRecord = (ui: LayerUI, layerId: string) => {
+  const layerInfo = ui.c.layerRegistry.get(layerId);
+  return readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId)
+    .declared;
+};
+
+/** The declaration in force on this layer (no intent gate).
+ *
+ *  Used by the attach replay / reset / content-change gates, which need "is
+ *  there a declaration at all", not "which sub-dimension is still the
+ *  author's". */
+const declaredFill = (ui: LayerUI, layerId: string) => declaredFillRecord(ui, layerId);
+
+/** The declared mode in force, unless the user owns the mode intent.
+ *
+ *  A VALUE declaration only shows VALUE while the data still offers its
+ *  column (declaredValue resolves and returns undefined otherwise) — the
+ *  whole declaration then steps aside, so the panel falls back to the
+ *  authored original instead of claiming a mode it cannot paint. A
+ *  solid/original declaration has no such data dependency and surfaces as
+ *  declared. */
+const declaredFillMode = (ui: LayerUI, layerId: string): StyleMode | undefined => {
+  if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
+  const declared = declaredFillRecord(ui, layerId)?.mode;
+  if (declared === undefined) return undefined;
+  if (declared === STYLE_MODE.VALUE) {
+    return declaredValue(ui, layerId) !== undefined ? declared : undefined;
+  }
+  return declared;
+};
+
+/** The declared solid colour (a lowercased CSS hex), unless the user owns the
+ *  colour intent. A read-time default the solid row and the paint both read. */
+const declaredFillColor = (ui: LayerUI, layerId: string): string | undefined =>
+  getIntent(ui, layerId, INTENT.FILL_COLOR) !== undefined
+    ? undefined
+    : declaredFillRecord(ui, layerId)?.color;
+
+/** The declared fill opacity (0-1), unless the user owns the opacity intent.
+ *  It rides every mode, which is why it is read on its own axis. */
+const declaredFillOpacity = (ui: LayerUI, layerId: string): number | undefined =>
+  getIntent(ui, layerId, INTENT.FILL_OPACITY) !== undefined
+    ? undefined
+    : declaredFillRecord(ui, layerId)?.opacity;
+
+/** Whether the layer declares any fill — the cheap form for gates that run
+ *  before an apply allocates its scheduler box (no field resolution). */
+const hasDeclaredFill = (ui: LayerUI, layerId: string): boolean =>
+  declaredFillRecord(ui, layerId) !== undefined;
+
+/** The author's declared value fill in force on this layer, or undefined.
  *
  *  A declaration is a read-time default, not user intent: any fill value or
  *  mode intent means the user owns the mode and the declaration steps aside
- *  (the same rule the detected per-feature state follows). A declared value fill is
- *  only in force while the data still offers its column — a declaration whose
- *  field vanished is not silently re-pointed at another column; the whole
- *  declaration falls back to the per-feature paint / built-in default
- *  instead. */
-const declaredFill = (ui: LayerUI, layerId: string): ValueConfig | undefined => {
+ *  (the same rule the detected per-feature state follows). A declared value
+ *  fill is only in force while the data still offers its column — a
+ *  declaration whose field vanished is not silently re-pointed at another
+ *  column; the whole declaration falls back to the per-feature paint /
+ *  built-in default instead.
+ *
+ *  The kind is resolved here (never in the parse layer): an explicit kind is
+ *  the author's override and is never re-inferred; an absent kind is inferred
+ *  from the layer's own values, because a declaration is a read-time default
+ *  and the data is the truth about which mode the values can drive. */
+const declaredValue = (ui: LayerUI, layerId: string): ValueConfig | undefined => {
   if (getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  const layer = layerInfo?.layer ?? ui.c.findLayer(layerId);
-  const declared = readDeclaredFill(layer, layerId).declared;
-  if (!declared) return undefined;
-  // Resolve the mode kind. An explicit kind is the author's override and is
-  // never re-inferred (the parse layer already validated it against its
-  // scheme); an absent kind is inferred from the layer's own values — a
-  // declaration is a read-time default, so the data is the truth about which
-  // mode the values can drive. A field that cannot drive one kind (mixed
-  // number/category values) or drives none (all null / no feature) drops the
-  // declaration whole rather than painting one mode over a mismatched column.
-  let config: ValueConfig = declared;
-  if (declared.kind === undefined) {
-    const inferred = inferFieldKind(layer, declared.field);
+  const declared = declaredFillRecord(ui, layerId);
+  if (declared?.mode !== STYLE_MODE.VALUE || declared.value === undefined) {
+    return undefined;
+  }
+  const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
+    ui.c.findLayer(layerId)) as L.Layer | null;
+  let config: ValueConfig = declared.value;
+  if (config.kind === undefined) {
+    const inferred = inferFieldKind(layer, config.field);
     if (inferred === "mixed" || inferred === "empty") {
-      warnDeclaredFillInference(layerId, declared.field, inferred);
+      warnDeclaredFillInference(layerId, config.field, inferred);
       return undefined;
     }
     config =
       inferred === VALUE_KIND.CATEGORY
         ? {
-            ...declared,
+            ...config,
             kind: VALUE_KIND.CATEGORY,
             // An inferred categorical column needs a qualitative palette. The
             // author who named none gets the category default; a named scheme
             // is the author's choice and is kept verbatim on either mode.
             scheme:
-              declared.scheme === CONST.FILL_VALUE.SCHEME_DEFAULT
+              config.scheme === CONST.FILL_VALUE.SCHEME_DEFAULT
                 ? CONST.FILL_VALUE.CATEGORY_SCHEME_DEFAULT
-                : declared.scheme,
+                : config.scheme,
           }
-        : { ...declared, kind: VALUE_KIND.NUMERIC };
+        : { ...config, kind: VALUE_KIND.NUMERIC };
   }
   // The declaration kind selects the candidate set: a category value fill
   // needs its column among the categorical fields, a numeric value fill among
@@ -327,31 +387,10 @@ const declaredFill = (ui: LayerUI, layerId: string): ValueConfig | undefined => 
   return fields.includes(config.field) ? config : undefined;
 };
 
-/** A fill value the layer *declares* from Python (#789).
- *
- *  The declaration sits in the same chain as the user's intent, not beside
- *  it: it is a read-time default the panel and the paint both read, so a
- *  later panel edit always wins and Reset — which clears the intent — shows
- *  the declaration through again. The author scale deliberately sits outside
- *  this chain — it feeds the read-only original-colors state and the seed,
- *  never the user's by-value record. */
-const declaredValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
-  declaredFill(ui, layerId);
-
 /** The value config the fill paints and reports when the user has not chosen:
  *  the stored intent, else the author's declared value fill. */
 const effectiveFillValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   getIntent(ui, layerId, INTENT.FILL_VALUE) ?? declaredValue(ui, layerId);
-
-/** Whether a declaration names a value mode — the cheap form for gates that run
- *  before an apply allocates its scheduler box (no field resolution). */
-const hasDeclaredValue = (ui: LayerUI, layerId: string): boolean => {
-  const layerInfo = ui.c.layerRegistry.get(layerId);
-  return (
-    readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared !==
-    undefined
-  );
-};
 
 /** The value config a first switch to the by-value mode starts from. The field
  *  is the caller's seed field; method/classes/scheme come from the shared

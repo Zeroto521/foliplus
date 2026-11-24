@@ -27,6 +27,7 @@ from foliplus._declaration import (
     enum_atom,
     json_number,
     normalise_border,
+    normalise_fill,
     normalise_folder,
     normalise_icon_size,
     normalise_layer_filter,
@@ -527,9 +528,9 @@ class TestNormaliseBorder:
 
     def test_an_unknown_mode_warns_and_degrades(self) -> None:
         with pytest.warns(UserWarning) as record:
-            assert normalise_border({"mode": "solid"}, owner="Owner") is None
+            assert normalise_border({"mode": "nope"}, owner="Owner") is None
 
-        assert "with a mode 'solid'" in str(record[0].message)
+        assert "with a mode 'nope'" in str(record[0].message)
 
     def test_a_missing_mode_warns_and_degrades(self) -> None:
         with pytest.warns(UserWarning) as record:
@@ -565,20 +566,22 @@ class TestNormaliseBorder:
 
         assert "contradicts" in str(record[0].message)
 
-    def test_an_unknown_mode_message_names_both_literals(self) -> None:
+    def test_an_unknown_mode_message_names_the_literals(self) -> None:
         with pytest.warns(UserWarning) as record:
-            assert normalise_border({"mode": "solid"}, owner="Owner") is None
+            assert normalise_border({"mode": "nope"}, owner="Owner") is None
 
-        assert "expected 'follow_fill' or 'value'" in str(record[0].message)
+        assert "expected 'follow_fill', 'value', 'solid' or 'original'" in str(
+            record[0].message
+        )
 
     def test_an_unknown_key_warns_but_keeps_the_valid_mode(self) -> None:
         with pytest.warns(UserWarning) as record:
             normalised = normalise_border(
-                {"mode": "follow_fill", "weight": 3}, owner="Owner"
+                {"mode": "follow_fill", "dash": "4 4"}, owner="Owner"
             )
 
         assert normalised == {"mode": "follow_fill"}
-        assert "with unknown key 'weight'" in str(record[0].message)
+        assert "with unknown key 'dash'" in str(record[0].message)
 
     @pytest.mark.parametrize(
         ("raw", "reason"),
@@ -637,6 +640,242 @@ class TestNormaliseBorder:
                 normalise_border(raw, owner="Owner")
             except Exception as exc:  # pragma: no cover - must never raise
                 pytest.fail(f"normalise_border({raw!r}) raised {exc!r}")
+
+    def test_a_solid_border_with_color_and_weight_is_returned(self) -> None:
+        assert normalise_border(
+            {"mode": "solid", "color": "#FF0000", "weight": 2}, owner="Owner"
+        ) == {"mode": "solid", "color": "#ff0000", "weight": 2}
+
+    def test_a_color_implies_solid_mode(self) -> None:
+        assert normalise_border({"color": "#abc"}, owner="Owner") == {
+            "mode": "solid",
+            "color": "#aabbcc",
+        }
+
+    def test_a_weight_implies_solid_mode(self) -> None:
+        assert normalise_border({"weight": 3}, owner="Owner") == {
+            "mode": "solid",
+            "weight": 3,
+        }
+
+    def test_weight_rides_follow_fill(self) -> None:
+        assert normalise_border(
+            {"mode": "follow_fill", "weight": 2}, owner="Owner"
+        ) == {
+            "mode": "follow_fill",
+            "weight": 2,
+        }
+
+    def test_an_original_border_keeps_the_weight(self) -> None:
+        assert normalise_border({"mode": "original", "weight": 1.5}, owner="Owner") == {
+            "mode": "original",
+            "weight": 1.5,
+        }
+
+    def test_a_color_contradicts_value_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_border(
+                    {"mode": "value", "field": "count", "color": "#ff0000"},
+                    owner="Owner",
+                )
+                is None
+            )
+
+        assert "contradicts" in str(record[0].message)
+
+    def test_a_field_contradicts_solid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_border({"mode": "solid", "field": "count"}, owner="Owner")
+                is None
+            )
+
+        assert "contradicts" in str(record[0].message)
+
+    def test_a_value_key_contradicts_solid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_border({"mode": "solid", "scheme": "Reds"}, owner="Owner")
+                is None
+            )
+
+        assert "does not classify by value" in str(record[0].message)
+
+    @pytest.mark.parametrize("color", ["red", "#12", 7, ""])
+    def test_an_invalid_color_warns_and_drops_only_that_key(
+        self, color: object
+    ) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_border(
+                {"mode": "solid", "color": color}, owner="Owner"
+            ) == {"mode": "solid"}
+
+        assert "color" in str(record[0].message)
+
+    @pytest.mark.parametrize("weight", [0, -1, "2", True, float("nan")])
+    def test_an_invalid_weight_warns_and_drops_only_that_key(
+        self, weight: object
+    ) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_border(
+                {"mode": "solid", "weight": weight}, owner="Owner"
+            ) == {"mode": "solid"}
+
+        assert "weight" in str(record[0].message)
+
+
+class TestNormaliseFill:
+    def test_absent_is_none_without_a_warning(self) -> None:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            assert normalise_fill(None, owner="Owner") is None
+
+        assert caught == []
+
+    def test_a_solid_fill_with_color_and_opacity_is_returned(self) -> None:
+        assert normalise_fill(
+            {"mode": "solid", "color": "#FF0000", "opacity": 0.5}, owner="Owner"
+        ) == {"mode": "solid", "color": "#ff0000", "opacity": 0.5}
+
+    def test_a_color_implies_solid_mode(self) -> None:
+        assert normalise_fill({"color": "#abc"}, owner="Owner") == {
+            "mode": "solid",
+            "color": "#aabbcc",
+        }
+
+    def test_an_opacity_implies_solid_mode(self) -> None:
+        assert normalise_fill({"opacity": 0.4}, owner="Owner") == {
+            "mode": "solid",
+            "opacity": 0.4,
+        }
+
+    def test_a_flat_field_is_an_implicit_value_mode(self) -> None:
+        assert normalise_fill({"field": "score"}, owner="Owner") == {
+            "mode": "value",
+            "field": "score",
+        }
+
+    def test_a_value_mode_shell_is_returned(self) -> None:
+        assert normalise_fill(
+            {"mode": "value", "field": "score", "scheme": "Reds"}, owner="Owner"
+        ) == {"mode": "value", "field": "score"}
+
+    def test_opacity_rides_value_mode(self) -> None:
+        assert normalise_fill(
+            {"mode": "value", "field": "score", "opacity": 0.3}, owner="Owner"
+        ) == {"mode": "value", "field": "score", "opacity": 0.3}
+
+    def test_an_original_fill_keeps_the_opacity(self) -> None:
+        assert normalise_fill({"mode": "original", "opacity": 0.8}, owner="Owner") == {
+            "mode": "original",
+            "opacity": 0.8,
+        }
+
+    def test_a_color_contradicts_value_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_fill(
+                    {"mode": "value", "field": "score", "color": "#ff0000"},
+                    owner="Owner",
+                )
+                is None
+            )
+
+        assert "contradicts" in str(record[0].message)
+
+    def test_a_color_contradicts_original_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_fill({"mode": "original", "color": "#ff0000"}, owner="Owner")
+                is None
+            )
+
+        assert "contradicts" in str(record[0].message)
+
+    def test_a_field_contradicts_solid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_fill({"mode": "solid", "field": "score"}, owner="Owner")
+                is None
+            )
+
+        assert "contradicts" in str(record[0].message)
+
+    def test_a_value_key_contradicts_solid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_fill({"mode": "solid", "method": "equal"}, owner="Owner")
+                is None
+            )
+
+        assert "does not classify by value" in str(record[0].message)
+
+    def test_a_value_mode_without_a_field_warns_and_degrades(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_fill({"mode": "value"}, owner="Owner") is None
+
+        assert "requires a field" in str(record[0].message)
+
+    def test_an_empty_fill_warns_and_degrades(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_fill({}, owner="Owner") is None
+
+        assert "without a mode" in str(record[0].message)
+
+    @pytest.mark.parametrize("color", ["red", "#12", 7, ""])
+    def test_an_invalid_color_warns_and_drops_only_that_key(
+        self, color: object
+    ) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_fill({"mode": "solid", "color": color}, owner="Owner") == {
+                "mode": "solid"
+            }
+
+        assert "color" in str(record[0].message)
+
+    @pytest.mark.parametrize("opacity", [-0.1, 1.1, "0.5", True, float("nan")])
+    def test_an_invalid_opacity_warns_and_drops_only_that_key(
+        self, opacity: object
+    ) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert normalise_fill(
+                {"mode": "solid", "opacity": opacity}, owner="Owner"
+            ) == {"mode": "solid"}
+
+        assert "opacity" in str(record[0].message)
+
+    def test_an_unknown_key_warns_but_keeps_the_valid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalised = normalise_fill(
+                {"mode": "solid", "color": "#ff0000", "dash": "4 4"}, owner="Owner"
+            )
+
+        assert normalised == {"mode": "solid", "color": "#ff0000"}
+        assert "with unknown key 'dash'" in str(record[0].message)
+
+    def test_the_message_names_the_layer(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            normalise_fill({"mode": "nope"}, owner="layer 'roads'")
+
+        message = str(record[0].message)
+        assert "layer 'roads' declares foliplus['fill']" in message
+
+    def test_never_raises_on_any_input(self) -> None:
+        for raw in [
+            None,
+            {"mode": "solid"},
+            {"field": "x"},
+            {},
+            42,
+            "x",
+            [],
+            object(),
+        ]:
+            try:
+                normalise_fill(raw, owner="Owner")
+            except Exception as exc:  # pragma: no cover - must never raise
+                pytest.fail(f"normalise_fill({raw!r}) raised {exc!r}")
 
 
 # ── Module-constants placement guard ─────────────────────────────────────
@@ -828,6 +1067,34 @@ def test_normalise_marker_color_does_not_gate_the_vocabulary():
     # table); here it survives as a plain string, like the enum filter's
     # measurement-type names.
     assert normalise_marker_color("not-a-preset", owner="Owner") == "not-a-preset"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("#00A6A6", "#00a6a6"),
+        ("#abc", "#aabbcc"),
+        ("  #1A2B3C  ", "#1a2b3c"),
+    ],
+)
+def test_normalise_marker_color_accepts_a_css_hex(raw, expected):
+    assert normalise_marker_color(raw, owner="Owner") == expected
+
+
+@pytest.mark.parametrize("raw", ["#12", "#12345", "#1234567", "red", "#GGGGGG"])
+def test_normalise_marker_color_passes_a_non_preset_through(raw):
+    # The Python reader does not own the preset/hex vocabulary (that is the JS
+    # reader's verdict, which warns once) — it only gates the shape (a
+    # non-empty string), so a malformed hex or an unknown preset name survives
+    # unchanged for the JS reader to warn about.
+    _declaration.foliplus_reports.clear()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert normalise_marker_color(raw, owner="Owner") == raw
+
+
+def test_normalise_marker_color_hex_is_lowercased():
+    assert normalise_marker_color("#AABBCC", owner="Owner") == "#aabbcc"
 
 
 # icon_size normalisation: a whole-number pixel size; folium Icon has no

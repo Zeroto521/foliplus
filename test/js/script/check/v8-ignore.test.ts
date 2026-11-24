@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative, resolve } from "path";
 import { describe, expect, it } from "vitest";
 
-// v8-ignore drift guard (patch-coverage-policy §3.2).
+// v8-ignore drift guard.
 //
 // v8 provider ignore comments are a whitelist for genuinely unreachable
 // branches. Without a guard they become a brush for "I could not write the

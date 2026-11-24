@@ -4,13 +4,13 @@
 // Three per-layer foliplus declarations (border, icon_size, marker_color) share
 // one mechanical shape: a scalar (one-key object, one number, one preset name)
 // validated by a small parse and read through the shared readDeclaredKey
-// skeleton. Border is now two-shaped — the single-key follow_fill mode or the
-// flat fill-isomorphic value mode ({"field": ...}) — but still one normalized
-// outcome ({mode, valueConfig}) read through the same skeleton. This module
-// owns those three parses and the key → parse registry, so a new scalar channel
-// registers here instead of opening another file; the dimension-specific parse
-// stays its own function (its own message, its own invalid accumulation) — only
-// the file is shared.
+// skeleton. Border is the two-shaped one — a follow_fill / value / solid /
+// original mode shell or the flat fill-isomorphic value form — but still one
+// normalized outcome read through the same skeleton. This module owns those
+// three parses and the key → parse registry, so a new scalar channel registers
+// here instead of opening another file; the dimension-specific parse stays its
+// own function (its own message, its own invalid accumulation) — only the file
+// is shared.
 //
 // The read/cache/warn-once skeleton lives in {@link readDeclaredKey}; the
 // module owns only the parses and the thin readers that dispatch on them.
@@ -20,17 +20,45 @@ import { parseValueDeclaration } from "./declaredFill.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
 
 /** The recognised border declaration mode literals (public API, snake_case).
- *  The JS internal literals are "followFill" / "value"; this reader maps. */
+ *  The JS internal literals are "followFill" / "value" / "solid" / "original";
+ *  this reader maps them. */
 const DECLARED_BORDER_MODE_FOLLOW_FILL = "follow_fill";
 const DECLARED_BORDER_MODE_VALUE = "value";
+const DECLARED_BORDER_MODE_SOLID = "solid";
+const DECLARED_BORDER_MODE_ORIGINAL = "original";
+
+const BORDER_MODE_LITERALS: ReadonlySet<string> = new Set([
+  DECLARED_BORDER_MODE_FOLLOW_FILL,
+  DECLARED_BORDER_MODE_VALUE,
+  DECLARED_BORDER_MODE_SOLID,
+  DECLARED_BORDER_MODE_ORIGINAL,
+]);
+
+/** The flat keys the border declaration recognizes: the mode switch, the two
+ *  display sub-dimensions (color / weight) and the shared value-mode schema. */
+const KNOWN_KEYS: ReadonlySet<string> = new Set([
+  "mode",
+  "field",
+  "method",
+  "classes",
+  "scheme",
+  "kind",
+  "color",
+  "weight",
+]);
 
 type DeclaredBorderRead = {
   /** The declared border mode, or undefined when absent/unbuildable. */
   declared?: StyleMode;
   /** The declared value config, present exactly when the mode is value. */
   declaredValue?: ValueConfig;
+  /** The declared solid-mode colour (expanded, lowercased CSS hex). */
+  declaredColor?: string;
+  /** The declared stroke width in pixels; rides every mode. */
+  declaredWeight?: number;
   /** One line per rejected key, already logged — kept for tests. */
   invalid: string[];
 };
@@ -44,18 +72,28 @@ type DeclaredMarkerColor = string | undefined;
 /** Empty read for a null/undefined layer (provisional, never cached). */
 const EMPTY: DeclaredBorderRead = { invalid: [] };
 
-/** Parse the `border` declaration into a validated border mode.
+/** A border weight is a positive pixel number; a bool is an object in JS but
+ *  never a width, and a non-finite value has no stroke. */
+const isPositiveWeight = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
+/** Parse the `border` declaration into a validated border mode plus its
+ *  display sub-dimensions.
  *
  *  A declaration names the ONE mode the author wants as the read-time default:
- *  the single-key `follow_fill` (`{"mode": "follow_fill"}`) or the value mode
- *  (mode-shell `{"mode": "value", "field": ...}` or the flat fill-isomorphic
- *  `{"field": ...}`). mode, when present, is authoritative — a mode + field
- *  combination is contradictory and invalid. A missing/unknown `mode`, a
- *  missing `field` in value mode, or a non-object declaration drops the whole
- *  declaration (read as "not declared" — the border stays on its derived
- *  default rather than painting a mode the author never saw validated).
- *  Unknown keys degrade one by one (warned once, the rest survives — any extra
- *  key is a typo to surface).
+ *  `follow_fill` (the border follows the fill's paint), `value` (classify by
+ *  a field), `solid` (one declared colour) or `original` (the author's own
+ *  stroke). The flat fill-isomorphic form (`{"field": ...}`) is an implicit
+ *  value mode and a lone `color`/`weight` is an implicit solid mode. mode,
+ *  when present, is authoritative — a mode plus a key belonging to another
+ *  mode is contradictory and invalid.
+ *
+ *  `color` (a CSS hex) is the solid mode's colour and `weight` (a positive
+ *  pixel number) rides every mode — the two sub-dimensions the panel's border
+ *  row can set. A malformed sub-key degrades alone (warned once, the mode
+ *  survives); a contradiction or an unusable mode drops the whole declaration
+ *  (read as "not declared" — the border stays on its derived default rather
+ *  than painting a mode the author never saw validated).
  *
  *  @param reject one rejected key: record it for the caller (tests) and warn
  *    once per (declared-key, layer, key) — the skeleton owns the dedup, the
@@ -81,53 +119,107 @@ const parseBorder = (
   }
   const data = raw as Record<string, unknown>;
 
-  // Two declaration shapes converge to ONE normalized output (the lead's
-  // single-rule-table ruling): a mode-shell ({"mode": ...}) or the flat
-  // fill-isomorphic form ({"field": ...} = implicit value mode). mode, when
-  // present, is authoritative; a mode + field combination is contradictory
-  // and invalid.
-  const hasField = data.field !== undefined;
-  if (data.mode !== undefined) {
-    if (data.mode === DECLARED_BORDER_MODE_FOLLOW_FILL) {
-      // follow_fill is the one single-key mode: a value-mode field is a
-      // contradiction, never a silent merge.
-      for (const key of Object.keys(data)) {
-        if (key !== "mode") {
-          rejectKey(
-            key,
-            `an unknown border key ${JSON.stringify(key)} (expected mode)`,
-          );
-        }
-      }
-      if (hasField) {
-        rejectKey("field", "border.mode 'follow_fill' contradicts border.field");
-        return { invalid };
-      }
-      return { declared: STYLE_MODE.FOLLOW_FILL, invalid };
+  // Unknown keys are typos to surface; the rest of the declaration survives.
+  for (const key of Object.keys(data)) {
+    if (!KNOWN_KEYS.has(key)) {
+      rejectKey(
+        key,
+        `an unknown border key ${JSON.stringify(key)} (expected mode/field/method/classes/scheme/kind/color/weight)`,
+      );
     }
-    if (data.mode === DECLARED_BORDER_MODE_VALUE) {
-      if (!hasField) {
-        rejectKey("field", "border.mode 'value' requires border.field");
-        return { invalid };
-      }
-    } else {
+  }
+
+  const hasField = data.field !== undefined;
+  let mode: string;
+  if (data.mode !== undefined) {
+    if (typeof data.mode !== "string" || !BORDER_MODE_LITERALS.has(data.mode)) {
       rejectKey(
         "mode",
-        `invalid border.mode ${JSON.stringify(data.mode)} (expected "follow_fill" or "value")`,
+        `invalid border.mode ${JSON.stringify(data.mode)} (expected "follow_fill", "value", "solid" or "original")`,
       );
       return { invalid };
     }
-  } else if (!hasField) {
-    // Neither a mode nor a field: the declaration names no mode at all.
-    rejectKey("mode", "a border declaration without a border.mode or border.field");
+    mode = data.mode;
+  } else if (hasField) {
+    mode = DECLARED_BORDER_MODE_VALUE;
+  } else if (data.color !== undefined || data.weight !== undefined) {
+    mode = DECLARED_BORDER_MODE_SOLID;
+  } else {
+    rejectKey(
+      "mode",
+      "a border declaration without border.mode, border.field, border.color or border.weight",
+    );
     return { invalid };
   }
 
-  // value mode (explicit "value" or implicit flat): validate the shared flat
-  // schema — the same parser fill uses, so the two faces cannot drift.
-  const config = parseValueDeclaration(data, rejectKey, "border");
-  if (config === undefined) return { invalid };
-  return { declared: STYLE_MODE.VALUE, declaredValue: config, invalid };
+  // A mode and a key belonging to another mode is a contradiction, not a
+  // silent merge: the author must see why the declaration cannot stand.
+  if (mode !== DECLARED_BORDER_MODE_VALUE) {
+    if (hasField) {
+      rejectKey("field", `border.mode "${mode}" contradicts border.field`);
+      return { invalid };
+    }
+    for (const key of ["method", "classes", "scheme", "kind"] as const) {
+      if (data[key] !== undefined) {
+        rejectKey(key, `border.mode "${mode}" does not classify by value`);
+        return { invalid };
+      }
+    }
+  } else if (!hasField) {
+    rejectKey("field", "border.mode 'value' requires border.field");
+    return { invalid };
+  }
+  if (mode !== DECLARED_BORDER_MODE_SOLID && data.color !== undefined) {
+    rejectKey("color", `border.mode "${mode}" contradicts a solid color`);
+    return { invalid };
+  }
+
+  let declaredColor: string | undefined;
+  if (data.color !== undefined) {
+    if (isHexColor(data.color)) {
+      declaredColor = normalizeHexColor(data.color).toLowerCase();
+    } else {
+      rejectKey(
+        "color",
+        `invalid border.color ${JSON.stringify(data.color)} (expected a CSS hex)`,
+      );
+    }
+  }
+  let declaredWeight: number | undefined;
+  if (data.weight !== undefined) {
+    if (isPositiveWeight(data.weight)) declaredWeight = data.weight;
+    else {
+      rejectKey(
+        "weight",
+        `invalid border.weight ${JSON.stringify(data.weight)} (expected a positive number)`,
+      );
+    }
+  }
+
+  if (mode === DECLARED_BORDER_MODE_VALUE) {
+    // value mode: validate the shared flat schema — the same parser fill uses,
+    // so the two faces cannot drift.
+    const config = parseValueDeclaration(data, rejectKey, "border");
+    if (config === undefined) return { invalid };
+    return {
+      declared: STYLE_MODE.VALUE,
+      declaredValue: config,
+      ...(declaredWeight === undefined ? {} : { declaredWeight }),
+      invalid,
+    };
+  }
+  const declared =
+    mode === DECLARED_BORDER_MODE_FOLLOW_FILL
+      ? STYLE_MODE.FOLLOW_FILL
+      : mode === DECLARED_BORDER_MODE_SOLID
+        ? STYLE_MODE.SOLID
+        : STYLE_MODE.ORIGINAL;
+  return {
+    declared,
+    ...(declaredColor === undefined ? {} : { declaredColor }),
+    ...(declaredWeight === undefined ? {} : { declaredWeight }),
+    invalid,
+  };
 };
 
 /** Parse the raw `icon_size` declaration into a validated pixel size.
@@ -152,13 +244,16 @@ const parseIconSize = (
   return { declared: raw, invalid };
 };
 
-/** Parse the raw `marker_color` declaration into a validated preset name.
+/** Parse the raw `marker_color` declaration into a validated preset name
+ *  or a CSS hex.
  *
  *  A non-string (Python already gated the shape, but the namespace is a folium
  *  passthrough nothing validates at construction) or a blank name is rejected.
- *  A name outside MARKER_COLOR_PRESET_HEX is rejected too — an unknown preset
- *  would otherwise fall through to the derived blue and the author would never
- *  know their declaration was ignored. */
+ *  A name outside MARKER_COLOR_PRESET_HEX and a malformed hex are rejected too
+ *  — an unknown preset or bad hex would otherwise fall through to the derived
+ *  blue and the author would never know their declaration was ignored. A
+ *  valid hex is normalised (#rgb → #rrggbb, lowercased) and read as the
+ *  chassis colour directly (the flat mask path paints any hex). */
 const parseMarkerColor = (
   raw: unknown,
   layerId: string | undefined,
@@ -173,13 +268,14 @@ const parseMarkerColor = (
     return { invalid };
   }
   const name = raw.trim();
-  if (!(name in MARKER_COLOR_PRESET_HEX)) {
-    const message = `an unknown marker_color preset ${JSON.stringify(name)} (expected one of ${Object.keys(MARKER_COLOR_PRESET_HEX).join(", ")})`;
-    reject("preset", message);
-    invalid.push(message);
-    return { invalid };
+  if (name in MARKER_COLOR_PRESET_HEX) return { declared: name, invalid };
+  if (isHexColor(name)) {
+    return { declared: normalizeHexColor(name).toLowerCase(), invalid };
   }
-  return { declared: name, invalid };
+  const message = `an unknown marker_color preset ${JSON.stringify(name)} (expected one of ${Object.keys(MARKER_COLOR_PRESET_HEX).join(", ")} or a CSS hex)`;
+  reject("preset", message);
+  invalid.push(message);
+  return { invalid };
 };
 
 /** The key → parse registry: a new scalar declared* channel registers here. */

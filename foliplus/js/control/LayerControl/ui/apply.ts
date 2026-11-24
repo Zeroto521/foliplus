@@ -676,10 +676,15 @@ const emitDelta = (
   // raises it once the whole operation has been announced.
   let failure: DispatchFailure | undefined;
   if (delta.wroteVisible) {
-    failure = ui.events.emitSupersedingSettled(EVENTS.LAYER_CHANGE, layerInfo.id, {
-      id: layerInfo.id,
-      kind: layerInfo.kind,
-    });
+    failure = ui.events.emitSupersedingSettled(
+      EVENTS.LAYER_CHANGE,
+      layerInfo.id,
+      {
+        id: layerInfo.id,
+        kind: layerInfo.kind,
+      },
+      { kind: "programmatic", via: "self" },
+    );
   }
   if (delta.intentMoved) {
     if (!entryStillRegistered(ui, layerInfo)) return failure;
@@ -698,6 +703,7 @@ const emitDelta = (
         kind: layerInfo.kind,
         intent: { visible: intentVisibleOf(ui, layerInfo.id) },
       },
+      { kind: "programmatic", via: "self" },
     );
     // The CHANGE half's failure is the one to surface: it happened first, and
     // an INTENT that never ran because the CHANGE consumer threw is exactly

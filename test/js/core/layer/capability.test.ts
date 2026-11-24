@@ -3,6 +3,8 @@ import {
   LayerSurface,
   PaneManager,
   hasRadiusLeaf,
+  isMarkerLeaf,
+  isPathLeaf,
   probeLayerCarrier,
 } from "#core/layer/index.js";
 
@@ -370,5 +372,45 @@ describe("LayerSurface capabilities.iconColor (glyph-color probe)", () => {
       }
     }
     expect(makeSurface(new OddIconMarker()).capabilities.iconColor).toBe("none");
+  });
+});
+
+describe("isMarkerLeaf / isPathLeaf — the geometry predicates", () => {
+  // The predicates are what a paint read uses instead of sniffing `options.icon`.
+  class MarkerShape {
+    options: Record<string, unknown> = {};
+    setIcon = () => this;
+  }
+
+  it("recognizes a marker through the Leaflet class identity", () => {
+    const leaf = new MarkerShape();
+    expect(isMarkerLeaf(leaf)).toBe(false);
+
+    (window as unknown as { L: { Marker: unknown } }).L.Marker = MarkerShape;
+    expect(isMarkerLeaf(leaf)).toBe(true);
+    expect(isMarkerLeaf({ options: {}, setStyle: () => undefined })).toBe(false);
+  });
+
+  it("answers no marker when the Leaflet Marker class is absent", () => {
+    (window as unknown as { L: { Marker: unknown } }).L.Marker = undefined;
+    expect(isMarkerLeaf(new MarkerShape())).toBe(false);
+  });
+
+  it("calls a stroke-only setStyle leaf a path", () => {
+    expect(
+      isPathLeaf({ options: { color: "#ff0000" }, setStyle: () => undefined }),
+    ).toBe(true);
+  });
+
+  it("excludes an areal leaf from the path face", () => {
+    const circle = { options: {}, setStyle: () => undefined, getRadius: () => 5 };
+    expect(isPathLeaf(circle)).toBe(false);
+  });
+
+  it("excludes a group and a non-setter leaf", () => {
+    expect(isPathLeaf({ eachLayer: () => undefined, setStyle: () => undefined })).toBe(
+      false,
+    );
+    expect(isPathLeaf({ options: {} })).toBe(false);
   });
 });

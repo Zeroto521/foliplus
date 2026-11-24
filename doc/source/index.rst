@@ -74,6 +74,7 @@ Features
       Coordinate and address search via pluggable geocode providers.
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Contents
 
