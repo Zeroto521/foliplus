@@ -25,7 +25,13 @@ import {
   loadImage,
   loadImageBitmap,
 } from "../util.js";
-import { effectiveOpacity, pooledEach, withAlpha } from "./util.js";
+import {
+  effectiveOpacity,
+  inlineSVGComputedStyles,
+  noteAssetFailure,
+  pooledEach,
+  withAlpha,
+} from "./util.js";
 import { walkLeaf } from "#core/layer/index.js";
 import { layerShadow } from "#core/leafletAdapter.js";
 
@@ -118,43 +124,149 @@ const collectLayerShadows = (layer: L.Layer, paneNames: Set<string>): HTMLElemen
   return roots;
 };
 
-/** Render markers with background-image sprites. */
+/** The sprite URL a computed background/mask value carries, or null. */
+const spriteUrlOf = (value: string | undefined): string | null => {
+  if (!value || value === "none") return null;
+  const match = value.match(/url\(["']?([^"')]+)["']?\)/);
+  return match ? match[1] : null;
+};
+
+/** The custom-chassis paint channel: the sprite is a \`mask-image\` and the flat
+ *  \`background-color\` is the paint. A preset chassis keeps the sprite in
+ *  \`background-image\` instead, so this is the second sprite channel the marker
+ *  DOM can paint a pin body with (a custom hex — see core/leaflet/markerIcon
+ *  \`paintMountedChassis\`). The export has to know both, or a custom-coloured pin
+ *  exports as its glyph only. */
+const maskPaintOf = (
+  cs: CSSStyleDeclaration,
+): { url: string; color: string } | null => {
+  const url = spriteUrlOf(
+    cs.maskImage || (cs as { webkitMaskImage?: string }).webkitMaskImage,
+  );
+  const color = cs.backgroundColor;
+  if (!url || !color || color === "transparent" || color === "rgba(0, 0, 0, 0)") {
+    return null;
+  }
+  return { url, color };
+};
+
+/** One sprite-painted element: a plain \`background-image\` sprite, or a masked
+ *  colour fill (the custom chassis) when \`mask\` is set. */
+type SpriteTarget = {
+  el: HTMLElement;
+  url: string;
+  mask: { url: string; color: string } | null;
+};
+
+/** The slice of the sprite sheet an element paints, from its CSS size/position.
+ *  Shared by the background-image channel and the mask channel: the two differ
+ *  in which CSS property carries the sprite, not in how the sheet is cropped.
+ *  Null when the slice would fall outside the sheet (a stale offset). */
+const spriteGeometryOf = (
+  sprite: ImageBitmap,
+  w: number,
+  h: number,
+  size: string,
+  position: string,
+): { sx: number; sy: number; sw: number; sh: number } | null => {
+  const sizeParts = (size || "auto").trim().split(/\s+/);
+  let cssW: number;
+  let cssH: number;
+  if (!size || size === "auto" || size === "auto auto") {
+    const dpr = window.devicePixelRatio || 1;
+    cssW = sprite.width / dpr;
+    cssH = sprite.height / dpr;
+  } else if (size.includes("%")) {
+    cssW = (w * (parseFloat(sizeParts[0]) || 100)) / 100;
+    cssH = (h * (parseFloat(sizeParts[1] || sizeParts[0]) || 100)) / 100;
+  } else {
+    cssW = parseFloat(sizeParts[0]) || sprite.width;
+    cssH = parseFloat(sizeParts[1] || sizeParts[0]) || sprite.height;
+  }
+  const ratioX = sprite.width / cssW;
+  const ratioY = sprite.height / cssH;
+  const posParts = (position || "0 0").trim().split(/\s+/);
+  const sx = Math.abs(parseFloat(posParts[0]) || 0) * ratioX;
+  const sy = Math.abs(parseFloat(posParts[1]) || 0) * ratioY;
+  const sw = w * ratioX;
+  const sh = h * ratioY;
+  if (sx + sw > sprite.width || sy + sh > sprite.height) return null;
+  return { sx, sy, sw, sh };
+};
+
+/** Paint a sprite slice in one flat colour — the canvas equivalent of the DOM's
+ *  \`mask-image\` + \`background-color\` pair. The sprite's alpha is the shape
+ *  (\`source-in\` keeps only where it painted), the colour is the paint. */
+const drawMaskedColor = (
+  ctx: CanvasRenderingContext2D,
+  sprite: ImageBitmap,
+  slice: { sx: number; sy: number; sw: number; sh: number },
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  color: string,
+  alpha: number,
+): void => {
+  const sw = Math.max(1, Math.round(slice.sw));
+  const sh = Math.max(1, Math.round(slice.sh));
+  const scratch = document.createElement("canvas");
+  scratch.width = sw;
+  scratch.height = sh;
+  const octx = scratch.getContext("2d");
+  if (!octx) {
+    // No 2D context (a host without raster support): keep the pin shape even
+    // though the tint cannot be composed, rather than dropping the chassis.
+    withAlpha(ctx, alpha, () => {
+      ctx.drawImage(sprite, slice.sx, slice.sy, slice.sw, slice.sh, dx, dy, dw, dh);
+    });
+    return;
+  }
+  octx.drawImage(sprite, slice.sx, slice.sy, slice.sw, slice.sh, 0, 0, sw, sh);
+  octx.globalCompositeOperation = "source-in";
+  octx.fillStyle = color;
+  octx.fillRect(0, 0, sw, sh);
+  withAlpha(ctx, alpha, () => {
+    ctx.drawImage(scratch, 0, 0, sw, sh, dx, dy, dw, dh);
+  });
+};
+
+/** Render markers with sprite paints: a plain \`background-image\` sprite (a
+ *  preset chassis, an author icon) or a masked colour fill (a custom chassis
+ *  hex). Both channels are collected here so the pin body is painted whichever
+ *  way the DOM carries it. */
 const renderMarkers = async (
   container: HTMLElement,
   rc: RenderCtx,
   markerRoots: HTMLElement[],
 ): Promise<HTMLElement[]> => {
   const { ctx, rect, scale, contRect, cw, ch } = rc;
-  const drawableEls: HTMLElement[] = [];
+  const targets: SpriteTarget[] = [];
+  const collect = (el: Element) => {
+    if (!(el instanceof HTMLElement)) return;
+    const cs = window.getComputedStyle(el);
+    const mask = maskPaintOf(cs);
+    const url = mask ? mask.url : spriteUrlOf(cs.backgroundImage);
+    if (url) targets.push({ el, url, mask });
+  };
   for (const root of markerRoots) {
-    drawableEls.push(root);
-    for (const sub of root.querySelectorAll("*")) {
-      const scs = window.getComputedStyle(sub);
-      if (
-        scs.backgroundImage &&
-        scs.backgroundImage.includes("url(") &&
-        scs.backgroundImage !== "none"
-      ) {
-        drawableEls.push(sub as HTMLElement);
-      }
-    }
+    collect(root);
+    for (const sub of root.querySelectorAll("*")) collect(sub);
   }
 
   // Load unique sprites (once per URL) directly into a local map
   const spriteUrls = new Set<string>();
-  for (const el of drawableEls) {
-    const cs = window.getComputedStyle(el);
-    const bg = cs.backgroundImage;
-    if (!bg || bg === "none") continue;
-    const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-    if (m && !m[1].startsWith("data:")) spriteUrls.add(m[1]);
+  for (const { url } of targets) {
+    if (!url.startsWith("data:")) spriteUrls.add(url);
   }
   const spriteMap = new Map<string, ImageBitmap>();
   await pooledEach<string, ImageBitmap>(
     [...spriteUrls],
     CONST.TILE_CONCURRENCY,
     async url => {
-      const bitmap = await loadImageBitmap(url);
+      const bitmap = await loadImageBitmap(url, error =>
+        noteAssetFailure(rc, url, error),
+      );
       if (bitmap) spriteMap.set(url, bitmap);
       return null;
     },
@@ -162,7 +274,7 @@ const renderMarkers = async (
 
   // Draw sprites; release their bitmaps even if drawing throws.
   try {
-    for (const el of drawableEls) {
+    for (const { el, url, mask } of targets) {
       const r = el.getBoundingClientRect();
       const l = r.left - contRect.left;
       const t = r.top - contRect.top;
@@ -175,42 +287,34 @@ const renderMarkers = async (
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
       const cs = window.getComputedStyle(el);
-      const bg = cs.backgroundImage;
-      if (!bg || bg === "none") continue;
-      const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-      if (!m) continue;
-      const sprite = spriteMap.get(m[1]);
+      const sprite = spriteMap.get(url);
       if (!sprite) continue;
-      const bgs = cs.backgroundSize || "auto";
-      const bgsParts = bgs.trim().split(/\s+/);
-      let cssBgW: number;
-      let cssBgH: number;
-      if (bgs === "auto" || bgs === "auto auto") {
-        cssBgW = sprite.width / (window.devicePixelRatio || 1);
-        cssBgH = sprite.height / (window.devicePixelRatio || 1);
-      } else if (bgs.includes("%")) {
-        cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
-        cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
+      const size = mask ? cs.maskSize : cs.backgroundSize;
+      const position = mask ? cs.maskPosition : cs.backgroundPosition;
+      const slice = spriteGeometryOf(sprite, w, h, size, position);
+      if (!slice) continue;
+      const alpha = effectiveOpacity(container, el);
+      if (mask) {
+        drawMaskedColor(ctx, sprite, slice, dx, dy, dw, dh, mask.color, alpha);
       } else {
-        cssBgW = parseFloat(bgsParts[0]) || sprite.width;
-        cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
+        withAlpha(ctx, alpha, () => {
+          try {
+            ctx.drawImage(
+              sprite,
+              slice.sx,
+              slice.sy,
+              slice.sw,
+              slice.sh,
+              dx,
+              dy,
+              dw,
+              dh,
+            );
+          } catch {
+            /* skip */
+          }
+        });
       }
-      const ratioX = sprite.width / cssBgW;
-      const ratioY = sprite.height / cssBgH;
-      const bp = cs.backgroundPosition || "0 0";
-      const bpParts = bp.trim().split(/\s+/);
-      const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
-      const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
-      const sw = w * ratioX;
-      const sh = h * ratioY;
-      if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-      withAlpha(ctx, effectiveOpacity(container, el), () => {
-        try {
-          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-        } catch {
-          /* skip */
-        }
-      });
     }
   } finally {
     // All sprites have been drawn (or aborted); release their bitmaps.
@@ -223,6 +327,99 @@ const renderMarkers = async (
     }
   }
   return markerRoots;
+};
+
+/** Resolve a computed `border-radius` to device pixels for a draw box.
+ *  Percentages resolve against the box (50% of a square is its circle);
+ *  a computed shorthand ("8px 4px") uses its first component, which is the
+ *  corner radius the marker pucks actually use. */
+const radiusOf = (radius: string, dw: number, dh: number): number => {
+  if (!radius) return 0;
+  // parseFloat reads the leading length and ignores a shorthand's other
+  // corners ("8px 4px" → 8), which is the radius the marker pucks use.
+  const first = parseFloat(radius);
+  // A non-length keyword ("auto") has no pixel radius: square corners.
+  if (!Number.isFinite(first)) return 0;
+  return radius.includes("%") ? (Math.min(dw, dh) * first) / 100 : first;
+};
+
+/** Paint the flat background/border of marker roots AND their descendants.
+ *
+ *  A DivIcon's visible pin is arbitrary HTML: the root element Leaflet
+ *  creates is transparent and the paint lives on a child (a `background`
+ *  div, a bordered chip, ...). The remaining pass reads only the ROOT's
+ *  background, so those markers exported nothing. This pass walks the whole
+ *  icon subtree in document order (parent before child, the DOM's own paint
+ *  order) and fills every element that carries a flat paint.
+ *
+ *  Each channel keeps its own painter: sprite paints (a background-image, or
+ *  a mask+color chassis) belong to `renderMarkers`, label chrome to
+ *  `renderTextLabels`, images and inline SVG to `renderRemaining`. The
+ *  elements painted here are recorded on `rc.paintedBackgrounds` so the
+ *  remaining pass does not fill them a second time (a second fill under a
+ *  fractional alpha would deepen the paint). */
+const renderIconBackgrounds = (
+  container: HTMLElement,
+  rc: RenderCtx,
+  markerRoots: HTMLElement[],
+): void => {
+  const { ctx, rect, scale, contRect, cw, ch } = rc;
+  const painted = (rc.paintedBackgrounds ??= new WeakSet<HTMLElement>());
+  for (const root of markerRoots) {
+    if (root.matches(CONST.SEL.LABEL)) continue;
+    const elements: HTMLElement[] = [root];
+    for (const sub of root.querySelectorAll("*")) {
+      // An SVG element is not an HTMLElement, so the instanceof check above
+      // already drops it; it has its own painter (renderRemaining/pane SVG).
+      if (!(sub instanceof HTMLElement)) continue;
+      if (sub.closest(CONST.SEL.LABEL)) continue;
+      elements.push(sub);
+    }
+    for (const el of elements) {
+      if (isExportExcluded(el)) continue;
+      const tag = el.tagName;
+      if (tag === "IMG" || tag === "CANVAS" || tag === "SVG") continue;
+      const cs = window.getComputedStyle(el);
+      // Sprite paints are renderMarkers' channel — drawing the flat
+      // background underneath would show through a transparent sprite.
+      if (maskPaintOf(cs) || spriteUrlOf(cs.backgroundImage)) continue;
+      const bgColor = cs.backgroundColor;
+      if (!bgColor || bgColor === "transparent" || bgColor === "rgba(0, 0, 0, 0)") {
+        continue;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+      const dx = (r.left - contRect.left - rect.left) * scale;
+      const dy = (r.top - contRect.top - rect.top) * scale;
+      const dw = r.width * scale;
+      const dh = r.height * scale;
+      if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
+      const alpha = effectiveOpacity(container, el);
+      withAlpha(ctx, alpha, () => {
+        ctx.save();
+        ctx.fillStyle = bgColor;
+        const br = radiusOf(cs.borderRadius, dw, dh);
+        if (br > 0) {
+          ctx.beginPath();
+          ctx.roundRect(dx, dy, dw, dh, br);
+          ctx.fill();
+        } else ctx.fillRect(dx, dy, dw, dh);
+
+        const bw = parseFloat(cs.borderWidth) || 0;
+        if (bw > 0 && cs.borderStyle !== "none" && cs.borderColor) {
+          ctx.strokeStyle = cs.borderColor;
+          ctx.lineWidth = bw * scale;
+          if (br > 0) {
+            ctx.beginPath();
+            ctx.roundRect(dx, dy, dw, dh, br);
+            ctx.stroke();
+          } else ctx.strokeRect(dx, dy, dw, dh);
+        }
+        ctx.restore();
+      });
+      painted.add(el);
+    }
+  }
 };
 
 /** Render FontAwesome icons from ::before pseudo-element content. */
@@ -452,9 +649,12 @@ const renderRemaining = async (
       try {
         img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
       } catch (error) {
-        // The branches below still run; the caller decides whether this
-        // failure is worth surfacing.
-        onLoadError?.(imgEl.src, error);
+        // The branches below still run. The shadow channel passes its own
+        // reporter (its message names the usual CORS cause); every other
+        // icon is counted on the render context and reported once by the
+        // renderer, so an unreadable icon is never a silent hole.
+        if (onLoadError) onLoadError(imgEl.src, error);
+        else noteAssetFailure(rc, imgEl.src, error);
       }
       if (img) {
         // The layout settled while the image loaded: this is the box the draw
@@ -483,6 +683,10 @@ const renderRemaining = async (
         if (rootColor && rootColor !== "rgb(0, 0, 0)") {
           clone.setAttribute("color", rootColor);
         }
+        // The clone becomes a standalone image with no stylesheet: a paint
+        // that comes from a page CSS class must be written inline, or the
+        // shape falls back to the default black fill.
+        inlineSVGComputedStyles(svgEl, clone);
         let src = new XMLSerializer().serializeToString(clone);
         if (!src.includes(`xmlns="${CONST.SVG_NS}"`)) {
           src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
@@ -490,13 +694,22 @@ const renderRemaining = async (
         const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         try {
-          const img = (await loadImage(url)) as HTMLImageElement;
-          // Same draw-time measurement as the <img> branch: the blob load is
-          // an await, and the layout may have settled during it.
-          const g = measure(root);
-          withAlpha(ctx, rootAlpha, () => {
-            ctx.drawImage(img, g.dx, g.dy, g.dw, g.dh);
-          });
+          let img: HTMLImageElement | null = null;
+          try {
+            img = (await loadImage(url)) as HTMLImageElement;
+          } catch (error) {
+            // A rasterisation failure is a real omission, not a fallback:
+            // count it so it reaches the render stats and the console.
+            noteAssetFailure(rc, svgEl.getAttribute("class") ?? "inline-svg", error);
+          }
+          if (img) {
+            // Same draw-time measurement as the <img> branch: the blob load
+            // is an await, and the layout may have settled during it.
+            const g = measure(root);
+            withAlpha(ctx, rootAlpha, () => {
+              ctx.drawImage(img!, g.dx, g.dy, g.dw, g.dh);
+            });
+          }
         } finally {
           URL.revokeObjectURL(url);
         }
@@ -508,6 +721,9 @@ const renderRemaining = async (
 
     // 3. Elements with background-color but no background-image url (center dot)
     if (root.matches(CONST.SEL.LABEL)) continue;
+    // The icon-background pass paints a root that carries a flat fill before
+    // the glyph/text passes, so filling it again here would deepen the paint.
+    if (rc.paintedBackgrounds?.has(root)) continue;
     // No await on this branch, so the pre-cull's box is still the current one;
     // reusing it keeps the fill and its border on the same measured geometry.
     const g = initial;
@@ -547,6 +763,7 @@ const renderRemaining = async (
 export {
   collectLayerShadows,
   collectPaneRoots,
+  renderIconBackgrounds,
   renderMarkers,
   renderFontAwesome,
   renderTextLabels,
