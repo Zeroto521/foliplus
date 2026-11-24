@@ -41,6 +41,14 @@ function mockLayerAPI() {
     // calls) so spies on it stay plain.
     clearLayers: vi.fn(),
     addLayer: vi.fn(l => l),
+    // Finalizing a measurement hands its leaves here, which is what keeps the
+    // surface non-empty so a later clearActiveMode unregister() is guarded by
+    // the real shouldUnregister(). Tests read the registered flag to assert.
+    // Declared inside the literal (not assigned after) so the object's inferred
+    // type carries the property (TS2339 otherwise).
+    registerItemLayers: vi.fn((_id: unknown, leaves: unknown[]) => {
+      leaves.filter(Boolean).forEach(l => api.content.add(l));
+    }),
     removeLayer: vi.fn(),
     mainLayer: {
       addLayer: vi.fn((leaf: unknown) => {
@@ -55,12 +63,6 @@ function mockLayerAPI() {
     },
   };
   api.clearLayers.mockImplementation(() => api.unregister());
-  // Finalizing a measurement hands its leaves here, which is what keeps the
-  // surface non-empty so a later clearActiveMode unregister() is guarded by
-  // the real shouldUnregister(). Tests read the registered flag to assert.
-  api.registerItemLayers = vi.fn((_id: unknown, leaves: unknown[]) => {
-    leaves.filter(Boolean).forEach(l => api.content.add(l));
-  });
   return api;
 }
 
