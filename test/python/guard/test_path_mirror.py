@@ -399,7 +399,8 @@ def test_module_named_tests_import_only_their_control() -> None:
 
 
 # --- guard-tree layout (mirror of #1334 JS guard-tree layout) ---
-# task-97 Phase 2: repo-level invariant guards live in test/python/guard/;
+# The invariant-guard home (mirroring the JS test/js/guard/) holds repo-level
+# invariants;
 # module-mirror feature tests live in test/python/<Control>/ and test/python/ root.
 # These pin the tree so a future invariant cannot drift back to a mirror location.
 
