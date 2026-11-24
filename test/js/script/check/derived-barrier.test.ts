@@ -71,49 +71,49 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 84,
+    line: 88,
     call: "syncToggleAll(ui, ROLE.OVERLAY);",
     reason:
       "initTypesAndVisibility initial render: the role headers are synced once per rebuild from the freshly initialized rows",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 85,
+    line: 89,
     call: "syncToggleAll(ui, ROLE.BASE);",
     reason:
       "initTypesAndVisibility initial render: the role headers are synced once per rebuild from the freshly initialized rows",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 112,
+    line: 116,
     call: "ui.refreshAllCounts();",
     reason:
       "rebuildList full rebuild path: the counts are refreshed once after the rows are painted (the data-ready round)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 431,
+    line: 435,
     call: "refreshTreeConnectors(ui);",
     reason:
       "syncRowOrder: the rows moved, so the ├/└ connectors may no longer match the block they sit in (the reorder path)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 115,
+    line: 110,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a batch toggle (the toggled rows' intent was just rewritten)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 275,
+    line: 274,
     call: "syncToggleAll(ui, layerInfo.role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a single-row toggle",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 379,
+    line: 378,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a bulk tail toggle",
