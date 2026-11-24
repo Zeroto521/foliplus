@@ -9,3 +9,4 @@ Task-oriented guides for using foliplus on a map.
    declaration
    layer-style-change
    paint
+   folium-integration
