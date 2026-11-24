@@ -7,3 +7,4 @@ Task-oriented guides for using foliplus on a map.
    :maxdepth: 1
 
    declaration
+   paint

@@ -43,6 +43,7 @@ import {
   unpinRowPanel,
 } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { normalizeHexColor } from "#platform/color.js";
 import {
   LABEL_SIZE,
   PANEL_CLASS,
@@ -51,7 +52,6 @@ import {
   finishPanelReset,
   finishSlidersIn,
   firstUsableControl,
-  normalizeHexColor,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";

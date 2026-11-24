@@ -90,7 +90,7 @@ import {
   readFeatureFillColors,
 } from "#core/layer/index.js";
 import { resolveDisplayMode } from "#foliplus/style/displayMode.js";
-import { isHexColor } from "#platform/color.js";
+import { isHexColor, normalizeHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import {
   PANEL_CLASS,
@@ -99,7 +99,6 @@ import {
   colorInput as formColorInput,
   formRow,
   inlineControls,
-  normalizeHexColor,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";

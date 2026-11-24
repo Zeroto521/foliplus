@@ -34,7 +34,11 @@ import {
 } from "./glyphSource.js";
 import { divIconClassNameOf } from "./iconSource.js";
 import { MARKER_CLASS } from "./markerClassName.js";
-import { presetNameOfHex } from "./markerColorPreset.js";
+import {
+  MARKER_COLOR_PRESET_HEX,
+  markerColorHexOf,
+  presetNameOfHex,
+} from "./markerColorPreset.js";
 import { walkLeaf } from "#core/layer/walkLeaf.js";
 import { detachMarkerIcons, mountedIconElement } from "#core/leafletAdapter.js";
 import { composeColorAlpha, parseColorAlpha } from "#platform/color.js";
@@ -924,6 +928,39 @@ const authorGlyphPrefix = (layer: L.Layer): string | null => {
   return found;
 };
 
+/** The author's own chassis value on the first icon leaf that declares one —
+ *  the raw `options.markerColor` (a preset name or a hex), or null. Same walk
+ *  the capability gate uses: a nested group is descended, a one-level read is
+ *  not. Informational: a layer is one chassis row, the write reaches every leaf. */
+const authorMarkerColor = (layer: unknown): string | null => {
+  let found: string | null = null;
+  walkLeaf(layer, leaf => {
+    if (found) return;
+    const icon = authorIconOf(leaf);
+    if (!icon) return;
+    const own = (icon as { options?: { markerColor?: unknown } }).options?.markerColor;
+    if (typeof own === "string" && own) found = own;
+  });
+  return found;
+};
+
+/** The author's own chassis as a hex, or null when no leaf declares one (or
+ *  the declared value is neither a preset nor a CSS hex). */
+const authorMarkerColorHex = (layer: unknown): string | null =>
+  markerColorHexOf(authorMarkerColor(layer));
+
+/** The chassis paint when the user has not picked one: the author's own
+ *  chassis, else the author-declared `foliplus={"marker_color": ...}` value
+ *  (passed in by the control layer, which owns the declaration readers), else
+ *  the awesome-markers default blue. One priority chain for the panel row, the
+ *  apply path and the paint read — never a second rule set. */
+const resolveChassisPaint = (
+  layer: unknown,
+  declaredMarkerColor?: string | null,
+): string =>
+  authorMarkerColorHex(layer) ??
+  markerColorHexOf(declaredMarkerColor) ??
+  MARKER_COLOR_PRESET_HEX.blue;
 export type { AuthorGlyph };
 
 export {
@@ -935,6 +972,9 @@ export {
   authorGlyphColorOf,
   authorIconOf,
   authorGlyphName,
+  authorMarkerColor,
+  authorMarkerColorHex,
+  resolveChassisPaint,
   authorGlyphPrefix,
   buildMarkerIcon,
   captureAuthorIcon,
