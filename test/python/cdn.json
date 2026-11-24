@@ -67,5 +67,101 @@
   "cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/images/marker-shadow.png": [
     "marker-shadow.png",
     "image/png"
+  ],
+  "code.jquery.com/jquery-3.7.1.min.js": [
+    "jquery-3.7.1.min.js",
+    "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css": [
+    "fontawesome-all.min.css",
+    "text/css"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-brands-400.woff2": [
+    "fa-brands-400.woff2",
+    "font/woff2"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-regular-400.woff2": [
+    "fa-regular-400.woff2",
+    "font/woff2"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-solid-900.woff2": [
+    "fa-solid-900.woff2",
+    "font/woff2"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-v4compatibility.woff2": [
+    "fa-v4compatibility.woff2",
+    "font/woff2"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-brands-400.ttf": [
+    "fa-brands-400.ttf",
+    "font/ttf"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-regular-400.ttf": [
+    "fa-regular-400.ttf",
+    "font/ttf"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-solid-900.ttf": [
+    "fa-solid-900.ttf",
+    "font/ttf"
+  ],
+  "cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/webfonts/fa-v4compatibility.ttf": [
+    "fa-v4compatibility.ttf",
+    "font/ttf"
+  ],
+  "netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css": [
+    "bootstrap-glyphicons.css",
+    "text/css"
+  ],
+  "netdna.bootstrapcdn.com/bootstrap/3.0.0/fonts/glyphicons-halflings-regular.woff": [
+    "glyphicons-halflings-regular.woff",
+    "font/woff"
+  ],
+  "netdna.bootstrapcdn.com/bootstrap/3.0.0/fonts/glyphicons-halflings-regular.ttf": [
+    "glyphicons-halflings-regular.ttf",
+    "font/ttf"
+  ],
+  "netdna.bootstrapcdn.com/bootstrap/3.0.0/fonts/glyphicons-halflings-regular.svg": [
+    "glyphicons-halflings-regular.svg",
+    "image/svg+xml"
+  ],
+  "netdna.bootstrapcdn.com/bootstrap/3.0.0/fonts/glyphicons-halflings-regular.eot": [
+    "glyphicons-halflings-regular.eot",
+    "application/vnd.ms-fontobject"
+  ],
+  "cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css": [
+    "leaflet.awesome.rotate.min.css",
+    "text/css"
+  ],
+  "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/images/markers-soft.png": [
+    "markers-soft.png",
+    "image/png"
+  ],
+  "cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/images/markers-shadow.png": [
+    "markers-shadow.png",
+    "image/png"
+  ],
+  "cdn.jsdelivr.net/npm/geotiff@3/dist-browser/geotiff.js": [
+    "geotiff.js",
+    "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/pako@3/dist/browser/pako.umd.min.js": [
+    "pako.umd.min.js",
+    "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/h3-js@4/dist/h3-js.umd.js": [
+    "h3-js.umd.js",
+    "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/gcoord@1/dist/gcoord.global.prod.js": [
+    "gcoord.global.prod.js",
+    "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js": [
+    "turf.min.js",
+    "application/javascript"
+  ],
+  "cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js": [
+    "d3.min.js",
+    "application/javascript"
   ]
 }

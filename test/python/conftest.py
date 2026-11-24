@@ -23,8 +23,10 @@ import urllib.request
 import warnings
 from collections.abc import Generator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
+from urllib.parse import urlsplit
 
 import folium
 import pytest
@@ -146,7 +148,11 @@ def point_feature(
 # these can exceed Playwright's navigation timeout and produce spurious
 # `Page.goto` timeouts.  We intercept those requests and serve them from a
 # local cache (downloaded once to /tmp) so tests are network-independent.
-_CDN_CACHE_DIR = Path("/tmp/foliplus-cdn-cache")
+# FOLIPLUS_CDN_CACHE_DIR lets a sandboxed local run point the cache at a
+# writable directory (CI keeps the /tmp default).
+_CDN_CACHE_DIR = Path(
+    os.environ.get("FOLIPLUS_CDN_CACHE_DIR", "/tmp/foliplus-cdn-cache")
+)
 # Fast single-attempt prefetch during session setup — the per-request
 # handler below retains the full retry budget for flaky CI networks.
 _CDN_PREFETCH_TIMEOUT = 10  # seconds
@@ -170,7 +176,7 @@ _CDN_CACHE: dict[str, tuple[str, str]] = {
 def _has_disk_space(path: Path, min_bytes: int) -> bool:
     """True if the filesystem holding *path* has at least *min_bytes* free.
 
-    A full disk blocks ``urlopen`` retries inside the CDN route handler and
+    A full disk blocks ``urlopen`` retries inside the offline route handler and
     surfaces as a ``Page.goto: Timeout`` in whatever browser is waiting on
     that route.  Failing closed to 404 keeps tests offline-immune in that
     case; better than timing out.
@@ -250,6 +256,44 @@ def _is_cdn_url(url: str) -> bool:
     return any(fragment in url for fragment in _CDN_CACHE)
 
 
+_CDN_PREFETCH_LOCK = _CDN_CACHE_DIR / ".prefetch.lock"
+_CDN_PREFETCH_LOCK_WAIT_S = 120
+_CDN_PREFETCH_LOCK_STALE_S = 300
+
+
+def _acquire_prefetch_lock() -> int | None:
+    """Serialize the cache warm-up across xdist workers.
+
+    Every worker calls :func:`_prefetch_cdn_cache` at session start; without
+    a lock they race the same downloads, and a page request can 404 while
+    another worker is still writing the file. Returns an open fd, or None
+    when another worker holds the lock past the wait budget (the per-request
+    handler still downloads on demand, so setup must not stall).
+    """
+    deadline = time.monotonic() + _CDN_PREFETCH_LOCK_WAIT_S
+    while True:
+        try:
+            return os.open(_CDN_PREFETCH_LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                age = time.time() - _CDN_PREFETCH_LOCK.stat().st_mtime
+            except OSError:
+                age = 0.0
+            if age > _CDN_PREFETCH_LOCK_STALE_S:
+                try:
+                    _CDN_PREFETCH_LOCK.unlink()
+                except OSError:
+                    pass
+                continue
+            if time.monotonic() >= deadline:
+                return None
+            time.sleep(0.2)
+        except OSError:
+            # Cache dir not writable (e.g. a sandboxed local run): skip the
+            # warm-up; the per-request handler still answers from cache or 404.
+            return None
+
+
 def _prefetch_cdn_cache() -> None:
     """Pre-download every CDN asset into the local cache.
 
@@ -258,17 +302,35 @@ def _prefetch_cdn_cache() -> None:
     attempt (``_CDN_PREFETCH_TIMEOUT``); failures are ignored — the
     per-request handler retries with the full retry budget, so this only
     warms the cache for healthy networks instead of stalling setup.
+
+    The warm-up is serialized across xdist workers by a lock file: the
+    first worker downloads, the rest wait and then find the cache warm.
     """
-    _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    for fragment, (fname, _mime) in _CDN_CACHE.items():
-        cache_path = _CDN_CACHE_DIR / fname
-        if cache_path.exists():
-            continue
+    try:
+        _CDN_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return
+    lock_fd = _acquire_prefetch_lock()
+    if lock_fd is None:
+        return
+    try:
+        for fragment, (fname, _mime) in _CDN_CACHE.items():
+            cache_path = _CDN_CACHE_DIR / fname
+            if cache_path.exists():
+                continue
+            try:
+                # Single fast attempt; the per-request handler retries if needed.
+                _cdn_cached(
+                    "https://" + fragment, retries=1, timeout=_CDN_PREFETCH_TIMEOUT
+                )
+            except Exception:
+                continue
+    finally:
+        os.close(lock_fd)
         try:
-            # Single fast attempt; the per-request handler retries if needed.
-            _cdn_cached("https://" + fragment, retries=1, timeout=_CDN_PREFETCH_TIMEOUT)
-        except Exception:
-            continue
+            _CDN_PREFETCH_LOCK.unlink()
+        except OSError:
+            pass
 
 
 _css_cache: dict[str, str] = {}
@@ -318,54 +380,258 @@ def read_css_dir(path: str, name: str) -> str:
     return _css_cache[key]
 
 
-def _install_cdn_route(target: Any) -> None:
-    """Intercept CDN + tile requests so browser tests run offline.
+# ── Offline network policy (browser tests) ──
+#
+# Browser test pages are file:// documents, so their origin is "null". Every
+# request that escapes to the runner's network yields a runner-state outcome
+# instead of product behaviour: online, a cross-origin fetch whose response
+# lacks Access-Control-Allow-Origin logs "blocked by CORS policy" as a console
+# error; offline, the same fetch fails differently. Both variants have already
+# reddened a browser round that looked like a product regression (the task-106
+# geocode round: 17 CORS failures, one cause).
+#
+# So no http(s) request may leave the page. Every one is answered here,
+# deterministically:
+#
+#   1. non-http(s) schemes (data:/file:/blob:/about:) are left alone - the
+#      handler does not own them;
+#   2. a known CDN asset (cdn.json) is served from the local cache;
+#   3. a tile endpoint/URL is answered 404 - Leaflet tolerates a failed tile,
+#      and "Failed to load resource" never enters the console-error list
+#      collected by make_browser_page;
+#   4. a geocode provider host is answered with a small provider-shaped
+#      fixture plus Access-Control-Allow-Origin: *, because the page fetch is
+#      cross-origin from a null origin. Tests that assert a concrete address
+#      intercept the provider themselves (their later page.route wins:
+#      Playwright matches routes in reverse registration order), so the
+#      fixture only has to be stable, not realistic;
+#   5. everything else is answered by resource type: images/fonts/media 404,
+#      script/stylesheet 200 with an empty body (an empty body cannot fail to
+#      load), fetch/xhr empty JSON 200, documents empty HTML 200, websockets
+#      aborted (a websocket cannot be fulfilled).
+#
+# route.continue_() for an http(s) URL is exactly the bug this policy
+# replaces; the guard in test/python/guard/test_offline_route.py fails if it
+# comes back.
 
-    Known CDN scripts are served from the local cache; OSM tile requests are
-    answered with 404 (Leaflet skips failed tiles) so pages don't stall on
-    slow tile downloads.
 
-    ``target`` may be either a ``BrowserContext`` (shared route — one handler
-    covers every page in that context) or a ``Page`` (per-page fallback).
+@dataclass(frozen=True)
+class _OfflineReply:
+    """Deterministic response for one intercepted browser request.
+
+    ``kind`` is a diagnostics tag (cdn / tile / geocode / asset / abort) used
+    by the guard test and the optional FOLIPLUS_ROUTE_LOG trace; it never
+    reaches the browser.
     """
-    from playwright.sync_api import Route
 
-    def handler(route: Route) -> None:
-        url = route.request.url
-        if "tile.openstreetmap.org" in url:
-            route.fulfill(status=404, body=b"")
-            return
+    status: int
+    body: bytes
+    content_type: str
+    kind: str
 
-        if not _is_cdn_url(url):
-            # Non-CDN request (page document, tiles, foliplus assets):
-            # let it through so the page can load.
-            route.continue_()
-            return
 
+_ACAO = {"Access-Control-Allow-Origin": "*"}
+
+#: Tile endpoints used by the bundled controls and their tests. A z/x/y path
+#: also classifies as a tile, so a new tile server cannot silently fall into
+#: the generic branch.
+_TILE_HOSTS = (
+    "tile.openstreetmap.org",
+    "tiles.foliplus.test",
+    "server.arcgisonline.com",
+    "basemaps.cartocdn.com",
+    "t0.tianditu.com",
+    "webrd01.autonavi.com",
+    "wprd01.amap.com",
+    "p2.map.gtimg.com",
+    "online1.bdimg.com",
+)
+_TILE_HOST_SUBSTRINGS = ("stamen-tiles-",)
+_TILE_PATH_RE = re.compile(r"/\d+/\d+/\d+(?:\.[A-Za-z0-9]+)?$")
+
+#: Stable reverse-geocode answer. It is what a test sees when it did not
+#: intercept the provider itself; it must never depend on network state.
+_FIXTURE_ADDRESS = "Foliplus Test Address, Test City, Test Country"
+
+
+def _host_of(url: str) -> str:
+    """Lower-case hostname of *url* (empty string when absent)."""
+    return (urlsplit(url).hostname or "").lower()
+
+
+def _is_tile_url(url: str) -> bool:
+    """True for a tile-server URL (known host, known family, or z/x/y path)."""
+    host = _host_of(url)
+    if any(host == suffix or host.endswith("." + suffix) for suffix in _TILE_HOSTS):
+        return True
+    if any(marker in host for marker in _TILE_HOST_SUBSTRINGS):
+        return True
+    return bool(_TILE_PATH_RE.search(urlsplit(url).path))
+
+
+def _json_reply(payload: Any, kind: str) -> _OfflineReply:
+    """JSON reply body for *payload*."""
+    body = json.dumps(payload).encode("utf-8")
+    return _OfflineReply(200, body, "application/json", kind)
+
+
+def _nominatim_reply(path: str) -> _OfflineReply:
+    """Provider-shaped Nominatim answer: object for reverse, list for search."""
+    if path.rstrip("/").endswith("/reverse"):
+        return _json_reply(
+            {
+                "place_id": 1,
+                "lat": "26.08",
+                "lon": "119.30",
+                "display_name": _FIXTURE_ADDRESS,
+                "address": {
+                    "road": "Test Road",
+                    "city": "Test City",
+                    "country": "Test Country",
+                },
+            },
+            "geocode",
+        )
+    return _json_reply(
+        [
+            {
+                "place_id": 1,
+                "lat": "26.08",
+                "lon": "119.30",
+                "name": "Foliplus Test Place",
+                "display_name": "Foliplus Test Place, Test City, Test Country",
+            }
+        ],
+        "geocode",
+    )
+
+
+def _feature_collection_reply(properties: dict[str, Any]) -> _OfflineReply:
+    """GeoJSON FeatureCollection answer, the shape Photon/Pelias normalize."""
+    # Reuse the fixture builders above: inline GeoJSON type literals are
+    # banned by test/python/guard/test_embedded_payload.py.
+    feature = point_feature(119.30, 26.08, properties)
+    return _json_reply(feature_collection(feature), "geocode")
+
+
+def _geocode_reply(url: str) -> _OfflineReply | None:
+    """Fixed provider JSON for a known geocode host; None for other hosts."""
+    host = _host_of(url)
+    if host == "nominatim.openstreetmap.org":
+        return _nominatim_reply(urlsplit(url).path)
+    if host == "photon.komoot.io":
+        return _feature_collection_reply(
+            {
+                "name": "Foliplus Test Place",
+                "street": "Test Road",
+                "city": "Test City",
+                "country": "Test Country",
+            }
+        )
+    if host == "api.demo.pelias.io":
+        return _feature_collection_reply(
+            {"label": "Foliplus Test Place, Test City", "name": "Foliplus Test Place"}
+        )
+    return None
+
+
+def _external_reply(url: str, resource_type: str) -> _OfflineReply | None:
+    """Deterministic answer for one non-CDN request; None means "not ours".
+
+    Returning None is reserved for non-http(s) URLs: an http(s) request that
+    came back None would be forwarded to the runner's network, which is the
+    runner-dependence this policy removes.
+    """
+    if urlsplit(url).scheme not in ("http", "https"):
+        return None
+    if _is_tile_url(url):
+        return _OfflineReply(404, b"", "text/plain", "tile")
+    geocode = _geocode_reply(url)
+    if geocode is not None:
+        return geocode
+    if resource_type == "script":
+        return _OfflineReply(200, b"", "application/javascript", "asset")
+    if resource_type == "stylesheet":
+        return _OfflineReply(200, b"", "text/css", "asset")
+    if resource_type in ("fetch", "xhr"):
+        return _OfflineReply(200, b"{}", "application/json", "asset")
+    if resource_type == "document":
+        return _OfflineReply(200, b"", "text/html", "asset")
+    if resource_type in ("websocket", "eventsource"):
+        return _OfflineReply(0, b"", "text/plain", "abort")
+    # image / media / font / manifest / texttrack / other
+    return _OfflineReply(404, b"", "text/plain", "asset")
+
+
+def _route_reply(route: Any) -> _OfflineReply | None:
+    """Resolve one Playwright route to its deterministic answer."""
+    url = route.request.url
+    if _is_cdn_url(url):
         data, mime = _cdn_cached(url)
         if data is None:
             # Known CDN asset whose download failed: answer 404 instead of
-            # hitting the network.  Keeps browser tests offline and immune
-            # to slow/flaky CDN downloads mid-run.
-            route.fulfill(status=404, body=b"")
+            # hitting the network. Keeps browser tests offline and immune to
+            # slow/flaky CDN downloads mid-run.
+            return _OfflineReply(404, b"", "text/plain", "cdn-missing")
+        return _OfflineReply(200, data, mime or "application/octet-stream", "cdn")
+    return _external_reply(url, route.request.resource_type)
+
+
+def _make_route_handler() -> Any:
+    """Build the Playwright route handler (factored out so it is unit-testable).
+
+    The returned handler must never call ``route.continue_()`` for an http(s)
+    URL; see the offline-policy block above. FOLIPLUS_ROUTE_LOG=<path> appends
+    one ``kind<TAB>resource_type<TAB>url`` line per answered request, which is
+    how the external-host inventory of a full browser run is confirmed.
+    """
+    log_path = os.environ.get("FOLIPLUS_ROUTE_LOG")
+
+    def handler(route: Any) -> None:
+        reply = _route_reply(route)
+        if log_path:
+            kind = "pass" if reply is None else reply.kind
+            try:
+                with open(log_path, "a", encoding="utf-8") as log_fh:
+                    log_fh.write(
+                        f"{kind}\t{route.request.resource_type}\t{route.request.url}\n"
+                    )
+            except OSError:
+                pass
+        if reply is None:
+            route.continue_()
             return
-        # CORS: the export renderer re-reads marker icon pixels with
-        # `loadImage(src, "anonymous")` (crossOrigin=anonymous, see
-        # ExportControl/renderer/marker.ts). A cross-origin anonymous image
-        # request fails without Access-Control-Allow-Origin, so the default
-        # Leaflet marker icon (marker-icon.png, served from the CDN cache)
-        # would silently fail to load and the icon would not be drawn — the
-        # exact icon-loading race #813 avoided with a data-URI. The header is
-        # harmless to every other fulfilled response: script/CSS fetches do
-        # not go through CORS, and the test pages are file:// origins.
+        if reply.kind == "abort":
+            route.abort()
+            return
+        # CORS: page fetches come from a file:// (null) origin, so a
+        # cross-origin fetch without Access-Control-Allow-Origin logs a console
+        # error. The export renderer also re-reads marker icon pixels with
+        # loadImage(src, "anonymous") (ExportControl/renderer/marker.ts), so the
+        # header is required for the cached CDN icon too; it is harmless on the
+        # other replies (script/CSS requests do not go through CORS).
         route.fulfill(
-            status=200,
-            body=data,
-            content_type=mime,
-            headers={"Access-Control-Allow-Origin": "*"},
+            status=reply.status,
+            body=reply.body,
+            content_type=reply.content_type,
+            headers=_ACAO,
         )
 
-    target.route("**/*", handler)
+    return handler
+
+
+def _install_offline_route(target: Any) -> None:
+    """Install the offline network policy on a BrowserContext or Page.
+
+    Pages are file:// documents, so every request is answered deterministically
+    (CDN cache, tile 404, geocode fixture, generic asset) instead of reaching
+    the runner's network - browser results no longer depend on connectivity.
+    See the offline-policy block above for the ordering and rationale.
+
+    ``target`` may be either a ``BrowserContext`` (shared route: one handler
+    covers every page in that context) or a ``Page`` (per-page fallback).
+    """
+    target.route("**/*", _make_route_handler())
 
 
 # Playwright's default navigation timeout is 30 000 ms. Under CI contention
@@ -572,7 +838,7 @@ class _Flaky95Probe:
 
 
 class _CdnBrowserProxy:
-    """Wrap a Playwright Browser so every ``new_page()`` gets the CDN route.
+    """Wrap a Playwright Browser so every ``new_page()`` gets the offline route.
 
     ``browser.new_page()`` internally creates a fresh ``BrowserContext``,
     which isolates ``localStorage`` / cookies / caches natively — one
@@ -594,7 +860,7 @@ class _CdnBrowserProxy:
 
     def new_page(self, *args, **kwargs):
         page = self._browser.new_page(*args, **kwargs)
-        _install_cdn_route(page)
+        _install_offline_route(page)
         page.set_default_navigation_timeout(_BROWSER_DEFAULT_NAV_TIMEOUT_MS)
         if self._probe is not None:
             self._probe.maybe_sample(self._browser)
@@ -619,7 +885,7 @@ class _SharedContextBrowserProxy:
         self._context = browser.new_context()
         # Route installed on the context covers every page in it — one
         # handler, not one per page.
-        _install_cdn_route(self._context)
+        _install_offline_route(self._context)
 
     def __getattr__(self, name: str):
         return getattr(self._browser, name)
@@ -932,7 +1198,7 @@ def browser() -> Generator[_CdnBrowserProxy, None, None]:
 
     Every ``new_page()`` returns a page on a fresh ``BrowserContext`` (see
     ``_CdnBrowserProxy``), so tests don't share ``localStorage`` / cookies.
-    The CDN route is installed on each context so browser tests run offline.
+    The offline route is installed on each context so browser tests run offline.
 
     Skipped if Playwright is not installed::
 
@@ -979,9 +1245,9 @@ def touch_browser(browser) -> Generator[Any, None, None]:
     The default ``browser`` fixture hands out contexts without touch support,
     so Leaflet's touch handlers never fire and a touch-scroll test would pass
     vacuously. This context reports ``has_touch`` so the CDP touch events reach
-    the control; it shares the session browser and the offline CDN route.
+    the control; it shares the session browser and the offline route.
     """
     # BrowserContext is a context manager: leaving the block closes it.
     with browser._browser.new_context(has_touch=True) as context:
-        _install_cdn_route(context)
+        _install_offline_route(context)
         yield context

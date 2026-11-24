@@ -116,3 +116,61 @@ class TestCdnNpmVersionConsistency:
             "hardcoded cdn.json urls in tests — read them via "
             "load_cdn(<Control>) instead:\n  " + "\n  ".join(hits)
         )
+
+
+#: External assets a rendered folium page loads. Tiles and attribution links
+#: are not assets: tiles are answered by the offline route policy, and the
+#: copyright link is never fetched.
+_ASSET_TAG_RE = re.compile(r'<(?:script|link)[^>]+(?:src|href)="(https?://[^"]+)"')
+
+
+def _rendered_asset_urls() -> set[str]:
+    """Every external script/link URL a plain folium page references."""
+    import folium
+
+    html = folium.Map(location=[0, 0], zoom_start=2).get_root().render()
+    return set(_ASSET_TAG_RE.findall(html))
+
+
+class TestRenderedPageAssetsAreCached:
+    """A rendered page must not reference an asset the offline route cannot serve.
+
+    The route serves cdn.json from the local cache; an asset missing from
+    cdn.json used to fall through to the runner's network, so the page's
+    fonts/CSS (FontAwesome, glyphicons, jQuery) loaded only when the runner
+    had internet. That is the same runner-dependence the geocode flake had,
+    one layer down: a folium bump that adds a CDN link must be a cdn.json
+    edit, not a silent network fetch.
+    """
+
+    def test_every_rendered_asset_is_in_the_cdn_cache(self):
+        from conftest import _is_cdn_url
+
+        missing = sorted(url for url in _rendered_asset_urls() if not _is_cdn_url(url))
+        assert not missing, (
+            "rendered folium page references assets missing from "
+            "test/python/cdn.json:\n  " + "\n  ".join(missing)
+        )
+
+
+class TestTestCacheCoversProductionCdn:
+    """Every CDN dependency a control declares must be in the test cache.
+
+    ``foliplus/cdn.json`` is what a rendered page loads; ``test/python/cdn.json``
+    is what the offline route serves. When the two drift, the browser suite
+    silently falls back to the runner's network for that dependency (the
+    geocode flake's failure mode, one layer down).
+    """
+
+    def test_every_production_cdn_url_is_cached(self):
+        from conftest import _is_cdn_url
+
+        production = json.loads(
+            (ROOT / "foliplus" / "cdn.json").read_text(encoding="utf-8")
+        )
+        urls = {url for component in production.values() for url in component.values()}
+        missing = sorted(url for url in urls if not _is_cdn_url(url))
+        assert not missing, (
+            "foliplus/cdn.json URLs missing from test/python/cdn.json:\n  "
+            + "\n  ".join(missing)
+        )
