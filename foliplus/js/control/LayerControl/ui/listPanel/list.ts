@@ -37,8 +37,12 @@ import {
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
-import { createCheckbox, triStateOf } from "#ui/checkbox.js";
-import { finishSlidersIn, sectionDivider } from "#ui/index.js";
+import {
+  createCheckbox,
+  finishSlidersIn,
+  sectionDivider,
+  triStateOf,
+} from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
