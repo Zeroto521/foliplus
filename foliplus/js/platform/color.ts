@@ -14,7 +14,7 @@ const normalizeHexColor = (value: string): string => {
 
 /** True when the value is a 3- or 6-digit hex string — the only shape the
  *  persisted record accepts (a corrupt entry cannot leak into the panel).
- *  KEEP IN STEP with _HEX_COLOR_RE in foliplus/_declaration.py — that regex
+ *  KEEP IN STEP with _HEX_COLOR_RE in foliplus/_declaration/paint.py — that regex
  *  is a hand-copied twin of this one (follow-up guard card pending); if one
  *  side widens the shape the other must widen too. */
 const isHexColor = (value: unknown): value is string =>
