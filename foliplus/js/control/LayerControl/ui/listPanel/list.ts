@@ -541,6 +541,11 @@ const renderInitialList = (ui: LayerUI) => {
   // live panel for the whole pass.
   const container = ui.uiContainer;
   if (!container) return;
+  // Child entries are registry-only and born from a rendered child row, so a
+  // rebuild starts by dropping every one of them: the children this pass
+  // renders register again below, and a group that is now folded/collapsed
+  // leaves no orphan entry behind.
+  ui.c.unregisterChildEntries();
   // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-role (they have no layer id). The identity also

@@ -73,6 +73,7 @@ import {
   folderNameTooLong,
   folderOf,
   freezeRoleOrder,
+  isGroupLayer,
   moveFolder,
   moveLayerToFolder as moveLayerToFolderInLayout,
   moveLayerToRootAt as moveLayerToRootAtInLayout,
@@ -1512,6 +1513,11 @@ class LayerController implements LayerAPI {
       opts,
       Boolean(this.ui),
     );
+    // A child entry is registry-only (see RegisterLayerOpts.child): the
+    // group's expand renderer owns its row and its map membership, so this
+    // registration is finished — no row event, no projection replay, no z
+    // pricing, no persistence, no panel state.
+    if (opts.child) return null;
     // A layer registered after init can still declare a folder. Seed the layout
     // from the registry so the row joins that folder: the seed is idempotent and
     // never overrides an existing assignment, so a re-registration is a no-op.
@@ -1831,6 +1837,28 @@ class LayerController implements LayerAPI {
    * @returns {boolean} true if layer was found and removed, false otherwise.
    */
   unregisterLayer(id: string): boolean {
+    const entry = this.layerRegistry.get(id);
+    // A child entry is registry-only: drop the entry and its filter caches.
+    // The group's expand renderer owns the row and the map membership, so
+    // there is no row / role / persistence fan-out here.
+    if (entry?.child) {
+      const retiredChild = this.domain.unregisterEntry(id);
+      if (!retiredChild.layerInfo) return false;
+      this.filterProbe.delete(id);
+      this.filterFeaturesRev.delete(id);
+      return true;
+    }
+    // A group's children must leave the registry before the group does: their
+    // entries are keyed by the parent id, and a retired parent would strand
+    // them as orphans no row can reach.
+    if (entry) {
+      const groupLayer = this.findLayer(entry);
+      if (groupLayer && isGroupLayer(groupLayer)) {
+        for (const child of this.layerRegistry.childEntriesOf(id)) {
+          this.unregisterLayer(child.id);
+        }
+      }
+    }
     const retired = this.retireEntry(id);
     if (!retired) return false;
 
@@ -1849,6 +1877,21 @@ class LayerController implements LayerAPI {
     if (retired.error) throw retired.error;
     operation.throwIfFailed();
     return true;
+  }
+
+  /** Every child entry owned by one group (registry-only entries, see
+   *  {@link RegisterLayerOpts.child}). */
+  childEntriesOf(parentId: string): LayerInfo[] {
+    return this.layerRegistry.childEntriesOf(parentId);
+  }
+
+  /** Drop every child entry. The list rebuild calls this before re-rendering
+   *  the rows: the rendered children re-register as they render, so the
+   *  invariant "entry exists iff the row is rendered" survives a rebuild. */
+  unregisterChildEntries(): void {
+    for (const child of this.layerRegistry.childEntries()) {
+      this.unregisterLayer(child.id);
+    }
   }
 
   /** The panel row currently carrying this id, or null. */

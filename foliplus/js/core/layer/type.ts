@@ -221,6 +221,14 @@ interface LayerCapabilities {
 /** Options for registerLayer / createLayerInfo. */
 interface RegisterLayerOpts {
   id: string;
+  /** True when this entry is a child of an expanded group container. A child
+   *  entry is registry-only: it carries the LayerInfo the style and filter
+   *  panels resolve, but it never joins the ordered list, the role counts, the
+   *  z ladder or the panel's row set — the group's own expand renderer owns
+   *  its row. Registered when the row renders, unregistered when it goes. */
+  child?: boolean;
+  /** The owning group's layer id (child entries only). */
+  parentId?: string;
   name?: string | null;
   layer?: L.Layer | null;
   /** Declared layer kind. When absent, `deriveLayerKind` probes the same
@@ -419,6 +427,10 @@ interface AuthorZoomRange {
 /** A layer entry in the ordered registry (read-only view). */
 interface LayerInfo {
   id: string;
+  /** Child entries only: see {@link RegisterLayerOpts.child}. */
+  child?: boolean;
+  /** The owning group's layer id (child entries only). */
+  parentId?: string;
   name: string;
   layer: L.Layer | null;
   /** What this entry is (tile|vector|canvas|solid|cluster|custom). Derived

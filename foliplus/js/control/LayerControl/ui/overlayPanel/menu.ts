@@ -348,8 +348,63 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
       menu.appendChild(buildDeleteItem(ui, deleteMode));
     }
   } else {
-    // Child row menu: Focus + Remove only. The child is a real Leaflet layer
-    // (not a registry row), so both actions resolve it through its parent.
+    // Child row menu: the child is a registry-only LayerInfo now, so the style
+    // and filter panels resolve it exactly like a top-level row. Focus and
+    // remove keep their child-specific paths (both resolve through the parent
+    // group). A hidden child gets the same "nothing to configure" gate a
+    // hidden row gets — the panels would target invisible paint.
+    const childLayer = ui.c.findLayer(layerId);
+    const childHidden = !childLayer || !ui.c.map.hasLayer(childLayer);
+    const childIsGroup = isGroupRow(ui.c.layerRegistry.get(layerId), childLayer);
+    const filterInfo = filterCapabilityOf(ui, layerId);
+    const filterHasFields = layerSupportsFilter(ui, layerId);
+    if (filterInfo) {
+      const filterDisabled = childIsGroup || childHidden || !filterHasFields;
+      menu.appendChild(
+        dom.el(
+          "button",
+          {
+            type: "button",
+            "data-action": CONST.ACTION.FILTER_LAYER,
+            role: "menuitem",
+            title: childIsGroup
+              ? ui.T("group_no_style_filter")
+              : childHidden
+                ? focusDisabledText(ui, "hidden", ROW_NOUN.LAYER)
+                : filterHasFields
+                  ? ui.T("filter_layer_tooltip")
+                  : ui.T("filter_empty"),
+            "aria-disabled": filterDisabled ? "true" : "false",
+          },
+          { html: SVGs.ICON_FILTER },
+          menuLabel(ui.T("filter_layer")),
+        ),
+      );
+    }
+    const childCap = styleCapability(ui, layerId);
+    const childCanConfigure =
+      Object.values(childCap.dims).some(Boolean) || childCap.styleDelegation;
+    const childStyleDisabled = childIsGroup || childHidden || !childCanConfigure;
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.STYLE_LAYER,
+          role: "menuitem",
+          title: childIsGroup
+            ? ui.T("group_no_style_filter")
+            : childStyleDisabled
+              ? childHidden
+                ? focusDisabledText(ui, "hidden", ROW_NOUN.LAYER)
+                : ui.T("style_label_no_data")
+              : ui.T("style_layer_tooltip"),
+          "aria-disabled": childStyleDisabled ? "true" : "false",
+        },
+        { html: SVGs.ICON_STYLE },
+        menuLabel(ui.T("style_layer")),
+      ),
+    );
     menu.appendChild(
       dom.el(
         "button",

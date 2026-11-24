@@ -561,7 +561,10 @@ const refreshAllCounts = (ui: LayerUI): void => {
   items.forEach((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     const layerInfo = id ? ui.c.layerRegistry.get(id) : undefined;
-    if (!layerInfo) return;
+    // A child entry is registry-only: its row is painted by the group's expand
+    // renderer, which owns the child's actual map membership. Repainting it
+    // here would write the registry's (unset) intent over a child the user hid.
+    if (!layerInfo || layerInfo.child) return;
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 };

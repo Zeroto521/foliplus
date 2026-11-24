@@ -59,6 +59,27 @@ const groupChildren = (ui: LayerUI, parentId: string): L.Layer[] => {
   return childrenOf(layer);
 };
 
+/** Register one rendered child row as a registry-only LayerInfo (see
+ *  RegisterLayerOpts.child). Idempotent: a rebuild re-registers the same
+ *  parentId::stamp id, which the registry upserts in place. */
+const registerChildEntry = (
+  ui: LayerUI,
+  parentId: string,
+  child: L.Layer,
+  id: string,
+  name: string,
+): void => {
+  const parent = ui.c.layerRegistry.get(parentId);
+  ui.c.registerLayer({
+    id,
+    name,
+    layer: child,
+    role: parent?.role,
+    child: true,
+    parentId,
+  });
+};
+
 /** Build one child row element (checkbox + label + type icon + more button),
  *  isomorphic to a leaf row but not a registry row. */
 /** Render one child row of an expanded group.
@@ -72,6 +93,11 @@ const renderChildItem = (
 ): HTMLElement => {
   const id = childRowId(parentId, child);
   const name = childDisplayName(child);
+  // The child row is the registry entry's lifetime: registering here (and
+  // unregistering wherever the row goes) keeps "entry exists iff row is
+  // rendered" true. The entry is registry-only — it carries the LayerInfo the
+  // style and filter panels resolve, never a panel row of its own.
+  registerChildEntry(ui, parentId, child, id, name);
   const onMap = ui.c.map.hasLayer(child);
 
   // Tree connector line (item ④ decision B): a child row is never draggable —
@@ -146,6 +172,11 @@ const renderGroupChildren = (
 
 /** Remove every child row of a group (contiguous after its row). */
 const removeGroupChildren = (ui: LayerUI, parentId: string): void => {
+  // Children leave the registry with their rows: drop the registry-only
+  // entries first, so the DOM removal below is the visual half of one event.
+  for (const child of groupChildren(ui, parentId)) {
+    ui.c.unregisterLayer(childRowId(parentId, child));
+  }
   const sep = `${parentId}::`;
   const container = ui.uiContainer;
   if (!container) return;
@@ -253,6 +284,9 @@ const focusChildLayer = (ui: LayerUI, parentId: string, childId: string): void =
 const removeChildLayer = (ui: LayerUI, parentId: string, childId: string): void => {
   const child = resolveChild(ui, parentId, childId);
   if (!child) return;
+  // The registry entry goes with the row it was created for; the group's own
+  // membership change then announces the count move.
+  ui.c.unregisterLayer(childId);
   if (ui.c.map.hasLayer(child)) ui.c.map.removeLayer(child);
   const container = ui.uiContainer;
   if (container) {

@@ -207,6 +207,11 @@ class LayerInfoRegistry {
       // source of truth for what the user last saw).
       name: existingLi ? existingLi.name : (opts.name ?? opts.id),
       id: opts.id,
+      // A child entry is registry-only (see RegisterLayerOpts.child): carried
+      // through every re-registration so the expand renderer's later mounts
+      // keep answering the same question about the same id.
+      child: opts.child ?? existingLi?.child,
+      parentId: opts.parentId ?? existingLi?.parentId,
       opacity: authorOpacity,
       onOpacity: opts.onOpacity ?? existingLi?.onOpacity ?? null,
       opacityBake: opts.opacityBake ?? existingLi?.opacityBake ?? "redraw",
@@ -345,6 +350,28 @@ class LayerInfoRegistry {
     return this.items.indexOf(layerInfo);
   }
 
+  /** Every child entry owned by one group, in registration order. Child
+   *  entries are registry-only (see RegisterLayerOpts.child): they are kept
+   *  in `byId`, not in the ordered list, so this is the one reader that
+   *  enumerates them by parent. */
+  childEntriesOf(parentId: string): LayerInfo[] {
+    const out: LayerInfo[] = [];
+    for (const entry of this.byId.values()) {
+      if (entry.child && entry.parentId === parentId) out.push(entry);
+    }
+    return out;
+  }
+
+  /** Every child entry, whatever its parent. The list rebuild uses this to
+   *  drop the entries whose rows it is about to re-render. */
+  childEntries(): LayerInfo[] {
+    const out: LayerInfo[] = [];
+    for (const entry of this.byId.values()) {
+      if (entry.child) out.push(entry);
+    }
+    return out;
+  }
+
   /** Live array position of an id, or -1. Identity still belongs to `at()`:
    *  an id that now names a replacement resolves to a position, not to the
    *  entry a gesture started with. */
@@ -408,6 +435,13 @@ class LayerInfoRegistry {
    *  controller's friendly gate is the first line, this is the backstop. */
   upsert(layerInfo: LayerInfo): LayerInfo {
     const existing = this.byId.get(layerInfo.id);
+    // A child entry is registry-only: it lives in `byId` for the style /
+    // filter panels, never in the ordered list (no row, no z slot, no role
+    // count). Re-registration is an in-place swap of the same id.
+    if (layerInfo.child) {
+      this.byId.set(layerInfo.id, layerInfo);
+      return layerInfo;
+    }
     if (!existing) {
       // A new entry enters at its block's edge: push() would let an overlay
       // land after the base block when bases already exist. `insertAt` owns
@@ -480,6 +514,12 @@ class LayerInfoRegistry {
   remove(id: string): LayerInfo | null {
     const layerInfo = this.byId.get(id);
     if (!layerInfo) return null;
+    // A child entry never entered the ordered list; dropping it is a byId
+    // delete and nothing else (no splice, no reindex, no base-index move).
+    if (layerInfo.child) {
+      this.byId.delete(id);
+      return layerInfo;
+    }
     const idx = this.items.indexOf(layerInfo);
     if (idx !== -1) this.items.splice(idx, 1);
     this.byId.delete(id);
