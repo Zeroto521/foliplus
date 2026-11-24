@@ -1,6 +1,8 @@
 // Shared SearchControl logic scaffolding — coordinate parsing, called by
 // ./search.ts and ./history.ts. Moved from logic.ts.
 import type { ResultItem, SearchHistoryEntry, SearchType } from "../type.js";
+import { type OwnedLayers } from "./owned.js";
+import { type RequestGates } from "./request.js";
 import { COORD_BOUNDS } from "#core/geo/index.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
@@ -8,8 +10,13 @@ import type { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import type { Floating } from "#platform/floating.js";
 
-/** Subset of SearchControl state used by the logic functions (decouples the types). */
-interface SearchControlState {
+/**
+ * Subset of SearchControl state used by the logic functions (decouples the
+ * types). The request gate (`RequestGates`) and the owned-layer registry
+ * (`OwnedLayers`) are composed rather than redeclared: one source for the
+ * fields every async read and every layer reclaim reads.
+ */
+interface SearchControlState extends RequestGates, OwnedLayers {
   inp: HTMLInputElement;
   mode: SearchType;
   modeBtn: HTMLElement;
@@ -23,10 +30,7 @@ interface SearchControlState {
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestAbortController: AbortController | null;
-  suggestSeq: number;
   debouncedFetch: Debounced;
-  marker: L.Marker | null;
-  delIcon: L.Marker | null;
   ctrl: HTMLElement;
 }
 

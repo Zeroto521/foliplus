@@ -23,7 +23,7 @@
  * Reads <root>/foliplus/js/ (source), writes <root>/foliplus/.build/js/.
  */
 import { help, parseArgs } from "../args.mjs";
-import { repoRoot, resolveJsRoot } from "../build-path.mjs";
+import { repoRoot, resolveJsRoot } from "./build-path.mjs";
 import { canonicalSpec, scanSharedImports } from "./import-scan.mjs";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "fs";
 import { dirname, resolve } from "path";

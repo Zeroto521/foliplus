@@ -22,7 +22,7 @@
  *   - Dynamic key construction (template literals, ternaries, map lookups)
  *   - Object property values that are keys
  */
-import { repoRoot } from "../build-path.mjs";
+import { repoRoot } from "../build/build-path.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

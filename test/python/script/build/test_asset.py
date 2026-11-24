@@ -50,7 +50,7 @@ from foliplus.BaseControl import (
 EXPECTED = expected_artifacts()
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
-SCRIPT_PATH = REPO_ROOT / "script" / "check" / "smoke-wheel.py"
+SCRIPT_PATH = REPO_ROOT / "script" / "check" / "smoke_wheel.py"
 
 
 @pytest.fixture
@@ -74,7 +74,7 @@ def dist_copy(monkeypatch, tmp_path):
 
 
 def _smoke_module() -> types.ModuleType:
-    """`script/check/smoke-wheel.py`, loaded without importing the release stack.
+    """`script/check/smoke_wheel.py`, loaded without importing the release stack.
 
     This file already imports `BaseControl`, so the cross-check belongs here
     rather than in `test_smoke_wheel.py`, which deliberately avoids it to stay

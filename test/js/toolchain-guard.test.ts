@@ -78,7 +78,7 @@ describe("script module surface", () => {
 // hint about which declaration drifted, so the trio is asserted together.
 //
 // The vitest half is not a hand-copied `resolve("script")` — it imports
-// `testPathAliases` from script/build-path.mjs. This suite pins that wiring so
+// `testPathAliases` from script/build/build-path.mjs. This suite pins that wiring so
 // a future drift fails here instead of at test import time.
 describe("#script/* import alias", () => {
   it("package.json imports points #script/* at ./script/*", () => {
@@ -87,7 +87,7 @@ describe("#script/* import alias", () => {
 
   it("vitest resolve.alias maps #script via the build-path single source", () => {
     expect(vitestConfig).toMatch(/testPathAliases\s*\(/);
-    expect(existsSync(resolve(ROOT, "script/build-path.mjs"))).toBe(true);
+    expect(existsSync(resolve(ROOT, "script/build/build-path.mjs"))).toBe(true);
   });
 
   it("test/js tsconfig keeps the #script/* mapping live", () => {
@@ -347,7 +347,7 @@ describe("test/js/script naming", () => {
 
 // The naming rule above runs one way: every test file must name a real module.
 // The other direction — every module must have a test file — was the blind
-// spot that left script/glyph.mjs uncovered. A module without a test can never
+// spot that left script/build/glyph.mjs uncovered. A module without a test can never
 // be an accident: it is either tested, or named here with the reason it
 // cannot be. The list is empty today; keeping it is what makes the gap below
 // deliberate instead of silent.
@@ -399,7 +399,7 @@ describe("script module coverage", () => {
     // Counter-proof. Without it the loop above would keep passing after the
     // escape hatch stopped being a list and started matching everything — the
     // guard would go decorative and no test would notice.
-    expect(isCovered("glyph")).toBe(true);
+    expect(isCovered("build/glyph")).toBe(true);
     expect(isCovered("build/compress")).toBe(true);
     expect(isCovered("compress")).toBe(false);
     expect(isCovered("tool/build")).toBe(false);

@@ -6,7 +6,7 @@ import { registerCropMouseDown } from "./interaction.js";
 import type { ExportManager } from "./manager.js";
 import type { CropRect } from "./type.js";
 import { bindMapSync } from "#core/leaflet/index.js";
-import { COMPONENTS, ensureModes, guardBlocked } from "#core/lifecycle/index.js";
+import { guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
@@ -128,19 +128,19 @@ const showCropBox = (mgr: ExportManager) => {
   if (mgr.cropState) return;
   // Symmetric lock with the other interactive components (measure / focus).
   if (
-    guardBlocked(mgr.map, mgr.config.name, mgr.T("blocked"), [
-      { blockedBy: COMPONENTS.MeasureControl, text: mgr.T("blocked_measure") },
-      { blockedBy: COMPONENTS.LayerControl, text: mgr.T("blocked_layer") },
-      { blockedBy: COMPONENTS.SearchControl, text: mgr.T("blocked_search") },
-      { blockedBy: COMPONENTS.LocateControl, text: mgr.T("blocked_locate") },
-    ])
+    guardBlocked(
+      mgr.map,
+      mgr.config.name,
+      mgr.T("blocked"),
+      CONST.EXPORT_BLOCKERS(mgr.T),
+    )
   ) {
     return;
   }
   // Enter crop interaction: block measurement immediately (not just at
-  // download), so map interaction is not interrupted by measure clicks.
-  const modes = ensureModes(mgr.map);
-  modes.setMode(mgr.config.name, "selecting");
+  // download), so map interaction is not interrupted by measure clicks. The
+  // phase owns the mode claim, so the crop box cannot disagree with it.
+  mgr.setExportPhase("crop");
   const mapRect = mgr.mapContainer.getBoundingClientRect();
   let box;
 
@@ -304,7 +304,12 @@ const unlockCropBox = (mgr: ExportManager) => {
 
 /** Remove crop box DOM and restore UI state. */
 const removeCropBox = (mgr: ExportManager) => {
-  if (!mgr.cropState) return;
+  if (!mgr.cropState) {
+    // A crop phase without a box is a half-torn state; release the claim so the
+    // map does not stay blocked by a session that no longer exists.
+    if (mgr.exportPhase === "crop") mgr.setExportPhase("idle");
+    return;
+  }
   mgr.lastScreenRect = Object.assign({}, mgr.cropState.rect);
   mgr.mapContainer.classList.remove(CONST.CLASSES.EXPORT_MODE);
   document.body.classList.remove(CONST.CLASSES.EXPORT_MODE);
@@ -335,8 +340,10 @@ const removeCropBox = (mgr: ExportManager) => {
   mgr.cropState = null;
   // Box removed → restore Leaflet's keyboard handler (normal map interaction).
   syncCropKeyboard(mgr);
-  const modes = ensureModes(mgr.map);
-  modes.setMode(mgr.config.name, null);
+  // Only the crop phase releases the "selecting" claim: doExport() writes
+  // "exporting" before it removes the box, so an unconditional release here
+  // would collapse the export's own mode (P1-1).
+  if (mgr.exportPhase === "crop") mgr.setExportPhase("idle");
   mgr.map.foliplus!.hideHint(mgr.config.name);
 };
 
