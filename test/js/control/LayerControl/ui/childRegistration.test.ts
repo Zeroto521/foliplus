@@ -12,7 +12,15 @@ import type { LayerController } from "#control/LayerControl/controller.js";
 import { focusChildLayer } from "#control/LayerControl/ui/focus/index.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT } from "#control/LayerControl/ui/intent.js";
-import { childRowId } from "#control/LayerControl/ui/listPanel/groupExpand.js";
+import {
+  childRowId,
+  expandChildCap,
+  refreshAllChildRows,
+  refreshChildRows,
+  removeChildLayer,
+  renderChildBlock,
+  toggleGroupExpand,
+} from "#control/LayerControl/ui/listPanel/groupExpand.js";
 import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.js";
 
 describe("child layer registration", () => {
@@ -523,6 +531,139 @@ describe("child layer registration", () => {
     const keys = Object.keys(record.expandedGroups ?? {});
     expect(keys).toContain("fg");
     expect(keys.some(id => id.includes("::"))).toBe(false);
+  });
+
+  it("renders a nested block only while its own group is expanded", () => {
+    installLeafletGlobals();
+    const leaf = makeChild({ a: 1 });
+    const inner = makeGroup([leaf]);
+    registerGroup([inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    const chevron = () =>
+      attachedPanel(ui).querySelector<HTMLElement>(
+        `[data-layer-id="${innerId}"] .${CONST.CLASSES.FOLD_BTN}`,
+      )!;
+
+    // A folded nested group is one row: no children, and its own chevron says so.
+    expect(chevron().getAttribute("aria-expanded")).toBe("false");
+    expect(chevron().title).toBe(ui.T("unfold_tooltip"));
+    expect(renderChildBlock(ui, "fg", inner)).toHaveLength(1);
+
+    chevron().click();
+    expect(renderChildBlock(ui, "fg", inner)).toHaveLength(2);
+    expect(chevron().getAttribute("aria-expanded")).toBe("true");
+    expect(chevron().title).toBe(ui.T("fold_tooltip"));
+
+    chevron().click();
+    expect(renderChildBlock(ui, "fg", inner)).toHaveLength(1);
+  });
+
+  it("caps a nested block with the more row and lifts the cap", () => {
+    installLeafletGlobals();
+    const leaves = Array.from({ length: 51 }, (_, i) => makeChild({ i }));
+    registerGroup([makeGroup(leaves)]);
+    expandGroup();
+    const inner = (manager.layerRegistry.get("fg")!.layer as any).getLayers()[0];
+    const innerId = childRowId("fg", inner);
+    toggleGroupExpand(ui, innerId);
+
+    const rows = renderChildBlock(ui, "fg", inner);
+    expect(rows).toHaveLength(52);
+    expect(rows[51].classList.contains(CONST.CLASSES.CHILD_MORE)).toBe(true);
+
+    // Lifting the cap repaints the attached block and drops the notice row.
+    expandChildCap(ui, innerId);
+    const lifted = renderChildBlock(ui, "fg", inner);
+    // The group row plus all 51 children, with no remainder row.
+    expect(lifted).toHaveLength(52);
+    expect(lifted.some(row => row.classList.contains(CONST.CLASSES.CHILD_MORE))).toBe(
+      false,
+    );
+    expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.CHILD_MORE}`)).toBeNull();
+  });
+
+  it("repaints nested child rows from their own container", () => {
+    installLeafletGlobals();
+    const leafA = makeChild();
+    const leafB = makeChild();
+    const inner = makeGroup([leafA, leafB]);
+    registerGroup([inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    toggleGroupExpand(ui, innerId);
+    const leafId = childRowId(innerId, leafA);
+    const leafRow = () =>
+      attachedPanel(ui).querySelector<HTMLElement>(`[data-layer-id="${leafId}"]`)!;
+
+    map.hasLayer = vi.fn((layer: unknown) => layer !== leafA);
+    refreshChildRows(ui, "fg");
+    expect(
+      leafRow().querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked,
+    ).toBe(false);
+
+    // A row without a checkbox still gets its count refreshed.
+    leafRow().querySelector('input[type="checkbox"]')!.remove();
+    expect(() => refreshChildRows(ui, "fg")).not.toThrow();
+    expect(leafRow().querySelector('input[type="checkbox"]')).toBeNull();
+
+    // A row whose child is no longer a member of the container is skipped.
+    const ghost = document.createElement("div");
+    ghost.className = CONST.CLASSES.LAYER_ITEM;
+    ghost.setAttribute(CONST.DATA.LAYER_ID, `${innerId}::ghost`);
+    attachedPanel(ui).appendChild(ghost);
+    expect(() => refreshChildRows(ui, "fg")).not.toThrow();
+
+    // Without a container there is nothing to paint.
+    (ui.c as unknown as { uiContainer: null }).uiContainer = null;
+    expect(() => refreshChildRows(ui, "fg")).not.toThrow();
+  });
+
+  it("sweeps the expanded groups of one role only", () => {
+    installLeafletGlobals();
+    registerGroup([makeGroup([makeChild()])]);
+    expandGroup();
+    ui.listPanel.expandedGroups.collapsed = false;
+
+    // No role: every expanded group is refreshed.
+    expect(() => refreshAllChildRows(ui)).not.toThrow();
+    // A role the group is not in: skipped.
+    expect(() => refreshAllChildRows(ui, "base")).not.toThrow();
+    // The group's own role: refreshed.
+    expect(() => refreshAllChildRows(ui, "overlay")).not.toThrow();
+  });
+
+  it("lifts a cap only for an attached expanded group", () => {
+    installLeafletGlobals();
+    registerGroup([makeGroup([makeChild()])]);
+    expandGroup();
+    // No row for that id.
+    expect(() => expandChildCap(ui, "fg::absent")).not.toThrow();
+    // A row exists but the group is folded.
+    ui.listPanel.expandedGroups.fg = false;
+    expect(() => expandChildCap(ui, "fg")).not.toThrow();
+  });
+
+  it("drops a child entry with the row it was created for", () => {
+    installLeafletGlobals();
+    const leaf = makeChild();
+    const other = makeChild();
+    registerGroup([makeGroup([leaf, other])]);
+    expandGroup();
+    const leafId = childRowId("fg", leaf);
+
+    // The child is already off the map: only the entry and the row go.
+    map.hasLayer = vi.fn(() => false);
+    removeChildLayer(ui, "fg", leafId);
+    expect(manager.layerRegistry.get(leafId)).toBeUndefined();
+    expect(map.removeLayer).not.toHaveBeenCalled();
+
+    // Unknown child id: nothing to resolve.
+    expect(() => removeChildLayer(ui, "fg", "fg::nope")).not.toThrow();
+
+    // No container to paint into.
+    (ui.c as unknown as { uiContainer: null }).uiContainer = null;
+    expect(() => removeChildLayer(ui, "fg", childRowId("fg", other))).not.toThrow();
   });
 
   it("renders the style panel against the child's own leaves", () => {
