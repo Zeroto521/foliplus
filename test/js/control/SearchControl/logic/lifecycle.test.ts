@@ -6,6 +6,7 @@ import { destroyControl } from "#control/SearchControl/logic/lifecycle.js";
 import {
   fetchSuggestions,
   searchAddress,
+  searchCoord,
 } from "#control/SearchControl/logic/search.js";
 
 // Control context properties the logic functions read via ctrl.config/ctrl.T/etc.
@@ -169,5 +170,117 @@ describe("destroyControl — late async results", () => {
 
     expect(ctrl.panelWrap).toBeNull();
     expect(ctrl.cachedSuggestions.size).toBe(0);
+  });
+});
+
+describe("request gates — retired and superseded branches", () => {
+  it("does not start an address search after destroy", () => {
+    const ctrl = makeControl({ inp: { value: "B", focus: vi.fn() } });
+    destroyControl(ctrl);
+    (window.foliplus.geocode as any).mockClear();
+    (window.map.foliplus.showHint as any).mockClear();
+
+    searchAddress(ctrl, "B");
+
+    expect(window.foliplus.geocode).not.toHaveBeenCalled();
+    expect(window.map.foliplus.showHint).not.toHaveBeenCalled();
+  });
+
+  it("does not start a suggestion fetch after destroy", () => {
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+    const ctrl = makeControl({ inp: { value: "paris", focus: vi.fn() } });
+    destroyControl(ctrl);
+
+    fetchSuggestions(ctrl, "paris");
+
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(ctrl.panelWrap).toBeNull();
+  });
+
+  it("clears a pending throttle timer on destroy", () => {
+    vi.useFakeTimers();
+    try {
+      const ctrl = makeControl({
+        throttleTimer: setTimeout(() => undefined, 60_000),
+      });
+      destroyControl(ctrl);
+      expect(ctrl.throttleTimer).toBeNull();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores a rejection from an address search a newer query superseded", async () => {
+    const pending: Array<{
+      resolve: (value: unknown) => void;
+      reject: (error: Error) => void;
+    }> = [];
+    (window.foliplus.geocode as any).mockImplementation(
+      () =>
+        new Promise<unknown>((resolve, reject) => {
+          pending.push({ resolve, reject });
+        }),
+    );
+    const ctrl = makeControl({ inp: { value: "B", focus: vi.fn() } });
+    searchAddress(ctrl, "A");
+    searchAddress(ctrl, "B");
+    (window.map.foliplus.showHint as any).mockClear();
+    (window.map.foliplus.hideHint as any).mockClear();
+
+    pending[0].reject(new Error("late failure"));
+    await tick();
+    await tick();
+
+    expect(window.map.foliplus.showHint).not.toHaveBeenCalled();
+    expect(window.map.foliplus.hideHint).not.toHaveBeenCalled();
+  });
+
+  it("ignores a rejection from a suggestion fetch a newer query superseded", async () => {
+    const pending: Array<{ reject: (error: Error) => void }> = [];
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise<unknown>((_resolve, reject) => {
+          pending.push({ reject });
+        }),
+    ) as unknown as typeof fetch;
+    const warn = vi.fn();
+    const ctrl = makeControl({
+      inp: { value: "paris", focus: vi.fn() },
+      log: { ...ctx().log, warn },
+    });
+    fetchSuggestions(ctrl, "paris");
+    // A newer request retires this one before it settles.
+    ctrl.suggestSeq += 1;
+
+    pending[0].reject(new Error("late failure"));
+    await tick();
+    await tick();
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("ignores a reverse geocode that lands after a newer coord search", async () => {
+    const pending: Array<(value: string) => void> = [];
+    (window.foliplus.reverseGeocode as any).mockImplementation(
+      () => new Promise<string>(resolve => pending.push(resolve)),
+    );
+    const ctrl = makeControl({ inp: { value: "", focus: vi.fn() } });
+    searchCoord(ctrl, "1,1");
+    searchCoord(ctrl, "2,2");
+
+    // The current (second) reverse settles first.
+    pending[1]("Second addr");
+    await tick();
+    await tick();
+    // The superseded (first) one arrives late and must not rewrite its entry.
+    pending[0]("First addr");
+    await tick();
+    await tick();
+
+    const first = ctrl.searchHistory.find(
+      (entry: { lng: number; lat: number }) => entry.lng === 1 && entry.lat === 1,
+    );
+    expect(first?.addrDisplay).toBe("");
   });
 });

@@ -57,5 +57,5 @@ const invalidateRequests = (gates: RequestGates): void => {
   }
 };
 
-export { REQUEST_PATHS, beginRequest, invalidateRequests, requestCurrent };
-export type { RequestGates, RequestPath };
+export { beginRequest, invalidateRequests, requestCurrent };
+export type { RequestGates };

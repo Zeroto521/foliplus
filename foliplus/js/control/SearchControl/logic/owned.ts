@@ -66,4 +66,4 @@ const releaseOwnedLayers = (ctrl: OwnedLayers): void => {
 };
 
 export { ownLayer, releaseMarkerLayers, releaseOwnedLayers };
-export type { OwnedLayers, OwnedSlot };
+export type { OwnedLayers };
