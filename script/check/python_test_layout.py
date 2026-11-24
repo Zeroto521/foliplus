@@ -135,18 +135,14 @@ def is_allowed_name(name: str) -> bool:
 def control_dirs(root: Path) -> list[Path]:
     """The per-control test directories, in path order."""
     return sorted(
-        d
-        for d in root.iterdir()
-        if d.is_dir() and not d.name.startswith((".", "_"))
+        d for d in root.iterdir() if d.is_dir() and not d.name.startswith((".", "_"))
     )
 
 
 def test_files(root: Path) -> list[Path]:
     """Every test_*.py under one control directory, in path order."""
     return sorted(
-        path
-        for path in root.rglob("test_*.py")
-        if "__pycache__" not in path.parts
+        path for path in root.rglob("test_*.py") if "__pycache__" not in path.parts
     )
 
 
