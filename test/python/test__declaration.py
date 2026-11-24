@@ -1,6 +1,6 @@
 """Unit tests for the shared declaration readers (``foliplus._declaration``).
 
-``_declaration.py`` owns the author-facing declaration payloads — the zoom
+``foliplus/_declaration`` owns the author-facing declaration payloads — the zoom
 range (layer ``foliplus={"zoom_range": ...}`` and the control ``zoom_range=``
 kwarg), the filter (Heatmap/Measure ``filter=``) and the layer folder
 (``foliplus={"folder": ...}``) — plus the warning family
@@ -938,7 +938,13 @@ def _late_module_bindings(tree: ast.Module) -> list[tuple[str, int]]:
 
 @pytest.mark.parametrize(
     "module_path",
-    ["foliplus/_declaration.py", "test/python/test__declaration.py"],
+    [
+        "foliplus/_declaration/warnings.py",
+        "foliplus/_declaration/filter.py",
+        "foliplus/_declaration/paint.py",
+        "foliplus/_declaration/marker.py",
+        "test/python/test__declaration.py",
+    ],
 )
 def test_module_constants_precede_the_first_definition(module_path: str) -> None:
     module = Path(__file__).resolve().parents[2] / module_path

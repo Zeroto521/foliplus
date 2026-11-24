@@ -147,5 +147,5 @@ repos:
         name: module-size-check
         entry: python script/check/module_size_check.py
         language: python
-        files: ^foliplus/control/.*\.py$
+        files: ^foliplus/.*\.py$
         pass_filenames: true

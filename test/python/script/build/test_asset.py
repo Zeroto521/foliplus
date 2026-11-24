@@ -29,8 +29,9 @@ from conftest import read_css, render, render_control
 
 # `foliplus/__init__.py` re-binds the package attribute `foliplus.BaseControl`
 # to the *class*, so `import foliplus.BaseControl` would hand back the class
-# and `dist_dir` would be invisible. The real module is what owns `dist_dir`.
-BaseControlModule = importlib.import_module("foliplus.BaseControl")
+# and `dist_dir` would be invisible. `foliplus._assets` is the module that owns
+# the artifact pipeline (and therefore `dist_dir`); `BaseControl` re-exports it.
+AssetsModule = importlib.import_module("foliplus._assets")
 
 from foliplus import ExportControl, SearchControl
 from foliplus.BaseControl import (
@@ -64,12 +65,12 @@ def dist_copy(monkeypatch, tmp_path):
     with ``-n auto``. Against a private copy per test they touch nothing the
     rest of the suite can see, so the race disappears rather than moving.
     ``_build_shared_header`` / ``_build_component_template`` resolve
-    ``BaseControl.dist_dir`` at call time, so the monkeypatch redirects them
-    along with the unlink targets below.
+    ``_assets.dist_dir`` at call time, so the monkeypatch redirects them along
+    with the unlink targets below.
     """
     copy = tmp_path / "dist"
     shutil.copytree(dist_dir, copy)
-    monkeypatch.setattr(BaseControlModule, "dist_dir", copy)
+    monkeypatch.setattr(AssetsModule, "dist_dir", copy)
     return copy
 
 

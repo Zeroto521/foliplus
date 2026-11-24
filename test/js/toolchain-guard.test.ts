@@ -233,7 +233,7 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   "check/event-name":
     "the semantic event-name convention guard over foliplus/js/core/event/const.ts, a tree guard not a script module",
   "check/folder-name-limit":
-    "the cross-stack FOLDER_NAME_MAX guard (JS core/layer/folderLayout.ts vs the Python bound in foliplus/_declaration.py), a tree guard not a script module",
+    "the cross-stack FOLDER_NAME_MAX guard (JS core/layer/folderLayout.ts vs the Python bound in foliplus/_declaration/keys.py), a tree guard not a script module",
   "check/deep-relative-path":
     "the deep parent-dir chain guard over test/js source (no 3+ ../ reaches the repo root), a tree guard not a script module",
   "check/marker-icon-set-icon-guard":
@@ -257,13 +257,13 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
   "check/derived-barrier":
     "the derived-state projection barrier guard over foliplus/js production (syncToggleAll/refreshAllCounts/refreshTreeConnectors call sites pinned to the controller.ts invalidateDerived barrier or an explicit whitelist), a tree guard not a script module",
   "check/hex-color-sync":
-    "the Python↔JS marker-chassis hex shape sync guard over foliplus/_declaration.py + foliplus/js/platform/color.ts (two hand-copied regex literals must stay identical + judge a 44-sample set the same), a tree guard not a script module",
+    "the Python↔JS marker-chassis hex shape sync guard over foliplus/_declaration/paint.py + foliplus/js/platform/color.ts (two hand-copied regex literals must stay identical + judge a 44-sample set the same), a tree guard not a script module",
   "check/export-decoupling":
     "the ExportControl ↔ LayerControl decoupling guard over foliplus/js/control/ExportControl source (must not reference LayerControl-internal identifiers — COLOR_INPUT/currentColor/showSolidBasemap/hideSolidBasemap/colorLayer/--color-layer-bg), a tree guard not a script module",
   "check/role-words-sync":
     "the Python↔JS layer-role vocabulary twin guard over foliplus/control/LayerControl/_role.py + foliplus/js/core/layer/const.ts (the two role words must stay identical and in the same order on both sides), a tree guard not a script module",
   "check/folder-name-max-sync":
-    "the Python↔JS folder-name bound twin guard over foliplus/_declaration.py + foliplus/js/core/layer/folderLayout.ts (FOLDER_NAME_MAX must stay the same number on both sides), a tree guard not a script module",
+    "the Python↔JS folder-name bound twin guard over foliplus/_declaration/keys.py + foliplus/js/core/layer/folderLayout.ts (FOLDER_NAME_MAX must stay the same number on both sides), a tree guard not a script module",
   "check/folder-name-fold-sync":
     "the Python↔JS folder-name fold-rule twin guard over foliplus/control/LayerControl/_folder.py + foliplus/js/core/layer/folderLayout.ts (_folder_key and normalizeFolderName must carry the same four fold steps — NFC, whitespace-fold, trim, ASCII-case-fold — in the same order and judge a representative input set the same), a tree guard not a script module",
 };

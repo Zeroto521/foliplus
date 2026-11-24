@@ -96,7 +96,7 @@ interface FolderBlock {
 const folderLayoutKey = (map: MapLike): string => scopedStorageKey(map, "layer_layout");
 
 /** The longest folder name a declaration may carry, in Unicode code points.
- *  Mirrors FOLDER_NAME_MAX in Python's foliplus/_declaration.py: a folder
+ *  Mirrors FOLDER_NAME_MAX in Python's foliplus/_declaration/keys.py: a folder
  *  name is a short label read on a list row, not a data field, and the cap
  *  must match across stacks so Python and JS cannot disagree about which
  *  names reach the panel. */
