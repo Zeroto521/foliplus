@@ -61,7 +61,19 @@ export {
   resetIconLeaves,
 } from "./markerIcon.js";
 export type { AuthorGlyph } from "./markerIcon.js";
-export { MARKER_COLOR_PRESET_HEX, presetNameOfHex } from "./markerColorPreset.js";
+// The single chassis-paint resolver: author chassis -> declared -> default blue.
+// The control panel, the apply path and `core.layer.readLayerPaint` all read it.
+export {
+  authorMarkerColor,
+  authorMarkerColorHex,
+  resolveChassisPaint,
+} from "./markerIcon.js";
+
+export {
+  MARKER_COLOR_PRESET_HEX,
+  markerColorHexOf,
+  presetNameOfHex,
+} from "./markerColorPreset.js";
 export {
   PICKER_GLYPHS,
   GLYPH_PREFIXES,

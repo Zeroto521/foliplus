@@ -48,7 +48,6 @@ export {
   inlineControls,
   DEFAULT_LABEL_COLOR,
   LABEL_SIZE,
-  normalizeHexColor,
   numberInput,
   selectInput,
 } from "./form.js";
