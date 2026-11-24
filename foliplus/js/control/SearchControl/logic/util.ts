@@ -24,6 +24,12 @@ interface SearchControlState {
   throttleTimer: ReturnType<typeof setTimeout> | null;
   suggestAbortController: AbortController | null;
   suggestSeq: number;
+  addrSeq: number;
+  reverseSeq: number;
+  /** True once destroyControl() ran; late async results must check it. */
+  disposed: boolean;
+  /** Layers this control created; teardown reclaims the whole set. */
+  ownedLayers: Set<L.Layer>;
   debouncedFetch: Debounced;
   marker: L.Marker | null;
   delIcon: L.Marker | null;

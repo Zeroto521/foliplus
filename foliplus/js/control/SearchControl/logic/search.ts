@@ -3,12 +3,14 @@
 import { AUTOCOMPLETE, MODE, SOURCE, ZOOM } from "../const.js";
 import type { AddressResult, ResultItem } from "../type.js";
 import { recordHistorySearch, renderHistory, saveHistory } from "./history.js";
+import { ownLayer } from "./owned.js";
 import {
   attachSearchDelIcon,
   positionPanel,
   removePanel,
   renderResults,
 } from "./panel.js";
+import { beginRequest, requestCurrent } from "./request.js";
 import { type SearchControlCtx, parseCoord } from "./util.js";
 import { createLocationMarker, fromWgs84, toWgs84 } from "#core/geo/index.js";
 import {
@@ -69,18 +71,22 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
   const key = `${lng},${lat}`;
   map.foliplus!.hideHint(ctrl.config.name);
   map.flyTo([lat, lng], ctrl.config.zoom ?? ZOOM.MAX);
-  ctrl.marker = createLocationMarker(
-    map,
-    lng,
-    lat,
-    null,
-    ctrl.T("popup_title_coord"),
-    ctrl.T("popup_loading"),
-    ctrl.T("popup_loc_label"),
-    ctrl.T("popup_addr_label"),
-    ctrl._("foliplus.close_label"),
-    ctrl.config.locale_code,
-    ctrl.marker,
+  ownLayer(
+    ctrl,
+    "marker",
+    createLocationMarker(
+      map,
+      lng,
+      lat,
+      null,
+      ctrl.T("popup_title_coord"),
+      ctrl.T("popup_loading"),
+      ctrl.T("popup_loc_label"),
+      ctrl.T("popup_addr_label"),
+      ctrl._("foliplus.close_label"),
+      ctrl.config.locale_code,
+      ctrl.marker,
+    ),
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
 
@@ -90,6 +96,9 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
   // incrementing the count (a later addHistoryEntry for the same type:query
   // key would treat it as a repeat).
   recordHistorySearch(ctrl, key, MODE.COORD, coordDisplay, "", lng, lat);
+  // The gate covers the reverse read too: its late address label must not write
+  // history after a newer search or after the control was removed.
+  const reverseSeq = beginRequest(ctrl, "reverse");
   window.foliplus
     .reverseGeocode(
       map,
@@ -99,6 +108,7 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
       ...providerArgs(ctrl.config),
     )
     .then(addr => {
+      if (!requestCurrent(ctrl, "reverse", reverseSeq)) return;
       if (addr) {
         const entry = ctrl.searchHistory.find(e => e.query === key);
         if (entry) {
@@ -119,6 +129,7 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
  */
 const searchAddress = (ctrl: SearchControlCtx, query: string) => {
   if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
+  if (ctrl.disposed) return;
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
   map.foliplus!.showHint(
     ctrl.config.name,
@@ -128,10 +139,13 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
     undefined,
     true,
   );
-
+  // One gate for the whole read: the newest query owns the map, and teardown
+  // invalidates the counter so a late response cannot place a pin.
+  const addrSeq = beginRequest(ctrl, "address");
   window.foliplus
     .geocode(map, query, ctrl.config.locale_code, ...providerArgs(ctrl.config))
     .then(result => {
+      if (!requestCurrent(ctrl, "address", addrSeq)) return;
       map.foliplus!.hideHint(ctrl.config.name);
       if (!result) {
         map.foliplus!.showHint(
@@ -163,6 +177,7 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
       );
     })
     .catch(() => {
+      if (!requestCurrent(ctrl, "address", addrSeq)) return;
       map.foliplus!.hideHint(ctrl.config.name);
       map.foliplus!.showHint(
         ctrl.config.name,
@@ -204,18 +219,22 @@ const renderAddressResult = (
     Math.max(ZOOM.MIN, ZOOM.BASE - Math.floor(displayName.length / ZOOM.DIVISOR)),
   );
   map.flyTo([lat, lng], zoom);
-  ctrl.marker = createLocationMarker(
-    map,
-    lng,
-    lat,
-    displayName,
-    ctrl.T("popup_title_addr"),
-    ctrl.T("popup_loading"),
-    ctrl.T("popup_loc_label"),
-    ctrl.T("popup_addr_label"),
-    ctrl._("foliplus.close_label"),
-    ctrl.config.locale_code,
-    ctrl.marker,
+  ownLayer(
+    ctrl,
+    "marker",
+    createLocationMarker(
+      map,
+      lng,
+      lat,
+      displayName,
+      ctrl.T("popup_title_addr"),
+      ctrl.T("popup_loading"),
+      ctrl.T("popup_loc_label"),
+      ctrl.T("popup_addr_label"),
+      ctrl._("foliplus.close_label"),
+      ctrl.config.locale_code,
+      ctrl.marker,
+    ),
   );
   attachSearchDelIcon(ctrl, [lat, lng]);
   return true;
@@ -273,6 +292,7 @@ const compareWithInput = (ctrl: SearchControlCtx, query: string): boolean =>
 
 const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
   if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
+  if (ctrl.disposed) return;
 
   if (query.length === 0) {
     if (ctrl.searchHistory.length > 0) renderHistory(ctrl, ctrl.mode);
@@ -323,8 +343,7 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
   markRequest(provider.id); // share with the runtime geocoder's queue
   if (ctrl.suggestAbortController) ctrl.suggestAbortController.abort();
   ctrl.suggestAbortController = new AbortController();
-  ctrl.suggestSeq += 1;
-  const reqSeq = ctrl.suggestSeq;
+  const reqSeq = beginRequest(ctrl, "suggest");
 
   const suggestRequest = fetchWithTimeout(
     buildSearchUrl(ctrl, query, AUTOCOMPLETE.MAX_ITEMS),
@@ -339,7 +358,7 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
         const [lng, lat] = fromWgs84(map, parseFloat(item.lng), parseFloat(item.lat));
         return { ...item, lng: String(lng), lat: String(lat) };
       });
-      if (reqSeq !== ctrl.suggestSeq) return;
+      if (!requestCurrent(ctrl, "suggest", reqSeq)) return;
       // Same live-input check as the cache-hit path above, via one helper so
       // the two call sites cannot drift. Silently discarded: the request that
       // retired this panel already ran, so there is nothing to close, and
@@ -364,6 +383,7 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
     })
     .catch(err => {
       if (err.name === "AbortError") return;
+      if (!requestCurrent(ctrl, "suggest", reqSeq)) return;
       try {
         ctrl.log.warn("suggestion fetch failed:", err);
       } finally {

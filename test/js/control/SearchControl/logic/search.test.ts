@@ -1461,3 +1461,54 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
     ).toBeNull();
   });
 });
+
+// ── Request lifecycle ────────────────────────────────────────────
+// The address path shares the map with the suggestion path: a stale provider
+// response must not repaint a newer query's result (or fly the map to the old
+// place after the user already searched again).
+
+describe("searchAddress request lifecycle", () => {
+  const deferredGeocode = () => {
+    const pending: Array<(value: unknown) => void> = [];
+    (window.foliplus.geocode as any).mockImplementation(
+      () => new Promise<unknown>(resolve => pending.push(resolve)),
+    );
+    return pending;
+  };
+
+  const addressCtrl = (extra: Record<string, unknown> = {}) =>
+    ({
+      ...ctx(),
+      inp: { value: "B" },
+      marker: null,
+      delIcon: null,
+      searchHistory: [],
+      ...extra,
+    }) as any;
+
+  it("ignores a late result for a superseded query", async () => {
+    const pending = deferredGeocode();
+    const ctrl = addressCtrl();
+    searchAddress(ctrl, "A");
+    ctrl.inp.value = "B";
+    searchAddress(ctrl, "B");
+
+    // B (the newest request) settles first and paints the map.
+    pending[1]({ lat: 2, lng: 2, display_name: "B place" });
+    await tick();
+    await tick();
+    expect(map.flyTo).toHaveBeenLastCalledWith([2, 2], expect.any(Number));
+    const markerB = ctrl.marker;
+    expect(markerB).not.toBeNull();
+    (map.flyTo as any).mockClear();
+
+    // A arrives after its query was superseded — it must not fly back, replace
+    // B's pin, or clear the loading hint for a search nobody is running.
+    pending[0]({ lat: 1, lng: 1, display_name: "A place" });
+    await tick();
+    await tick();
+    expect(map.flyTo).not.toHaveBeenCalled();
+    expect(ctrl.marker).toBe(markerB);
+    expect(window.map.foliplus.hideHint).toHaveBeenCalledTimes(1);
+  });
+});
