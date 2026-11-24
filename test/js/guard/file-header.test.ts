@@ -22,7 +22,7 @@ const REPO_ROOT = resolve(".");
 const JS_DIR = resolve(REPO_ROOT, "foliplus/js");
 const REGISTRY_PATH = resolve(
   REPO_ROOT,
-  "test/js/script/check/file-header.canonical.json",
+  "test/js/guard/file-header.canonical.json",
 );
 
 function readRegistry(): string[] {
