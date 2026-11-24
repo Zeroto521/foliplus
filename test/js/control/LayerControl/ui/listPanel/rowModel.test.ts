@@ -272,7 +272,12 @@ describe("ui/listPanel row model is the panel's rows", () => {
     // cache must not change what a second build returns.
     const { ui } = initFixture({
       data: [
-        { id: "A", name: "Alpha", role: "overlay", layer: { options: {}, eachLayer: vi.fn() } },
+        {
+          id: "A",
+          name: "Alpha",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
         { id: "B1", name: "Base", role: "base", layer: new TileLayer() },
       ],
     });
@@ -284,9 +289,18 @@ describe("ui/listPanel row model is the panel's rows", () => {
     // the same key (one row, not a duplicate), or the diff would delete and
     // recreate it on every re-registration.
     const { manager, ui } = initFixture({
-      data: [{ id: "A", name: "Alpha", role: "overlay", layer: { options: {}, eachLayer: vi.fn() } }],
+      data: [
+        {
+          id: "A",
+          name: "Alpha",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
     });
-    const before = buildRowsModel(ui).rows.filter(r => r.id === "A").map(r => r.key);
+    const before = buildRowsModel(ui)
+      .rows.filter(r => r.id === "A")
+      .map(r => r.key);
     manager.unregisterLayer("A");
     manager.registerLayer({
       id: "A",
@@ -294,7 +308,9 @@ describe("ui/listPanel row model is the panel's rows", () => {
       role: "overlay",
       layer: { options: {}, eachLayer: vi.fn() },
     });
-    const after = buildRowsModel(ui).rows.filter(r => r.id === "A").map(r => r.key);
+    const after = buildRowsModel(ui)
+      .rows.filter(r => r.id === "A")
+      .map(r => r.key);
     expect(before).toEqual(["layer:A"]);
     expect(after).toEqual(["layer:A"]);
     // Not a golden-equality case: once a role empties and refills, the current
