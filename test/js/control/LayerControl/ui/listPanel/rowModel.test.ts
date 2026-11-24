@@ -267,6 +267,42 @@ describe("ui/listPanel row model is the panel's rows", () => {
     expect(filtered.countText).toBe("3");
   });
 
+  it("is idempotent: the same state yields the same rows", () => {
+    // Phase 3 adds caching around the build; this is the regression net that a
+    // cache must not change what a second build returns.
+    const { ui } = initFixture({
+      data: [
+        { id: "A", name: "Alpha", role: "overlay", layer: { options: {}, eachLayer: vi.fn() } },
+        { id: "B1", name: "Base", role: "base", layer: new TileLayer() },
+      ],
+    });
+    expect(buildRowsModel(ui)).toEqual(buildRowsModel(ui));
+  });
+
+  it("keeps a layer's row key stable across retire and re-register", () => {
+    // The commit diffs by key: a layer that leaves and comes back must land on
+    // the same key (one row, not a duplicate), or the diff would delete and
+    // recreate it on every re-registration.
+    const { manager, ui } = initFixture({
+      data: [{ id: "A", name: "Alpha", role: "overlay", layer: { options: {}, eachLayer: vi.fn() } }],
+    });
+    const before = buildRowsModel(ui).rows.filter(r => r.id === "A").map(r => r.key);
+    manager.unregisterLayer("A");
+    manager.registerLayer({
+      id: "A",
+      name: "Alpha again",
+      role: "overlay",
+      layer: { options: {}, eachLayer: vi.fn() },
+    });
+    const after = buildRowsModel(ui).rows.filter(r => r.id === "A").map(r => r.key);
+    expect(before).toEqual(["layer:A"]);
+    expect(after).toEqual(["layer:A"]);
+    // Not a golden-equality case: once a role empties and refills, the current
+    // incremental path keeps the role header where the first render put it while
+    // the model derives role order from the registry. The commit normalizes that
+    // (one order source); the key contract is what this test pins.
+  });
+
   it("mirrors a container row: the group flag, its child count and its title", () => {
     const groupLayer = {
       options: {},
@@ -344,12 +380,14 @@ describe("ui/listPanel row model is the panel's rows", () => {
   });
 
   it("models a coherent group row where the current path leaves a stale title", () => {
-    // Pre-existing drift the projection removes: the count cell is refreshed on
-    // every reconcile (writeRoleCount), but the type cell's "count · what it
-    // is" sentence is written once at render. The color basemap registers one
-    // pass later, so the base header shows the fresh count beside the stale
-    // sentence. The model paints both cells from its one aggregate row, so the
-    // commit phase makes them agree again.
+    // This test asserts a KNOWN DRIFT (model ≠ DOM), not golden equality: the
+    // count cell is refreshed on every reconcile (writeRoleCount), but the type
+    // cell's "count · what it is" sentence is written once at render. The color
+    // basemap registers one pass later, so the base header shows the fresh count
+    // beside the stale sentence. The model paints both cells from its one
+    // aggregate row, so the commit phase makes them agree again — when phase 3
+    // lands, this test must be rewritten to assert model == DOM (the stale
+    // sentence disappears); do not "fix" it by relaxing the golden comparison.
     const { ui } = initFixture({
       data: [{ id: "B1", name: "Base", role: "base", layer: new TileLayer() }],
     });

@@ -81,6 +81,11 @@ const layerSignature = (row: RowModel, cell: RowCell): string =>
     row.role,
     cell.checked ? "1" : "0",
     cell.filtered ? "1" : "0",
+    // The count cell's tooltip is its own paint input: a filtered row can keep
+    // the same flag and count while the sentence changes (locale switch, a
+    // different filtered sentence), and a signature without it would skip the
+    // repaint. Symmetric with groupSignature's countTitle.
+    row.countTitle,
     cell.countText,
     cell.name,
     cell.typeLabel,
