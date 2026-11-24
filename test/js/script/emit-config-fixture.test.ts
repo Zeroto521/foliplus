@@ -10,7 +10,7 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// Shape matches foliplus/_config_schema.py's dump. Two controls share the `filename`
+// Shape matches the foliplus._config_schema dump. Two controls share the `filename`
 // key with different defaults — the regression the per-control grouping fixes.
 // `buildControlDefaults` only reads `field.default`, so the branch-covering
 // table below uses a compact spec.
@@ -252,7 +252,7 @@ describe("resolveSchemaJson", () => {
     // not have to read the header comment to figure it out.
     expect(() => resolveSchemaJson({})).toThrow(/--json is required/);
     expect(() => resolveSchemaJson({})).toThrow(
-      /python foliplus\/_config_schema\.py --out/,
+      /python -m foliplus\._config_schema --out/,
     );
   });
 });
