@@ -61,12 +61,23 @@ NO_PRIVATE_TEST = {
     "_typing": (
         "annotation-only module: ControlPosition is a bare Literal whose "
         "__args__ is a public contract, so it has no behaviour of its own. Its "
-        "semantics reach the guard through foliplus/_config_schema.py, which is "
-        "reflected into the TS schema and covered by test__config_schema.py"
+        "semantics reach the guard through the foliplus/_config_schema package, "
+        "which is reflected into the TS schema and covered by test__config_schema.py"
     ),
     "_cdn_loader": (
         "covered by test/python/test_cdn.py, which pins the dependency list it "
         "hands to the shared header"
+    ),
+    "_assets": (
+        "the dist/ artifact pipeline split out of BaseControl.py; its contract "
+        "(a missing artifact fails loudly) is pinned by "
+        "test/python/script/build/test_asset.py, which names the behaviour rather "
+        "than the module"
+    ),
+    "__main__": (
+        "the CLI entry point of the _config_schema package: "
+        "test/python/test__config_schema.py drives main() in-process and runs "
+        "python -m foliplus._config_schema in a subprocess"
     ),
 }
 

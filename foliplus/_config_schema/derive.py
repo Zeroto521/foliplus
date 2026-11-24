@@ -4,11 +4,23 @@ from __future__ import annotations
 
 import inspect
 from types import UnionType
-from typing import Annotated, Any, Literal, Union, get_args, get_origin, get_type_hints
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Literal,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from .resolve import resolve_tag
 from .spec import SHARED_PARAMS, ControlSchema, FieldSpec, field_spec_in
 from .tag import TS_OBJECTS, TS_PRIMITIVE_NAMES, TS_PRIMITIVES
+
+if TYPE_CHECKING:
+    from ..BaseControl import BaseControl
 
 
 def is_json_serializable(value: Any) -> bool:
