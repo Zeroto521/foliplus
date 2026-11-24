@@ -29,6 +29,7 @@ import {
 import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { finalize } from "#platform/finalize.js";
 import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
@@ -36,7 +37,6 @@ import {
   type CanvasLabelStyle,
   LABEL_CLASS,
   clampLabelSize,
-  normalizeHexColor,
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#ui/index.js";

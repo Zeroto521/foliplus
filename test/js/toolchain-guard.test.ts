@@ -258,6 +258,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the derived-state projection barrier guard over foliplus/js production (syncToggleAll/refreshAllCounts/refreshTreeConnectors call sites pinned to the controller.ts invalidateDerived barrier or an explicit whitelist), a tree guard not a script module",
   "check/hex-color-sync":
     "the Python↔JS marker-chassis hex shape sync guard over foliplus/_declaration.py + foliplus/js/platform/color.ts (two hand-copied regex literals must stay identical + judge a 44-sample set the same), a tree guard not a script module",
+  "check/export-decoupling":
+    "the ExportControl ↔ LayerControl decoupling guard over foliplus/js/control/ExportControl source (must not reference LayerControl-internal identifiers — COLOR_INPUT/currentColor/showSolidBasemap/hideSolidBasemap/colorLayer/--color-layer-bg), a tree guard not a script module",
   "check/role-words-sync":
     "the Python↔JS layer-role vocabulary twin guard over foliplus/control/LayerControl/_role.py + foliplus/js/core/layer/const.ts (the two role words must stay identical and in the same order on both sides), a tree guard not a script module",
   "check/folder-name-max-sync":

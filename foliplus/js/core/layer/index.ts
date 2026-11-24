@@ -128,11 +128,16 @@ export {
 export {
   FILL_OPT_IN,
   hasFillLeaf,
+  hasMarkerLeaf,
   hasRadiusLeaf,
   hasSetStyleLeaf,
   isArealStyleLeaf,
+  isMarkerLeaf,
+  isPathLeaf,
   probeLayerCarrier,
 } from "./capability.js";
+export { readLayerPaint, readLeafPaints } from "./paint.js";
+export type { LayerPaint, LeafPaint, PaintFace } from "./paint.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
