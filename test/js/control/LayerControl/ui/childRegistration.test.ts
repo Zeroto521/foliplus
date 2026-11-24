@@ -16,9 +16,10 @@ import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.
 describe("child layer registration", () => {
   let manager: LayerController;
   let ui: LayerUI;
+  let map: any;
 
   beforeEach(() => {
-    ({ manager, ui } = initFixture());
+    ({ manager, ui, map } = initFixture());
   });
 
   afterEach(() => {
@@ -230,6 +231,48 @@ describe("child layer registration", () => {
     const model = info.filterProvider!();
     expect(model).not.toBeNull();
     expect(model!.dimensions.map(d => d.field)).toContain("score");
+  });
+
+  it("repaints child rows when the group row is toggled off", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    const b = makeChild();
+    const group = registerGroup([a, b]);
+    expandGroup();
+    // The group's own checkbox drives map membership through the projection;
+    // make the map reflect that so the child rows read a real fact.
+    map.hasLayer = vi.fn((layer: unknown) => layer === group);
+
+    const groupBox = groupRow().querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    groupBox.checked = false;
+    groupBox.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const boxes = childRows().map(
+      row => (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+    );
+    expect(boxes).toEqual([false, false]);
+    expect(childRows()[0].querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("0/1");
+  });
+
+  it("repaints child rows when the role toggle-all hides the group", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    const group = registerGroup([a]);
+    expandGroup();
+    map.hasLayer = vi.fn((layer: unknown) => layer === group);
+
+    const allBox = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-role="overlay"] input[type="checkbox"]`,
+    ) as HTMLInputElement;
+    allBox.checked = false;
+    allBox.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const childBox = childRows()[0].querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    expect(childBox.checked).toBe(false);
   });
 
   it("offers style and filter in the child row's ⋮ menu", () => {

@@ -30,7 +30,13 @@ import {
   buildRailCell,
   buildTypeIconCol,
 } from "./rowCell.js";
-import { countLabelTitle, countTooltip, roleCountText } from "./rowView.js";
+import {
+  countLabelTitle,
+  countTooltip,
+  roleCountText,
+  writeRoleCount,
+  writeRowChecked,
+} from "./rowView.js";
 import {
   childrenOf,
   countFeatureGeometry,
@@ -80,6 +86,16 @@ const registerChildEntry = (
   });
 };
 
+/** One child row's count figures. A child's unit is its own geometry feature
+ *  count; a hidden child reads 0/total through the same `roleCountText` rule the
+ *  group row uses. Shared by the initial render and the post-visibility
+ *  refresh, so the two cannot drift. */
+const childRowCounts = (child: L.Layer, onMap: boolean) => {
+  const total = countFeatureGeometry(child);
+  const on = onMap ? total : 0;
+  return { total, on, countText: roleCountText(total, on) };
+};
+
 /** Build one child row element (checkbox + label + type icon + more button),
  *  isomorphic to a leaf row but not a registry row. */
 /** Render one child row of an expanded group.
@@ -107,12 +123,7 @@ const renderChildItem = (
     ui.T("drag_tooltip"),
   );
 
-  // Count (shared roleCountText rule): a child's unit is its own geometry
-  // feature count. A child on the map shows the bare count; a hidden child
-  // shows 0/total through the same rule the group row uses.
-  const total = countFeatureGeometry(child);
-  const on = onMap ? total : 0;
-  const countText = roleCountText(total, on);
+  const { total, on, countText } = childRowCounts(child, onMap);
 
   // Type icon (shared getGeometryType → getTypeSVG rule).
   const gtype = getGeometryType(child);
@@ -184,6 +195,52 @@ const removeGroupChildren = (ui: LayerUI, parentId: string): void => {
     `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}^="${sep}"]`,
   )) {
     row.remove();
+  }
+};
+
+/** Repaint one group's rendered child rows from the map membership fact.
+ *
+ *  Child rows are not registry rows, so a projection pass never visits them: a
+ *  container-wide visibility change (the group's own checkbox, a folder header,
+ *  the role toggle-all, a zoom-range sweep) adds/removes the children with the
+ *  group, and the rows' checkboxes and counts must follow that fact. */
+const refreshChildRows = (ui: LayerUI, parentId: string): void => {
+  if (!isGroupExpanded(ui, parentId)) return;
+  const container = ui.uiContainer;
+  if (!container) return;
+  const sep = `${parentId}::`;
+  for (const row of container.querySelectorAll<HTMLElement>(
+    `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}^="${sep}"]`,
+  )) {
+    const id = row.getAttribute(CONST.DATA.LAYER_ID);
+    if (!id) continue;
+    const child = resolveChild(ui, parentId, id);
+    if (!child) continue;
+    const onMap = ui.c.map.hasLayer(child);
+    const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (box) writeRowChecked(box, onMap);
+    const { total, on } = childRowCounts(child, onMap);
+    writeRoleCount(
+      row,
+      total,
+      on,
+      countTooltip(ui, "sub_layers_count_tooltip", on, total),
+    );
+  }
+};
+
+/** Repaint the child rows of every expanded group of one role (or of every
+ *  expanded group when the role is omitted). The bulk visibility paths change
+ *  many groups at once, so they call this once after their projection pass
+ *  instead of per layer. */
+const refreshAllChildRows = (ui: LayerUI, role?: string): void => {
+  for (const [parentId, expanded] of Object.entries(ui.listPanel.expandedGroups)) {
+    if (!expanded) continue;
+    if (role !== undefined) {
+      const parent = ui.c.layerRegistry.get(parentId);
+      if (!parent || parent.role !== role) continue;
+    }
+    refreshChildRows(ui, parentId);
   }
 };
 
@@ -306,6 +363,8 @@ export {
   renderChildItem,
   removeGroupChildren,
   toggleGroupExpand,
+  refreshChildRows,
+  refreshAllChildRows,
   focusChildLayer,
   removeChildLayer,
 };

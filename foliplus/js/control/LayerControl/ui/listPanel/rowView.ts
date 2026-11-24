@@ -380,6 +380,14 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
+/** Write one row checkbox's binary visual. `applyRowView` writes the
+ *  registry rows (from the intent projection); a child row has no intent store
+ *  — its membership is the map's fact — so this is the one binary write, kept
+ *  in the row-view writer so the charter still has a single writer. */
+const writeRowChecked = (input: HTMLInputElement, checked: boolean): void => {
+  input.checked = checked;
+};
+
 /** Write a checkbox's tri-state visual (checked / indeterminate /
  *  aria-checked) from a `{ total, on }` aggregate. This is a row visual
  *  write, so it lives in the single row-view writer (the charter that
@@ -416,6 +424,7 @@ const writeRoleCount = (
 export {
   applyRowView,
   buildRowCell,
+  writeRowChecked,
   countLabelTitle,
   countTooltip,
   displayName,

@@ -31,7 +31,7 @@ import {
   toggleFold,
   toggleFolderFold,
 } from "./listPanel/drag.js";
-import { toggleGroupExpand } from "./listPanel/groupExpand.js";
+import { refreshAllChildRows, toggleGroupExpand } from "./listPanel/groupExpand.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
@@ -368,6 +368,9 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // row sees the settled face rather than the pre-zoom out-of-range state.
   ui.onZoomEnd = () => {
     const swept = applyProjectionAll(ui);
+    // A zoom-range sweep hides/shows whole groups with their children; the
+    // expanded groups' child rows read that membership fact directly.
+    refreshAllChildRows(ui);
     ui.overlayPanel.styleZoomEndHandler?.();
     notifyDeltas(ui, swept);
   };

@@ -11,6 +11,7 @@ import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { resolveChild } from "./childRow.js";
+import { refreshAllChildRows, refreshChildRows } from "./groupExpand.js";
 import {
   applyRowView,
   buildRowCell,
@@ -106,6 +107,11 @@ const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
     if (delta.wroteVisible || delta.intentMoved) moved.set(id, delta);
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
+
+  // A bulk toggle cascades to the expanded groups' child rows too: the
+  // projection wrote map membership for the groups, and their child rows read
+  // that fact directly.
+  refreshAllChildRows(ui, role);
 
   // Persist the hidden-set after bulk toggle (single debounced write for the
   // batch).
@@ -268,6 +274,9 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // Paint after the projection lands: the cell reads the intent this
   // transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
+  // A container's own toggle cascades to its children's map membership; the
+  // child rows are not registry rows, so repaint them from that fact here.
+  refreshChildRows(ui, id);
 
   // One aggregate pass repaints the role header and every folder row of the
   // role from the same table. The old path kept a cached count and nudged it
@@ -374,6 +383,9 @@ const setFolderVisible = (
     );
     if (row) applyRowView(ui, row, buildRowCell(ui, info));
   }
+  // Folder-wide hides cascade to the groups' child rows the same way the role
+  // toggle-all does.
+  refreshAllChildRows(ui, role);
   saveState(ui);
   // One aggregate pass for the whole tail: the role header and every folder
   // row repaint from this table.
