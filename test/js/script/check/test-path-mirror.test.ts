@@ -44,12 +44,8 @@ const NON_MIRRORED_TEST: Record<string, string> = {
   "toolchain-guard":
     "build/tooling configuration guard (eslint scoping, script coverage), no single module",
   tsconfig: "test TypeScript config guard, no single module",
-  "control/ExportControl/decoupling":
-    "reverse source-scan guard: ExportControl must not reference LayerControl internals, no single module",
-  "control/LayerControl/filterApply":
-    "cross-module filter-apply integration (controller + ui/style/icon + styleBag), no single module",
-  "control/LayerControl/ui/derivedState":
-    "derived-state coherence guard across every registration path, no single module",
+  "control/LayerControl/label/labelReplay-perf":
+    "wall-clock gate for the label replay (control/LayerControl/label/index.ts renderLabels); the -perf suffix marks it a timing gate, not a mirror of a labelReplay-perf module",
 };
 
 /** Test directories that are categories, not mirrors (each file still names the
