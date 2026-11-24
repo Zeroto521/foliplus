@@ -19,6 +19,12 @@ const JS_ROOT = resolve(REPO_ROOT, "foliplus", "js");
 const PREFIX_TABLE_FILE = "foliplus/js/core/leaflet/glyphSource.ts";
 const SOLID_DECLARATION = /solid:\s*"fa-solid"/;
 
+// The generated CONFIG schema carries the `icon_prefix` union straight from
+// Python's `Literal["fa-solid", "fa-regular"]`. It declares a type, not a
+// default value, so it is not a second hardcoded panel family; exempting it
+// keeps the guard on its real subject (hand-written call sites).
+const GENERATED_SCHEMA_FILE = "foliplus/js/config-schema.ts";
+
 // Walk .ts files under foliplus/js.
 const walk = (dir: string): string[] => {
   const out: string[] = [];
@@ -42,6 +48,7 @@ describe("glyph prefix parameterization", () => {
     const hits: string[] = [];
     for (const file of walk(JS_ROOT)) {
       const rel = relative(REPO_ROOT, file).replace(/\\/g, "/");
+      if (rel === GENERATED_SCHEMA_FILE) continue;
       if (rel !== PREFIX_TABLE_FILE) {
         const src = codeOnly(readFileSync(file, "utf8"));
         if (/fa-solid/.test(src)) hits.push(rel);
