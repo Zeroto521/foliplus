@@ -33,6 +33,7 @@ const POPUP_MAX_WIDTH = 300;
 const isLiveMarker = (map: L.Map, marker: L.Layer | null | undefined): boolean =>
   !!marker && map.hasLayer(marker);
 
+
 /**
  * Create a location marker with a popup and add it to the map.
  */
@@ -83,6 +84,8 @@ const createLocationMarker = (
     // pin, an explicit close) has no owner left to repaint.
     void reverseGeocode(map, lng, lat, code)
       .then((resolved: string) => {
+        // Liveness guard: one predicate for every async geocode continuation
+        // (see `isLiveMarker`); a removed pin has no owner left to write to.
         if (!isLiveMarker(map, marker)) return;
         if (onAddress) onAddress(resolved);
         if (marker?.getPopup?.()?.isOpen()) {
