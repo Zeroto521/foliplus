@@ -49,6 +49,7 @@ const doExport = function (this: ExportManager) {
     return;
   }
   this.lastTileFailures = null;
+  this.lastRenderStats = null;
   // Start as one operation. MODE_CHANGE and BEFORE_EXPORT are *notifications*
   // (see EVENT_POLICY): listeners all run, consumer failures are recorded to
   // the diagnostic log, and an observer cannot derail the start — the export
@@ -180,6 +181,7 @@ const doRender = function (
         return;
       }
       this.lastTileFailures = renderer.tileFailures;
+      this.lastRenderStats = renderer.lastStats;
       this.onRenderSuccess(canvas, hideEls);
     })
     .catch(err => {

@@ -145,7 +145,7 @@ class TestConfigKeyCollision:
     """Two parameters may not export the same CONFIG key.
 
     ``config_key`` is how a Python kwarg (``zoom_range``) reaches CONF under
-    the shared name (``zoomRange``). It also makes a silent overwrite possible
+    the shared name (``zoom_range``). It also makes a silent overwrite possible
     if a second parameter maps onto the same key, so derivation must fail loud
     rather than let one field disappear from ``_config_fields``.
     """
@@ -157,16 +157,16 @@ class TestConfigKeyCollision:
                 *,
                 zoom: Annotated[
                     dict[str, Any] | None,
-                    FieldSpec(ts="object", config_key="zoomRange"),
+                    FieldSpec(ts="object", config_key="zoom_range"),
                 ] = None,
                 zoom_range: Annotated[
                     dict[str, Any] | None,
-                    FieldSpec(ts="object", config_key="zoomRange"),
+                    FieldSpec(ts="object", config_key="zoom_range"),
                 ] = None,
             ) -> None:
                 super().__init__()
 
-        with pytest.raises(ValueError, match="exports CONFIG key 'zoomRange'"):
+        with pytest.raises(ValueError, match="exports CONFIG key 'zoom_range'"):
             derive_schema(Collision)
 
 

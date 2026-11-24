@@ -261,7 +261,7 @@ jobs:
       - name: Headless Chromium smoke
         run: >
           uv run pytest -q -r a --color=yes -m browser
-          test/python/infra/test_browser_probe_smoke.py
+          test/python/guard/test_browser_probe.py
           -o junit_family=legacy --junitxml=browser-probe.junit.xml
 
       - name: Probe inventory + parse gate

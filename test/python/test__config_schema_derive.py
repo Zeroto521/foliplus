@@ -163,7 +163,7 @@ class _DynamicBare(_ReflectBase):
         self.show = show
 
 
-_CFG_SHAPE = {"baseUrl": ("string", "?")}
+_CFG_SHAPE = {"base_url": ("string", "?")}
 
 
 class _NamedType(_ReflectBase):
@@ -365,7 +365,7 @@ def test_named_non_union_type_reads_its_shape_from_the_annotation() -> None:
     schema = derive_schema(_NamedType)
     assert schema["cfg"].ts == "ProviderConfig"
     assert schema["cfg"].name == "ProviderConfig"
-    assert schema["cfg"].shape == {"baseUrl": ("string", "?")}
+    assert schema["cfg"].shape == {"base_url": ("string", "?")}
 
 
 def test_named_type_without_a_shape_fails_loud() -> None:

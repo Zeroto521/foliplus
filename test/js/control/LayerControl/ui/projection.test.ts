@@ -199,7 +199,7 @@ describe("currentOpacity (resolved opacity read)", () => {
 });
 
 // The author-declared range (`foliplus={"zoom_range": {...}}` → CONF
-// `data[].zoomRange`) is the policy fallback when the user never set a range — the same role
+// `data[].zoom_range`) is the policy fallback when the user never set a range — the same role
 // `data[].show` plays for visibility. These cases pin that fallback, the
 // precedence of a stored choice over it, and the two defensive edges: the
 // clamp to the map bounds and a payload CONF should never contain.

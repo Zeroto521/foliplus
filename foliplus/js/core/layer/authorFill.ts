@@ -1,6 +1,6 @@
 // authorFill — read the fill an author's source declared, per leaf.
 //
-// The panel's `fillAuthor` state comes from CONF: Python computes it once at
+// The panel's `fill_author` state comes from CONF: Python computes it once at
 // render time from the GeoJson features' `__folium_color` property (geopandas
 // explore output). This module is the one lazy read left — Reset replays the
 // author's per-feature colors, and doing that needs each leaf's value, so the

@@ -89,7 +89,7 @@ def test_collect_layer_data_carries_the_declared_zoom_range() -> None:
         feature_collection(), name="a", foliplus={"zoom_range": {"min": 2, "max": 9}}
     )
     row = _row(collect_layer_data(_control_with(layer)), "a")
-    assert row["zoomRange"] == {"min": 2, "max": 9}, row
+    assert row["zoom_range"] == {"min": 2, "max": 9}, row
 
 
 def test_collect_layer_data_carries_the_declared_folder() -> None:
@@ -105,7 +105,7 @@ def test_collect_layer_data_carries_the_author_paint_fact() -> None:
     )
     layer = folium.GeoJson(features, name="a")
     row = _row(collect_layer_data(_control_with(layer)), "a")
-    author = row["fillAuthor"]
+    author = row["fill_author"]
     assert author["distinct"] == 2, author
     assert author["stops"] == ["#ff0000", "#00ff00"], author
 

@@ -110,7 +110,7 @@ test-browser: build-js-dev
 # smoke so a broken probe is visible without the full browser suite.
 test-browser-probe:
 	node script/check/browser-probe.mjs --strict
-	pytest -v -r a --color=yes --tb=short -m "browser" test/python/infra/test_browser_probe_smoke.py
+	pytest -v -r a --color=yes --tb=short -m "browser" test/python/guard/test_browser_probe.py
 
 test-js: build-js-dev
 	npm test

@@ -1,4 +1,4 @@
-// Shared with test/python/infra/test_browser_probe_smoke.py: compile the
+// Shared with test/python/guard/test_browser_probe.py: compile the
 // whole probe corpus with the two-step rule Playwright's page.evaluate uses
 // (an expression first, then a function body). Files starting with `_` are
 // support helpers, not probes, so the inventory gate skips this file.

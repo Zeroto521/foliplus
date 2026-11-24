@@ -2,7 +2,7 @@
 
 Three subjects, one row. Python ships a per-layer record of what the author
 painted (explore's per-feature ``__folium_color`` plus whichever branca colormap
-was mounted on the map) as ``CONFIG data[].fillAuthor``; the metadata half of
+was mounted on the map) as ``CONFIG data[].fill_author``; the metadata half of
 this module builds both sides — synthetic features and a real colormap — and
 asserts the shipped payload rather than the internals that produce it.
 
@@ -147,13 +147,13 @@ def _conf(html: str) -> dict:
 
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
-    return _conf(html)["data"][0]["fillAuthor"]
+    return _conf(html)["data"][0]["fill_author"]
 
 
 def test_multi_color_layer_carries_the_distinct_colors():
     meta = _meta(_geo(["#0d0887", "#f0f921"]))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["distinct"] == 2
     assert meta["stops"] == ["#0d0887", "#f0f921"]
     assert "scale" not in meta
@@ -162,7 +162,7 @@ def test_multi_color_layer_carries_the_distinct_colors():
 def test_single_color_layer_is_not_per_feature():
     meta = _meta(_geo(["#0d0887", "#0d0887"]))
 
-    assert meta["perFeature"] is False
+    assert meta["per_feature"] is False
     assert meta["distinct"] == 1
     assert "scale" not in meta
 
@@ -170,7 +170,7 @@ def test_single_color_layer_is_not_per_feature():
 def test_layer_without_the_property_has_no_fill_author():
     data = _conf(_render(_geo([None, None])))["data"][0]
 
-    assert "fillAuthor" not in data
+    assert "fill_author" not in data
 
 
 def test_continuous_scale_is_read_from_the_map():
@@ -255,7 +255,7 @@ def test_a_scale_is_claimed_only_through_its_caption():
     # The caption names no property of the layer: no scale is claimed and no
     # column is named. The panel draws the colors the features carry.
     assert "scale" not in meta
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["stops"] == colors
 
 
@@ -279,9 +279,9 @@ def test_a_plain_layer_does_not_claim_another_layers_scale():
     html = _render(plain, explore, scales=(scale,))
     data = {entry["name"]: entry for entry in _conf(html)["data"]}
 
-    assert "scale" not in data["Plain"]["fillAuthor"]
-    assert data["Explore"]["fillAuthor"]["scale"]["column"] == "value"
-    assert "_column" not in data["Plain"]["fillAuthor"]
+    assert "scale" not in data["Plain"]["fill_author"]
+    assert data["Explore"]["fill_author"]["scale"]["column"] == "value"
+    assert "_column" not in data["Plain"]["fill_author"]
 
 
 def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
@@ -303,7 +303,7 @@ def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
 def test_no_scale_falls_back_to_the_color_set():
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90"]))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert "scale" not in meta
     assert meta["stops"] == ["#0d0887", "#6a00a8", "#b12a90"]
 
@@ -320,9 +320,9 @@ def test_two_layers_sharing_a_caption_keep_their_own_scale():
     data = {entry["name"]: entry for entry in _conf(html)["data"]}
 
     for name in ("A", "B"):
-        assert data[name]["fillAuthor"]["scale"]["column"] == "score"
+        assert data[name]["fill_author"]["scale"]["column"] == "score"
     # The two folds must not collapse onto one scale: the stored strips differ.
-    assert data["A"]["fillAuthor"]["stops"] != data["B"]["fillAuthor"]["stops"]
+    assert data["A"]["fill_author"]["stops"] != data["B"]["fill_author"]["stops"]
 
 
 def test_a_scale_does_not_depend_on_the_layer_style_function():
@@ -332,7 +332,7 @@ def test_a_scale_does_not_depend_on_the_layer_style_function():
     layer.style_function = None  # type: ignore[assignment]
     meta = _meta(layer)
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["distinct"] == 2
 
 
@@ -340,7 +340,7 @@ def test_json_string_data_is_parsed():
     data = json.dumps(_collection(["#0d0887", "#f0f921"]))
     meta = _meta(folium.GeoJson(data))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
 
 
 def test_invalid_json_string_is_ignored():
@@ -348,12 +348,12 @@ def test_invalid_json_string_is_ignored():
     # folium parses the data at construction, so the broken payload has to be
     # injected afterwards — the control's own read is what must degrade.
     layer.data = "{not json"
-    assert _conf(_render(layer))["data"][0].get("fillAuthor") is None
+    assert _conf(_render(layer))["data"][0].get("fill_author") is None
 
 
 def test_missing_features_list_is_ignored():
     layer = folium.GeoJson(feature_collection())
-    assert _conf(_render(layer))["data"][0].get("fillAuthor") is None
+    assert _conf(_render(layer))["data"][0].get("fill_author") is None
 
 
 def test_feature_without_properties_is_skipped():
@@ -370,7 +370,7 @@ def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
     # and read the whole layer as a single color.
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90", "#f0f921"]))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["stops"] == ["#0d0887", "#b12a90"]
     assert "capped" not in meta
 
@@ -642,7 +642,7 @@ def test_scale_controls_are_reachable_through_a_feature_group():
     html = m.get_root().render()
     entry = _conf(html)["data"][0]
 
-    assert entry["fillAuthor"]["scale"]["column"] == "score"
+    assert entry["fill_author"]["scale"]["column"] == "score"
 
 
 def test_scale_does_not_read_a_map_it_is_not_attached_to():
@@ -656,7 +656,7 @@ def test_scale_does_not_read_a_map_it_is_not_attached_to():
     html = _render(layer)
     entry = _conf(html)["data"][0]
 
-    assert "scale" not in entry["fillAuthor"]
+    assert "scale" not in entry["fill_author"]
 
 
 def test_a_missing_value_in_the_first_feature_does_not_drop_the_scale():
@@ -753,8 +753,8 @@ def test_affine_equivalent_columns_are_claimed_by_render_order():
     html = _render(plain, explore, scales=(scale,))
     data = {entry["name"]: entry for entry in _conf(html)["data"]}
 
-    assert data["Plain"]["fillAuthor"]["scale"]["column"] == "score"
-    assert "scale" not in data["Explore"]["fillAuthor"]
+    assert data["Plain"]["fill_author"]["scale"]["column"] == "score"
+    assert "scale" not in data["Explore"]["fill_author"]
 
 
 @pytest.mark.parametrize("k", [7, 8, 9])
@@ -801,7 +801,7 @@ def test_no_scale_many_distinct_colors_reads_as_continuous():
     colors = ["#%06x" % (i * 0x111111) for i in range(12)]
     meta = _meta(_geo(colors))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["distinct"] == 12
     assert meta["scale"] == {"kind": "continuous", "ordered": False}
     assert "column" not in meta["scale"]

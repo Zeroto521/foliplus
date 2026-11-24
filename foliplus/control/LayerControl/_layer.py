@@ -27,7 +27,7 @@ from foliplus._declaration import (
 #: fill and label are consumed by the JS panel straight off
 #: layer.options.foliplus (folium forwards the unknown keyword into the
 #: layer options); zoom_range and folder are normalised here into CONFIG
-#: data[].zoomRange / data[].folder so the visibility and grouping policies
+#: data[].zoom_range / data[].folder so the visibility and grouping policies
 #: read one CONF fact instead of the raw namespace.
 FOLIPLUS_KEYS = frozenset(
     {

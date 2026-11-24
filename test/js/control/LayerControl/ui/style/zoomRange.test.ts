@@ -386,7 +386,7 @@ it("a reset that lands after a teardown does not deref the container", () => {
 });
 
 // ── Author-declared range: the row initial value and Reset ──
-// CONF `data[].zoomRange` (normalised from `foliplus={"zoom_range": {...}}`)
+// CONF `data[].zoom_range` (normalised from `foliplus={"zoom_range": {...}}`)
 // is the layer default range. The row opens on it, and Reset — which only
 // clears the user override — lands back on it instead of on the map full
 // range.
