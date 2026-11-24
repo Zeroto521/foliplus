@@ -680,7 +680,6 @@ class TestExportCompositeBrowser:
                 f"JS errors on bare-default-marker export: {errors}"
             )
 
-
     def test_export_custom_marker_chassis_color(self, browser, tmp_path):
         """A custom (non-preset) chassis hex exports the pin body, not just the glyph.
 
@@ -697,7 +696,9 @@ class TestExportCompositeBrowser:
             name="Points",
             marker=folium.Marker(icon=folium.Icon(color="green")),
         )
-        with use_page(_make_page, browser, tmp_path, point, slug="export_chassis_color") as (
+        with use_page(
+            _make_page, browser, tmp_path, point, slug="export_chassis_color"
+        ) as (
             page,
             errors,
         ):
@@ -706,7 +707,9 @@ class TestExportCompositeBrowser:
             # the channel the map actually uses.
             page.evaluate(_js("LayerControl/open_panel"))
             page.wait_for_selector(
-                ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
             )
             panel_ready(page)
             opened = page.evaluate(_js("LayerControl/open_style_panel"))
@@ -738,6 +741,7 @@ class TestExportCompositeBrowser:
                 f"Custom chassis colour missing from the export: {result}"
             )
             assert not errors, f"JS errors on custom-chassis export: {errors}"
+
 
 class TestExportLabelCanvasBrowser:
     """A label canvas torn down mid-export must still reach the image.
