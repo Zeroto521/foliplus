@@ -33,7 +33,6 @@ const POPUP_MAX_WIDTH = 300;
 const isLiveMarker = (map: L.Map, marker: L.Layer | null | undefined): boolean =>
   !!marker && map.hasLayer(marker);
 
-
 /**
  * Create a location marker with a popup and add it to the map.
  */
