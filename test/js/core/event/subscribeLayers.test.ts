@@ -60,10 +60,9 @@ describe("subscribeLayers", () => {
     await nextFrame();
 
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(handler.mock.calls[0][0].map((d: { payload: { id: string } }) => d.payload.id)).toEqual([
-      "a",
-      "c",
-    ]);
+    expect(
+      handler.mock.calls[0][0].map((d: { payload: { id: string } }) => d.payload.id),
+    ).toEqual(["a", "c"]);
   });
 
   it("filters through a predicate", async () => {
@@ -119,7 +118,10 @@ describe("subscribeLayers", () => {
 
     const bus = ensureEvents(map as never);
     bus.emit(EVENTS.LAYER_CHANGE, layerChange("a"));
-    bus.emit(EVENTS.LAYER_INTENT_CHANGE, { ...layerChange("a"), intent: { visible: false } });
+    bus.emit(EVENTS.LAYER_INTENT_CHANGE, {
+      ...layerChange("a"),
+      intent: { visible: false },
+    });
     await nextFrame();
 
     expect(handler).toHaveBeenCalledTimes(1);
@@ -174,5 +176,65 @@ describe("subscribeLayers", () => {
     await nextFrame();
     expect(handler).toHaveBeenCalledTimes(1);
     expect(bus.listenerCount).toBe(0);
+  });
+
+  it("works with a bare stub map that has no on/off hooks", async () => {
+    const map = {} as never;
+    const handler = vi.fn();
+    const stop = subscribeLayers(map, ["a"], handler);
+
+    const bus = ensureEvents(map);
+    bus.emit(EVENTS.LAYER_CHANGE, layerChange("a"));
+    await nextFrame();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    // No map.off on this carrier: teardown must still drop the bus listeners.
+    stop();
+    expect(bus.listenerCount).toBe(0);
+  });
+
+  it("a predicate can follow a payload that carries no layer id", async () => {
+    const map = makeMap();
+    const handler = vi.fn();
+    subscribeLayers(map as never, () => true, handler, {
+      events: [EVENTS.MODE_CHANGE],
+    });
+
+    const bus = ensureEvents(map as never);
+    bus.publish(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" });
+    await nextFrame();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0][0].event).toBe(EVENTS.MODE_CHANGE);
+  });
+
+  it("ignores a non-layer payload for an id selector", async () => {
+    const map = makeMap();
+    const handler = vi.fn();
+    subscribeLayers(map as never, ["a"], handler, { events: [EVENTS.MODE_CHANGE] });
+
+    const bus = ensureEvents(map as never);
+    bus.publish(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" });
+    await nextFrame();
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("ignores a snapshot delivery that arrives after teardown", async () => {
+    const map = makeMap();
+    const bus = ensureEvents(map as never);
+    const handler = vi.fn();
+    const held: { stop?: () => void } = {};
+
+    // A sibling subscriber (internal phase runs first) tears the layer
+    // subscription down while this round is still walking the bus snapshot;
+    // the captured listener must notice and stop.
+    bus.on(EVENTS.LAYER_CHANGE, () => held.stop?.(), "internal");
+    held.stop = subscribeLayers(map as never, ["a"], handler);
+
+    bus.emit(EVENTS.LAYER_CHANGE, layerChange("a"));
+    await nextFrame();
+
+    expect(handler).not.toHaveBeenCalled();
   });
 });

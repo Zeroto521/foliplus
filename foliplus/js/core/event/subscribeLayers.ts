@@ -1,9 +1,9 @@
 // core/event/subscribeLayers — layer-scoped semantic events, merged per frame.
-import { throttleRaf } from "#platform/throttle.js";
-import { EVENTS } from "./const.js";
 import type { ListenerPhase } from "./EventBus.js";
+import { EVENTS } from "./const.js";
 import { ensureEvents } from "./ensureEvents.js";
 import type { EventMeta, EventPayloadMap } from "./type.js";
+import { throttleRaf } from "#platform/throttle.js";
 
 /** One coalesced delivery: the event name, its payload, the emitter's origin. */
 interface LayerEventDelivery<K extends keyof EventPayloadMap> {
@@ -14,8 +14,7 @@ interface LayerEventDelivery<K extends keyof EventPayloadMap> {
 
 /** Which layers a subscription follows: a fixed id set, or a payload predicate. */
 type LayerSelector<K extends keyof EventPayloadMap> =
-  | readonly string[]
-  | ((payload: EventPayloadMap[K]) => boolean);
+  readonly string[] | ((payload: EventPayloadMap[K]) => boolean);
 
 interface SubscribeLayersOptions<K extends keyof EventPayloadMap> {
   /** Events to follow. Defaults to LAYER_CHANGE (the layer-membership channel). */
@@ -63,8 +62,9 @@ const subscribeLayers = <K extends keyof EventPayloadMap = typeof EVENTS.LAYER_C
     return id !== undefined && selector.includes(id);
   };
 
+  // Only the frame scheduled by a matching emit calls this, so the map always
+  // holds at least one delivery; teardown cancels the pending frame.
   const flush = (): void => {
-    if (stopped || pending.size === 0) return;
     const batch = [...pending.values()];
     pending.clear();
     handler(batch);
@@ -84,17 +84,21 @@ const subscribeLayers = <K extends keyof EventPayloadMap = typeof EVENTS.LAYER_C
   const offs: Array<() => void> = [];
   for (const event of events) {
     offs.push(
-      bus.on(event as string, (payload?: unknown, meta?: EventMeta) => {
-        if (stopped) return;
-        if (!accepts(payload as EventPayloadMap[K])) return;
-        const key = `${event as string}:${idOf(payload) ?? ""}`;
-        pending.set(key, {
-          event: event as K,
-          payload: payload as EventPayloadMap[K],
-          meta,
-        });
-        schedule();
-      }, opts.phase),
+      bus.on(
+        event as string,
+        (payload?: unknown, meta?: EventMeta) => {
+          if (stopped) return;
+          if (!accepts(payload as EventPayloadMap[K])) return;
+          const key = `${event as string}:${idOf(payload) ?? ""}`;
+          pending.set(key, {
+            event: event as K,
+            payload: payload as EventPayloadMap[K],
+            meta,
+          });
+          schedule();
+        },
+        opts.phase,
+      ),
     );
   }
   if (typeof map.on === "function") {

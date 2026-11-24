@@ -1,6 +1,6 @@
 // core/event/ensureEvents — one EventBus per map, attached to map.foliplus.events.
-import { ensureMapFoliplus } from "#core/mapApi.js";
 import { EventBus } from "./EventBus.js";
+import { ensureMapFoliplus } from "#core/mapApi.js";
 
 // Per-map instance storage (WeakMap so destroyed maps are GC'd) — mirrors the
 // per-map hint-management pattern.
