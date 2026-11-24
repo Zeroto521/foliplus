@@ -16,7 +16,6 @@ const CONFIG_DEFAULTS: Record<string, Partial<ComponentConfig>> = {
   FullscreenControl: {
     hide_others: true,
     hide_self: true,
-    replace_zoom: true,
   },
   HeatmapControl: {
     agg: "count",

@@ -4,7 +4,6 @@ import { CLASSES } from "#control/FullscreenControl/const.js";
 import {
   buildFullscreenChangeHandler,
   releasePseudo,
-  releaseZoomControl,
   toggleFullscreen,
   updateUI,
 } from "#control/FullscreenControl/logic.js";
@@ -146,6 +145,14 @@ describe("updateUI", () => {
 
     expect(otherCtrl.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     expect(selfCtrl.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
+  });
+
+  it("hide_self: leaves the toggle visible while not fullscreen", () => {
+    // The hide is a fullscreen-session state: outside one the toggle is the
+    // way in, so it must not carry the hidden marker.
+    updateUI(mapMock, fsBtn, container, makeEnv({ hide_self: true }));
+    const toggle = container.querySelector<HTMLElement>(".foliplus-fullscreen-toggle");
+    expect(toggle?.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
   it("hide_self: hides only the toggle, leaving the bar zoom usable", () => {
@@ -392,6 +399,35 @@ describe("toggleFullscreen — native API path", () => {
     expect(mapMock.isFullscreen).toBe(true);
   });
 
+  it("keeps the exit transition relevant after the exit branch clears the flag", async () => {
+    // Enter natively, then exit through the toggle. The exit branch clears
+    // map.isFullscreen in its .then() before the fullscreenchange event lands,
+    // so a guard that only reads the map would treat this map's own exit as
+    // somebody else's transition and swallow the exit hint.
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mapMock.isFullscreen).toBe(true);
+
+    // The exit branch is the ownsFullscreen one: the browser says this
+    // container is fullscreen, so the toggle asks the native API to leave.
+    mocks.getFullscreenEl.mockReturnValue(container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mapMock.isFullscreen).toBe(false);
+    expect(mapMock.foliplus.showHint).not.toHaveBeenCalled();
+
+    mocks.getFullscreenEl.mockReturnValue(null);
+    handler();
+
+    expect(mapMock.isFullscreen).toBe(false);
+    expect(mapMock.foliplus.showHint).toHaveBeenCalledTimes(1);
+    expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+  });
+
   it("returns early without calling updateUI (fullscreenchange event handles it)", async () => {
     toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     // updateUI is NOT called in the .then() — only map.isFullscreen is set.
@@ -581,55 +617,5 @@ describe("toggleFullscreen — native API path", () => {
         expect.any(Number),
       );
     });
-  });
-});
-
-describe("releaseZoomControl", () => {
-  // The contract F-4 was missing: a FullscreenControl replaces Leaflet's zoom
-  // control with the bar's own buttons (the bar is the only zoom left in
-  // fullscreen, because hide_others hides .leaflet-control). The replacement
-  // is declared as replace_zoom, and turning it off must leave both the map
-  // reference and the rendered control element untouched.
-  const makeZoomMap = (container: HTMLElement, zoomControl?: { remove: () => void }) =>
-    ({
-      getContainer: () => container,
-      removeControl: vi.fn(),
-      ...(zoomControl ? { zoomControl } : {}),
-    }) as unknown as L.Map;
-
-  it("removes the leaflet zoom control through the map API by default", () => {
-    const container = makeContainer();
-    const zoomControl = { remove: vi.fn() };
-    const mapMock = makeZoomMap(container, zoomControl);
-
-    releaseZoomControl(mapMock, makeEnv().config);
-
-    expect(mapMock.removeControl).toHaveBeenCalledWith(zoomControl);
-  });
-
-  it("falls back to the rendered element when Leaflet holds no reference", () => {
-    // Leaflet already dropped the reference (control re-added by hand, or a
-    // plugin replaced it): DOM removal is the only handle left.
-    const container = document.createElement("div");
-    container.innerHTML = '<div class="leaflet-control-zoom"></div>';
-    const mapMock = makeZoomMap(container);
-
-    releaseZoomControl(mapMock, makeEnv().config);
-
-    expect(container.querySelector(".leaflet-control-zoom")).toBeNull();
-    expect(mapMock.removeControl).not.toHaveBeenCalled();
-  });
-
-  it("keeps the map zoom control when replace_zoom is false", () => {
-    const container = document.createElement("div");
-    container.innerHTML = '<div class="leaflet-control-zoom"></div>';
-    const zoomControl = { remove: vi.fn() };
-    const mapMock = makeZoomMap(container, zoomControl);
-
-    releaseZoomControl(mapMock, makeEnv({ replace_zoom: false }).config);
-
-    expect(mapMock.removeControl).not.toHaveBeenCalled();
-    expect(container.querySelector(".leaflet-control-zoom")).not.toBeNull();
-    expect(mapMock.zoomControl).toBe(zoomControl);
   });
 });

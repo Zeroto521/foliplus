@@ -24,8 +24,8 @@ class TestFullscreenZoomBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             _enter_fullscreen(page, hide_self=True)
-            # The bar is the only zoom left while fullscreen (Leaflet's own
-            # control is replaced), so hide_self must not hide it.
+            # hide_others hides Leaflet's own control in fullscreen, so the
+            # bar's zoom is the zoom the user keeps: hide_self must not hide it.
             displays = _zoom_displays(page)
             assert displays["zoomIn"] == "flex", displays
             assert displays["zoomOut"] == "flex", displays
@@ -64,6 +64,32 @@ class TestFullscreenZoomBrowser:
             displays = _zoom_displays(page)
             assert displays["zoomIn"] == "flex", displays
             assert displays["zoomOut"] == "flex", displays
+            assert not errors, f"JS errors: {errors}"
+
+    def test_leaflet_zoom_control_untouched_by_fullscreen(self, browser, tmp_path):
+        """Fullscreen replaces nothing: the same Leaflet zoom node stays mounted.
+
+        F-4: the control must not replace, copy or remove the map's zoom
+        control. Mark the node before entering; after exiting it must still be
+        the same node, connected, in the same map corner.
+        """
+        with use_page(
+            _make_page, browser, tmp_path, hide_self=True, hide_others=True
+        ) as (page, errors):
+            page.wait_for_selector(
+                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
+            )
+            assert page.evaluate(_js("FullscreenControl/mark_zoom_control_node"))
+            before = page.evaluate(_js("FullscreenControl/read_zoom_control_identity"))
+            assert before["present"] and before["same"], before
+
+            _enter_fullscreen(page, hide_self=True)
+            _exit_fullscreen(page)
+
+            after = page.evaluate(_js("FullscreenControl/read_zoom_control_identity"))
+            assert after["present"] and after["same"], after
+            assert after["connected"], after
+            assert after["parent"] == before["parent"], (before, after)
             assert not errors, f"JS errors: {errors}"
 
     def test_hide_others_overrides_inline_display(self, browser, tmp_path):

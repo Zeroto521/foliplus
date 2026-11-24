@@ -240,11 +240,7 @@ class TestRuntimeZeroChange:
         # Snapshot-style: ``_config_fields`` is now derived from the
         # signature. These tuples must still equal what each control declared
         # by hand before the derivation landed.
-        assert FullscreenControl._config_fields == (
-            "hide_self",
-            "hide_others",
-            "replace_zoom",
-        )
+        assert FullscreenControl._config_fields == ("hide_self", "hide_others")
         assert ScaleControl._config_fields == ("show_zoom",)
         assert LocateControl._config_fields == ("zoom",)
         assert LayerControl._config_fields == (
@@ -284,7 +280,7 @@ class TestRuntimeZeroChange:
         probe = (
             "import foliplus\n"
             "from foliplus import FullscreenControl\n"
-            "assert FullscreenControl._config_fields == ('hide_self', 'hide_others', 'replace_zoom'), \\\n"
+            "assert FullscreenControl._config_fields == ('hide_self', 'hide_others'), \\\n"
             "    FullscreenControl._config_fields\n"
         )
         result = subprocess.run(

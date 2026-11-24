@@ -66,25 +66,6 @@ const updateUI = (
   );
 };
 
-/** Replace Leaflet's zoom control with the bar's own zoom buttons.
- *  On by default: the bar is the only zoom reachable in fullscreen (hide_others
- *  hides .leaflet-control), and outside it a second control would duplicate what
- *  the bar already offers. Declared as replace_zoom so a page that wants
- *  Leaflet's own control can keep it — the restriction used to be silent.
- *  The map reference is preferred over the rendered node: removing the node
- *  behind Leaflet's back leaves the control registered but invisible. */
-const releaseZoomControl = (map: L.Map, config: ComponentConfig) => {
-  if (config.replace_zoom === false) return;
-  if (map.zoomControl) {
-    map.removeControl(map.zoomControl);
-    return;
-  }
-  // Last resort: Leaflet no longer holds the reference (control removed and
-  // re-added by hand, or a plugin swapped it), so the node is the only handle.
-  const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
-  if (zoomEl) zoomEl.remove();
-};
-
 const showExitFailHint = (map: L.Map, env: Env) => {
   map.foliplus!.showHint?.(env.config.name, env.T("exit_fail"), HINT_DURATION.MEDIUM);
 };
@@ -139,6 +120,13 @@ const releasePseudo = (map: L.Map) => {
   map.isFullscreen = false;
 };
 
+/** Maps whose native fullscreen session this control is part of. The native
+ *  exit branch clears map.isFullscreen before the fullscreenchange event lands,
+ *  so the handler cannot tell "our session ended" from "somebody else's map
+ *  transitioned" by reading the map alone. Keyed per map: one bundle serves
+ *  every map on the page. */
+const nativeSessions = new WeakSet<L.Map>();
+
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
@@ -152,6 +140,9 @@ const toggleFullscreen = (
 ) => {
   const mapContainer = map.getContainer();
   if (ownsFullscreen(mapContainer)) {
+    // The .then below clears map.isFullscreen before the event lands; record
+    // the session now so the handler still recognises the exit as this map's.
+    nativeSessions.add(map);
     document
       .exitFullscreen()
       .then(() => {
@@ -183,6 +174,7 @@ const toggleFullscreen = (
       .requestFullscreen()
       .then(() => {
         map.isFullscreen = true;
+        nativeSessions.add(map);
       })
       .catch(() => {
         // A removed mounting must not fall back: the recovery below ends in
@@ -221,6 +213,7 @@ const buildFullscreenChangeHandler =
     const mapContainer = map.getContainer();
     const active = ownsFullscreen(mapContainer);
     const pseudo = mapContainer.classList.contains(CLASSES.PSEUDO_FULLSCREEN);
+    const native = nativeSessions.has(map);
     // fullscreenchange is document-global: a sibling map's transition reaches
     // this handler too. Guarding only the assignment below left the side effects
     // unguarded — a map that was never fullscreen unhid every control
@@ -230,8 +223,12 @@ const buildFullscreenChangeHandler =
     //   pseudo — a pseudo session is live here;
     //   map.isFullscreen — this map believes it is fullscreen, which is how the
     //     end of its own native session is recognised (the element is gone by
-    //     then, so neither active nor pseudo holds).
-    if (!active && !pseudo && !map.isFullscreen) return;
+    //     then, so neither active nor pseudo holds);
+    //   native — the exit branch already cleared map.isFullscreen, so the
+    //     session record is the only remaining evidence that this map is the
+    //     one that just left fullscreen.
+    if (!active && !pseudo && !map.isFullscreen && !native) return;
+    if (!active) nativeSessions.delete(map);
     // Native fullscreen outranks pseudo on the same container. A stale class
     // here would survive the native exit (that path clears native first) and
     // keep every overlay hosted in a container that is no longer a surface.
@@ -240,10 +237,4 @@ const buildFullscreenChangeHandler =
     updateUI(map, fsBtn, container, env);
   };
 
-export {
-  buildFullscreenChangeHandler,
-  releasePseudo,
-  releaseZoomControl,
-  toggleFullscreen,
-  updateUI,
-};
+export { buildFullscreenChangeHandler, releasePseudo, toggleFullscreen, updateUI };

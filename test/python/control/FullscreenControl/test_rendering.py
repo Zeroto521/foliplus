@@ -87,10 +87,6 @@ class TestFullscreenControlRendering:
         assert "foliplus-zoom-out" in html
         assert_config_value(html, "hide_self", True)
 
-    def test_replace_zoom_declared(self):
-        """The zoom replacement is a declared config key, not a silent one."""
-        html = render_control(FullscreenControl(replace_zoom=False))
-        assert_config_value(html, "replace_zoom", False)
 
     def test_zoom_buttons_visible_without_hide_self(self):
         """hide_self=false is passed via CONFIG."""

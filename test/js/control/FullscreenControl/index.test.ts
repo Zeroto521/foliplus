@@ -18,6 +18,13 @@ import { CLASSES } from "#control/FullscreenControl/const.js";
 
 const container = document.createElement("div");
 
+/** Leaflet's own zoom control, mounted the way L.Map mounts it by default:
+ *  a .leaflet-control-zoom node inside the map container's topleft corner.
+ *  The entry must leave this node and the map reference alone. */
+const zoomControlEl = document.createElement("div");
+zoomControlEl.className = "leaflet-control leaflet-control-zoom";
+container.appendChild(zoomControlEl);
+
 /** The control instance the entry IIFE mounts onto the map. */
 type MountedControl = {
   _map: unknown;
@@ -106,13 +113,17 @@ afterAll(() => {
   container.remove();
 });
 
-describe("FullscreenControl entry — zoom replacement", () => {
-  it("replaces Leaflet's zoom control with the bar's own at mount", () => {
-    // replace_zoom defaults to true: the bar's buttons are the only zoom left
-    // in fullscreen, and outside it a second control would duplicate them.
-    // The map reference goes through removeControl(), never a bare DOM
-    // removal, so Leaflet stops believing the control is still registered.
-    expect(mockMap.removedControls).toContain(mockMap.zoomControl);
+describe("FullscreenControl entry — the map zoom control is untouched", () => {
+  // F-4: the control must not replace, copy or remove Leaflet's zoom control.
+  // Mounting it is the moment the old code removed the control, so the entry
+  // is where the contract is pinned: the map reference and the rendered node
+  // both survive the mount.
+  it("leaves the map's own zoom control in place at mount", () => {
+    expect(mockMap.removedControls).not.toContain(mockMap.zoomControl);
+    expect(mockMap.zoomControl.remove).not.toHaveBeenCalled();
+    const rendered = container.querySelector(".leaflet-control-zoom");
+    expect(rendered).toBe(zoomControlEl);
+    expect(rendered?.parentElement).toBe(container);
   });
 });
 
