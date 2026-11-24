@@ -143,7 +143,10 @@ class TestLayerControlFoldersConfig:
         from foliplus import LayerControl
 
         ctrl = LayerControl(folders={"overlay": [{"name": "业务数据", "folded": True}]})
-        cfg = ctrl._build_config()
+        # No layer claims the declared folder yet, so serialising it warns; the
+        # declaration still reaches CONF (the panel keeps the empty folder row).
+        with pytest.warns(UserWarning, match="no layer declares"):
+            cfg = ctrl._build_config()
         assert cfg["folders"] == {
             "overlay": [{"name": "业务数据", "folded": True}],
             "base": [],
@@ -156,3 +159,79 @@ class TestLayerControlFoldersConfig:
 
         ctrl = LayerControl(folders="bad")
         assert ctrl._build_config()["folders"] is None
+
+
+class TestUnclaimedFolderDeclaration:
+    """A centrally declared folder no layer claims warns once and never hides data."""
+
+    @pytest.fixture(autouse=True)
+    def _fresh_reports(self) -> None:
+        # warn_foliplus deduplicates through a process-wide set; clear it so
+        # each test sees the warning it would see on a fresh render.
+        from foliplus import _declaration
+
+        _declaration.foliplus_reports.clear()
+
+    def test_unclaimed_folder_warns(self) -> None:
+        import folium
+
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl(folders={"overlay": [{"name": "Phantom", "folded": True}]}).add_to(
+            m
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            m.get_root().render()
+        assert any("no layer declares" in str(w.message) for w in caught), [
+            str(w.message) for w in caught
+        ]
+
+    def test_claimed_folder_is_quiet(self) -> None:
+        import folium
+        from conftest import feature_collection
+
+        from foliplus import LayerControl
+
+        layer = folium.GeoJson(
+            feature_collection(), name="L", foliplus={"folder": "Live"}
+        )
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        layer.add_to(m)
+        LayerControl(folders={"overlay": [{"name": "Live", "folded": True}]}).add_to(m)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            m.get_root().render()
+        assert not any("no layer declares" in str(w.message) for w in caught), [
+            str(w.message) for w in caught
+        ]
+
+    def test_unclaimed_folder_still_serialises(self) -> None:
+        # A miss warns but is not a rejection: the declaration stays in CONF so
+        # the panel keeps the (empty) folder row rather than dropping the
+        # author's intent. Render the control alone (no layers) and read the
+        # serialised folders= payload.
+        import json
+
+        import folium
+
+        from foliplus import LayerControl
+
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl(folders={"overlay": [{"name": "Phantom", "folded": True}]}).add_to(
+            m
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            html = m.get_root().render()
+        marker = "CONFIG = "
+        start = html.index(marker) + len(marker)
+        end = html.index(";", start)
+        conf = json.loads(html[start:end])
+        assert conf["folders"] == {
+            "overlay": [{"name": "Phantom", "folded": True}],
+            "base": [],
+        }
+        # The warning fired exactly once for the one unclaimed declaration.
+        assert sum("no layer declares" in str(w.message) for w in caught) == 1
