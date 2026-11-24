@@ -543,6 +543,21 @@ describe("hint.set / hint.clear", () => {
     expect(els[0].textContent).toBe("first updated");
     expect(els[1].textContent).toBe("second");
   });
+
+  it("drops a detached previous element instead of replacing it", () => {
+    const mgr = new HintManager();
+    mgr.set("key", "", "first", { duration: 0 });
+    document.querySelector(".foliplus-hint")!.remove();
+    expect(() => mgr.set("key", "", "second", { duration: 0 })).not.toThrow();
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("second");
+  });
+
+  it("clears a slot that was never set without throwing", () => {
+    const mgr = new HintManager();
+    mgr.set("key", "", "text", { duration: 0 });
+    expect(() => mgr.clear("key", "missing")).not.toThrow();
+    expect(document.querySelector(".foliplus-hint")!.textContent).toBe("text");
+  });
 });
 describe("ensureHint", () => {
   it("attaches hint.set/hint.clear to map.foliplus", () => {

@@ -151,6 +151,42 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
 
+  it("loadSavedBounds migrates a pre-envelope flat record", () => {
+    const manager = makeManager();
+    manager.savedBounds = null;
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ nw: { lat: 20, lng: 100 }, se: { lat: 10, lng: 110 } }),
+    );
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toEqual({
+      nw: { lat: 20, lng: 100 },
+      se: { lat: 10, lng: 110 },
+    });
+  });
+
+  it("loadSavedBounds discards a pre-envelope record without nw", () => {
+    const manager = makeManager();
+    manager.savedBounds = null;
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ se: { lat: 10, lng: 110 } }),
+    );
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toBeNull();
+  });
+
+  it("loadSavedBounds discards a pre-envelope record without se", () => {
+    const manager = makeManager();
+    manager.savedBounds = null;
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ nw: { lat: 20, lng: 100 } }),
+    );
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toBeNull();
+  });
+
   it("loadSavedBounds accepts a record with valid lat/lng overlapping the map", () => {
     const manager = makeManager();
     manager.savedBounds = null;

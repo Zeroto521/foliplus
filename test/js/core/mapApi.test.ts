@@ -55,6 +55,14 @@ describe("ensureMapFoliplus", () => {
     expect(api.LayerAPI).toBeNull();
   });
 
+  it("seeds an inert hint API so a pre-bootstrap call is a no-op", () => {
+    const api = ensureMapFoliplus({} as StubMap);
+    expect(typeof api.hint.set).toBe("function");
+    expect(() => api.hint.set("k", "", "t")).not.toThrow();
+    expect(() => api.hint.clear("k")).not.toThrow();
+    expect(() => api.hint.registerIcon("k", "<svg/>")).not.toThrow();
+  });
+
   it("seeds distinct namespaces for distinct maps", () => {
     const a = ensureMapFoliplus({} as StubMap);
     const b = ensureMapFoliplus({} as StubMap);
