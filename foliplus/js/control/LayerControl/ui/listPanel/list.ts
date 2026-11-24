@@ -13,7 +13,7 @@ import {
   restoreCursor,
   syncListCursor,
 } from "./cursor.js";
-import { groupChildren, isGroupExpanded, renderChildItem } from "./groupExpand.js";
+import { groupChildren, isGroupExpanded, renderChildBlock } from "./groupExpand.js";
 import { buildMoreBtn, buildRailCell, buildTypeIconCol } from "./rowCell.js";
 import {
   applyRowView,
@@ -616,7 +616,9 @@ const renderInitialList = (ui: LayerUI) => {
             isGroupExpanded(ui, member.id)
           ) {
             for (const child of groupChildren(ui, member.id)) {
-              frag.appendChild(renderChildItem(ui, member.id, child));
+              for (const childRow of renderChildBlock(ui, member.id, child)) {
+                frag.appendChild(childRow);
+              }
             }
           }
         }
@@ -626,9 +628,9 @@ const renderInitialList = (ui: LayerUI) => {
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
         }
         frag.appendChild(item);
-        // A container row, when expanded, renders its direct children right
-        // after itself. Child rows are not registry rows, so they are only
-        // rendered (not registered); the parent's expanded flag drives this.
+        // A container row, when expanded, renders its children right after
+        // itself (recursively for an expanded nested group); each rendered row
+        // registers its registry-only LayerInfo as it is built.
         const layer = ui.c.findLayer(block.layer);
         if (
           !roleFolded &&
@@ -636,7 +638,9 @@ const renderInitialList = (ui: LayerUI) => {
           isGroupExpanded(ui, block.layer.id)
         ) {
           for (const child of groupChildren(ui, block.layer.id)) {
-            frag.appendChild(renderChildItem(ui, block.layer.id, child));
+            for (const childRow of renderChildBlock(ui, block.layer.id, child)) {
+              frag.appendChild(childRow);
+            }
           }
         }
       }

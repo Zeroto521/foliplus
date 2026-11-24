@@ -1,11 +1,12 @@
 // LayerControl UI — group (layer group) expand: child rows.
 //
 // A group row (LayerGroup / FeatureGroup) carries a chevron. Expanding it
-// renders one row per DIRECT child, keyed by parentId + '::' + L.stamp(child);
-// collapsing removes them. Child rows are not registry rows — they have no
-// LayerInfo, so their checkbox talks to the map directly (addLayer /
-// removeLayer) and their count is never a role count. The group row's own
-// count column stays the direct-child count, so expanding never changes it.
+// renders one row per child, keyed by parentId + '::' + L.stamp(child); a child
+// that is itself a group carries its own chevron and expands in place, so the
+// id is a chain (outer::inner::leaf). Collapsing removes the whole block. Each
+// rendered child row owns a registry-only LayerInfo (see RegisterLayerOpts
+// .child) so the style / filter panels resolve it; its checkbox talks to the
+// map directly and its count is the container aggregate of its own children.
 //
 // State: expandedGroups: Record<parentLayerId, boolean> on ui.listPanel,
 // default false (groups start collapsed). Persisted through the same
@@ -13,7 +14,12 @@
 import { INTENT, getIntent } from "../intent.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { childDisplayName, childRowId, resolveChild } from "./childRow.js";
+import {
+  childDisplayName,
+  childParentId,
+  childRowId,
+  resolveChild,
+} from "./childRow.js";
 import {
   buildCheckbox,
   buildCountCol,
@@ -36,6 +42,7 @@ import {
 } from "#core/layer/index.js";
 import { dom } from "#platform/dom.js";
 import * as CONST from "#control/LayerControl/const.js";
+import * as SVGs from "#control/LayerControl/icon.js";
 import { getTypeSVG } from "#control/LayerControl/util.js";
 
 /** How many child rows render before the "show all" prompt. v1 lazy ceiling:
@@ -109,12 +116,29 @@ const renderChildItem = (
   registerChildEntry(ui, parentId, child, id, name);
   const onMap = ui.c.map.hasLayer(child);
 
-  // Tree connector line (item ④ decision B): a child row is never draggable —
-  // child order is Leaflet's own, so the rail carries only the tree line.
-  const railCell = buildRailCell(
-    [dom.el("span", { class: CONST.CLASSES.FOLD_TREE })],
-    ui.T("drag_tooltip"),
-  );
+  // Rail: a child row is never draggable — child order is Leaflet's own — so
+  // the rail carries the tree line, plus the chevron when this child is itself
+  // a group (nested expand). The chevron is the same shared FOLD_BTN element,
+  // so row.css turns it and the delegated click routes it by the row id.
+  const childIsGroup = isGroupLayer(child);
+  const expanded = childIsGroup && isGroupExpanded(ui, id);
+  const railChildren: HTMLElement[] = [];
+  if (childIsGroup) {
+    railChildren.push(
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.FOLD_BTN,
+          "aria-expanded": expanded ? "true" : "false",
+          "aria-label": name,
+          title: ui.T(expanded ? "fold_tooltip" : "unfold_tooltip"),
+        },
+        { html: SVGs.ICON_FOLD },
+      ),
+    );
+  }
+  railChildren.push(dom.el("span", { class: CONST.CLASSES.FOLD_TREE }));
+  const railCell = buildRailCell(railChildren, ui.T("drag_tooltip"));
 
   const { total, on, countText } = childRowCounts(child, onMap);
 
@@ -165,21 +189,85 @@ const renderGroupChildren = (
   groupRow: HTMLElement,
 ): void => {
   removeGroupChildren(ui, parentId);
-  const children = groupChildren(ui, parentId).slice(0, CHILD_RENDER_CAP);
+  const all = groupChildren(ui, parentId);
+  const limit = ui.listPanel.childLimits[parentId] ?? CHILD_RENDER_CAP;
+  const children = all.slice(0, limit);
   if (children.length === 0) return;
   const frag = document.createDocumentFragment();
   for (const child of children) {
-    frag.appendChild(renderChildItem(ui, parentId, child));
+    for (const row of renderChildBlock(ui, parentId, child)) frag.appendChild(row);
   }
+  // The cap must never drop children silently: a row states how many are left
+  // and asks for them. Its id carries the :: prefix, so removeGroupChildren's
+  // prefix sweep takes it down with the block.
+  const hidden = all.length - children.length;
+  if (hidden > 0) frag.appendChild(renderMoreRow(ui, parentId, hidden));
   groupRow.after(frag);
+};
+
+/** A child row plus, when that child is an expanded group, its own block:
+ *  depth-first, so DOM order is the visible tree order and every nested row
+ *  sits immediately after its parent row. */
+const renderChildBlock = (
+  ui: LayerUI,
+  parentId: string,
+  child: L.Layer,
+): HTMLElement[] => {
+  const rows = [renderChildItem(ui, parentId, child)];
+  const id = childRowId(parentId, child);
+  if (!isGroupLayer(child) || !isGroupExpanded(ui, id)) return rows;
+  const all = groupChildren(ui, id);
+  const shown = all.slice(0, ui.listPanel.childLimits[id] ?? CHILD_RENDER_CAP);
+  for (const grand of shown) rows.push(...renderChildBlock(ui, id, grand));
+  const hidden = all.length - shown.length;
+  if (hidden > 0) rows.push(renderMoreRow(ui, id, hidden));
+  return rows;
+};
+
+/** The "N more" row: the group's remaining children are one click away
+ *  instead of silently missing. Rendered like a child row (same block rhythm)
+ *  with a single button, and keyed by `<parentId>::more` so the block sweep
+ *  removes it with the rest. */
+const renderMoreRow = (ui: LayerUI, parentId: string, hidden: number): HTMLElement => {
+  const text = ui.T("child_more").replace("{count}", String(hidden));
+  const tip = ui.T("child_more_tooltip").replace("{count}", String(hidden));
+  return dom.el(
+    "div",
+    {
+      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.CHILD_ROW} ${CONST.CLASSES.CHILD_MORE}`,
+      [CONST.DATA.LAYER_ID]: `${parentId}::more`,
+    },
+    dom.el(
+      "button",
+      {
+        type: "button",
+        class: CONST.CLASSES.CHILD_MORE_BTN,
+        "aria-label": tip,
+        title: tip,
+      },
+      text,
+    ),
+  );
+};
+
+/** Raise one group's render cap to its full child count and repaint the block.
+ *  Session-only: a reload collapses the group anyway. */
+const expandChildCap = (ui: LayerUI, parentId: string): void => {
+  ui.listPanel.childLimits[parentId] = groupChildren(ui, parentId).length;
+  const row = ui.uiContainer?.querySelector<HTMLElement>(
+    `[${CONST.DATA.LAYER_ID}="${CSS.escape(parentId)}"]`,
+  );
+  if (row && isGroupExpanded(ui, parentId)) renderGroupChildren(ui, parentId, row);
 };
 
 /** Remove every child row of a group (contiguous after its row). */
 const removeGroupChildren = (ui: LayerUI, parentId: string): void => {
   // Children leave the registry with their rows: drop the registry-only
   // entries first, so the DOM removal below is the visual half of one event.
-  for (const child of groupChildren(ui, parentId)) {
-    ui.c.unregisterLayer(childRowId(parentId, child));
+  // The id prefix makes this the whole subtree — a nested expanded group's
+  // descendants go with their ancestor's block.
+  for (const child of ui.c.childEntriesOf(parentId)) {
+    ui.c.unregisterLayer(child.id);
   }
   const sep = `${parentId}::`;
   const container = ui.uiContainer;
@@ -207,7 +295,9 @@ const refreshChildRows = (ui: LayerUI, parentId: string): void => {
   )) {
     const id = row.getAttribute(CONST.DATA.LAYER_ID);
     if (!id) continue;
-    const child = resolveChild(ui, parentId, id);
+    // Nested rows are refreshed by the same pass: their immediate parent is the
+    // id's last segment, not the group this sweep started from.
+    const child = resolveChild(ui, childParentId(id), id);
     if (!child) continue;
     const onMap = ui.c.map.hasLayer(child);
     const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
@@ -287,10 +377,11 @@ export {
   childDisplayName,
   resolveChild,
   groupChildren,
-  renderChildItem,
+  renderChildBlock,
   removeGroupChildren,
   toggleGroupExpand,
   refreshChildRows,
   refreshAllChildRows,
   removeChildLayer,
+  expandChildCap,
 };

@@ -187,7 +187,9 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // parentId::stamp. Its menu is the child entry set (focus / remove) — the
   // row's capabilities are the child's own, not the group's.
   const isChild = layerId.includes("::");
-  const childParentId = isChild ? layerId.slice(0, layerId.indexOf("::")) : "";
+  // The immediate container of a child row: everything before the LAST "::"
+  // (child ids chain through nested groups).
+  const childParentId = isChild ? layerId.slice(0, layerId.lastIndexOf("::")) : "";
   if (!isChild) {
     // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
     // layers whose surface reports no bounds carrier. The disabled li carries

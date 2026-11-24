@@ -29,6 +29,14 @@ const childDisplayName = (child: unknown): string => {
   return "Layer";
 };
 
+/** The id of the parent that owns a child row: everything before the LAST
+ *  `::`. Child ids are chains (`outer::inner::leaf`), so the immediate parent
+ *  is the tail, not the first segment; a non-child id returns the id itself. */
+const childParentId = (childId: string): string => {
+  const at = childId.lastIndexOf("::");
+  return at < 0 ? childId : childId.slice(0, at);
+};
+
 /** Resolve a child row's layer object from its data-layer-id. Returns null
  *  when the id is not a child of the parent, the parent is not a group, or the
  *  child has left the group since the row was rendered. */
@@ -51,4 +59,4 @@ const resolveChild = (
   return null;
 };
 
-export { childRowId, childDisplayName, resolveChild };
+export { childRowId, childDisplayName, childParentId, resolveChild };

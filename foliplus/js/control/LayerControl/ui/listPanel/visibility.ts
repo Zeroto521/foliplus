@@ -10,7 +10,7 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { resolveChild } from "./childRow.js";
+import { childParentId, resolveChild } from "./childRow.js";
 import { refreshAllChildRows, refreshChildRows } from "./groupExpand.js";
 import { applyRowView, buildRowCell, countTooltip, writeRoleCount } from "./rowView.js";
 import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
@@ -403,8 +403,9 @@ const handleChange = (ui: LayerUI, event: Event) => {
   const childRow = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   const childId = childRow?.getAttribute(CONST.DATA.LAYER_ID);
   if (childId?.includes("::")) {
-    const parentId = childId.slice(0, childId.indexOf("::"));
-    const child = resolveChild(ui, parentId, childId);
+    // A child id is a chain (outer::inner::leaf): the immediate parent is the
+    // last segment, so a nested child toggles its own container, not the root.
+    const child = resolveChild(ui, childParentId(childId), childId);
     if (child && ui.c.map) {
       if (target.checked) ui.c.map.addLayer(child);
       else ui.c.map.removeLayer(child);

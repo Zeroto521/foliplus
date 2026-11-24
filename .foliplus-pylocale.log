@@ -1,0 +1,69 @@
+Using CPython 3.14.7
+Creating virtual environment at: .venv
+   Building foliplus @ file:///C:/Users/Zero/Documents/GitHub/foliplus/.agents/worktrees/wt-container-expand
+      Built foliplus @ file:///C:/Users/Zero/Documents/GitHub/foliplus/.agents/worktrees/wt-container-expand
+Installed 129 packages in 45.18s
+============================= test session starts =============================
+platform win32 -- Python 3.14.7, pytest-9.2.0, pluggy-1.7.0
+rootdir: C:\Users\Zero\Documents\GitHub\foliplus\.agents\worktrees\wt-container-expand
+configfile: pyproject.toml
+plugins: platformdirs-4.14.8, cov-7.1.0, playwright-0.10.0, xdist-3.8.0
+collected 2064 items / 1971 deselected / 93 selected
+
+test\python\BaseControl\test_constructor.py ..                           [  2%]
+test\python\BaseControl\test_escaping.py .                               [  3%]
+test\python\BaseControl\test_jinja.py .                                  [  4%]
+test\python\BaseControl\test_rendering.py .                              [  5%]
+test\python\control\ExportControl\test_constructor.py ...                [  8%]
+test\python\control\ExportControl\test_rendering.py .                    [  9%]
+test\python\control\FullscreenControl\test_constructor.py ..             [ 11%]
+test\python\control\FullscreenControl\test_rendering.py .                [ 12%]
+test\python\control\HeatmapControl\test_constructor.py ..                [ 15%]
+test\python\control\HeatmapControl\test_rendering.py .                   [ 16%]
+test\python\control\LayerControl\test_constructor.py ..                  [ 18%]
+test\python\control\LayerControl\test_rendering.py ....                  [ 22%]
+test\python\control\LocateControl\test_LocateControl.py ....             [ 26%]
+test\python\control\MeasureControl\test_constructor.py ..                [ 29%]
+test\python\control\MeasureControl\test_rendering.py ..                  [ 31%]
+test\python\control\ScaleControl\test_ScaleControl.py ...                [ 34%]
+test\python\control\SearchControl\test_SearchControl.py ...              [ 37%]
+test\python\infra\test_component_registry.py ...                         [ 40%]
+test\python\test_locale.py ............................................. [ 89%]
+..........                                                               [100%]
+
+=============================== tests coverage ================================
+_______________ coverage: platform win32, python 3.14.7-final-0 _______________
+
+Name                                                     Stmts   Miss Branch BrPart  Cover   Missing
+----------------------------------------------------------------------------------------------------
+foliplus\BaseControl.py                                    110      9     14      5    89%   99, 125, 206-212, 293, 386-387, 404->411, 433, 438
+foliplus\__init__.py                                        19      5      0      0    74%   7-11
+foliplus\_cdn_loader.py                                     11      0      2      0   100%
+foliplus\_config_schema.py                                 240     74    130     23    66%   97, 185, 188, 196, 208, 214, 221, 229, 234, 334, 352, 363, 384-401, 416-420, 504-506, 592, 609, 623, 678, 697, 704, 728, 742, 749, 755, 813-825, 871, 892, 902, 914-933, 937-957
+foliplus\_declaration.py                                   366    310    172      2    11%   126, 141-147, 159-164, 178-180, 194-196, 223-254, 271, 282-284, 303-347, 373-391, 427-449, 485-527, 543-546, 560-565, 579-588, 601-610, 655-729, 766-837, 864-892, 931-962, 990-1010
+foliplus\_typing.py                                          6      0      0      0   100%
+foliplus\_validate.py                                      104     25     44      4    74%   95, 110-118, 145-146, 154, 176-180, 195-202, 211-212, 270
+foliplus\_version.py                                        11      0      0      0   100%
+foliplus\control\ExportControl.py                           18      0      0      0   100%
+foliplus\control\FullscreenControl.py                        9      0      0      0   100%
+foliplus\control\HeatmapControl.py                          33      0      0      0   100%
+foliplus\control\LayerControl\__init__.py                    2      0      0      0   100%
+foliplus\control\LayerControl\_collect.py                   46      6     16      6    81%   48->53, 62, 75, 78, 81-82, 85
+foliplus\control\LayerControl\_fill_author\__init__.py       6      0      0      0   100%
+foliplus\control\LayerControl\_fill_author\caption.py       42     31     20      0    18%   35-38, 73-100, 112-116
+foliplus\control\LayerControl\_fill_author\colormap.py      94     71     38      1    20%   37->43, 49-52, 61-71, 96-107, 112-120, 125-132, 145-169, 190-205
+foliplus\control\LayerControl\_fill_author\payload.py       48     36     22      1    19%   42-74, 97-140
+foliplus\control\LayerControl\_fill_author\scale.py         89     64     36      1    21%   74-75, 87-93, 98-99, 116-135, 140-151, 163-169, 174-186, 191-195
+foliplus\control\LayerControl\_folder.py                    60     46     30      2    18%   33, 62-128, 160-165
+foliplus\control\LayerControl\_layer.py                     59     18     28     10    59%   69, 73, 77-102, 123, 147, 170, 196, 222, 252, 276
+foliplus\control\LayerControl\_role.py                      42     30     16      1    22%   78-120
+foliplus\control\LayerControl\_spec.py                       5      0      0      0   100%
+foliplus\control\LayerControl\control.py                    21      0      0      0   100%
+foliplus\control\LocateControl.py                           10      0      0      0   100%
+foliplus\control\MeasureControl.py                          22      0      0      0   100%
+foliplus\control\ScaleControl.py                             7      0      0      0   100%
+foliplus\control\SearchControl.py                           49      8     12      3    72%   230, 234-243
+foliplus\locale\__init__.py                                 74      1     30      1    98%   108
+----------------------------------------------------------------------------------------------------
+TOTAL                                                     1603    734    610     60    47%
+==================== 93 passed, 1971 deselected in 22.79s =====================

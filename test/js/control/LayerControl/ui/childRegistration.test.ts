@@ -100,7 +100,7 @@ describe("child layer registration", () => {
   const childRows = (): HTMLElement[] =>
     Array.from(
       attachedPanel(ui).querySelectorAll<HTMLElement>(
-        `${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]`,
+        `${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]:not(.${CONST.CLASSES.CHILD_MORE})`,
       ),
     );
 
@@ -361,6 +361,28 @@ describe("child layer registration", () => {
     expect(ids).toContain("overlay1");
   });
 
+  it("renders an explicit more row instead of silently dropping children past the cap", () => {
+    installLeafletGlobals();
+    registerGroup(Array.from({ length: 51 }, () => makeChild()));
+    expandGroup();
+
+    // Past the first 50 children nothing renders silently: the cap announces
+    // what it hid.
+    expect(childRows().length).toBe(50);
+    const more = attachedPanel(ui).querySelector<HTMLElement>(
+      `.${CONST.CLASSES.CHILD_MORE}`,
+    );
+    expect(more).not.toBeNull();
+    // The row states the hidden count through the translator (the fixture's
+    // stub returns the key, so compare against the same substitution).
+    expect(more!.textContent).toContain(ui.T("child_more").replace("{count}", "1"));
+
+    more!.querySelector("button")!.click();
+
+    expect(childRows().length).toBe(51);
+    expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.CHILD_MORE}`)).toBeNull();
+  });
+
   it("offers style and filter in the child row's ⋮ menu", () => {
     installLeafletGlobals();
     const child = makeChild({ score: 7 });
@@ -422,6 +444,85 @@ describe("child layer registration", () => {
     groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
     groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
     expect(childRows()[0].querySelector("label")?.textContent).toBe("My child");
+  });
+
+  it("expands a nested group in place and keeps the ids chained", () => {
+    installLeafletGlobals();
+    const leafA = makeChild({ name: "a" });
+    const leafB = makeChild({ name: "b" });
+    const inner = makeGroup([leafA, leafB]);
+    registerGroup([inner]);
+    expandGroup();
+
+    const innerId = childRowId("fg", inner);
+    const innerRow = attachedPanel(ui).querySelector<HTMLElement>(
+      `[data-layer-id="${innerId}"]`,
+    );
+    expect(innerRow).not.toBeNull();
+    const chevron = innerRow!.querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`);
+    expect(chevron).not.toBeNull();
+
+    chevron!.click();
+
+    const leafAId = childRowId(innerId, leafA);
+    const leafBId = childRowId(innerId, leafB);
+    expect(
+      attachedPanel(ui).querySelector(`[data-layer-id="${leafAId}"]`),
+    ).not.toBeNull();
+    expect(
+      attachedPanel(ui).querySelector(`[data-layer-id="${leafBId}"]`),
+    ).not.toBeNull();
+    // The nested rows are children of the nested group, not of the root.
+    const leafInfo = manager.layerRegistry.get(leafAId);
+    expect(leafInfo).toBeDefined();
+    expect(leafInfo!.child).toBe(true);
+    expect(leafInfo!.parentId).toBe(innerId);
+    expect(chevron!.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("collapses a nested group without touching the parent block", () => {
+    installLeafletGlobals();
+    const leaf = makeChild();
+    const inner = makeGroup([leaf]);
+    registerGroup([makeChild(), inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    const chevron = attachedPanel(ui)
+      .querySelector<HTMLElement>(`[data-layer-id="${innerId}"]`)!
+      .querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`);
+    chevron!.click();
+    const leafId = childRowId(innerId, leaf);
+    expect(manager.layerRegistry.get(leafId)).toBeDefined();
+
+    chevron!.click();
+
+    expect(manager.layerRegistry.get(leafId)).toBeUndefined();
+    expect(attachedPanel(ui).querySelector(`[data-layer-id="${leafId}"]`)).toBeNull();
+    // The nested group row itself is still rendered under its parent.
+    expect(
+      attachedPanel(ui).querySelector(`[data-layer-id="${innerId}"]`),
+    ).not.toBeNull();
+    expect(manager.layerRegistry.get(innerId)).toBeDefined();
+  });
+
+  it("persists only root-group expansion, never a stamped nested id", () => {
+    installLeafletGlobals();
+    const inner = makeGroup([makeChild()]);
+    registerGroup([inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    attachedPanel(ui)
+      .querySelector<HTMLElement>(`[data-layer-id="${innerId}"]`)!
+      .querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!
+      .click();
+    manager.persistence.flushAll();
+
+    const record = JSON.parse(
+      window.localStorage.getItem(CONST.STORAGE.KEY) as string,
+    ) as { expandedGroups?: Record<string, boolean> };
+    const keys = Object.keys(record.expandedGroups ?? {});
+    expect(keys).toContain("fg");
+    expect(keys.some(id => id.includes("::"))).toBe(false);
   });
 
   it("renders the style panel against the child's own leaves", () => {

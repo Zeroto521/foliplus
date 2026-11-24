@@ -27,7 +27,11 @@ const loadPersistedState = (ui: LayerUI) => {
   // The author default is re-derived on every load so it stays fresh if the
   // author changes the declaration.
   ui.listPanel.foldedFolders = { ...state.foldedFolders };
-  ui.listPanel.expandedGroups = { ...state.expandedGroups };
+  // Nested child groups are keyed by their stamp-bearing chain ids: never load
+  // them (they name no child of this page). Only registry rows persist.
+  ui.listPanel.expandedGroups = Object.fromEntries(
+    Object.entries(state.expandedGroups ?? {}).filter(([id]) => !id.includes("::")),
+  );
   ui.listPanel.authorFoldedFolders = authorFoldedKeys(ui.config?.folders);
   ui.listPanel.authorDefaultFoldedRoles = authorDefaultRoleFolds(ui.config?.roles);
   // Intent values + provenance sink into the store. The label config is read
@@ -56,7 +60,12 @@ const saveFoldState = (ui: LayerUI) => {
   ui.c.persistence.schedule({
     foldedRoles: () => ({ ...ui.listPanel.foldedRoles }),
     foldedFolders: () => ({ ...ui.listPanel.foldedFolders }),
-    expandedGroups: () => ({ ...ui.listPanel.expandedGroups }),
+    expandedGroups: () =>
+      Object.fromEntries(
+        Object.entries(ui.listPanel.expandedGroups).filter(
+          ([id]) => !id.includes("::"),
+        ),
+      ),
   });
 };
 

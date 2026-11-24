@@ -31,7 +31,11 @@ import {
   toggleFold,
   toggleFolderFold,
 } from "./listPanel/drag.js";
-import { refreshAllChildRows, toggleGroupExpand } from "./listPanel/groupExpand.js";
+import {
+  expandChildCap,
+  refreshAllChildRows,
+  toggleGroupExpand,
+} from "./listPanel/groupExpand.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
@@ -237,6 +241,18 @@ const bindLayerEvents = (ui: LayerUI): void => {
     // the row body — the row body stays a selectable layer row). The chevron
     // is a .FOLD_BTN inside a .GROUP_ROW row; this branch must run before the
     // folder-row branch (a group row is not a folder row).
+    // A capped group states its remainder in a "N more" row; the click asks for
+    // the rest and repaints the block with the raised cap.
+    const childMore = el.closest(`.${CONST.CLASSES.CHILD_MORE}`) as HTMLElement | null;
+    if (childMore) {
+      const moreId =
+        childMore.closest(CONST.SEL.LAYER_ITEM)?.getAttribute(CONST.DATA.LAYER_ID) ??
+        "";
+      const moreParent = moreId.slice(0, moreId.lastIndexOf("::"));
+      if (moreParent) expandChildCap(ui, moreParent);
+      return;
+    }
+
     const groupChevron = el.closest(
       `.${CONST.CLASSES.GROUP_ROW} .${CONST.CLASSES.FOLD_BTN}`,
     ) as HTMLElement | null;
@@ -246,6 +262,22 @@ const bindLayerEvents = (ui: LayerUI): void => {
         ?.getAttribute(CONST.DATA.LAYER_ID);
       if (parentId) {
         toggleGroupExpand(ui, parentId);
+      }
+      return;
+    }
+
+    // A child row that is itself a group carries the same chevron (nested
+    // expand). Its id is the chain to that container, so the same state map and
+    // the same render path serve it.
+    const childChevron = el.closest(
+      `.${CONST.CLASSES.CHILD_ROW} .${CONST.CLASSES.FOLD_BTN}`,
+    ) as HTMLElement | null;
+    if (childChevron) {
+      const childGroupId = childChevron
+        .closest(CONST.SEL.LAYER_ITEM)
+        ?.getAttribute(CONST.DATA.LAYER_ID);
+      if (childGroupId) {
+        toggleGroupExpand(ui, childGroupId);
       }
       return;
     }

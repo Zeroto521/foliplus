@@ -145,5 +145,7 @@
   "LayerControl.style_border_mode": "边框模式",
   "LayerControl.style_border_follow_fill": "跟随填充",
   "LayerControl.style_marker_color": "标记颜色",
-  "LayerControl.style_marker_color_opacity": "标记透明度"
+  "LayerControl.style_marker_color_opacity": "标记透明度",
+  "LayerControl.child_more": "还有 {count} 个",
+  "LayerControl.child_more_tooltip": "显示剩余 {count} 个子图层"
 }

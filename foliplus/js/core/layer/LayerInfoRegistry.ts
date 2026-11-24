@@ -350,14 +350,20 @@ class LayerInfoRegistry {
     return this.items.indexOf(layerInfo);
   }
 
-  /** Every child entry owned by one group, in registration order. Child
+  /** Every child entry beneath one group, in registration order. Child
    *  entries are registry-only (see RegisterLayerOpts.child): they are kept
    *  in `byId`, not in the ordered list, so this is the one reader that
-   *  enumerates them by parent. */
+   *  enumerates them by parent.
+   *
+   *  The id is a chain (`outer::inner::leaf`), so "beneath" is the id prefix,
+   *  not the direct parentId field: a nested child row exists only under its
+   *  expanded ancestors, and collapsing an ancestor must take the whole block
+   *  down with it. */
   childEntriesOf(parentId: string): LayerInfo[] {
+    const prefix = `${parentId}::`;
     const out: LayerInfo[] = [];
     for (const entry of this.byId.values()) {
-      if (entry.child && entry.parentId === parentId) out.push(entry);
+      if (entry.child && entry.id.startsWith(prefix)) out.push(entry);
     }
     return out;
   }

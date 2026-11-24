@@ -60,14 +60,14 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 121,
+    line: 125,
     call: "refreshAllCounts(ui);",
     reason:
       "right after the synchronous attach sequence (replayStoredStateAll): the initial counts pass, not a structural change",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 459,
+    line: 491,
     call: "syncToggleAll(ui, payload.role);",
     reason:
       "LAYER_ROLE_COUNT_CHANGED subscriber: the notification the barrier itself publishes — the downstream consumer of the same round trip",

@@ -109,6 +109,10 @@ class ListPanel {
    *  collapsed, and only an explicit expand opens it. Persisted through the
    *  same channel as the fold state (state.ts saveFoldState). */
   expandedGroups: Record<string, boolean> = {};
+  /** Per-group override of CHILD_RENDER_CAP: a group whose remaining children
+   *  the user asked for renders them all. Session-only — like the child rows
+   *  themselves it is not persisted. */
+  childLimits: Record<string, number> = {};
   /** Index of the currently-navigable row the cursor is parked on, or null
    *  when the cursor is cleared (Escape, outside press). */
   activeIdx: number | null = null;
