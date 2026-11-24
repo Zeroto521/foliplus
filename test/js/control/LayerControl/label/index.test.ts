@@ -920,7 +920,7 @@ describe("LabelManager — render & plan", () => {
     expect(proj.mock.calls.length).toBeGreaterThan(callsAfterFullPlan);
   });
 
-  it("repaints only the layer whose map membership changed", () => {
+  it("repaints only the layer whose map membership changed", async () => {
     const { map } = makeMap();
     const layerA = oneLabel();
     const layerB = mkGroup([
@@ -948,11 +948,55 @@ describe("LabelManager — render & plan", () => {
         };
       }
     ).foliplus.events.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" });
+    await new Promise(r => requestAnimationFrame(() => setTimeout(() => r(null), 0)));
 
     // Only the layer that left the map is re-planned; the other keeps its
     // boxes and its collision decision.
     expect(canvasA!.paint).toHaveBeenCalled();
     expect(canvasB!.paint).not.toHaveBeenCalled();
+  });
+
+  it("coalesces a burst of LAYER_CHANGE in one frame into one repaint per layer", async () => {
+    // A bulk registration (or a container expand) emits dozens of LAYER_CHANGE
+    // in one task. The subscription merges them per (event, id), so the manager
+    // sees one delivery in the next frame and repaints each affected layer
+    // once — not once per emit.
+    const { map } = makeMap();
+    const layers: Record<string, L.Layer> = {
+      a: oneLabel(),
+      b: oneLabel(),
+      c: oneLabel(),
+    };
+    const mgr = new LabelManager({ map, layerFind: id => layers[id] ?? null });
+    for (const id of ["a", "b", "c"]) {
+      mgr.setConfig(id, CONFIG);
+      mgr.renderLabels(id);
+    }
+    const [canvasA, canvasB, canvasC] = mocks.instances;
+    for (const instance of mocks.instances) instance!.paint.mockClear();
+    const events = (
+      map as unknown as {
+        foliplus: { events: { emit: (e: string, p: unknown) => void } };
+      }
+    ).foliplus.events;
+
+    // A burst inside one task: repeated ids collapse, distinct ids stay.
+    events.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" });
+    events.emit(EVENTS.LAYER_CHANGE, { id: "b", kind: "vector" });
+    events.emit(EVENTS.LAYER_CHANGE, { id: "a", kind: "vector" });
+    events.emit(EVENTS.LAYER_CHANGE, { id: "c", kind: "vector" });
+
+    // Still inside the frame: coalescing means nothing paints synchronously.
+    expect(canvasA!.paint).not.toHaveBeenCalled();
+    expect(canvasB!.paint).not.toHaveBeenCalled();
+    expect(canvasC!.paint).not.toHaveBeenCalled();
+
+    await new Promise(r => requestAnimationFrame(() => setTimeout(() => r(null), 0)));
+
+    // One delivery covered all three ids, and none was repainted twice.
+    expect(canvasA!.paint).toHaveBeenCalledTimes(1);
+    expect(canvasB!.paint).toHaveBeenCalledTimes(1);
+    expect(canvasC!.paint).toHaveBeenCalledTimes(1);
   });
 
   it("repaints only the layer whose filter changed", () => {
@@ -1001,7 +1045,7 @@ describe("LabelManager — render & plan", () => {
     expect(canvasB!.paint).not.toHaveBeenCalled();
   });
 
-  it("repaints every layer on a bare LAYER_CHANGE (third-party payload-less emit)", () => {
+  it("repaints every layer on a bare LAYER_CHANGE (third-party payload-less emit)", async () => {
     // Defense branch for the handler's `!payload` fallback: when an emit arrives
     // with no payload (legacy / third-party code, or a pre-refactor emit), the
     // handler can't know which layer moved — it falls back to a full repaint
@@ -1031,6 +1075,7 @@ describe("LabelManager — render & plan", () => {
         foliplus: { events: { emit: (e: string, p?: unknown) => void } };
       }
     ).foliplus.events.emit(EVENTS.LAYER_CHANGE as never);
+    await new Promise(r => requestAnimationFrame(() => setTimeout(() => r(null), 0)));
 
     expect(canvasA!.paint).toHaveBeenCalled();
     expect(canvasB!.paint).toHaveBeenCalled();
