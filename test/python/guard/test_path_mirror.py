@@ -329,7 +329,7 @@ def test_m1_teeth_alias_without_its_module() -> None:
 
 def test_m2_teeth() -> None:
     assert empty_shells({f"{TESTS_REL}/Ghost": 0})
-    assert empty_shells({f"{TESTS_REL}/infra": 5}) == []
+    assert empty_shells({f"{TESTS_REL}/Ghost": 5}) == []
 
 
 def test_m3_teeth_missing_control() -> None:
@@ -396,3 +396,37 @@ def test_no_shell_directory_under_test_python() -> None:
 def test_module_named_tests_import_only_their_control() -> None:
     problems = module_mirror_problems(_module_test_subjects(), _control_stems())
     assert problems == [], "\n".join(problems)
+
+
+# --- guard-tree layout (mirror of #1334 JS guard-tree layout) ---
+# task-97 Phase 2: repo-level invariant guards live in test/python/guard/;
+# module-mirror feature tests live in test/python/<Control>/ and test/python/ root.
+# These pin the tree so a future invariant cannot drift back to a mirror location.
+
+PY_GUARD = TESTS / "guard"
+
+
+def test_python_guard_dir_exists() -> None:
+    """The Python invariant-guard home must exist and hold at least one test."""
+    assert PY_GUARD.is_dir(), "test/python/guard/ missing -- invariant guards have nowhere to live"
+    tests = [f for f in PY_GUARD.glob("test_*.py") if f.name != "__init__.py"]
+    assert tests, "test/python/guard/ holds no test_*.py -- it is an empty shell"
+
+
+def test_python_guard_tests_are_not_module_mirrors() -> None:
+    """No file in guard/ may be a module-mirror (test_<Control>.py naming a control).
+
+    guard/ holds repo-level invariants, not per-control mirrors. A test_<Control>.py
+    here is the same drift the JS guard-tree layout forbids: the invariant landed
+    in the mirror bucket.
+    """
+    controls = _control_stems()
+    offenders = [
+        f.name
+        for f in sorted(PY_GUARD.glob("test_*.py"))
+        if f.stem in {f"test_{c}" for c in controls}
+    ]
+    assert offenders == [], (
+        "module-mirror test(s) in test/python/guard/: " + ", ".join(offenders)
+        + " -- move them to test/python/control/<Control>/"
+    )
