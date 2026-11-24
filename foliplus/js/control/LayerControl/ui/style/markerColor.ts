@@ -393,5 +393,6 @@ export {
   commitMarkerColorOpacity,
   layerCanMarkerColor,
   replayDeclaredMarkerColor,
+  resolveChassisPaint,
   resetLayerMarkerColor,
 };

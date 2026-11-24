@@ -21,8 +21,11 @@ const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus", "js");
 
 const SCOPED_CALL = /\b(?:scopedStorageKey|folderLayoutKey|filterStoreKey)\s*\(/;
-const IS_SCOPED_RHS = (rhs: string): boolean =>
-  SCOPED_CALL.test(rhs) || rhs.includes("getContainer().id");
+// A hand-rolled `foliplus_*_${map.getContainer().id}` template is NOT scoped: it
+// re-derives the key shape by hand instead of asking the single source, so a
+// suffix/separator typo silently creates a second record. Only the
+// scopedStorageKey call (and its two named wrappers) counts.
+const IS_SCOPED_RHS = (rhs: string): boolean => SCOPED_CALL.test(rhs);
 
 /** Walk foliplus/js (skipping runtime/type) recursively. */
 const walkTs = (dir: string): string[] => {
@@ -194,10 +197,9 @@ const isScopedArg = (
   chainByModule: Map<string, Set<string>>,
 ): boolean => {
   if (SCOPED_CALL.test(arg)) return true;
-  if (arg.includes("getContainer().id")) return true;
-  if (arg.startsWith('"') || arg.startsWith("`")) {
-    return arg.includes("getContainer().id");
-  }
+  // A literal (string or template) cannot ask scopedStorageKey, so a hand-rolled
+  // `foliplus_*_${map.getContainer().id}` key is a violation by definition.
+  if (arg.startsWith('"') || arg.startsWith("`")) return false;
   const parts = arg.split(".").filter(Boolean);
   const chain = parts.join(".");
   if (chains.has(chain)) return true;
@@ -284,8 +286,14 @@ describe("storage keys are scoped to the map container", () => {
     expect(isScopedArg('scopedStorageKey(map, "layer_state")', chains, [], empty)).toBe(
       true,
     );
+    expect(isScopedArg('"foliplus_x_abc"', chains, [], empty)).toBe(false);
     expect(
       isScopedArg("`foliplus_x_${map.getContainer().id}`", chains, [], empty),
-    ).toBe(true);
+    ).toBe(false);
+    // The hand-rolled template that used to pass IS_SCOPED_RHS must fail: it
+    // bypasses the single source and can drift from `foliplus_<suffix>_<mapId>`.
+    expect(
+      isScopedArg("`foliplus_heatmap_${map.getContainer().id}`", chains, [], empty),
+    ).toBe(false);
   });
 });
