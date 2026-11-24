@@ -17,17 +17,17 @@
  *   node script/build/build.mjs --verify     # don't build; assert the dist/ tree is complete
  */
 import { help, parseArgs } from "../args.mjs";
-import { resolveJsRoot } from "../build-path.mjs";
-import { FAIL, OK } from "../glyph.mjs";
-import { resolveVersion } from "../version.mjs";
+import { resolveJsRoot } from "./build-path.mjs";
 import {
   assertNoSurvivorMarker,
   planDistMarker,
   settleDistMarker,
-} from "./distMarker.mjs";
+} from "./dist-marker.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
+import { FAIL, OK } from "./glyph.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
+import { resolveVersion } from "./version.mjs";
 import { spawnSync } from "child_process";
 import { build } from "esbuild";
 import {
@@ -92,7 +92,7 @@ const buildCss = resolve(CFG.root, "foliplus/.build/css");
 
 // ── Version banner ────────────────────────────────────────────────────────────
 // `git describe` (tag + distance + commit) — identical in local dev and CI,
-// resolved once and cached by script/version.mjs.
+// resolved once and cached by script/build/version.mjs.
 const BUILD_VERSION = resolveVersion();
 
 /** esbuild onResolve plugin that redirects _shared-registry.js import
@@ -370,7 +370,7 @@ const main = async () => {
     return;
   }
   // Dist-mode marker lifecycle — plan/settle/assert are isolated in
-  // distMarker.mjs (see there for the full rationale); this entry only
+  // dist-marker.mjs (see there for the full rationale); this entry only
   // threads CFG.dev + distDir into them.
   const devMarker = planDistMarker({ dev: CFG.dev, distDir });
   let failed = 0;

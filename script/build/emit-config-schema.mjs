@@ -27,7 +27,7 @@
  * local iteration.
  */
 import { help, parseArgs } from "../args.mjs";
-import { repoRoot } from "../build-path.mjs";
+import { repoRoot } from "./build-path.mjs";
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { format, resolveConfig } from "prettier";

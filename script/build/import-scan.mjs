@@ -40,7 +40,7 @@
 //     imported spec A as `X` and another that imported spec B as `X` got the
 //     props of both specs attributed to both. Props are now collected only
 //     from the files that imported the spec under that alias.
-import { SHARED_SPEC_REGEX_SOURCE } from "../build-path.mjs";
+import { SHARED_SPEC_REGEX_SOURCE } from "./build-path.mjs";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
 
@@ -66,7 +66,7 @@ const parseImportNames = list =>
     .filter(n => n && !/^type\s/.test(n));
 
 // `import { A, B } from "#core/x.js"`  |  `import * as X from "#platform/y.js"`
-// The shared-spec pattern is composed once in script/build-path.mjs — one
+// The shared-spec pattern is composed once in script/build/build-path.mjs — one
 // spelling with the global-namespace plugin and the esbuild alias table.
 // Capture group 3 is the full spec including `#` (`#platform/…`, `#core/…`,
 // or the exact `#foliplus/BaseControl.js`).
