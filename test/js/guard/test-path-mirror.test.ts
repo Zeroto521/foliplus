@@ -51,6 +51,7 @@ const NON_MIRRORED_TEST: Record<string, string> = {
 /** Test directories that are categories, not mirrors (each file still names the
  *  module it exercises). */
 const NON_MIRRORED_DIR: Record<string, string> = {
+  guard: "repo-wide invariant guards, each names the invariant it checks, not a module",
   perf: "wall-clock gates grouped by measurement category (see perf/collision.test.ts); each file still names the production module it times",
 };
 

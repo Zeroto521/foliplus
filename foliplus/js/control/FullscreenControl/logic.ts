@@ -11,7 +11,15 @@ import { PANEL_CLASS, SCALE_CLASS } from "#ui/index.js";
 /** Per-call env slice the entry passes in. Same vocabulary as ControlEnv but
  *  narrowed to what this module reads — `name` and `hide_*` from CONFIG, plus
  *  the scoped translator. */
-type Env = { config: ComponentConfig; T: (key: string) => string };
+type Env = {
+  config: ComponentConfig;
+  T: (key: string) => string;
+  /** The mounting's AbortSignal, when the caller is a mounted control. The
+   *  native paths below resolve after the click that asked for them, so a
+   *  rejection landing after removal must not re-enter pseudo mode. Optional
+   *  because the functions are also reachable from tests. */
+  signal?: AbortSignal;
+};
 
 // ══════════════════════════════════════════════════════════════════════════════
 // updateUI (internal)  —  refresh icon, title, sibling/self visibility, hint
@@ -97,6 +105,20 @@ const exitPseudo = (
   updateUI(map, fsBtn, container, env);
 };
 
+/** Release a pseudo session the mounting left behind.
+ *  Conditional on the class actually being there: a native session on the same
+ *  container must not have its flag cleared by a control going away, and the
+ *  toggle (the only user gesture that ends pseudo mode) may already be gone.
+ *  No hint is shown — the control is being removed, and announcing "exit"
+ *  fullscreen for it would be noise nobody asked for. */
+const releasePseudo = (map: L.Map) => {
+  const mapContainer = map.getContainer();
+  if (!mapContainer.classList.contains(CLASSES.PSEUDO_FULLSCREEN)) return;
+  setPseudoFullscreen(mapContainer, false);
+  map.invalidateSize();
+  map.isFullscreen = false;
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
@@ -119,6 +141,9 @@ const toggleFullscreen = (
         // can leave both states on the container. Clear pseudo here so
         // fullscreenSurface() stops treating the container as a surface after
         // the native session ends.
+        // liveness-exempt: the native exit already completed, so clearing the
+        // pseudo class can only release residue — it cannot enter pseudo mode,
+        // and mapContainer was captured before this continuation started.
         setPseudoFullscreen(mapContainer, false);
       })
       .catch(() => {
@@ -140,6 +165,12 @@ const toggleFullscreen = (
         map.isFullscreen = true;
       })
       .catch(() => {
+        // A removed mounting must not fall back: the recovery below ends in
+        // enterPseudo, which re-enters pseudo mode with the toggle already gone
+        // — the class would survive the session and hijack every overlay's host
+        // for the page's life. The signal is aborted in onRemove, so this is
+        // the same check as the removed flag.
+        if (env.signal?.aborted) return;
         // A policy rejection (permission lost mid-flight) must not dead-end:
         // recover state, then fall back to pseudo mode like an API-less browser.
         const active = ownsFullscreen(mapContainer);
@@ -180,4 +211,4 @@ const buildFullscreenChangeHandler =
     updateUI(map, fsBtn, container, env);
   };
 
-export { buildFullscreenChangeHandler, toggleFullscreen, updateUI };
+export { buildFullscreenChangeHandler, releasePseudo, toggleFullscreen, updateUI };

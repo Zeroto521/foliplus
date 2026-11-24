@@ -1,7 +1,7 @@
 // The marker chassis hex shape sync guard: the Python declaration reader and
 // the JS color primitive must judge the same CSS hex shapes the same way.
 //
-// _HEX_COLOR_RE in foliplus/_declaration.py is a hand-copied twin of the
+// _HEX_COLOR_RE in foliplus/_declaration/paint.py is a hand-copied twin of the
 // isHexColor regex in foliplus/js/platform/color.ts (the #1275 follow-up
 // card): one side widening the accepted hex shape while the other stays
 // would let a hex the Python channel accepts paint one colour and the JS
@@ -17,7 +17,7 @@ import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
 
-const PY_DECL = "foliplus/_declaration.py";
+const PY_DECL = "foliplus/_declaration/paint.py";
 const JS_COLOR = "foliplus/js/platform/color.ts";
 
 /** The Python _HEX_COLOR_RE twin, pulled through the shared locator. */
