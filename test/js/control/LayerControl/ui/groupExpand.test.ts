@@ -8,12 +8,12 @@ import { attachedPanel, initFixture, installLeafletGlobals } from "./fixture.js"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
+import { focusChildLayer } from "#control/LayerControl/ui/focus/index.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { buildCheckboxCell } from "#control/LayerControl/ui/listPanel/checkbox.js";
 import {
   childDisplayName,
   childRowId,
-  focusChildLayer,
   groupChildren,
   isGroupExpanded,
   removeGroupChildren,

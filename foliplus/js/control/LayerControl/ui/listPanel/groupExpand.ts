@@ -10,18 +10,9 @@
 // State: expandedGroups: Record<parentLayerId, boolean> on ui.listPanel,
 // default false (groups start collapsed). Persisted through the same
 // channel as the fold state (see ../state.js saveFoldState).
-import {
-  computeLayerBounds,
-  drawFocusMask,
-  drawFocusRect,
-  highlightFocusedRow,
-  registerAutoCancel,
-  showFocusDisabledHint,
-} from "../focus/index.js";
-import { bringFocusedLayerToFront, hideOtherLayers } from "../focus/pane.js";
+import { INTENT, getIntent } from "../intent.js";
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { closeOverlays } from "../teardown.js";
 import { childDisplayName, childRowId, resolveChild } from "./childRow.js";
 import {
   buildCheckbox,
@@ -43,7 +34,6 @@ import {
   getGeometryType,
   isGroupLayer,
 } from "#core/layer/index.js";
-import { ensureModes, guardBlocked } from "#core/lifecycle/index.js";
 import { dom } from "#platform/dom.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { getTypeSVG } from "#control/LayerControl/util.js";
@@ -108,7 +98,10 @@ const renderChildItem = (
   child: L.Layer,
 ): HTMLElement => {
   const id = childRowId(parentId, child);
-  const name = childDisplayName(child);
+  // A renamed child keeps its name across collapse/expand: the session intent is
+  // the source of truth (child names are not persisted — see saveNamesState).
+  const name =
+    (getIntent(ui, id, INTENT.NAME) as string | undefined) ?? childDisplayName(child);
   // The child row is the registry entry's lifetime: registering here (and
   // unregistering wherever the row goes) keeps "entry exists iff row is
   // rendered" true. The entry is registry-only — it carries the LayerInfo the
@@ -238,7 +231,7 @@ const refreshAllChildRows = (ui: LayerUI, role?: string): void => {
     if (!expanded) continue;
     if (role !== undefined) {
       const parent = ui.c.layerRegistry.get(parentId);
-      if (!parent || parent.role !== role) continue;
+      if (parent?.role !== role) continue;
     }
     refreshChildRows(ui, parentId);
   }
@@ -266,79 +259,6 @@ const toggleGroupExpand = (ui: LayerUI, parentId: string): void => {
     }
   }
   saveFoldState(ui);
-};
-
-/** Focus the map on one child of a group. The child is not a registry row
- *  (no LayerInfo), so the shared focusLayer cannot resolve it; this path
- *  resolves the Leaflet child directly, fits the map to its bounds and
- *  highlights its row. The child's pane lift is skipped (it has no surface
- *  entry), but the zoom + mask + rect + row highlight are the same. */
-const focusChildLayer = (ui: LayerUI, parentId: string, childId: string): void => {
-  if (guardBlocked(ui.c.map, ui.config.name, ui.T("blocked"))) return;
-  const child = resolveChild(ui, parentId, childId);
-  if (!child) return;
-  if (!ui.c.map.hasLayer(child)) {
-    showFocusDisabledHint(ui, "hidden");
-    return;
-  }
-  const bounds = computeLayerBounds(child);
-  if (!bounds?.isValid()) {
-    showFocusDisabledHint(ui, "no_bounds");
-    return;
-  }
-  closeOverlays(ui);
-  hideOtherLayers(ui);
-  // The child paints inside its container's pane. Without marking that pane as
-  // the focus pane, the focus-hide CSS would swallow the very layer being
-  // focused (the child's probe-only surface has no panes of its own, so the
-  // shared writer falls back to discovering the panes the child paints
-  // through and lifts/marks those).
-  const childInfo = ui.c.layerRegistry.get(childId);
-  if (childInfo) bringFocusedLayerToFront(ui, childInfo);
-  ui.c.label.setFocusFilter(childId);
-  const itemEl =
-    ui.uiContainer?.querySelector<HTMLElement>(
-      `[${CONST.DATA.LAYER_ID}="${CSS.escape(childId)}"]`,
-    ) ?? null;
-  const modes = ensureModes(ui.c.map);
-  modes.setMode(ui.config.name, "focusing");
-  ui.focusController.focusingLayerId = childId;
-  const southWest = bounds.getSouthWest();
-  const northEast = bounds.getNorthEast();
-  const area =
-    Math.abs(northEast.lat - southWest.lat) * Math.abs(northEast.lng - southWest.lng);
-  if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
-    const center = bounds.getCenter();
-    const maxZoom = Math.min(
-      ui.c.map.getMaxZoom(),
-      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
-    );
-    ui.c.map.flyTo(center, maxZoom, { duration: CONST.FOCUS.FIT_DURATION });
-    if (itemEl) highlightFocusedRow(ui, itemEl, childId);
-    registerAutoCancel(ui, childId);
-    return;
-  }
-  drawFocusMask(ui, bounds);
-  drawFocusRect(ui, bounds);
-  if (itemEl) highlightFocusedRow(ui, itemEl, childId);
-  ui.c.map.fitBounds(bounds, {
-    animate: true,
-    duration: CONST.FOCUS.FIT_DURATION,
-    padding: CONST.FOCUS.PADDING,
-    maxZoom: Math.min(
-      ui.c.map.getMaxZoom(),
-      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
-    ),
-  });
-  const ref = ui.focusController.focusRect;
-  setTimeout(() => {
-    if (ui.focusController.focusRect === ref) {
-      // Local import avoided: dismissFocus is exported by focus/index but not
-      // re-exported here; call through the focus controller's public teardown.
-      ui.c.map.foliplus?.showHint?.(ui.config.name, "", 0);
-    }
-  }, CONST.FOCUS.RECT_DURATION_MS);
-  registerAutoCancel(ui, childId);
 };
 
 /** Remove one child from its group: map.removeLayer + drop the row. The group
@@ -372,6 +292,5 @@ export {
   toggleGroupExpand,
   refreshChildRows,
   refreshAllChildRows,
-  focusChildLayer,
   removeChildLayer,
 };

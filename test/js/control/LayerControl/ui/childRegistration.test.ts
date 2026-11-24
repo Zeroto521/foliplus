@@ -9,12 +9,10 @@ import { attachedPanel, initFixture, installLeafletGlobals } from "./fixture.js"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
+import { focusChildLayer } from "#control/LayerControl/ui/focus/index.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
 import { INTENT } from "#control/LayerControl/ui/intent.js";
-import {
-  childRowId,
-  focusChildLayer,
-} from "#control/LayerControl/ui/listPanel/groupExpand.js";
+import { childRowId } from "#control/LayerControl/ui/listPanel/groupExpand.js";
 import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.js";
 
 describe("child layer registration", () => {
@@ -384,6 +382,46 @@ describe("child layer registration", () => {
     expect(styleEntry!.getAttribute("aria-disabled")).toBe("false");
     expect(filterEntry).not.toBeNull();
     expect(filterEntry!.getAttribute("aria-disabled")).toBe("false");
+  });
+
+  it("renames a child row and keeps the name session-only", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+    const id = childRowId("fg", child);
+    const row = childRows()[0];
+
+    ui.openMoreMenu(row);
+    const renameEntry = attachedPanel(ui).querySelector<HTMLElement>(
+      `[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+    );
+    expect(renameEntry).not.toBeNull();
+    renameEntry!.click();
+
+    const input = row.querySelector<HTMLInputElement>(`.${CONST.CLASSES.RENAME_INPUT}`);
+    expect(input).not.toBeNull();
+    input!.value = "My child";
+    input!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    // Both projections of the name follow the intent: the row label and the
+    // registry entry the style / filter panels resolve.
+    expect(childRows()[0]?.querySelector("label")?.textContent).toBe("My child");
+    expect(manager.layerRegistry.get(id)?.name).toBe("My child");
+
+    // The stamp id is not stable across a reload, so the name must not be
+    // written to the persisted record (child rows are not persisted).
+    ui.c.persistence.flushAll();
+    const record = JSON.parse(
+      window.localStorage.getItem(CONST.STORAGE.KEY) as string,
+    ) as { renamedNames?: Record<string, string> };
+    expect(Object.keys(record.renamedNames ?? {})).not.toContain(id);
+
+    // Collapsing destroys the entry; re-expanding rebuilds it from the
+    // session intent, so the name survives the row's lifetime.
+    groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+    groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+    expect(childRows()[0].querySelector("label")?.textContent).toBe("My child");
   });
 
   it("renders the style panel against the child's own leaves", () => {

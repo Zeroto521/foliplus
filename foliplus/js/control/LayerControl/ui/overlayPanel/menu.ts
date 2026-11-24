@@ -1,6 +1,10 @@
 // LayerControl UI — Overflow (⋮) menu.
-import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
-import { focusChildLayer, removeChildLayer } from "../listPanel/groupExpand.js";
+import {
+  focusChildLayer,
+  focusDisabledReason,
+  focusDisabledText,
+} from "../focus/index.js";
+import { removeChildLayer } from "../listPanel/groupExpand.js";
 import { emptyFolderKeys, rebuildList } from "../listPanel/list.js";
 import { ROW_NOUN, type RowNoun, withNoun } from "../rowNoun.js";
 import { saveState } from "../state.js";
@@ -403,6 +407,21 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         },
         { html: SVGs.ICON_STYLE },
         menuLabel(ui.T("style_layer")),
+      ),
+    );
+    // Rename writes the row's name (a session intent), never the layer's data:
+    // a hidden child can still be renamed, same as a hidden layer.
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.RENAME_LAYER,
+          role: "menuitem",
+          title: withNoun(ui, "rename_tooltip", ROW_NOUN.LAYER),
+        },
+        { html: Icons.ICON_EDIT },
+        menuLabel(ui.T("rename")),
       ),
     );
     menu.appendChild(

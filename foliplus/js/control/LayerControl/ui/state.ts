@@ -39,8 +39,13 @@ const loadPersistedState = (ui: LayerUI) => {
   const layers = Object.fromEntries(
     Object.entries(state.layers).filter(([id]) => !id.includes("::")),
   );
+  // Child names are session-only too: a persisted `::` entry describes no
+  // child of this page.
+  const renamedNames = Object.fromEntries(
+    Object.entries(state.renamedNames).filter(([id]) => !id.includes("::")),
+  );
   ui.intentStore.loadFromPersisted({
-    renamedNames: state.renamedNames,
+    renamedNames,
     layers,
   });
 };
@@ -279,6 +284,10 @@ const dropPersistedLayerState = (ui: LayerUI, id: string): boolean => {
 const saveNamesState = (ui: LayerUI) => {
   const names: Record<string, string> = {};
   for (const [id, name] of ui.intentStore.nameEntries()) {
+    // A child row's id carries L.stamp (parentId::stamp): the name is
+    // session-only for the same reason its style intent is (see
+    // buildLayerStates) — the next session's stamps name different children.
+    if (id.includes("::")) continue;
     names[id] = name;
   }
   ui.c.persistence.schedule({ renamedNames: () => names });

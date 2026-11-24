@@ -64,7 +64,7 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 452,
+    line: 459,
     call: "syncToggleAll(ui, payload.role);",
     reason:
       "LAYER_ROLE_COUNT_CHANGED subscriber: the notification the barrier itself publishes — the downstream consumer of the same round trip",
@@ -99,21 +99,21 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 116,
+    line: 122,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a batch toggle (the toggled rows' intent was just rewritten)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 276,
+    line: 285,
     call: "syncToggleAll(ui, layerInfo.role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a single-row toggle",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 380,
+    line: 392,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a bulk tail toggle",
