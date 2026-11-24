@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { INTENT } from "#control/LayerControl/ui/intent.js";
 import {
   childRowId,
   focusChildLayer,
@@ -338,6 +339,28 @@ describe("child layer registration", () => {
     expect(
       (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
     ).toBe(false);
+  });
+
+  it("does not persist a child's style intent under its unstable stamp id", () => {
+    installLeafletGlobals();
+    const child = makeChild();
+    registerGroup([child]);
+    expandGroup();
+    const childId = childRowId("fg", child);
+
+    // What a style panel write does: one intent keyed by the row id.
+    ui.intentStore.setRaw(childId, INTENT.FILL_COLOR, "#112233");
+    // A normal registry layer must still persist — the strip is child-only.
+    ui.intentStore.setRaw("overlay1", INTENT.FILL_COLOR, "#445566");
+    ui.saveState();
+    manager.persistence.flushAll();
+    const record = JSON.parse(
+      window.localStorage.getItem(CONST.STORAGE.KEY) as string,
+    ) as { layers?: Record<string, unknown> };
+    const ids = Object.keys(record.layers ?? {});
+
+    expect(ids).not.toContain(childId);
+    expect(ids).toContain("overlay1");
   });
 
   it("offers style and filter in the child row's ⋮ menu", () => {

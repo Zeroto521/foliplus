@@ -33,9 +33,15 @@ const loadPersistedState = (ui: LayerUI) => {
   // Intent values + provenance sink into the store. The label config is read
   // from `layers[id].label` only — the legacy top-level `annotations`
   // segment was dropped.
+  // A record written before the child-id strip (or by another page) can carry
+  // `::` entries; never load them — their stamps do not describe this page's
+  // children.
+  const layers = Object.fromEntries(
+    Object.entries(state.layers).filter(([id]) => !id.includes("::")),
+  );
   ui.intentStore.loadFromPersisted({
     renamedNames: state.renamedNames,
-    layers: state.layers,
+    layers,
   });
 };
 
@@ -69,7 +75,15 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
 const buildLayerStates = (ui: LayerUI) => {
   const labels = Object.fromEntries(ui.c.label.configEntries());
-  return ui.intentStore.toPersisted(labels);
+  const states = ui.intentStore.toPersisted(labels);
+  // A child row's id embeds `L.stamp` (`parentId::stamp`), which a reload does
+  // not reproduce: the next session re-stamps its children, so an old stamp
+  // would apply one child's style to another. Child intents are session-only —
+  // strip them here, the one place the record is assembled.
+  for (const id of Object.keys(states)) {
+    if (id.includes("::")) delete states[id];
+  }
+  return states;
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the
