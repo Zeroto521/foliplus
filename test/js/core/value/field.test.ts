@@ -6,6 +6,7 @@ import {
   categoryDomain,
   inferFieldKind,
   isCategoryValue,
+  isInternalProperty,
   isNumericValue,
   numericPropertiesKeys,
   resolveField,
@@ -293,5 +294,52 @@ describe("inferFieldKind", () => {
       leaf as unknown as { feature: { properties: Record<string, unknown> } }
     ).feature.properties.v = "x";
     expect(inferFieldKind(layer, "v")).toBe("numeric");
+  });
+});
+
+describe("internal property keys", () => {
+  it("isInternalProperty rejects __-prefixed folium/geopandas keys", () => {
+    expect(isInternalProperty("__folium_color")).toBe(true);
+    expect(isInternalProperty("__geojson_properties")).toBe(true);
+    expect(isInternalProperty("__id")).toBe(true);
+  });
+
+  it("isInternalProperty accepts business keys", () => {
+    expect(isInternalProperty("name")).toBe(false);
+    expect(isInternalProperty("value")).toBe(false);
+    expect(isInternalProperty("pop_est")).toBe(false);
+  });
+
+  it("isInternalProperty defensively rejects __proto__", () => {
+    // A JS prototype accessor, not our namespace — but it starts with __, so
+    // the single-prefix rule catches it. Defensive: JSON.parse never produces
+    // it as a data key, and if it somehow arrived we want it out of the lists.
+    expect(isInternalProperty("__proto__")).toBe(true);
+  });
+
+  it("numericPropertiesKeys excludes __folium_color", () => {
+    // __folium_color is a string (#hex) so it would never appear in numeric
+    // anyway, but the invariant must be explicit.
+    const layer = makeGroup([makeLeaf({ price: 10, __folium_color: "#22a06b" })]);
+    expect(numericPropertiesKeys(layer)).toEqual(["price"]);
+  });
+
+  it("categoricalPropertiesKeys excludes __folium_color even when it is a valid string", () => {
+    // This is the bug: a #hex string is a non-empty string, so without
+    // filtering it would appear as a categorical column.
+    const layer = makeGroup([makeLeaf({ kind: "park", __folium_color: "#22a06b" })]);
+    expect(categoricalPropertiesKeys(layer)).toEqual(["kind"]);
+  });
+
+  it("categoricalPropertiesKeys excludes all __-prefixed keys", () => {
+    const layer = makeGroup([
+      makeLeaf({
+        name: "a",
+        __geojson_properties: "x",
+        __id: "y",
+        __folium_color: "#fff",
+      }),
+    ]);
+    expect(categoricalPropertiesKeys(layer)).toEqual(["name"]);
   });
 });
