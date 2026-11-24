@@ -34,8 +34,8 @@ from conftest import _js, panel_ready, use_page
 
 from foliplus import LayerControl
 
-from . import paint_parity as pp
-from ._browser_base import LayerControlBrowserBase
+from . import helper_paint as pp
+from .helper_browser import LayerControlBrowserBase
 
 
 class TestPaintDimensionParityBrowser(LayerControlBrowserBase):

@@ -21,7 +21,7 @@ interface DeclaredZoomRange {
 
 /** Whether `raw` is a usable declaration: both ends integer zoom levels, in
  *  order. The predicate is the JS half of the Python validation in
- *  `foliplus/_declaration.py` — `Number.isInteger`, not `Number.isFinite`,
+ *  `foliplus/_declaration/zoom_range.py` — `Number.isInteger`, not `Number.isFinite`,
  *  because a fractional bound is a payload Python would never have emitted and
  *  a range the map's integer levels cannot honour. */
 const isZoomRange = (raw: unknown): raw is DeclaredZoomRange =>
@@ -65,7 +65,7 @@ interface BindControlZoomRangeOptions {
   map: L.Map;
   /** The control's Leaflet container — the whole control is gated. */
   container: HTMLElement;
-  /** CONFIG.zoomRange: the normalised declaration, or null/undefined. */
+  /** CONFIG.zoom_range: the normalised declaration, or null/undefined. */
   range: unknown;
   /** The control's logger (its name is already in the prefix). */
   log: ZoomRangeLogger;

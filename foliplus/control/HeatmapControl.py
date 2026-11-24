@@ -285,7 +285,7 @@ class HeatmapControl(BaseControl):
                 ts="ZoomRange",
                 name="ZoomRange",
                 shape={"min": "number", "max": "number"},
-                config_key="zoomRange",
+                config_key="zoom_range",
                 note=(
                     "Declared zoom range: the control is visible only while the map's "
                     "zoom is inside it; a malformed or unreachable range is treated as "
@@ -328,8 +328,8 @@ class HeatmapControl(BaseControl):
         self.label_format = label_format
         self.collapse_on_outside = collapse_on_outside
         # The author writes zoom_range={"min": ..., "max": ...}; CONF carries
-        # the normalised {min, max} under the shared `zoomRange` key. Invalid
+        # the normalised {min, max} under the shared `zoom_range` key. Invalid
         # declarations warn once and stay None (the control is not hidden).
-        self.zoomRange = normalise_zoom_range(
+        self.zoom_range = normalise_zoom_range(
             zoom_range, owner="HeatmapControl", source="zoom_range"
         )

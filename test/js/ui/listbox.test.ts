@@ -5,6 +5,7 @@
 // so the picker-shape branches are covered by a public-behaviour assertion rather
 // than left to schemePicker's own tests. The dropdown shape is covered by the
 // shared contract matrix below, which drives every surface the engine owns.
+import { makeCell } from "./fixture.js";
 import type * as L from "leaflet";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
@@ -2470,28 +2471,6 @@ describeListboxFixture([pickerInlineFixture, pickerPortalFixture]);
 // ── Row contract (moved from listbox.rowContract.test.ts) ────────────
 
 // ── Dropdown shape (the real adapter shape from dropdown.ts) ────────────
-
-const makeCell = (
-  value: string,
-  options: readonly { value: string; label: string; disabled?: boolean }[],
-): { select: HTMLSelectElement; cell: HTMLElement } => {
-  const cell = document.createElement("div");
-  cell.className = "foliplus-form-control";
-  const select = document.createElement("select");
-  select.className = "foliplus-form-select";
-  select.setAttribute("aria-label", "Pick a thing");
-  for (const option of options) {
-    const el = document.createElement("option");
-    el.value = option.value;
-    el.textContent = option.label;
-    if (option.disabled) el.disabled = true;
-    select.appendChild(el);
-  }
-  select.value = value;
-  cell.appendChild(select);
-  document.body.appendChild(cell);
-  return { select, cell };
-};
 
 const bridged = (
   value: string,

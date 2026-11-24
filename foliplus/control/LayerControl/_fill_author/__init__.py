@@ -8,7 +8,7 @@ The fill-author code is four modules, one concern each:
   agreement counts, continuous stops);
 - ``caption`` — pairing a scale to its layer through the caption
   and the color veto;
-- ``payload`` — the ``fillAuthor`` record and its strip.
+- ``payload`` — the ``fill_author`` record and its strip.
 
 This package is the facade the rest of the control imports. It re-exports every
 public name so ``from ._fill_author import fill_author, map_colormaps`` (and the

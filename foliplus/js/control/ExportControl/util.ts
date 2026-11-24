@@ -17,8 +17,13 @@ const isVisible = (
 /** Fetch a remote image as an ImageBitmap (CORS mode), used once then closed.
  *  Tiles are drawn once and discarded; sprites are deduped per-render in
  *  renderer.ts via a local map.  A bitmap created on the failure path is
- *  closed before returning so nothing is ever leaked. */
-const loadImageBitmap = async (url: string) => {
+ *  closed before returning so nothing is ever leaked.
+ *
+ *  `onError` is how a caller turns a silent miss into a reported one: every
+ *  failure path (non-OK response, network/CORS rejection, decode error) calls
+ *  it with the error before returning null. Callers that only need the bitmap
+ *  (tile loading) can omit it. */
+const loadImageBitmap = async (url: string, onError?: (error: unknown) => void) => {
   let bitmap: ImageBitmap | null = null;
   try {
     const resp = await fetch(url, {
@@ -26,11 +31,15 @@ const loadImageBitmap = async (url: string) => {
       cache: "force-cache",
       signal: AbortSignal.timeout(CONST.TIMING.TIMEOUT as number),
     });
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      onError?.(new Error(`HTTP ${resp.status}`));
+      return null;
+    }
     const blob = await resp.blob();
     bitmap = await createImageBitmap(blob);
     return bitmap;
-  } catch {
+  } catch (error) {
+    onError?.(error);
     if (bitmap) {
       try {
         bitmap.close();

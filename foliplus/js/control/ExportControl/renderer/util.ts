@@ -1,7 +1,7 @@
 // Shared helpers and types for the ExportControl renderer passes.
 // Moved from renderer.ts — nothing here depends on L or the DOM beyond the
 // types themselves, so every pass module can import without a cycle.
-import type { TileLoadStats } from "../type.js";
+import type { RenderCtx, TileLoadStats } from "../type.js";
 import { createLogger } from "#platform/log.js";
 
 const log = createLogger(CONFIG.name);
@@ -70,4 +70,75 @@ const withAlpha = (
   }
 };
 
-export { isCorsBlocked, pooledEach, effectiveOpacity, withAlpha };
+/** Computed SVG presentation properties a standalone clone has to carry
+ *  inline. The clone is serialised and rasterised through an <img>, which has
+ *  no access to the page stylesheet — a fill/stroke that comes from a CSS
+ *  class or custom property is lost and the shape falls back to the default
+ *  black paint. Text props are included so a <text> node keeps its font. */
+const SVG_STYLE_PROPS = [
+  "fill",
+  "fill-opacity",
+  "stroke",
+  "stroke-width",
+  "stroke-dasharray",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-opacity",
+  "opacity",
+  "visibility",
+  "display",
+  "color",
+  "font-family",
+  "font-size",
+  "font-weight",
+  "text-anchor",
+  "dominant-baseline",
+] as const;
+
+/** Copy the live computed presentation styles of `svgEl` and its descendants
+ *  onto the serialised `clone`, walking the two trees in parallel.
+ *
+ *  An element whose own computed `display` is "none" is removed from the
+ *  clone instead of styled: the clone goes through an <img>, which ignores
+ *  inline display, so removal is the only reliable exclusion. */
+const inlineSVGComputedStyles = (svgEl: SVGElement, clone: SVGElement): void => {
+  const originals = svgEl.querySelectorAll("*");
+  const clones = clone.querySelectorAll("*");
+  for (let i = 0; i < clones.length && i < originals.length; i++) {
+    const cs = window.getComputedStyle(originals[i]);
+    if (cs.getPropertyValue("display") === "none") {
+      clones[i].remove();
+      continue;
+    }
+    const inline = clones[i] as SVGElement;
+    for (const prop of SVG_STYLE_PROPS) {
+      const value = cs.getPropertyValue(prop);
+      if (!value || value === "none") continue;
+      // A standalone clone defaults to black fill; "painted black" needs no
+      // inline declaration and the skip keeps the serialised SVG small.
+      if (prop === "fill" && value === "rgb(0, 0, 0)") continue;
+      inline.style.setProperty(prop, value);
+    }
+  }
+};
+
+/** Record an image the export could not read back. Deduplicated by source
+ *  (the same sprite is referenced by many elements), collected on the render
+ *  context so the renderer can report and count it once. */
+const noteAssetFailure = (rc: RenderCtx, src: string, error: unknown): void => {
+  const failures = (rc.failedAssets ??= []);
+  if (failures.some(failure => failure.src === src)) return;
+  failures.push({
+    src,
+    reason: error instanceof Error ? error.message : String(error),
+  });
+};
+
+export {
+  isCorsBlocked,
+  pooledEach,
+  effectiveOpacity,
+  withAlpha,
+  inlineSVGComputedStyles,
+  noteAssetFailure,
+};

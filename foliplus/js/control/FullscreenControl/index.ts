@@ -1,7 +1,11 @@
 import { FULLSCREEN_CHANGE } from "./api.js";
 import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
-import { buildFullscreenChangeHandler, toggleFullscreen } from "./logic.js";
+import {
+  buildFullscreenChangeHandler,
+  releasePseudo,
+  toggleFullscreen,
+} from "./logic.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { ensureHint } from "#core/overlay/index.js";
 import { createIconButton, dom } from "#platform/dom.js";
@@ -51,6 +55,11 @@ const FullscreenControl = defineControl({
       },
     });
 
+    // Captured once here rather than read inside the handler: the mounting's
+    // signal getter throws after removal, and the button's own onclick is a raw
+    // DOM listener with nothing to unbind it.
+    const signal = this.signal;
+
     const fsBtn = createIconButton({
       class: `${PANEL_CLASS.TOOL_BTN} ${CLASSES.TOGGLE}`,
       title: this.T("title"),
@@ -59,7 +68,11 @@ const FullscreenControl = defineControl({
       parent: container,
       onclick: event => {
         L.DomEvent.stopPropagation(event);
-        toggleFullscreen(map, fsBtn, container, { config: this.config, T: this.T });
+        toggleFullscreen(map, fsBtn, container, {
+          config: this.config,
+          T: this.T,
+          signal,
+        });
       },
     });
 
@@ -79,6 +92,15 @@ const FullscreenControl = defineControl({
         T: this.T,
       }),
     );
+
+    // The pseudo session is this mounting's resource: the toggle is the only
+    // user gesture that can end it, and the mounting can go away mid-session
+    // (map.removeControl()). Nothing else strips the class — a stale
+    // leaflet-pseudo-fullscreen makes fullscreenSurface() resolve every
+    // body-level overlay's host to a container that no longer exists. Cleanups
+    // run while the mounting's signal is still live, so the in-flight native
+    // paths see a release, not a torn-down map.
+    this.effect(() => () => releasePseudo(map));
 
     return outer;
   },

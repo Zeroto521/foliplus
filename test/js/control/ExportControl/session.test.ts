@@ -1,7 +1,8 @@
+import { makeManager } from "./fixture.js";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import * as downloadMod from "#platform/download.js";
-import { ExportManager, canvasToBlob } from "#control/ExportControl/manager.js";
+import { canvasToBlob } from "#control/ExportControl/manager.js";
 import { ExportRenderer } from "#control/ExportControl/renderer/index.js";
 
 const modeMocks = vi.hoisted(() => ({
@@ -37,47 +38,6 @@ vi.mock("geotiff", () => ({
   writeArrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
 }));
 vi.mock("pako", async () => vi.importActual("pako"));
-
-function makeMapMock() {
-  const container = document.createElement("div");
-  return {
-    getContainer: () => container,
-    getBounds: () => ({
-      getSouth: () => -90,
-      getNorth: () => 90,
-      getEast: () => 180,
-      getWest: () => -180,
-    }),
-    latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
-    dragging: { disable: vi.fn(), enable: vi.fn() },
-    scrollWheelZoom: { disable: vi.fn(), enable: vi.fn() },
-    doubleClickZoom: { disable: vi.fn(), enable: vi.fn() },
-    boxZoom: { disable: vi.fn(), enable: vi.fn() },
-    keyboard: { disable: vi.fn(), enable: vi.fn() },
-    touchZoom: { disable: vi.fn(), enable: vi.fn() },
-    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
-    on: vi.fn(),
-    off: vi.fn(),
-    eachLayer: vi.fn(),
-  };
-}
-
-function makeManager(
-  scheduler?: (fn: () => void, ms: number) => ReturnType<typeof setTimeout>,
-) {
-  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
-  const manager = scheduler
-    ? new ExportManager(makeMapMock(), scheduler)
-    : new ExportManager(makeMapMock());
-  manager.showCropBox = vi.fn();
-  manager.lockCropBox = vi.fn();
-  manager.unlockCropBox = vi.fn();
-  manager.removeCropBox = vi.fn();
-  manager.updateBoxStyle = vi.fn();
-  manager.showHintWithInfo = vi.fn();
-  manager.showGlobalHint = vi.fn();
-  return manager;
-}
 
 function setCropState(
   manager: any,

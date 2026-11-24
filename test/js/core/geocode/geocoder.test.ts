@@ -182,7 +182,7 @@ describe("provider selection", () => {
 describe("custom provider (declarative dict)", () => {
   const custom = {
     id: "myapi",
-    baseUrl: "https://geo.example.com",
+    base_url: "https://geo.example.com",
     search: { url: "/search?q={q}" },
     reverse: { url: "/reverse?lon={lon}&lat={lat}" },
     normalize: {

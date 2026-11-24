@@ -497,6 +497,28 @@ describe("render — marker shadows", () => {
     expect(fixture.loads.some(src => src.includes("icon.png"))).toBe(true);
   });
 
+  it("reports and counts a content image the canvas could not read back", async () => {
+    // A content icon that fails to load used to vanish from the picture with no
+    // signal at all. The render aggregates every failed asset into one console
+    // line and counts it in lastStats, so a caller can tell a complete image
+    // from a holed one.
+    const fixture = makeFixture();
+    install(fixture);
+    (UTIL.loadImage as any).mockImplementation(async (src: string) => {
+      fixture.loads.push(src);
+      if (src.includes("icon.png")) throw new Error("tainted canvas");
+      return { src };
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await runRender(fixture);
+
+    expect(fixture.renderer.lastStats.failedAssets).toBe(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringMatching(/image left out of the export: ".*icon\.png"/),
+    );
+  });
+
   it("paints a shared shadow pane's shadows once each, never as content", async () => {
     // Two layers naming one custom shadow pane, and layer one's API answer
     // still lists that pane (its surface adopted it). Without the export-wide
