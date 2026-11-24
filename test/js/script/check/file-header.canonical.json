@@ -79,8 +79,9 @@
   "ui/schemePicker",
   "ui/schemePickerClassName",
   "ui/scrollIntoView",
-  "ui/selectAllState",
   "ui/slider",
+  "ui/checkbox",
+  "ui/checkboxClassName",
   "ui/sliderClassName",
   "ui/styleModeKey",
   "ui/type"

@@ -17,7 +17,11 @@ const events = vi.hoisted(() => ({
   emit: vi.fn(),
 }));
 
-vi.mock("#platform/storage.js", () => ({
+vi.mock("#platform/storage.js", async importOriginal => ({
+  // Keep the real key builder: CONST.STORAGE.KEY is derived from
+  // scopedStorageKey at import time, so the store persists under the same
+  // per-map key the production code computes.
+  ...(await importOriginal<typeof import("#platform/storage.js")>()),
   loadRecord: storage.loadRecord,
   saveRecord: storage.saveRecord,
   loadVersioned: storage.loadVersioned,

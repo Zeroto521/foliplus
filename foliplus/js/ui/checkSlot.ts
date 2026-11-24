@@ -2,14 +2,14 @@
 //
 // Every row that lets a user pick something shows an indicator in the same
 // leading cell. There are two shapes by selection mode:
-//   • multiple — a real <input type="checkbox"> with tri-state (ui/selectAllState),
+//   • multiple — a real <input type="checkbox"> with tri-state (ui/checkbox),
 //     used by the select-all row and every multiple-mode dropdown option.
 //   • single   — a ✓ glyph lead (aria-hidden, non-interactive), used by the
 //     single-mode dropdown option and the scheme picker's selected entry.
 // The caller owns the click / keyboard wiring and the value model; these
 // helpers only build the DOM and set the state, so one answer per mode.
 import { CHECK_SLOT_CLASS } from "./checkSlotClassName.js";
-import { type SelectAllState, selectAllStateOf } from "./selectAllState.js";
+import { type TriState, setCheckboxState, triStateOf } from "./checkbox.js";
 import { dom } from "#platform/dom.js";
 
 /** The ✓ a single-select row paints on its selected entry. */
@@ -26,7 +26,7 @@ type CheckboxSlot = {
 /** Build the multiple-mode check slot and paint its tri-state from item
  *  counts. The caller owns the click / keyboard wiring and the value model;
  *  this helper only builds the DOM and sets the state. `total` may be 0 — an
- *  empty list paints an unchecked box, never a half-full one (selectAllStateOf).
+ *  empty list paints an unchecked box, never a half-full one (triStateOf).
  */
 const buildCheckboxSlot = (total: number, selected: number): CheckboxSlot => {
   const box = dom.el("input", {
@@ -36,16 +36,14 @@ const buildCheckboxSlot = (total: number, selected: number): CheckboxSlot => {
     // input, so the row must not stamp its own on top of it.
     "aria-hidden": "false",
   }) as HTMLInputElement;
-  const verdict = selectAllStateOf(total, selected);
-  paintCheckSlot(box, verdict.state);
+  paintCheckSlot(box, triStateOf(total, selected));
   const slot = dom.el("span", { class: CHECK_SLOT_CLASS.SLOT }, box);
   return { slot, box };
 };
 
 /** Set an existing box to a tri-state without rebuilding it. */
-const paintCheckSlot = (box: HTMLInputElement, state: SelectAllState): void => {
-  box.checked = state === "all";
-  box.indeterminate = state === "indeterminate";
+const paintCheckSlot = (box: HTMLInputElement, state: TriState): void => {
+  setCheckboxState(box, state);
 };
 
 /** The single-mode lead: a glyph cell the caller paints ✓/empty. The caller

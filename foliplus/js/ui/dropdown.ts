@@ -25,12 +25,12 @@
 //    value and reports it through `onChange` / `getValue` / `getValues`.
 import { buildCheckboxSlot, buildLeadSlot } from "./checkSlot.js";
 import { CHECK_SLOT_CLASS } from "./checkSlotClassName.js";
+import { triStateOf } from "./checkbox.js";
 import { DROPDOWN_CLASS } from "./dropdownClassName.js";
 import { FORM_CLASS } from "./formClassName.js";
 import { createListbox } from "./listbox.js";
 import { MENU_ROW_CLASS } from "./menuRowClassName.js";
 import { applyOptionRowA11y } from "./optionRow.js";
-import { selectAllAction, selectAllStateOf } from "./selectAllState.js";
 import type { Dropdown, DropdownSurface } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -368,7 +368,7 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
   const selectAllRowOf = (): HTMLElement => {
     const total = state.items.length;
     const count = valuesOf(state).length;
-    const verdict = selectAllStateOf(total, count);
+    const verdict = triStateOf(total, count);
     const { slot, box } = buildCheckboxSlot(total, count);
     // The box is the row control: a real <input type="checkbox">, so focus,
     // keyboard and the indeterminate state all come from the platform. It is
@@ -378,25 +378,25 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
     const label = dom.el(
       "span",
       { class: DROPDOWN_CLASS.SELECT_ALL_LABEL },
-      verdict.allChecked
+      verdict === "checked"
         ? (opts.selectAllDeselectLabel ?? opts.selectAllLabel ?? "Select all")
         : (opts.selectAllLabel ?? "Select all"),
     );
     const row = dom.el("div", {
       role: "button",
-      "aria-pressed": String(verdict.allChecked),
+      "aria-pressed": String(verdict === "checked"),
       class: DROPDOWN_CLASS.SELECT_ALL_ROW,
     });
     const content = dom.el("span", { class: DROPDOWN_CLASS.ROW_CONTENT }, slot, label);
     row.append(content);
     // Pressing the row moves the whole set: everything picked clears it, anything
-    // less selects it all (selectAllAction — the layer toggle-all shares this).
+    // less selects it all (triStateOf — the layer toggle-all shares this rule).
     // The action answers the CURRENT state read at press time, not at build time:
     // a stale read would clear a partially-picked list on its first press.
     const act = (): void => {
       if (state.destroyed) return;
-      const now = selectAllStateOf(state.items.length, valuesOf(state).length);
-      if (selectAllAction(now.state) === "clear") clearValues();
+      const now = triStateOf(state.items.length, valuesOf(state).length);
+      if (now === "checked") clearValues();
       else selectAllValues();
     };
     // One dispatch, however the press lands: a row press forwards to the box,

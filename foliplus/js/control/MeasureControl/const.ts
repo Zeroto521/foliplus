@@ -1,5 +1,6 @@
 import type { ExportDataFormat } from "./type.js";
 import { DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
+import { scopedStorageKey } from "#platform/storage.js";
 
 /** Timing / delay constants. */
 const TIMING = {
@@ -110,7 +111,7 @@ const SEL = {
 /** Persistent storage key + the record shape's version stamp (positive
  * integer, incremented only when the record shape changes; readers accept
  * older/unknown values and never migrate). */
-const STORAGE = { KEY: `foliplus_measure_${map.getContainer().id}` };
+const STORAGE = { KEY: scopedStorageKey(map, "measure") };
 const RECORD_VERSION = 1;
 
 /** Filter capability: the one filterable field (the measurement type), and the
