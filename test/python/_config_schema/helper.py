@@ -34,8 +34,6 @@ from foliplus._config_schema import (
     validate_shape,
 )
 
-
-
 _JS_CONFIG_SCHEMA = Path(__file__).resolve().parents[3] / "foliplus/js/config-schema.ts"
 # Fields set on every control by BaseControl, not declared in a subclass —
 # JS reads them, Python exports them, neither side needs to enumerate them.
@@ -70,9 +68,11 @@ CONTROL_CLASSES: dict[str, type[BaseControl]] = {
     "ExportControl": ExportControl,
 }
 
+
 def _derived(name: str) -> dict[str, FieldSpec]:
     """Schema reflected from one control's signature."""
     return derive_schema(CONTROL_CLASSES[name])
+
 
 def _spec_dict(spec: FieldSpec) -> dict[str, object]:
     """JSON-friendly view of one field spec (for dump-shape assertions)."""
@@ -90,8 +90,10 @@ def _spec_dict(spec: FieldSpec) -> dict[str, object]:
         out["default"] = spec.default
     return out
 
+
 def _schema_dict(schema: dict[str, FieldSpec]) -> dict[str, dict[str, object]]:
     return {name: _spec_dict(spec) for name, spec in schema.items()}
+
 
 def _ts_short_to_control(short: str) -> str | None:
     """``Layer`` -> ``LayerControl``; ``Common`` -> ``None``.
@@ -104,7 +106,6 @@ def _ts_short_to_control(short: str) -> str | None:
     if short == "Common":
         return None
     return f"{short}Control"
-
 
 
 def _ts_interface_fields() -> dict[str, set[str]]:
@@ -131,13 +132,16 @@ def _ts_interface_fields() -> dict[str, set[str]]:
         out[name] = set(_JS_FIELD_RE.findall(body))
     return out
 
+
 def _py_control_field_sets() -> dict[str, set[str]]:
     """Python-emitted field set per control, from the same schema the JS side mirrors."""
     data = json.loads(schema_to_json())
     return {name: set(fields) for name, fields in data["controls"].items()}
 
+
 def _js_files() -> list[Path]:
     return [p for p in _JS_TS_ROOT.rglob("*.ts") if not p.name.endswith(".d.ts")]
+
 
 def _read_committed_fixture_defaults() -> dict[str, dict[str, object]]:
     """Parse ``CONFIG_DEFAULTS`` from the committed fixture, per control.
@@ -162,6 +166,7 @@ def _read_committed_fixture_defaults() -> dict[str, dict[str, object]]:
                 out[name][fname] = f"<unparsable: {raw}>"
     return out
 
+
 def _schema_defaults() -> dict[str, dict[str, object]]:
     """Python schema defaults per control: only the `default` key, when set."""
     out: dict[str, dict[str, object]] = {}
@@ -173,9 +178,11 @@ def _schema_defaults() -> dict[str, dict[str, object]]:
         }
     return out
 
+
 def _default_literal(value: object) -> str:
     """Render one Python default the way the fixture emitter would."""
     return repr(value)
+
 
 def _walk_specs() -> list[tuple[str, FieldSpec]]:
     """Iterate every FieldSpec in the schema (for parametrize helpers)."""

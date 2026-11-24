@@ -49,6 +49,7 @@ from .helper import (
     _walk_specs,
 )
 
+
 class TestSchemaTypes:
     """FieldSpec must render to a valid TS type and the tag must be known."""
 

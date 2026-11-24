@@ -30,6 +30,7 @@ from foliplus._declaration import (
     zoom_level,
 )
 
+
 class TestShouldReport:
     def test_first_report_is_true_and_the_repeat_is_false(self) -> None:
         store: set[tuple[str, ...]] = set()
@@ -62,6 +63,7 @@ class TestShouldReport:
         assert len(declarations) == _declaration.LOG_FILTER_CAP
 
         assert should_report(caption, captions) is False
+
 
 class TestWarnFoliplus:
     def test_the_same_note_warns_once(self) -> None:

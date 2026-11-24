@@ -30,6 +30,7 @@ from foliplus._declaration import (
     zoom_level,
 )
 
+
 class TestZoomLevel:
     def test_accepts_python_integers(self) -> None:
         assert zoom_level(0) == 0
@@ -49,6 +50,7 @@ class TestZoomLevel:
     )
     def test_rejects_non_integers(self, raw: object) -> None:
         assert zoom_level(raw) is None
+
 
 class TestNormaliseZoomRange:
     def test_absent_is_none_without_a_warning(self) -> None:

@@ -49,6 +49,7 @@ from .helper import (
     _walk_specs,
 )
 
+
 class TestSchemaCoverage:
     """Every control's signature must reflect to a non-empty schema."""
 
@@ -99,6 +100,7 @@ class TestSchemaCoverage:
                     f"declare its CONFIG fields as ``__init__`` parameters."
                 )
 
+
 class TestSchemaMatchesConfigFields:
     """Derived ``_config_fields`` must equal the schema's non-runtime keys."""
 
@@ -138,6 +140,7 @@ class TestSchemaMatchesConfigFields:
         for i, (a, b) in enumerate(zip(derived, expected)):
             assert a == b, f"{name}._config_fields[{i}] = {a!r}, schema[{i}] = {b!r}"
 
+
 class TestConfigKeyCollision:
     """Two parameters may not export the same CONFIG key.
 
@@ -165,6 +168,7 @@ class TestConfigKeyCollision:
 
         with pytest.raises(ValueError, match="exports CONFIG key 'zoomRange'"):
             derive_schema(Collision)
+
 
 class TestSchemaDefaultsMatchPython:
     """Every schema `default` must equal the value a default-constructed
@@ -206,6 +210,7 @@ class TestSchemaDefaultsMatchPython:
                     f"JSON null (got entry without a default key)."
                 )
 
+
 class TestDynamicFields:
     """Dynamic fields are declared in schema but not in _config_fields."""
 
@@ -219,6 +224,7 @@ class TestDynamicFields:
                 f"_config_fields: {sorted(overlap)} — dynamic means Python "
                 f"emits them via _extra_config, not as static fields."
             )
+
 
 class TestRuntimeZeroChange:
     """Rendering CONFIG must not consult the schema at runtime.

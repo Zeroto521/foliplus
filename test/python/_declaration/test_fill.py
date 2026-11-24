@@ -30,6 +30,7 @@ from foliplus._declaration import (
     zoom_level,
 )
 
+
 class TestNormaliseFill:
     def test_absent_is_none_without_a_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
