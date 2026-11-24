@@ -23,7 +23,7 @@
  *   node script/check/browser-probe.mjs --strict --json browser-probe.json
  *   node script/check/browser-probe.mjs --github-summary
  */
-import { repoRoot } from "../build-path.mjs";
+import { repoRoot } from "../build/build-path.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";

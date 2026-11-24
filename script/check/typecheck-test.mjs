@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
  *  is identical to the old `repoRoot(import.meta.url)` — both land on the
  *  tree that owns the script. The difference is that a caller running
  *  this script from a different tree (e.g. `node
- *  /main/checkout/script/typecheck-test.mjs` from a worktree) now checks
+ *  /main/checkout/script/check/typecheck-test.mjs` from a worktree) now checks
  *  the worktree, not the main checkout.
  *
  *  Pass `--root <dir>` to target a specific tree explicitly.

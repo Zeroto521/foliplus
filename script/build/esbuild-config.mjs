@@ -13,13 +13,13 @@
  * (`minify`, `format`, `keepNames`, `sourcemap`, `allowOverwrite`) and
  * skip `plugins` — they are JS functions and don't serialize to CLI flags.
  *
- * Path aliases and `srcDir` come from `script/build-path.mjs` — the one
+ * Path aliases and `srcDir` come from `script/build/build-path.mjs` — the one
  * spelling shared with vitest and the build scripts. No esbuild `target`
  * is set (see that module); adding one would change emitted JS.
  */
-import { pathAliases, resolveJsRoot } from "../build-path.mjs";
-import { resolveVersion } from "../version.mjs";
+import { pathAliases, resolveJsRoot } from "./build-path.mjs";
 import { createSourceTransformPlugin } from "./source-transform-plugin.mjs";
+import { resolveVersion } from "./version.mjs";
 import autoprefixer from "autoprefixer";
 import { readFileSync } from "fs";
 import postcss from "postcss";

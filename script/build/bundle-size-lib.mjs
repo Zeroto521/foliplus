@@ -18,8 +18,8 @@
  * This module has no CLI of its own — it is imported by the two gates.
  */
 import { parseArgs as parseArgsCore } from "../args.mjs";
-import { repoRoot } from "../build-path.mjs";
-import { DIST_MARKER } from "./distMarker.mjs";
+import { repoRoot } from "./build-path.mjs";
+import { DIST_MARKER } from "./dist-marker.mjs";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 import { brotliCompressSync } from "zlib";
@@ -88,7 +88,7 @@ const readSizes = (root = ROOT) => {
 // Both gates measure the MINIFIED dist. A "build:dev" run leaves the same
 // foliplus/dist holding unminified output -- roughly double the brotli size --
 // so a gate pointed at it reports breaches that do not exist in what ships.
-// build.mjs marks that state with the .dev-build marker (distMarker.mjs); both
+// build.mjs marks that state with the .dev-build marker (dist-marker.mjs); both
 // gates consult this one helper so neither re-derives the marker path, and both
 // refuse to measure a dev dist instead of publishing a misleading verdict.
 /**

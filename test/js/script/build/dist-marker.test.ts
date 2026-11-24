@@ -6,11 +6,11 @@ import {
   assertNoSurvivorMarker,
   planDistMarker,
   settleDistMarker,
-} from "#script/build/distMarker.mjs";
+} from "#script/build/dist-marker.mjs";
 
 // The plan/settle/assert contract that lets bundle-fuse/bundle-size-check/
 // browser-probe skip their absolute-cap cases on a successful dev build and
-// fail loudly otherwise. Isolated in script/build/distMarker.mjs so it is
+// fail loudly otherwise. Isolated in script/build/dist-marker.mjs so it is
 // testable without importing build.mjs's CFG/argv-driven entry. Each case uses
 // its own mkdtemp distDir so the assertions never touch the real foliplus/dist.
 describe("dist-mode marker lifecycle", () => {

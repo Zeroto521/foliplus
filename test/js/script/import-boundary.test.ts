@@ -1,11 +1,11 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
-import { dirname, join, resolve } from "path";
+import { dirname, join, posix, resolve } from "path";
 import { describe, expect, it } from "vitest";
 // The bottom tier's directory is not re-spelled here: it must equal the
 // shared-module prefixes build-path derives from ALIAS_TO_REL, so a tier
 // rename lands in build-path and this test's TIER stays honest (red here
 // until TIER follows).
-import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
+import { SHARED_MODULE_PREFIXES } from "#script/build/build-path.mjs";
 
 // Import-boundary rules for the production JS tree (foliplus/js).
 //
@@ -104,13 +104,18 @@ const walk = (dir: string): string[] => {
 };
 
 const IMPORT_RE = /from[ ]*["'][^"']+["']/g;
+// A relative specifier ("./x.js", "../y.js") is the second spelling of an
+// import edge. It is kept here, not dropped: the tier rules must judge it the
+// same way they judge a "#" alias, or a relative import silently bypasses the
+// boundary matrix (the pre-tightening behaviour).
+const RELATIVE_RE = /^\.{1,2}\//;
 const readImports = (src: string): Set<string> => {
   const out = new Set<string>();
   let m: RegExpExecArray | null;
   IMPORT_RE.lastIndex = 0;
   while ((m = IMPORT_RE.exec(src))) {
     const spec = m[0].replace(/^from[ ]*["']/, "").replace(/["']$/, "");
-    if (spec.startsWith("#")) out.add(spec);
+    if (spec.startsWith("#") || RELATIVE_RE.test(spec)) out.add(spec);
   }
   return out;
 };
@@ -277,7 +282,7 @@ const ALLOWED: ReadonlyArray<{
 // barrel (#core/<cluster>/index.js).
 //
 // Only two classes of exception exist, and both are structural:
-//  1. paths-as-data files (build-path.test.ts, import-boundary.test.ts) —
+//  1. paths-as-data files (script/build/build-path.test.ts, import-boundary.test.ts) —
 //     they CONSTRUCT and ASSERT #core path strings as data (build-path
 //     resolves alias prefixes, import-boundary exercises the very rule), so
 //     a real-import scan of their source is meaningless. They are exempt at
@@ -309,7 +314,7 @@ const TEST_JS_ALLOWED: ReadonlyArray<{
 
 // Files exempt from the test/js barrel rule at the FILE level (paths-as-data).
 const TEST_JS_FILE_EXEMPT = new Set([
-  "script/build-path.test.ts",
+  "script/build/build-path.test.ts",
   "script/import-boundary.test.ts",
 ]);
 
@@ -352,6 +357,25 @@ const resolveTarget = (fromRel: string, spec: string): string | null => {
     return `${base}/${rest}`;
   }
   return null;
+};
+
+// Resolve a relative specifier to the repo-relative path it names.
+// Returns null when the path climbs out of foliplus/js: it then names no tier
+// and cannot be judged by the layer matrix (reported separately).
+const resolveRelative = (fromRel: string, spec: string): string | null => {
+  const target = posix.normalize(posix.join(posix.dirname(fromRel), spec));
+  return target.startsWith("foliplus/js/") ? target : null;
+};
+
+// The alias an equivalent "#" import would use, so a relative import reaches
+// the SAME rule path (tier direction, control namespace, barrel) as the alias.
+const aliasForTarget = (target: string): string | null => {
+  const control = target.match(/^foliplus\/js\/control\/([A-Za-z0-9]+)\/(.+)$/);
+  if (control) return `#control/${control[1]}/${control[2]}`;
+  const tier = target.match(/^foliplus\/js\/(platform|ui|core)\/(.+)$/);
+  if (tier) return `#${tier[1]}/${tier[2]}`;
+  const root = target.match(/^foliplus\/js\/(.+)$/);
+  return root ? `#foliplus/${root[1]}` : null;
 };
 
 // The barrel rule: which imports must go through a tier barrel.
@@ -429,7 +453,23 @@ const collect = (): Array<[string, string, string]> => {
     const comp = componentOf(rel);
     const src = readFileSync(file, "utf-8");
     const imports = readImports(src);
-    for (const spec of imports) {
+    for (const rawSpec of imports) {
+      let spec = rawSpec;
+      if (!spec.startsWith("#")) {
+        // A relative import is the other spelling of the same edge: resolve it
+        // to the alias the matrix judges, so it cannot bypass a tier rule.
+        const target = resolveRelative(rel, spec);
+        const alias = target ? aliasForTarget(target) : null;
+        if (!alias) {
+          problems.push([
+            rel.replace("foliplus/js/", ""),
+            rawSpec,
+            "relative import escapes foliplus/js",
+          ]);
+          continue;
+        }
+        spec = alias;
+      }
       const allowed = allowedFor(rel);
       const reason = allowed.get(spec);
       if (reason) continue;
@@ -476,7 +516,10 @@ const collect = (): Array<[string, string, string]> => {
       // (e.g. #control/LayerControl/ui/focus/marqueeShape.js) that resolves to the
       // same directory adds a layer of indirection with no benefit, and lets the
       // directory be renamed without the call sites following.
-      if (spec.startsWith("#")) {
+      // Rule 4 judges the SPELLING, so it runs on genuinely "#" imports only:
+      // a relative import translated above would otherwise be told to become
+      // relative.
+      if (rawSpec.startsWith("#")) {
         const fileDir = dirname(rel);
         const target = resolveTarget(rel, spec);
         if (target && dirname(target) === fileDir) {
@@ -717,6 +760,40 @@ const collectTestJsFrom = (
   }
   return problems;
 };
+
+// The tier rules only ever saw "#" specifiers before this tightening: a
+// relative import of "../core/x.js" bypassed the whole matrix. These pin that
+// both spellings now reach the same judgment (the RED proof is the temporary
+// outward import this guard used to pass).
+describe("relative specifiers are judged by the same matrix", () => {
+  it("readImports keeps relative specifiers, not only # aliases", () => {
+    expect([...readImports('import { a } from "../core/layer/index.js";')]).toEqual([
+      "../core/layer/index.js",
+    ]);
+  });
+
+  it("a relative upward import resolves to the alias the rules judge", () => {
+    const target = resolveRelative(
+      "foliplus/js/platform/dom.ts",
+      "../core/layer/index.js",
+    );
+    expect(target).toBe("foliplus/js/core/layer/index.js");
+    expect(aliasForTarget(target!)).toBe("#core/layer/index.js");
+  });
+
+  it("a same-directory relative import resolves to its same-tier alias", () => {
+    const target = resolveRelative("foliplus/js/platform/dom.ts", "./cache.js");
+    expect(target).toBe("foliplus/js/platform/cache.js");
+    expect(aliasForTarget(target!)).toBe("#platform/cache.js");
+  });
+
+  it("a relative path that escapes foliplus/js names no tier", () => {
+    // Built segment-by-segment: a literal parent chain in a test source trips
+    // the no-deep-parent-chain guard, which scans source text, not imports.
+    const escaped = ["..", "..", "..", "script", "x.js"].join("/");
+    expect(resolveRelative("foliplus/js/platform/dom.ts", escaped)).toBeNull();
+  });
+});
 
 describe("barrelFor rejects synthetic violations", () => {
   it("an external consumer's deep path is a cross-tier violation", () => {

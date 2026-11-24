@@ -4,7 +4,7 @@ import {
   buildRows,
   parseArgs,
 } from "#script/build/bundle-size-check.mjs";
-import { FAIL, OK, STATUS, WARN } from "#script/glyph.mjs";
+import { FAIL, OK, STATUS, WARN } from "#script/build/glyph.mjs";
 
 const GlyphArgs = (argv: string[] = []): { threshold: number } =>
   parseArgs(argv) as unknown as { threshold: number };

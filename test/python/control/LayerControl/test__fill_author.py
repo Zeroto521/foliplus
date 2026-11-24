@@ -63,6 +63,13 @@ _DECLARED_READ = _js("LayerControl/fill_declared_read")
 _layer_control_mod = importlib.import_module(
     "foliplus.control.LayerControl._fill_author"
 )
+_scale_mod = importlib.import_module("foliplus.control.LayerControl._fill_author.scale")
+_colormap_mod = importlib.import_module(
+    "foliplus.control.LayerControl._fill_author.colormap"
+)
+_payload_mod = importlib.import_module(
+    "foliplus.control.LayerControl._fill_author.payload"
+)
 
 
 def _collection(
@@ -358,7 +365,7 @@ def test_feature_without_properties_is_skipped():
 
 
 def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
-    monkeypatch.setattr(_layer_control_mod, "FILL_AUTHOR_SCAN_LIMIT", 2)
+    monkeypatch.setattr(_scale_mod, "FILL_AUTHOR_SCAN_LIMIT", 2)
     # A layer sorted by the painted value: a head-only scan would see one class
     # and read the whole layer as a single color.
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90", "#f0f921"]))
@@ -385,14 +392,14 @@ def test_a_caption_sample_skips_values_the_scale_cannot_draw(monkeypatch):
     scale = _linear()
     values = [10.0, 40.0, 90.0]
     rows = [({"score": value}, str(scale(value))[:7]) for value in values]
-    original = _layer_control_mod.colormap_sample
+    original = _colormap_mod.colormap_sample
     calls = {"count": 0}
 
     def flaky(colormap: object, value: object) -> str | None:
         calls["count"] += 1
         return None if calls["count"] == 1 else original(colormap, value)
 
-    monkeypatch.setattr(_layer_control_mod, "colormap_sample", flaky)
+    monkeypatch.setattr(_colormap_mod, "colormap_sample", flaky)
     hits, total = _layer_control_mod.column_agreement(scale, rows, "score")
 
     # One feature could not be sampled: it neither counts nor breaks agreement.
@@ -591,7 +598,7 @@ def test_a_scale_without_stops_is_not_shipped(monkeypatch):
     colors = [str(scale(value))[:7] for value in values]
     layer = _geo(colors, values=values)
     monkeypatch.setattr(
-        _layer_control_mod,
+        _payload_mod,
         "scale_payload",
         lambda colormap, column: ({"kind": "continuous"}, []),
     )
@@ -601,7 +608,7 @@ def test_a_scale_without_stops_is_not_shipped(monkeypatch):
 
 
 def test_more_than_the_strip_cap_is_capped(monkeypatch):
-    monkeypatch.setattr(_layer_control_mod, "FILL_AUTHOR_STOPS", 2)
+    monkeypatch.setattr(_scale_mod, "FILL_AUTHOR_STOPS", 2)
     meta = _meta(_geo(["#0d0887", "#f0f921", "#6a00a8"]))
 
     assert meta["capped"] is True

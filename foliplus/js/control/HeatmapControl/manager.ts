@@ -62,8 +62,10 @@ import {
   type ClassifyMethod,
   SCHEME_FALLBACK_COLOR,
   isClassifyMethod,
+  isInternalProperty,
 } from "#core/value/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
@@ -74,7 +76,6 @@ import {
   type CanvasLabelStyle,
   clampBorderWeight,
   clampLabelSize,
-  normalizeHexColor,
 } from "#ui/index.js";
 
 /** Adopt a method name only when it is one of the four the classifier
@@ -965,6 +966,7 @@ class HeatmapManager {
         // widen this — the field scan is fed by the GeoJSON reader, not by
         // arbitrary objects.)
         for (const fieldName in props) {
+          if (isInternalProperty(fieldName)) continue;
           if (typeof props[fieldName] === "number" && !seen.has(fieldName)) {
             seen.add(fieldName);
             fields.push(fieldName);

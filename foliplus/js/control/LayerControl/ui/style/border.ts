@@ -86,6 +86,7 @@ import {
   type DisplayModeSpec,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { withUnit } from "#platform/format.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
@@ -99,7 +100,6 @@ import {
   createSchemePicker,
   dropdownOf,
   inlineControls,
-  normalizeHexColor,
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";

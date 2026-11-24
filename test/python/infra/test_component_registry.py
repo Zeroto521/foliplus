@@ -44,7 +44,10 @@ def discover_python_controls() -> set[str]:
             continue
         if not control.is_file():
             continue
-        if stem in _NON_CONTROL_MODULES:
+        # Package infrastructure (__init__.py) and private helper modules are
+        # not control components: foliplus/control is now a regular package,
+        # so the glob also yields its __init__.py.
+        if stem in _NON_CONTROL_MODULES or stem.startswith("_"):
             continue
         names.add(stem)
     return names

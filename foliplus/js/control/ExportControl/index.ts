@@ -43,6 +43,10 @@ const ExportControl = defineControl<ExportManager>({
   },
   destroy(this: any) {
     if (this.manager?.cropState) this.manager.removeCropBox();
+    // Abort, don't merely forget: an in-flight export owns the blocker overlay,
+    // the map lock, the mode claim and a render generation. destroy() is the
+    // only caller that can outlive the pipeline, so it must retire them all.
+    this.manager?.abortExport();
     this.manager?.unregisterShortcuts();
   },
 });
