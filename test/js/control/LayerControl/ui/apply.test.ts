@@ -2341,3 +2341,81 @@ it("notifyDelta raises a single layer's consumer failure after its fan-out", () 
 
   expect(seen).toEqual([entry.id]);
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Nested groups: the executor removes the WHOLE group in one call and lets
+// Leaflet cascade, so a grandchild leaves the map with its parent. A future
+// change that switches the group-row write to a per-child walk (the #1284
+// container-expand shape) would leave grandchildren on the map while the
+// parent checkbox reads unchecked — this pins the cascade.
+// ────────────────────────────────────────────────────────────────────────
+
+/** A membership-tracking map that emulates Leaflet's recursive cascade:
+ *  removing a container removes every descendant it owns. */
+const makeCascadeMap = () => {
+  installLeafletGlobals();
+  const members = new Set<unknown>();
+  const parents = new Map<unknown, unknown[]>();
+  const map = {
+    on: vi.fn(),
+    off: vi.fn(),
+    eachLayer: vi.fn(),
+    invalidateSize: vi.fn(),
+    hasLayer: vi.fn((l: unknown) => members.has(l)),
+    addLayer: vi.fn((l: any) => {
+      members.add(l);
+      for (const kid of parents.get(l) ?? []) map.addLayer(kid);
+    }),
+    removeLayer: vi.fn((l: any) => {
+      members.delete(l);
+      for (const kid of parents.get(l) ?? []) map.removeLayer(kid);
+    }),
+    fitBounds: vi.fn(),
+    flyTo: vi.fn(),
+    getZoom: vi.fn(() => 5),
+  };
+  return {
+    map,
+    register: (parent: unknown, kids: unknown[]) => parents.set(parent, kids),
+  };
+};
+
+/** A group node exposing its kids through eachLayer (Leaflet LayerGroup shape). */
+const cascadeGroup = (kids: unknown[]) => ({
+  options: {},
+  eachLayer: (fn: (c: unknown) => void) => {
+    for (const k of kids) fn(k);
+  },
+});
+
+it("unchecking a nested group hides its grandchild (Leaflet cascade)", () => {
+  const { map, register } = makeCascadeMap();
+  const marker = { options: {}, eachLayer: undefined };
+  const inner = cascadeGroup([marker]);
+  const outer = cascadeGroup([inner]);
+  register(outer, [inner]);
+  register(inner, [marker]);
+
+  const layerInfo = {
+    id: "a",
+    layer: outer,
+    canvas: undefined,
+  } as unknown as Parameters<typeof dispatchStateOp>[1];
+  const ui = {
+    c: {
+      map,
+      surfaceFor: () => ({ capabilities: { visibility: "native" } }),
+      findLayer: vi.fn(),
+    },
+  } as unknown as LayerUI;
+
+  map.addLayer(outer);
+  expect(map.hasLayer(marker)).toBe(true);
+
+  dispatchStateOp(ui, layerInfo, { type: "visible", value: false });
+  // The control removes the WHOLE group in one call and lets Leaflet cascade;
+  // a per-child loop would call removeLayer for the inner group and the marker
+  // too. The first call is the control's own: the whole group, not a child.
+  expect(map.removeLayer.mock.calls[0][0]).toBe(outer);
+  expect(map.hasLayer(marker)).toBe(false);
+});

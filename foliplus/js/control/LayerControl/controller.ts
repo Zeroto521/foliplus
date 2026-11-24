@@ -94,6 +94,9 @@ import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
+import { authorGlyphName } from "#control/LayerControl/ui/style/icon.js";
+import { authorIconColor } from "#control/LayerControl/ui/style/iconColor.js";
+import { resolveChassisPaint } from "#control/LayerControl/ui/style/markerColor.js";
 import { DIM_ORDER, getDimension } from "#control/LayerControl/ui/style/registry.js";
 
 type LayerControllerEnv = {
@@ -233,9 +236,16 @@ type FolderCreateResult =
 type FolderRenameResult = { ok: true } | { ok: false; reason: FolderRefusalReason };
 
 /** Table-driven style-snapshot readers — the single source of truth for
- *  how one dimension's intent value maps onto a LayerStyleSnapshot key.
+ *  how one dimension's value maps onto a LayerStyleSnapshot key.
  *  Adding a new style dimension = add a DIM enum entry + a descriptor (in
  *  dimTable.ts) + ONE row here; the getStyle() body never changes.
+ *
+ *  Every reader publishes the EFFECTIVE value, never just the panel intent:
+ *  fill / border / size / opacity resolve it inside their value() reader,
+ *  and the icon dimensions fall back to the author's declared glyph / color
+ *  / chassis here when no user intent is stored. A reader that only read
+ *  intent left the snapshot without a value for a layer the user never
+ *  touched, even though the map paints the author's declaration.
  *
  *  Each entry receives the layer UI, id, and registry entry (fill / border
  *  use layerInfo.fillAuthor to resolve perFeature); returning undefined
@@ -308,22 +318,40 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
   },
   [DIM.ICON]: (ui, id) => {
     const v = getDimension<IconIntent>(DIM.ICON)?.value(ui, id);
-    return v ? { icon: { glyph: v.value } } : undefined;
+    if (v) return { icon: { glyph: v.value } };
+    // No user intent: report the author's declared glyph — the icon the map
+    // actually draws. A gate-rejected surface carries no marker icon, so it
+    // stays absent rather than inventing one.
+    if (!getDimension(DIM.ICON)?.gate(ui, id)) return undefined;
+    const author = authorGlyphName(ui, id);
+    return author ? { icon: { glyph: author.name } } : undefined;
   },
   [DIM.ICON_COLOR]: (ui, id) => {
     const v = getDimension<{ value?: string; opacity?: number }>(DIM.ICON_COLOR)?.value(
       ui,
       id,
     );
-    if (!v) return undefined;
-    return { icon: { color: v.value, colorOpacity: v.opacity } };
+    if (v) return { icon: { color: v.value, colorOpacity: v.opacity } };
+    if (!getDimension(DIM.ICON_COLOR)?.gate(ui, id)) return undefined;
+    const authorColor = authorIconColor(ui, id);
+    // 100% is the row's default when the author declares no glyph opacity.
+    return authorColor
+      ? { icon: { color: authorColor, colorOpacity: 100 } }
+      : undefined;
   },
   [DIM.MARKER_COLOR]: (ui, id) => {
     const v = getDimension<{ value?: string; opacity?: number }>(
       DIM.MARKER_COLOR,
     )?.value(ui, id);
-    if (!v) return undefined;
-    return { icon: { markerColor: v.value, markerColorOpacity: v.opacity } };
+    if (v) return { icon: { markerColor: v.value, markerColorOpacity: v.opacity } };
+    if (!getDimension(DIM.MARKER_COLOR)?.gate(ui, id)) return undefined;
+    const layer = ui.c.findLayer(id);
+    if (!layer) return undefined;
+    // The chassis the map draws: author chassis / declared marker_color /
+    // the awesome-markers default — the same resolver the row and apply use.
+    return {
+      icon: { markerColor: resolveChassisPaint(layer), markerColorOpacity: 100 },
+    };
   },
 };
 

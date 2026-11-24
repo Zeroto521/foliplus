@@ -220,6 +220,18 @@ class EventBus {
     return failure;
   }
 
+  /** Resolve the trailing origin argument the way every emit/publish variant
+   *  must: a void event takes args[0] as its origin (no payload slot), a
+   *  payload event takes the trailing args[1]. Shared so the five variants
+   *  cannot drift apart. */
+  private resolveOrigin(event: string, args: unknown[]): EventOrigin | undefined {
+    return isVoidEvent(event)
+      ? (args[0] as EventOrigin | undefined)
+      : args.length > 1
+        ? (args[1] as EventOrigin | undefined)
+        : undefined;
+  }
+
   /** Emit an event. A known event (in `EventPayloadMap`) requires its payload
    *  when the payload is non-void — the conditional rest tuple makes an
    *  omitted payload a type error at the emit site, which is the load-bearing
@@ -252,11 +264,7 @@ class EventBus {
   emit(event: string, ...args: unknown[]): void {
     this.assertPublishable(event);
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
-    const origin = isVoidEvent(event)
-      ? (args[0] as EventOrigin | undefined)
-      : args.length > 1
-        ? (args[1] as EventOrigin | undefined)
-        : undefined;
+    const origin = this.resolveOrigin(event, args);
     this.dispatch(
       event,
       payload,
@@ -291,11 +299,7 @@ class EventBus {
   emitSuperseding(event: string, supersedeKey: string, ...args: unknown[]): void {
     this.assertPublishable(event);
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
-    const origin = isVoidEvent(event)
-      ? (args[0] as EventOrigin | undefined)
-      : args.length > 1
-        ? (args[1] as EventOrigin | undefined)
-        : undefined;
+    const origin = this.resolveOrigin(event, args);
     this.dispatch(
       event,
       payload,
@@ -326,11 +330,7 @@ class EventBus {
   ): DispatchFailure | undefined;
   emitSettled(event: string, ...args: unknown[]): DispatchFailure | undefined {
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
-    const origin = isVoidEvent(event)
-      ? (args[0] as EventOrigin | undefined)
-      : args.length > 1
-        ? (args[1] as EventOrigin | undefined)
-        : undefined;
+    const origin = this.resolveOrigin(event, args);
     return this.dispatch(
       event,
       payload,
@@ -364,11 +364,7 @@ class EventBus {
     ...args: unknown[]
   ): DispatchFailure | undefined {
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
-    const origin = isVoidEvent(event)
-      ? (args[0] as EventOrigin | undefined)
-      : args.length > 1
-        ? (args[1] as EventOrigin | undefined)
-        : undefined;
+    const origin = this.resolveOrigin(event, args);
     return this.dispatch(
       event,
       payload,
@@ -392,11 +388,7 @@ class EventBus {
   ): void;
   publish(event: string, ...args: unknown[]): void {
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
-    const origin = isVoidEvent(event)
-      ? (args[0] as EventOrigin | undefined)
-      : args.length > 1
-        ? (args[1] as EventOrigin | undefined)
-        : undefined;
+    const origin = this.resolveOrigin(event, args);
     const failure = this.dispatch(
       event,
       payload,

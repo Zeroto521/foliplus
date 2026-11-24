@@ -2,6 +2,7 @@ import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { scopedStorageKey } from "#platform/storage.js";
 import {
+  CHECKBOX_CLASS,
   DEFAULT_LABEL_COLOR,
   LABEL_CLASS,
   LABEL_SIZE,
@@ -100,7 +101,7 @@ const CLASSES = {
   /** The control shell class (the container every layer row floats over). */
   CTRL: "foliplus-layer-ctrl",
   ACTIVE: "foliplus-active",
-  CHECKBOX: "foliplus-checkbox",
+  CHECKBOX: CHECKBOX_CLASS.WRAPPER,
   /** The row's leading rail: the grid slot that holds the fold chevron (role /
    *  folder rows), the layer tree-line (├/└, root dash) and the hover drag
    *  grip. One slot, three occupants by row kind — never renamed again. */

@@ -16,7 +16,6 @@ import { INTENT, getIntent } from "../intent.js";
 import { inZoomRange, intentVisibleOf, projectLayer } from "../projection.js";
 import { ROW_NOUN, withNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
-import { triState } from "./checkbox.js";
 import {
   ROLE,
   countChildLayersOf,
@@ -26,6 +25,7 @@ import {
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
+import { setCheckboxState } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import * as Util from "#control/LayerControl/util.js";
@@ -401,33 +401,19 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-/** Write one row checkbox's binary visual. `applyRowView` writes the
+/** Write one row checkbox's binary visual. applyRowView writes the
  *  registry rows (from the intent projection); a child row has no intent store
  *  — its membership is the map's fact — so this is the one binary write, kept
- *  in the row-view writer so the charter still has a single writer. */
+ *  in the row-view writer so the charter still has a single writer. The paint
+ *  itself is the shared checkbox primitive's, so a child box cannot drift from
+ *  the registry rows' boxes. */
 const writeRowChecked = (input: HTMLInputElement, checked: boolean): void => {
-  input.checked = checked;
-};
-
-/** Write a checkbox's tri-state visual (checked / indeterminate /
- *  aria-checked) from a `{ total, on }` aggregate. This is a row visual
- *  write, so it lives in the single row-view writer (the charter that
- *  confines every row visual write to rowView.ts). Both the role row and the
- *  folder row compute their aggregate from the same visibility projection
- *  and call this to paint the checkbox — a layer row's own checkbox is
- *  always binary and never goes through here. */
-const writeTriState = (input: HTMLInputElement, total: number, on: number): void => {
-  // The rule is the shared tri-state answer; the WRITE stays here so the
-  // rowView guard still sees one writer for the checkbox slot.
-  const { checked, indeterminate } = triState(total, on);
-  input.checked = checked;
-  input.indeterminate = indeterminate;
-  input.setAttribute("aria-checked", indeterminate ? "mixed" : String(checked));
+  setCheckboxState(input, checked ? "checked" : "unchecked");
 };
 
 /** Write the role row's count cell — text and tooltip — from the same
  *  `{ total, on }` aggregate the tri-state checkbox paints. A row visual
- *  write, so it lives in the single row-view writer alongside writeTriState. */
+ *  write, so it lives in the single row-view writer. */
 const writeRoleCount = (
   row: Element,
   total: number,
@@ -454,6 +440,5 @@ export {
   roleCountText,
   rowView,
   writeRoleCount,
-  writeTriState,
 };
 export type { RowCell, RowLabels, RowView };

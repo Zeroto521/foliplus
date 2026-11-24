@@ -12,7 +12,7 @@ from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 from ._fill_author import fill_author, map_colormaps
-from ._folder import normalise_folders
+from ._folder import _folder_key, normalise_folders, warn_unclaimed_folders
 from ._layer import (
     declared_border,
     declared_filter,
@@ -362,6 +362,7 @@ class LayerControl(BaseControl):
         """
         data: list[dict[str, object]] = []
         seen: set[str] = set()
+        claimed_folders: set[tuple[str, str]] = set()
         candidates: list[Element] = [*self._children.values()]
         if (parent := self._parent) is not None:
             candidates += [*parent._children.values()]
@@ -397,6 +398,7 @@ class LayerControl(BaseControl):
             folder = declared_folder(item, item.layer_name)
             if folder is not None:
                 entry["folder"] = folder
+                claimed_folders.add((layer_role(item), _folder_key(folder)))
             filter_decl = declared_filter(item, item.layer_name)
             if filter_decl is not None:
                 entry[FILTER_KEY] = filter_decl
@@ -421,6 +423,11 @@ class LayerControl(BaseControl):
         # conflict: the JS side merges same-name declarations of the same role
         # into one authorFolderId (folder = role name, one role may
         # hold many member rows). Each declaring layer simply emits the name.
+
+        # A central folders= declaration no layer claims never reaches the
+        # panel, so its folded default silently fails: warn once per miss so
+        # the author can fix the name (never raise, never drop the entry).
+        warn_unclaimed_folders(self.folders, claimed_folders)
 
         # Stable ordering: overlays first, then base layers (matches JS enforceOrder).
         data.sort(key=lambda d: d["role"] == "base")

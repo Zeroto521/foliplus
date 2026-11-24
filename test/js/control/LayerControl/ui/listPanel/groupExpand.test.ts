@@ -4,7 +4,7 @@
 // renders one row per direct child, keyed by parent::stamp, with its own
 // checkbox and more button. Collapsing removes them. The count column on the
 // group row stays the direct-child count — expanding never changes it.
-import { attachedPanel, initFixture, installLeafletGlobals } from "./fixture.js";
+import { attachedPanel, initFixture, installLeafletGlobals } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";

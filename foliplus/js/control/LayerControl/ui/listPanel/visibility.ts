@@ -12,14 +12,9 @@ import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { resolveChild } from "./childRow.js";
 import { refreshAllChildRows, refreshChildRows } from "./groupExpand.js";
-import {
-  applyRowView,
-  buildRowCell,
-  countTooltip,
-  writeRoleCount,
-  writeTriState,
-} from "./rowView.js";
+import { applyRowView, buildRowCell, countTooltip, writeRoleCount } from "./rowView.js";
 import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
+import { setCheckboxState, triStateOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
 /** The rows of one role, in DOM order. A panel that is gone has none — the
@@ -169,7 +164,10 @@ const syncFolderRows = (
     if (!folderKey) continue;
     const vis = agg.folders.get(folderKey) ?? { total: 0, on: 0 };
     const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
-    if (box) writeTriState(box, vis.total, vis.on);
+    // Same single tri-state paint the creation path used (now the shared
+    // ui/checkbox primitive), so an in-place refresh cannot drift from a
+    // freshly built header.
+    if (box) setCheckboxState(box, triStateOf(vis.total, vis.on));
     row.classList.toggle(CONST.CLASSES.ACTIVE, vis.on > 0);
     writeRoleCount(row, vis.total, vis.on);
   }
@@ -203,8 +201,9 @@ const writeToggleAllCheckbox = (
   c: RoleAggregates,
 ): void => {
   // One tri-state writer for every group row: the role header and the folder
-  // headers paint checked / indeterminate / aria-checked from the same rule.
-  writeTriState(allCb, c.total, c.on);
+  // headers paint checked / indeterminate / aria-checked from the same rule
+  // (the shared ui/checkbox primitive's setCheckboxState).
+  setCheckboxState(allCb, triStateOf(c.total, c.on));
   allCb.title = ui.T(
     allCb.checked || allCb.indeterminate
       ? "toggle_all_deselect_tooltip"

@@ -126,3 +126,45 @@ def normalise_folders(
                 merged[key] = {"name": name, "folded": folded}
         out[section] = list(merged.values())
     return out
+
+
+def warn_unclaimed_folders(
+    folders: dict[str, list[dict[str, object]]] | None,
+    claimed: set[tuple[str, str]],
+    *,
+    owner: str = "LayerControl",
+    source: str = "folders",
+) -> None:
+    """Warn once per centrally declared folder no layer claims.
+
+    A ``folders=[...]`` entry whose name no layer declares via
+    ``foliplus={"folder": ...}`` never appears on the panel, so its author
+    ``folded`` default points at a key that does not exist - the default fold
+    fails silently. Report the miss once (the same name/role pair is
+    deduplicated through :func:`warn_foliplus`) so a typo is attributable;
+    never raise, and leave the declaration in the payload so the panel keeps
+    showing the (empty) folder row rather than dropping the author's intent.
+
+    Args:
+        folders: The normalised central declaration, or ``None`` when not
+            declared (nothing to check).
+        claimed: The ``(role, folder_key)`` pairs the collected layers
+            actually declare, keyed the same way :func:`_folder_key` keys the
+            central names, so the comparison cannot drift about what counts
+            as "the same folder".
+        owner: The control name for the warning note.
+        source: How the caller wrote the declaration (the ``folders=`` kwarg).
+    """
+    if not folders:
+        return
+    for section, entries in folders.items():
+        for entry in entries:
+            name = entry.get("name")
+            if not isinstance(name, str) or (section, _folder_key(name)) in claimed:
+                continue
+            warn_foliplus(
+                f"{owner}:{source}:{section}:unclaimed:{_folder_key(name)}",
+                f"{owner} declares {source}[{section!r}] folder {name!r} but no "
+                "layer declares a matching folder= - the folder never appears "
+                "on the panel; check the name for a typo",
+            )
