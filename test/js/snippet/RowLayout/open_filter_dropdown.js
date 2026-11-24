@@ -9,29 +9,70 @@ async () => {
       await wait(step);
     }
   };
-  const more = document.querySelector(".foliplus-layer-more-btn");
+  // The row-layout probe reads a real dropdown option row, so the filter panel
+  // must render an ENUM body (which carries the shared dropdown). The layers
+  // under test here (FeatureGroup + GeoJson) only yield a range dimension — a
+  // slider, not a dropdown — so seed a synthetic enum-capable layer the way the
+  // enum filter tests do (open_enum_dropdown.js) rather than expecting the
+  // GeoJson's numeric field to produce a dropdown trigger.
+  const api = window.map.foliplus && window.map.foliplus.LayerAPI;
+  if (!api) return false;
+  const ID = "__row_layout_probe__";
+  const VALUES = ["a", "b", "c"];
+  let filter;
+  const model = () => ({
+    dimensions: [
+      {
+        kind: "enum",
+        field: "kind",
+        label: "Kind",
+        multi: true,
+        options: VALUES.map(v => ({ value: v, label: v.toUpperCase() })),
+      },
+    ],
+    filter,
+    kept: VALUES.length,
+    total: VALUES.length,
+  });
+  api.registerLayer({
+    id: ID,
+    name: "Row layout probe",
+    layer: L.layerGroup(),
+    filterProvider: model,
+    filterSetter: next => {
+      filter = next;
+    },
+  });
+  await wait(30);
+  const rowSelector = ".foliplus-layer-item[data-layer-id=\"" + ID + "\"]";
+  const row = document.querySelector(rowSelector);
+  if (!row) return false;
+  const more = row.querySelector(".foliplus-layer-more-btn");
   if (!more) return false;
   more.click();
   const menuItem = await until(() =>
-    document.querySelector('.foliplus-layer-more-menu [data-action="filter-layer"]'),
+    row.querySelector('.foliplus-layer-more-menu [data-action="filter-layer"]'),
   );
   if (!menuItem) return false;
   menuItem.click();
   const panel = await until(() =>
-    document.querySelector(".foliplus-layer-filter-panel"),
+    row.querySelector(".foliplus-layer-filter-panel"),
   );
   if (!panel) return false;
+  // A reference row built from the same primitive, to compare geometry against.
   const ref = document.createElement("div");
   ref.className = "row-layout-ref";
-  const row = document.createElement("div");
-  row.className = "foliplus-row";
-  const c = document.createElement("div");
-  c.className = "foliplus-row-content";
-  c.textContent = "Reference";
-  row.appendChild(c);
-  ref.appendChild(row);
+  const refRow = document.createElement("div");
+  refRow.className = "foliplus-row";
+  const refContent = document.createElement("div");
+  refContent.className = "foliplus-row-content";
+  refContent.textContent = "Reference";
+  refRow.appendChild(refContent);
+  ref.appendChild(refRow);
   document.body.appendChild(ref);
-  const trigger = panel.querySelector(".foliplus-dropdown-trigger");
+  const trigger = panel.querySelector(
+    ".foliplus-filter-enum .foliplus-dropdown-trigger",
+  );
   if (!trigger) return false;
   trigger.click();
   const option = await until(() =>
