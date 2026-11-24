@@ -112,25 +112,25 @@ const subscribe = <K extends keyof EventPayloadMap>(
 };
 
 /** Which layers a subscription follows: a fixed id set, or a payload predicate. */
-type LayerSelector<K extends keyof EventPayloadMap> =
-  readonly string[] | ((payload: EventPayloadMap[K]) => boolean);
+type LayerPayload = EventPayloadMap[typeof EVENTS.LAYER_CHANGE];
+type LayerSelector = readonly string[] | ((payload: LayerPayload) => boolean);
 
-/** The layer preset over {@link subscribe}: LAYER_CHANGE by default.
+/** The layer preset over {@link subscribe}: LAYER_CHANGE, ids or predicate.
  *
  * This is a preset, not a second mechanism: it forwards to `subscribe` with
- * the layer event and the id/predicate selector. New code that follows other
- * channels should call `subscribe` directly.
+ * the layer channel and the id/predicate matcher. Following a different
+ * channel means calling `subscribe` directly.
  */
-const subscribeLayers = <K extends keyof EventPayloadMap = typeof EVENTS.LAYER_CHANGE>(
+const subscribeLayers = (
   map: L.Map,
-  selector: LayerSelector<K>,
-  handler: (batch: readonly Delivery<K>[]) => void,
-  opts: SubscribeOptions & { readonly events?: readonly K[] } = {},
+  selector: LayerSelector,
+  handler: (batch: readonly Delivery<typeof EVENTS.LAYER_CHANGE>[]) => void,
+  opts: SubscribeOptions = {},
 ): (() => void) =>
   subscribe(
     map,
     {
-      events: opts.events ?? ([EVENTS.LAYER_CHANGE] as unknown as readonly K[]),
+      events: [EVENTS.LAYER_CHANGE],
       match: payload => {
         if (typeof selector === "function") return selector(payload);
         const id = idOf(payload);
@@ -138,7 +138,7 @@ const subscribeLayers = <K extends keyof EventPayloadMap = typeof EVENTS.LAYER_C
       },
     },
     handler,
-    { phase: opts.phase },
+    opts,
   );
 
 export { subscribe, subscribeLayers };

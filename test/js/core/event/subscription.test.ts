@@ -6,11 +6,11 @@ import {
   subscribeLayers,
 } from "#foliplus/core/event/index.js";
 
-// subscribeLayers is the "one layer set, one handler" convenience over the
-// per-map EventBus: filter by ids or a predicate, merge everything that lands
-// in the same animation frame into one delivery, and hand back an idempotent
-// unsubscribe. The bus is not replaced — these tests read the bus's own
-// listenerCount to prove the helper is a view over it.
+// subscribeLayers is the "one layer set, one handler" preset over subscribe:
+// filter by ids or a predicate, merge everything that lands in the same
+// animation frame into one delivery, and hand back an idempotent unsubscribe.
+// subscribe is the channel-agnostic primitive; the bus is not replaced — these
+// tests read the bus's own listenerCount to prove both are views over it.
 
 type UnloadMap = {
   on: (event: string, fn: () => void) => void;
@@ -114,12 +114,14 @@ describe("subscribeLayers", () => {
     expect(handler.mock.calls[0][0]).toHaveLength(2);
   });
 
-  it("subscribes to every requested event and tags each delivery", async () => {
+  it("tags each delivery with its event across a multi-event subscription", async () => {
     const map = makeMap();
     const handler = vi.fn();
-    subscribeLayers(map as never, ["a"], handler, {
-      events: [EVENTS.LAYER_CHANGE, EVENTS.LAYER_INTENT_CHANGE],
-    });
+    subscribe(
+      map as never,
+      { events: [EVENTS.LAYER_CHANGE, EVENTS.LAYER_INTENT_CHANGE] },
+      handler,
+    );
 
     const bus = ensureEvents(map as never);
     bus.emit(EVENTS.LAYER_CHANGE, layerChange("a"));
@@ -201,9 +203,7 @@ describe("subscribeLayers", () => {
   it("a predicate can follow a payload that carries no layer id", async () => {
     const map = makeMap();
     const handler = vi.fn();
-    subscribeLayers(map as never, () => true, handler, {
-      events: [EVENTS.MODE_CHANGE],
-    });
+    subscribe(map as never, { events: [EVENTS.MODE_CHANGE] }, handler);
 
     const bus = ensureEvents(map as never);
     bus.publish(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" });
@@ -213,10 +213,10 @@ describe("subscribeLayers", () => {
     expect(handler.mock.calls[0][0][0].event).toBe(EVENTS.MODE_CHANGE);
   });
 
-  it("ignores a non-layer payload for an id selector", async () => {
+  it("follows only the layer channel; other channels go through subscribe", async () => {
     const map = makeMap();
     const handler = vi.fn();
-    subscribeLayers(map as never, ["a"], handler, { events: [EVENTS.MODE_CHANGE] });
+    subscribeLayers(map as never, ["a"], handler);
 
     const bus = ensureEvents(map as never);
     bus.publish(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" });
