@@ -264,7 +264,11 @@ describe("renderMarkers", () => {
    *  (the custom-hex chassis: sprite as `mask-image`, colour as
    *  `background-color`). Styles are per element: the root paints nothing, the
    *  span carries the mask. */
-  const maskedChassis = (mask: string, color: string) => {
+  const maskedChassis = (
+    mask: string,
+    color: string,
+    overrides: Record<string, string> = {},
+  ) => {
     const root = document.createElement("div");
     pinBox(root, 10, 10, 40, 40);
     const span = document.createElement("span");
@@ -286,7 +290,9 @@ describe("renderMarkers", () => {
       (el: Element) =>
         ({
           ...base,
-          ...(el === span ? { maskImage: mask, backgroundColor: color } : {}),
+          ...(el === span
+            ? { maskImage: mask, backgroundColor: color, ...overrides }
+            : {}),
         }) as unknown as CSSStyleDeclaration,
     );
     return root;
@@ -345,6 +351,147 @@ describe("renderMarkers", () => {
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
     const [first] = (ctx as unknown as MockCtx).drawImage.mock.calls[0];
     expect(first).not.toBeInstanceOf(HTMLCanvasElement);
+  });
+
+  it("tints a percent-sized mask slice", async () => {
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)", {
+      maskSize: "200% 200%",
+    });
+    const octx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      globalCompositeOperation: "source-over",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(octx as any);
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(octx.drawImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to the sheet size for a zero px mask size", async () => {
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)", {
+      maskSize: "0px 0px",
+    });
+    const octx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      globalCompositeOperation: "source-over",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(octx as any);
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(octx.drawImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("reuses a single px token for both mask axes", async () => {
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)", {
+      maskSize: "80px",
+    });
+    const octx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      globalCompositeOperation: "source-over",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(octx as any);
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(octx.drawImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a non-numeric percent size as 100%", async () => {
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)", {
+      maskSize: "%",
+    });
+    const octx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      globalCompositeOperation: "source-over",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(octx as any);
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(octx.drawImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to a 1x sheet ratio when devicePixelRatio is zero", async () => {
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)");
+    const octx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      globalCompositeOperation: "source-over",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(octx as any);
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 0 });
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(octx.drawImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a non-HTML descendant when collecting sprites", async () => {
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)");
+    root.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "svg"));
+    const octx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      globalCompositeOperation: "source-over",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(octx as any);
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(octx.drawImage).toHaveBeenCalledTimes(1);
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
 });
 

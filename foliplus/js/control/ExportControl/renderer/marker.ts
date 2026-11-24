@@ -146,7 +146,11 @@ const maskPaintOf = (
 
 /** One sprite-painted element: a plain \`background-image\` sprite, or a masked
  *  colour fill (the custom chassis) when \`mask\` is set. */
-type SpriteTarget = { el: HTMLElement; mask: { url: string; color: string } | null };
+type SpriteTarget = {
+  el: HTMLElement;
+  url: string;
+  mask: { url: string; color: string } | null;
+};
 
 /** The slice of the sprite sheet an element paints, from its CSS size/position.
  *  Shared by the background-image channel and the mask channel: the two differ
@@ -236,7 +240,8 @@ const renderMarkers = async (
     if (!(el instanceof HTMLElement)) return;
     const cs = window.getComputedStyle(el);
     const mask = maskPaintOf(cs);
-    if (spriteUrlOf(cs.backgroundImage) || mask) targets.push({ el, mask });
+    const url = mask ? mask.url : spriteUrlOf(cs.backgroundImage);
+    if (url) targets.push({ el, url, mask });
   };
   for (const root of markerRoots) {
     collect(root);
@@ -245,11 +250,8 @@ const renderMarkers = async (
 
   // Load unique sprites (once per URL) directly into a local map
   const spriteUrls = new Set<string>();
-  for (const { el, mask } of targets) {
-    const url = mask
-      ? mask.url
-      : spriteUrlOf(window.getComputedStyle(el).backgroundImage);
-    if (url && !url.startsWith("data:")) spriteUrls.add(url);
+  for (const { url } of targets) {
+    if (!url.startsWith("data:")) spriteUrls.add(url);
   }
   const spriteMap = new Map<string, ImageBitmap>();
   await pooledEach<string, ImageBitmap>(
@@ -264,7 +266,7 @@ const renderMarkers = async (
 
   // Draw sprites; release their bitmaps even if drawing throws.
   try {
-    for (const { el, mask } of targets) {
+    for (const { el, url, mask } of targets) {
       const r = el.getBoundingClientRect();
       const l = r.left - contRect.left;
       const t = r.top - contRect.top;
@@ -277,8 +279,6 @@ const renderMarkers = async (
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
       const cs = window.getComputedStyle(el);
-      const url = mask ? mask.url : spriteUrlOf(cs.backgroundImage);
-      if (!url) continue;
       const sprite = spriteMap.get(url);
       if (!sprite) continue;
       const size = mask ? cs.maskSize : cs.backgroundSize;
