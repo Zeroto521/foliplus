@@ -148,6 +148,21 @@ describe("readDeclaredBorder", () => {
     expect(read.invalid.join(" ")).toContain("contradicts");
   });
 
+  it("drops a follow-fill declaration that carries a value-mode key", () => {
+    const read = readDeclaredBorder(
+      layerWith({ border: { mode: "follow_fill", scheme: "Reds" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.join(" ")).toContain("does not classify by value");
+  });
+
+  it("rejects an explicit value mode without a field", () => {
+    const read = readDeclaredBorder(layerWith({ border: { mode: "value" } }), "overlay1");
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid[0]).toContain("requires border.field");
+  });
+
   it("caches per layer object: a second read does not re-validate", () => {
     const layer = layerWith({ border: { mode: "follow_fill" } });
     const first = readDeclaredBorder(layer, "overlay1");

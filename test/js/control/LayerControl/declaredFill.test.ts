@@ -168,6 +168,21 @@ describe("readDeclaredFill", () => {
     expect(read.invalid.length).toBeGreaterThan(0);
   });
 
+  it("drops a solid declaration that carries another value-mode key", () => {
+    const read = readDeclaredFill(
+      layerWith({ fill: { mode: "solid", scheme: "Reds" } }),
+      "overlay1",
+    );
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid.join(" ")).toContain("does not classify by value");
+  });
+
+  it("rejects an explicit value mode without a field", () => {
+    const read = readDeclaredFill(layerWith({ fill: { mode: "value" } }), "overlay1");
+    expect(read.declared).toBeUndefined();
+    expect(read.invalid[0]).toContain("without a fill.field");
+  });
+
   it("rejects a field that is not a property name", () => {
     for (const field of ["", "   ", 42, null]) {
       const read = readDeclaredFill(layerWith({ fill: { field } }), "overlay1");

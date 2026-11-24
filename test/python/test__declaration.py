@@ -693,6 +693,15 @@ class TestNormaliseBorder:
 
         assert "contradicts" in str(record[0].message)
 
+    def test_a_value_key_contradicts_solid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_border({"mode": "solid", "scheme": "Reds"}, owner="Owner")
+                is None
+            )
+
+        assert "does not classify by value" in str(record[0].message)
+
     @pytest.mark.parametrize("color", ["red", "#12", 7, ""])
     def test_an_invalid_color_warns_and_drops_only_that_key(
         self, color: object
@@ -792,6 +801,15 @@ class TestNormaliseFill:
             )
 
         assert "contradicts" in str(record[0].message)
+
+    def test_a_value_key_contradicts_solid_mode(self) -> None:
+        with pytest.warns(UserWarning) as record:
+            assert (
+                normalise_fill({"mode": "solid", "method": "equal"}, owner="Owner")
+                is None
+            )
+
+        assert "does not classify by value" in str(record[0].message)
 
     def test_a_value_mode_without_a_field_warns_and_degrades(self) -> None:
         with pytest.warns(UserWarning) as record:
