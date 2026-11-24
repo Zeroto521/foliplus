@@ -87,7 +87,7 @@ repos:
       # naming its split card.
       - id: test-size
         name: test-size
-        entry: node script/check/test_size.mjs
+        entry: node script/check/test-size.mjs
         language: system
         pass_filenames: false
         files: ^test/js/.*\.test\.ts$

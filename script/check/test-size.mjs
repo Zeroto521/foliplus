@@ -13,7 +13,7 @@
  * deletes its entry in the same PR.
  *
  * Usage:
- *   node script/check/test_size.mjs [--list]
+ *   node script/check/test-size.mjs [--list]
  *
  * With --list it prints the remaining allowlist entries (the burn-down view).
  * Exit 1 lists every unlisted offender with its count; exit 0 otherwise.
@@ -31,53 +31,53 @@ const LIMIT = 1200;
 /** Today's oversized files, keyed repo-relative under test/js/. Each entry names
  *  the split card that removes it. A split deletes its entry in the same PR. */
 const OVERSIZED = {
-  "control/LayerControl/controller.test.ts": "task-100 step 3 (blocked by #1284)",
-  "control/LayerControl/ui/style/fill.test.ts": "task-100 step 3 (blocked by #1284)",
-  "control/LayerControl/ui/style/index.test.ts": "task-100 step 3 (blocked by #1284)",
-  "control/HeatmapControl/manager.test.ts": "task-100 step 2",
-  "control/LayerControl/ui/style/border.test.ts": "task-100 step 3 (blocked by #1284)",
-  "control/MeasureControl/manager.test.ts": "task-100 step 2",
-  "ui/listbox.test.ts": "task-100 step 2",
-  "control/LayerControl/ui/focus/index.test.ts": "task-100 step 3 (blocked by #1284)",
+  "control/LayerControl/controller.test.ts": "split pending — blocked by #1284",
+  "control/LayerControl/ui/style/fill.test.ts": "split pending — blocked by #1284",
+  "control/LayerControl/ui/style/index.test.ts": "split pending — blocked by #1284",
+  "control/HeatmapControl/manager.test.ts": "split pending",
+  "control/LayerControl/ui/style/border.test.ts": "split pending — blocked by #1284",
+  "control/MeasureControl/manager.test.ts": "split pending",
+  "ui/listbox.test.ts": "split pending",
+  "control/LayerControl/ui/focus/index.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/ui/listPanel/list.test.ts":
-    "task-100 step 3 (blocked by #1284)",
+    "split pending — blocked by #1284",
   "control/LayerControl/ui/overlayPanel/menu.test.ts":
-    "task-100 step 3 (blocked by #1284)",
+    "split pending — blocked by #1284",
   "control/LayerControl/ui/overlayPanel/filter.test.ts":
-    "task-100 step 3 (blocked by #1284)",
+    "split pending — blocked by #1284",
   "control/LayerControl/ui/listPanel/drag.test.ts":
-    "task-100 step 3 (blocked by #1284)",
-  "control/LayerControl/ui/apply.test.ts": "task-100 step 3 (blocked by #1284)",
-  "ui/slider.test.ts": "task-100 step 2",
-  "control/ExportControl/renderer/index.test.ts": "task-100 step 2",
-  "control/LayerControl/ui/state.test.ts": "task-100 step 3 (blocked by #1284)",
-  "control/LayerControl/persistence.test.ts": "task-100 step 3 (blocked by #1284)",
-  "core/layer/LayerFactory.test.ts": "task-100 step 2",
-  "core/layer/PaneManager.test.ts": "task-100 step 2",
-  "core/layer/LayerSurface.test.ts": "task-100 step 2",
-  "control/LayerControl/label/index.test.ts": "task-100 step 3 (blocked by #1284)",
-  "core/leaflet/panel.test.ts": "task-100 step 2",
-  "core/overlay/overlayRegistry.test.ts": "task-100 step 2",
+    "split pending — blocked by #1284",
+  "control/LayerControl/ui/apply.test.ts": "split pending — blocked by #1284",
+  "ui/slider.test.ts": "split pending",
+  "control/ExportControl/renderer/index.test.ts": "split pending",
+  "control/LayerControl/ui/state.test.ts": "split pending — blocked by #1284",
+  "control/LayerControl/persistence.test.ts": "split pending — blocked by #1284",
+  "core/layer/LayerFactory.test.ts": "split pending",
+  "core/layer/PaneManager.test.ts": "split pending",
+  "core/layer/LayerSurface.test.ts": "split pending",
+  "control/LayerControl/label/index.test.ts": "split pending — blocked by #1284",
+  "core/leaflet/panel.test.ts": "split pending",
+  "core/overlay/overlayRegistry.test.ts": "split pending",
   "control/LayerControl/ui/listPanel/visibility.test.ts":
-    "task-100 step 3 (blocked by #1284)",
+    "split pending — blocked by #1284",
   "script/build/bundle-size-check.test.ts":
-    "task-100 step 2 (build-gate fixture-heavy; split card TBD)",
-  "ui/schemePicker.test.ts": "task-100 step 2",
-  "control/LayerControl/ui/style/icon.test.ts": "task-100 step 3 (blocked by #1284)",
-  "control/SearchControl/logic/history.test.ts": "task-100 step 2",
-  "core/leaflet/markerIcon.test.ts": "task-100 step 2",
-  "control/SearchControl/logic/search.test.ts": "task-100 step 2",
-  "control/HeatmapControl/ui.test.ts": "task-100 step 2",
+    "split pending (build-gate fixture-heavy; split card TBD)",
+  "ui/schemePicker.test.ts": "split pending",
+  "control/LayerControl/ui/style/icon.test.ts": "split pending — blocked by #1284",
+  "control/SearchControl/logic/history.test.ts": "split pending",
+  "core/leaflet/markerIcon.test.ts": "split pending",
+  "control/SearchControl/logic/search.test.ts": "split pending",
+  "control/HeatmapControl/ui.test.ts": "split pending",
   "script/check/patch-coverage.test.ts":
-    "task-100 step 2 (guard fixture-heavy; split card TBD)",
+    "split pending (guard fixture-heavy; split card TBD)",
   "control/LayerControl/ui/listPanel/keyboard.test.ts":
-    "task-100 step 3 (blocked by #1284)",
-  "ui/dropdown.test.ts": "task-100 step 2",
+    "split pending — blocked by #1284",
+  "ui/dropdown.test.ts": "split pending",
   "control/LayerControl/ui/style/fillValue.test.ts":
-    "task-100 step 3 (blocked by #1284)",
+    "split pending — blocked by #1284",
   "control/LayerControl/ui/style/styleBag.test.ts":
-    "task-100 step 3 (blocked by #1284)",
-  "core/layer/folderLayout.test.ts": "task-100 step 2",
+    "split pending — blocked by #1284",
+  "core/layer/folderLayout.test.ts": "split pending",
 };
 
 /** Line count of a file (raw lines, matching how the cap is measured). */
@@ -145,7 +145,7 @@ const main = () => {
   return bad.length > 0 ? 1 : 0;
 };
 
-if (process.argv[1] && process.argv[1].endsWith("test_size.mjs")) {
+if (process.argv[1] && process.argv[1].endsWith("test-size.mjs")) {
   process.exit(main());
 }
 

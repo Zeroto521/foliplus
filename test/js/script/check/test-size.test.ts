@@ -1,4 +1,4 @@
-// test/js/script/check/test_size — the JS test-file size guard.
+// test/js/script/check/test-size — the JS test-file size guard.
 //
 // The rule: every test/js/**/*.test.ts stays at or under the 1200-line
 // threshold. Oversized files must be on the guard's burn-down allowlist, each
@@ -7,7 +7,7 @@
 // disk and pin the three verdicts: an unlisted oversized file is red, an
 // allowlisted oversized file is quiet, and the guard's path normalisation maps
 // an absolute path back to its test/js/ key.
-import { LIMIT, checkSize } from "../../../../script/check/test_size.mjs";
+import { LIMIT, checkSize } from "#script/check/test-size.mjs";
 import { describe, expect, it } from "vitest";
 
 describe("checkSize", () => {
@@ -26,7 +26,7 @@ describe("checkSize", () => {
     // the guard stays green until the split lands and the entry is deleted.
     const bad = checkSize(
       [{ file: "test/js/ui/listbox.test.ts", lines: LIMIT + 500 }],
-      { "ui/listbox.test.ts": "task-100 step 2" },
+      { "ui/listbox.test.ts": "split pending" },
     );
     expect(bad).toEqual([]);
   });
@@ -48,7 +48,7 @@ describe("checkSize", () => {
           lines: LIMIT + 1,
         },
       ],
-      { "core/layer/folderLayout.test.ts": "task-100 step 2" },
+      { "core/layer/folderLayout.test.ts": "split pending" },
     );
     expect(bad).toEqual([]);
   });
