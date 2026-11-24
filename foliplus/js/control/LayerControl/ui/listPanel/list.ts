@@ -14,11 +14,7 @@ import {
   syncListCursor,
 } from "./cursor.js";
 import { groupChildren, isGroupExpanded, renderChildItem } from "./groupExpand.js";
-import {
-  buildMoreBtn,
-  buildRailCell,
-  buildTypeIconCol,
-} from "./rowCell.js";
+import { buildMoreBtn, buildRailCell, buildTypeIconCol } from "./rowCell.js";
 import {
   applyRowView,
   buildRowCell,
