@@ -135,7 +135,7 @@ def _conf(html: str) -> dict:
 
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
-    return _conf(html)["data"][0]["fillAuthor"]
+    return _conf(html)["data"][0]["fill_author"]
 
 
 def _scale() -> branca_cm.LinearColormap:
@@ -240,7 +240,7 @@ def test_scale_controls_are_reachable_through_a_feature_group():
     html = m.get_root().render()
     entry = _conf(html)["data"][0]
 
-    assert entry["fillAuthor"]["scale"]["column"] == "score"
+    assert entry["fill_author"]["scale"]["column"] == "score"
 
 
 def test_scale_does_not_read_a_map_it_is_not_attached_to():
@@ -254,4 +254,4 @@ def test_scale_does_not_read_a_map_it_is_not_attached_to():
     html = _render(layer)
     entry = _conf(html)["data"][0]
 
-    assert "scale" not in entry["fillAuthor"]
+    assert "scale" not in entry["fill_author"]

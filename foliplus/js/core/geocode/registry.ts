@@ -25,21 +25,21 @@ const BUILTIN_PROVIDERS: Record<string, GeocodeProvider> = {
   pelias: createPelias(),
 };
 
-/** Overrides a built-in provider's `baseUrl`/`throttleMs`/`headers` from config. */
+/** Overrides a built-in provider's `base_url`/`throttle_ms`/`headers` from config. */
 const applyConfig = (
   provider: GeocodeProvider,
   factory: ProviderFactory,
   config: Record<string, unknown>,
 ): GeocodeProvider => {
   const baseUrl =
-    typeof config.baseUrl === "string" && config.baseUrl !== ""
-      ? config.baseUrl
+    typeof config.base_url === "string" && config.base_url !== ""
+      ? config.base_url
       : undefined;
   const next = baseUrl ? factory(baseUrl) : provider;
   return {
     ...next,
     throttleMs:
-      typeof config.throttleMs === "number" ? config.throttleMs : next.throttleMs,
+      typeof config.throttle_ms === "number" ? config.throttle_ms : next.throttleMs,
     headers: {
       ...next.headers,
       ...(config.headers && typeof config.headers === "object"
@@ -66,7 +66,7 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
     vars?: Record<string, string | number>,
   ): string => {
     if (!op?.url) return "";
-    const template = joinUrl(config.baseUrl, op.url);
+    const template = joinUrl(config.base_url, op.url);
     // An empty vars table leaves placeholders untouched → same as the template.
     const interpolated = interpolate(template, vars ?? {});
     return withParams(interpolated, op.params);
@@ -74,7 +74,7 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
 
   return {
     id: config.id,
-    throttleMs: config.throttleMs ?? 1000,
+    throttleMs: config.throttle_ms ?? 1000,
     headers: config.headers ?? {},
     // Template placeholders use the API-conventional `lon`/`lat` names (the
     // config author mirrors the geocoding API's docs); foliplus' own internal
@@ -122,14 +122,14 @@ const providerFromConfig = (config: ProviderConfig): GeocodeProvider => {
  * - `undefined` → the built-in Nominatim provider.
  * - string → a built-in provider id; unknown ids throw.
  * - object → a declarative custom provider via `providerFromConfig`.
- * - `config` overrides `baseUrl`/`throttleMs`/`headers` on a string provider.
+ * - `config` overrides `base_url`/`throttle_ms`/`headers` on a string provider.
  *
  * Rate limiting is shared **per provider id, page-globally**: all callers of
  * the same id (across maps and across the geocoder / suggestion paths) go
  * through one throttle queue and one request-timestamp clock. The queue
- * honors the largest `throttleMs` ever declared for the id, so configuring
+ * honors the largest `throttle_ms` ever declared for the id, so configuring
  * the same id with different values is safe but should not be relied on —
- * give each distinct API instance (different `baseUrl`/throttle) its own id.
+ * give each distinct API instance (different `base_url`/throttle) its own id.
  */
 const resolveProvider = (
   provider?: string | ProviderConfig,

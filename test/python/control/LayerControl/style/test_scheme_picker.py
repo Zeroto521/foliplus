@@ -39,6 +39,66 @@ from conftest import (
 
 from foliplus import FullscreenControl, HeatmapControl, LayerControl
 
+
+def _polygon_layer() -> folium.GeoJson:
+    """Overlay layer with a numeric property, for the style drawer's ramp mode."""
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
+
+
+def _points_group() -> folium.FeatureGroup:
+    """One point layer, so the heatmap auto-selects it and opens its config."""
+    fg = folium.FeatureGroup(name="Points", show=True)
+    folium.GeoJson(json.dumps(load_geojson("common", "points_fuzhou_3offset"))).add_to(
+        fg
+    )
+    return fg
+
+
+def _expose_heatmap(html: str) -> str:
+    """Expose the HeatmapControl instance as `window.__heatmapCtrl`.
+
+    The minified control variable is unknown, so the last `<expr>.addTo(map);`
+    (HeatmapControl mounts after LayerControl) is instrumented.
+    """
+    matches = list(re.finditer(r"([a-zA-Z0-9_$]+)\.addTo\(map\);", html))
+    if matches:
+        m = matches[-1]
+        html = (
+            html[: m.start()]
+            + f"window.__heatmapCtrl = {m.group(1)};"
+            + html[m.start() :]
+        )
+    return html
+
+
+def _flip_centre(page, selector: str) -> dict:
+    return page.evaluate(
+        "(sel) => { const r = document.querySelector(sel).getBoundingClientRect();"
+        " return { x: r.left + r.width / 2, y: r.top + r.height / 2,"
+        "  top: r.top, bottom: r.bottom, height: r.height }; }",
+        selector,
+    )
+
+
+def _ramp_layer() -> folium.GeoJson:
+    """A polygon layer with a numeric property, for the fill ramp mode."""
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
+
+
+def _layer_map(**ctrl_kwargs) -> folium.Map:
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    LayerControl(**ctrl_kwargs).add_to(m)
+    FullscreenControl(hide_self=True, hide_others=False).add_to(m)
+    _ramp_layer().add_to(m)
+    return m
+
+
 HEATMAP_TRIGGER = ".foliplus-heatmap-scheme-bar"
 LAYER_TRIGGER = ".foliplus-layer-style-panel .foliplus-scheme-picker-trigger"
 # Seven defaults fill the 200px list; four fit inside it.

@@ -135,7 +135,7 @@ def _conf(html: str) -> dict:
 
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
-    return _conf(html)["data"][0]["fillAuthor"]
+    return _conf(html)["data"][0]["fill_author"]
 
 
 def _scale() -> branca_cm.LinearColormap:
@@ -226,7 +226,7 @@ def _open_declared_style_panel(page) -> None:
 def test_multi_color_layer_carries_the_distinct_colors():
     meta = _meta(_geo(["#0d0887", "#f0f921"]))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["distinct"] == 2
     assert meta["stops"] == ["#0d0887", "#f0f921"]
     assert "scale" not in meta
@@ -235,7 +235,7 @@ def test_multi_color_layer_carries_the_distinct_colors():
 def test_layer_without_the_property_has_no_fill_author():
     data = _conf(_render(_geo([None, None])))["data"][0]
 
-    assert "fillAuthor" not in data
+    assert "fill_author" not in data
 
 
 def test_continuous_scale_is_read_from_the_map():
@@ -320,7 +320,7 @@ def test_a_scale_is_claimed_only_through_its_caption():
     # The caption names no property of the layer: no scale is claimed and no
     # column is named. The panel draws the colors the features carry.
     assert "scale" not in meta
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["stops"] == colors
 
 
@@ -344,9 +344,9 @@ def test_a_plain_layer_does_not_claim_another_layers_scale():
     html = _render(plain, explore, scales=(scale,))
     data = {entry["name"]: entry for entry in _conf(html)["data"]}
 
-    assert "scale" not in data["Plain"]["fillAuthor"]
-    assert data["Explore"]["fillAuthor"]["scale"]["column"] == "value"
-    assert "_column" not in data["Plain"]["fillAuthor"]
+    assert "scale" not in data["Plain"]["fill_author"]
+    assert data["Explore"]["fill_author"]["scale"]["column"] == "value"
+    assert "_column" not in data["Plain"]["fill_author"]
 
 
 def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
@@ -368,7 +368,7 @@ def test_a_layer_whose_caption_matches_but_colors_do_not_is_not_claimed():
 def test_no_scale_falls_back_to_the_color_set():
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90"]))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert "scale" not in meta
     assert meta["stops"] == ["#0d0887", "#6a00a8", "#b12a90"]
 
@@ -385,9 +385,9 @@ def test_two_layers_sharing_a_caption_keep_their_own_scale():
     data = {entry["name"]: entry for entry in _conf(html)["data"]}
 
     for name in ("A", "B"):
-        assert data[name]["fillAuthor"]["scale"]["column"] == "score"
+        assert data[name]["fill_author"]["scale"]["column"] == "score"
     # The two folds must not collapse onto one scale: the stored strips differ.
-    assert data["A"]["fillAuthor"]["stops"] != data["B"]["fillAuthor"]["stops"]
+    assert data["A"]["fill_author"]["stops"] != data["B"]["fill_author"]["stops"]
 
 
 def test_a_scale_does_not_depend_on_the_layer_style_function():
@@ -397,7 +397,7 @@ def test_a_scale_does_not_depend_on_the_layer_style_function():
     layer.style_function = None  # type: ignore[assignment]
     meta = _meta(layer)
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["distinct"] == 2
 
 
@@ -407,7 +407,7 @@ def test_the_color_scan_samples_across_a_sorted_layer(monkeypatch):
     # and read the whole layer as a single color.
     meta = _meta(_geo(["#0d0887", "#6a00a8", "#b12a90", "#f0f921"]))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["stops"] == ["#0d0887", "#b12a90"]
     assert "capped" not in meta
 
@@ -648,8 +648,8 @@ def test_affine_equivalent_columns_are_claimed_by_render_order():
     html = _render(plain, explore, scales=(scale,))
     data = {entry["name"]: entry for entry in _conf(html)["data"]}
 
-    assert data["Plain"]["fillAuthor"]["scale"]["column"] == "score"
-    assert "scale" not in data["Explore"]["fillAuthor"]
+    assert data["Plain"]["fill_author"]["scale"]["column"] == "score"
+    assert "scale" not in data["Explore"]["fill_author"]
 
 
 @pytest.mark.parametrize("k", [7, 8, 9])
@@ -696,7 +696,7 @@ def test_no_scale_many_distinct_colors_reads_as_continuous():
     colors = ["#%06x" % (i * 0x111111) for i in range(12)]
     meta = _meta(_geo(colors))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
     assert meta["distinct"] == 12
     assert meta["scale"] == {"kind": "continuous", "ordered": False}
     assert "column" not in meta["scale"]

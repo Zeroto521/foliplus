@@ -135,7 +135,7 @@ def _conf(html: str) -> dict:
 
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
-    return _conf(html)["data"][0]["fillAuthor"]
+    return _conf(html)["data"][0]["fill_author"]
 
 
 def _scale() -> branca_cm.LinearColormap:
@@ -226,7 +226,7 @@ def _open_declared_style_panel(page) -> None:
 def test_single_color_layer_is_not_per_feature():
     meta = _meta(_geo(["#0d0887", "#0d0887"]))
 
-    assert meta["perFeature"] is False
+    assert meta["per_feature"] is False
     assert meta["distinct"] == 1
     assert "scale" not in meta
 
@@ -235,7 +235,7 @@ def test_json_string_data_is_parsed():
     data = json.dumps(_collection(["#0d0887", "#f0f921"]))
     meta = _meta(folium.GeoJson(data))
 
-    assert meta["perFeature"] is True
+    assert meta["per_feature"] is True
 
 
 def test_invalid_json_string_is_ignored():
@@ -243,12 +243,12 @@ def test_invalid_json_string_is_ignored():
     # folium parses the data at construction, so the broken payload has to be
     # injected afterwards — the control's own read is what must degrade.
     layer.data = "{not json"
-    assert _conf(_render(layer))["data"][0].get("fillAuthor") is None
+    assert _conf(_render(layer))["data"][0].get("fill_author") is None
 
 
 def test_missing_features_list_is_ignored():
     layer = folium.GeoJson(feature_collection())
-    assert _conf(_render(layer))["data"][0].get("fillAuthor") is None
+    assert _conf(_render(layer))["data"][0].get("fill_author") is None
 
 
 def test_feature_without_properties_is_skipped():

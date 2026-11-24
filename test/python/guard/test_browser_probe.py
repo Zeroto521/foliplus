@@ -29,7 +29,7 @@ from pathlib import Path
 
 from conftest import _js, use_raw_page
 
-# This file lives at test/python/infra/, one level deeper than conftest.py:
+# This file lives at test/python/guard/, one level deeper than conftest.py:
 # walk up to test/ and into the probe corpus.
 PROBE_ROOT = Path(__file__).resolve().parents[2] / "js" / "browser"
 

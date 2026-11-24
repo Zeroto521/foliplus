@@ -242,7 +242,7 @@ interface RegisterLayerOpts {
    *  (folium's own default), so the registry does not have to invent a
    *  value the caller never gave. */
   show?: boolean;
-  /** Author's declared zoom range — mirrors CONFIG `data[].zoomRange`, which
+  /** Author's declared zoom range — mirrors CONFIG `data[].zoom_range`, which
    *  Python normalises from the `foliplus={"zoom_range": {...}}` declaration.
    *  Absent means the author did not declare one. */
   zoomRange?: AuthorZoomRange | null;
@@ -384,7 +384,7 @@ interface FillAuthorScale {
   method?: "equal" | null;
 }
 
-/** What Python computed for one layer's author fill (CONFIG data[].fillAuthor). */
+/** What Python computed for one layer's author fill (CONFIG data[].fill_author). */
 interface FillAuthor {
   /** True when the layer paints at least two distinct colors. */
   perFeature: boolean;
@@ -410,7 +410,7 @@ interface FillAuthor {
 
 /** An author-declared zoom range — the normalised
  *  `foliplus={"zoom_range": {...}}` layer declaration, carried from CONFIG
- *  `data[].zoomRange`.
+ *  `data[].zoom_range`.
  *
  *  One shape on both sides of the bridge (Python emits `{min, max}`, every
  *  read site consumes `{min, max}`), so no site converts it and no site can
@@ -488,7 +488,7 @@ interface LayerInfo {
   metaProvider?: (() => Record<string, string | number>) | null;
   /** Author's declarative per-feature fill (explore layers only). */
   fillAuthor?: FillAuthor | null;
-  /** Author's declared zoom range (CONFIG `data[].zoomRange`). Absent/null
+  /** Author's declared zoom range (CONFIG `data[].zoom_range`). Absent/null
    *  means the author declared nothing: the visibility policy stays
    *  unconstrained and the zoom-range row opens on the map's own range. A
    *  *policy* input (`inZoomRange`), never a carrier write — foliplus does not

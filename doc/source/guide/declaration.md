@@ -116,13 +116,44 @@ normalisation.
 
 **Behaviour**: the layer's row appears inside the named folder. Two layers
 declaring the same folder name in the same role are grouped into one folder —
-a grouping intent, never a conflict, and it never warns. Folder names group
-case-insensitively after whitespace folding, so `"Basemap"`, `"basemap"`
-and `"BASE MAP"` land in one folder; the folder keeps the first spelling it
-saw. A folder keeps its group row after its last layer is removed.
+a grouping intent, never a conflict. Folder names group case-insensitively
+after whitespace folding, so `"Basemap"`, `"basemap"` and `"BASE MAP"`
+land in one folder; the folder keeps the first spelling it saw. A folder keeps
+its group row after its last layer is removed.
+
+A centrally declared `folders=[...]` entry whose name no layer claims via
+`foliplus={"folder": ...}` warns once (deduplicated, attributable to the
+typo); the empty folder row still renders and the declaration never raises.
 
 A non-string, blank or over-long name warns once and is ignored — the layer
 stays at the role root.
+
+### Group rows expand into their child layers
+
+A `FeatureGroup` or `LayerGroup` renders as a **group container row**: a
+row with a group glyph, a visible-of-total child count, and a chevron. The
+count reads "shown / total" and tracks the children's own visibility, not the
+group's single toggle.
+
+Pressing the chevron **expands** the group in place: one row per direct child
+appears indented beneath the container, each carrying its own visibility
+toggle. Toggling a child shows or hides only that child — the container row
+stays put and its count updates. Collapsing the group hides the child rows and
+leaves every child's visibility as it was.
+
+Focus on the container row fits the map to the group as a whole and raises
+every child pane together, so a group that spans several layers focuses in one
+step.
+
+:::{note}
+
+The container row disables its own Style and Filter entries: those apply to
+individual layers, and the group is only a container. Once child layers are
+registered as `LayerInfo` entries, each child row's ⋮ menu offers Style and
+Filter on its own — a probe-only capability face that does not consume a pane.
+This lands with the child-layer registration work.
+
+:::
 
 (fill)=
 

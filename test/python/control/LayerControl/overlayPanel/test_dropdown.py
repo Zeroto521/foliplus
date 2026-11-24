@@ -36,6 +36,18 @@ from foliplus import HeatmapControl, LayerControl
 from ..helper import _expand_panel, _geo_mixed, _write_html
 from ..helper_browser import LayerControlBrowserBase
 
+STATE = snippet("LayerControl/dropdown_state")
+
+FIRST_TRIGGER = snippet("LayerControl/dropdown_first_trigger")
+
+FIRST_OPTION = snippet("LayerControl/dropdown_first_option")
+
+_GEOMETRY = _js("LayerControl/read_fill_row_geometry")
+
+_TO_RAMP = snippet("LayerControl/dropdown_to_ramp")
+
+_METHOD_TEXT = {"en": "Natural Breaks", "zh": "自然断点"}
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_panel_stays_open_on_outside_press_by_default(self, browser, tmp_path):

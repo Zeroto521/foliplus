@@ -117,7 +117,7 @@ const MeasureControl = defineControl<MeasureManager>({
       bindControlZoomRange({
         map,
         container,
-        range: this.config.zoomRange,
+        range: this.config.zoom_range,
         log: this.log,
       }),
     );

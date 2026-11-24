@@ -135,7 +135,7 @@ def _conf(html: str) -> dict:
 
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
-    return _conf(html)["data"][0]["fillAuthor"]
+    return _conf(html)["data"][0]["fill_author"]
 
 
 def _scale() -> branca_cm.LinearColormap:
