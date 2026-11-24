@@ -27,6 +27,9 @@ describe("createLocationMarker", () => {
     map = {
       removeLayer: vi.fn(),
       addLayer: vi.fn(),
+      // Present on the real map; the guard reads it to detect a marker that
+      // was removed before its geocode resolved. True here = marker alive.
+      hasLayer: vi.fn(() => true),
     } as unknown as LeafletMap;
     window.L.marker = vi.fn(() => ({
       ...mockMarker,
@@ -300,5 +303,88 @@ describe("createLocationMarker", () => {
     await Promise.resolve();
     expect(reverseGeocode).toHaveBeenCalled();
     expect(marker.setPopupContent).not.toHaveBeenCalled();
+  });
+
+  it("skips onAddress and popup write when the marker was removed before the lookup resolved", async () => {
+    // MeasureControl's pin can be deleted (or the control destroyed) while its
+    // reverse geocode is still in flight. The resolved address must not be
+    // written back to a marker that is no longer on the map — the guard reads
+    // map.hasLayer and early-returns before any write.
+    const setPopupContent = vi.fn();
+    const marker = {
+      bindPopup: vi.fn().mockReturnThis(),
+      openPopup: vi.fn(),
+      setPopupContent,
+      getPopup: () => ({
+        _closeButton: null,
+        isOpen: vi.fn(() => true),
+      }),
+    };
+    window.L.marker = vi.fn(() => marker);
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve("Resolved Address"));
+    const onAddress = vi.fn();
+    // The marker is gone from the map by the time the lookup resolves.
+    (map as unknown as { hasLayer: unknown }).hasLayer = vi.fn(() => false);
+
+    createLocationMarker(
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      null,
+      null,
+      onAddress,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onAddress).not.toHaveBeenCalled();
+    expect(setPopupContent).not.toHaveBeenCalled();
+  });
+
+  it("still updates the popup when the marker is alive and its popup is open", async () => {
+    // Pin the non-regression the guard must not cause: marker on the map,
+    // popup open ⇒ the resolved address is written as before.
+    const setPopupContent = vi.fn();
+    const marker = {
+      bindPopup: vi.fn().mockReturnThis(),
+      openPopup: vi.fn(),
+      setPopupContent,
+      getPopup: () => ({
+        _closeButton: null,
+        isOpen: vi.fn(() => true),
+      }),
+    };
+    window.L.marker = vi.fn(() => marker);
+    vi.mocked(reverseGeocode).mockReturnValue(Promise.resolve("Resolved Address"));
+    const onAddress = vi.fn();
+    (map as unknown as { hasLayer: unknown }).hasLayer = vi.fn(() => true);
+
+    createLocationMarker(
+      map,
+      120,
+      30,
+      null,
+      "Title",
+      "Loading...",
+      "Lng,Lat:",
+      "Address:",
+      "Close",
+      "en",
+      null,
+      null,
+      onAddress,
+    );
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onAddress).toHaveBeenCalledWith("Resolved Address");
+    expect(setPopupContent).toHaveBeenCalled();
   });
 });
