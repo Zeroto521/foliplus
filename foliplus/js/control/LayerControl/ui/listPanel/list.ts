@@ -15,7 +15,6 @@ import {
 } from "./cursor.js";
 import { groupChildren, isGroupExpanded, renderChildItem } from "./groupExpand.js";
 import {
-  buildCheckbox,
   buildMoreBtn,
   buildRailCell,
   buildTypeIconCol,
