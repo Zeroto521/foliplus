@@ -5,7 +5,7 @@ runtime computes: the zoom range, the filter, and the folder. The verdict rule
 is shared: a malformed declaration is reported once and then treated exactly
 like "not declared", never as a reason to hide data or take the page down.
 
-Each declaration family lives in its own module (keys, warnings, zoom_range,
+Each declaration family lives in its own module (key, warning, zoom_range,
 filter, paint/fill, folder, marker); this package re-exports the whole public
 surface, so foliplus._declaration.<name> keeps working for every consumer.
 """
@@ -22,7 +22,7 @@ from .filter import (
     range_atom,
 )
 from .folder import normalise_folder
-from .keys import (
+from .key import (
     BORDER_KEY,
     FILL_KEY,
     FILTER_KEY,
@@ -43,7 +43,7 @@ from .paint import (
     _expand_hex,
     normalise_border,
 )
-from .warnings import (
+from .warning import (
     LOG_FILTER_CAP,
     PACKAGE_DIR,
     caller_stacklevel,

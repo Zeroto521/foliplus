@@ -8,8 +8,8 @@ import re
 from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
-from .keys import BORDER_KEY
-from .warnings import caller_stacklevel, warn_foliplus
+from .key import BORDER_KEY
+from .warning import caller_stacklevel, warn_foliplus
 
 #: The CSS hex shapes a declared marker chassis colour may take (#rgb or
 #: #rrggbb). The shape is validated here so a malformed hex warns at

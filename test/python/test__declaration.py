@@ -939,7 +939,7 @@ def _late_module_bindings(tree: ast.Module) -> list[tuple[str, int]]:
 @pytest.mark.parametrize(
     "module_path",
     [
-        "foliplus/_declaration/warnings.py",
+        "foliplus/_declaration/warning.py",
         "foliplus/_declaration/filter.py",
         "foliplus/_declaration/paint.py",
         "foliplus/_declaration/marker.py",

@@ -8,7 +8,7 @@ inherits from :class:`BaseControl`. This module owns the Python -> JS bridge:
   (``_TABLES``) plus all per-component locale tables (``_COMPONENT_TABLES``)
   are emitted **once per map** into ``<head>`` by :meth:`BaseControl.render`,
   deduplicated by :data:`_SHARED_ASSETS_NAME`. The artifact pipeline itself lives
-  in :mod:`foliplus._assets`; this module re-exports it so the historical
+  in :mod:`foliplus._asset`; this module re-exports it so the historical
   ``foliplus.BaseControl`` import surface is unchanged.
 
 * **Config serialization** -- each control's instance attributes are serialized into
@@ -27,7 +27,7 @@ from folium import MacroElement
 from folium.elements import JSCSSMixin
 from jinja2 import Template
 
-from ._assets import (
+from ._asset import (
     _LINE_TERMINATORS,
     _SHARED_ASSETS_NAME,
     MANIFEST,

@@ -7,8 +7,8 @@ import numbers
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Literal
 
-from .keys import FILTER_KEY, MEASURE_TYPE_FIELD
-from .warnings import warn_filter, warn_foliplus
+from .key import FILTER_KEY, MEASURE_TYPE_FIELD
+from .warning import warn_filter, warn_foliplus
 
 #: The filter's kind discriminator (a declared filter is a range or an enum).
 FilterKind = Literal["range", "enum"]

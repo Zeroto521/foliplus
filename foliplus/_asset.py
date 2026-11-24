@@ -4,7 +4,7 @@ Owns the one place that maps a component name to its bundled artifacts: the
 manifest the JS build writes, the shared `<style>`/`<script>` header injected
 once per map, and the cached Jinja template per component. Split out of
 `BaseControl.py` so the base class stays a class (the render contract) while the
-build-artifact knowledge lives next to it as `_assets`.
+build-artifact knowledge lives next to it as `_asset`.
 """
 
 from __future__ import annotations

@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
-from .keys import FILL_KEY
+from .key import FILL_KEY
 from .paint import _declared_hex, _declared_opacity
-from .warnings import warn_foliplus
+from .warning import warn_foliplus
 
 
 def normalise_fill(

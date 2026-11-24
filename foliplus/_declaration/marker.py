@@ -5,9 +5,9 @@ from __future__ import annotations
 import numbers
 from typing import Any
 
-from .keys import ICON_SIZE_KEY, MARKER_COLOR_KEY
+from .key import ICON_SIZE_KEY, MARKER_COLOR_KEY
 from .paint import _HEX_COLOR_RE
-from .warnings import warn_foliplus
+from .warning import warn_foliplus
 
 
 def normalise_marker_color(

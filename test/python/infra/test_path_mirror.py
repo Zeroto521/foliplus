@@ -68,7 +68,7 @@ NO_PRIVATE_TEST = {
         "covered by test/python/test_cdn.py, which pins the dependency list it "
         "hands to the shared header"
     ),
-    "_assets": (
+    "_asset": (
         "the dist/ artifact pipeline split out of BaseControl.py; its contract "
         "(a missing artifact fails loudly) is pinned by "
         "test/python/script/build/test_asset.py, which names the behaviour rather "

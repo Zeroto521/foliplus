@@ -6,8 +6,8 @@ import numbers
 from collections.abc import Mapping
 from typing import Any
 
-from .keys import ZOOM_RANGE_KEY
-from .warnings import caller_stacklevel, warn_foliplus
+from .key import ZOOM_RANGE_KEY
+from .warning import caller_stacklevel, warn_foliplus
 
 
 def zoom_level(raw: object) -> int | None:

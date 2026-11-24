@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from .keys import FOLDER_KEY, FOLDER_NAME_MAX
-from .warnings import warn_foliplus
+from .key import FOLDER_KEY, FOLDER_NAME_MAX
+from .warning import warn_foliplus
 
 
 def normalise_folder(
