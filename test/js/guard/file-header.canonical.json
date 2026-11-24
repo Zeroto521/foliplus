@@ -1,7 +1,6 @@
 [
   "control/LayerControl/declaredParse",
-  "core/event/eventBusInstance",
-  "core/event/layerSubscription",
+  "core/event/subscription",
   "core/event/type",
   "core/geo/type",
   "core/label/labelCollision",

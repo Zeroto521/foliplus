@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { EVENTS, ensureEvents, subscribeLayers } from "#foliplus/core/event/index.js";
+import {
+  EVENTS,
+  ensureEvents,
+  subscribe,
+  subscribeLayers,
+} from "#foliplus/core/event/index.js";
 
 // subscribeLayers is the "one layer set, one handler" convenience over the
 // per-map EventBus: filter by ids or a predicate, merge everything that lands
@@ -236,5 +241,93 @@ describe("subscribeLayers", () => {
     await nextFrame();
 
     expect(handler).not.toHaveBeenCalled();
+  });
+});
+
+describe("subscribe", () => {
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => setTimeout(cb, 0));
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("merges a non-layer event (MODE_CHANGE) into one delivery of the latest payload", async () => {
+    const map = makeMap();
+    const handler = vi.fn();
+    subscribe(map as never, { events: [EVENTS.MODE_CHANGE] }, handler);
+
+    const bus = ensureEvents(map as never);
+    bus.publish(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" });
+    bus.publish(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "polygon" });
+    await nextFrame();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const batch = handler.mock.calls[0][0];
+    expect(batch).toHaveLength(1);
+    expect(batch[0].event).toBe(EVENTS.MODE_CHANGE);
+    // No id on this payload: the key is the event alone, so the latest wins.
+    expect(batch[0].payload).toEqual({
+      component: "MeasureControl",
+      mode: "polygon",
+    });
+  });
+
+  it("merges a payload without an id per event, not per id", async () => {
+    const map = makeMap();
+    const handler = vi.fn();
+    subscribe(map as never, { events: [EVENTS.BEFORE_EXPORT] }, handler);
+
+    const bus = ensureEvents(map as never);
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "ExportControl" });
+    bus.publish(EVENTS.BEFORE_EXPORT, { component: "LayerControl" });
+    await nextFrame();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0]).toHaveLength(1);
+    expect(handler.mock.calls[0][0][0].payload).toEqual({
+      component: "LayerControl",
+    });
+  });
+
+  it("keeps payloads that carry a string id apart on the same event", async () => {
+    const map = makeMap();
+    const handler = vi.fn();
+    subscribe(map as never, { events: [EVENTS.LAYER_STYLE_CHANGE] }, handler);
+
+    const bus = ensureEvents(map as never);
+    bus.publish(EVENTS.LAYER_STYLE_CHANGE, { id: "a" });
+    bus.publish(EVENTS.LAYER_STYLE_CHANGE, { id: "b" });
+    await nextFrame();
+
+    expect(handler.mock.calls[0][0]).toHaveLength(2);
+  });
+
+  it("passes the event to the selector's match predicate", async () => {
+    const map = makeMap();
+    const handler = vi.fn();
+    const seen: string[] = [];
+    subscribe(
+      map as never,
+      {
+        events: [EVENTS.LAYER_CHANGE, EVENTS.MODE_CHANGE],
+        match: (_payload, event) => {
+          seen.push(event);
+          return event === EVENTS.MODE_CHANGE;
+        },
+      },
+      handler,
+    );
+
+    const bus = ensureEvents(map as never);
+    bus.publish(EVENTS.LAYER_CHANGE, layerChange("a"));
+    bus.publish(EVENTS.MODE_CHANGE, { component: "MeasureControl", mode: "distance" });
+    await nextFrame();
+
+    expect(seen).toEqual([EVENTS.LAYER_CHANGE, EVENTS.MODE_CHANGE]);
+    expect(handler.mock.calls[0][0]).toHaveLength(1);
+    expect(handler.mock.calls[0][0][0].event).toBe(EVENTS.MODE_CHANGE);
   });
 });
