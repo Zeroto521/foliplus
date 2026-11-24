@@ -58,6 +58,14 @@ LAYER_DATA_FIELDS = {
                         {"min": "number", "max": "number"},
                         "?",
                     ),
+                    # Optional: the author-declared folder, normalised from
+                    # `foliplus={"folder": ...}` the same way the map range
+                    # is. Declared here so the generated schema owns every
+                    # LayerData key instead of leaving this one hand-written.
+                    "folder": (("string", "null"), "?"),
+                    # Optional: the author-declared filter, normalised to the
+                    # shared filter AST by _declaration.filter.
+                    "filter": (("object_unknown", "null"), "?"),
                 }
             ],
         ),

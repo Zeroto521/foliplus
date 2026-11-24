@@ -145,6 +145,13 @@ jobs:
         if: ${{ matrix.folium == 'latest' }}
       - run: uv run make info
 
+      # CONFIG contract gate: regenerate the schema from Python and assert the
+      # committed `foliplus/js/config-schema.ts` is byte-identical (the file is
+      # generated, never hand-edited), then check every contract key is
+      # snake_case. Cheap (~2 s) and runs before the suite so a drift fails loud
+      # instead of surfacing as a type mismatch.
+      - run: uv run make config-schema-verify
+
       # `make test-python-fast` builds `foliplus/dist/` internally and runs the
       # non-browser pytest suite (matrix = version compatibility). Browser
       # tests live in the `browser` job below (single cell) — see comment there.
