@@ -20,7 +20,10 @@ import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
 import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 
 /** Stable row identity across rebuilds: a layer row keys on the layer id, a
- *  group row on its role and (for folders) its folder key. */
+ *  group row on its role and (for folders) its folder key. `child:` is reserved
+ *  for the container-expand child rows (#1284); nothing emits it yet — the
+ *  child rows join this same model once #1284 is in main, not as a second row
+ *  pipeline. */
 type RowKey = string;
 
 type RowKind = "role" | "folder" | "layer";

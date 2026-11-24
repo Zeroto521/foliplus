@@ -1,8 +1,8 @@
 // Rows model golden tests — the model must describe exactly the rows the
 // panel renders: same order, same keys, same painted attributes. This is the
-// phase-1 safety net for the projection migration (task-107): the model is
-// pure, the DOM is the current incremental path, and the two are compared row
-// by row, attribute by attribute.
+// phase-1 safety net for the model-projection migration: the model is pure,
+// the DOM is the current incremental path, and the two are compared row by row,
+// attribute by attribute.
 import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
