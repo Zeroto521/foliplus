@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_opacity_pane_versus_features(self, browser, tmp_path):
@@ -112,6 +107,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result["neighborAnnotationPaneExists"] is True, result
             assert result["neighborAnnotationPaneOpacity"] in ("", "1"), result
             assert not errors, f"JS errors: {errors}"
+
     def test_fill_two_layers_keep_their_own_color(self, browser, tmp_path):
         """A solid fill write on one layer never bleeds onto another layer.
 
@@ -193,6 +189,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         f"pane {cls} bled: {panes_before[cls]} != {panes_after[cls]}"
                     )
             assert not errors, f"JS errors: {errors}"
+
     def test_fill_two_layers_keep_their_own_color_across_reload(
         self, browser, tmp_path
     ):
@@ -299,6 +296,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"a layer dropped out of the persisted record: {stored_after}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_style_fill_color_keeps_native_activation_keys(self, browser, tmp_path):
         """Space/Enter on a style panel's Fill Color picker stay native.
 
@@ -366,6 +364,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                         f"after={read['checkboxAfter']}"
                     )
             assert not errors, f"JS errors: {errors}"
+
     def test_late_layer_opacity_survives_reload(self, browser, tmp_path):
         """A lazily-registered layer keeps its stored opacity across a reload.
 
@@ -476,6 +475,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert after_reload["canvasOpacity"] == "0.35", (
                 f"reload painted the canvas at the author default: {after_reload}"
             )
+
     def test_unregister_keeps_stored_opacity_delete_drops_it(self, browser, tmp_path):
         """unregisterLayer never erases a value; only an explicit delete does.
 
@@ -539,6 +539,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result["registeredAfterDelete"] is False, (
                 f"delete left the layer registered: {result}"
             )
+
     @pytest.mark.parametrize("fill_mode", ["original", "solid", "value"])
     def test_style_fill_opacity_row_in_every_mode(self, browser, tmp_path, fill_mode):
         """The fill opacity row is the last row of the fill detail in every mode.
@@ -569,6 +570,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # content-sized one.
             assert result["opacity"]["w"] == pytest.approx(52, abs=1), result
             assert not errors, f"JS errors: {errors}"
+
     def test_late_layer_fill_swatch_reads_authored_color(self, browser, tmp_path):
         """#679: bad script order — the control's own script lands before a
         layer's JS global, so the registry entry starts at `layer: null`

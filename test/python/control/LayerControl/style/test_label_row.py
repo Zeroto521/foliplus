@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     @pytest.mark.parametrize("width", [380])
@@ -117,6 +112,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert row["panelWidth"] == pytest.approx(280, abs=1), row
             assert row["ariaLabels"] == expected_aria, row
             assert not errors, f"JS errors: {errors}"
+
     def test_style_label_column_fits_the_longest_label_class_string(
         self, browser, tmp_path
     ):
@@ -232,6 +228,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
 
             assert not errors, f"JS errors: {errors}"
+
     def test_slider_end_labels_ellipsize_not_overflow(self, browser, tmp_path):
         """A long value label truncates, a short one keeps its text.
 

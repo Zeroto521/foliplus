@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_attribution_only_topmost_visible(self, browser, tmp_path):
@@ -125,6 +120,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert steps[3]["state"]["entries"] == {"A attr": 1}, steps[3]
             # Step 5 (uncheck A): B is now the only visible base.
             assert steps[4]["state"]["entries"] == {"B attr": 1}, steps[4]
+
     def test_attribution_order_change(self, browser, tmp_path):
         """Regression guard: reordering base layers changes the attribution.
 
@@ -181,6 +177,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result["steps"][1]["state"]["entries"] == {"A attr": 1}, result[
                 "steps"
             ][1]
+
     def test_attribution_sync_no_flicker(self, browser, tmp_path):
         """Flicker guard: reading the attribution table in the same JS
         task as the checkbox click shows exactly one entry — not two.

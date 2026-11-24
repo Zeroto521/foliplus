@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from .helper import _expand_panel, _geo_mixed, _write_html
-
 from .helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_keydown_up_moves_focus(self, browser, tmp_path):
@@ -62,6 +56,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["focusedElement"] == result["expectedElement"], (
                 f"ArrowUp should focus previous item, got {result}"
             )
+
     def test_keydown_down_moves_focus(self, browser, tmp_path):
         """ArrowDown moves keyboard focus to the next layer row."""
         overlay1 = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -81,6 +76,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["focusedElement"] == result["expectedElement"], (
                 f"ArrowDown should focus next item, got {result}"
             )
+
     def test_keydown_escape_clears_focus(self, browser, tmp_path):
         """Escape clears the keyboard-active focus state."""
         overlay = folium.FeatureGroup(name="Overlay A", overlay=True, show=True)
@@ -179,6 +175,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "leaving the row must fall back to the selected wash, got "
                 + str(off_hover)
             )
+
     def test_checkbox_dblclick_does_not_focus_layer(self, browser, tmp_path):
         """Two quick checkbox toggles must not zoom the map (focusLayer).
 
@@ -213,6 +210,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "double-click on checkbox must not activate the focus overlay, got "
                 + str(result)
             )
+
     def test_focus_layer_draws_rect_and_mask(self, browser, tmp_path):
         """Double-clicking an overlay draws the dashed rect + inverse mask."""
         fg = folium.FeatureGroup(name="Zone", overlay=True, show=True)
@@ -236,6 +234,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["rowHighlighted"] is True, (
                 f"row not highlighted, got {result}"
             )
+
     def test_focus_mask_covers_viewport_after_fitbounds_zoomout(
         self, browser, tmp_path
     ):
@@ -309,6 +308,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 f"viewport: outer={result['outer']} vs view={result['view']} "
                 f"at zoom={result['zoom']}"
             )
+
     def test_focus_rect_is_marching_ants(self, browser, tmp_path):
         """The focus rect paints the shared marching-ants look, live.
 
@@ -357,6 +357,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["animationName"] == "foliplus-focus-march", (
                 f"focus rect must keep the march animation, got {result}"
             )
+
     def test_geometry_focus_drops_ua_ring_for_marching_ants(self, browser, tmp_path):
         """A focused map path paints a marching-ants bbox, not a stroke restyle.
 
@@ -402,6 +403,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert result["marqueeAnimation"] == "foliplus-focus-march", (
                 f"marquee must keep the march animation, got {result}"
             )
+
     def test_geometry_focus_marquee_survives_zoom(self, browser, tmp_path):
         """Focused geometry's marching-ants bbox stays locked to the geometry
         across a zoom change.
@@ -455,6 +457,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert abs(mb["h"] - (gb["h"] + 2 * pad)) <= tol, (
                 f"AFTER zoom: marquee height {mb['h']} != geom {gb['h']} + 2*pad"
             )
+
     def test_focus_overlay_renderer_lifecycle(self, browser, tmp_path):
         """Each focus owns exactly one SVG renderer in the overlay pane.
 

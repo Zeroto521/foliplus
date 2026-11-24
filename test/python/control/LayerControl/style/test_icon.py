@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import json
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     load_geojson,
@@ -24,6 +21,7 @@ from foliplus import LayerControl
 
 from ..helper_browser import LayerControlBrowserBase
 
+
 class TestIconBrowser(LayerControlBrowserBase):
     @staticmethod
     def _icon_marker_layer() -> folium.GeoJson:
@@ -37,6 +35,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             json.dumps(load_geojson("LayerControl", "icon_markers_8")),
             name="Icon markers",
         )
+
     def test_icon_svg_payload_never_reaches_dom(self, browser, tmp_path):
         """A hostile iconSvg survives the innerHTML sink as inert markup only.
 
@@ -77,6 +76,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert result["spin"]["xmlnsCount"] == 1, result["spin"]
             assert result["spin"]["class"] == "foliplus-spin", result["spin"]
             assert result["spin"]["matches"] is True, result["spin"]
+
     def test_pane_svg_does_not_capture_the_map(self, browser, tmp_path):
         """The SVG renderer inside a foliplus pane must not swallow the map.
 
@@ -131,6 +131,7 @@ class TestIconBrowser(LayerControlBrowserBase):
                 f"a foliplus pane swallowed a point off the geometry: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_close_btn_aligns_with_header_icon(self, browser, tmp_path):
         """The panel close button sits on the same vertical axis as the header
         icon (the panel's logo).
@@ -154,6 +155,7 @@ class TestIconBrowser(LayerControlBrowserBase):
                 f"close button is {result['deltaPx']:.2f}px off the header "
                 f"icon's vertical center -- threshold 2px, got {result}"
             )
+
     def test_layer_item_title_shows_type(self, browser, tmp_path):
         """Layer item row title shows the translated type, not the layer name."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -184,6 +186,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert title and "MyPoints" not in title, (
                 f"Expected type title, got '{title}'"
             )
+
     def test_checkbox_title_shows_select_deselect(self, browser, tmp_path):
         """Checkbox title shows Select/Deselect, not the layer name."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -210,6 +213,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert title and "MyPoints" not in title, (
                 f"Expected select/deselect title, got '{title}'"
             )
+
     def test_toggle_all_checkbox_title_changes_with_state(self, browser, tmp_path):
         """Toggle-all checkbox title updates when state changes."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -246,6 +250,7 @@ class TestIconBrowser(LayerControlBrowserBase):
                 page.evaluate(_js("LayerControl/read_toggle_all_title")),
                 "indeterminate",
             )
+
     def test_toggle_all_row_title_shows_fold_unfold(self, browser, tmp_path):
         """Toggle-all row title shows fold/unfold tooltip."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -284,6 +289,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert folded and "Expand" in folded, (
                 f"Expected 'Expand layers', got '{folded}'"
             )
+
     def test_color_layer_item_title(self, browser, tmp_path):
         """Color layer item title shows the color map label."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -297,6 +303,7 @@ class TestIconBrowser(LayerControlBrowserBase):
 
             title = page.evaluate(_js("LayerControl/read_color_layer_title"))
             assert title, f"Expected non-empty title, got '{title}'"
+
     def test_fold_svg_switches_on_toggle(self, browser, tmp_path):
         """Fold button uses a single SVG rotated 180° by CSS (not swapped) on toggle."""
         m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -334,6 +341,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             # Row must carry the folded class so CSS rotation kicks in
             is_folded = page.evaluate(_js("LayerControl/read_fold_row_class"))
             assert is_folded, "Expected foliplus-layer-folded class on row after fold"
+
     def test_color_layer_pointer_cursor(self, browser, tmp_path):
         """Color layer item shows move cursor on hover (draggable in base role)."""
         with use_page(self._make_page, browser, tmp_path) as (page, _):
@@ -345,6 +353,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             )
             cursor = page.evaluate(_js("LayerControl/read_color_layer_cursor"))
             assert cursor == "move", f"Expected move cursor, got {cursor}"
+
     def test_row_cursor_renders_glow_on_clear_surface(self, browser, tmp_path):
         """The Row-cursor recipe genuinely renders, not just exists in source.
 

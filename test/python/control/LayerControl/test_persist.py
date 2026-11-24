@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from .helper import _expand_panel, _geo_mixed, _write_html
-
 from .helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_load_saved_order_restore_order(self, browser, tmp_path):
@@ -57,6 +51,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
             result = page.evaluate(_js("LayerControl/read_layer_ids"))
             assert result is not None
             assert result["count"] >= 3
+
     def test_registry_matches_map_after_reload(self, browser, tmp_path):
         """The registry holds one entry per rendered row, and its ids are stable.
 
@@ -127,6 +122,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 assert r["checked"] == r["visible"] == r["onMap"], (
                     f"{r['id']}: checkbox, registry and map disagree: {info}"
                 )
+
     def test_hidden_layers_survive_reload(self, browser, tmp_path):
         """A layer hidden by checkbox stays hidden across a reload.
 
@@ -206,6 +202,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 assert row["onMap"] is False, (
                     f"{row['id']}: still attached to the map after reload\n{rows}"
                 )
+
     def test_showing_author_hidden_layers_survives_reload(self, browser, tmp_path):
         """A layer the author declared ``show=False`` and the user checked ON
         comes back ON after a reload.
@@ -305,6 +302,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 assert row["onMap"] is True, (
                     f"{row['id']}: never re-added to the map after reload\n{rows}"
                 )
+
     def test_author_defaults_survive_a_reload_with_no_toggle(self, browser, tmp_path):
         """Author ``show=False`` layers stay hidden when the user never touched
         the panel, and reload repeatedly.
@@ -392,6 +390,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 assert rows["storage"] == load_storage, (
                     f"reload with no user choice wrote a stored record\n{rows}"
                 )
+
     def test_hidden_layers_persist_across_reload(self, browser, tmp_path):
         """A hidden layer that re-registers later comes back hidden, not reset.
 
@@ -482,6 +481,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                     assert row["onMap"] is False, (
                         f"{row['id']}: re-entered the map while hidden\n{rows}"
                     )
+
     def test_third_party_component_rename_survives_reload(self, browser, tmp_path):
         """A rename on a late-registering component (HeatmapControl) survives reload.
 

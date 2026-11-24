@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_sole_basemap_opacity_zero_shows_hatch(self, browser, tmp_path):
@@ -115,6 +110,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"opacity=1 did not clear the hatch: {result}"
             )
             assert result["atHundred"]["liOpacity"] == 1, result
+
     def test_color_layer_coexists_with_tiles(self, browser, tmp_path):
         """Color and tile basemaps coexist. Checking the color basemap's
         checkbox activates its own pane (the retired
@@ -156,6 +152,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 "color layer must not stamp foliplus-layer-tile-hidden"
             )
             assert result["colorBg"] is True, "color item should have active class"
+
     def test_color_basemap_checkbox_toggles_visibility(self, browser, tmp_path):
         """Checking the color basemap's checkbox must toggle its visibility.
 
@@ -217,6 +214,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert state["colorVisible"] is False, (
                 "unchecking must hide the color pane face"
             )
+
     def test_color_basemap_zorder_stack(self, browser, tmp_path):
         """Color basemap participates in the z-order ladder like tile basemaps.
 
@@ -283,6 +281,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert state["colorPaneZ"] > state["tilePaneZ"], (
                 "reorder back above: color z must increase again"
             )
+
     def test_setvisible_out_of_zoom_range_fires_intent_not_change(
         self, browser, tmp_path
     ):
@@ -344,6 +343,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # No LAYER_CHANGE on the effective channel — the layer
             # stayed off the map throughout the setVisible(true) call.
             assert result["changeCount"] == 0, result
+
     def test_style_fill_value_paints_the_map_by_value(self, browser, tmp_path):
         """The by-value mode repaints the map, and solid flattens it back.
 
@@ -398,6 +398,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the solid mode did not flatten to one fill: {solid}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_style_fill_category_paints_distinct_districts(self, browser, tmp_path):
         """The category by-value mode paints each district its own color.
 

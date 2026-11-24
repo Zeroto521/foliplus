@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 import importlib
-
 import json
 
 import branca.colormap as branca_cm
-
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -63,6 +59,7 @@ _payload_mod = importlib.import_module(
     "foliplus.control.LayerControl._fill_author.payload"
 )
 
+
 def _collection(
     colors: list[str | None],
     *,
@@ -79,6 +76,7 @@ def _collection(
         features.append(point_feature(119.30 + i * 0.01, 26.08, props))
     return feature_collection(*features)
 
+
 def _geo(
     colors: list[str | None],
     *,
@@ -94,6 +92,7 @@ def _geo(
         }
     return layer
 
+
 def _linear(
     colors: tuple[str, ...] = ("#0d0887", "#f0f921"),
     *,
@@ -107,6 +106,7 @@ def _linear(
     dense = [str(base(vmin + (vmax - vmin) * step / 255))[:7] for step in range(256)]
     return branca_cm.LinearColormap(dense, vmin=vmin, vmax=vmax, caption=caption)
 
+
 def _stepped(
     colors: tuple[str, ...] = ("#440154", "#3b528b", "#21918c", "#fde725"),
     *,
@@ -114,6 +114,7 @@ def _stepped(
     caption: str = "score",
 ) -> branca_cm.StepColormap:
     return branca_cm.StepColormap(list(colors), index=list(index), caption=caption)
+
 
 def _render(*layers: folium.Layer, scales: tuple[object, ...] = ()) -> str:
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -124,21 +125,25 @@ def _render(*layers: folium.Layer, scales: tuple[object, ...] = ()) -> str:
     LayerControl().add_to(m)
     return m.get_root().render()
 
+
 def _conf(html: str) -> dict:
     marker = "CONFIG = "
     start = html.index(marker) + len(marker)
     end = html.index(";", start)
     return json.loads(html[start:end])
 
+
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
     return _conf(html)["data"][0]["fillAuthor"]
+
 
 def _scale() -> branca_cm.LinearColormap:
     """A continuous scale with the 256-point resolution explore produces."""
     base = branca_cm.LinearColormap(["#0d0887", "#f0f921"], vmin=10, vmax=15)
     dense = [str(base(10 + 5 * step / 255))[:7] for step in range(256)]
     return branca_cm.LinearColormap(dense, vmin=10, vmax=15, caption="score")
+
 
 def _layer(scale: branca_cm.LinearColormap) -> folium.GeoJson:
     colors = [str(scale(score))[:7] for score in _SCORES]
@@ -157,6 +162,7 @@ def _layer(scale: branca_cm.LinearColormap) -> folium.GeoJson:
         },
     )
 
+
 def _make_author_page(browser, tmp_path):
     scale = _scale()
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -165,12 +171,14 @@ def _make_author_page(browser, tmp_path):
     LayerControl(locale="en").add_to(m)
     return make_browser_page(browser, tmp_path, m.get_root().render(), "fill_author")
 
+
 def _open_author_style_panel(page):
     """Open the row's style drawer: the more menu, then the style entry."""
     page.evaluate(_js("LayerControl/open_panel"))
     opened = page.evaluate(_ARM)
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+
 
 def _declared_layer() -> folium.GeoJson:
     data = load_geojson("common", "polygons_fuzhou_6offset")
@@ -194,11 +202,13 @@ def _declared_layer() -> folium.GeoJson:
         },
     )
 
+
 def _make_declared_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     _declared_layer().add_to(m)
     LayerControl(locale="en").add_to(m)
     return make_browser_page(browser, tmp_path, m.get_root().render(), "declared_fill")
+
 
 def _open_declared_style_panel(page) -> None:
     page.evaluate(_js("LayerControl/open_panel"))
@@ -212,7 +222,8 @@ def _open_declared_style_panel(page) -> None:
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
 
-class TestFillAuthorBrowser():
+
+class TestFillAuthorBrowser:
     def test_original_colors_override_and_reset(self, browser, tmp_path):
         with use_page(_make_author_page, browser, tmp_path) as (page, errors):
             page.wait_for_selector(
@@ -354,6 +365,7 @@ class TestFillAuthorBrowser():
                 f"Reset did not restore the author colors: {restored}"
             )
             assert not errors, f"JS errors: {errors}"
+
     @pytest.mark.parametrize("width", [380, 480, 768, 1000])
     def test_read_only_rows_fit_every_viewport(self, browser, tmp_path, width):
         """The read-only rows fit the panel at every viewport, 380px included.
@@ -384,6 +396,7 @@ class TestFillAuthorBrowser():
             assert read["boxRightMax"] <= read["panelRight"], (width, read)
             assert read["stops"] >= 2, (width, read)
             assert not errors, f"JS errors: {errors}"
+
     def test_continuous_band_without_a_scale_states_equal_interval(
         self, browser, tmp_path
     ):
@@ -432,6 +445,7 @@ class TestFillAuthorBrowser():
         # 9-class ramp: the >9 threshold is exactly what the inference is about.
         assert len(state["fills"]) >= 10, state
         assert not errors, f"JS errors: {errors}"
+
     def test_control_inset_text_start_parity(self, browser, tmp_path):
         """The Method control column's text starts at the same x in both modes.
 
@@ -488,6 +502,7 @@ class TestFillAuthorBrowser():
             )
 
             assert not errors, f"JS errors: {errors}"
+
     def test_original_fill_and_original_border_emit_one_opacity_row(
         self, browser, tmp_path
     ):
@@ -528,6 +543,7 @@ class TestFillAuthorBrowser():
             assert ro["valueScrollW"] <= ro["valueClientW"], result
             assert ro["boxScrollW"] <= ro["boxClientW"], result
             assert not errors, f"JS errors: {errors}"
+
     def test_original_opacity_readout_not_truncated(self, browser, tmp_path):
         """The original-colors opacity readout never clips its value.
 
@@ -556,6 +572,7 @@ class TestFillAuthorBrowser():
             assert ro["valueScrollW"] <= ro["valueClientW"], result
             assert ro["boxScrollW"] <= ro["boxClientW"], result
             assert not errors, f"JS errors: {errors}"
+
     def test_read_only_rows_are_inert_and_copyable(self, browser, tmp_path):
         """The read-only style rows are inert but copyable.
 
@@ -598,7 +615,8 @@ class TestFillAuthorBrowser():
                 assert value["userSelect"] == "text", value
             assert not errors, f"JS errors: {errors}"
 
-class TestDeclaredFillBrowser():
+
+class TestDeclaredFillBrowser:
     def test_declared_ramp_paints_at_load_and_resets_to_declaration(
         self, browser, tmp_path
     ):

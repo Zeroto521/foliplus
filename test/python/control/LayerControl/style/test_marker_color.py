@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_marker_color_keeps_chassis_container(self, browser, tmp_path):
@@ -120,6 +115,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert (
                 "foliplus-marker-glyph" in glyph_cls.split() or "glyphicon" in glyph_cls
             ), f"glyph not painted after the write: {written}"
+
     def test_icon_color_incremental_paint(self, browser, tmp_path):
         """The icon colour write paints the mounted glyph in place.
 
@@ -167,6 +163,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 result["afterGlyph"]
                 and "foliplus-marker-glyph" in result["afterGlyph"]["cls"].split()
             ), f"glyph not painted: {result}"
+
     def test_marker_color_custom_chassis_paint(self, browser, tmp_path):
         """The marker chassis accepts a custom hex + opacity.
 

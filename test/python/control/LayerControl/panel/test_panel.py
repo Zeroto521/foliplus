@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from ..helper import _expand_panel, _geo_mixed, _write_html
-
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_row_panel_close_x_keeps_native_activation_keys(self, browser, tmp_path):
@@ -107,6 +101,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                         f"after={read['checkboxAfter']}"
                     )
             assert not errors, f"JS errors: {errors}"
+
     def test_native_gate_checkbox_space(self, browser, tmp_path):
         """Space on a focused row checkbox flips it exactly once, via the native path.
 
@@ -162,6 +157,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 + str(read["rowFocused"])
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_input_skin_computed_parity(self, browser, tmp_path):
         """The LayerControl style-panel inputs resolve one computed skin
         from .foliplus-input-skin.
@@ -206,6 +202,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 assert got["color"] == t["textPrimary"], (name, data)
                 assert got["boxSizing"] == "border-box", (name, data)
             assert not errors, f"JS errors: {errors}"
+
     def test_row_panels_pin_only_on_request(self, browser, tmp_path):
         """Pinning is opt-in: this PR's panels pin, a plain row panel does not.
 
@@ -276,6 +273,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 f"box, got {attrs['fixture']}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_row_panel_horizontal_box_and_flip(self, browser, tmp_path):
         """The pinned card's horizontal box still obeys the card policy.
 
@@ -331,7 +329,8 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert short["panel"]["bottom"] <= short["map"]["bottom"] - 8, short
             assert not errors, f"JS errors: {errors}"
 
-class TestStylePanelTouchBrowser():
+
+class TestStylePanelTouchBrowser:
     def test_touch_drag_over_the_style_panel_does_not_pan_the_map(
         self, touch_browser, tmp_path
     ):

@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from ..helper import _expand_panel, _geo_mixed, _write_html
-
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_menu_shell_keeps_design_padding_under_bootstrap(self, browser, tmp_path):
@@ -76,6 +70,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 f"menu shell padding-left drifted under Bootstrap: {padding_left!r}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_row_more_button_keeps_native_activation_keys(self, browser, tmp_path):
         """Enter/Space on a row's ⋮ button still open its menu natively.
 
@@ -133,6 +128,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                     timeout=5000,
                 )
             assert not errors, f"JS errors: {errors}"
+
     def test_menu_item_activation_keys_run_their_own_action(self, browser, tmp_path):
         """Enter/Space on a ⋮ menu entry runs that entry's action.
 

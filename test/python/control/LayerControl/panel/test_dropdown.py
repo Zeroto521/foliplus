@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_map_unchanged,
@@ -33,14 +28,13 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from playwright.sync_api import TimeoutError
 
 from foliplus import HeatmapControl, LayerControl
 
 from ..helper import _expand_panel, _geo_mixed, _write_html
-
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestPanelBrowser(LayerControlBrowserBase):
     def test_panel_stays_open_on_outside_press_by_default(self, browser, tmp_path):
@@ -88,6 +82,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "a drag-pan on the map collapsed the panel; the default is False"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_panel_collapses_on_outside_press_when_enabled(self, browser, tmp_path):
         """``collapse_on_outside=True`` re-enables the implicit trigger.
 
@@ -123,6 +118,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "collapse_on_outside=True"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_row_panel_still_dismisses_on_outside_press(self, browser, tmp_path):
         """The floating attrs panel still dismisses on an outside press.
 
@@ -168,6 +164,7 @@ class TestPanelBrowser(LayerControlBrowserBase):
                 "the press that dismissed the row panel also collapsed the main panel"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_row_overlay_stays_visible_over_lit_siblings(self, browser, tmp_path):
         """Sibling rows keep their hover wake while a row overlay is open —
         that is their own state display and the overlay is the pointer's

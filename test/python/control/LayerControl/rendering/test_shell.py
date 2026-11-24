@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import base64
-
 import json
-
 import re
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     assert_config_value,
@@ -28,10 +23,10 @@ from conftest import (
     use_page,
     use_raw_page,
 )
-
 from folium import Element
 
 from foliplus import HeatmapControl, LayerControl
+
 
 def _rule(css: str, tail: str) -> str:
     """Body of the first rule whose selector ends with *tail*.
@@ -42,7 +37,8 @@ def _rule(css: str, tail: str) -> str:
     start = css.index(tail)
     return css[start : css.index("}", start)]
 
-class TestLayerControlRendering():
+
+class TestLayerControlRendering:
     @staticmethod
     def _assert_no_bg_transition(css, selector_fragment, must_not, may):
         """Assert the CSS rule whose *selector_fragment* is the base selector
@@ -115,20 +111,25 @@ class TestLayerControlRendering():
                 f"{selector_fragment} should still transition {prop} — "
                 "it is pointer/state-driven, not rebuild-driven"
             )
+
     def test_default_params(self):
         html = render_control(LayerControl())
         assert "foliplus-layer-ctrl" in html
+
     def test_color_layer_item(self):
         html = render_control(LayerControl())
         assert "foliplus_color_map" in html
+
     def test_color_layer_default_value(self):
         html = render_control(LayerControl())
         assert "#cccccc" in html
+
     def test_separator_label(self):
         html = render_control(LayerControl())
         html = render_control(LayerControl())
         assert "layer-sep" in html
         assert "layer-sep-label" in html
+
     def test_fold_icon_single_svg_css_rotation(self):
         """Fold uses a single SVG icon rotated by CSS — no separate UNFOLD SVG."""
 
@@ -141,20 +142,25 @@ class TestLayerControlRendering():
         assert 'foliplus-layer-fold-btn[aria-expanded="true"] svg {' in css
         assert "rotate(var(--foliplus-fold-rot-expanded))" in css
         assert "rotate(180deg)" not in css
+
     def test_locale_zh(self):
         html = render_control(LayerControl(locale="zh"))
         assert_locale(html, "图层", "LayerControl.panel_title")
+
     def test_position_renders(self):
         html = render_control(LayerControl(position="bottomright"))
         assert "bottomright" in html
+
     def test_label_collide_default_true(self):
         """label_collide defaults to true and renders as a JS boolean."""
         html = render_control(LayerControl())
         assert_config_value(html, "label_collide", True)
+
     def test_label_collide_false(self):
         """label_collide=False renders false and disables collision detection."""
         html = render_control(LayerControl(label_collide=False))
         assert_config_value(html, "label_collide", False)
+
     def test_multiple_base_layers(self):
         """Multiple base layers are all collected by render()."""
         m = folium.Map()
@@ -180,6 +186,7 @@ class TestLayerControlRendering():
         assert "Terrain" in data
         assert sum(1 for d in ctrl._config["data"] if d["role"] == "base") >= 3
         assert sum(1 for d in ctrl._config["data"] if d["role"] != "base") == 0
+
     def test_base_and_overlay_in_template(self):
         """Both base_layers and overlays appear in the JS template."""
         m = folium.Map()
@@ -191,6 +198,7 @@ class TestLayerControlRendering():
         # JS data should contain both with correct role values
         assert '"role": "base"' in html
         assert '"role": "overlay"' in html
+
     def test_is_base_class_on_base_items(self):
         """Only base map items get the data-layer-type attribute."""
         m = folium.Map()
@@ -201,6 +209,7 @@ class TestLayerControlRendering():
 
         # The row's data-layer-type is the layer's role field, verbatim.
         assert '"data-layer-type": layerInfo.role' in html
+
     def test_drag_handle_present(self):
         """Drag handle SVG present for all layer items."""
         m = folium.Map()
@@ -213,6 +222,7 @@ class TestLayerControlRendering():
         assert "drag-handle" in html
         # All items use drag handle (no more base-map-only spacer logic)
         assert "DRAG_HANDLE" in html
+
     def test_drag_tooltip_rendered(self):
         """Drag handle has i18n drag_tooltip title."""
         m = folium.Map()
@@ -221,6 +231,7 @@ class TestLayerControlRendering():
         html = render(m)
         assert "drag_tooltip" in html
         assert "拖拽排序" in html
+
     def test_draggable_all_items(self):
         """All layer items have draggable=true."""
         m = folium.Map()
@@ -233,12 +244,14 @@ class TestLayerControlRendering():
             or 'draggable: "true"' in html
             or 'draggable="true"' in html
         )
+
     def test_locale_en_keys(self, base_map: folium.Map):
         """Default (en) locale keys rendered."""
         html = render_control(LayerControl())
         assert "LayerControl.toggle_title" in html
         assert "LayerControl.panel_title" in html
         assert "LayerControl.base_map_label" in html
+
     def test_label_locale_keys(self):
         """Style-panel locale keys exist in both en and zh.
 
@@ -275,10 +288,12 @@ class TestLayerControlRendering():
             assert retired not in keys, (
                 f"LayerControl.{lang} still carries the removed {retired} key"
             )
+
     def test_color_click_deselects_bases(self, base_map: folium.Map):
         """Color layer checkbox change handler present in rendered code."""
         html = render_control(LayerControl())
         assert "showSolidBasemap" in html
+
     def test_drag_base_map_allowed(self):
         """No drag prevention for base maps in JS code."""
         m = folium.Map()
@@ -287,6 +302,7 @@ class TestLayerControlRendering():
         html = render(m)
         # Should NOT contain old drag prevention for base maps
         assert "this.layers[idx].role" not in html
+
     def test_separator_in_template(self):
         """Separator label 'BASE MAP' appears before base layer items."""
         m = folium.Map()
@@ -294,6 +310,7 @@ class TestLayerControlRendering():
         folium.TileLayer("OpenStreetMap", name="OSM", overlay=False).add_to(m)
         html = render(m)
         assert "base_map_label" in html
+
     def test_css_variables_used(self, base_map: folium.Map):
         """CSS variables from the shared stylesheet are referenced in rendered output."""
         html = render_control(LayerControl())
@@ -301,20 +318,24 @@ class TestLayerControlRendering():
         assert "var(--foliplus-accent-primary)" in html
         assert "var(--foliplus-radius-sm)" in html
         assert "var(--foliplus-transition-fast)" in html
+
     def test_leaflet_control_classes_applied(self, base_map: folium.Map):
         """LayerControl renders with leaflet-control classes for Leaflet theming."""
         html = render_control(LayerControl())
         assert "leaflet-control" in html
         assert "leaflet-bar" in html
+
     def test_layer_item_dom_structure(self, base_map: folium.Map):
         """Each layer-item has checkbox, label, type-icon-col."""
         html = render_control(LayerControl())
         assert "foliplus-checkbox" in html
         assert "foliplus-type-icon-col" in html
+
     def test_layer_item_6_column_grid(self, base_map: folium.Map):
         """Layer item uses 6-column grid-template-areas with all six slots."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert '"rail check label count icon more"' in css
+
     def test_layer_item_grid_column_classes_rendered(self, base_map: folium.Map):
         """All 6 grid-column CSS classes appear in the rendered output."""
         html = render_control(LayerControl())
@@ -324,19 +345,23 @@ class TestLayerControlRendering():
         assert "foliplus-type-icon-col" in html
         assert "foliplus-checkbox" in html
         assert "foliplus-layer-label" in html
+
     def test_more_tooltip_rendered(self, base_map: folium.Map):
         """More button has i18n more_tooltip title/aria-label."""
         html = render_control(LayerControl())
         assert "more_tooltip" in html
+
     def test_more_button_grid_area(self):
         """More button is placed in the 'more' grid area."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert "foliplus-layer-more-btn" in css
         assert "grid-area: more" in css
+
     def test_drag_cell_grid_area(self):
         """Rail cell is placed in the 'rail' grid area (v3.8: drag-cell renamed)."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert "grid-area: rail" in css
+
     def test_count_column_min_max_and_funnel_token(self):
         """The count column is a min/max track: the funnel token plus the
         widest compact value ("2.5K", "1.2万") must fit at the max width, and
@@ -349,6 +374,7 @@ class TestLayerControlRendering():
         assert "--foliplus-count-track-min-width:" in token_css
         assert "--foliplus-count-track-width: 48px" in token_css
         assert "minmax(var(--foliplus-count-track-min-width)" in token_css
+
     def test_filtered_funnel_is_neutral_with_currentcolor_fill(self):
         """The filtered-row funnel is a state mark, not an action accent.
 
@@ -367,6 +393,7 @@ class TestLayerControlRendering():
         assert "color: var(--foliplus-text-primary)" in block
         assert "fill: currentColor" in block
         assert "var(--foliplus-accent-primary)" not in block
+
     def test_type_icon_col_size_anchored_to_checkbox(self):
         """type-icon-col is 16px (space-xl) to anchor to the checkbox square."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
@@ -378,6 +405,7 @@ class TestLayerControlRendering():
         assert "var(--foliplus-space-xl)" in block
         assert "var(--foliplus-icon-size-xs)" not in block
         assert "var(--foliplus-icon-size-md)" not in block
+
     def test_more_column_width_named_vars(self):
         """More grid column and button both use --foliplus-more-btn-width (7px),
         and the count column uses --foliplus-count-track-width; both keep the track and
@@ -403,19 +431,23 @@ class TestLayerControlRendering():
         assert blks, "no .foliplus-layer-more-btn { rule found"
         assert "var(--foliplus-more-btn-width)" in "\n".join(blks)
         assert not any("var(--foliplus-icon-size-xs)" in b for b in blks)
+
     def test_color_map_id_constant(self, base_map: folium.Map):
         """Color map uses a special constant ID for identification."""
         html = render_control(LayerControl())
         assert "foliplus_color_map" in html
+
     def test_hint_duration_constants_in_layer(self, base_map: folium.Map):
         """LayerControl uses hint duration constants (not hardcoded values)."""
         html = render_control(LayerControl())
         assert "HINT_DURATION" in html
         assert "HINT_COOLDOWN_MS: 800" in html
+
     def test_separator_container_has_base_label(self, base_map: folium.Map):
         """Separator label uses localized base_map_label key."""
         html = render_control(LayerControl())
         assert "LayerControl.base_map_label" in html
+
     def test_css_interaction_effects(self, base_map: folium.Map):
         """The Row-cursor recipe exists in the source CSS and drives every
         interactive element with one recipe.
@@ -595,12 +627,14 @@ class TestLayerControlRendering():
         assert "stroke: currentColor" in html
         # Close (X) button SVG must also be in the icon selector
         assert "foliplus-ctrl-btn" in html
+
     def test_close_btn_svg_styled(self):
         """ctrl-btn svg is included in the common icon selector so X lines are visible."""
         css = read_css_dir("foliplus/css/common", "button.css")
         # .foliplus-ctrl-btn must appear inside the :is() icon-size rule so that
         # its SVG lines get stroke:currentColor (without it the X is invisible).
         assert ".foliplus-ctrl-btn" in css
+
     def test_folded_state_no_accent_text(self):
         """Folded label keeps neutral color; only left border and fold-btn use accent."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
@@ -611,6 +645,7 @@ class TestLayerControlRendering():
         assert "foliplus-layer-folded .foliplus-layer-sep-label" not in css, (
             "folded label must not override color (label stays text-primary)"
         )
+
     def test_toggle_all_grid_uses_named_slots_for_three_items(self):
         """Toggle-all (role) row names rail/check/label/count/icon/more.
 

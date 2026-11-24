@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 import importlib
-
 import json
 
 import branca.colormap as branca_cm
-
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -63,6 +59,7 @@ _payload_mod = importlib.import_module(
     "foliplus.control.LayerControl._fill_author.payload"
 )
 
+
 def _collection(
     colors: list[str | None],
     *,
@@ -79,6 +76,7 @@ def _collection(
         features.append(point_feature(119.30 + i * 0.01, 26.08, props))
     return feature_collection(*features)
 
+
 def _geo(
     colors: list[str | None],
     *,
@@ -94,6 +92,7 @@ def _geo(
         }
     return layer
 
+
 def _linear(
     colors: tuple[str, ...] = ("#0d0887", "#f0f921"),
     *,
@@ -107,6 +106,7 @@ def _linear(
     dense = [str(base(vmin + (vmax - vmin) * step / 255))[:7] for step in range(256)]
     return branca_cm.LinearColormap(dense, vmin=vmin, vmax=vmax, caption=caption)
 
+
 def _stepped(
     colors: tuple[str, ...] = ("#440154", "#3b528b", "#21918c", "#fde725"),
     *,
@@ -114,6 +114,7 @@ def _stepped(
     caption: str = "score",
 ) -> branca_cm.StepColormap:
     return branca_cm.StepColormap(list(colors), index=list(index), caption=caption)
+
 
 def _render(*layers: folium.Layer, scales: tuple[object, ...] = ()) -> str:
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -124,21 +125,25 @@ def _render(*layers: folium.Layer, scales: tuple[object, ...] = ()) -> str:
     LayerControl().add_to(m)
     return m.get_root().render()
 
+
 def _conf(html: str) -> dict:
     marker = "CONFIG = "
     start = html.index(marker) + len(marker)
     end = html.index(";", start)
     return json.loads(html[start:end])
 
+
 def _meta(layer: folium.GeoJson, *scales: object) -> dict:
     html = _render(layer, scales=tuple(scales))
     return _conf(html)["data"][0]["fillAuthor"]
+
 
 def _scale() -> branca_cm.LinearColormap:
     """A continuous scale with the 256-point resolution explore produces."""
     base = branca_cm.LinearColormap(["#0d0887", "#f0f921"], vmin=10, vmax=15)
     dense = [str(base(10 + 5 * step / 255))[:7] for step in range(256)]
     return branca_cm.LinearColormap(dense, vmin=10, vmax=15, caption="score")
+
 
 def _layer(scale: branca_cm.LinearColormap) -> folium.GeoJson:
     colors = [str(scale(score))[:7] for score in _SCORES]
@@ -157,6 +162,7 @@ def _layer(scale: branca_cm.LinearColormap) -> folium.GeoJson:
         },
     )
 
+
 def _make_author_page(browser, tmp_path):
     scale = _scale()
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
@@ -165,12 +171,14 @@ def _make_author_page(browser, tmp_path):
     LayerControl(locale="en").add_to(m)
     return make_browser_page(browser, tmp_path, m.get_root().render(), "fill_author")
 
+
 def _open_author_style_panel(page):
     """Open the row's style drawer: the more menu, then the style entry."""
     page.evaluate(_js("LayerControl/open_panel"))
     opened = page.evaluate(_ARM)
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+
 
 def _declared_layer() -> folium.GeoJson:
     data = load_geojson("common", "polygons_fuzhou_6offset")
@@ -194,11 +202,13 @@ def _declared_layer() -> folium.GeoJson:
         },
     )
 
+
 def _make_declared_page(browser, tmp_path):
     m = folium.Map(location=[26.08, 119.30], zoom_start=12)
     _declared_layer().add_to(m)
     LayerControl(locale="en").add_to(m)
     return make_browser_page(browser, tmp_path, m.get_root().render(), "declared_fill")
+
 
 def _open_declared_style_panel(page) -> None:
     page.evaluate(_js("LayerControl/open_panel"))
@@ -212,6 +222,7 @@ def _open_declared_style_panel(page) -> None:
     assert opened["ok"], f"style panel did not open: {opened}"
     page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
 
+
 def test_numeric_values_cover_booleans_numpy_integers_and_nan():
     np = pytest.importorskip("numpy")
     numeric = _layer_control_mod.numeric_value
@@ -220,6 +231,7 @@ def test_numeric_values_cover_booleans_numpy_integers_and_nan():
     assert numeric(np.int64(7)) == 7.0
     assert numeric(float("nan")) is None
     assert numeric("7") is None
+
 
 def test_color_helpers_degrade_on_bad_input():
     module = _layer_control_mod
@@ -232,6 +244,7 @@ def test_color_helpers_degrade_on_bad_input():
     assert module.rgba_hex("not-a-color") is None
     assert module.rgba_hex([1.0, 2.0]) is None
 
+
 def test_palette_hex_reads_hex_strings_and_stops():
     module = _layer_control_mod
 
@@ -239,6 +252,7 @@ def test_palette_hex_reads_hex_strings_and_stops():
     assert module.palette_hex("#AABBCCFF") == "#aabbcc"
     assert module.palette_hex("nope") is None
     assert module.palette_hex((0.0, 0.0, 1.0, 1.0)) == "#0000ff"
+
 
 def test_author_rows_skips_malformed_and_uncolored_features():
     features = [
@@ -252,6 +266,7 @@ def test_author_rows_skips_malformed_and_uncolored_features():
     assert len(rows) == _layer_control_mod.FILL_AUTHOR_SAMPLE
     assert all(color == "#0d0887" for _, color in rows)
 
+
 def test_rgb_reads_short_hex_and_rejects_broken_hex():
     module = _layer_control_mod
 
@@ -260,9 +275,11 @@ def test_rgb_reads_short_hex_and_rejects_broken_hex():
     assert module.rgb("#12345") is None
     assert module.same_color("nope", "#0d0887") is False
 
+
 def test_colormap_sample_returns_none_for_a_broken_scale():
     # A scale that raises on call yields no sample instead of a failed render.
     assert _layer_control_mod.colormap_sample(object(), 1.0) is None
+
 
 def test_continuous_stops_falls_back_to_interpolation_without_a_palette():
     class Scale:

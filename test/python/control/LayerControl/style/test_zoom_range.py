@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 import base64
-
 import copy
-
 import json
-
 import re
-
 import time
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     feature_collection,
@@ -35,6 +28,7 @@ from conftest import (
 
 from foliplus import HeatmapControl, LayerControl
 
+
 def _method_labels() -> tuple[str, str]:
     """The method row label for each built-in language, read from the locale
     table (single source — never pin the string twice)."""
@@ -43,9 +37,10 @@ def _method_labels() -> tuple[str, str]:
     zh = json.loads((base / "common.zh.json").read_text(encoding="utf-8"))
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
-from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 
+from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
+
 
 class TestStyleBrowser(LayerControlBrowserBase):
     def test_native_gate_range_slider_arrowdown(self, browser, tmp_path):
@@ -112,6 +107,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 "before=" + str(arm["rowFocused"]) + " after=" + str(mid["rowFocused"])
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_dual_thumb_clamp(self, browser, tmp_path):
         """Two thumbs never cross: each drag really moves, then clamps.
 
@@ -150,6 +146,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 result["maxAfterReverse"],
             ], f"reverse range was not persisted: {result}"
             assert not errors, f"JS errors: {errors}"
+
     def test_slider_pan_shows_following_bubbles(self, browser, tmp_path):
         """A pan keeps both value bubbles live and following their thumbs.
 
@@ -188,6 +185,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"bubbles did not clear on release: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_slider_bubble_clears_on_window_blur(self, browser, tmp_path):
         """A drag interrupted by the window losing focus leaves no bubble.
 
@@ -241,6 +239,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the resumed drag left a bubble behind: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_close_mid_drag_commits(self, browser, tmp_path):
         """Closing the panel while a drag is live commits what the pointer set.
 
@@ -286,6 +285,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 result["afterMove"],
             ], f"the stored range is wrong: {disk}"
             assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_oor_dim(self, browser, tmp_path):
         """Out-of-range: only the selected span dims; the thumbs, rail and
         numbers stay crisp, the current dot greys, and the title explains."""
@@ -316,6 +316,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 page, "--foliplus-neutral-500"
             ), "out of range, the current dot must read as uncovered"
             assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_zoomend_marker_moves(self, browser, tmp_path):
         """Current-zoom marker follows the map on zoomend."""
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
@@ -336,6 +337,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"current dot missing after zoomend: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_native_tilelayer(self, browser, tmp_path):
         """Native carrier: GridLayer minZoom/maxZoom hides tiles on reset."""
         t1 = folium.TileLayer(
@@ -374,6 +376,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"tiles not restored after deleting options + _resetView: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_zoomend_does_not_add_author_hidden_layer(
         self, browser, tmp_path
     ):
@@ -414,6 +417,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"row checkbox state drifted during the sweep: {result}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_zoom_range_reload_does_not_add_author_hidden_layer(
         self, browser, tmp_path
     ):
@@ -488,6 +492,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result["onMap"] == before, (
                 f"layer map membership changed across reload: before={before}, after={result['onMap']}"
             )
+
     def test_zoom_range_canvas_row_hides_the_heatmap_canvas(self, browser, tmp_path):
         """A canvas-only layer gets a zoom-range row that really hides it.
 
@@ -575,6 +580,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the committed range carried no provenance marker: {stored}"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_slider_scale_ends_centered_on_their_thumbs(self, browser, tmp_path):
         """The end numbers align by rendered width: narrower centres, wider clamps.
 

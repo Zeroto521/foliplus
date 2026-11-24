@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import json
-
 from pathlib import Path
 
 import folium
-
 import pytest
-
 from conftest import (
     _js,
     load_geojson,
@@ -24,6 +21,7 @@ from foliplus import LayerControl
 
 from ..helper_browser import LayerControlBrowserBase
 
+
 class TestIconBrowser(LayerControlBrowserBase):
     @staticmethod
     def _icon_marker_layer() -> folium.GeoJson:
@@ -37,6 +35,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             json.dumps(load_geojson("LayerControl", "icon_markers_8")),
             name="Icon markers",
         )
+
     def test_row_cursor_turns_row_white_on_hover_tab_and_arrow(self, browser, tmp_path):
         """Hover, Tab and arrow-key cursor all turn the row white.
 
@@ -103,6 +102,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert hover_bg == white, (
                 f"mouse hover must turn the row white too, got {hover_bg}"
             )
+
     def test_fold_row_cursor_wakes_glow_and_red_icon(self, browser, tmp_path):
         """A keyboard cursor on the fold (toggle-all) row shows the shared recipe
         (white surface + glow) and wakes the fold icon red, exactly like hover —
@@ -135,6 +135,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert result["shadow"] != "none", (
                 f"fold row must glow, got {result['shadow']}"
             )
+
     def test_focusin_maps_checkbox_to_row_cursor(self, browser, tmp_path):
         """Tab focus is sampled once in focusin and mapped onto the JS row class.
 
@@ -163,6 +164,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert result["suppressLeft"] is False, (
                 "the FOCUS_SUPPRESSED mechanism is gone, got " + str(result)
             )
+
     def test_checkbox_click_lights_row_cursor(self, browser, tmp_path):
         """Click lights the row cursor and keeps it until another row takes over.
 
@@ -198,6 +200,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert result["handedOver"]["second"]["focusedClass"] is True, (
                 "the clicked row must carry the cursor, got " + str(result)
             )
+
     def test_style_icon_dimension_swaps_marker_dom_class(self, browser, tmp_path):
         """The icon row drives real markers: one whole-layer glyph swap.
 
@@ -288,6 +291,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert all(not icon["hasGlyph"] for icon in reset["icons"]), (
                 f"Reset did not restore the author icon: {reset}"
             )
+
     def test_icon_grid_owns_keyboard_while_open(self, browser, tmp_path):
         """The open glyph grid owns DOM focus and the keyboard.
 
@@ -407,6 +411,7 @@ class TestIconBrowser(LayerControlBrowserBase):
 
             assert not errors, f"JS errors: {errors}"
             assert not errors, errors
+
     def test_icon_grid_focus_ring_screenshot(self, browser, tmp_path):
         """Capture the glyph grid cell focus ring for the before/after evidence.
 
@@ -451,6 +456,7 @@ class TestIconBrowser(LayerControlBrowserBase):
             assert rect["boxShadow"] and rect["boxShadow"] != "none", rect
             print(f"wrote {out}")
             assert not errors, f"JS errors: {errors}"
+
     def test_icon_row_input_width_and_ellipsis(self, browser, tmp_path):
         """The icon trigger fills the control column and a long glyph name
         ellipsizes instead of overflowing the row (single-icon row detail)."""
