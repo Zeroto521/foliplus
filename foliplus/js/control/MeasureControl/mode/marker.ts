@@ -75,6 +75,11 @@ class MarkerMode extends MeasureMode {
         )
           .then(addr => {
             if (gen !== generation) return; // a newer drag superseded us
+            // Liveness guard (same rule as core/geo/locationMarker.ts): the pin
+            // can be deleted or the control destroyed while this lookup is in
+            // flight. Order matters — this must run BEFORE store.update, or the
+            // resolved address lands on a record whose marker is already gone.
+            if (!mgr.map.hasLayer(marker)) return;
             mgr.store.update(id, { address: addr });
             if (marker.getPopup()?.isOpen()) {
               marker.setPopupContent(

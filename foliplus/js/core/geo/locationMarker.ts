@@ -70,6 +70,16 @@ const createLocationMarker = (
     // Reverse-geocode the location to resolve an address label.
     void reverseGeocode(map, lng, lat, code)
       .then((resolved: string) => {
+        // Liveness guard: the marker can be removed (its pin deleted, or the
+        // whole control destroyed) while this lookup is still in flight. Once
+        // it is no longer on the map, every write — the caller's onAddress
+        // (which lands in the store) and the popup content — must be skipped,
+        // or a resolved address lands on a marker nobody can see. This is the
+        // same liveness rule MeasureControl's drag handler applies; putting it
+        // here makes LocateControl, MeasureControl and SearchControl (the three
+        // callers of createLocationMarker) share one guard instead of each
+        // re-deriving its own.
+        if (!map.hasLayer(marker)) return;
         if (onAddress) onAddress(resolved);
         if (marker?.getPopup?.()?.isOpen()) {
           marker.setPopupContent(
