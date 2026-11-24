@@ -503,6 +503,7 @@ export {
   syncColorRowVisibility,
   ICON_DIMENSION,
   applyIconToLayer,
+  authorGlyphName,
   buildIconRow,
   commitGlyph,
   currentGlyph,

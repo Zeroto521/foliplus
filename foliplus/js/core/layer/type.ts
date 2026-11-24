@@ -302,8 +302,12 @@ interface RegisterLayerOpts {
   /** Third-party feature count provider (Canvas layers require this; FeatureGroup
    *  layers use the built-in fallback via walkLeaf). Null means 'don't render'. */
   featureCountProvider?: (() => number) | null;
-  /** Style values this layer exposes to the style drawer — pulled on demand,
-   *  never cached on the registry (same contract as featureCountProvider). */
+  /** INTERNAL delegation hook — the style drawer's read of a component-owned
+   *  layer's paint (HeatmapControl / MeasureControl). NOT a read API: hosts
+   *  must call `LayerAPI.getStyle(id)`, the one public read surface, which
+   *  merges this provider into the snapshot. Pulled on demand, never cached
+   *  (same contract as featureCountProvider); null for a layer whose paint
+   *  the registry owns itself (GeoJson / vector layers). */
   styleProvider?: (() => Record<string, unknown>) | null;
   /** Canonical style setters. Both the component's own panel and the layer
    *  drawer call these — the component owns the only copy of the value. */
@@ -458,7 +462,9 @@ interface LayerInfo {
   isLabel?: boolean;
   /** Third-party feature count provider. Null means 'don't render count'. */
   featureCountProvider?: (() => number) | null;
-  /** Style values exposed to the drawer — pull on demand, never cached. */
+  /** INTERNAL delegation hook (see RegisterLayerOpts.styleProvider) — never a
+   *  public read API. Hosts read `LayerAPI.getStyle(id)`; the snapshot merges
+   *  this provider's values for component-owned layers. */
   styleProvider?: (() => Record<string, unknown>) | null;
   /** Canonical style setters shared by the component panel and the drawer. */
   styleSetters?: Record<string, (value: unknown) => void> | null;
@@ -1069,6 +1075,11 @@ interface LayerAPI {
    *    the provider's values are merged in so a host reads one shape
    *    regardless of who owns the paint.
    *
+   *  This is the ONLY public read API for a layer's effective style.
+   *  `styleProvider` is an internal delegation hook (see
+   *  {@link RegisterLayerOpts.styleProvider}), not a read surface — a host
+   *  that reads it directly sees nothing for a GeoJson layer.
+   *
    *  Only LayerController implements this — the lightweight stub
    *  returns `null`. Optional so an older foliplus-common runtime
    *  paired with a newer component bundle keeps loading (the shared
@@ -1090,9 +1101,11 @@ type StyleProvenance = "user" | "author" | "declaration" | "none";
  *  readers — never a second source of truth, so a host page sees the
  *  same numbers the panel publishes. Each dimension's `provenance` is
  *  reported separately so a host can tell "the author wrote this" from
- *  "the user overrode it"; the value itself is `undefined` when the
- *  layer does not carry that dimension (`provenance: "none"`) or
- *  nothing has painted it yet (no leaf to walk, no intent stored).
+ *  "the user overrode it". The value is the EFFECTIVE paint: the user's
+ *  stored override when one exists, else the author's declared value
+ *  (the same value the map draws). It is `undefined` only when the layer
+ *  does not carry that dimension (`provenance: "none"`) or the author
+ *  declares nothing to paint.
  */
 interface LayerStyleSnapshot {
   /** Layer id the snapshot was read for. */
@@ -1143,11 +1156,13 @@ interface LayerStyleSnapshot {
   icon?: {
     glyph?: string;
     color?: string;
-    /** Opacity of the icon colour override (0-1 or 0-100 per the dimension's
-     *  storage unit). Absent when no icon-colour opacity is set. */
+    /** The effective icon-colour opacity (0-100). A color inherited from the
+     *  author declares no glyph opacity, so it falls back to the 100% the
+     *  panel row shows. */
     colorOpacity?: number;
     markerColor?: string;
-    /** Opacity of the marker-colour override. Absent when not set. */
+    /** The effective marker-chassis opacity (0-100); 100 when the author
+     *  declares no chassis opacity. */
     markerColorOpacity?: number;
   };
   /** Label config (content dimension, no provenance tiers). */
