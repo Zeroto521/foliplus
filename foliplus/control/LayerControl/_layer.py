@@ -200,6 +200,7 @@ def declared_border(item: Layer, layer_name: str) -> dict[str, object] | None:
         source="foliplus['border']",
     )
 
+
 def declared_fill(item: Layer, layer_name: str) -> dict[str, object] | None:
     """Normalise one layer `foliplus={"fill": {"mode": "solid", ...}}`.
 

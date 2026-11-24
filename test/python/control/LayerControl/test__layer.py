@@ -53,6 +53,7 @@ def _conf(html: str) -> dict:
     end = html.index(";", start)
     return json.loads(html[start:end])
 
+
 def _declared_namespace(html: str) -> dict:
     """The layer's own foliplus options as rendered into the JS config.
 
@@ -596,8 +597,7 @@ def test_undeclared_fill_is_none_without_a_warning():
 def test_invalid_fill_warns_and_reads_none():
     with pytest.warns(UserWarning, match="fill"):
         assert (
-            declared_fill(_geo(foliplus={"fill": {"mode": "nope"}}), "Declared")
-            is None
+            declared_fill(_geo(foliplus={"fill": {"mode": "nope"}}), "Declared") is None
         )
 
 

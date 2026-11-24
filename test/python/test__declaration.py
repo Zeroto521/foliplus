@@ -570,9 +570,8 @@ class TestNormaliseBorder:
         with pytest.warns(UserWarning) as record:
             assert normalise_border({"mode": "nope"}, owner="Owner") is None
 
-        assert (
-            "expected 'follow_fill', 'value', 'solid' or 'original'"
-            in str(record[0].message)
+        assert "expected 'follow_fill', 'value', 'solid' or 'original'" in str(
+            record[0].message
         )
 
     def test_an_unknown_key_warns_but_keeps_the_valid_mode(self) -> None:
@@ -660,7 +659,9 @@ class TestNormaliseBorder:
         }
 
     def test_weight_rides_follow_fill(self) -> None:
-        assert normalise_border({"mode": "follow_fill", "weight": 2}, owner="Owner") == {
+        assert normalise_border(
+            {"mode": "follow_fill", "weight": 2}, owner="Owner"
+        ) == {
             "mode": "follow_fill",
             "weight": 2,
         }
@@ -693,7 +694,9 @@ class TestNormaliseBorder:
         assert "contradicts" in str(record[0].message)
 
     @pytest.mark.parametrize("color", ["red", "#12", 7, ""])
-    def test_an_invalid_color_warns_and_drops_only_that_key(self, color: object) -> None:
+    def test_an_invalid_color_warns_and_drops_only_that_key(
+        self, color: object
+    ) -> None:
         with pytest.warns(UserWarning) as record:
             assert normalise_border(
                 {"mode": "solid", "color": color}, owner="Owner"
@@ -702,7 +705,9 @@ class TestNormaliseBorder:
         assert "color" in str(record[0].message)
 
     @pytest.mark.parametrize("weight", [0, -1, "2", True, float("nan")])
-    def test_an_invalid_weight_warns_and_drops_only_that_key(self, weight: object) -> None:
+    def test_an_invalid_weight_warns_and_drops_only_that_key(
+        self, weight: object
+    ) -> None:
         with pytest.warns(UserWarning) as record:
             assert normalise_border(
                 {"mode": "solid", "weight": weight}, owner="Owner"
@@ -801,11 +806,13 @@ class TestNormaliseFill:
         assert "without a mode" in str(record[0].message)
 
     @pytest.mark.parametrize("color", ["red", "#12", 7, ""])
-    def test_an_invalid_color_warns_and_drops_only_that_key(self, color: object) -> None:
+    def test_an_invalid_color_warns_and_drops_only_that_key(
+        self, color: object
+    ) -> None:
         with pytest.warns(UserWarning) as record:
-            assert normalise_fill(
-                {"mode": "solid", "color": color}, owner="Owner"
-            ) == {"mode": "solid"}
+            assert normalise_fill({"mode": "solid", "color": color}, owner="Owner") == {
+                "mode": "solid"
+            }
 
         assert "color" in str(record[0].message)
 
