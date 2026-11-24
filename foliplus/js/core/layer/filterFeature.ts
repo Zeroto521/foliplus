@@ -27,6 +27,7 @@
 //
 // No DOM, no h3 — `filterLeafSet` is pure over { LayerFilterFeatures,
 // LayerFilter }, so it is unit-testable without a browser.
+import { isInternalProperty } from "#core/value/index.js";
 import { type LayerFilter, matchesValues } from "./filter.js";
 import type { LabelAwareLayer } from "./type.js";
 import { walkLeaf } from "./walkLeaf.js";
@@ -109,6 +110,7 @@ const buildFilterFeatures = (layer: L.Layer): LayerFilterFeatures => {
     const fields: Record<string, FilterFieldValue> = {};
     if (props) {
       for (const [name, raw] of Object.entries(props)) {
+        if (isInternalProperty(name)) continue;
         let kind = fieldKind.get(name);
         if (kind === undefined) {
           if (isFiniteNumber(raw)) kind = "numeric";

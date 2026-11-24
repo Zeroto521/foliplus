@@ -23,6 +23,7 @@ export {
   categoryDomain,
   inferFieldKind,
   isCategoryValue,
+  isInternalProperty,
   isNumericValue,
   numericPropertiesKeys,
   resolveField,
