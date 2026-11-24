@@ -7,8 +7,9 @@ import { INTENT, getIntent } from "../intent.js";
 import { saveState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { type LabelField, isNumericField } from "#core/label/index.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { PANEL_CLASS, clampLabelSize, normalizeHexColor } from "#ui/index.js";
+import { PANEL_CLASS, clampLabelSize } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LabelConfig } from "#control/LayerControl/type.js";
 

@@ -4,6 +4,7 @@ import { join, resolve } from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo, LayerRuntimeStore, ROLE } from "#core/layer/index.js";
 import * as Icons from "#platform/icon.js";
+import { setCheckboxState, triStateOf } from "#ui/checkbox.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
 import * as SVGs from "#control/LayerControl/icon.js";
@@ -18,7 +19,6 @@ import {
   syncNoBasemap,
   syncToggleAll,
 } from "#control/LayerControl/ui/listPanel/index.js";
-import { writeTriState } from "#control/LayerControl/ui/listPanel/rowView.js";
 import { intentVisibleOf, projectLayer } from "#control/LayerControl/ui/projection.js";
 
 const LABELS = { select: "Select", deselect: "Deselect" };
@@ -308,13 +308,16 @@ describe("buildRowCell + applyRowView (one writer per row)", () => {
   });
 });
 
-describe("writeTriState over-count boundary", () => {
+describe("tri-state over-count boundary (via ui/checkbox triStateOf)", () => {
+  // The aggregate -> tri-state rule moved to the shared ui/checkbox primitive
+  // (triStateOf + setCheckboxState); these pin the same boundary LayerControl
+  // relies on, now exercised through the shared vocabulary.
   it("an on count above total stays unchecked and indeterminate", () => {
     // The tri-state aggregate guards on === total, so a stale over-count
     // (more rows marked on than the aggregate counts) must NOT paint as
     // all-checked. allChecked is false; indeterminate stays true.
     const input = document.createElement("input");
-    writeTriState(input, 3, 4);
+    setCheckboxState(input, triStateOf(3, 4));
     expect(input.checked).toBe(false);
     expect(input.indeterminate).toBe(true);
     expect(input.getAttribute("aria-checked")).toBe("mixed");
@@ -322,7 +325,7 @@ describe("writeTriState over-count boundary", () => {
 
   it("an on count of zero paints none-checked (not indeterminate)", () => {
     const input = document.createElement("input");
-    writeTriState(input, 3, 0);
+    setCheckboxState(input, triStateOf(3, 0));
     expect(input.checked).toBe(false);
     expect(input.indeterminate).toBe(false);
     expect(input.getAttribute("aria-checked")).toBe("false");
@@ -651,6 +654,12 @@ const OUT_OF_CHARTER: ReadonlyArray<{
     n: 1,
     reason: `momentary flip: checkbox.checked = !checkbox.checked → dispatchEvent('change') → applyUserState → applyRowView redraws the row from corrected intent`,
   },
+  {
+    file: "ui/checkbox.ts",
+    slot: "checkbox.checked",
+    n: 1,
+    reason: `the shared tri-state checkbox primitive owns the paint: paint() writes input.checked alongside indeterminate and aria-checked as one source, so a checkbox created by LayerControl and one by any other consumer carry the identical contract. This is the charter owner for every checkbox that is not a layer row's own binary box (which stays in rowView.ts).`,
+  },
 ];
 
 // ── Path resolution and scanning ───────────────────────────────
@@ -709,11 +718,12 @@ describe("applyRowView is the only module writing row visual slots", () => {
   });
 
   it("confines every row visual write to the writer or to a counted exception", () => {
-    // The exception list holds exactly one entry (focus/index.ts). That is the
-    // state the guard asserts on, so a
-    // new allowance shows up as an edit to the array and to this assertion
-    // together, not as a quietly widened scan.
-    expect(OUT_OF_CHARTER).toHaveLength(1);
+    // The exception list holds exactly two entries: focus/index.ts (the
+    // momentary toggle flip) and ui/checkbox.ts (the shared tri-state
+    // primitive that owns the non-row checkbox paint). That is the state the
+    // guard asserts on, so a new allowance shows up as an edit to the array
+    // and to this assertion together, not as a quietly widened scan.
+    expect(OUT_OF_CHARTER).toHaveLength(2);
 
     const problems: string[] = [];
     for (const file of sources) {
