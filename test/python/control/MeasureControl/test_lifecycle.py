@@ -179,14 +179,11 @@ class TestMeasureModeBrowser:
             assert mode is None, f"expected mode to be None after Escape, got {mode}"
             assert not errors, f"JS errors: {errors}"
 
-    def test_escape_keeps_the_measure_row_in_the_panel(self, browser, tmp_path):
-        """Pressing Escape ends the mode without dropping the measure layer row.
+    def test_escape_before_drawing_drops_the_empty_measure_row(self, browser, tmp_path):
+        """Escape on an empty (in-flight) measure layer drops its row.
 
-        `setMode` registers the measure layer so its row shows in the
-        LayerControl panel. `clearActiveMode` used to unregister it too, which
-        is a no-op while a measurement exists (the factory only drops the
-        entry once the content is gone) but a real deregistration while the
-        layer is empty, so an Escape before drawing took the row away.
+        The factory's unregister is content-driven: an in-flight draw holds
+        nothing, so ending the mode drops the empty row from the panel.
         """
         with use_page(_make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("MeasureControl/click_distance_button"))
@@ -201,7 +198,6 @@ class TestMeasureModeBrowser:
 
             before = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
             assert before["registered"], f"row missing before Escape: {before}"
-            assert before["row"], f"row not rendered before Escape: {before}"
 
             page.evaluate(_js("MeasureControl/press_escape"))
             page.wait_for_timeout(500)
@@ -209,9 +205,36 @@ class TestMeasureModeBrowser:
             mode = page.evaluate(_js("MeasureControl/read_current_mode"))
             assert mode is None, f"expected mode to be None after Escape, got {mode}"
             after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
-            assert after == before, (
-                f"Escape dropped the measure row: before={before}, after={after}"
+            assert not after["registered"], (
+                f"Escape on an empty layer kept the row: before={before}, after={after}"
             )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_after_finalized_distance_keeps_the_measure_row(self, browser, tmp_path):
+        """Escape after a finalized distance keeps its row.
+
+        The finalized leaves belong to the measurement, so the layer stays
+        non-empty and the content-driven unregister keeps the row.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.evaluate(_js("MeasureControl/draw_distance"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after Escape, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert after["registered"], (
+                f"Escape dropped a finalized measurement's row: after={after}"
+            )
+            assert after["row"], f"finalized row not rendered: {after}"
             assert not errors, f"JS errors: {errors}"
 
     def test_measure_mode_disables_other_layer_interaction(self, browser, tmp_path):
