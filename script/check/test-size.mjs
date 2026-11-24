@@ -93,6 +93,9 @@ const relUnderTestJs = file => {
  * The files over LIMIT that the allowlist does not already cover, in path order.
  * Pure over the injected (file, lineCount) pairs so the teeth test can feed a
  * synthetic tree.
+ *
+ * @param {{ file: string, lines: number }[]} entries
+ * @param {Record<string, string>} [oversized] repo-relative path -> split reason
  */
 const checkSize = (entries, oversized = OVERSIZED) =>
   entries
