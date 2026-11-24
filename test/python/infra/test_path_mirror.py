@@ -10,14 +10,19 @@ the point of unreadability, which is exactly how a guard quietly stops meaning
 anything. So three narrow rules instead:
 
 * M1 -- a test__<stem>.py must name a real private module, and every private
-  module under foliplus/ must have a test__<stem>.py unless it is listed in
+  module under foliplus/ must be covered unless it is listed in
   NO_PRIVATE_TEST with a reason. A private module is either a `_x.py` file or
   a private package `_x/` (its `__init__.py` is the facade, its inner modules
-  are private by the directory): `_fill_author/` is tested by
-  test__fill_author.py, and the package's inner modules need no mirror test of
-  their own -- the facade's consumers cover them. The double underscore is the
-  test_ prefix meeting Python private-module convention, not a typo: _x.py
-  becomes test__x.py.
+  are private by the directory). A private package has two legitimate test
+  forms: one `test__x.py` while the package is small, or -- once it splits
+  into three or more behaviour modules -- a mirror directory
+  `test/python/_x/` holding a `test_<inner>.py` for every behaviour-bearing
+  inner module. The inner-module list is computed from the package, not from
+  the test tree, so a new inner module fails the guard until its mirror file
+  exists; PACKAGE_INNER_EXEMPT records the one entry-point module driven
+  through its caller instead. The double underscore is the test_ prefix
+  meeting Python private-module convention, not a typo: _x.py becomes
+  test__x.py.
 * M2 -- no directory under test/python may hold no tracked test_*.py anywhere
   below it. The five test/python/<Control>/ shells left behind by the 2026-11
   migration (__pycache__ only, nothing tracked) sat unmarked for months because
@@ -61,12 +66,23 @@ NO_PRIVATE_TEST = {
     "_typing": (
         "annotation-only module: ControlPosition is a bare Literal whose "
         "__args__ is a public contract, so it has no behaviour of its own. Its "
-        "semantics reach the guard through foliplus/_config_schema.py, which is "
-        "reflected into the TS schema and covered by test__config_schema.py"
+        "semantics reach the guard through the foliplus/_config_schema package, "
+        "which is reflected into the TS schema and covered by test__config_schema.py"
     ),
     "_cdn_loader": (
         "covered by test/python/test_cdn.py, which pins the dependency list it "
         "hands to the shared header"
+    ),
+    "_asset": (
+        "the dist/ artifact pipeline split out of BaseControl.py; its contract "
+        "(a missing artifact fails loudly) is pinned by "
+        "test/python/script/build/test_asset.py, which names the behaviour rather "
+        "than the module"
+    ),
+    "__main__": (
+        "the CLI entry point of the _config_schema package: "
+        "test/python/test__config_schema.py drives main() in-process and runs "
+        "python -m foliplus._config_schema in a subprocess"
     ),
 }
 
@@ -78,6 +94,16 @@ SUBJECT_ALIASES = {
         "_config_schema",
         "the reflection mechanics (derive_schema / verify_tags / resolve_tag) "
         "that per-control tests cannot reach, kept apart from the schema table",
+    ),
+}
+
+#: Package inner modules that need no mirror file of their own, plus the
+#: reason. Keyed "<package>/<module>" so an exemption cannot spread by basename.
+PACKAGE_INNER_EXEMPT: dict[str, str] = {
+    "_config_schema/__main__": (
+        "the CLI entry point: test/python/_config_schema/test_derive.py drives "
+        "main() in-process through the argparse parser and runs "
+        "python -m foliplus._config_schema in a subprocess"
     ),
 }
 
@@ -98,14 +124,23 @@ CROSS_CONTROL_ALLOWLIST: dict[str, dict[str, str]] = {
 }
 
 
-def private_subjects(test_stems: set[str], module_stems: set[str]) -> list[str]:
+def private_subjects(
+    test_stems: set[str],
+    module_stems: set[str],
+    mirror_packages: set[str] | None = None,
+) -> list[str]:
     """M1, both directions, over two sets of _-prefixed module names.
 
     Both sets hold module names exactly as they appear on disk
     (_config_schema, _version ...); a test__ file is re-prefixed back to its
     module name before arriving here. An unknown stem therefore means the
     module genuinely does not exist.
+
+    ``mirror_packages`` names the private package stems that a
+    ``test/python/_x/`` mirror directory covers; a mirror of an unknown
+    package is itself a problem, so a directory cannot outlive its module.
     """
+    mirrors = set() if mirror_packages is None else mirror_packages
     problems: list[str] = []
     for stem in sorted(test_stems):
         target = SUBJECT_ALIASES.get(stem, (stem,))[0]
@@ -114,10 +149,16 @@ def private_subjects(test_stems: set[str], module_stems: set[str]) -> list[str]:
                 f"test__{stem[1:]}.py names module {target}.py, which does not "
                 "exist under foliplus/"
             )
-    # A module may be tested by a file whose stem is not its own: test__config_schema_derive.py covers _config_schema.py.
+    for stem in sorted(mirrors - module_stems):
+        problems.append(
+            f"{TESTS_REL}/{stem}/ mirrors no private package under foliplus/"
+        )
+    # A module may be tested by a file whose stem is not its own (an alias),
+    # or by a mirror directory that covers its inner modules.
     covered = {
         target for target, _ in SUBJECT_ALIASES.values() if target in module_stems
     }
+    covered |= mirrors & module_stems
     for stem in sorted(module_stems):
         if stem in NO_PRIVATE_TEST:
             continue
@@ -125,6 +166,32 @@ def private_subjects(test_stems: set[str], module_stems: set[str]) -> list[str]:
             problems.append(
                 f"{stem}.py has no test__{stem[1:]}.py (add one, or list it in "
                 "NO_PRIVATE_TEST with a reason)"
+            )
+    return problems
+
+
+def mirror_dir_problems(
+    mirrors: dict[str, set[str]],
+    expected: dict[str, set[str]],
+) -> list[str]:
+    """M1: a mirror directory must cover every behaviour-bearing inner module.
+
+    ``mirrors`` maps a package stem to the inner modules its ``test_<inner>.py``
+    files claim; ``expected`` maps the stem to the modules the package really
+    holds. Coverage is computed from the package, so adding an inner module
+    turns the guard red until its mirror file exists.
+    """
+    problems: list[str] = []
+    for stem in sorted(mirrors):
+        if stem not in expected:
+            problems.append(
+                f"{TESTS_REL}/{stem}/ mirrors no private package under foliplus/"
+            )
+            continue
+        for inner in sorted(expected[stem] - mirrors[stem]):
+            problems.append(
+                f"{TESTS_REL}/{stem}/ does not test {stem}/{inner}.py "
+                f"(add test_{inner}.py)"
             )
     return problems
 
@@ -263,6 +330,44 @@ def _control_stems() -> set[str]:
     return stems
 
 
+def _mirror_dir_packages() -> dict[str, set[str]]:
+    """Every test/python/_x/ mirror dir and the inner modules it tests.
+
+    ``test__x.py`` files are the single-file form and are not inner-module
+    claims here, so the pattern deliberately skips the double underscore.
+    """
+    pattern = re.compile(r"^test_(?!_)(?P<inner>[A-Za-z0-9_]+)\.py$")
+    mirrors: dict[str, set[str]] = {}
+    for path in sorted(TESTS.iterdir()):
+        name = path.name
+        if not path.is_dir() or not name.startswith("_") or name.startswith("__"):
+            continue
+        covered: set[str] = set()
+        for file in path.glob("test_*.py"):
+            match = pattern.match(file.name)
+            if match:
+                covered.add(match.group("inner"))
+        mirrors[path.name] = covered
+    return mirrors
+
+
+def _private_package_inner_modules() -> dict[str, set[str]]:
+    """Every private package's behaviour-bearing inner modules."""
+    packages: dict[str, set[str]] = {}
+    for init in sorted(PKG.rglob("__init__.py")):
+        pkg = init.parent
+        if pkg == PKG or not pkg.name.startswith("_"):
+            continue
+        inner = {
+            path.stem
+            for path in pkg.glob("*.py")
+            if path.name != "__init__.py"
+            and f"{pkg.name}/{path.stem}" not in PACKAGE_INNER_EXEMPT
+        }
+        packages[pkg.name] = inner
+    return packages
+
+
 def _shell_dirs() -> dict[str, int]:
     """Every on-disk dir under test/python and its tracked test count below it.
 
@@ -327,6 +432,45 @@ def test_m1_teeth_alias_without_its_module() -> None:
     assert red and "test__config_schema_derive.py" in red[0], red
 
 
+def test_m1_teeth_mirror_dir_covers_its_package() -> None:
+    """A private package covered by test/python/_x/ needs no test__x.py."""
+    green = private_subjects(set(), {"_config_schema"}, {"_config_schema"})
+    assert green == [], green
+
+
+def test_m1_teeth_mirror_dir_without_its_package() -> None:
+    red = private_subjects(set(), set(), {"_ghost"})
+    assert red and "mirrors no private package" in red[0], red
+
+
+def test_m1_teeth_mirror_dir_missing_an_inner_test() -> None:
+    red = mirror_dir_problems(
+        {"_declaration": {"warning"}}, {"_declaration": {"warning", "filter"}}
+    )
+    assert red and "does not test _declaration/filter.py" in red[0], red
+
+
+def test_m1_teeth_mirror_dir_full_coverage() -> None:
+    mirrors = {"_declaration": {"warning", "filter"}}
+    assert mirror_dir_problems(mirrors, {"_declaration": {"warning", "filter"}}) == []
+    assert mirror_dir_problems({}, {}) == []
+
+
+def test_m1_teeth_entry_point_module_is_exempt() -> None:
+    """__main__ is driven through its caller, so it needs no mirror file."""
+    assert "__main__" not in _private_package_inner_modules()["_config_schema"]
+    assert _private_package_inner_modules()["_declaration"] == {
+        "key",
+        "warning",
+        "zoom_range",
+        "filter",
+        "paint",
+        "fill",
+        "folder",
+        "marker",
+    }
+
+
 def test_m2_teeth() -> None:
     assert empty_shells({f"{TESTS_REL}/Ghost": 0})
     assert empty_shells({f"{TESTS_REL}/infra": 5}) == []
@@ -380,12 +524,18 @@ def test_m3_import_parser_sees_multi_name_imports() -> None:
 
 
 def test_private_tests_name_real_modules() -> None:
-    problems = private_subjects(_private_test_stems(), _private_module_stems())
+    problems = private_subjects(
+        _private_test_stems(), _private_module_stems(), set(_mirror_dir_packages())
+    )
     assert problems == [], "\n".join(problems)
 
 
 def test_every_private_module_has_a_test() -> None:
-    problems = private_subjects(_private_test_stems(), _private_module_stems())
+    mirrors = _mirror_dir_packages()
+    problems = private_subjects(
+        _private_test_stems(), _private_module_stems(), set(mirrors)
+    )
+    problems += mirror_dir_problems(mirrors, _private_package_inner_modules())
     assert problems == [], "\n".join(problems)
 
 

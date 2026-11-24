@@ -9,8 +9,9 @@ vi.mock("#platform/locale.js", () => ({
 }));
 
 /** Fake control — a real button so classList behaves like the DOM. `T`, `_`
- *  and `config` mirror what defineControl hands off to the control instance. */
-const makeCtrl = () => {
+ *  and `config` mirror what defineControl hands off to the control instance;
+ *  `signal` is the mounting's AbortSignal, absent on the plain logic path. */
+const makeCtrl = (signal?: AbortSignal) => {
   const btn = document.createElement("button");
   const T = (k: string) => k;
   const config = {
@@ -24,6 +25,7 @@ const makeCtrl = () => {
     T,
     _: T,
     config,
+    ...(signal ? { signal } : {}),
     hasLoading: () => btn.classList.contains("loading"),
   };
 };
@@ -105,6 +107,36 @@ describe("locateMe", () => {
     expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 15);
   });
 
+  it("drops a success that arrives after the mounting was torn down", () => {
+    const getCurrentPosition = geoStub();
+    const ac = new AbortController();
+    const ctrl = makeCtrl(ac.signal);
+
+    locateMe(ctrl);
+    ac.abort();
+    const [success] = getCurrentPosition.mock.calls[0];
+
+    success({ coords: { longitude: 119.3, latitude: 26.08 } });
+    expect(map.flyTo, "a removed control must not move its map").not.toHaveBeenCalled();
+    expect(ctrl.marker, "a late callback must not pin an ownerless marker").toBeNull();
+  });
+
+  it("does not report a geolocation error for a mounting that is gone", () => {
+    const getCurrentPosition = geoStub();
+    const ac = new AbortController();
+    const ctrl = makeCtrl(ac.signal);
+
+    locateMe(ctrl);
+    ac.abort();
+    getCurrentPosition.mock.calls[0][1](new Error("permission denied"));
+
+    expect(window.map.foliplus.showHint).not.toHaveBeenCalledWith(
+      "LocateControl",
+      "geo_error",
+      expect.anything(),
+    );
+  });
+
   it("clicking the ✕ removes the pin and its delete icon", () => {
     const getCurrentPosition = geoStub();
     const ctrl: any = makeCtrl();
@@ -134,9 +166,6 @@ describe("locateMe", () => {
     geoStub();
     const ctrl = makeCtrl();
     locateMe(ctrl);
-    // Hint text is rendered as a TextNode, so an inline SVG would appear as
-    // source code instead of an icon; withLoadingIcon renders the built-in
-    // spinner in the hint's icon slot instead.
     expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
       "LocateControl",
       "locating",
@@ -150,7 +179,6 @@ describe("locateMe", () => {
   it("shows an error hint when geolocation fails and clears loading", () => {
     const getCurrentPosition = geoStub();
     const ctrl = makeCtrl();
-
     locateMe(ctrl);
     const [, error] = getCurrentPosition.mock.calls[0];
     error({ code: 1, message: "Permission denied" });
