@@ -214,6 +214,8 @@ const NON_MODULE_TEST_SUBJECTS: Record<string, string> = {
     "the generic-filter single-source + storage-boundary guard over foliplus/js production (controller must not reintroduce a layerFilters mirror; filter persistence only through the shared store), a tree guard not a script module",
   "import-boundary":
     "the JS layer import-boundary rules (foliplus/js), a tree guard not a script module",
+  "check/test-path-mirror":
+    "the test-path mirror guard over test/js <-> foliplus/js (every test names its module at the mirrored path; every shared-tier module has a test), a tree guard not a script module",
   "check/task-number-drift":
     "the internal-task-number drift guard over foliplus/js + test/ source, a tree guard not a script module",
   "check/keyboard-ownership":
