@@ -73,9 +73,9 @@
 - `LayerControl`: the folder layout and the filter store are scoped to the map container like every other record, so two maps on one page keep their own folders and filters instead of sharing one global key ([#1281](https://github.com/Zeroto521/foliplus/pull/1281))
 - `LayerControl`: derived-state projections (role counts, tree connectors, select-all) replay through one invalidateDerived barrier, pinned by a new static guard test ([#1292](https://github.com/Zeroto521/foliplus/pull/1292))
 - `SearchControl`: a slow response for an older address no longer overwrites a newer result, and removing the control no longer leaves its result marker and delete icon on the map ([#1315](https://github.com/Zeroto521/foliplus/pull/1315))
+- `MeasureControl`: cancelling an in-flight drawing (a half-run distance, a mode aborted before any measurement) removes the empty measure row from the LayerControl panel; a finalized measurement keeps its row after exiting the mode, because its leaves still belong to the layer ([#1316](https://github.com/Zeroto521/foliplus/pull/1316))
 - `LayerControl` / `HeatmapControl`: the filter panel and heatmap field lists no longer offer folium/geopandas internal keys such as `__folium_color` and `__id` as data fields, and the data itself is untouched ([#1320](https://github.com/Zeroto521/foliplus/pull/1320))
 - `ExportControl`: an export keeps its `exporting` mode for the whole render instead of the crop-box cleanup clearing it, and destroying the control reclaims the blocker and the map lock and retires an in-flight render instead of downloading to a removed control ([#1322](https://github.com/Zeroto521/foliplus/pull/1322))
-- `MeasureControl`: cancelling an in-flight drawing (a half-run distance, a mode aborted before any measurement) removes the empty measure row from the LayerControl panel; a finalized measurement keeps its row after exiting the mode, because its leaves still belong to the layer ([#1316](https://github.com/Zeroto521/foliplus/pull/1316))
 
 ## [v0.4.1] (2026-10-18)
 
