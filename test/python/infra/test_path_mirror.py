@@ -146,8 +146,7 @@ def module_mirror_problems(
         stem = MODULE_TEST.match(Path(path).name).group("stem")
         if stem not in known_controls:
             problems.append(
-                f"{path} names control {stem}.py, which does not exist under "
-                "foliplus/"
+                f"{path} names control {stem}.py, which does not exist under foliplus/"
             )
             continue
         extras = allowed.get(path, {})
@@ -350,14 +349,12 @@ def test_m3_teeth_allowlist_quiet() -> None:
 
 def test_m3_import_parser_sees_multi_name_imports() -> None:
     """The parser must not miss a multi-name import (regression on M3 eye)."""
+    assert imported_controls("from foliplus import LayerControl, SearchControl") == {
+        "LayerControl",
+        "SearchControl",
+    }
     assert imported_controls(
-        "from foliplus import LayerControl, SearchControl"
-    ) == {"LayerControl", "SearchControl"}
-    assert imported_controls(
-        "from foliplus import ("
-        "\n    HeatmapControl,"
-        "\n    MeasureControl as MM,"
-        "\n)"
+        "from foliplus import (\n    HeatmapControl,\n    MeasureControl as MM,\n)"
     ) == {"HeatmapControl", "MeasureControl"}
     assert imported_controls("from foliplus._validate import Bound") == {"Bound"}
 
