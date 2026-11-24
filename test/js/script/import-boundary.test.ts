@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 // shared-module prefixes build-path derives from ALIAS_TO_REL, so a tier
 // rename lands in build-path and this test's TIER stays honest (red here
 // until TIER follows).
-import { SHARED_MODULE_PREFIXES } from "#script/build-path.mjs";
+import { SHARED_MODULE_PREFIXES } from "#script/build/build-path.mjs";
 
 // Import-boundary rules for the production JS tree (foliplus/js).
 //
@@ -277,7 +277,7 @@ const ALLOWED: ReadonlyArray<{
 // barrel (#core/<cluster>/index.js).
 //
 // Only two classes of exception exist, and both are structural:
-//  1. paths-as-data files (build-path.test.ts, import-boundary.test.ts) —
+//  1. paths-as-data files (script/build/build-path.test.ts, import-boundary.test.ts) —
 //     they CONSTRUCT and ASSERT #core path strings as data (build-path
 //     resolves alias prefixes, import-boundary exercises the very rule), so
 //     a real-import scan of their source is meaningless. They are exempt at
@@ -309,7 +309,7 @@ const TEST_JS_ALLOWED: ReadonlyArray<{
 
 // Files exempt from the test/js barrel rule at the FILE level (paths-as-data).
 const TEST_JS_FILE_EXEMPT = new Set([
-  "script/build-path.test.ts",
+  "script/build/build-path.test.ts",
   "script/import-boundary.test.ts",
 ]);
 
