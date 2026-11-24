@@ -25,7 +25,7 @@ const SLOW = 30000;
 // output to one line so an assertion checks content, not layout.
 const oneLine = (text: string) => text.replace(/\s+/g, " ");
 
-// A minimal but representative schema dump (shape matches foliplus/_config_schema.py).
+// A minimal but representative schema dump (shape matches the foliplus._config_schema dump).
 const schema = {
   version: 1,
   shared: {
@@ -374,7 +374,7 @@ describe("PrettierOptions", () => {
     // locally and nothing in CI, leaving format() on bare prettier defaults.
     // The build's byte-exact verify then rejected that output with a
     // misleading "config-schema.ts is out of date" message pointing at
-    // _config_schema.py.
+    // the schema dump.
     const config = PrettierOptions as unknown as Record<string, unknown>;
     expect(Object.keys(config).length).toBeGreaterThan(0);
     expect(Array.isArray(config.plugins)).toBe(true);

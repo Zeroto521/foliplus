@@ -13,7 +13,7 @@ import {
   mountMeasureDelIcon,
   wireFinalized,
 } from "./base.js";
-import { createLocationMarker } from "#core/geo/index.js";
+import { createLocationMarker, isLiveMarker } from "#core/geo/index.js";
 import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
 import { throttleRaf } from "#platform/throttle.js";
@@ -75,6 +75,11 @@ class MarkerMode extends MeasureMode {
         )
           .then(addr => {
             if (gen !== generation) return; // a newer drag superseded us
+            // Liveness guard (same rule as core/geo/locationMarker.ts): the pin
+            // can be deleted or the control destroyed while this lookup is in
+            // flight. Order matters — this must run BEFORE store.update, or the
+            // resolved address lands on a record whose marker is already gone.
+            if (!isLiveMarker(mgr.map, marker)) return;
             mgr.store.update(id, { address: addr });
             if (marker.getPopup()?.isOpen()) {
               marker.setPopupContent(
