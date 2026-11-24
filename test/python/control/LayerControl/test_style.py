@@ -552,7 +552,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
     ):
         """A border change rewrites the vector's own stroke and outlives reload.
 
-        Border is not part of the executor's visible / opacity / zoom_range
+        Border is not part of the executor's visible / opacity / zoomRange
         family — the panel writes it with a direct ``setStyle`` — so nothing in
         the projection replay would restore it. Without its own replay the row
         could show the user's color while the map kept painting the author's
@@ -2767,8 +2767,8 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert disk is not None, (
                 f"closing mid-drag did not write the record: {result}"
             )
-            assert "zoom_range" in (disk["overrides"] or []), disk
-            assert disk["zoom_range"] == [
+            assert "zoomRange" in (disk["overrides"] or []), disk
+            assert disk["zoomRange"] == [
                 result["minAfterClose"],
                 result["afterMove"],
             ], f"the stored range is wrong: {disk}"
@@ -2909,11 +2909,11 @@ class TestStyleBrowser(LayerControlBrowserBase):
     def test_zoom_range_reload_does_not_add_author_hidden_layer(
         self, browser, tmp_path
     ):
-        """Gate 2: a ``show=False`` layer with a stored zoom_range does not
+        """Gate 2: a ``show=False`` layer with a stored zoomRange does not
         come back on the map after reload.
 
         The load path runs ``applyZoomRangeStateOne`` for every layer with
-        a stored zoom_range. A stored zoom-range intent alone is not authorization
+        a stored zoomRange. A stored zoom-range intent alone is not authorization
         to re-add a layer the author left off the map — only ``applyUserState``'s
         unhide branch (a visible override present) is.
         """
@@ -2948,7 +2948,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             )
             page.wait_for_timeout(500)
 
-            # Inject a zoom_range override into localStorage for the show=False
+            # Inject a zoomRange override into localStorage for the show=False
             # layer, simulating a user who previously set a zoom range for it.
             # On reload, applyUserState will restore this entry and run
             # applyZoomRangeStateOne — which must NOT add the layer to the map.
@@ -3031,7 +3031,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 f"the Layer rows no longer precede the delegated Label rows: "
                 f"{result['struct']}"
             )
-            assert result["layerControls"] == ["border", "opacity", "zoom_range"], (
+            assert result["layerControls"] == ["border", "opacity", "zoomRange"], (
                 f"layer rows are not border -> opacity -> zoom range: "
                 f"{result['layerControls']} | skeleton: {result['struct']}"
             )
@@ -3041,8 +3041,8 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert result["freshZoomRange"] is None, (
                 f"an untouched visit stored a zoom range: {result}"
             )
-            assert "zoom_range" not in (result["freshOverrides"] or []), (
-                f"an untouched visit recorded a zoom_range override: "
+            assert "zoomRange" not in (result["freshOverrides"] or []), (
+                f"an untouched visit recorded a zoomRange override: "
                 f"{result['freshOverrides']}"
             )
 
@@ -3064,7 +3064,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert stored["stored"] == result["committed"], (
                 f"the committed range did not reach storage: {stored}"
             )
-            assert "zoom_range" in (stored["overrides"] or []), (
+            assert "zoomRange" in (stored["overrides"] or []), (
                 f"the committed range carried no provenance marker: {stored}"
             )
             assert not errors, f"JS errors: {errors}"
@@ -3230,10 +3230,10 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 )
 
             check_row("opacity", result["opacity"], thumbs=1)
-            check_row("zoom range", result["zoom_range"], thumbs=2)
+            check_row("zoom range", result["zoomRange"], thumbs=2)
 
             # The dual row keeps the current-level number the centred layout had.
-            current = result["zoom_range"]["labels"]["current"]
+            current = result["zoomRange"]["labels"]["current"]
             assert current is not None, f"zoom range lost its current number: {result}"
 
             # The current-level number must centre on its OWN dot, not on the
@@ -3242,7 +3242,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             # percentage of the row alone would drift by that inset. Read the
             # dot's own centre from the probe.
             current_dot = next(
-                (d for d in result["zoom_range"]["dots"] if d.get("tone") == "current"),
+                (d for d in result["zoomRange"]["dots"] if d.get("tone") == "current"),
                 None,
             )
             assert current_dot is not None, f"zoom range lost its current dot: {result}"
@@ -3266,13 +3266,13 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert mirrored.get("error") is None, f"RTL setup failed: {mirrored}"
             check_row("opacity (rtl)", mirrored["opacity"], thumbs=1, mirrored=True)
             check_row(
-                "zoom range (rtl)", mirrored["zoom_range"], thumbs=2, mirrored=True
+                "zoom range (rtl)", mirrored["zoomRange"], thumbs=2, mirrored=True
             )
 
             current_dot_rtl = next(
                 (
                     d
-                    for d in mirrored["zoom_range"]["dots"]
+                    for d in mirrored["zoomRange"]["dots"]
                     if d.get("tone") == "current"
                 ),
                 None,
@@ -3280,7 +3280,7 @@ class TestStyleBrowser(LayerControlBrowserBase):
             assert current_dot_rtl is not None, (
                 f"zoom range (rtl) lost its current dot: {mirrored}"
             )
-            current_rtl = mirrored["zoom_range"]["labels"]["current"]
+            current_rtl = mirrored["zoomRange"]["labels"]["current"]
             assert current_rtl is not None, (
                 f"zoom range (rtl) lost its current number: {mirrored}"
             )
