@@ -6,14 +6,10 @@
 // cell construction; the row-visual WRITE (the `input.checked =` land) stays
 // in rowView.ts, which is the single writer the rowView guard enforces.
 //
-// Two functions:
-//   buildCheckboxCell(inputAttrs) — the DOM cell (div.CHECKBOX > input)
-//   triState(total, on)          — the pure {checked, indeterminate} answer
-//
-// The tri-state rule is the one rule every consumer must obey: the box is
-// checked when every member is on (total > 0 && on === total), indeterminate
-// when some are on, and unchecked when none are. aria-checked carries the same
-// three states so assistive tech reads the same truth the visual box paints.
+// One function: buildCheckboxCell(inputAttrs) — the DOM cell (div.CHECKBOX >
+// input). The three-state RULE itself lives in the shared ui/checkbox
+// primitive (triStateOf / setCheckboxState), so a LayerControl header and any
+// other consumer paint the same checked / indeterminate / aria-checked truth.
 import * as CONST from "#control/LayerControl/const.js";
 
 /** Extra attributes for the inner input (aria-label, name, id, …). */
@@ -36,18 +32,4 @@ const buildCheckboxCell = (
   return { cell, input };
 };
 
-/** The pure three-state answer. `total` is the member count, `on` the number
- *  currently visible. Writing the rule in one place means a group row and
- *  its children can never disagree about what "some" means.
- *
- *  @param {number} total - Total members.
- *  @param {number} on - Members currently on. */
-const triState = (
-  total: number,
-  on: number,
-): { checked: boolean; indeterminate: boolean } => ({
-  checked: total > 0 && on === total,
-  indeterminate: on > 0 && on < total,
-});
-
-export { buildCheckboxCell, triState };
+export { buildCheckboxCell };
