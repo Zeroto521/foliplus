@@ -333,7 +333,12 @@ describe("internal property keys", () => {
 
   it("categoricalPropertiesKeys excludes all __-prefixed keys", () => {
     const layer = makeGroup([
-      makeLeaf({ name: "a", __geojson_properties: "x", __id: "y", __folium_color: "#fff" }),
+      makeLeaf({
+        name: "a",
+        __geojson_properties: "x",
+        __id: "y",
+        __folium_color: "#fff",
+      }),
     ]);
     expect(categoricalPropertiesKeys(layer)).toEqual(["name"]);
   });

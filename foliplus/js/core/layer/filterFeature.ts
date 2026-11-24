@@ -27,10 +27,10 @@
 //
 // No DOM, no h3 — `filterLeafSet` is pure over { LayerFilterFeatures,
 // LayerFilter }, so it is unit-testable without a browser.
-import { isInternalProperty } from "#core/value/index.js";
 import { type LayerFilter, matchesValues } from "./filter.js";
 import type { LabelAwareLayer } from "./type.js";
 import { walkLeaf } from "./walkLeaf.js";
+import { isInternalProperty } from "#core/value/index.js";
 
 /** One feature leaf's normalised attribute bag. number + string + boolean
  *  (boolean is stored raw — never stringified, so bool true and string
