@@ -305,6 +305,41 @@ describe("child layer registration", () => {
     expect(paneEl.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
   });
 
+  it("refreshes a child row's filtered count without touching its checkbox", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+    const id = childRowId("fg", child);
+    // Hide the child through its own checkbox: that is a map fact, not a
+    // registry intent (child entries have none).
+    map.hasLayer = vi.fn((layer: unknown) => layer !== child);
+    const row = childRows()[0];
+    const box = row.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    box.checked = false;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(box.checked).toBe(false);
+
+    // Filter the child so nothing matches: the kept count is 0 of 1.
+    manager.layerRegistry.get(id)!.filterSetter!({
+      kind: "atom",
+      field: "score",
+      op: "between",
+      range: [0, 1],
+    });
+
+    const countCol = row.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
+    expect(countCol.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(true);
+    expect(countCol.querySelector(`.${CONST.CLASSES.COUNT_VALUE}`)?.textContent).toBe(
+      "0",
+    );
+    // The filter repaint must not resurrect the checkbox from an intent the
+    // child never had.
+    expect(
+      (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
   it("offers style and filter in the child row's ⋮ menu", () => {
     installLeafletGlobals();
     const child = makeChild({ score: 7 });

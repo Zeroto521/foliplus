@@ -41,7 +41,7 @@ import {
   syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
-import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
+import { applyRowCountView, applyRowView, buildRowCell } from "./listPanel/rowView.js";
 import {
   getLayerItems,
   handleChange,
@@ -437,7 +437,11 @@ const bindLayerEvents = (ui: LayerUI): void => {
       const item = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(payload.id)}"]`,
       );
-      if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
+      if (!item) return;
+      // A child row's checkbox is the map fact, not a registry intent: a full
+      // row paint would resurrect a hidden child. Refresh only its count.
+      if (layerInfo.child) applyRowCountView(ui, item, buildRowCell(ui, layerInfo));
+      else applyRowView(ui, item, buildRowCell(ui, layerInfo));
     }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       // Cache drop only: unregister already tore the labels and their canvas

@@ -311,6 +311,44 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
  *  updates the rest rather than being skipped. An empty `typeSvg` leaves the
  *  icon column as it is — nothing to paint is not the same as a blank.
  */
+/** Write one row's count cell from the projected view. Shared by
+ *  `applyRowView` (full row paint) and `applyRowCountView` (a child row's
+ *  count-only repaint after a committed filter). */
+const writeCountCell = (item: HTMLElement, view: RowView): void => {
+  const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
+  if (!countCol) return;
+  countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
+  if (view.filtered) {
+    // Funnel first, then the compact kept count. innerHTML is the funnel's
+    // own module SVG (never a caller string), same as the type column.
+    countCol.innerHTML = `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">${view.countIconSvg}</span><span class="${CONST.CLASSES.COUNT_VALUE}">${view.countText}</span>`;
+  } else {
+    countCol.textContent = view.countText;
+  }
+  // The count cell is label, but its sentence is the filtered fact: mirror the
+  // row title so hover/AT read the same numbers. Set the attribute only when
+  // it carries text: an empty title attribute would swallow the row title on
+  // hover instead of letting it bubble.
+  if (view.filtered) countCol.title = view.title;
+  else countCol.removeAttribute("title");
+  countCol.setAttribute("aria-label", view.title);
+};
+
+/** Repaint only a row's count cell.
+ *
+ *  A child row is not a registry row: its checkbox is the map fact, not
+ *  `intentVisibleOf`, so a committed filter must refresh the funnel/count
+ *  without rewriting the checkbox from an intent the child never had. */
+const applyRowCountView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
+  writeCountCell(
+    item,
+    rowView(cell, {
+      select: ui.T("select_tooltip"),
+      deselect: ui.T("deselect_tooltip"),
+    }),
+  );
+};
+
 const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   const view = rowView(cell, {
     select: ui.T("select_tooltip"),
@@ -336,24 +374,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     moreBtn.setAttribute("aria-label", label);
   }
 
-  const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
-  if (countCol) {
-    countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
-    if (view.filtered) {
-      // Funnel first, then the compact kept count. innerHTML is the funnel's
-      // own module SVG (never a caller string), same as the type column.
-      countCol.innerHTML = `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">${view.countIconSvg}</span><span class="${CONST.CLASSES.COUNT_VALUE}">${view.countText}</span>`;
-    } else {
-      countCol.textContent = view.countText;
-    }
-    // The count cell is label, but its sentence is the filtered fact:
-    // mirror the row title so hover/AT read the same numbers. Set the
-    // attribute only when it carries text: an empty title attribute would
-    // swallow the row title on hover instead of letting it bubble.
-    if (view.filtered) countCol.title = view.title;
-    else countCol.removeAttribute("title");
-    countCol.setAttribute("aria-label", view.title);
-  }
+  writeCountCell(item, view);
   if (view.typeSvg) {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
     if (typeCol) {
@@ -422,6 +443,7 @@ const writeRoleCount = (
 };
 
 export {
+  applyRowCountView,
   applyRowView,
   buildRowCell,
   writeRowChecked,
