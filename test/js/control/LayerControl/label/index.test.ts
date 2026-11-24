@@ -1036,6 +1036,38 @@ describe("LabelManager — render & plan", () => {
     expect(canvasB!.paint).toHaveBeenCalled();
   });
 
+  it("repaints every layer on a bare LAYER_FILTER_CHANGE (payload-less emit)", () => {
+    // Covers the no-payload branch of the filter-change handler: a legacy or
+    // third-party emit with no payload cannot say which layer moved, so the
+    // handler falls back to a full repaint rather than guessing. Pins the
+    // fallback so a future refactor cannot narrow it to the payload path only.
+    const { map } = makeMap();
+    const layerA = oneLabel();
+    const layerB = mkGroup([
+      mkLeaf({ props: { v: "7" }, latlng: { lat: 41, lng: -75 } }),
+    ]);
+    const mgr = new LabelManager({
+      map,
+      layerFind: id => (id === "a" ? layerA : layerB),
+    });
+    mgr.setConfig("a", CONFIG);
+    mgr.setConfig("b", CONFIG);
+    mgr.renderLabels("a");
+    mgr.renderLabels("b");
+    const [canvasA, canvasB] = mocks.instances;
+    canvasA!.paint.mockClear();
+    canvasB!.paint.mockClear();
+
+    (
+      map as unknown as {
+        foliplus: { events: { publish: (e: string, p: unknown) => void } };
+      }
+    ).foliplus.events.publish(EVENTS.LAYER_FILTER_CHANGE, undefined);
+
+    expect(canvasA!.paint).toHaveBeenCalled();
+    expect(canvasB!.paint).toHaveBeenCalled();
+  });
+
   it("culls anchors far outside the viewport before laying out the text", () => {
     const { map } = makeMap();
     (
