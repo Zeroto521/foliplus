@@ -349,8 +349,9 @@ const declaredValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   if (getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const declared = declaredFillRecord(ui, layerId);
-  if (declared?.mode !== STYLE_MODE.VALUE || declared.value === undefined)
+  if (declared?.mode !== STYLE_MODE.VALUE || declared.value === undefined) {
     return undefined;
+  }
   const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
     ui.c.findLayer(layerId)) as L.Layer | null;
   let config: ValueConfig = declared.value;
