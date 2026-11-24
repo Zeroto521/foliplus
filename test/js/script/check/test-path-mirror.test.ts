@@ -44,7 +44,6 @@ const NON_MIRRORED_TEST: Record<string, string> = {
   "toolchain-guard":
     "build/tooling configuration guard (eslint scoping, script coverage), no single module",
   tsconfig: "test TypeScript config guard, no single module",
-<<<<<<< HEAD
   "control/ExportControl/decoupling":
     "reverse source-scan guard: ExportControl must not reference LayerControl internals, no single module",
   "control/LayerControl/filterApply":
