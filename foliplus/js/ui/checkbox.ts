@@ -110,10 +110,9 @@ const createCheckbox = (opts: CheckboxOptions = {}): Checkbox => {
 
   const host = dom.el("div", { class: CHECKBOX_CLASS.WRAPPER }, input) as HTMLElement;
 
+  // listener-exempt: the input is owned by the returned host and dies with
+  // it — no re-bind, no path for the listener to outlive the element.
   input.addEventListener("change", () => {
-    // listener-exempt: the input is owned by the returned host and dies with
-    // it; there is no re-bind and no way for this listener to outlive the
-    // element it is attached to.
     const preClick = current;
     // Repaint from the browser's own post-toggle value for the binary case
     // (a native checkbox toggles itself), then re-snapshot so the next
