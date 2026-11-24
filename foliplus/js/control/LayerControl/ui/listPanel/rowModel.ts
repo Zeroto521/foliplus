@@ -13,6 +13,7 @@ import {
   countLabelTitle,
   countTooltip,
   roleCountText,
+  rowView,
 } from "./rowView.js";
 import { type RoleAggregates, roleAggregates } from "./visibility.js";
 import { ROLE } from "#core/layer/index.js";
@@ -46,8 +47,8 @@ interface RowModel {
   countText: string;
   countTitle: string;
   typeTitle: string;
-  /** Role/folder rows: the fold projection the chevron reads. */
-  ariaExpanded?: string;
+  /** The fold projection the chevron reads ("" on a layer row). */
+  ariaExpanded: string;
   /** The row's own fold state (role header / folder row). */
   folded: boolean;
   /** Hidden because an ancestor is folded: the GROUP_FOLDED class. */
@@ -93,9 +94,15 @@ const layerSignature = (row: RowModel, cell: RowCell): string =>
 
 /** The count cell's tooltip, as `applyRowView` writes it: the filtered sentence
  *  only, and no title at all on an unfiltered row (an empty title would swallow
- *  the row's own tooltip). */
-const layerCountTitle = (cell: RowCell): string =>
-  cell.filtered ? (cell.filterTitle ?? cell.typeLabel) : "";
+ *  the row's own tooltip). Read through `rowView` — the same function the paint
+ *  path uses — so the model cannot invent a second title formula. */
+const layerCountTitle = (ui: LayerUI, cell: RowCell): string =>
+  cell.filtered
+    ? rowView(cell, {
+        select: ui.T("select_tooltip"),
+        deselect: ui.T("deselect_tooltip"),
+      }).title
+    : "";
 
 /** The type cell's title: a group row names itself (count · what it is); a leaf
  *  row leaves the cell titleless and lets the row title bubble. */
@@ -110,7 +117,7 @@ const groupSignature = (row: RowModel): string =>
     row.countText,
     row.countTitle,
     row.typeTitle,
-    row.ariaExpanded ?? "",
+    row.ariaExpanded,
     row.folded ? "1" : "0",
     row.groupFolded ? "1" : "0",
     row.active ? "1" : "0",
@@ -201,8 +208,9 @@ const buildRowsModel = (ui: LayerUI): RowsModel => {
             id: info.id,
             cell,
             countText: cell.countText,
-            countTitle: layerCountTitle(cell),
+            countTitle: layerCountTitle(ui, cell),
             typeTitle: layerTypeTitle(ui, cell),
+            ariaExpanded: "",
             folded: false,
             groupFolded: roleFolded || folderFolded,
             active: cell.checked,
@@ -224,8 +232,9 @@ const buildRowsModel = (ui: LayerUI): RowsModel => {
           id: info.id,
           cell,
           countText: cell.countText,
-          countTitle: layerCountTitle(cell),
+          countTitle: layerCountTitle(ui, cell),
           typeTitle: layerTypeTitle(ui, cell),
+          ariaExpanded: "",
           folded: false,
           groupFolded: roleFolded,
           active: cell.checked,

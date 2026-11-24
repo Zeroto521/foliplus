@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ROLE } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { toggleFolderFold } from "#control/LayerControl/ui/listPanel/drag.js";
 import { toggleFold } from "#control/LayerControl/ui/listPanel/index.js";
 import { buildRowsModel } from "#control/LayerControl/ui/listPanel/rowModel.js";
 
@@ -125,7 +126,7 @@ const describeModelRow = (
     role: row.role,
     folded: row.folded,
     groupFolded: row.groupFolded,
-    ariaExpanded: row.ariaExpanded ?? null,
+    ariaExpanded: row.ariaExpanded || null,
     countText: row.countText,
     countTitle: row.countTitle,
     typeTitle: row.kind === "layer" ? row.typeTitle : "",
@@ -264,6 +265,59 @@ describe("ui/listPanel row model is the panel's rows", () => {
     const filtered = model.find(r => r.key === "layer:F1")!;
     expect(filtered.filtered).toBe(true);
     expect(filtered.countText).toBe("3");
+  });
+
+  it("mirrors a container row: the group flag, its child count and its title", () => {
+    const groupLayer = {
+      options: {},
+      eachLayer: vi.fn(),
+      addLayer: vi.fn(),
+      getLayers: vi.fn(() => []),
+      _layers: {},
+    };
+    const { ui } = initFixture({
+      data: [{ id: "G1", name: "Group", role: "overlay", layer: groupLayer }],
+    });
+    const model = describeModel(ui);
+    expect(model).toEqual(describeRows(ui));
+    const group = model.find(r => r.key === "layer:G1")!;
+    expect(group.group).toBe(true);
+    expect(group.typeTitle).toContain("noun_group");
+  });
+
+  it("mirrors a folded folder: the header folds, its members hide by class", () => {
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [{ id: "a1", name: "A1", role: "overlay", folder: "a", layer: { options: {}, eachLayer: vi.fn() } }],
+    });
+    toggleFolderFold(ui, "overlay", "a");
+    const model = describeModel(ui);
+    expect(model).toEqual(describeRows(ui));
+    const folder = model.find(r => r.key === "folder:overlay:a")!;
+    expect(folder.folded).toBe(true);
+    expect(folder.ariaExpanded).toBe("false");
+    expect(model.find(r => r.key === "layer:a1")!.groupFolded).toBe(true);
+  });
+
+  it("mirrors an empty folder key: a header with a zero count", () => {
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["empty"]),
+      data: [{ id: "A", name: "Alpha", role: "overlay", layer: { options: {}, eachLayer: vi.fn() } }],
+    });
+    const model = describeModel(ui);
+    expect(model).toEqual(describeRows(ui));
+    expect(model.find(r => r.key === "folder:overlay:empty")!.countText).toBe("0");
+  });
+
+  it("mirrors a folded role that owns a folder: the folder header hides with it", () => {
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [{ id: "a1", name: "A1", role: "overlay", folder: "a", layer: { options: {}, eachLayer: vi.fn() } }],
+    });
+    toggleFold(ui, ROLE.OVERLAY);
+    const model = describeModel(ui);
+    expect(model).toEqual(describeRows(ui));
+    expect(model.find(r => r.key === "folder:overlay:a")!.groupFolded).toBe(true);
   });
 
   it("models a coherent group row where the current path leaves a stale title", () => {
