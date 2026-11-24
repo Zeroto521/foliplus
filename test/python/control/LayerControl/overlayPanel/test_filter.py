@@ -18,6 +18,8 @@ from foliplus import LayerControl
 from ..helper import _geo_zone
 from ..helper_browser import LayerControlBrowserBase
 
+from conftest import _js, leaflet_path, make_browser_page, use_page
+from conftest import _js, load_geojson, panel_ready, use_page
 
 class TestFilterBrowser(LayerControlBrowserBase):
     """Browser-level interaction checks — enum filter, funnel, shared dropdown."""
@@ -451,4 +453,167 @@ class TestFilterBrowser(LayerControlBrowserBase):
             assert clicked and clicked.get("clicked") is True, clicked
             assert clicked.get("folderGone") is True, clicked
 
+            assert not errors, f"JS errors: {errors}"
+
+
+class TestFilterApplyBrowser:
+    """The generic filter's hidden class must reach every paint element.
+
+    The design contract puts the hidden class on the element itself, so a
+    single rule (`.foliplus-feature-filtered { display: none; }`) hides the
+    path, the marker icon, its drop shadow, a DivIcon marker's element, and a
+    LayerGroup leaf. The assertions read the *computed* display (not just the
+    class) so a rule that only wins with !important fails here: if the rule
+    needs !important to beat a Leaflet inline style, one computed display
+    stays non-none.
+    """
+
+    @staticmethod
+    def _probe(browser, tmp_path, slug="filter_apply"):
+        """Map + LayerControl, expose the control as window.__layerCtrl."""
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        html = m.get_root().render()
+        html, n = re.subn(
+            r"(new LayerControl\(\{ position: CONFIG\.position \}\)\.addTo\(map\);)",
+            r"window.__layerCtrl = \1",
+            html,
+            count=1,
+        )
+        assert n == 1
+        page, errors = make_browser_page(browser, tmp_path, html, slug)
+        page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    def test_filter_hides_every_paint_element(self, browser, tmp_path):
+        """One layer per class filtered; every enumerated element is hidden."""
+        with use_page(self._probe, browser, tmp_path) as (page, errors):
+            r = page.evaluate(
+                _js("LayerControl/apply_filter_hides_classes"),
+                {
+                    "poly": leaflet_path(
+                        "LayerControl", "polygon_fuzhou_triangle_small"
+                    ),
+                    "line": leaflet_path("common", "line_fuzhou_diag"),
+                    "groupPoly": leaflet_path(
+                        "LayerControl", "polygon_fuzhou_triangle_group"
+                    ),
+                },
+            )
+            assert r is not None, "LayerAPI/manager or runtimeStore missing"
+            assert r["hasVisibleDomOf"], (
+                "visibleDomOf not on window.foliplus.core.layer"
+            )
+            # The carrier must enumerate the shadow and the group leaf through
+            # the real visibleDomOf, so the probe set covers both branches.
+            by_id = {p["id"]: p for p in r["out"]}
+            assert set(by_id) >= {
+                "__flt_poly__",
+                "__flt_line__",
+                "__flt_circle__",
+                "__flt_marker__",
+                "__flt_div__",
+                "__flt_group__",
+            }, f"missing probe layers: {set(by_id)}"
+            for probe in r["out"]:
+                ctx = probe["id"]
+                assert probe["elements"], f"{ctx}: no element enumerated"
+                for el in probe["elements"]:
+                    assert el["displays"], f"{ctx}/{el['type']}: no display read"
+                    for d in el["displays"]:
+                        assert d == "none", (
+                            f"{ctx}/{el['type']}: display={d!r} not none"
+                        )
+                    for c in el["classed"]:
+                        assert c is True, f"{ctx}/{el['type']}: class not applied"
+            # The layeradd replay (controller layeradd -> findLayer ->
+            # replayFilter) must re-apply the class after the layer is re-added.
+            for probe in r["out"]:
+                replay = probe.get("replay")
+                assert isinstance(replay, list), (
+                    f"{probe['id']}: replay error: {replay}"
+                )
+                for displays in replay:
+                    for d in displays:
+                        assert d == "none", (
+                            f"{probe['id']}: replay display={d!r} not none"
+                        )
+            assert not errors, f"JS errors: {errors}"
+
+
+class TestFilterRangeSliderLabelAlignment(LayerControlBrowserBase):
+    """The filter range slider's end labels sit on the control's two edges."""
+
+    def test_filter_range_slider_labels_flush_with_control(self, browser, tmp_path):
+        """End labels align by rendered width: a label narrower than the thumb
+        centres, a wider one clamps.
+
+        The filter panel's range body is measured in the live panel, where the
+        form row gives the slider its real width. The probe registers two range
+        owners (a one-column/long pair and a both-long pair): the label no
+        wider than the thumb stays dot-centred, every wider label clamps to the
+        control's edge.
+        """
+        layer = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
+            name="Filter align",
+        )
+        with use_page(self._make_page, browser, tmp_path, layer) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=10000,
+            )
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/read_filter_slider_alignment"))
+            assert result.get("error") is None, f"setup failed: {result}"
+            for name, group in (("mixed", result["mixed"]), ("both", result["both"])):
+                assert group.get("error") is None, f"{name}: {group}"
+                min_label, max_label = group["min"], group["max"]
+                assert min_label is not None and max_label is not None, group
+                track = group["track"]
+                values = group["values"]
+                # A hidden panel measures every box as zero, and a zero-vs-
+                # zero comparison passes every alignment assertion below —
+                # the vacuous green this guard exists to prevent.
+                assert values["width"] > 0, f"{name}: slider row has no width: {values}"
+                assert track["width"] > 0, f"{name}: track has no width: {track}"
+                # Two references, one per state. A label no wider than the
+                # thumb centres on its dot, and a parked dot's centre IS the
+                # track edge, so the dot-centred check reads the track. A
+                # clamped label is an axis label and pins to the slider's
+                # painted ends: the track
+                # is inset half a thumb, so the painted bar (rail plus the two
+                # parked thumbs) spans the full control width — the row box.
+                # Pinning to the track edge instead leaves the label half a
+                # thumb inside the bar's visible end, which is the
+                # misalignment this test exists to catch.
+                # The alignment rule keys on the label's rendered width
+                # against the thumb's width. The probe reports the thumb's
+                # box, so the expected state is decided by the same width
+                # comparison the slider itself performs.
+                thumb_w = group["thumb"]["width"]
+                for label, dot, edge, control_edge in (
+                    (min_label, track["left"], "left", values["left"]),
+                    (max_label, track["right"], "right", values["right"]),
+                ):
+                    if label["width"] <= thumb_w:
+                        assert not label["clamp"], (
+                            f"{name} {label['text']!r} clamped: {label}"
+                        )
+                        drift = abs(label["cx"] - dot)
+                        assert drift <= 1.0, (
+                            f"{name} {label['text']!r} not centred on its dot: "
+                            f"{label['cx']:.2f}px vs {dot:.2f}px (drift {drift:.2f}px)"
+                        )
+                    else:
+                        assert label["clamp"], (
+                            f"{name} {label['text']!r} not clamped: {label}"
+                        )
+                        assert abs(label[edge] - control_edge) <= 1.0, (
+                            f"{name} {label['text']!r} not flush the slider's "
+                            f"painted {edge} end: {label} vs control "
+                            f"{control_edge:.2f}px"
+                        )
             assert not errors, f"JS errors: {errors}"

@@ -1,0 +1,284 @@
+"""The shared scheme-picker dropdown, driven through both of its consumers.
+
+LayerControl's style drawer and HeatmapControl's panel mount the same
+``ui/schemePicker``, so every behaviour here is a contract both must honour,
+measured in Chromium against the real DOM rather than a class:
+
+* placement — the list is portalled, paints below by default, flips above when
+  the room below cannot hold it, and scrolls inside its cap (and re-places on
+  resize);
+* lifetime — the list never outlives the panel that opened it: collapse, the
+  clear button, an outside press, control removal and pseudo-fullscreen all put
+  it away, Escape closes only the list, and the press after a choice still
+  lands;
+* host — the list mounts into whatever surface covers the trigger, so it stays
+  clickable under both native and pseudo fullscreen;
+* geometry — the item strip lines up with the trigger strip in both list
+  states, with a real (non-hidden) scrollbar and at DPR1/DPR2.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+
+import folium
+import pytest
+from conftest import (
+    _CdnBrowserProxy,
+    _js,
+    _prefetch_cdn_cache,
+    heatmap_ready,
+    inject_fullscreen_stub,
+    load_geojson,
+    make_browser_page,
+    panel_ready,
+    snippet,
+    use_page,
+)
+
+from foliplus import FullscreenControl, HeatmapControl, LayerControl
+
+HEATMAP_TRIGGER = ".foliplus-heatmap-scheme-bar"
+LAYER_TRIGGER = ".foliplus-layer-style-panel .foliplus-scheme-picker-trigger"
+# Seven defaults fill the 200px list; four fit inside it.
+FITTING_SCHEMES = ["Reds", "Blues", "Greens", "Purples"]
+
+# Capture console.warn during page setup to detect duplicate overlay ids.
+_WARN_PRELUDE = """
+  (() => {
+    const _w = console.warn;
+    window.__setupWarns = [];
+    console.warn = (...a) => { window.__setupWarns.push(String(a[0])); _w(...a); };
+  })();
+"""
+
+def _make_close_page(browser, tmp_path):
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    _polygon_layer().add_to(m)
+    _points_group().add_to(m)
+    LayerControl(position="topright").add_to(m)
+    HeatmapControl(position="bottomleft").add_to(m)
+    html = _expose_heatmap(m.get_root().render())
+    return make_browser_page(browser, tmp_path, html, "picker_close")
+
+def _make_order_page(browser, tmp_path, layer_first: bool):
+    """Build a page with LayerControl + HeatmapControl in a chosen order.
+
+    Both controls share one map. Each registers a picker overlay entry on
+    the shared per-map registry; the registration order decides which entry
+    survives when both used the same id (the duplicate is rejected). This
+    helper pins the order so the regression test can prove that the fix makes
+    the outcome order-independent.
+    """
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    _polygon_layer().add_to(m)
+    _points_group().add_to(m)
+    if layer_first:
+        LayerControl(position="topright").add_to(m)
+        HeatmapControl(position="bottomleft").add_to(m)
+    else:
+        HeatmapControl(position="bottomleft").add_to(m)
+        LayerControl(position="topright").add_to(m)
+    html = _expose_heatmap(m.get_root().render())
+    return make_browser_page(
+        browser, tmp_path, html, "picker_close", prelude=_WARN_PRELUDE
+    )
+
+def _state(page) -> dict:
+    return page.evaluate(_js("platform/read_picker_panel_state"))
+
+def _wait_closed(page) -> None:
+    page.wait_for_selector(
+        ".foliplus-scheme-picker-portal", state="detached", timeout=3000
+    )
+
+def _close_centre(page, selector: str) -> dict:
+    return page.evaluate(_js("platform/read_element_centre"), selector)
+
+def _open_heatmap_dropdown(page) -> None:
+    expanded = page.evaluate(_js("HeatmapControl/panel_is_open"))
+    if not expanded:
+        page.evaluate(_js("HeatmapControl/click_toggle_button"))
+        page.wait_for_selector(
+            ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+            state="attached",
+            timeout=5000,
+        )
+        heatmap_ready(page)
+    page.wait_for_selector(
+        ".foliplus-heatmap-scheme-bar", state="visible", timeout=5000
+    )
+    box = _close_centre(page, ".foliplus-heatmap-scheme-bar")
+    page.mouse.click(box["x"], box["y"])
+    page.wait_for_selector(
+        ".foliplus-scheme-picker-portal", state="attached", timeout=3000
+    )
+
+def _open_style_dropdown(page) -> None:
+    page.evaluate(_js("LayerControl/open_panel"))
+    page.wait_for_selector(
+        ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
+    )
+    panel_ready(page)
+    opened = page.evaluate(_js("LayerControl/open_style_panel_polygon"))
+    assert opened["ok"], f"style panel did not open: {opened}"
+    page.wait_for_selector(".foliplus-layer-style-panel", state="visible", timeout=5000)
+    ready = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
+    assert ready["ok"], f"the ramp mode did not settle: {ready}"
+    page.mouse.click(ready["triggerX"], ready["triggerY"])
+    # Wait for the picker's open state to be *committed*, not merely for the
+    # portal node to be in the DOM. On Linux headless the open state lands a
+    # beat after the portal is attached (the dropdown is appended before the
+    # trigger's aria-expanded and the row layout settle), and pressing Escape in
+    # that window reads PICKER_DROPDOWN as not open, so the registry's topmost()
+    # falls through to LAYER_STYLE and one press tears down both the list and
+    # the drawer. Only the committed state guarantees the picker owns Escape.
+    page.wait_for_function(_js("LayerControl/wait_picker_committed"), timeout=3000)
+
+class TestPickerCloseBrowser:
+    """One rule for both consumers: put the panel away, the list goes with it."""
+    def test_heatmap_affordances_close_the_list(self, browser, tmp_path):
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            # The close button in the panel header.
+            _open_heatmap_dropdown(page)
+            page.evaluate(_js("HeatmapControl/click_close_button"))
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert state["heatmap"]["collapsed"], state
+
+            # Clear keeps the panel open, but must still close the portalled list.
+            _open_heatmap_dropdown(page)
+            page.evaluate(_js("HeatmapControl/click_clear_button"))
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert state["heatmap"]["expanded"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_heatmap_outside_press_closes_both(self, browser, tmp_path):
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            _open_heatmap_dropdown(page)
+            box = page.evaluate(_js("platform/read_map_centre"))
+            page.mouse.click(box["x"], box["y"])
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert state["heatmap"]["collapsed"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_closes_the_list_and_keeps_the_panel(self, browser, tmp_path):
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            _open_heatmap_dropdown(page)
+            page.keyboard.press("Escape")
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert state["heatmap"]["expanded"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_collapse_in_pseudo_fullscreen_closes_the_list(self, browser, tmp_path):
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            entered = page.evaluate(_js("platform/set_pseudo_fullscreen"), True)
+            assert entered["ok"], entered
+            assert entered["pseudo"], entered
+            _open_heatmap_dropdown(page)
+            hosted = _state(page)
+            assert hosted["hostClass"].find("leaflet-container") >= 0, hosted
+
+            page.evaluate(_js("HeatmapControl/click_close_button"))
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            page.evaluate(_js("platform/set_pseudo_fullscreen"), False)
+            assert not errors, f"JS errors: {errors}"
+
+    def test_removing_the_control_closes_the_list(self, browser, tmp_path):
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            _open_heatmap_dropdown(page)
+            page.evaluate(_js("platform/remove_heatmap_control"))
+            _wait_closed(page)
+            assert not page.evaluate(_js("platform/has_heatmap_control"))
+            assert not errors, f"JS errors: {errors}"
+
+    def test_style_drawer_close_closes_the_list(self, browser, tmp_path):
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            _open_style_dropdown(page)
+            assert page.evaluate(_js("LayerControl/close_style_panel"))
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert not state["stylePanelOpen"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_in_the_style_drawer_closes_the_list_only(self, browser, tmp_path):
+        """The picker owns Escape while its list is open: list out, drawer stays.
+
+        The drawer's own Escape handler (row cursor / panel close) is downstream
+        of the window-capture Escape the picker claims, so one press must close
+        the list and leave the drawer in place for the next colour choice.
+        """
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            _open_style_dropdown(page)
+            page.keyboard.press("Escape")
+            _wait_closed(page)
+            state = _state(page)
+            assert state["portalCount"] == 0, state
+            assert state["stylePanelOpen"], state
+            assert state["styleDrawerVisible"], state
+            assert not errors, f"JS errors: {errors}"
+
+    def test_the_next_press_after_a_choice_still_lands(self, browser, tmp_path):
+        """Choosing a scheme must not swallow the press that follows."""
+        with use_page(_make_close_page, browser, tmp_path) as (page, errors):
+            _open_heatmap_dropdown(page)
+            rows = page.evaluate(_js("platform/read_scheme_dropdown_rows"))
+            assert rows["ok"], rows
+            page.mouse.click(rows["targetX"], rows["targetY"])
+            _wait_closed(page)
+            state = _state(page)
+            assert state["heatmap"]["expanded"], state
+
+            toggle = _close_centre(page, ".foliplus-heatmap-ctrl .foliplus-toggle-btn")
+            page.mouse.click(toggle["x"], toggle["y"])
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-collapsed",
+                state="attached",
+                timeout=3000,
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_in_style_drawer_ignores_a_second_picker_on_the_same_map(
+        self, browser, tmp_path
+    ):
+        """One map, two picker-owning controls: Escape must close only the open list.
+
+        Both LayerControl and HeatmapControl register a picker overlay entry on
+        the shared per-map registry. Before the fix both used the same id, so the
+        second registration was a duplicate and was rejected, leaving one control
+        with no Escape-owning surface. With the style picker open, Escape must
+        close the list and leave the style drawer in place — regardless of which
+        control registered first. Both orders are exercised because the
+        duplicate-winner depended on registration order.
+        """
+        for layer_first in (True, False):
+            with use_page(
+                lambda b, t: _make_order_page(b, t, layer_first), browser, tmp_path
+            ) as (page, errors):
+                # No duplicate overlay id may be logged during setup: the fix
+                # namespaces the picker entry per consumer, so the two controls
+                # never collide.
+                _open_style_dropdown(page)
+                page.keyboard.press("Escape")
+                _wait_closed(page)
+                state = _state(page)
+                assert state["portalCount"] == 0, state
+                assert state["stylePanelOpen"], state
+                assert state["styleDrawerVisible"], state
+                warns = page.evaluate(_js("LayerControl/read_setup_warns"))
+                dup = [w for w in warns if "duplicate overlay id" in w]
+                assert not dup, (
+                    f"duplicate overlay id warning (layer_first={layer_first}): {dup}"
+                )
+                assert not errors, f"JS errors (layer_first={layer_first}): {errors}"

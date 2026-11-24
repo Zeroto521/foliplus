@@ -33,7 +33,7 @@ from conftest import load_geojson, make_browser_page, snippet, use_page
 
 from foliplus import LayerControl
 
-from .helper import _expand_panel
+from ..helper import _expand_panel
 
 DATA_GEOJSON = "test/data/LayerControl/geojson/quickstart_facility_points_6.geojson"
 LAYER_NAME = "Facility Points"

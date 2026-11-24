@@ -26,7 +26,7 @@ from conftest import (
 
 from foliplus import LayerControl
 
-from .helper import _expand_panel, _write_html
+from ..helper import _expand_panel, _write_html
 
 
 def _build_html(tmp_path, name: str, map_max_zoom: int = 18) -> str:

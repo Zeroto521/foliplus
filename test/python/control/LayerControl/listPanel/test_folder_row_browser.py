@@ -9,7 +9,7 @@ from conftest import _js, load_geojson, make_browser_page, snippet, use_page
 
 from foliplus import LayerControl
 
-from .helper_browser import LayerControlBrowserBase
+from ..helper_browser import LayerControlBrowserBase
 
 
 class TestFolderRowBrowser(LayerControlBrowserBase):
