@@ -1,5 +1,5 @@
 /**
- * script/build-path.mjs — single source for path-alias resolution.
+ * script/build/build-path.mjs — single source for path-alias resolution.
  *
  * Consumers that each used to spell `foliplus/js` (or a full alias table)
  * by hand:

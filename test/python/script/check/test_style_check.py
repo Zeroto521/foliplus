@@ -551,7 +551,7 @@ class TestCheckPluralNames:
 
     def test_mjs_singular_module_names_are_allowed(self):
         for name in [
-            "script/build-path.mjs",
+            "script/build/build-path.mjs",
             "script/css-layer.mjs",
             "script/build/esbuild-config.mjs",
             "script/build/merge-css.mjs",

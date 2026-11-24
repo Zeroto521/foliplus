@@ -40,7 +40,6 @@
  * reporting breaches that do not exist in what ships.
  */
 import { help } from "../args.mjs";
-import { FAIL, OK, STATUS, WARN } from "../glyph.mjs";
 import {
   EXIT_FUSE,
   EXIT_OK,
@@ -52,6 +51,7 @@ import {
   parseArgsWithBase,
   readSizes,
 } from "./bundle-size-lib.mjs";
+import { FAIL, OK, STATUS, WARN } from "./glyph.mjs";
 import { resolve } from "path";
 import { pathToFileURL } from "url";
 
