@@ -47,4 +47,3 @@ def test_layer_data_shape_marks_author_paint_optional() -> None:
     fill_author = shape["fillAuthor"]
     # (schema, "?") means optional.
     assert isinstance(fill_author, tuple) and fill_author[1] == "?", fill_author
-
