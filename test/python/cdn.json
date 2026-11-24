@@ -163,5 +163,37 @@
   "cdnjs.cloudflare.com/ajax/libs/d3/3.5.5/d3.min.js": [
     "d3.min.js",
     "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js": [
+    "leaflet-1.9.4.js",
+    "application/javascript"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css": [
+    "leaflet-1.9.4.css",
+    "text/css"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon.png": [
+    "leaflet-1.9.4-marker-icon.png",
+    "image/png"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-icon-2x.png": [
+    "leaflet-1.9.4-marker-icon-2x.png",
+    "image/png"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/marker-shadow.png": [
+    "leaflet-1.9.4-marker-shadow.png",
+    "image/png"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/layers.png": [
+    "leaflet-1.9.4-layers.png",
+    "image/png"
+  ],
+  "cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/images/layers-2x.png": [
+    "leaflet-1.9.4-layers-2x.png",
+    "image/png"
+  ],
+  "netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css": [
+    "bootstrap-3.0.0.min.css",
+    "text/css"
   ]
 }
