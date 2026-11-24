@@ -168,6 +168,15 @@ class TestDump:
         }
         assert mod.dump_violations(payload, "dump") == []
 
+    def test_non_dict_shared_and_controls_stop_the_walk(self):
+        # `{version: 1}` with no field maps is a valid dump shape; a malformed
+        # one must be reported as having nothing to check, not raise.
+        assert mod.dump_violations({"version": 1}, "dump") == []
+        assert mod.dump_violations({"shared": "x", "controls": "y"}, "dump") == []
+
+    def test_non_dict_control_fields_stop_the_walk(self):
+        assert mod.dump_violations({"controls": {"X": "y", "Y": {}}}, "dump") == []
+
     def test_regenerated_dump_is_clean(self):
         result = subprocess.run(
             [sys.executable, "-m", "foliplus._config_schema", "--dump"],
@@ -226,6 +235,16 @@ class TestCli:
             _run(["--dump", str(tmp_path / "missing.json")], monkeypatch=monkeypatch)
             == 2
         )
+        assert "cannot read" in capsys.readouterr().err
+
+    def test_unreadable_committed_schema_is_an_error(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        # Default mode reads the committed declaration file; if it is missing the
+        # gate must fail loudly (exit 2) instead of passing with no subject.
+        # runpy hands back a copy of the globals, so patch the function's own.
+        monkeypatch.setitem(mod.main.__globals__, "SCHEMA_TS", tmp_path / "missing.ts")
+        assert _run([], monkeypatch=monkeypatch) == 2
         assert "cannot read" in capsys.readouterr().err
 
     def test_malformed_dump_is_a_usage_error(self, tmp_path, monkeypatch, capsys):
