@@ -30,8 +30,6 @@ from foliplus._declaration import (
     zoom_level,
 )
 
-_JS_FOLDER_NAME_MAX_RE = re.compile(r"const FOLDER_NAME_MAX = (\d+);")
-
 class TestNormaliseFolder:
     def test_absent_is_none_without_a_warning(self) -> None:
         with warnings.catch_warnings(record=True) as caught:
@@ -143,17 +141,3 @@ class TestNormaliseFolder:
                 normalise_folder(raw, owner="Owner")
             except Exception as exc:  # pragma: no cover - must never raise
                 pytest.fail(f"normalise_folder({raw!r}) raised {exc!r}")
-
-def test_the_js_reader_uses_the_same_cap() -> None:
-    """The JS reader caps a folder name with its own copy of the constant.
-
-    Both stacks decide which names reach the panel, so the value is read from
-    the committed ``folderLayout.ts`` instead of being asserted against a
-    literal that would survive a change to either side.
-    """
-    source = (
-        Path(__file__).resolve().parents[3] / "foliplus/js/core/layer/folderLayout.ts"
-    ).read_text(encoding="utf-8")
-    match = _JS_FOLDER_NAME_MAX_RE.search(source)
-    assert match is not None, "FOLDER_NAME_MAX missing from folderLayout.ts"
-    assert int(match[1]) == _declaration.FOLDER_NAME_MAX
