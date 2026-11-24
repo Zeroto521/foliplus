@@ -1,5 +1,7 @@
 [
   "control/LayerControl/declaredParse",
+  "core/event/ensureEvents",
+  "core/event/subscribeLayers",
   "core/event/type",
   "core/geo/type",
   "core/label/labelCollision",

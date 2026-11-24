@@ -545,4 +545,4 @@ const publish = <K extends string>(
 };
 
 export { EventBus, SettledOperation, publish };
-export type { DispatchFailure, EventHandler };
+export type { DispatchFailure, EventHandler, ListenerPhase };
