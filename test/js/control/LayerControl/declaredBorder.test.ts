@@ -68,7 +68,10 @@ describe("readDeclaredBorder", () => {
   });
 
   it("a colour alone implies the solid mode", () => {
-    const read = readDeclaredBorder(layerWith({ border: { color: "#abc" } }), "overlay1");
+    const read = readDeclaredBorder(
+      layerWith({ border: { color: "#abc" } }),
+      "overlay1",
+    );
     expect(read.invalid).toEqual([]);
     expect(read.declared).toBe(STYLE_MODE.SOLID);
     expect(read.declaredColor).toBe("#aabbcc");

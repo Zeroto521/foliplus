@@ -2992,10 +2992,12 @@ describe("follow-fill border mode", () => {
     document.body.appendChild(block);
     expect(selectOf(block)!.value).toBe("solid");
     expect(
-      (block.querySelector(".foliplus-style-border-color-input") as HTMLInputElement).value,
+      (block.querySelector(".foliplus-style-border-color-input") as HTMLInputElement)
+        .value,
     ).toBe("#ff0000");
     expect(
-      (block.querySelector(".foliplus-style-border-weight-input") as HTMLInputElement).value,
+      (block.querySelector(".foliplus-style-border-weight-input") as HTMLInputElement)
+        .value,
     ).toBe("5");
     // The dimension readout (what getStyle's snapshot reads) carries the same.
     expect(BORDER_DIMENSION.value!(ui, "dsolid1")).toMatchObject({

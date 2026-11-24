@@ -284,7 +284,8 @@ const warnDeclaredFillInference = (
  *  sees the declared mode. */
 const declaredFillRecord = (ui: LayerUI, layerId: string) => {
   const layerInfo = ui.c.layerRegistry.get(layerId);
-  return readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId).declared;
+  return readDeclaredFill(layerInfo?.layer ?? ui.c.findLayer(layerId), layerId)
+    .declared;
 };
 
 /** The declaration in force on this layer (no intent gate).
@@ -349,7 +350,8 @@ const declaredValue = (ui: LayerUI, layerId: string): ValueConfig | undefined =>
   if (getIntent(ui, layerId, INTENT.FILL_VALUE) !== undefined) return undefined;
   if (getIntent(ui, layerId, INTENT.FILL_MODE) !== undefined) return undefined;
   const declared = declaredFillRecord(ui, layerId);
-  if (declared?.mode !== STYLE_MODE.VALUE || declared.value === undefined) return undefined;
+  if (declared?.mode !== STYLE_MODE.VALUE || declared.value === undefined)
+    return undefined;
   const layer = (ui.c.layerRegistry.get(layerId)?.layer ??
     ui.c.findLayer(layerId)) as L.Layer | null;
   let config: ValueConfig = declared.value;

@@ -299,8 +299,7 @@ const applySolidFillToLayer = (
         declaredFillOpacity(ui, layerId) !== undefined;
       const c = ownIntent ? solidColor : undefined;
       const o =
-        getIntent(ui, layerId, INTENT.FILL_OPACITY) ??
-        declaredFillOpacity(ui, layerId);
+        getIntent(ui, layerId, INTENT.FILL_OPACITY) ?? declaredFillOpacity(ui, layerId);
       if (c === undefined && o === undefined) return null;
       // fill:true rides the replay too — folium's resetStyle would otherwise
       // re-apply the author's fill:false on mouseout and hide the fill.

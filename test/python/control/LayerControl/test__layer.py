@@ -61,8 +61,12 @@ def _declared_namespace(html: str) -> dict:
     layer.options.foliplus), so the rendered page is where a Python test can
     see the payload the runtime will receive.
     """
-    marker = '"foliplus": '
-    start = html.index(marker) + len(marker)
+    # folium 0.15 renders an unquoted `foliplus: {...}`; newer releases
+    # quote the key. Accept either spelling (the value is a JS literal).
+    match = re.search(r'["\']?foliplus["\']?\s*:\s*\{', html)
+    if match is None:
+        raise AssertionError("foliplus namespace not found in the rendered HTML")
+    start = match.end() - 1
     depth = 0
     for index in range(start, len(html)):
         char = html[index]
