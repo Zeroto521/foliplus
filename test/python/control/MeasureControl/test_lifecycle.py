@@ -210,7 +210,9 @@ class TestMeasureModeBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
-    def test_escape_after_finalized_distance_keeps_the_measure_row(self, browser, tmp_path):
+    def test_escape_after_finalized_distance_keeps_the_measure_row(
+        self, browser, tmp_path
+    ):
         """Escape after a finalized distance keeps its row.
 
         The finalized leaves belong to the measurement, so the layer stays
