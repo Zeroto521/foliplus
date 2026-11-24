@@ -35,6 +35,7 @@ import {
   type FolderLayout,
   type FolderLayoutManager,
   GEOM_TYPE,
+  HIDDEN,
   type IconIntent,
   type LabelAwareLayer,
   type LayerAPI,
@@ -79,12 +80,14 @@ import {
   moveLayerToRoot as moveLayerToRootInLayout,
   normalizeFolderName,
   renameFolder,
+  resolveVisibility,
   rootLayerEntry,
   seedBlockOrder,
   visibleDomOf,
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
+import type { VisibilityDrift, VisibilityQuery } from "#core/layer/visibility.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
@@ -1843,6 +1846,136 @@ class LayerController implements LayerAPI {
     if (!this.layerRegistry.has(id)) return true;
     if (!this.ui) return true;
     return this.ui.intentVisible(id);
+  }
+
+  /** Single-source answer to "is this layer visible right now?": the AND of
+   *  the four independent factors, each gathered from its own single source,
+   *  with the first false one named as the reason. Null for an unregistered id.
+   *
+   *  The four factors and their single sources:
+   *
+   *  - declared - the intent fact (user choice, else the author default), from
+   *    `intentVisible(id)`. This is the panel checkbox's fact, NOT membership.
+   *  - container - the effective container face: on the map AND not carrying
+   *    the HIDDEN class (the canvas-only carrier). This is the rendered truth.
+   *  - filter - not hidden by the layer's current feature filter, from the
+   *    shared `filterLeafSet` cache (never a second walk).
+   *  - ancestor - every ancestor group in the chain is expanded (not carrying
+   *    the FOLDED class), walked via `childrenOf`.
+   *
+   *  `visible` is true only when all four hold; `reason` names the first false
+   *  factor in the fixed order declared > container > filter > ancestor (see
+   *  core/layer/visibility.ts). A feature-level filter hides individual leaves,
+   *  so a partially filtered layer is still `visible` here - the factor is
+   *  "can any leaf show", not "are all leaves showing".
+   *
+   *  @internal - LayerControl-private; not on the public LayerAPI.
+   */
+  visibilityOf(id: string): VisibilityQuery | null {
+    if (!this.layerRegistry.has(id)) return null;
+    if (!this.ui) return null;
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    const layer = this.resolveLayer(layerInfo);
+
+    // declared: the intent fact (user choice or author default).
+    const declared = this.intentVisible(id);
+
+    // container: on the map AND not carrying the HIDDEN class. The face may be
+    // the layer itself or (canvas-only) its auto pane; read both.
+    let container = false;
+    if (layer && typeof this.map.hasLayer === "function") {
+      const onMap = this.map.hasLayer(layer);
+      let face: HTMLElement | null = null;
+      const el =
+        (layer as { getContainer?: () => HTMLElement | null }).getContainer?.() ?? null;
+      if (el) {
+        face = el;
+      } else {
+        const pane = this.map.getPane(`leaflet-${id}`);
+        face = pane ?? null;
+      }
+      const hidden = face ? face.classList.contains(HIDDEN) : false;
+      container = onMap && !hidden;
+    }
+
+    // filter: "can any leaf show" - a layer with every leaf hidden by its
+    // current filter is not visible. Reuses the shared cached features.
+    let filterOk = true;
+    const features = this.ensureFilterFeatures(id);
+    if (features && features.features.length > 0) {
+      const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+      if (filter) {
+        const hidden = filterLeafSet(features.features, filter);
+        const anyVisible = features.features.some(f => !hidden.has(f.leaf));
+        filterOk = anyVisible;
+      }
+    }
+
+    // ancestor: every ancestor group expanded (not carrying FOLDED). A group
+    // row's own visibility gate - folded parent hides the child regardless of
+    // its own factors.
+    let ancestor = true;
+    if (layer) {
+      let node: unknown = layer;
+      const seen = new Set<unknown>();
+      while (node && !seen.has(node)) {
+        seen.add(node);
+        const el =
+          (node as { getContainer?: () => HTMLElement | null }).getContainer?.() ??
+          null;
+        if (el && el.classList.contains(CONST.CLASSES.FOLDED)) {
+          ancestor = false;
+          break;
+        }
+        const parent = (node as { __parent?: unknown }).__parent;
+        node = parent;
+      }
+    }
+
+    return resolveVisibility({ declared, container, filter: filterOk, ancestor });
+  }
+
+  /** How far a layer's current intent has drifted from what the author declared,
+   *  read through the same single-source readers as the panel rows. Returns the
+   *  list of dimensions that differ from the declaration (an empty list = the
+   *  layer is exactly as the author declared it, so a Reset affordance is a
+   *  no-op). Null for an unregistered id.
+   *
+   *  Reads the intent store directly (not the projection): the projection
+   *  carries the same fact in its diff fields, but this accessor is the
+   *  programmatic contract a caller uses without building a row. The Reset
+   *  affordance and the style row read this to decide whether to show
+   *  "changed" vs "as declared".
+   *
+   *  @internal - LayerControl-private; not on the public LayerAPI.
+   */
+  diffDeclared(id: string): VisibilityDrift[] | null {
+    if (!this.layerRegistry.has(id)) return null;
+    if (!this.ui) return null;
+    const drift: VisibilityDrift[] = [];
+    // visible: the user's chosen hide vs the author's declared default.
+    const declaredDefault = this.ui.runtimeStore.getAuthorVisible(id) ?? true;
+    if (this.intentVisible(id) !== declaredDefault) drift.push("visible");
+    // opacity: the author seeded a value (layerInfo.opacity); the user may
+    // have moved it. Read the same resolved fact the style row uses. When the
+    // user never intervened (intent undefined) the resolved value IS the author
+    // default, so it does NOT count as drift.
+    const declaredOpacity = this.layerRegistry.get(id)?.opacity;
+    const intentOpacity = getDimension<number>(DIM.OPACITY)?.value(this.ui, id);
+    if (
+      typeof declaredOpacity === "number" &&
+      typeof intentOpacity === "number" &&
+      intentOpacity !== declaredOpacity
+    )
+      drift.push("opacity");
+    // filter: a user-set generic filter differs from the author's declaration.
+    const layerInfo = this.layerRegistry.get(id);
+    const declared = layerInfo ? readDeclaredFilter(layerInfo) : undefined;
+    const current = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+    const owned = this.filterStore.isOwned(id, FILTER_SOURCE.GENERIC);
+    if (owned || (current !== undefined && current !== declared)) drift.push("filter");
+    return drift;
   }
 
   /**
