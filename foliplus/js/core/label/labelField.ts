@@ -4,6 +4,7 @@
 // offers, and which one to fall back to when the user has not chosen — so the
 // answers live here rather than drifting apart per component.
 import { walkLeaf } from "../layer/walkLeaf.js";
+import { isInternalProperty } from "../value/index.js";
 
 /**
  * One labelable field found on a layer's features.
@@ -35,18 +36,15 @@ const isLabelableValue = (value: unknown): boolean =>
   value == null || (typeof value !== "object" && typeof value !== "function");
 
 /**
- * Property keys reserved for rendering rather than data.
+ * Whether a property key names data a label could show.
  *
- * `__folium_color` is how folium's documented recipes color a feature through
- * its properties. folium itself only passes it through, so it arrives as
- * ordinary data and a label over it would print a hex color — worth naming
- * because, unlike a nested object, it is a primitive and the value rule alone
- * would not catch it.
+ * Delegates to {@link isInternalProperty} (core/value/field.ts) so the label
+ * list and the filter/fill field pickers share one definition of "internal":
+ * folium's `__`-prefixed render-state keys (`__folium_color` et al.) are
+ * filtered from every user-facing field list by the same predicate, so no
+ * consumer re-derives a second, drifting notion of "reserved".
  */
-const RESERVED_PROPERTY_KEYS = new Set(["__folium_color"]);
-
-/** Whether a property key names data a label could show. */
-const isLabelableKey = (key: string): boolean => !RESERVED_PROPERTY_KEYS.has(key);
+const isLabelableKey = (key: string): boolean => !isInternalProperty(key);
 
 /**
  * Collect distinct property keys across `leaves`, in first-seen order, sampling

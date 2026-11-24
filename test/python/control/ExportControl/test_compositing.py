@@ -8,6 +8,8 @@ keeps the labels the user saw when they pressed Export.
 
 from __future__ import annotations
 
+import json
+
 import folium
 from conftest import _js, load_geojson, panel_ready, use_page
 
@@ -17,6 +19,7 @@ from .helper import (
     _red_pixels_in_export,
     _run_export,
     _sample_bg_pixels_in_export,
+    _sample_pixels_in_export,
     _solid_tile_layer,
     _wait_export_canvas_ready,
 )
@@ -676,6 +679,68 @@ class TestExportCompositeBrowser:
             assert len(errors) == 0, (
                 f"JS errors on bare-default-marker export: {errors}"
             )
+
+    def test_export_custom_marker_chassis_color(self, browser, tmp_path):
+        """A custom (non-preset) chassis hex exports the pin body, not just the glyph.
+
+        A custom chassis is painted as a sprite *mask* plus `background-color`
+        on the `.foliplus-marker-chassis` span (a preset keeps its sprite in
+        `background-image`). The export's sprite pass reads only
+        `background-image`, and its remaining pass reads only the *root's*
+        `background-color`, so the mask+color channel was invisible to the
+        renderer: the exported image kept the glyph and lost the pin body. The
+        expected chassis colour must reach the output canvas pixels.
+        """
+        point = folium.GeoJson(
+            json.dumps(load_geojson("LayerControl", "point_11934_2611")),
+            name="Points",
+            marker=folium.Marker(icon=folium.Icon(color="green")),
+        )
+        with use_page(
+            _make_page, browser, tmp_path, point, slug="export_chassis_color"
+        ) as (
+            page,
+            errors,
+        ):
+            # Open the row's style panel and write a custom chassis hex through
+            # it — the same DOM the user paints, so the test cannot drift from
+            # the channel the map actually uses.
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            panel_ready(page)
+            opened = page.evaluate(_js("LayerControl/open_style_panel"))
+            assert opened["ok"], f"style panel did not open: {opened}"
+            page.wait_for_selector(
+                ".foliplus-layer-style-panel", state="visible", timeout=5000
+            )
+
+            state = page.evaluate(
+                _js("LayerControl/marker_color_custom_probe"),
+                {"hex": "#ff9900", "opacity": 100},
+            )
+            assert state is not None and state.get("ok"), state
+            span = state["span"]
+            assert span is not None, f"no chassis span after a custom hex: {state}"
+            # The premise: a custom hex takes the mask + background-color channel.
+            assert "url(" in span["maskImage"], span
+            assert span["backgroundColor"] == "rgb(255, 153, 0)", span
+
+            _install_canvas_hook(page)
+            _run_export(page)
+            _wait_export_canvas_ready(page)
+            # The chassis mask sprite loads through the same async image channel
+            # the other marker passes use; sample after the pass has settled.
+            page.wait_for_timeout(1500)
+            result = _sample_pixels_in_export(page, (255, 153, 0), 25, 200)
+            assert result is not None, "Export canvas not captured"
+            assert result["hit"] > 0, (
+                f"Custom chassis colour missing from the export: {result}"
+            )
+            assert not errors, f"JS errors on custom-chassis export: {errors}"
 
 
 class TestExportLabelCanvasBrowser:

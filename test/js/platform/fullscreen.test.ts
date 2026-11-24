@@ -146,6 +146,41 @@ describe("fullscreenSurface", () => {
   });
 });
 
+describe("fullscreenSurface — dead hosts", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    stubFullscreenElement(null);
+  });
+
+  afterEach(() => {
+    stubFullscreenElement(null);
+    document.body.innerHTML = "";
+  });
+
+  it("ignores a detached pseudo ancestor of the caller's scope", () => {
+    // A container can keep the class after the map it belonged to was torn
+    // down and the subtree detached. closest() walks detached trees too, so
+    // without a connected check the overlay would be written into a node the
+    // page never paints.
+    const dead = document.createElement("div");
+    dead.className = `leaflet-container ${PSEUDO_FULLSCREEN_CLASS}`;
+    const panel = document.createElement("div");
+    dead.appendChild(panel);
+    document.body.appendChild(dead);
+    dead.remove();
+
+    expect(fullscreenSurface(panel)).toBe(document.body);
+  });
+
+  it("ignores a detached pseudo container (document-wide lookup)", () => {
+    const dead = document.createElement("div");
+    dead.className = PSEUDO_FULLSCREEN_CLASS;
+    dead.remove();
+
+    expect(fullscreenSurface()).toBe(document.body);
+  });
+});
+
 describe("surface notifications", () => {
   beforeEach(() => {
     document.body.innerHTML = "";

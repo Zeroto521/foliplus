@@ -21,8 +21,8 @@ describe("resolveProvider", () => {
 
   it("applies provider_config overrides to a built-in", () => {
     const provider = resolveProvider("photon", {
-      baseUrl: "https://photon.example.com",
-      throttleMs: 1234,
+      base_url: "https://photon.example.com",
+      throttle_ms: 1234,
       headers: { "X-Custom": "yes" },
     });
     expect(provider.id).toBe("photon");
@@ -36,8 +36,8 @@ describe("resolveProvider", () => {
     expect(resolveProvider("nominatim", {})).toBe(BUILTIN_PROVIDERS.nominatim);
   });
 
-  it("keeps the built-in baseUrl when provider_config.baseUrl is empty", () => {
-    const provider = resolveProvider("photon", { baseUrl: "" });
+  it("keeps the built-in baseUrl when provider_config.base_url is empty", () => {
+    const provider = resolveProvider("photon", { base_url: "" });
     expect(provider.search("Berlin", "en")).toContain("photon.komoot.io");
   });
 });
@@ -45,8 +45,8 @@ describe("resolveProvider", () => {
 describe("providerFromConfig", () => {
   const custom = {
     id: "myapi",
-    baseUrl: "https://geo.example.com",
-    throttleMs: 300,
+    base_url: "https://geo.example.com",
+    throttle_ms: 300,
     headers: { Authorization: "Bearer t" },
     suggest: { url: "/suggest?q={q}&limit={limit}&lon={lon}&lat={lat}" },
     search: { url: "/search?q={q}" },
@@ -97,7 +97,7 @@ describe("providerFromConfig", () => {
   it("interpolates the {code} / {lang} placeholders from the locale", () => {
     const provider = providerFromConfig({
       id: "locale",
-      baseUrl: "https://x.example.com",
+      base_url: "https://x.example.com",
       search: { url: "/search?q={q}&lang={lang}&code={code}&size={limit}" },
     });
     expect(provider.search("Paris", "zh")).toBe(
@@ -108,7 +108,7 @@ describe("providerFromConfig", () => {
   it("coerces a single-object suggest normalizer result to an array", () => {
     const provider = providerFromConfig({
       id: "single",
-      baseUrl: "https://x.example.com",
+      base_url: "https://x.example.com",
       suggest: { url: "/suggest?q={q}" },
       normalize: {
         suggest: "d => ({ lng: '1', lat: '2', display_name: 'A' })",
@@ -122,7 +122,7 @@ describe("providerFromConfig", () => {
   it("returns empty results when no normalizer is provided", () => {
     const provider = providerFromConfig({
       id: "bare",
-      baseUrl: "https://x.example.com",
+      base_url: "https://x.example.com",
       search: { url: "/search?q={q}" },
     });
     expect(provider.normalizeSuggest({})).toEqual([]);
@@ -132,7 +132,7 @@ describe("providerFromConfig", () => {
 
   it("throws on a missing id", () => {
     expect(() =>
-      providerFromConfig({ baseUrl: "https://x.example.com" } as never),
+      providerFromConfig({ base_url: "https://x.example.com" } as never),
     ).toThrow(/requires an id/);
   });
 
@@ -140,7 +140,7 @@ describe("providerFromConfig", () => {
     expect(() =>
       providerFromConfig({
         id: "bad",
-        baseUrl: "https://x.example.com",
+        base_url: "https://x.example.com",
         search: { url: "/search?q={q}" },
         normalize: { search: "not an arrow function" },
       }),
@@ -150,7 +150,7 @@ describe("providerFromConfig", () => {
   it("yields an empty URL for an operation that is not configured", () => {
     const provider = providerFromConfig({
       id: "no-search",
-      baseUrl: "https://x.example.com",
+      base_url: "https://x.example.com",
       suggest: { url: "/suggest?q={q}" },
     });
     expect(provider.search("q", "en")).toBe("");
@@ -167,7 +167,7 @@ describe("providerFromConfig", () => {
   it("coerces an array search-normalizer result to its first item", () => {
     const provider = providerFromConfig({
       id: "arr-search",
-      baseUrl: "https://x.example.com",
+      base_url: "https://x.example.com",
       search: { url: "/search?q={q}" },
       normalize: {
         search:
@@ -183,7 +183,7 @@ describe("providerFromConfig", () => {
   it("returns an empty string when the reverse normalizer yields a non-string", () => {
     const provider = providerFromConfig({
       id: "num-rev",
-      baseUrl: "https://x.example.com",
+      base_url: "https://x.example.com",
       reverse: { url: "/reverse?lon={lon}" },
       normalize: { reverse: "d => d.code" },
     });

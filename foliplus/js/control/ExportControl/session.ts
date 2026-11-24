@@ -8,7 +8,7 @@ import type { CropRect } from "./type.js";
 import { resolveExportBackground } from "./util.js";
 import { EVENTS, SettledOperation, publish } from "#core/event/index.js";
 import { type GeoBounds, boundsToRect } from "#core/geo/index.js";
-import { COMPONENTS, guardBlocked } from "#core/lifecycle/index.js";
+import { guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { download } from "#platform/download.js";
@@ -45,23 +45,20 @@ const canvasToBlob = (
 const doExport = function (this: ExportManager) {
   if (this.isExporting || !this.cropState) return;
   // Symmetric lock with the other interactive components (measure / focus).
-  if (
-    guardBlocked(this.map, CONFIG.name, T("blocked"), [
-      { blockedBy: COMPONENTS.MeasureControl, text: T("blocked_measure") },
-      { blockedBy: COMPONENTS.LayerControl, text: T("blocked_layer") },
-      { blockedBy: COMPONENTS.SearchControl, text: T("blocked_search") },
-      { blockedBy: COMPONENTS.LocateControl, text: T("blocked_locate") },
-    ])
-  ) {
+  if (guardBlocked(this.map, CONFIG.name, T("blocked"), CONST.EXPORT_BLOCKERS(T))) {
     return;
   }
-  this.isExporting = true;
   this.lastTileFailures = null;
+  this.lastRenderStats = null;
   // Start as one operation. MODE_CHANGE and BEFORE_EXPORT are *notifications*
   // (see EVENT_POLICY): listeners all run, consumer failures are recorded to
   // the diagnostic log, and an observer cannot derail the start — the export
-  // is committed from here on.
-  this.modes.setMode(CONFIG.name, "exporting");
+  // is committed from here on. setExportPhase() owns the mode claim, so the
+  // phase and the ModeManager cannot disagree.
+  this.setExportPhase("exporting");
+  // Every render this pipeline starts belongs to this generation; abortExport()
+  // bumps it, so callbacks from a retired render are dropped.
+  const token = ++this.renderToken;
   publish(
     this.events,
     EVENTS.BEFORE_EXPORT,
@@ -121,6 +118,7 @@ const doExport = function (this: ExportManager) {
   // this callback owns the final stretch, so 100 is reserved for the
   // download having started rather than the tiles having finished.
   const onProgress = (percent: number) => {
+    if (token !== this.renderToken) return;
     this.showGlobalHint(formatProgress(percent), HINT_DURATION.PERSIST, true);
   };
 
@@ -150,6 +148,10 @@ const doRender = function (
   geoBounds: GeoBounds | undefined,
   onProgress?: (percent: number) => void,
 ) {
+  // The generation this render belongs to. abortExport() bumps the counter, so
+  // a canvas or failure delivered after teardown is dropped instead of reaching
+  // a control that is going away.
+  const token = this.renderToken;
   // Hide-pass only (CONTROL list, same as main): control host + this bar.
   // Not traversal skip — content canvases stay measurable for layerInfo.canvas.
   const hideEls = this.mapContainer.querySelectorAll(CONST.SEL.CONTROL);
@@ -167,13 +169,26 @@ const doRender = function (
   }
 
   const renderer = new ExportRenderer(this.map);
+  const live = (): boolean => token === this.renderToken;
+  // A retired render's canvas must not reach onRenderSuccess (that downloads),
+  // but its hide-pass still has to be undone.
+  const drop = () => hideEls.forEach(el => el.classList.remove(PANEL_CLASS.HIDDEN));
   return renderer
     .render(r, scaleValue, bg ?? undefined, geoBounds, onProgress)
     .then(canvas => {
+      if (!live()) {
+        drop();
+        return;
+      }
       this.lastTileFailures = renderer.tileFailures;
+      this.lastRenderStats = renderer.lastStats;
       this.onRenderSuccess(canvas, hideEls);
     })
     .catch(err => {
+      if (!live()) {
+        drop();
+        return;
+      }
       this.onRenderError(err, hideEls);
     });
 };
@@ -189,6 +204,9 @@ const enlargeAndRender = function (
   vpH: number,
   onProgress?: (percent: number) => void,
 ) {
+  // The generation this enlarged render belongs to: the frame it schedules
+  // lands after the caller, so it re-checks the token before starting.
+  const token = this.renderToken;
   const savedStyles: Record<string, string> = {};
   const style = this.mapContainer.style;
   const styleProps = ["width", "height", "min-height", "max-height", "overflow"];
@@ -229,6 +247,12 @@ const enlargeAndRender = function (
   this.map.setView(cropCenter, savedZoom, { animate: false });
   nextFrame(() => {
     void this.mapContainer.offsetHeight; // Force synchronous reflow
+    if (token !== this.renderToken) {
+      // Aborted between scheduling and this frame: restore the enlarged
+      // container and never start the render.
+      restore();
+      return;
+    }
     void this.doRender(r, scaleValue, bg, geoBounds, onProgress)
       .finally(restore)
       .catch(() => undefined);
@@ -344,8 +368,7 @@ const endExport = function (this: ExportManager) {
   // the first failure is raised (MODE_CHANGE here is a notification and
   // cannot derail the cleanup).
   const operation = new SettledOperation(this.events);
-  this.isExporting = false;
-  this.modes.setMode(CONFIG.name, null);
+  this.setExportPhase("idle");
   this.removeExportOverlay();
   operation.emit(
     EVENTS.AFTER_EXPORT,
@@ -463,8 +486,27 @@ const removeExportOverlay = function (this: ExportManager) {
   }
 };
 
+/**
+ * Stop the export session from outside the pipeline: teardown, and any future
+ * programmatic cancel. Bumps the render generation first so a canvas or
+ * progress callback already queued cannot touch the control, then releases
+ * exactly what the exporting phase owns — the map lock, the blocker and the
+ * mode claim. Idle and crop sessions own none of that: crop teardown is
+ * removeCropBox's job, and aborting idle must not publish AFTER_EXPORT for an
+ * export that never started.
+ */
+const abortExport = function (this: ExportManager) {
+  const exporting = this.exportPhase === "exporting" || this.isExporting;
+  this.renderToken += 1;
+  this.removeExportOverlay();
+  if (!exporting) return;
+  this.unlockMap();
+  this.endExport();
+};
+
 /** Method table installed on ExportManager.prototype. */
 const sessionMethods = {
+  abortExport,
   claimDownload,
   doExport,
   doRender,

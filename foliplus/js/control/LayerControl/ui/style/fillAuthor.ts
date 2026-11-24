@@ -18,7 +18,7 @@ const authorFill = (ui: LayerUI, layerId: string): AuthorFill | null =>
 
 /** Does the layer paint its own fill per feature?
  *
- *  The answer is Python's: `CONFIG.data[].fillAuthor` is computed once at
+ *  The answer is Python's: `CONFIG.data[].fill_author` is computed once at
  *  render time from the GeoJson features' `__folium_color` (explore output)
  *  and the colormap the author mounted on the map, so the panel never walks
  *  the layer. A layer without the key keeps the normal single-color modes

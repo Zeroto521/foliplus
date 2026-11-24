@@ -38,7 +38,7 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
     """Walk the control and the parent map, one ``data`` entry per layer.
 
     The union is deduplicated by ``get_name()``; the declarations contribute
-    their optional facts (``fillAuthor`` / ``zoomRange`` / ``folder`` / filter)
+    their optional facts (``fill_author`` / ``zoom_range`` / ``folder`` / filter)
     and shape warnings happen here, once per rendered control.
     """
     data: list[dict[str, object]] = []
@@ -72,10 +72,10 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
         }
         author = fill_author(item, colormaps, claimed)
         if author is not None:
-            entry["fillAuthor"] = author
+            entry["fill_author"] = author
         zoom_range = declared_zoom_range(item, item.layer_name)
         if zoom_range is not None:
-            entry["zoomRange"] = zoom_range
+            entry["zoom_range"] = zoom_range
         folder = declared_folder(item, item.layer_name)
         if folder is not None:
             entry["folder"] = folder

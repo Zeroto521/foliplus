@@ -214,7 +214,7 @@ const projectLayer = (ui: LayerUI, layerInfo: LayerInfo): Projection => {
 
   // Policy is independent of intent: focus overrides range, range may
   // exclude, but neither touches the user's stored choice. The range itself
-  // resolves intent-first, then the author's `data[].zoomRange` declaration (see
+  // resolves intent-first, then the author's `data[].zoom_range` declaration (see
   // `inZoomRange`).
   const policy =
     ui.focusController.focusingLayerId != null ? true : inZoomRange(ui, layerInfo);

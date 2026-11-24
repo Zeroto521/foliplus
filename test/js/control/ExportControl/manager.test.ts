@@ -1,3 +1,5 @@
+import { makeManager, makeMapMock } from "./fixture.js";
+import { readFileSync } from "fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureHint } from "#core/overlay/index.js";
 import * as downloadMod from "#platform/download.js";
@@ -47,49 +49,6 @@ vi.mock("geotiff", () => ({
   writeArrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
 }));
 vi.mock("pako", async () => vi.importActual("pako"));
-
-// Minimal map mock satisfying ExportManager constructor requirements.
-// showHint/hideHint on foliplus mirror setup.ts's window.map mock — ExportManager
-// talks to them via the public map.foliplus! API rather than ensureHint().
-function makeMapMock() {
-  const container = document.createElement("div");
-  return {
-    getContainer: () => container,
-    getBounds: () => ({
-      getSouth: () => -90,
-      getNorth: () => 90,
-      getEast: () => 180,
-      getWest: () => -180,
-    }),
-    latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
-    dragging: { disable: vi.fn(), enable: vi.fn() },
-    scrollWheelZoom: { disable: vi.fn(), enable: vi.fn() },
-    doubleClickZoom: { disable: vi.fn(), enable: vi.fn() },
-    boxZoom: { disable: vi.fn(), enable: vi.fn() },
-    keyboard: { disable: vi.fn(), enable: vi.fn() },
-    touchZoom: { disable: vi.fn(), enable: vi.fn() },
-    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
-    on: vi.fn(),
-    off: vi.fn(),
-    eachLayer: vi.fn(),
-  };
-}
-
-// Build an ExportManager with all UI methods stubbed out.
-function makeManager() {
-  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
-  const manager = new ExportManager(makeMapMock());
-  // Stub methods that call showCropBox/lockCropBox etc. so tests can set
-  // cropState.box directly without needing a real DOM export UI.
-  manager.showCropBox = vi.fn();
-  manager.lockCropBox = vi.fn();
-  manager.unlockCropBox = vi.fn();
-  manager.removeCropBox = vi.fn();
-  manager.updateBoxStyle = vi.fn();
-  manager.showHintWithInfo = vi.fn();
-  manager.showGlobalHint = vi.fn();
-  return manager;
-}
 
 function setCropState(
   manager: ExportManager,
@@ -558,6 +517,51 @@ describe("ExportManager — export progress", () => {
     rafSpy.mockRestore();
   });
 
+  it("enlargeAndRender restores the container without rendering when aborted before the frame", () => {
+    // The frame lands after the caller, so teardown can happen in between. The
+    // enlarged container must be restored and the render must never start.
+    const rafQueue: FrameRequestCallback[] = [];
+    const rafSpy = vi.spyOn(window, "requestAnimationFrame").mockImplementation(cb => {
+      rafQueue.push(cb);
+      return 1;
+    });
+    const origLatLngBounds = (window.L as any).latLngBounds;
+    (window.L as any).latLngBounds = () => ({ getCenter: () => ({ lat: 0, lng: 0 }) });
+    const invalidateSize = vi.fn();
+    const setView = vi.fn();
+    manager.map.getCenter = () => ({ lat: 26.08, lng: 119.3 });
+    manager.map.getZoom = () => 2;
+    manager.map.options = { zoomAnimation: true };
+    manager.map.invalidateSize = invalidateSize;
+    manager.map.setView = setView;
+    const doRender = vi.fn();
+    manager.doRender = doRender;
+
+    try {
+      manager.enlargeAndRender(
+        { left: 1000, top: 1000, width: 500, height: 500 },
+        1,
+        undefined,
+        { nw: { lat: 26.1, lng: 119.2 }, se: { lat: 26.0, lng: 119.4 } },
+        800,
+        600,
+        undefined,
+      );
+      manager.abortExport();
+      rafQueue[0](0);
+
+      expect(doRender).not.toHaveBeenCalled();
+      // restore() ran: the animations are back and the map was re-measured.
+      expect(manager.map.options.zoomAnimation).toBe(true);
+      expect(invalidateSize.mock.calls.filter(call => call[0] === false)).toHaveLength(
+        2,
+      );
+    } finally {
+      (window.L as any).latLngBounds = origLatLngBounds;
+      rafSpy.mockRestore();
+    }
+  });
+
   it("onRenderSuccess neither claims 100 nor relabels: the render hint stays", async () => {
     // render() stops at 90 on purpose and the hint it left on screen is
     // PERSIST, so it is still up during the encode.  Nothing here has to
@@ -726,5 +730,230 @@ describe("ExportManager — export progress", () => {
     } finally {
       renderSpy.mockRestore();
     }
+  });
+
+  it("drops a canvas that lands after abortExport", async () => {
+    // abortExport() bumps the render generation: a canvas already in flight is
+    // retired, so it must not reach onRenderSuccess (that downloads) even though
+    // the renderer eventually resolves.
+    let deliver!: (canvas: HTMLCanvasElement) => void;
+    const renderSpy = vi
+      .spyOn(ExportRenderer.prototype, "render")
+      .mockImplementation(
+        () => new Promise<HTMLCanvasElement>(resolve => (deliver = resolve)),
+      );
+    manager.onRenderSuccess = vi.fn();
+    manager.onRenderError = vi.fn();
+
+    try {
+      // SEL.CONTROL matches the Leaflet control container, so this is one of
+      // the surfaces the hide-pass takes away during a render.
+      const hidden = document.createElement("div");
+      hidden.className = "leaflet-control-container";
+      manager.mapContainer.appendChild(hidden);
+
+      const pending = manager.doRender(
+        { left: 0, top: 0, width: 10, height: 10 },
+        1,
+        undefined,
+        undefined,
+      );
+      // The hide-pass runs before the render, so the control is invisible while
+      // the canvas is being drawn.
+      expect(hidden.classList.contains("foliplus-hidden")).toBe(true);
+
+      manager.abortExport();
+      deliver(document.createElement("canvas"));
+      await pending;
+
+      expect(manager.onRenderSuccess).not.toHaveBeenCalled();
+      expect(manager.onRenderError).not.toHaveBeenCalled();
+      // The hide-pass is undone, so a retired render does not leave the control
+      // invisible on the map.
+      expect(hidden.classList.contains("foliplus-hidden")).toBe(false);
+    } finally {
+      renderSpy.mockRestore();
+    }
+  });
+});
+// ── Export phase state machine ──────────────────────────────────────────────
+//
+// setExportPhase() is the single owner of the component's mode claim. Two P1s
+// lived in its absence: doExport() registered "exporting" and then
+// removeCropBox() cleared it (so guardBlocked() was ineffective for the whole
+// render and MODE_CHANGE reported exporting then null), and destroy() left the
+// blocker overlay, the map lock and the render in flight behind. These tests
+// pin the state machine; index.test.ts covers destroy() through the real entry.
+//
+// Moved here from phase.test.ts: the test-path mirror guard requires every test
+// file to name an existing module, and the state machine lives on ExportManager.
+
+const srcText = (rel: string) => readFileSync(rel, "utf8");
+
+/** A map mock for the phase tests: the mode manager and the lock targets. */
+const makePhaseMap = () => {
+  const container = document.createElement("div");
+  return {
+    getContainer: () => container,
+    getBounds: () => ({
+      getSouth: () => -90,
+      getNorth: () => 90,
+      getEast: () => 180,
+      getWest: () => -180,
+    }),
+    latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
+    dragging: { disable: vi.fn(), enable: vi.fn() },
+    scrollWheelZoom: { disable: vi.fn(), enable: vi.fn() },
+    doubleClickZoom: { disable: vi.fn(), enable: vi.fn() },
+    boxZoom: { disable: vi.fn(), enable: vi.fn() },
+    keyboard: { disable: vi.fn(), enable: vi.fn() },
+    touchZoom: { disable: vi.fn(), enable: vi.fn() },
+    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    on: vi.fn(),
+    off: vi.fn(),
+    eachLayer: vi.fn(),
+  } as never;
+};
+
+const makePhaseManager = () => {
+  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
+  return new ExportManager(makePhaseMap());
+};
+
+/** Arm a crop box the way showCropBox would, without building the DOM. */
+const armCropBox = (manager: ExportManager) => {
+  const box = document.createElement("div");
+  (manager as unknown as { cropState: unknown }).cropState = {
+    rect: { left: 10, top: 10, width: 100, height: 100 },
+    locked: false,
+    box,
+    geoBounds: null,
+  };
+};
+
+describe("ExportControl — the export phase owns the mode registration", () => {
+  let phaseManager: ExportManager;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    phaseManager = makePhaseManager();
+  });
+
+  it("setExportPhase writes the component's mode through one entry point", () => {
+    const modes = phaseManager.modes;
+    const setPhase = vi.spyOn(phaseManager, "setExportPhase");
+
+    expect(modes.getMode("ExportControl")).toBeNull();
+    phaseManager.setExportPhase("crop");
+    expect(modes.getMode("ExportControl")).toBe("selecting");
+    phaseManager.setExportPhase("exporting");
+    expect(modes.getMode("ExportControl")).toBe("exporting");
+    phaseManager.setExportPhase("idle");
+    expect(modes.getMode("ExportControl")).toBeNull();
+    expect(setPhase).toHaveBeenCalledTimes(3);
+  });
+
+  it("removeCropBox does not clear the exporting mode (the P1-1 state collapse)", () => {
+    // The old sequence: doExport() set "exporting", then removeCropBox() set the
+    // component's own mode back to null. The mode is registered by the crop
+    // session, so only the crop session may release it — and the export takes it
+    // over by writing "exporting" itself.
+    phaseManager.setExportPhase("crop");
+    armCropBox(phaseManager);
+    phaseManager.setExportPhase("exporting");
+    expect(phaseManager.modes.getMode("ExportControl")).toBe("exporting");
+
+    phaseManager.removeCropBox();
+
+    expect(
+      phaseManager.modes.getMode("ExportControl"),
+      "removing the crop box must not release the export's mode",
+    ).toBe("exporting");
+    // The crop DOM is gone and the box collapsed back to idle.
+    expect(phaseManager.cropState).toBeNull();
+  });
+
+  it("an in-flight export blocks the interactive components (guardBlocked works)", () => {
+    phaseManager.setExportPhase("exporting");
+    expect(phaseManager.modes.isBlocked("MeasureControl")).toBe(true);
+    phaseManager.setExportPhase("idle");
+    expect(phaseManager.modes.isBlocked("MeasureControl")).toBe(false);
+  });
+
+  it("MODE_CHANGE reports exporting once, not exporting then null", () => {
+    const seen: Array<string | null> = [];
+    phaseManager.events.on("foliplus:mode:change", (p: { mode: string | null }) => {
+      seen.push(p.mode);
+    });
+
+    phaseManager.setExportPhase("exporting");
+    phaseManager.setExportPhase("idle");
+
+    expect(seen).toEqual(["exporting", null]);
+  });
+
+  it("abortExport stops the in-flight export and returns the map to idle", () => {
+    // The export commits: overlay up, map locked, phase exporting.
+    phaseManager.setExportPhase("exporting");
+    phaseManager.exportOverlay = document.createElement("div");
+    phaseManager.lockMap();
+    expect(phaseManager.modes.getMode("ExportControl")).toBe("exporting");
+
+    expect(() => phaseManager.abortExport()).not.toThrow();
+    expect(phaseManager.isExporting).toBe(false);
+    expect(phaseManager.modes.getMode("ExportControl")).toBeNull();
+    expect(phaseManager.exportOverlay).toBeNull();
+    expect(phaseManager.map.dragging.enable).toHaveBeenCalled();
+    expect(phaseManager.map.scrollWheelZoom.enable).toHaveBeenCalled();
+  });
+
+  it("abortExport is idempotent from idle", () => {
+    expect(() => phaseManager.abortExport()).not.toThrow();
+    expect(phaseManager.modes.getMode("ExportControl")).toBeNull();
+    expect(phaseManager.isExporting).toBe(false);
+  });
+
+  it("removeCropBox releases a crop phase left without a box", () => {
+    // Half-torn teardown: the phase says crop but cropState is already null. The
+    // release must still happen, or the map stays blocked with no session.
+    phaseManager.setExportPhase("crop");
+    expect(phaseManager.modes.getMode("ExportControl")).toBe("selecting");
+    expect(phaseManager.cropState).toBeNull();
+
+    phaseManager.removeCropBox();
+
+    expect(phaseManager.modes.getMode("ExportControl")).toBeNull();
+  });
+});
+
+describe("ExportControl — the blocker policy has one source", () => {
+  it("showCropBox and doExport read the blockers from const.ts", () => {
+    // P2-10: the four-entry blockedBy tuple was transcribed into ui.ts and
+    // session.ts. A divergence would mean the two entries into the same mode
+    // claim different owners, so it must come from one place.
+    const ui = srcText("foliplus/js/control/ExportControl/ui.ts");
+    const session = srcText("foliplus/js/control/ExportControl/session.ts");
+    const constFile = srcText("foliplus/js/control/ExportControl/const.ts");
+
+    const defs = (text: string) => {
+      const needle = "blockedBy: COMPONENTS.";
+      let count = 0;
+      let from = text.indexOf(needle);
+      while (from !== -1) {
+        count += 1;
+        from = text.indexOf(needle, from + needle.length);
+      }
+      return count;
+    };
+    expect(defs(constFile), "const.ts defines the blocker table").toBeGreaterThan(0);
+    expect(defs(ui), "ui.ts must not redefine the tuple").toBe(0);
+    expect(defs(session), "session.ts must not redefine the tuple").toBe(0);
+    expect(ui.indexOf("EXPORT_BLOCKERS") !== -1, "ui.ts imports the shared table").toBe(
+      true,
+    );
+    expect(
+      session.indexOf("EXPORT_BLOCKERS") !== -1,
+      "session.ts imports the shared table",
+    ).toBe(true);
   });
 });

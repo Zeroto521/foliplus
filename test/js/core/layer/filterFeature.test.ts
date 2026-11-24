@@ -267,3 +267,37 @@ describe("filterLeafSet — hidden set", () => {
     expect(hidden.has(b)).toBe(true);
   });
 });
+
+describe("internal keys (__-prefixed)", () => {
+  it("omits __folium_color from the field bag even though it is a non-empty string", () => {
+    // folium/geopandas render-state keys must stay out of the filter panel's
+    // field domain: __folium_color is a #hex string, which the non-empty-string
+    // categorical rule alone would accept. The value stays on the leaf (the
+    // author-fill read still needs it); it is only hidden from the bag.
+    const a = makeLeaf("polygon", { kind: "park", __folium_color: "#22a06b" });
+    const feat = buildFilterFeatures(group(a));
+    expect(Object.keys(feat.features[0].fields)).toEqual(["kind"]);
+  });
+
+  it("omits every __-prefixed key (geopandas __id / __geojson_properties)", () => {
+    const a = makeLeaf("polygon", {
+      name: "a",
+      __id: "x",
+      __geojson_properties: "y",
+    });
+    const feat = buildFilterFeatures(group(a));
+    expect(Object.keys(feat.features[0].fields)).toEqual(["name"]);
+  });
+
+  it("a leaf carrying only __-prefixed keys is in total but not filterable", () => {
+    // Same shape as "no feature / only non-filterable values": the leaf counts
+    // toward total and appears in features with an empty bag, so it is hidden
+    // when a filter is active (empty bag → matchesValues false) and visible
+    // when no filter. It is never offered as a column.
+    const internal = makeLeaf("polygon", { __folium_color: "#22a06b" });
+    const feat = buildFilterFeatures(group(internal));
+    expect(feat.total).toBe(1);
+    expect(feat.features).toHaveLength(1);
+    expect(feat.features[0].fields).toEqual({});
+  });
+});

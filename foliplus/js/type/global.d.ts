@@ -124,7 +124,7 @@ declare module "leaflet" {
 
 declare global {
   /** Per-component config injected by the Jinja2 IIFE. Generated from
-   *  `foliplus/_config_schema.py` — see `foliplus/js/config-schema.ts`. */
+   *  the `foliplus._config_schema` package — see `foliplus/js/config-schema.ts`. */
   type ComponentConfig = import("#foliplus/config-schema.js").ComponentConfig;
 
   /** Runtime helpers injected by the foliplus Python wrapper.

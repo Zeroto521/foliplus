@@ -30,6 +30,7 @@
 import { type LayerFilter, matchesValues } from "./filter.js";
 import type { LabelAwareLayer } from "./type.js";
 import { walkLeaf } from "./walkLeaf.js";
+import { isInternalProperty } from "#core/value/index.js";
 
 /** One feature leaf's normalised attribute bag. number + string + boolean
  *  (boolean is stored raw — never stringified, so bool true and string
@@ -109,6 +110,7 @@ const buildFilterFeatures = (layer: L.Layer): LayerFilterFeatures => {
     const fields: Record<string, FilterFieldValue> = {};
     if (props) {
       for (const [name, raw] of Object.entries(props)) {
+        if (isInternalProperty(name)) continue;
         let kind = fieldKind.get(name);
         if (kind === undefined) {
           if (isFiniteNumber(raw)) kind = "numeric";

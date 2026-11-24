@@ -79,7 +79,14 @@ interface SearchControl extends BaseControl {
   searchHistory: SearchHistoryEntry[];
   scrollTargets: Array<Element | Window>;
   repositionHandler: () => void;
-  addrAbortController: AbortController | null;
+  /** Request gate counters — one per async read path (see logic/request.ts). */
+  addrSeq: number;
+  suggestSeq: number;
+  reverseSeq: number;
+  /** True once destroyControl() ran; late async results must check it. */
+  disposed: boolean;
+  /** Layers this control created; teardown reclaims the whole set. */
+  ownedLayers: Set<L.Layer>;
   suggestAbortController: AbortController | null;
   marker: L.Marker | null;
   delIcon: L.Marker | null;
@@ -92,7 +99,6 @@ interface SearchControl extends BaseControl {
   listCursor?: ListCursor | null;
   lastSuggestFetch: number;
   throttleTimer: ReturnType<typeof setTimeout> | null;
-  suggestSeq: number;
   currentItems: ResultItem[];
   /** Belt: opening this panel closes the open siblings of its exclusive group.
    *  Optional so logic-level tests that call bindEvents without buildDOM (which
