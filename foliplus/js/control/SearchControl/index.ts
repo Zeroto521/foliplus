@@ -2,9 +2,10 @@ import { AUTOCOMPLETE, CLASSES, MODE } from "./const.js";
 import * as SVGs from "./icon.js";
 import { bindEvents, initFromUrl } from "./interaction.js";
 import {
-  flushHistory,
+  destroyControl,
   initDebouncedFetch,
   loadHistory,
+  releaseMarkerLayers,
   removePanel,
 } from "./logic/index.js";
 import type { ResultItem, SearchHistoryEntry, SearchType } from "./type.js";
@@ -16,7 +17,6 @@ import { ensureHint } from "#core/overlay/index.js";
 import { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import { createIconButton, dom } from "#platform/dom.js";
-import { finalize } from "#platform/finalize.js";
 import type { Floating } from "#platform/floating.js";
 import * as Icons from "#platform/icon.js";
 import { FORM_CLASS, PANEL_CLASS, closeButton } from "#ui/index.js";
@@ -38,10 +38,13 @@ class SearchControl extends defineControl({
   declare searchHistory: SearchHistoryEntry[];
   declare scrollTargets: Array<Element | Window>;
   declare repositionHandler: () => void;
-  declare addrAbortController: AbortController | null;
   declare suggestAbortController: AbortController | null;
   declare marker: L.Marker | null;
   declare delIcon: L.Marker | null;
+  declare ownedLayers: Set<L.Layer>;
+  declare addrSeq: number;
+  declare reverseSeq: number;
+  declare disposed: boolean;
   declare mode: SearchType;
   declare panelWrap: HTMLElement | null;
   declare panelFloating: Floating | null;
@@ -78,31 +81,7 @@ class SearchControl extends defineControl({
   }
 
   destroy() {
-    finalize(
-      [
-        ["remove-panel", () => removePanel(this)],
-        ["cancel-fetch", () => this.debouncedFetch?.cancel()],
-        ["abort-address", () => this.addrAbortController?.abort()],
-        ["abort-suggest", () => this.suggestAbortController?.abort()],
-        // Flush any pending history write before the in-memory array is dropped,
-        // so a last search that raced teardown is durable. A throwing write must
-        // not leave the timer and the buttons live on a removed control.
-        ["flush-history", () => flushHistory(this)],
-        [
-          "cancel-throttle",
-          () => {
-            if (this.throttleTimer) clearTimeout(this.throttleTimer);
-          },
-        ],
-        ["detach-mode-btn", () => (this.modeBtn.onclick = null)],
-        ["detach-clear-btn", () => (this.clearBtn.onclick = null)],
-      ],
-      failure => this.log.warn(`destroy step "${failure.name}" threw`, failure.error),
-    );
-    // Resets, not steps: the caches must be dropped even when one of the detach
-    // steps above threw.
-    this.cachedSuggestions.clear();
-    this.searchHistory = [];
+    destroyControl(this);
   }
 
   createDOM() {
@@ -144,6 +123,10 @@ class SearchControl extends defineControl({
   initState() {
     this.marker = null;
     this.delIcon = null;
+    this.ownedLayers = new Set();
+    this.disposed = false;
+    this.addrSeq = 0;
+    this.reverseSeq = 0;
     // Register this control's provider as the map default so indirect
     // geocoding (foliplus.geocode / reverseGeocode without an explicit spec)
     // follows the same provider — cache keys and rate limits stay consistent.
@@ -188,14 +171,7 @@ class SearchControl extends defineControl({
       this.inp.placeholder = this.T("addr_placeholder");
     }
     this.inp.value = "";
-    if (this.marker) {
-      this._map.removeLayer(this.marker);
-      this.marker = null;
-    }
-    if (this.delIcon) {
-      this._map.removeLayer(this.delIcon);
-      this.delIcon = null;
-    }
+    releaseMarkerLayers(this);
     if (this.suggestAbortController) this.suggestAbortController.abort();
     this._map.foliplus!.hideHint(this.config.name);
     removePanel(this);

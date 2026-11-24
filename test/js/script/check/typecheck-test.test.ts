@@ -17,7 +17,7 @@ import {
   parseErrors,
   resolveRoot,
   runTsc,
-} from "#script/typecheck-test.mjs";
+} from "#script/check/typecheck-test.mjs";
 
 const productionError =
   "foliplus/js/core/x.ts(1,1): error TS7006: Parameter 'p' implicitly has an 'any' type.";
@@ -343,12 +343,12 @@ describe("main resolveRoot success path", () => {
 });
 describe("isMain", () => {
   it("fires when node runs the file directly", () => {
-    const url = "file:///C:/repo/script/typecheck-test.mjs";
+    const url = "file:///C:/repo/script/check/typecheck-test.mjs";
     expect(isMain(url, fileURLToPath(url))).toBe(true);
   });
 
   it("stays quiet when a different file is running", () => {
-    const url = "file:///C:/repo/script/typecheck-test.mjs";
+    const url = "file:///C:/repo/script/check/typecheck-test.mjs";
     expect(isMain(url, fileURLToPath("file:///C:/repo/vitest.mjs"))).toBe(false);
     expect(isMain(url, undefined)).toBe(false);
   });

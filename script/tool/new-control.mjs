@@ -17,8 +17,8 @@
  * Auto-derived (no patch): test_build.py COMPONENTS, vitest index.ts glob.
  */
 import { help, parseArgs as parseArgsCore } from "../args.mjs";
-import { repoRoot } from "../build-path.mjs";
-import { FAIL, OK } from "../glyph.mjs";
+import { repoRoot } from "../build/build-path.mjs";
+import { FAIL, OK } from "../build/glyph.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, relative, resolve } from "path";
 import { pathToFileURL } from "url";
