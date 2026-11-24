@@ -11,9 +11,13 @@ anything. So three narrow rules instead:
 
 * M1 -- a test__<stem>.py must name a real private module, and every private
   module under foliplus/ must have a test__<stem>.py unless it is listed in
-  NO_PRIVATE_TEST with a reason. The double underscore is the test_ prefix
-  meeting Python private-module convention, not a typo: _x.py becomes
-  test__x.py.
+  NO_PRIVATE_TEST with a reason. A private module is either a `_x.py` file or
+  a private package `_x/` (its `__init__.py` is the facade, its inner modules
+  are private by the directory): `_fill_author/` is tested by
+  test__fill_author.py, and the package's inner modules need no mirror test of
+  their own -- the facade's consumers cover them. The double underscore is the
+  test_ prefix meeting Python private-module convention, not a typo: _x.py
+  becomes test__x.py.
 * M2 -- no directory under test/python may hold no tracked test_*.py anywhere
   below it. The five test/python/<Control>/ shells left behind by the 2026-11
   migration (__pycache__ only, nothing tracked) sat unmarked for months because
@@ -218,6 +222,12 @@ def _private_module_stems() -> set[str]:
         if name == "__init__.py" or not name.startswith("_"):
             continue
         stems.add(name[:-3])
+    for init in sorted(PKG.rglob("__init__.py")):
+        pkg = init.parent
+        if pkg is PKG:
+            continue
+        if pkg.name.startswith("_"):
+            stems.add(pkg.name)
     return stems
 
 
@@ -292,6 +302,16 @@ def test_m1_teeth_allowlist_keeps_the_real_tree_green() -> None:
 
 
 def test_m1_teeth_happy_path() -> None:
+    green = private_subjects({"_fill_author"}, {"_fill_author"})
+    assert green == [], green
+
+
+def test_m1_teeth_package_counts_as_a_module() -> None:
+    """A private package (_x/ with __init__.py) counts as an existing module.
+
+    _fill_author is a package on the current tree: test__fill_author.py tests
+    the package, not a _fill_author.py file.
+    """
     green = private_subjects({"_fill_author"}, {"_fill_author"})
     assert green == [], green
 
