@@ -18,6 +18,7 @@
 - `LayerControl`: `LayerAPI.getStyle(id)` reads one layer's current effective style and its per-dimension provenance, and `core.layer.readLayerPaint(layer)` reads the colour the layer draws — areal fill, line stroke or marker chassis, with `mixed`/`multicolor` and the transparent-fill-to-stroke rule — over the same resolvers the panel uses ([#1184](https://github.com/Zeroto521/foliplus/pull/1184), [#1305](https://github.com/Zeroto521/foliplus/pull/1305), [#1317](https://github.com/Zeroto521/foliplus/pull/1317))
 - `LayerControl`: a group layer (`FeatureGroup` / `LayerGroup`) shows as a container row with a group glyph, a visible-of-total child count, Style and Filter disabled, and Focus lifting every child pane ([#1264](https://github.com/Zeroto521/foliplus/pull/1264), [#1271](https://github.com/Zeroto521/foliplus/pull/1271), [#1276](https://github.com/Zeroto521/foliplus/pull/1276), [#1287](https://github.com/Zeroto521/foliplus/pull/1287))
 - `LayerControl`: a central `roles={"overlay": {"folded": True}, "base": {"folded": False}}` declaration sets the author's default folded state per role; a user's own fold or expand always wins over the author default ([#1273](https://github.com/Zeroto521/foliplus/pull/1273))
+- `FullscreenControl`: `replace_zoom` (default `True`) declares the replacement of Leaflet's zoom control with the bar's own zoom buttons — pass `False` to keep both ([#TBD](https://github.com/Zeroto521/foliplus/pull/TBD))
 
 ### Changed
 
@@ -41,6 +42,7 @@
 - `LayerControl` / `HeatmapControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control, and a heatmap Clear restoring its declared source and fields ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
+- `FullscreenControl`: `hide_self` hides only the fullscreen button — the bar's zoom +/- stay usable in fullscreen, where they are the only zoom left because Leaflet's zoom control is replaced ([#TBD](https://github.com/Zeroto521/foliplus/pull/TBD))
 
 ### Removed
 
@@ -75,6 +77,7 @@
 - `SearchControl`: a slow response for an older address no longer overwrites a newer result, and removing the control no longer leaves its result marker and delete icon on the map ([#1315](https://github.com/Zeroto521/foliplus/pull/1315))
 - `LayerControl` / `HeatmapControl`: the filter panel and heatmap field lists no longer offer folium/geopandas internal keys such as `__folium_color` and `__id` as data fields, and the data itself is untouched ([#1320](https://github.com/Zeroto521/foliplus/pull/1320))
 - `ExportControl`: an export keeps its `exporting` mode for the whole render instead of the crop-box cleanup clearing it, and destroying the control reclaims the blocker and the map lock and retires an in-flight render instead of downloading to a removed control ([#1322](https://github.com/Zeroto521/foliplus/pull/1322))
+- `FullscreenControl`: a sibling map's native transition no longer unhides this map's controls or announces an exit here, and the zoom replacement goes through `map.removeControl()` ([#TBD](https://github.com/Zeroto521/foliplus/pull/TBD))
 
 ## [v0.4.1] (2026-10-18)
 

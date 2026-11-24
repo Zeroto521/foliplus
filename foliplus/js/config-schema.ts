@@ -77,6 +77,8 @@ interface ConfigExport extends ConfigCommon {
 interface ConfigFullscreen extends ConfigCommon {
   hide_self: boolean;
   hide_others: boolean;
+  /** Replace Leaflet's zoom control with the bar's own zoom buttons. */
+  replace_zoom: boolean;
 }
 
 interface ConfigHeatmap extends ConfigCommon {
@@ -159,6 +161,7 @@ interface ComponentConfig {
   timeout?: number;
   hide_self?: boolean;
   hide_others?: boolean;
+  replace_zoom?: boolean;
   /** Point layer name selected on first load; a persisted user selection wins. */
   layer?: string | null;
   agg?: "count" | "sum" | "avg" | "min" | "max";

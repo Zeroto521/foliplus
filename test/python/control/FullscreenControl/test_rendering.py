@@ -76,12 +76,21 @@ class TestFullscreenControlRendering:
         assert_config_value(html, "hide_self", True)
         assert_config_value(html, "hide_others", False)
 
-    def test_zoom_buttons_hidden_with_hide_self(self):
-        """hide_self hides zoom +/- together with the fullscreen button."""
+    def test_zoom_buttons_rendered_with_hide_self(self):
+        """The bar zoom is rendered regardless of hide_self.
+
+        hide_self hides the toggle only: the zoom buttons are the zoom the user
+        keeps while fullscreen, so they are outside its scope.
+        """
         html = render_control(FullscreenControl(hide_self=True, hide_others=False))
         assert "foliplus-zoom-in" in html
         assert "foliplus-zoom-out" in html
-        assert "foliplus-hidden" in html
+        assert_config_value(html, "hide_self", True)
+
+    def test_replace_zoom_declared(self):
+        """The zoom replacement is a declared config key, not a silent one."""
+        html = render_control(FullscreenControl(replace_zoom=False))
+        assert_config_value(html, "replace_zoom", False)
 
     def test_zoom_buttons_visible_without_hide_self(self):
         """hide_self=false is passed via CONFIG."""

@@ -43,6 +43,8 @@ class MockMap {
   _control!: MountedControl | null;
   _container!: HTMLElement;
   zoomControl!: { remove: () => void };
+  /** Every control removeControl() was handed, in call order. */
+  removedControls: unknown[] = [];
 
   constructor() {
     this._container = container;
@@ -69,6 +71,7 @@ class MockMap {
   }
 
   removeControl(ctrl: MountedControl): this {
+    this.removedControls.push(ctrl);
     if (this._control === ctrl) {
       ctrl.onRemove();
       this._control = null;
@@ -101,6 +104,16 @@ beforeAll(async () => {
 
 afterAll(() => {
   container.remove();
+});
+
+describe("FullscreenControl entry — zoom replacement", () => {
+  it("replaces Leaflet's zoom control with the bar's own at mount", () => {
+    // replace_zoom defaults to true: the bar's buttons are the only zoom left
+    // in fullscreen, and outside it a second control would duplicate them.
+    // The map reference goes through removeControl(), never a bare DOM
+    // removal, so Leaflet stops believing the control is still registered.
+    expect(mockMap.removedControls).toContain(mockMap.zoomControl);
+  });
 });
 
 describe("FullscreenControl entry — pseudo session teardown", () => {

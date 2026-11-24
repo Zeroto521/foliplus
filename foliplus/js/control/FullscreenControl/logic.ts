@@ -52,9 +52,10 @@ const updateUI = (
   }
 
   if (config.hide_self) {
-    const selfBtns = container.querySelectorAll(
-      `.${CLASSES.TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
-    );
+    // Zoom stays: the bar is the only zoom left in fullscreen (hide_others hides
+    // Leaflet's own control), and hide_self is documented as the fullscreen
+    // button itself — hiding the zoom with it left a fullscreen map unzoomable.
+    const selfBtns = container.querySelectorAll(`.${CLASSES.TOGGLE}`);
     for (const btn of selfBtns) btn.classList.toggle(PANEL_CLASS.HIDDEN, isFull);
   }
 
@@ -63,6 +64,25 @@ const updateUI = (
     hintText ?? (isFull ? T("enter") : T("exit")),
     HINT_DURATION.MEDIUM,
   );
+};
+
+/** Replace Leaflet's zoom control with the bar's own zoom buttons.
+ *  On by default: the bar is the only zoom reachable in fullscreen (hide_others
+ *  hides .leaflet-control), and outside it a second control would duplicate what
+ *  the bar already offers. Declared as replace_zoom so a page that wants
+ *  Leaflet's own control can keep it — the restriction used to be silent.
+ *  The map reference is preferred over the rendered node: removing the node
+ *  behind Leaflet's back leaves the control registered but invisible. */
+const releaseZoomControl = (map: L.Map, config: ComponentConfig) => {
+  if (config.replace_zoom === false) return;
+  if (map.zoomControl) {
+    map.removeControl(map.zoomControl);
+    return;
+  }
+  // Last resort: Leaflet no longer holds the reference (control removed and
+  // re-added by hand, or a plugin swapped it), so the node is the only handle.
+  const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
+  if (zoomEl) zoomEl.remove();
 };
 
 const showExitFailHint = (map: L.Map, env: Env) => {
@@ -200,15 +220,30 @@ const buildFullscreenChangeHandler =
   (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => () => {
     const mapContainer = map.getContainer();
     const active = ownsFullscreen(mapContainer);
+    const pseudo = mapContainer.classList.contains(CLASSES.PSEUDO_FULLSCREEN);
+    // fullscreenchange is document-global: a sibling map's transition reaches
+    // this handler too. Guarding only the assignment below left the side effects
+    // unguarded — a map that was never fullscreen unhid every control
+    // (hide_others) and announced an exit it never entered. Scope first, then
+    // let the relevant path own both the state and the repaint.
+    //   active — this container owns the native session;
+    //   pseudo — a pseudo session is live here;
+    //   map.isFullscreen — this map believes it is fullscreen, which is how the
+    //     end of its own native session is recognised (the element is gone by
+    //     then, so neither active nor pseudo holds).
+    if (!active && !pseudo && !map.isFullscreen) return;
     // Native fullscreen outranks pseudo on the same container. A stale class
     // here would survive the native exit (that path clears native first) and
     // keep every overlay hosted in a container that is no longer a surface.
     if (active) setPseudoFullscreen(mapContainer, false);
-    // A sibling map's native transition fires this handler too. It must not
-    // clear a pseudo session that is still on this map's container.
-    map.isFullscreen =
-      active || mapContainer.classList.contains(CLASSES.PSEUDO_FULLSCREEN);
+    map.isFullscreen = active || pseudo;
     updateUI(map, fsBtn, container, env);
   };
 
-export { buildFullscreenChangeHandler, releasePseudo, toggleFullscreen, updateUI };
+export {
+  buildFullscreenChangeHandler,
+  releasePseudo,
+  releaseZoomControl,
+  toggleFullscreen,
+  updateUI,
+};

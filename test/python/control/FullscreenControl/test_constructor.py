@@ -23,6 +23,12 @@ class TestFullscreenControlConstructor:
     def test_custom_hide_self(self):
         assert FullscreenControl(hide_self=False).hide_self is False
 
+    def test_default_replace_zoom(self):
+        assert FullscreenControl().replace_zoom is True
+
+    def test_custom_replace_zoom(self):
+        assert FullscreenControl(replace_zoom=False).replace_zoom is False
+
     def test_default_locale(self):
         assert FullscreenControl()._locale_code == ""
 

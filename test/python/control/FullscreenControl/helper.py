@@ -64,9 +64,14 @@ def _enter_fullscreen(page, hide_self=True):
     page.click(".foliplus-fullscreen-toggle")
     page.wait_for_function(_js("FullscreenControl/wait_fullscreen_element_present"))
     if hide_self:
-        page.wait_for_function(_js("FullscreenControl/read_zoom_hidden"))
+        # hide_self hides the toggle only. The bar's zoom buttons stay visible
+        # in fullscreen — they are the zoom the user keeps, because Leaflet's
+        # own zoom control is replaced (replace_zoom).
+        page.wait_for_function(_js("FullscreenControl/read_toggle_hidden"))
+        page.wait_for_function(_js("FullscreenControl/read_zoom_visible"))
     else:
-        # zoom stays visible when hide_self=false; wait for the icon swap
+        # zoom and toggle both stay visible when hide_self=false; wait for the
+        # icon swap that proves the UI refreshed.
         page.wait_for_function(_js("FullscreenControl/read_toggle_path_has_minimize"))
 
 

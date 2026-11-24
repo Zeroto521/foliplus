@@ -4,6 +4,7 @@ import * as SVGs from "./icon.js";
 import {
   buildFullscreenChangeHandler,
   releasePseudo,
+  releaseZoomControl,
   toggleFullscreen,
 } from "./logic.js";
 import { defineControl } from "#core/lifecycle/index.js";
@@ -16,11 +17,11 @@ const FullscreenControl = defineControl({
   icon: SVGs.ICON_MAXIMIZE,
   setup: () => ensureHint(map),
   buildDOM(this: any) {
-    if (map.zoomControl) map.removeControl(map.zoomControl);
-    else {
-      const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
-      if (zoomEl) zoomEl.remove();
-    }
+    // The bar's buttons are the only zoom reachable in fullscreen, so Leaflet's
+    // own control is replaced instead of duplicated (see releaseZoomControl).
+    // Declared as replace_zoom: the Python docstring states it, and
+    // replace_zoom=False keeps Leaflet's control.
+    releaseZoomControl(map, this.config);
 
     const outer = dom.el("div", {
       class: "leaflet-bar leaflet-control",
