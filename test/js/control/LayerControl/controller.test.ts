@@ -8495,6 +8495,45 @@ describe("LayerAPI.getStyle", () => {
     expect(snap!.fill!.perFeature).toBe(false);
   });
 
+  it("carries a declared solid fill (colour, opacity, mode) into the snapshot", () => {
+    // The declared solid is a read-time default, so the snapshot must report
+    // it even though no intent was ever written: the value()
+    // reader it walks is the same one the panel shows.
+    const layer = wrap(makeLeaf({ value: 1 }));
+    (layer as any).options.foliplus = {
+      fill: { mode: "solid", color: "#FF0000", opacity: 0.4 },
+    };
+    const { manager } = initFixture({
+      data: [{ id: "dsf1", name: "DSF", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "dsf1", name: "DSF", role: "overlay", layer });
+    const snap = manager.getStyle("dsf1")!;
+    expect(snap.fill).toMatchObject({
+      mode: "solid",
+      color: "#ff0000",
+      opacity: 0.4,
+    });
+  });
+
+  it("carries a declared solid border (colour, weight, mode) into the snapshot", () => {
+    const layer = wrap(makeLeaf({ value: 1 }));
+    (layer as any).options.foliplus = {
+      border: { mode: "solid", color: "#00FF00", weight: 5 },
+    };
+    const { manager } = initFixture({
+      data: [{ id: "dsb1", name: "DSB", role: "overlay", layer }],
+    });
+    manager.map.hasLayer.mockReturnValue(true);
+    manager.registerLayer({ id: "dsb1", name: "DSB", role: "overlay", layer });
+    const snap = manager.getStyle("dsb1")!;
+    expect(snap.border).toMatchObject({
+      mode: "solid",
+      color: "#00ff00",
+      weight: 5,
+    });
+  });
+
   it("reads iconColor and markerColor opacity into the snapshot icon block", () => {
     // P2-1: the icon-colour / marker-colour dimensions carry {value, opacity};
     // the snapshot must not discard the opacity halves.

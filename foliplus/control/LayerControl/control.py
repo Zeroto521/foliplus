@@ -15,6 +15,7 @@ from ._fill_author import fill_author, map_colormaps
 from ._folder import _folder_key, normalise_folders, warn_unclaimed_folders
 from ._layer import (
     declared_border,
+    declared_fill,
     declared_filter,
     declared_folder,
     declared_icon_size,
@@ -177,7 +178,9 @@ class LayerControl(BaseControl):
          - Meaning
        * - ``fill``
          - dict
-         - the layer's value-based fill (field + optional method/classes/scheme/kind).
+         - the fill default: a value mode (field + optional
+           method/classes/scheme/kind) or a solid mode (color + opacity);
+           ``mode`` may name ``solid`` / ``value`` / ``original``.
        * - ``label``
          - dict
          - the layer's text labels (field + optional format/color/size/collide/show).
@@ -189,7 +192,9 @@ class LayerControl(BaseControl):
          - the layer's folder (role) name.
        * - ``border``
          - dict
-         - the border default mode (mode-shell or flat value form).
+         - the border default: a mode-shell (``follow_fill`` / ``value`` /
+           ``solid`` / ``original``) or the flat value form, plus optional
+           ``color`` (solid mode) and ``weight`` (any mode).
        * - ``marker_color``
          - str
          - the marker chassis preset name.
@@ -408,6 +413,11 @@ class LayerControl(BaseControl):
             # malformed border warns at collection time instead of silently
             # painting a mode the author never saw validated.
             declared_border(item, item.layer_name)
+            # The fill declaration rides the same channel (JS reads it off
+            # layer.options.foliplus): Python only shape-validates and warns
+            # once, so a malformed solid/value declaration is reported where
+            # it was written instead of painting an unvalidated face.
+            declared_fill(item, item.layer_name)
             # Marker chassis colour and icon pixel size ride the same channel
             # as border: the JS panel reads them straight off
             # layer.options.foliplus (via the shared declared-key reader), so
