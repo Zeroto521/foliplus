@@ -288,7 +288,15 @@ describe("ui/listPanel row model is the panel's rows", () => {
   it("mirrors a folded folder: the header folds, its members hide by class", () => {
     const { ui } = initFixture({
       seedLayout: folderLayoutDoc(["a"]),
-      data: [{ id: "a1", name: "A1", role: "overlay", folder: "a", layer: { options: {}, eachLayer: vi.fn() } }],
+      data: [
+        {
+          id: "a1",
+          name: "A1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
     });
     toggleFolderFold(ui, "overlay", "a");
     const model = describeModel(ui);
@@ -302,7 +310,14 @@ describe("ui/listPanel row model is the panel's rows", () => {
   it("mirrors an empty folder key: a header with a zero count", () => {
     const { ui } = initFixture({
       seedLayout: folderLayoutDoc(["empty"]),
-      data: [{ id: "A", name: "Alpha", role: "overlay", layer: { options: {}, eachLayer: vi.fn() } }],
+      data: [
+        {
+          id: "A",
+          name: "Alpha",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
     });
     const model = describeModel(ui);
     expect(model).toEqual(describeRows(ui));
@@ -312,7 +327,15 @@ describe("ui/listPanel row model is the panel's rows", () => {
   it("mirrors a folded role that owns a folder: the folder header hides with it", () => {
     const { ui } = initFixture({
       seedLayout: folderLayoutDoc(["a"]),
-      data: [{ id: "a1", name: "A1", role: "overlay", folder: "a", layer: { options: {}, eachLayer: vi.fn() } }],
+      data: [
+        {
+          id: "a1",
+          name: "A1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
     });
     toggleFold(ui, ROLE.OVERLAY);
     const model = describeModel(ui);
