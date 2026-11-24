@@ -25,7 +25,13 @@ import {
   loadImage,
   loadImageBitmap,
 } from "../util.js";
-import { effectiveOpacity, pooledEach, withAlpha } from "./util.js";
+import {
+  effectiveOpacity,
+  inlineSVGComputedStyles,
+  noteAssetFailure,
+  pooledEach,
+  withAlpha,
+} from "./util.js";
 import { walkLeaf } from "#core/layer/index.js";
 import { layerShadow } from "#core/leafletAdapter.js";
 
@@ -258,7 +264,9 @@ const renderMarkers = async (
     [...spriteUrls],
     CONST.TILE_CONCURRENCY,
     async url => {
-      const bitmap = await loadImageBitmap(url);
+      const bitmap = await loadImageBitmap(url, error =>
+        noteAssetFailure(rc, url, error),
+      );
       if (bitmap) spriteMap.set(url, bitmap);
       return null;
     },
@@ -319,6 +327,97 @@ const renderMarkers = async (
     }
   }
   return markerRoots;
+};
+
+/** Resolve a computed `border-radius` to device pixels for a draw box.
+ *  Percentages resolve against the box (50% of a square is its circle);
+ *  a computed shorthand ("8px 4px") uses its first component, which is the
+ *  corner radius the marker pucks actually use. */
+const radiusOf = (radius: string, dw: number, dh: number): number => {
+  if (!radius) return 0;
+  const first = radius.trim().split(/\s+/)[0] ?? "";
+  if (first.endsWith("%")) {
+    return (Math.min(dw, dh) * (parseFloat(first) || 0)) / 100;
+  }
+  return parseFloat(first) || 0;
+};
+
+/** Paint the flat background/border of marker roots AND their descendants.
+ *
+ *  A DivIcon's visible pin is arbitrary HTML: the root element Leaflet
+ *  creates is transparent and the paint lives on a child (a `background`
+ *  div, a bordered chip, ...). The remaining pass reads only the ROOT's
+ *  background, so those markers exported nothing. This pass walks the whole
+ *  icon subtree in document order (parent before child, the DOM's own paint
+ *  order) and fills every element that carries a flat paint.
+ *
+ *  Each channel keeps its own painter: sprite paints (a background-image, or
+ *  a mask+color chassis) belong to `renderMarkers`, label chrome to
+ *  `renderTextLabels`, images and inline SVG to `renderRemaining`. The
+ *  elements painted here are recorded on `rc.paintedBackgrounds` so the
+ *  remaining pass does not fill them a second time (a second fill under a
+ *  fractional alpha would deepen the paint). */
+const renderIconBackgrounds = (
+  container: HTMLElement,
+  rc: RenderCtx,
+  markerRoots: HTMLElement[],
+): void => {
+  const { ctx, rect, scale, contRect, cw, ch } = rc;
+  const painted = (rc.paintedBackgrounds ??= new WeakSet<HTMLElement>());
+  for (const root of markerRoots) {
+    if (root.matches(CONST.SEL.LABEL)) continue;
+    const elements: HTMLElement[] = [root];
+    for (const sub of root.querySelectorAll("*")) {
+      if (!(sub instanceof HTMLElement)) continue;
+      if (sub.namespaceURI === CONST.SVG_NS) continue;
+      if (sub.closest(CONST.SEL.LABEL)) continue;
+      elements.push(sub);
+    }
+    for (const el of elements) {
+      if (isExportExcluded(el)) continue;
+      const tag = el.tagName;
+      if (tag === "IMG" || tag === "CANVAS" || tag === "SVG") continue;
+      const cs = window.getComputedStyle(el);
+      // Sprite paints are renderMarkers' channel — drawing the flat
+      // background underneath would show through a transparent sprite.
+      if (maskPaintOf(cs) || spriteUrlOf(cs.backgroundImage)) continue;
+      const bgColor = cs.backgroundColor;
+      if (!bgColor || bgColor === "transparent" || bgColor === "rgba(0, 0, 0, 0)") {
+        continue;
+      }
+      const r = el.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+      const dx = (r.left - contRect.left - rect.left) * scale;
+      const dy = (r.top - contRect.top - rect.top) * scale;
+      const dw = r.width * scale;
+      const dh = r.height * scale;
+      if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
+      const alpha = effectiveOpacity(container, el);
+      withAlpha(ctx, alpha, () => {
+        ctx.save();
+        ctx.fillStyle = bgColor;
+        const br = radiusOf(cs.borderRadius, dw, dh);
+        if (br > 0) {
+          ctx.beginPath();
+          ctx.roundRect(dx, dy, dw, dh, br);
+          ctx.fill();
+        } else ctx.fillRect(dx, dy, dw, dh);
+
+        const bw = parseFloat(cs.borderWidth) || 0;
+        if (bw > 0 && cs.borderStyle !== "none" && cs.borderColor) {
+          ctx.strokeStyle = cs.borderColor;
+          ctx.lineWidth = bw * scale;
+          if (br > 0) {
+            ctx.beginPath();
+            ctx.roundRect(dx, dy, dw, dh, br);
+            ctx.stroke();
+          } else ctx.strokeRect(dx, dy, dw, dh);
+        }
+        ctx.restore();
+      });
+      painted.add(el);
+    }
+  }
 };
 
 /** Render FontAwesome icons from ::before pseudo-element content. */
@@ -548,9 +647,12 @@ const renderRemaining = async (
       try {
         img = (await loadImage(imgEl.src, "anonymous")) as HTMLImageElement;
       } catch (error) {
-        // The branches below still run; the caller decides whether this
-        // failure is worth surfacing.
-        onLoadError?.(imgEl.src, error);
+        // The branches below still run. The shadow channel passes its own
+        // reporter (its message names the usual CORS cause); every other
+        // icon is counted on the render context and reported once by the
+        // renderer, so an unreadable icon is never a silent hole.
+        if (onLoadError) onLoadError(imgEl.src, error);
+        else noteAssetFailure(rc, imgEl.src, error);
       }
       if (img) {
         // The layout settled while the image loaded: this is the box the draw
@@ -579,6 +681,10 @@ const renderRemaining = async (
         if (rootColor && rootColor !== "rgb(0, 0, 0)") {
           clone.setAttribute("color", rootColor);
         }
+        // The clone becomes a standalone image with no stylesheet: a paint
+        // that comes from a page CSS class must be written inline, or the
+        // shape falls back to the default black fill.
+        inlineSVGComputedStyles(svgEl, clone);
         let src = new XMLSerializer().serializeToString(clone);
         if (!src.includes(`xmlns="${CONST.SVG_NS}"`)) {
           src = src.replace("<svg", `<svg xmlns="${CONST.SVG_NS}"`);
@@ -586,13 +692,22 @@ const renderRemaining = async (
         const blob = new Blob([src], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         try {
-          const img = (await loadImage(url)) as HTMLImageElement;
-          // Same draw-time measurement as the <img> branch: the blob load is
-          // an await, and the layout may have settled during it.
-          const g = measure(root);
-          withAlpha(ctx, rootAlpha, () => {
-            ctx.drawImage(img, g.dx, g.dy, g.dw, g.dh);
-          });
+          let img: HTMLImageElement | null = null;
+          try {
+            img = (await loadImage(url)) as HTMLImageElement;
+          } catch (error) {
+            // A rasterisation failure is a real omission, not a fallback:
+            // count it so it reaches the render stats and the console.
+            noteAssetFailure(rc, svgEl.getAttribute("class") ?? "inline-svg", error);
+          }
+          if (img) {
+            // Same draw-time measurement as the <img> branch: the blob load
+            // is an await, and the layout may have settled during it.
+            const g = measure(root);
+            withAlpha(ctx, rootAlpha, () => {
+              ctx.drawImage(img!, g.dx, g.dy, g.dw, g.dh);
+            });
+          }
         } finally {
           URL.revokeObjectURL(url);
         }
@@ -604,6 +719,9 @@ const renderRemaining = async (
 
     // 3. Elements with background-color but no background-image url (center dot)
     if (root.matches(CONST.SEL.LABEL)) continue;
+    // The icon-background pass paints a root that carries a flat fill before
+    // the glyph/text passes, so filling it again here would deepen the paint.
+    if (rc.paintedBackgrounds?.has(root)) continue;
     // No await on this branch, so the pre-cull's box is still the current one;
     // reusing it keeps the fill and its border on the same measured geometry.
     const g = initial;
@@ -643,6 +761,7 @@ const renderRemaining = async (
 export {
   collectLayerShadows,
   collectPaneRoots,
+  renderIconBackgrounds,
   renderMarkers,
   renderFontAwesome,
   renderTextLabels,

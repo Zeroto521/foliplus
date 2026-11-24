@@ -322,7 +322,10 @@ describe("renderMarkers", () => {
 
     // The mask sprite is loaded through the same pooled loader as a background
     // sprite, then tinted offscreen: sprite in, colour applied via source-in.
-    expect(UTIL.loadImageBitmap).toHaveBeenCalledWith("chassis.png");
+    expect(UTIL.loadImageBitmap).toHaveBeenCalledWith(
+      "chassis.png",
+      expect.any(Function),
+    );
     expect(octx.drawImage).toHaveBeenCalledTimes(1);
     expect(octx.globalCompositeOperation).toBe("source-in");
     expect(octx.fillStyle).toBe("rgb(255, 153, 0)");

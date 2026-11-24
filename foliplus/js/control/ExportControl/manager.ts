@@ -5,7 +5,13 @@ import { cropMethods } from "./crop.js";
 import { registerInteractions } from "./interaction.js";
 import { persistenceMethods } from "./persistence.js";
 import { canvasToBlob, sessionMethods } from "./session.js";
-import type { CropRect, ExportPhase, SavedBounds, TileLoadStats } from "./type.js";
+import type {
+  CropRect,
+  ExportPhase,
+  RenderStats,
+  SavedBounds,
+  TileLoadStats,
+} from "./type.js";
 import {
   lockCropBox,
   removeCropBox,
@@ -92,6 +98,10 @@ class ExportManager {
    *  finishExport to warn about CORS-blocked tile sources over the success
    *  label.  Reset at the start of each export. */
   lastTileFailures: TileLoadStats[] | null;
+  /** What the most recent render actually drew, including how many images it
+   *  could not read back. Diagnostic/test surface; reset at the start of each
+   *  export. */
+  lastRenderStats: RenderStats | null;
   dragState: DragState;
   nudgeLoop?: RafLoop;
   nudgeMapRect?: DOMRect;
@@ -198,6 +208,7 @@ class ExportManager {
     this.lastScreenRect = null;
     this.savedBounds = null;
     this.lastTileFailures = null;
+    this.lastRenderStats = null;
     this.loadSavedBounds();
 
     this.dragState = {
