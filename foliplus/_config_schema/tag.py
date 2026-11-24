@@ -75,6 +75,9 @@ UNSET = object()
 #   so ``("string",)`` stays ``"string"`` rather than becoming a bare
 #   ``string``.
 # * ``list`` — array of the item's type (``[X]`` is ``X[]``).
+# * ``"object_unknown"`` — TS ``Record<string, unknown>``: the open-ended
+#   value bag (``LayerData[].filter``'s normalised AST). A leaf is needed
+#   because the grammar has no inline open-object tag.
 # * ``dict`` — either an object with named identifier keys, or
 #   ``Record<string, V>`` when the sole key is ``"*"``. Mixing ``"*"`` with
 #   named keys is an error.
@@ -84,7 +87,14 @@ UNSET = object()
 # primitive union, any other all-string list a literal union, and a list
 # holding a non-string an array.
 
-TS_PRIMITIVE_NAMES = {"string", "number", "bool", "null", "array_string"}
+TS_PRIMITIVE_NAMES = {
+    "string",
+    "number",
+    "bool",
+    "null",
+    "array_string",
+    "object_unknown",
+}
 
 
 def validate_shape(x: Any, path: str = "", in_dict_value: bool = False) -> None:
