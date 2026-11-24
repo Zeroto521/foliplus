@@ -139,7 +139,6 @@ export {
   pooledEach,
   effectiveOpacity,
   withAlpha,
-  SVG_STYLE_PROPS,
   inlineSVGComputedStyles,
   noteAssetFailure,
 };
