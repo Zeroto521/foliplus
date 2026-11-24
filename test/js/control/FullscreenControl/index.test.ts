@@ -124,6 +124,9 @@ describe("FullscreenControl entry — the map zoom control is untouched", () => 
     const rendered = container.querySelector(".leaflet-control-zoom");
     expect(rendered).toBe(zoomControlEl);
     expect(rendered?.parentElement).toBe(container);
+    // Not copied either: the bar carries its own zoom buttons, and the map
+    // keeps exactly the one Leaflet control it mounted.
+    expect(container.querySelectorAll(".leaflet-control-zoom")).toHaveLength(1);
   });
 });
 
