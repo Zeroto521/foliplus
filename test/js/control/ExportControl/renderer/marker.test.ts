@@ -259,6 +259,93 @@ describe("renderMarkers", () => {
     ]);
     expect(ctx.drawImage).toHaveBeenCalledTimes(1);
   });
+
+  /** A marker root plus a chassis span painted through the mask + colour channel
+   *  (the custom-hex chassis: sprite as `mask-image`, colour as
+   *  `background-color`). Styles are per element: the root paints nothing, the
+   *  span carries the mask. */
+  const maskedChassis = (mask: string, color: string) => {
+    const root = document.createElement("div");
+    pinBox(root, 10, 10, 40, 40);
+    const span = document.createElement("span");
+    pinBox(span, 10, 10, 25, 41);
+    root.appendChild(span);
+    const base = {
+      display: "block",
+      visibility: "visible",
+      opacity: "1",
+      backgroundImage: "none",
+      backgroundSize: "auto",
+      backgroundPosition: "0 0",
+      backgroundColor: "transparent",
+      maskImage: "none",
+      maskSize: "auto",
+      maskPosition: "0px 0px",
+    };
+    vi.spyOn(window, "getComputedStyle").mockImplementation(
+      (el: Element) =>
+        ({
+          ...base,
+          ...(el === span ? { maskImage: mask, backgroundColor: color } : {}),
+        }) as unknown as CSSStyleDeclaration,
+    );
+    return root;
+  };
+
+  it("paints a masked chassis colour, not just its sprite shape", async () => {
+    // The custom-hex chassis is a sprite used as a MASK plus a flat
+    // background-color. The sprite channel used to read only background-image,
+    // so a custom-coloured pin exported as its glyph only (no pin body). The
+    // export must composite the mask shape in the declared colour.
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)");
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+    const octx = {
+      drawImage: vi.fn(),
+      fillRect: vi.fn(),
+      fillStyle: "",
+      globalCompositeOperation: "source-over",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(octx as any);
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    // The mask sprite is loaded through the same pooled loader as a background
+    // sprite, then tinted offscreen: sprite in, colour applied via source-in.
+    expect(UTIL.loadImageBitmap).toHaveBeenCalledWith("chassis.png");
+    expect(octx.drawImage).toHaveBeenCalledTimes(1);
+    expect(octx.globalCompositeOperation).toBe("source-in");
+    expect(octx.fillStyle).toBe("rgb(255, 153, 0)");
+    expect(octx.fillRect).toHaveBeenCalledWith(0, 0, 25, 41);
+    // The tinted scratch canvas is what reaches the output canvas.
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    const [first] = (ctx as unknown as MockCtx).drawImage.mock.calls[0];
+    expect(first).toBeInstanceOf(HTMLCanvasElement);
+  });
+
+  it("keeps the mask sprite shape when no 2D context is available", async () => {
+    // A host that cannot rasterise (no scratch 2D context) still gets the pin
+    // silhouette; only the flat tint is lost. Dropping the chassis entirely is
+    // the regression this guards against.
+    const ctx = textCtx();
+    const root = maskedChassis('url("chassis.png")', "rgb(255, 153, 0)");
+    Object.defineProperty(window, "devicePixelRatio", { configurable: true, value: 1 });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    stubBitmaps(64, 64);
+    stubLoad();
+
+    await renderMarkers(makeRenderer().container, positionedRC(1000, 1000, ctx), [
+      root,
+    ]);
+
+    expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+    const [first] = (ctx as unknown as MockCtx).drawImage.mock.calls[0];
+    expect(first).not.toBeInstanceOf(HTMLCanvasElement);
+  });
 });
 
 describe("renderFontAwesome", () => {

@@ -118,36 +118,138 @@ const collectLayerShadows = (layer: L.Layer, paneNames: Set<string>): HTMLElemen
   return roots;
 };
 
-/** Render markers with background-image sprites. */
+/** The sprite URL a computed background/mask value carries, or null. */
+const spriteUrlOf = (value: string | undefined): string | null => {
+  if (!value || value === "none") return null;
+  const match = value.match(/url\(["']?([^"')]+)["']?\)/);
+  return match ? match[1] : null;
+};
+
+/** The custom-chassis paint channel: the sprite is a \`mask-image\` and the flat
+ *  \`background-color\` is the paint. A preset chassis keeps the sprite in
+ *  \`background-image\` instead, so this is the second sprite channel the marker
+ *  DOM can paint a pin body with (a custom hex — see core/leaflet/markerIcon
+ *  \`paintMountedChassis\`). The export has to know both, or a custom-coloured pin
+ *  exports as its glyph only. */
+const maskPaintOf = (
+  cs: CSSStyleDeclaration,
+): { url: string; color: string } | null => {
+  const url = spriteUrlOf(
+    cs.maskImage || (cs as { webkitMaskImage?: string }).webkitMaskImage,
+  );
+  const color = cs.backgroundColor;
+  if (!url || !color || color === "transparent" || color === "rgba(0, 0, 0, 0)") {
+    return null;
+  }
+  return { url, color };
+};
+
+/** One sprite-painted element: a plain \`background-image\` sprite, or a masked
+ *  colour fill (the custom chassis) when \`mask\` is set. */
+type SpriteTarget = { el: HTMLElement; mask: { url: string; color: string } | null };
+
+/** The slice of the sprite sheet an element paints, from its CSS size/position.
+ *  Shared by the background-image channel and the mask channel: the two differ
+ *  in which CSS property carries the sprite, not in how the sheet is cropped.
+ *  Null when the slice would fall outside the sheet (a stale offset). */
+const spriteGeometryOf = (
+  sprite: ImageBitmap,
+  w: number,
+  h: number,
+  size: string,
+  position: string,
+): { sx: number; sy: number; sw: number; sh: number } | null => {
+  const sizeParts = (size || "auto").trim().split(/\s+/);
+  let cssW: number;
+  let cssH: number;
+  if (!size || size === "auto" || size === "auto auto") {
+    const dpr = window.devicePixelRatio || 1;
+    cssW = sprite.width / dpr;
+    cssH = sprite.height / dpr;
+  } else if (size.includes("%")) {
+    cssW = (w * (parseFloat(sizeParts[0]) || 100)) / 100;
+    cssH = (h * (parseFloat(sizeParts[1] || sizeParts[0]) || 100)) / 100;
+  } else {
+    cssW = parseFloat(sizeParts[0]) || sprite.width;
+    cssH = parseFloat(sizeParts[1] || sizeParts[0]) || sprite.height;
+  }
+  const ratioX = sprite.width / cssW;
+  const ratioY = sprite.height / cssH;
+  const posParts = (position || "0 0").trim().split(/\s+/);
+  const sx = Math.abs(parseFloat(posParts[0]) || 0) * ratioX;
+  const sy = Math.abs(parseFloat(posParts[1]) || 0) * ratioY;
+  const sw = w * ratioX;
+  const sh = h * ratioY;
+  if (sx + sw > sprite.width || sy + sh > sprite.height) return null;
+  return { sx, sy, sw, sh };
+};
+
+/** Paint a sprite slice in one flat colour — the canvas equivalent of the DOM's
+ *  \`mask-image\` + \`background-color\` pair. The sprite's alpha is the shape
+ *  (\`source-in\` keeps only where it painted), the colour is the paint. */
+const drawMaskedColor = (
+  ctx: CanvasRenderingContext2D,
+  sprite: ImageBitmap,
+  slice: { sx: number; sy: number; sw: number; sh: number },
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number,
+  color: string,
+  alpha: number,
+): void => {
+  const sw = Math.max(1, Math.round(slice.sw));
+  const sh = Math.max(1, Math.round(slice.sh));
+  const scratch = document.createElement("canvas");
+  scratch.width = sw;
+  scratch.height = sh;
+  const octx = scratch.getContext("2d");
+  if (!octx) {
+    // No 2D context (a host without raster support): keep the pin shape even
+    // though the tint cannot be composed, rather than dropping the chassis.
+    withAlpha(ctx, alpha, () => {
+      ctx.drawImage(sprite, slice.sx, slice.sy, slice.sw, slice.sh, dx, dy, dw, dh);
+    });
+    return;
+  }
+  octx.drawImage(sprite, slice.sx, slice.sy, slice.sw, slice.sh, 0, 0, sw, sh);
+  octx.globalCompositeOperation = "source-in";
+  octx.fillStyle = color;
+  octx.fillRect(0, 0, sw, sh);
+  withAlpha(ctx, alpha, () => {
+    ctx.drawImage(scratch, 0, 0, sw, sh, dx, dy, dw, dh);
+  });
+};
+
+/** Render markers with sprite paints: a plain \`background-image\` sprite (a
+ *  preset chassis, an author icon) or a masked colour fill (a custom chassis
+ *  hex). Both channels are collected here so the pin body is painted whichever
+ *  way the DOM carries it. */
 const renderMarkers = async (
   container: HTMLElement,
   rc: RenderCtx,
   markerRoots: HTMLElement[],
 ): Promise<HTMLElement[]> => {
   const { ctx, rect, scale, contRect, cw, ch } = rc;
-  const drawableEls: HTMLElement[] = [];
+  const targets: SpriteTarget[] = [];
+  const collect = (el: Element) => {
+    if (!(el instanceof HTMLElement)) return;
+    const cs = window.getComputedStyle(el);
+    const mask = maskPaintOf(cs);
+    if (spriteUrlOf(cs.backgroundImage) || mask) targets.push({ el, mask });
+  };
   for (const root of markerRoots) {
-    drawableEls.push(root);
-    for (const sub of root.querySelectorAll("*")) {
-      const scs = window.getComputedStyle(sub);
-      if (
-        scs.backgroundImage &&
-        scs.backgroundImage.includes("url(") &&
-        scs.backgroundImage !== "none"
-      ) {
-        drawableEls.push(sub as HTMLElement);
-      }
-    }
+    collect(root);
+    for (const sub of root.querySelectorAll("*")) collect(sub);
   }
 
   // Load unique sprites (once per URL) directly into a local map
   const spriteUrls = new Set<string>();
-  for (const el of drawableEls) {
-    const cs = window.getComputedStyle(el);
-    const bg = cs.backgroundImage;
-    if (!bg || bg === "none") continue;
-    const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-    if (m && !m[1].startsWith("data:")) spriteUrls.add(m[1]);
+  for (const { el, mask } of targets) {
+    const url = mask
+      ? mask.url
+      : spriteUrlOf(window.getComputedStyle(el).backgroundImage);
+    if (url && !url.startsWith("data:")) spriteUrls.add(url);
   }
   const spriteMap = new Map<string, ImageBitmap>();
   await pooledEach<string, ImageBitmap>(
@@ -162,7 +264,7 @@ const renderMarkers = async (
 
   // Draw sprites; release their bitmaps even if drawing throws.
   try {
-    for (const el of drawableEls) {
+    for (const { el, mask } of targets) {
       const r = el.getBoundingClientRect();
       const l = r.left - contRect.left;
       const t = r.top - contRect.top;
@@ -175,42 +277,36 @@ const renderMarkers = async (
       const dh = h * scale;
       if (!isVisible(dx, dy, dw, dh, cw, ch)) continue;
       const cs = window.getComputedStyle(el);
-      const bg = cs.backgroundImage;
-      if (!bg || bg === "none") continue;
-      const m = bg.match(/url\(["']?([^"')]+)["']?\)/);
-      if (!m) continue;
-      const sprite = spriteMap.get(m[1]);
+      const url = mask ? mask.url : spriteUrlOf(cs.backgroundImage);
+      if (!url) continue;
+      const sprite = spriteMap.get(url);
       if (!sprite) continue;
-      const bgs = cs.backgroundSize || "auto";
-      const bgsParts = bgs.trim().split(/\s+/);
-      let cssBgW: number;
-      let cssBgH: number;
-      if (bgs === "auto" || bgs === "auto auto") {
-        cssBgW = sprite.width / (window.devicePixelRatio || 1);
-        cssBgH = sprite.height / (window.devicePixelRatio || 1);
-      } else if (bgs.includes("%")) {
-        cssBgW = (w * (parseFloat(bgsParts[0]) || 100)) / 100;
-        cssBgH = (h * (parseFloat(bgsParts[1] || bgsParts[0]) || 100)) / 100;
+      const size = mask ? cs.maskSize : cs.backgroundSize;
+      const position = mask ? cs.maskPosition : cs.backgroundPosition;
+      const slice = spriteGeometryOf(sprite, w, h, size, position);
+      if (!slice) continue;
+      const alpha = effectiveOpacity(container, el);
+      if (mask) {
+        drawMaskedColor(ctx, sprite, slice, dx, dy, dw, dh, mask.color, alpha);
       } else {
-        cssBgW = parseFloat(bgsParts[0]) || sprite.width;
-        cssBgH = parseFloat(bgsParts[1] || bgsParts[0]) || sprite.height;
+        withAlpha(ctx, alpha, () => {
+          try {
+            ctx.drawImage(
+              sprite,
+              slice.sx,
+              slice.sy,
+              slice.sw,
+              slice.sh,
+              dx,
+              dy,
+              dw,
+              dh,
+            );
+          } catch {
+            /* skip */
+          }
+        });
       }
-      const ratioX = sprite.width / cssBgW;
-      const ratioY = sprite.height / cssBgH;
-      const bp = cs.backgroundPosition || "0 0";
-      const bpParts = bp.trim().split(/\s+/);
-      const sx = Math.abs(parseFloat(bpParts[0]) || 0) * ratioX;
-      const sy = Math.abs(parseFloat(bpParts[1]) || 0) * ratioY;
-      const sw = w * ratioX;
-      const sh = h * ratioY;
-      if (sx + sw > sprite.width || sy + sh > sprite.height) continue;
-      withAlpha(ctx, effectiveOpacity(container, el), () => {
-        try {
-          ctx.drawImage(sprite, sx, sy, sw, sh, dx, dy, dw, dh);
-        } catch {
-          /* skip */
-        }
-      });
     }
   } finally {
     // All sprites have been drawn (or aborted); release their bitmaps.
