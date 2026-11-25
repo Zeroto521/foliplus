@@ -16,6 +16,7 @@ import {
   authorGlyphName,
   authorGlyphPrefix,
   authorIconOf,
+  authorMarkerColor,
   buildMarkerIcon,
   captureAuthorIcon,
   composeColorAlpha,
@@ -139,6 +140,22 @@ describe("authorIconOf / authorGlyphColorOf fallbacks", () => {
     // An icon with no createIcon and no declared iconColor → undefined, so the
     // derive applies its own default (#fff).
     expect(authorGlyphColorOf({ options: {} })).toBeUndefined();
+  });
+
+  it("authorGlyphColorOf reads the folium snake_case icon_color fallback", () => {
+    // folium emits options.icon_color (snake_case); the JS runtime reads
+    // options.iconColor (camelCase). The read must fall back to the snake
+    // spelling so a folium.Icon(icon_color=) glyph paint is not a dead value.
+    const icon = { options: { icon_color: "white" } };
+    expect(authorGlyphColorOf(icon)).toBe("white");
+  });
+
+  it("authorMarkerColor reads the folium snake_case marker_color fallback", () => {
+    // Same vocabulary gap on the chassis: folium emits options.marker_color.
+    // Build a bare leaf that IS its own author (no capture) with the snake
+    // option, and walk it through authorMarkerColor.
+    const leaf = { options: { icon: { options: { marker_color: "red" } } } };
+    expect(authorMarkerColor(leaf)).toBe("red");
   });
 });
 

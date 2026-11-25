@@ -121,12 +121,78 @@ after whitespace folding, so `"Basemap"`, `"basemap"` and `"BASE MAP"`
 land in one folder; the folder keeps the first spelling it saw. A folder keeps
 its group row after its last layer is removed.
 
-A centrally declared `folders=[...]` entry whose name no layer claims via
-`foliplus={"folder": ...}` warns once (deduplicated, attributable to the
-typo); the empty folder row still renders and the declaration never raises.
+Membership is declared per layer and nowhere else. The control-level
+`folders=` option (see {ref}`folders`) declares a folder's **defaults** — its
+display name and whether it starts folded — and never moves a layer into a
+folder. A `folders=` entry whose name no layer claims warns once
+(deduplicated, attributable to the typo) and has no visible effect: no row is
+created for it.
 
 A non-string, blank or over-long name warns once and is ignored — the layer
 stays at the role root.
+
+(folders)=
+
+## `folders` — central folder defaults
+
+`LayerControl(folders=...)` declares a folder's **defaults**: its display name
+and whether it starts folded. It is a different channel from the per-layer
+`folder` key, and the split is deliberate:
+
+| Channel | Owns | Does not do |
+| ------- | ---- | ----------- |
+| `foliplus={"folder": ...}` on a layer | **membership** — which folder the layer's row groups into | set the folder's default folded state |
+| `LayerControl(folders=...)` | **metadata** — the folder's display name and default folded state, per role | create a folder, move a layer into one, or order folders |
+
+A complete example — declare the folders once, then put each layer in one:
+
+```python
+import folium
+import geopandas as gpd
+from foliplus import LayerControl
+
+# 1. Membership: each layer names its own folder. These are the only
+#    declarations that put a row inside a folder. GeoPandas' explore is the
+#    repo-wide layer-adding convention: build the map first, then pass m= to
+#    every explore call to append the layer.
+m = folium.Map(location=[31.2, 121.5], zoom_start=10)
+gdf_basemap.explore(m=m, foliplus={"folder": "底图"})
+gdf_roads.explore(m=m, foliplus={"folder": "交通"})
+gdf_pois.explore(m=m, foliplus={"folder": "设施"})
+
+# 2. Central declaration: folder metadata only — name + default folded state.
+#    Keyed by role, because a base folder and an overlay folder may share a name.
+LayerControl(
+    folders={
+        "base": [{"name": "底图", "folded": False}],
+        "overlay": [
+            {"name": "交通", "folded": True},
+            {"name": "设施", "folded": False},
+        ],
+    }
+).add_to(m)
+```
+
+**Shape**: a mapping keyed by role (`"base"` / `"overlay"`), each value a list
+of entries. An entry is `{"name": <str>, "folded": <bool>}`; only `name` is
+required (a non-empty string, at most 64 Unicode code points after
+normalisation), `folded` defaults to `False` (expanded). v1 understands those
+two keys only — an unknown key rejects the whole entry with a one-time warning.
+Declarations of the same name within one role merge: the display name keeps the
+first spelling, `folded` is last-wins.
+
+**Behaviour**:
+
+- A folder that layers claim but `folders=` does not mention still exists — it
+  simply starts expanded (the built-in default).
+- A `folders=` entry no layer claims warns once and creates no row: there is no
+  folder to apply the default to.
+- The default folded state is the middle of a three-level chain: built-in
+  (expanded) < author default (`folders=`) < user override (the persisted fold
+  state). A user's manual fold **or expand** wins over the author default, and
+  Reset clears the user override back to the author default.
+- `folders=` does not order folders. A folder's block sits at its first member
+  layer's registration position; a user's drag order wins afterwards.
 
 ### Group rows expand into their child layers
 

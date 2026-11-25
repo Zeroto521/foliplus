@@ -431,11 +431,11 @@ type DeleteMode = "clear" | "delete" | "absent";
  *  the entry stays focused and forgotten. */
 const DELETE_CONFIRM_TIMEOUT_MS = 3000;
 
-/** The one pending delete entry, if any. Only one menu is open at a time, and
- *  confirmDelete disconfirms the previous entry before confirming, so a module-level
- *  pointer cannot refer to two rows at once. */
-let pendingDelete: {
-  ui: LayerUI;
+/** One pending delete entry (the two-click confirm). The pending state lives on
+ *  ui.overlayPanel because it is per-UI: a second LayerControl on the page
+ *  confirms and cancels only its own entry, and closing this control's menu never
+ *  cancels another map's pending delete. */
+interface PendingDelete {
   label: HTMLElement;
   menuItem: HTMLElement;
   /** The entry's idle label text, captured before confirming so a label carrying a
@@ -444,8 +444,7 @@ let pendingDelete: {
   /** Locale key the entry shows while pending. */
   confirmKey: string;
   originalTitle: string;
-} | null = null;
-let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined;
+}
 
 const deleteModeFor = (ui: LayerUI, layerId: string): DeleteMode => {
   if (!layerId) return "absent";
@@ -538,13 +537,12 @@ const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
     `.${CONST.CLASSES.MENU_DELETE_LABEL}`,
   );
   if (!label) return;
-  disconfirmDelete();
+  disconfirmDelete(ui);
   const confirmKey = deleteConfirmKey(menuItem);
   // The title attribute is set by the entry builder at construction, so there
   // is no null to fall back to.
   const originalTitle = menuItem.getAttribute("title")!;
-  pendingDelete = {
-    ui,
+  ui.overlayPanel.pendingDelete = {
     label,
     menuItem,
     idleText: label.textContent ?? "",
@@ -554,20 +552,25 @@ const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
   label.textContent = ui.T(confirmKey);
   menuItem.classList.add(CONST.CLASSES.MENU_DELETE_PENDING);
   menuItem.setAttribute("title", ui.T(confirmKey));
-  pendingDeleteTimer = setTimeout(disconfirmDelete, DELETE_CONFIRM_TIMEOUT_MS);
+  ui.overlayPanel.pendingDeleteTimer = setTimeout(
+    () => disconfirmDelete(ui),
+    DELETE_CONFIRM_TIMEOUT_MS,
+  );
 };
 
-/** Back out of the confirming state. Idempotent, and called on every path that
- *  closes the menu so an abandoned attempt never leaves an pending entry behind. */
-const disconfirmDelete = (): void => {
-  if (pendingDeleteTimer) clearTimeout(pendingDeleteTimer);
-  pendingDeleteTimer = undefined;
-  const pending = pendingDelete;
+/** Back out of the confirming state on this control's menu. Idempotent, and
+ *  called on every path that closes the menu so an abandoned attempt never
+ *  leaves a pending entry behind. Scoped to the ui that opened it. */
+const disconfirmDelete = (ui: LayerUI): void => {
+  const timer = ui.overlayPanel.pendingDeleteTimer;
+  if (timer) clearTimeout(timer);
+  ui.overlayPanel.pendingDeleteTimer = undefined;
+  const pending = ui.overlayPanel.pendingDelete;
   if (!pending) return;
   pending.label.textContent = pending.idleText;
   pending.menuItem.setAttribute("title", pending.originalTitle);
   pending.menuItem.classList.remove(CONST.CLASSES.MENU_DELETE_PENDING);
-  pendingDelete = null;
+  ui.overlayPanel.pendingDelete = null;
 };
 
 /** The two-step delete, shared by the click and the keyboard path. Returns
@@ -580,7 +583,7 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
     return false;
   }
   const action = menuItem.dataset.action;
-  disconfirmDelete();
+  disconfirmDelete(ui);
   if (action === CONST.ACTION.CLEAN_EMPTY_FOLDERS) {
     // The role row owns the identity; the menu closes first because the action
     // rerenders the list the menu is anchored to.
@@ -629,7 +632,7 @@ const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
   ui.overlayPanel.activeMenu = null;
-  disconfirmDelete();
+  disconfirmDelete(ui);
   menu.remove();
   if (setFocus) item.focus();
 };
@@ -1045,3 +1048,4 @@ export {
   openRoleMenu,
   runMenuAction,
 };
+export type { PendingDelete };

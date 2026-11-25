@@ -55,8 +55,10 @@ the whole panel:
 
 - `position` — which map corner the panel attaches to (`"topleft"`,
   `"topright"`, `"bottomleft"`, `"bottomright"`; default `"topleft"`).
-- `folders=` — declare folders at the control level (the equivalent of the
-  per-layer {ref}`declaration <folder>` key, applied to every layer).
+- `folders=` — declare folder **defaults** (display name and default folded
+  state) at the control level; membership still comes from each layer's
+  `foliplus={"folder": ...}` declaration. See
+  {ref}`central folder defaults <folders>`.
 - `label_collide` — page-wide default for a layer's "avoid overlap" label
   setting (default `True`).
 - `icon_prefix` — the FontAwesome family class prefix the panel uses for
@@ -99,9 +101,9 @@ import geopandas as gpd
 from foliplus import LayerControl
 
 # Two data layers — the select-all toggle covers both.
-roads = gpd.read_file("roads.geojson").explore(color="#555555")
-pois = gpd.read_file("pois.geojson").explore(marker_kwds={"radius": 4})
-m = folium.Map().add_child(roads).add_child(pois)
+m = folium.Map()
+gpd.read_file("roads.geojson").explore(m=m, color="#555555")
+gpd.read_file("pois.geojson").explore(m=m, marker_kwds={"radius": 4})
 LayerControl().add_to(m)
 m.save("map.html")
 ```
@@ -120,9 +122,9 @@ import folium
 import geopandas as gpd
 from foliplus import LayerControl
 
-base = gpd.read_file("basemap.geojson").explore(style_kwds={"weight": 0})
-top = gpd.read_file("points.geojson").explore()
-m = folium.Map().add_child(base).add_child(top)
+m = folium.Map()
+gpd.read_file("basemap.geojson").explore(m=m, style_kwds={"weight": 0})
+gpd.read_file("points.geojson").explore(m=m)
 LayerControl().add_to(m)
 m.save("map.html")
 ```
@@ -191,8 +193,11 @@ one folder. Folder names group case-insensitively after whitespace folding, so
 `"Basemap"` and `"basemap"` land in one folder. See the
 {ref}`declaration <folder>` page for the full rule.
 
-Alternatively, the author declares folders at the control level with
-`LayerControl(folders=...)`; the two forms are equivalent for the panel.
+The control-level `LayerControl(folders=...)` option does **not** declare
+membership — it only sets a folder's display name and default folded state.
+A layer joins a folder through its own `foliplus={"folder": ...}` declaration
+and through nothing else. See {ref}`central folder defaults <folders>` for the
+two-channel split and a complete example.
 
 ### Fold and unfold
 
