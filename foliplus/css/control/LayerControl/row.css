@@ -712,9 +712,7 @@
     opacity: 0;
     pointer-events: none;
   }
-  .foliplus-row:hover
-    .foliplus-layer-rail:has(.foliplus-fold-tree)
-    .drag-handle {
+  .foliplus-row:hover .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
     opacity: 1;
     pointer-events: auto;
   }

@@ -479,7 +479,7 @@ class TestLayerControlRendering:
         # The recipe's :is() rule sits INSIDE the compound selector that opens
         # with `.foliplus-layer-item,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
-        compound = css.find(".foliplus-layer-item,")
+        compound = css.find(".foliplus-row,")
         assert compound != -1, "Row-cursor compound selector not found"
         start = css.find(mark, compound)
         assert start != -1, "unified Row-cursor recipe selector not found"
@@ -566,7 +566,7 @@ class TestLayerControlRendering:
         # The rule lives in the shared row-cell block, so its selector is the
         # :is() pair (layer row + role header) rather than a bare class.
         assert (
-            ".foliplus-active:is(.foliplus-layer-item, "
+            "\.foliplus-active:is(\.foliplus-row, "
             ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
             in html
         )
@@ -574,7 +574,7 @@ class TestLayerControlRendering:
         # block emits one rule for both row kinds, so the selector is the
         # :is() pair and the body is the next {...} after it.
         act_sel = (
-            ".foliplus-active:is(.foliplus-layer-item, "
+            "\.foliplus-active:is(\.foliplus-row, "
             ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
         )
         act_idx = html.index(act_sel)

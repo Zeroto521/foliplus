@@ -225,16 +225,16 @@ class TestLayerControlRendering:
         # The toggle-all row joins the SAME compound selector that carries this
         # recipe (the &:is() parent), so it cannot drift into a private hover.
         recipe_at = flat.index(recipe_mark)
-        group_start = flat.rfind(".foliplus-layer-item,", 0, recipe_at)
+        group_start = flat.rfind(".foliplus-row,", 0, recipe_at)
         assert group_start != -1, "Row-cursor compound selector not found"
         group_end = flat.index("{", group_start)
         group = flat[group_start:group_end]
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in group, (
             "toggle-all row must share the Row-cursor recipe's selector group"
         )
-        assert ".foliplus-layer-role" in group, (
-            "the role header must share the Row-cursor recipe's selector group"
-        )
+        # The role header joins by the row identity class: it is deliberately
+        # NOT a .foliplus-layer-item, so the recipe selector is the identity,
+        # and every row kind carries it.
         assert "is(:hover,:focus-visible,.foliplus-is-focused-row)" not in flat
         assert "border-left-color: var(--foliplus-accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
@@ -253,14 +253,11 @@ class TestLayerControlRendering:
         display."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         overlay_list = ".foliplus-layer-more-menu.open, .foliplus-row-panel"
-        assert f".foliplus-layer-item:has({overlay_list})" in css, (
+        assert f".foliplus-row:has({overlay_list})" in css, (
             "the lift must key on the more-menu AND the row-panel shell"
         )
-        # The role row is deliberately not a .foliplus-layer-item, so it needs
-        # its own leg or the next row's hover paints over its menu.
-        assert ".foliplus-layer-role:has(.foliplus-layer-more-menu.open)" in css, (
-            "the role row needs its own lift leg"
-        )
+        # The role row joins by the row identity class (it is deliberately not
+        # a .foliplus-layer-item), so one leg covers every row kind.
         assert "z-index: var(--foliplus-z-index-floating)" in css
         # The ⋮ dropdown anchors flush to its row — the shared shell adds a 2px
         # margin-top that would open a sliver of list under the cursor path;
@@ -468,7 +465,9 @@ class TestLayerControlRendering:
         css = read_css("foliplus/css/control/LayerControl/menu.css")
         idx = css.find(".foliplus-layer-more-btn")
         assert idx != -1
-        block = css[idx : css.index(".foliplus-layer-item:hover", idx)]
+        # The block ends at the Row-cursor recipe's own hover selector — the
+        # row identity class now that the role header joins by it.
+        block = css[idx : css.index(".foliplus-row:hover", idx)]
         assert "&:active" in block
         assert "scale(var(--foliplus-scale-press))" in block
 
