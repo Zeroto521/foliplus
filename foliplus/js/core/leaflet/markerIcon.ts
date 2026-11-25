@@ -171,8 +171,12 @@ const authorGlyphColorOf = (
   const inner = div ? div.querySelector("i") : null;
   const inline = inner ? (inner as HTMLElement).style.color : "";
   if (inline) return inline;
-  const declared = (icon as { options?: { iconColor?: unknown } })?.options?.iconColor;
-  return typeof declared === "string" && declared !== "" ? declared : undefined;
+  const declared = (icon as { options?: { iconColor?: unknown; icon_color?: unknown } })
+    ?.options?.iconColor;
+  // folium camelizes every option key at render (folium/template.py); the snake spelling is accepted for hand-built Leaflet icons and as a guard if folium ever stops camelizing. CamelCase wins when both are present.
+  const snake = (icon as { options?: { icon_color?: unknown } })?.options?.icon_color;
+  const paint = declared ?? snake;
+  return typeof paint === "string" && paint !== "" ? paint : undefined;
 };
 
 /** Derive a marker icon that swaps only the inner symbol. The author's icon
@@ -938,7 +942,11 @@ const authorMarkerColor = (layer: unknown): string | null => {
     if (found) return;
     const icon = authorIconOf(leaf);
     if (!icon) return;
-    const own = (icon as { options?: { markerColor?: unknown } }).options?.markerColor;
+    const options = (
+      icon as { options?: { markerColor?: unknown; marker_color?: unknown } }
+    )?.options;
+    // folium camelizes every option key at render (folium/template.py); the snake spelling is accepted for hand-built Leaflet icons and as a guard if folium ever stops camelizing. Same vocabulary fallback as the glyph read.
+    const own = options?.markerColor ?? options?.marker_color;
     if (typeof own === "string" && own) found = own;
   });
   return found;

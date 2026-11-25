@@ -201,6 +201,34 @@ describe("PolygonMode — finish saves centroid", () => {
     expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
     expect(manager.store.all().length).toBe(0);
   });
+
+  it("ends the mode when a complete polygon is committed (dblclick finish)", () => {
+    // Regression (polygon finish leaves the mode active): the >=3-point finish path ran only this._cleanup()
+    // and never clearActiveMode, so after a dblclick finalization currentMode
+    // stayed POLYGON and the Escape routing (manager.ts onKeyDown) returned
+    // early without clearing the mode — leaving the measuring cursor and the
+    // high-priority Escape registered. Distance's finish path calls
+    // clearActiveMode(); polygon must match.
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([event]: [unknown]) => event === "click",
+    )?.[1];
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 120 } });
+    const dblHandler = manager.map.on.mock.calls.find(
+      ([event]: [unknown]) => event === "dblclick",
+    )?.[1];
+    dblHandler({ latlng: { lat: 32, lng: 120 } });
+
+    expect(mode.isFinished).toBe(true);
+    // The finish path itself ends the mode (same contract as distance).
+    expect(manager.clearActiveMode).toHaveBeenCalled();
+  });
 });
 
 describe("PolygonMode — toGeoFeature", () => {
@@ -513,5 +541,59 @@ describe("PolygonMode — preview cursor node", () => {
     manager.store.add.mockClear();
     markerClick({ latlng: { lat: 30, lng: 120 }, originalEvent: {} });
     expect(manager.store.add).toHaveBeenCalled();
+  });
+});
+
+describe("PolygonMode — finishOnExit contract", () => {
+  const clickHandlerOf = (manager: MeasureManager) =>
+    manager.map.on.mock.calls.find(([event]: [unknown]) => event === "click")?.[1] as (
+      e: unknown,
+    ) => void;
+
+  it("finalizes a complete in-flight polygon (>=3 points) and returns true", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 122 } });
+
+    expect(mode.finishOnExit()).toBe(true);
+    expect(mode.isFinished).toBe(true);
+    // The finalized polygon is stored as content (the row survives).
+    expect(manager.store.all()).toHaveLength(1);
+  });
+
+  it("discards a sparse in-flight polygon (<3 points) and returns false", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+
+    expect(mode.finishOnExit()).toBe(false);
+    expect(mode.isFinished).toBe(false);
+    expect(manager.store.all()).toHaveLength(0);
+  });
+
+  it("returns false once already finished", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 122 } });
+    expect(mode.finishOnExit()).toBe(true);
+
+    expect(mode.finishOnExit()).toBe(false);
   });
 });
