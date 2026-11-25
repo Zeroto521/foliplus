@@ -335,6 +335,8 @@ def test_the_allowlist_matches_the_real_tree(capsys):
     """Teeth: every grandfathered entry must still name a live violation."""
     violations = mod.collect_all()
     assert mod.stale(violations) == [], capsys.readouterr().out
+    # The browser scenario merge drained the last entries; keep it empty.
+    assert mod.ALLOWLIST == ()
 
 
 def test_a_small_single_class_browser_file_is_flagged(tmp_path):
