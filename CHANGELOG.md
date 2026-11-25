@@ -84,6 +84,7 @@
 - `MeasureControl` / `FullscreenControl` / `LocateControl`: a control's async continuation is released when its owner is gone — an in-flight reverse geocode no longer writes into a removed marker, and a fullscreen/locate continuation never writes into the removed surface ([#1328](https://github.com/Zeroto521/foliplus/pull/1328), [#1331](https://github.com/Zeroto521/foliplus/pull/1331))
 - `ExportControl`: an exported image keeps a point marker's custom chassis colour instead of losing the pin body, because the sprite pass now reads the mask+colour channel as well as the background-image sprite ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
 - `ExportControl`: a DivIcon's HTML pin and an awesome-marker shadow sprite now reach the exported image, and an image the canvas cannot read back is reported and counted instead of silently leaving a hole ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
+- `MeasureControl`: stored and exported coordinates keep full precision instead of being rounded to 6 decimals on placement/drag — display (popup, live readout, labels) still rounds, and a legacy rounded record round-trips unchanged ([#1370](https://github.com/Zeroto521/foliplus/pull/1370))
 
 ## [v0.4.1] (2026-10-18)
 
