@@ -508,4 +508,3 @@ export {
 };
 
 export type { DragState };
-
