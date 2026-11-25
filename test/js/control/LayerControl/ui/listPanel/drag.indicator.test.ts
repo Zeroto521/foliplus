@@ -216,6 +216,24 @@ describe("ui/drag indicator state", () => {
     expect(markedRows(ui)).toHaveLength(0);
   });
 
+  it("holds the commit beat for the duration the stylesheet declares", () => {
+    const { ui } = initFixture({ data: overlays(3) });
+    // The beat is a CSS token, so the page owns the timing. jsdom inherits
+    // custom properties, which lets the test declare the stylesheet's value
+    // instead of hard-coding the module's fallback.
+    attachedPanel(ui).style.setProperty("--foliplus-drag-commit", "40ms");
+    vi.useFakeTimers();
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const target = rowOf(ui, "L1");
+    pinRect(target, 100, 36);
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 130));
+    handleDrop(ui, dragEvent(target, {}, 130));
+
+    expect(targetRows(ui)).toHaveLength(1);
+    vi.advanceTimersByTime(60);
+    expect(markedRows(ui)).toHaveLength(0);
+  });
+
   it("clears the attribute from every row through the shared clearer", () => {
     const { ui } = initFixture({ data: overlays(3) });
     const rows = ["L0", "L1", "L2"].map(id => rowOf(ui, id));

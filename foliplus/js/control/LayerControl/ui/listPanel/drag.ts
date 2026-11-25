@@ -30,13 +30,11 @@ const clearDragStateAttr = (ui: LayerUI): void => {
 
 /** The commit acknowledgement's duration, read from the CSS token so the
  *  stylesheet stays the single source; the fallback keeps a stylesheet-less
- *  environment (jsdom) working. */
-const commitMs = (row: HTMLElement): number => {
-  const raw = getComputedStyle(row).getPropertyValue("--foliplus-drag-commit").trim();
-  const value = parseFloat(raw);
-  if (!Number.isFinite(value)) return CONST.DRAG.COMMIT_MS;
-  return raw.endsWith("ms") ? value : value * 1000;
-};
+ *  environment (jsdom) working. The token is a millisecond duration
+ *  (--foliplus-motion-quick), the same unit every motion token uses. */
+const commitMs = (row: HTMLElement): number =>
+  Number.parseFloat(getComputedStyle(row).getPropertyValue("--foliplus-drag-commit")) ||
+  CONST.DRAG.COMMIT_MS;
 
 /** Hold the committed state on the row's new position for one commit beat,
  *  then clear it: the drop is acknowledged with the same single indicator the
