@@ -57,6 +57,11 @@ describe("CircleMode — click stops propagation to data layers", () => {
 describe("CircleMode — toGeoFeature", () => {
   describe("CircleMode — finishOnExit", () => {
     it("never finalizes on Escape: the radius needs the confirming second click", () => {
+      // User-ruled semantic (measured on #task-70 audit): a circle is only a
+      // measurement after the SECOND click confirms the radius — the first
+      // click only places the center and the radius still tracks the cursor,
+      // so an Escape at any point before the confirming click cancels and
+      // drops the preview + row. finishOnExit therefore always returns false.
       const manager = makeManagerMock();
       const mode = new CircleMode(manager);
       manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
