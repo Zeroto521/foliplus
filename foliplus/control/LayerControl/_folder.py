@@ -7,6 +7,13 @@
 # (control/LayerControl) mirrors the shape, and the key computation below is
 # kept in step with JS normalizeFolderName so the two cannot drift about which
 # declarations are "the same folder".
+#
+# Membership is NOT declared here. A layer joins a folder through its own
+# foliplus={"folder": ...} declaration (foliplus/_declaration/folder.py); this
+# payload only carries folder metadata — display name and default folded state
+# — so a name may be declared with no members yet (it then has no row to apply
+# to and the declaration warns once), and a folder layers claim may be absent
+# from it (it then starts expanded).
 from __future__ import annotations
 
 import re
