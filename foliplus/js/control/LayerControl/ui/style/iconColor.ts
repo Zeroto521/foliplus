@@ -51,7 +51,10 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredIconSize } from "#control/LayerControl/declaredParse.js";
+import {
+  readDeclaredIconColorOpacity,
+  readDeclaredIconSize,
+} from "#control/LayerControl/declaredParse.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
  *  or undefined when the layer declares none -- the whole-icon box edge the
@@ -233,8 +236,17 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
     ariaLabel: ui.T("style_icon_color"),
   }) as HTMLInputElement;
   const storedOpacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  // The row's opacity is the user intent, else the author-declared glyph alpha
+  // (the read-time default Reset returns to), else 100%.
+  const declaredOpacity = readDeclaredIconColorOpacity(
+    ui.c.findLayer(layerId),
+    layerId,
+  ).declared;
   const opacityGroup = numberInput({
-    value: typeof storedOpacity === "number" ? storedOpacity : 100,
+    value:
+      typeof storedOpacity === "number"
+        ? storedOpacity
+        : (declaredOpacity ?? 100),
     min: 0,
     max: 100,
     step: 1,

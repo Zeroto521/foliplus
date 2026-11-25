@@ -9,9 +9,12 @@ from foliplus._declaration import (
     FILL_KEY,
     FILTER_KEY,
     FOLDER_KEY,
+    ICON_KEY,
     ICON_SIZE_KEY,
     LABEL_KEY,
     MARKER_COLOR_KEY,
+    MARKER_KEY,
+    OPACITY_KEY,
     ZOOM_RANGE_KEY,
     normalise_border,
     normalise_fill,
@@ -39,6 +42,9 @@ FOLIPLUS_KEYS = frozenset(
         BORDER_KEY,
         MARKER_COLOR_KEY,
         ICON_SIZE_KEY,
+        ICON_KEY,
+        MARKER_KEY,
+        OPACITY_KEY,
     }
 )
 
@@ -90,7 +96,14 @@ def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(FOLIPLUS_KEYS)} - ignored",
             )
-        elif key in {FILL_KEY, LABEL_KEY, FILTER_KEY, BORDER_KEY} and not isinstance(
+        elif key in {
+            FILL_KEY,
+            LABEL_KEY,
+            FILTER_KEY,
+            BORDER_KEY,
+            ICON_KEY,
+            MARKER_KEY,
+        } and not isinstance(
             value, dict
         ):
             warn_foliplus(

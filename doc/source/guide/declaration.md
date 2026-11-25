@@ -16,7 +16,8 @@ instead of taking the page down.
 
 The namespace is read two ways. `zoom_range` and `folder` are
 normalised on the Python side into the panel's CONF facts. `fill`,
-`label`, `filter`, `border`, `marker_color` and `icon_size` are
+`label`, `filter`, `border`, `marker_color`, `icon_size`, `opacity`,
+`icon` and `marker` are
 consumed by the JavaScript panel straight off
 `layer.options.foliplus`; Python validates their shape and warns once at
 collection time so a malformed declaration is reported where it was
@@ -68,14 +69,18 @@ The recognised keys are:
 | `border`       | dict | border default mode / colour / weight (see {ref}`border`). |
 | `marker_color` | str  | marker chassis preset (see {ref}`marker_color`).           |
 | `icon_size`    | int  | marker icon pixel size (see {ref}`icon_size`).             |
+| `opacity`      | float| whole-layer opacity, the slider's reset point (see {ref}`opacity`). |
+| `icon`         | dict | icon block: `colorOpacity` glyph alpha (see {ref}`opacity`).  |
+| `marker`       | dict | marker block: `colorOpacity` chassis alpha (see {ref}`opacity`). |
 
 An unknown key warns once and is ignored:
 
 ```python
 gdf.explore(foliplus={"fill_scheme": "Reds"})
 # LayerControl: layer '...' declares unknown foliplus key 'fill_scheme'
-#   ; expected one of ['border', 'fill', 'filter', 'folder', 'icon_size',
-#   'label', 'marker_color', 'zoom_range'] - ignored
+#   ; expected one of ['border', 'fill', 'filter', 'folder', 'icon',
+#   'icon_size', 'label', 'marker', 'marker_color', 'opacity', 'zoom_range']
+#   - ignored
 ```
 
 A `fill` / `label` / `filter` / `border` value that is not a mapping
@@ -430,6 +435,51 @@ marker keeps its built-in pixel size rather than scaling to a value the author
 never saw validated. folium's {class}`Icon` exposes no pixel-size channel, so
 this is a foliplus-only declaration the JavaScript runtime scales the marker
 icon by.
+
+(opacity)=
+
+## `opacity` — whole-layer opacity
+
+Declares the whole-layer opacity (a 0-1 float, the unit Leaflet's opacity
+options use) as the **read-time default** the panel opacity slider starts at
+and Reset returns to. It is not a draw override: folium's own `opacity=`
+keyword remains the author's draw value and is read first, so the two channels
+never fight — a layer that declares both draws the folium value but shows the
+declared one in the panel.
+
+```python
+gdf.explore(foliplus={"opacity": 0.6})
+```
+
+**Shape**: a number from 0 (fully transparent) to 1 (fully opaque). A bool, a
+non-finite value or a value outside the closed interval warns once and is
+ignored — the panel keeps its derived default rather than showing a value the
+author never saw validated.
+
+```{note}
+This is the only channel where a declared value is NOT painted: the layer is
+already drawn with the author's `opacity=`. The declaration is a UI default
+for the panel's slider.
+```
+
+## `icon` / `marker` block — glyph / chassis alpha
+
+The `icon` and `marker` declaration blocks carry one sub-key each:
+`colorOpacity`, a 0-100 integer percent — the alpha of the marker **glyph**
+(`icon`) and the marker **chassis** (`marker`) face. Like the whole-layer
+`opacity` they are read-time defaults (the row's number field starts there
+and Reset returns to it), never draw overrides: folium's `colorOpacity`
+written into the marker {class}`Icon` remains the author's draw value.
+
+```python
+gdf.explore(foliplus={"icon": {"colorOpacity": 60}})
+gdf.explore(foliplus={"marker": {"colorOpacity": 40}})
+```
+
+**Shape**: a whole number from 0 to 100. A non-mapping block, a non-integer,
+a non-finite or an out-of-range value warns once and is ignored. A `color`
+sub-key rides the same block (the glyph / chassis colour); `colorOpacity`
+only tunes the alpha.
 
 (icon_source)=
 

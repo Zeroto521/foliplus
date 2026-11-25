@@ -17,7 +17,7 @@
 // Public API names are unchanged (readDeclaredBorder / readDeclaredIconSize /
 // readDeclaredMarkerColor) — callers are untouched except for the import path.
 import { parseValueDeclaration } from "./declaredFill.js";
-import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
+import { camelize, type RejectFn, readDeclaredKey } from "./declaredKey.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
@@ -278,11 +278,60 @@ const parseMarkerColor = (
   return { invalid };
 };
 
+/** Parse the raw whole-layer `opacity` declaration (foliplus opacity,
+ *  a 0-1 float) into a validated 0-1 number.
+ *
+ *  A bool is an object in JS but never a number; a non-finite value has no
+ *  paint; a value outside [0, 1] is out of the Leaflet opacity unit. The
+ *  reader owns the warn-once, so a rejected declaration is reported once and
+ *  read as "not declared" — the panel keeps its derived default rather than
+ *  showing a value the author never saw validated. */
+const parseOpacity = (
+  raw: unknown,
+  layerId: string | undefined,
+  reject: (scope: string, message: string) => void,
+): { declared?: number; invalid: string[] } => {
+  const invalid: string[] = [];
+  if (raw === undefined || raw === null) return { invalid };
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || raw > 1) {
+    const message = `a non-finite or out-of-range opacity ${JSON.stringify(raw)} (expected a number from 0 to 1)`;
+    reject("shape", message);
+    invalid.push(message);
+    return { invalid };
+  }
+  return { declared: raw, invalid };
+};
+
+/** Parse the raw `colorOpacity` sub-key off one `icon`/`marker` declaration
+ *  block (0-100 integer percent, the panel unit).
+ *
+ *  A non-mapping block is read as "not declared" (the shape gate warns at
+ *  Python collection; here the block is simply absent for the reader). A
+ *  non-integer, non-finite or out-of-range value is rejected — a fractional
+ *  percent is not meaningful and a value outside [0, 100] would leave the
+ *  row showing a number the author never validated. */
+const parseColorOpacity = (
+  raw: unknown,
+  layerId: string | undefined,
+  reject: (scope: string, message: string) => void,
+): { declared?: number; invalid: string[] } => {
+  const invalid: string[] = [];
+  if (raw === undefined || raw === null) return { invalid };
+  if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 0 || raw > 100) {
+    const message = `a non-integer or out-of-range colorOpacity ${JSON.stringify(raw)} (expected a whole number from 0 to 100)`;
+    reject("shape", message);
+    invalid.push(message);
+    return { invalid };
+  }
+  return { declared: raw, invalid };
+};
+
 /** The key → parse registry: a new scalar declared* channel registers here. */
 const SCALAR_PARSES = {
   border: parseBorder,
   icon_size: parseIconSize,
   marker_color: parseMarkerColor,
+  opacity: parseOpacity,
 } as const;
 
 /** Read (and cache) the border declaration on one layer.
@@ -341,4 +390,104 @@ const readDeclaredMarkerColor = (
       )
     : { invalid: [] };
 
-export { readDeclaredBorder, readDeclaredIconSize, readDeclaredMarkerColor };
+/** Read (and cache) the whole-layer opacity declared on one layer.
+ *
+ *  @param layer the carrier a control registered; `null`/undefined before the
+ *    layer is linked — the read is then provisional and never cached.
+ *  @param layerId the id used in warnings (the declaration itself is keyed by
+ *    the layer object, which is stable once linked).
+ */
+const readDeclaredOpacity = (
+  layer: unknown,
+  layerId?: string,
+  warn?: (message: string) => void,
+): { declared?: number; invalid: string[] } =>
+  typeof layer === "object" && layer !== null
+    ? readDeclaredKey<number, string>(
+        layer,
+        layerId,
+        "opacity",
+        SCALAR_PARSES.opacity,
+        warn,
+      )
+    : { invalid: [] };
+
+/** Read the raw `icon`/`marker` declaration block off one layer, or undefined
+ *  when the layer has no namespace / the block is not a mapping (the Python
+ *  collection gate warns on the non-mapping shape; the reader stays silent so
+ *  the JS panel does not double-report). */
+const declaredBlockOf = (
+  layer: unknown,
+  layerId: string | undefined,
+  blockKey: string,
+): Record<string, unknown> | undefined => {
+  if (typeof layer !== "object" || layer === null) return undefined;
+  const foliplus = (layer as { options?: { foliplus?: unknown } }).options
+    ?.foliplus as Record<string, unknown> | undefined;
+  if (!foliplus) return undefined;
+  const block = foliplus[blockKey] ?? foliplus[camelize(blockKey) ?? blockKey];
+  if (typeof block !== "object" || block === null || Array.isArray(block)) {
+    return undefined;
+  }
+  return block as Record<string, unknown>;
+};
+
+/** Read (and cache) the icon glyph alpha declared on one layer
+ *  (`foliplus={"icon": {"colorOpacity": 60}}`), 0-100 integer percent.
+ *
+ *  The block reader is NOT a scalar channel: it reads the `colorOpacity`
+ *  sub-key off the `icon` block, so it cannot ride the SCALAR_PARSES registry
+ *  (which keys by one flat key). It reuses the same read/cache/warn-once
+ *  skeleton through `readDeclaredKey` with a composite declared-key that
+ *  scopes the cache and warning per (layer, block, sub-key). */
+const readDeclaredIconColorOpacity = (
+  layer: unknown,
+  layerId?: string,
+  warn?: (message: string) => void,
+): { declared?: number; invalid: string[] } => {
+  if (typeof layer !== "object" || layer === null) return { invalid: [] };
+  const block = declaredBlockOf(layer, layerId, "icon");
+  if (!block) return { invalid: [] };
+  const raw = block.colorOpacity;
+  return readDeclaredKey<number, string>(
+    layer,
+    layerId,
+    "icon:colorOpacity",
+    (_v, _id, reject) => parseColorOpacity(raw, layerId, reject),
+    warn,
+    () => raw,
+  );
+};
+
+/** Read (and cache) the marker chassis alpha declared on one layer
+ *  (`foliplus={"marker": {"colorOpacity": 60}}`), 0-100 integer percent.
+ *
+ *  Mirrors `readDeclaredIconColorOpacity` — the same block read, the same
+ *  composite declared-key scoping. */
+const readDeclaredMarkerColorOpacity = (
+  layer: unknown,
+  layerId?: string,
+  warn?: (message: string) => void,
+): { declared?: number; invalid: string[] } => {
+  if (typeof layer !== "object" || layer === null) return { invalid: [] };
+  const block = declaredBlockOf(layer, layerId, "marker");
+  if (!block) return { invalid: [] };
+  const raw = block.colorOpacity;
+  return readDeclaredKey<number, string>(
+    layer,
+    layerId,
+    "marker:colorOpacity",
+    (_v, _id, reject) => parseColorOpacity(raw, layerId, reject),
+    warn,
+    () => raw,
+  );
+};
+
+export {
+  readDeclaredBorder,
+  readDeclaredIconColorOpacity,
+  readDeclaredIconSize,
+  readDeclaredMarkerColor,
+  readDeclaredMarkerColorOpacity,
+  readDeclaredOpacity,
+};

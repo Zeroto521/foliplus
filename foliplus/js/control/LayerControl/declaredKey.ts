@@ -100,6 +100,11 @@ const readDeclaredKey = <R, I>(
     reject: RejectFn,
   ) => { declared?: R; invalid: I[] },
   warn: (message: string) => void = message => log.warn(message),
+  /** Override the raw read: a block sub-key reader passes the value it already
+   *  extracted off its block, so the cache/warn-once skeleton still owns the
+   *  dedup without re-reading a composite key off the namespace (which would
+   *  always be undefined). */
+  rawOf?: (layer: object) => unknown,
 ): { declared?: R; invalid: I[] } => {
   if (layer === null || layer === undefined) return { invalid: [] };
   let perLayer = caches.get(layer);
@@ -115,10 +120,14 @@ const readDeclaredKey = <R, I>(
     warned.add(fullScope);
     warn(message);
   };
-  const result = parse(rawDeclaredKeyOf(layer, declaredKey), layerId, reject);
+  const result = parse(
+    rawOf ? rawOf(layer) : rawDeclaredKeyOf(layer, declaredKey),
+    layerId,
+    reject,
+  );
   perLayer.set(declaredKey, result);
   return result;
 };
 
-export { readDeclaredKey };
+export { camelize, rawDeclaredKeyOf, readDeclaredKey };
 export type { RejectFn };

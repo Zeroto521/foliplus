@@ -96,6 +96,10 @@ import { finishSlidersIn } from "#ui/index.js";
 import { authorGlyphName } from "#control/LayerControl/ui/style/icon.js";
 import { authorIconColor } from "#control/LayerControl/ui/style/iconColor.js";
 import { resolveChassisPaint } from "#control/LayerControl/ui/style/markerColor.js";
+import {
+  readDeclaredIconColorOpacity,
+  readDeclaredMarkerColorOpacity,
+} from "#control/LayerControl/declaredParse.js";
 import { DIM_ORDER, getDimension } from "#control/LayerControl/ui/style/registry.js";
 
 type LayerControllerEnv = {
@@ -333,9 +337,13 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     if (v) return { icon: { color: v.value, colorOpacity: v.opacity } };
     if (!getDimension(DIM.ICON_COLOR)?.gate(ui, id)) return undefined;
     const authorColor = authorIconColor(ui, id);
-    // 100% is the row's default when the author declares no glyph opacity.
+    // The read-time default: the author-declared glyph alpha, else 100%.
+    const layer = ui.c.findLayer(id);
+    const declaredOpacity = layer
+      ? (readDeclaredIconColorOpacity(layer, id).declared ?? 100)
+      : 100;
     return authorColor
-      ? { icon: { color: authorColor, colorOpacity: 100 } }
+      ? { icon: { color: authorColor, colorOpacity: declaredOpacity } }
       : undefined;
   },
   [DIM.MARKER_COLOR]: (ui, id) => {
@@ -348,8 +356,11 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     if (!layer) return undefined;
     // The chassis the map draws: author chassis / declared marker_color /
     // the awesome-markers default — the same resolver the row and apply use.
+    // The opacity is the author-declared chassis alpha, else 100%.
+    const declaredOpacity =
+      readDeclaredMarkerColorOpacity(layer, id).declared ?? 100;
     return {
-      icon: { markerColor: resolveChassisPaint(layer), markerColorOpacity: 100 },
+      icon: { markerColor: resolveChassisPaint(layer), markerColorOpacity: declaredOpacity },
     };
   },
 };
