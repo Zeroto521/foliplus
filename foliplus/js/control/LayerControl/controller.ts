@@ -1167,7 +1167,12 @@ class LayerController implements LayerAPI {
     const cached = this.countCache.get(id);
     if (cached?.dataVersion === dataVersion) return cached.count;
     const count = this.computeFeatureCount(id, layerInfo);
-    this.countCache.set(id, { count, dataVersion });
+    // Cache only a real number. An undefined/null count means the layer had
+    // no meaningful count at this moment (content not loaded, no provider,
+    // not a group) — caching it would make a premature read sticky and the
+    // row would keep "no count" after the content arrives without a version
+    // bump. Those reads stay uncached and recompute on each call.
+    if (typeof count === "number") this.countCache.set(id, { count, dataVersion });
     return count;
   }
 

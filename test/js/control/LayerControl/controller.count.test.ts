@@ -286,6 +286,24 @@ describe("LayerController", () => {
       expect(manager.getFeatureCount("absent")).toBe(undefined);
     });
 
+    it("recomputes an uncached undefined count when the content arrives later", () => {
+      // The first read happens before the layer has a meaningful count (the
+      // content is still loading, or the provider has nothing yet). Caching
+      // that undefined would make the stale "no count" sticky: a later read,
+      // after the content arrives WITHOUT a version bump, must recompute and
+      // return the real count instead of the cached undefined.
+      let count: number | null | undefined = undefined;
+      manager.registerLayer({
+        id: "late",
+        name: "Late",
+        layer: { options: {} },
+        featureCountProvider: () => count,
+      });
+      expect(manager.getFeatureCount("late")).toBe(undefined);
+      count = 3;
+      expect(manager.getFeatureCount("late")).toBe(3);
+    });
+
     it("counts only data features when a label sub-group is nested under mainLayer", () => {
       const dataPoly = makeLeaf(window.L.Polygon);
       const labelPoly = makeLeaf(window.L.Polygon);
