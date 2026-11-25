@@ -144,7 +144,7 @@ class TestLayerControlFoldersConfig:
 
         ctrl = LayerControl(folders={"overlay": [{"name": "业务数据", "folded": True}]})
         # No layer claims the declared folder yet, so serialising it warns; the
-        # declaration still reaches CONF (the panel keeps the empty folder row).
+        # declaration still reaches CONF (it carries the fold default, not a row).
         with pytest.warns(UserWarning, match="no layer declares"):
             cfg = ctrl._build_config()
         assert cfg["folders"] == {
@@ -208,10 +208,9 @@ class TestUnclaimedFolderDeclaration:
         ]
 
     def test_unclaimed_folder_still_serialises(self) -> None:
-        # A miss warns but is not a rejection: the declaration stays in CONF so
-        # the panel keeps the (empty) folder row rather than dropping the
-        # author's intent. Render the control alone (no layers) and read the
-        # serialised folders= payload.
+        # A miss warns but is not a rejection: the declaration stays in CONF so a
+        # later layer can claim it; it does not create a row on its own. Render
+        # the control alone (no layers) and read the serialised folders= payload.
         import json
 
         import folium

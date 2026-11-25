@@ -1,4 +1,9 @@
-"""Split of test_panel.py by dimension."""
+"""Browser tests for focus-mode behaviour.
+
+Covers keyboard row navigation and Escape restoration, the dashed focus rect
+with its inverse dim mask (including the post-fitBounds viewport coverage),
+the geometry marching-ants marquee, and the overlay renderer lifecycle.
+"""
 
 from __future__ import annotations
 
