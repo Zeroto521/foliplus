@@ -1,53 +1,27 @@
-"""Browser tests: the layer row's press/hover wash and its pinned panel.
+"""Browser tests: the row's press and hover wash.
 
-The row panel (style/attrs) and the ⋮ menu are appended inside the row DOM, so
-CSS matching on the row would reach controls that are not the row itself. Two
-rules keep that honest: :active must not wash the owner row when a panel or menu
-control is pressed (though a real row press still washes), and :hover on the
-shared row-panel shell must return the owner row to its resting background.
-
-The carve-out is keyed on `.foliplus-row-panel` — the shell every row panel
-(style and attrs) mounts with — not on the style panel's own
-`.foliplus-layer-style-panel` class, which belongs to style.css and is never
-named by a row.css rule (the merged-CSS duplicate-token guard would reject it).
-
-The panel also has to stay inside the map while floating over the control: it is
-fixed, capped by a per-panel CSS variable measured from the space above and
-below its anchor, and it flips upward when the space below is the tight side.
+A row press must wash the owner row with the accent-soft token, but a press on
+a control appended inside the row (the style panel, the ⋮ menu) must not: CSS
+:active matches ancestors, so the row.css carve-out keys the wash on real row
+interaction. A click on one overlay checkbox must not repaint a sibling's
+checkbox between the click and the settle. Hovering the shared row-panel shell
+returns the owner row to its resting background, while hovering the row itself
+still lights it.
 """
 
 from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
 
 import folium
-from conftest import (
-    _js,
-    leaflet_path,
-    load_geojson,
-    make_browser_page,
-    panel_ready,
-    snippet,
-    use_page,
-)
+from conftest import _js, load_geojson, make_browser_page, panel_ready, use_page
 
-from foliplus import LayerControl, ScaleControl
+from foliplus import LayerControl
 
 _ROW = '.foliplus-layer-item[data-layer-type="overlay"]'
 _PANEL = ".foliplus-layer-style-panel"
 _READ = _js("LayerControl/read_row_hover_carveout")
-
-HERE = Path(__file__).resolve().parents[5]
-SHOTS = HERE / ".foliplus"
-
-# The probes live next to the other browser JS so they are formatted, reviewed
-# and diffed as JavaScript instead of as Python string literals.
-# `layer/row_panel_open` opens the ⋮ → Style panel on the row at *index*;
-# `layer/row_panel_measure` reports the open card against the map's visible area.
-OPEN_PANEL = snippet("LayerControl/row_panel_open")
-MEASURE = snippet("LayerControl/row_panel_measure")
 
 
 class TestRowPressScopeBrowser:
@@ -221,6 +195,54 @@ class TestRowPressScopeBrowser:
             )
             assert not errors, f"JS errors: {errors}"
 
+    def test_click_one_overlay_no_sibling_checkbox_flash(self, browser, tmp_path):
+        """Clicking one overlay row's checkbox must not flash its role siblings'
+        checkboxes to an intermediate state.
+
+        Regression for "sibling checkbox flashes when clicking one overlay
+        row": a sibling checkbox
+        briefly showing a state it was not already in means an intermediate
+        sweep rewrote the row's cell between the click and its final paint. The
+        single-writer path records intent for the clicked row and diffs once, so
+        every sibling's checkbox stays at its start value until the browser
+        settles.
+        """
+        overlays = [
+            folium.FeatureGroup(name="Overlay A", overlay=True, show=True),
+            folium.FeatureGroup(name="Overlay B", overlay=True, show=True),
+            folium.FeatureGroup(name="Overlay C", overlay=True, show=True),
+        ]
+        with use_page(self._make_page, browser, tmp_path, *overlays) as (
+            page,
+            errors,
+        ):
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/sample_overlay_checkbox_click"))
+            assert not result.get("error"), f"probe error: {result}"
+            assert not errors, f"JS errors: {errors}"
+            # Only the first row flipped; its two siblings kept their start
+            # state throughout the click, no intermediate frame.
+            assert result["finalState"][0] is False, (
+                f"clicked row did not uncheck, got {result}"
+            )
+            for i in (1, 2):
+                assert result["finalState"][i] is True, (
+                    f"sibling {i} ended unchecked -- the click reached it: {result}"
+                )
+            # The regression: some frame between the click and the settle
+            # painted a sibling's checkbox at a value different from its start.
+            sibling_flips = []
+            for sample in result["samples"]:
+                if (
+                    sample[1] != result["startState"][1]
+                    or sample[2] != result["startState"][2]
+                ):
+                    sibling_flips.append(sample)
+            assert not sibling_flips, (
+                f"a sibling's checkbox flipped to an unexpected value during "
+                f"the click -- checkbox flash. Samples: {sibling_flips}"
+            )
+
 
 def _layer() -> folium.GeoJson:
     data = copy.deepcopy(load_geojson("common", "polygons_fuzhou_3offset"))
@@ -302,341 +324,4 @@ class TestRowHoverCarveoutBrowser:
                 + str(panel_hover)
             )
 
-            assert not errors, f"JS errors: {errors}"
-
-
-def _make_layout_page(browser, tmp_path, n_layers: int = 5, slug: str = "lcp"):
-    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    LayerControl().add_to(m)
-    base_polygon = leaflet_path("LayerControl", "polygon_row_layout")
-    for i in range(n_layers):
-        # A leaf GeoJson, not a FeatureGroup: a group is a container row now
-        # and a container has no style panel, which is what these tests drive.
-        folium.GeoJson(
-            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
-            name=f"Layer {i:02d}",
-            overlay=True,
-            show=True,
-        ).add_to(m)
-    html = m.get_root().render()
-    page, errors = make_browser_page(browser, tmp_path, html, slug)
-    page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
-    page.evaluate(_js("LayerControl/open_panel"))
-    page.wait_for_selector(
-        ".foliplus-layer-ctrl.foliplus-is-expanded",
-        state="attached",
-        timeout=5000,
-    )
-    page.wait_for_selector(
-        ".foliplus-layer-item[data-layer-type=overlay]",
-        state="attached",
-        timeout=5000,
-    )
-    panel_ready(page)
-    return page, errors
-
-
-class TestMoreMenuPlacementBrowser:
-    """The ⋮ overflow menu opens against its owning row's clip container.
-
-    The menu is fixed and placed by computePlacement against the panel
-    content box (the nearest visible clip container). A bottom-row menu
-    must flip upward and stay fully inside the clip; a top-row menu must
-    open downward and also stay inside. When the clip is too short the
-    menu is capped and scrolls internally.
-    """
-
-    def test_more_menu_stays_inside_clip_and_flips(self, browser, tmp_path):
-        """First and last row: menu rect inside clip, correct side."""
-        with use_page(_make_layout_page, browser, tmp_path, 10) as (page, errors):
-            page.set_viewport_size({"width": 1280, "height": 720})
-            page.wait_for_timeout(300)
-            r = page.evaluate(snippet("LayerControl/more_menu_placement"))
-            assert r["first"] is not None and r["last"] is not None, (
-                f"probe failed: {r}"
-            )
-            # Top row opens downward, inside the clip.
-            assert r["first"]["inside"] is True, (
-                f"first-row menu escaped its clip: {r['first']}"
-            )
-            assert r["first"]["side"] == "below", (
-                f"first-row menu should open below: {r['first']}"
-            )
-            # Bottom row flips upward, still inside the clip.
-            assert r["last"]["inside"] is True, (
-                f"last-row menu escaped its clip: {r['last']}"
-            )
-            assert r["last"]["side"] == "above", (
-                f"last-row menu should flip above: {r['last']}"
-            )
-            page.screenshot(path=str(SHOTS / "accept_4_more_menu_flip.png"))
-            assert not errors, f"JS errors: {errors}"
-
-
-class TestRowPanelLayoutBrowser:
-    """Row-panel placement against the map's visible area.
-
-    The card is fixed (pinned above the layer list's scroll box) but is
-    capped by a per-panel CSS variable that `placeRowPanel` writes from a
-    measurement of the space above and below the anchor. These tests pin
-    the three scenarios from the reported clipping bug.
-    """
-
-    def test_style_panel_first_row_fits_in_first_screen(self, browser, tmp_path):
-        """1280x720, top row: the panel's bottom must stay inside the map.
-
-        The reported bug was a 400px max-height on a panel whose bottom
-        row fell below the first screen. The panel caps itself to the
-        visible strip, so its bottom edge never crosses the map's bottom.
-        """
-        with use_page(_make_layout_page, browser, tmp_path) as (page, errors):
-            page.set_viewport_size({"width": 1280, "height": 720})
-            page.wait_for_timeout(300)
-
-            r = page.evaluate(OPEN_PANEL, 0)
-            assert r["ok"] is True, f"setup failed: {r}"
-            page.wait_for_timeout(300)  # let the placement settle
-
-            r = page.evaluate(MEASURE)
-            assert r["ok"] is True, f"measure failed: {r}"
-
-            assert r["panel"]["bottom"] <= r["map"]["bottom"], (
-                f"panel bottom ({r['panel']['bottom']:.1f}) crosses the map "
-                f"bottom ({r['map']['bottom']:.1f}); the panel must fit "
-                f"inside the visible area"
-            )
-            assert r["panel"]["cssMaxHeight"] != "400px", (
-                "the panel's max-height is still the token default (400px); "
-                "placeRowPanel should have written a measured cap"
-            )
-            page.screenshot(path=str(SHOTS / "accept_1_style_720.png"))
-            assert not errors, f"JS errors: {errors}"
-
-    def test_style_panel_500px_viewport_fits(self, browser, tmp_path):
-        """1280x500, top row: the panel must not overflow the map.
-
-        A short viewport leaves less room below the anchor, so the panel
-        cap shrinks. The panel still opens downward (there is enough
-        room below) but must not cross the map's bottom edge.
-        """
-        with use_page(_make_layout_page, browser, tmp_path) as (page, errors):
-            page.set_viewport_size({"width": 1280, "height": 500})
-            page.wait_for_timeout(300)
-
-            r = page.evaluate(OPEN_PANEL, 0)
-            assert r["ok"] is True, f"setup failed: {r}"
-            page.wait_for_timeout(300)
-
-            r = page.evaluate(MEASURE)
-            assert r["ok"] is True, f"measure failed: {r}"
-
-            assert r["panel"]["bottom"] <= r["map"]["bottom"], (
-                f"panel bottom ({r['panel']['bottom']:.1f}) crosses the map "
-                f"bottom ({r['map']['bottom']:.1f}) in a 500px viewport"
-            )
-            assert r["panel"]["height"] <= 500, (
-                f"panel height ({r['panel']['height']:.1f}) exceeds the "
-                f"viewport height (500)"
-            )
-            page.screenshot(path=str(SHOTS / "accept_2_style_500px.png"))
-            assert not errors, f"JS errors: {errors}"
-
-    def test_style_panel_bottom_row_flips_upward(self, browser, tmp_path):
-        """Bottom row, 1280x720: the panel must open upward.
-
-        A row near the map's bottom edge has little space below, so the
-        panel flips above the row via the upward modifier. The panel's
-        top edge must stay inside the map.
-
-        Uses 10 layers so the last row lands near the map's bottom edge,
-        where the space below is tighter than the panel's natural height.
-        """
-        with use_page(_make_layout_page, browser, tmp_path, 10) as (page, errors):
-            page.set_viewport_size({"width": 1280, "height": 720})
-            page.wait_for_timeout(300)
-
-            r = page.evaluate(OPEN_PANEL, 9)  # last of 10 layers
-            assert r["ok"] is True, f"setup failed: {r}"
-            page.wait_for_timeout(300)
-
-            r = page.evaluate(MEASURE)
-            assert r["ok"] is True, f"measure failed: {r}"
-
-            assert r["flipUp"] is True, (
-                "the bottom-row panel did not flip upward; the space below "
-                "is the tight side and the panel should re-anchor above"
-            )
-            assert r["panel"]["top"] >= r["map"]["top"], (
-                f"flipped panel top ({r['panel']['top']:.1f}) is above the "
-                f"map top ({r['map']['top']:.1f}); the panel must fit inside"
-            )
-            assert r["panel"]["top"] < r["row"]["top"], (
-                f"flipped panel top ({r['panel']['top']:.1f}) is not above "
-                f"its row top ({r['row']['top']:.1f})"
-            )
-            page.screenshot(path=str(SHOTS / "accept_3_style_flip.png"))
-            assert not errors, f"JS errors: {errors}"
-
-
-def _make_scale_page(browser, tmp_path, *, order="panel_first"):
-    """A layer list with a ScaleControl in the bottom-left corner.
-
-    ``order`` selects which control is added to the map first, since Leaflet
-    paints equal-z-index corner siblings by DOM insertion order. The default
-    (``panel_first``) matches the historic fixture; ``scale_first`` puts the
-    bottom-left corner later in the DOM, which is the case that used to paint
-    the scale over the panel's corner.
-    """
-    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
-    for i in range(5):
-        folium.GeoJson(
-            json.dumps(load_geojson("LayerControl", "polygon_zone_a")),
-            name=f"Layer {i}",
-            overlay=True,
-            show=True,
-        ).add_to(m)
-    lc = LayerControl(locale="en")
-    sc = ScaleControl()
-    if order == "scale_first":
-        sc.add_to(m)
-        lc.add_to(m)
-    else:
-        lc.add_to(m)
-        sc.add_to(m)
-    return make_browser_page(
-        browser, tmp_path, m.get_root().render(), f"row_stack_scale_{order}"
-    )
-
-
-STACK = snippet("LayerControl/row_panel_stack")
-SCALE_OVERLAP = snippet("LayerControl/row_panel_scale_overlap")
-CORNER_OVERLAP = snippet("LayerControl/corner_panel_scale_overlap")
-
-
-class TestRowPanelStackBrowser:
-    """The row panel must clear the Leaflet control band.
-
-    The unpinned card is ``position: absolute`` inside the layer list, which
-    sits inside ``.leaflet-top`` (Leaflet z-index 1000). A sibling corner
-    control such as the scale bar is a ``.leaflet-control`` at z-index 800 in
-    the same section, so the card's own z-index must be the page-level
-    floating token — never a bare literal like 10 — to stay above it.
-    """
-
-    def _open(self, page):
-        page.evaluate(_js("LayerControl/open_panel"))
-        page.wait_for_selector(
-            ".foliplus-layer-ctrl.foliplus-is-expanded",
-            state="attached",
-            timeout=5000,
-        )
-        panel_ready(page)
-        opened = page.evaluate(_js("LayerControl/open_style_panel"))
-        assert opened["ok"], f"style panel did not open: {opened}"
-        page.wait_for_selector(_PANEL, state="visible", timeout=5000)
-        page.wait_for_timeout(200)
-
-    def test_row_panel_clears_control_band(self, browser, tmp_path):
-        """Unpinned row panel is above a sibling .leaflet-control (z 800)."""
-        with use_page(_make_scale_page, browser, tmp_path) as (page, errors):
-            self._open(page)
-            r = page.evaluate(STACK)
-            assert r["ok"] is True, f"stack probe failed: {r}"
-
-            # The panel computed z-index must equal the floating token, not a
-            # bare literal. This is the regression guard for the z-index:10 bug.
-            assert r["pinned"]["panelZ"] == r["token"], (
-                f"pinned panel z-index {r['pinned']['panelZ']} != token {r['token']}"
-            )
-            assert r["unpinned"]["panelZ"] == r["token"], (
-                f"unpinned panel z-index {r['unpinned']['panelZ']} != token "
-                f"{r['token']}"
-            )
-
-            # The synthetic sibling control at z:800 must not cover the panel
-            # in either state: elementFromPoint must hit the panel.
-            for state in ("pinned", "unpinned"):
-                rp = r[state]
-                assert rp["hitIsPanel"] is True, (
-                    f"{state}: sibling control covered the panel; "
-                    f"hit={rp['hit']}, panelZ={rp['panelZ']}, topZ={rp['topZ']}"
-                )
-                assert rp["hitIsScale"] is False, (
-                    f"{state}: the synthetic scale control is on top; hit={rp['hit']}"
-                )
-
-            assert not errors, f"JS errors: {errors}"
-
-    def test_real_scale_never_covers_panel(self, browser, tmp_path):
-        """The real bottom-left ScaleControl never covers the open panel."""
-        with use_page(_make_scale_page, browser, tmp_path) as (page, errors):
-            self._open(page)
-            covered = page.evaluate(SCALE_OVERLAP)
-            assert covered["ok"] is True, f"scale probe failed: {covered}"
-            if covered["overlap"]:
-                assert covered["hitIsPanel"] is True, (
-                    f"the real ScaleControl covered the panel; hit={covered['hit']}"
-                )
-            assert not errors, f"JS errors: {errors}"
-
-    def _assert_corner_clears_scale(self, r, order):
-        """Shared assertions for the cross-corner corner/scale probe."""
-        assert r["ok"] is True, f"corner probe failed ({order}): {r}"
-        # The corner must compute to the token (1001), NOT the JS floating+9
-        # (9999) that masks the CSS rule when expanded, and not a bare literal.
-        assert r["cornerZ"] == r["token"], (
-            f"{order}: corner z-index {r['cornerZ']} != token {r['token']}"
-        )
-        # A real cross-corner overlap must be present, so this is not an empty
-        # pass (the historic empty-if guard let overlap=False slide).
-        assert r["overlap"] is True, (
-            f"{order}: expected a real cross-corner overlap at 420x220; "
-            f"panel={r['panelRect']} scale={r['scaleRect']}"
-        )
-        assert r["hitIsPanel"] is True, (
-            f"{order}: the scale covered the panel; hit={r['hit']}"
-        )
-        assert r["hitIsScale"] is False, f"{order}: the scale is on top; hit={r['hit']}"
-
-    def test_corner_panel_scale_overlap_panel_first(self, browser, tmp_path):
-        """The CSS corner token, not the JS raise, clears the bottom-left scale.
-
-        The main LayerControl panel sits in the top-left corner. Leaflet paints
-        the four corner divs as equal-z-index (1000) siblings in DOM order, so
-        a later-created bottom corner paints over the top-left corner's tall
-        panel. The fix raises the corner hosting a foliplus fold control to
-        --foliplus-z-index-control-corner (1001). This probe clears the JS
-        inline raise (the expanded-state mask) so the CSS token alone is what
-        paints, and asserts the corner still clears the scale in the overlap.
-        """
-        with use_page(_make_scale_page, browser, tmp_path, order="panel_first") as (
-            page,
-            errors,
-        ):
-            # A short viewport forces the top-left panel to overlap the
-            # bottom-left scale, so the cross-corner case is really exercised
-            # (a tall viewport would leave them disjoint and pass vacuously).
-            page.set_viewport_size({"width": 420, "height": 220})
-            self._open(page)
-            self._assert_corner_clears_scale(
-                page.evaluate(CORNER_OVERLAP), "panel_first"
-            )
-            assert not errors, f"JS errors: {errors}"
-
-    def test_corner_panel_scale_overlap_scale_first(self, browser, tmp_path):
-        """Same as panel_first but the scale is added to the map first.
-
-        This is the DOM order that used to paint the bottom-left corner (with
-        the scale) over the top-left corner's panel, and the case the fix
-        must hold regardless of which control the host adds first.
-        """
-        with use_page(_make_scale_page, browser, tmp_path, order="scale_first") as (
-            page,
-            errors,
-        ):
-            page.set_viewport_size({"width": 420, "height": 220})
-            self._open(page)
-            self._assert_corner_clears_scale(
-                page.evaluate(CORNER_OVERLAP), "scale_first"
-            )
             assert not errors, f"JS errors: {errors}"

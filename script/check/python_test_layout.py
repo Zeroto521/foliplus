@@ -3,7 +3,7 @@
 
 The standard (AGENTS.md, "Python Tests" -> "Control test layout") is one shape
 for all eight controls under test/python/control/<Name>/, plus the browser-test
-naming rules, enforced as ten assertions:
+naming rules, enforced as twelve assertions:
 
 0. The first level of a grouped control is closed: once a control has any group
    directory, its own directory may only hold __init__.py, helper*.py,
@@ -52,6 +52,22 @@ naming rules, enforced as ten assertions:
    DATA_POINT_NOUNS; the rest of the naming judgement stays a review rule: a
    filename must read as the scenario a class asserts, and a noun that is not
    in the tuple is caught in review, not mechanically.
+10. A file that sits beside its object's canonical file must suffix it with a
+   closed-vocabulary aspect: test_<object>_<aspect>.py where the aspect is in
+   ASPECT_WORDS. The object is the stem before the last segments; the split is
+   only judged when the same directory holds a canonical test_<object>.py (or
+   the plural test_<object>s.py), because a standalone multi-word stem may be a
+   compound object name (crop_box, zoom_range) and that is a review question,
+   not a mechanical one. Quality adjectives (fidelity, misc, util, extra) are
+   never in the closed set; the vocabulary names user-visible behaviour
+   (rename = the inline rename of a row). A pre-v2 name that reads as one
+   compound object is
+   tolerated in ASPECT_EXCEPTIONS with the reason and retires when its file is
+   renamed; the gate fails on a stale entry.
+11. Two stems in one directory may not differ only by a plural: a plural stem
+   (test_rows.py) may not sit beside its singular or singular-prefixed siblings
+   (test_row_press.py, test_row_fidelity.py), because the reader cannot tell
+   which noun the row files belong to. Keep one stem: the canonical singular.
 
 code lines = non-blank lines that do not start with '#'; docstrings count, the
 same metric script/check/module_size_check.py uses for shipped modules.
@@ -88,6 +104,50 @@ BROWSER_MIN_TEST_CLASSES = 2
 # One data-point noun: a filename built on it names the sample, not the
 # scenario. Extend this tuple when review catches a new one.
 DATA_POINT_NOUNS = ("first_frame", "facility_points")
+
+# Rule 10: the closed aspect vocabulary a dimension file may suffix an object
+# with. Entries are behaviour words: rename is the inline rename of a row.
+# Quality adjectives (fidelity, misc, util, extra) are deliberately
+# absent: they describe the author's confidence, not the behaviour asserted.
+ASPECT_WORDS = frozenset(
+    {
+        "browser",
+        "canvas",
+        "constructor",
+        "drag",
+        "filter",
+        "focus",
+        "fold",
+        "hover",
+        "icon",
+        "keyboard",
+        "label",
+        "layout",
+        "lifecycle",
+        "overlay",
+        "pane",
+        "panel",
+        "persist",
+        "press",
+        "rename",
+        "rendering",
+        "scenario",
+        "sort",
+        "style",
+        "value",
+    }
+)
+
+# Rule 10 exceptions: a pre-v2 stem that reads as one compound object beside
+# its canonical file (icon_grid is the icon grid, not the grid dimension of the
+# icon). Each entry names the reason and retires when the file is renamed; the
+# gate fails on a stale entry.
+ASPECT_EXCEPTIONS: dict[str, str] = {
+    "test/python/control/LayerControl/style/test_icon_grid.py": (
+        "icon_grid reads as one compound object (the icon grid) beside "
+        "test_icon.py; retire when the icon group is next renamed"
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -210,6 +270,99 @@ def test_files(root: Path) -> list[Path]:
     )
 
 
+def _test_stems(directory: Path) -> dict[str, Path]:
+    """The dimension stems of one directory, mapped to their files.
+
+    "test_row_press.py" -> "row_press". Private-module mirrors (test__x.py)
+    are excluded: their double underscore is the private-module marker, not an
+    object/aspect split.
+    """
+    stems: dict[str, Path] = {}
+    for child in _children(directory):
+        if not child.is_file() or child.suffix != ".py":
+            continue
+        if not child.name.startswith("test_") or is_mirror_test(child.name):
+            continue
+        stems[child.stem[5:]] = child
+    return stems
+
+
+def _aspect_violations(directory: Path) -> list[Violation]:
+    """Rule 10: a suffixed file beside its object's canonical file needs an aspect.
+
+    The split is judged only when a canonical stem exists for the object (or
+    its plural), because a standalone multi-word stem may be a compound object
+    name (crop_box, zoom_range) and that is a review question. When a canonical
+    object exists, every suffix must be in ASPECT_WORDS; a file whose suffix is
+    a pre-v2 compound object is tolerated in ASPECT_EXCEPTIONS.
+    """
+    stems = _test_stems(directory)
+    canonical = set(stems)
+    canonical |= {stem[:-1] for stem in stems if stem.endswith("s") and len(stem) > 1}
+    violations: list[Violation] = []
+    for stem in sorted(stems):
+        parts = stem.split("_")
+        if len(parts) < 2:
+            continue
+        known_object = any(
+            "_".join(parts[:idx]) in canonical for idx in range(1, len(parts))
+        )
+        if not known_object:
+            continue
+        closed = any(
+            "_".join(parts[:idx]) in canonical and "_".join(parts[idx:]) in ASPECT_WORDS
+            for idx in range(1, len(parts))
+        )
+        if closed:
+            continue
+        path = stems[stem]
+        violations.append(
+            Violation(
+                "aspect-word-outside-closed-set",
+                path,
+                f"{path.name}: suffix reads as an aspect but is not in the closed "
+                f"vocabulary ({sorted(ASPECT_WORDS)}); pick the dimension word "
+                "the file asserts",
+            )
+        )
+    return violations
+
+
+def _plural_violations(directory: Path) -> list[Violation]:
+    """Rule 11: a plural stem may not sit beside its singular-prefixed siblings.
+
+    test_rows.py beside test_row_press.py reads as one family whose noun the
+    reader cannot name. Keep the singular canonical stem.
+    """
+    stems = _test_stems(directory)
+    violations: list[Violation] = []
+    for stem in sorted(stems):
+        if not stem.endswith("s") or len(stem) <= 1:
+            continue
+        singular = stem[:-1]
+        siblings = sorted(
+            other
+            for other in stems
+            if other != stem and (other == singular or other.startswith(singular + "_"))
+        )
+        if siblings:
+            violations.append(
+                Violation(
+                    "singular-plural-siblings",
+                    stems[stem],
+                    f"{stems[stem].name} differs from "
+                    f"{', '.join(f'test_{sib}.py' for sib in siblings)} only by "
+                    "the plural noun; keep one stem",
+                )
+            )
+    return violations
+
+
+def _naming_violations(directory: Path) -> list[Violation]:
+    """Rules 10 and 11 for one directory."""
+    return _aspect_violations(directory) + _plural_violations(directory)
+
+
 def _children(directory: Path) -> list[Path]:
     """Visible children of a directory: skip caches and dot-files."""
     return sorted(
@@ -264,6 +417,7 @@ def _scan(
     production: set[str] | None = None,
 ) -> None:
     """Check one directory's names, __init__.py, group size and recurse."""
+    violations.extend(_naming_violations(directory))
     if not (directory / "__init__.py").is_file():
         violations.append(
             Violation(
@@ -442,11 +596,34 @@ def stale(
     return [e for e in allowlist if _key(e.rule, e.path) not in live]
 
 
+def _aspect_exempted(violation: Violation) -> bool:
+    """Whether a rule-10 violation is one of the documented compound objects."""
+    return (
+        violation.rule == "aspect-word-outside-closed-set"
+        and _relative(violation.path) in ASPECT_EXCEPTIONS
+    )
+
+
+def _stale_aspect_exceptions(violations: list[Violation]) -> list[str]:
+    """ASPECT_EXCEPTIONS entries that no longer name a rule-10 violation."""
+    live = {
+        _relative(violation.path)
+        for violation in violations
+        if violation.rule == "aspect-word-outside-closed-set"
+    }
+    return sorted(path for path in ASPECT_EXCEPTIONS if path not in live)
+
+
 def main() -> int:
     """Check the control test tree and report unexempted + stale entries."""
     violations = collect_all()
-    unexempted_violations = unexempted(violations, ALLOWLIST)
+    unexempted_violations = [
+        violation
+        for violation in unexempted(violations, ALLOWLIST)
+        if not _aspect_exempted(violation)
+    ]
     stale_exemptions = stale(violations, ALLOWLIST)
+    stale_aspects = _stale_aspect_exceptions(violations)
     for violation in unexempted_violations:
         print(f"{_relative(violation.path)}: [{violation.rule}] {violation.detail}")
     for exemption in stale_exemptions:
@@ -454,10 +631,13 @@ def main() -> int:
             f"{exemption.path}: stale exemption [{exemption.rule}] "
             f"({exemption.card}) - remove it, the violation is gone"
         )
-    if unexempted_violations or stale_exemptions:
+    for path in stale_aspects:
+        print(f"{path}: stale aspect exception [{ASPECT_EXCEPTIONS[path]}]")
+    if unexempted_violations or stale_exemptions or stale_aspects:
         print(
             f"python test layout: {len(unexempted_violations)} violation(s), "
-            f"{len(stale_exemptions)} stale exemption(s)"
+            f"{len(stale_exemptions)} stale exemption(s), "
+            f"{len(stale_aspects)} stale aspect exception(s)"
         )
         return 1
     print("python test layout: ok")
