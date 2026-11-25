@@ -1,4 +1,4 @@
-"""Browser tests for row-vs-map color fidelity and the folder row.
+"""Browser tests: the row's style columns show the map's real paint.
 
 The row's author-color getters previously read the LIVE leaf icon after a
 write (so a reset re-derived the user's paint) and walked only ONE level while
@@ -37,8 +37,8 @@ def _marker_layer(name: str, marker: folium.Marker) -> folium.GeoJson:
     return folium.GeoJson(_POINT, name=name, marker=marker)
 
 
-class TestRowColorFidelityBrowser(LayerControlBrowserBase):
-    """Row readings agree with the map's real paint."""
+class TestRowStyleBrowser(LayerControlBrowserBase):
+    """Row style readings agree with the map's real paint."""
 
     @staticmethod
     def _icon_declared():

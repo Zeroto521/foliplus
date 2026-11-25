@@ -7,8 +7,9 @@ assertions (closed first level for a grouped control, file roles, __init__.py at
 every level, depth 2, single-file shape <= 800, dimension file <= 700, group
 >= 3 test files with a closed-pair exception, group name mirrors a production
 directory, browser scenario file >= 150 code lines or >= 2 classes, browser
-filename not named after one data point), and grandfathers the current tree in
-an allowlist that must drain to zero.
+filename not named after one data point, aspect suffix in the closed
+vocabulary, and no singular/plural sibling stems), and grandfathers the current
+tree in an allowlist that must drain to zero.
 
 Coverage target: every rule branch plus the allowlist filter/stale logic and the
 CLI entry point. collect is driven from tmp_path trees; main reads the
@@ -67,6 +68,15 @@ def _group(control: Path, name: str, test_count: int, *, init: bool = True) -> P
         _write(group / "__init__.py", "")
     for index in range(test_count):
         _write(group / f"test_{index}.py", "x = 1\n")
+    return group
+
+
+def _named_group(control: Path, name: str, files: list[str]) -> Path:
+    group = control / name
+    group.mkdir(parents=True, exist_ok=True)
+    _write(group / "__init__.py", "")
+    for file in files:
+        _write(group / file, "x = 1\n")
     return group
 
 
@@ -425,3 +435,100 @@ def test_main_turns_red_on_a_small_browser_file(tmp_path, monkeypatch, capsys):
 def test_the_real_tree_passes(capsys):
     """Teeth: the gate is green on the migrated tree (allowlist drains later)."""
     assert mod.main() == 0, capsys.readouterr().out
+
+
+def test_the_aspect_vocabulary_is_closed_and_excludes_quality_adjectives():
+    """Rule 10's vocabulary is a mechanism, not a suggestion."""
+    assert {"layout", "press", "pane", "browser", "rendering", "rename"} <= (
+        mod.ASPECT_WORDS
+    )
+    assert not ({"fidelity", "misc", "util", "extra"} & mod.ASPECT_WORDS)
+
+
+def test_a_suffix_outside_the_closed_aspect_vocabulary_is_flagged(tmp_path):
+    """Rule 10: test_row_fidelity.py beside the canonical test_row.py is red."""
+    control = _control(tmp_path)
+    _write(control / "test__demo.py", "x = 1\n")
+    group = _named_group(
+        control, "style", ["test_row.py", "test_row_press.py", "test_row_fidelity.py"]
+    )
+
+    violations = mod.collect(tmp_path)
+    assert _rules(violations) == ["aspect-word-outside-closed-set"]
+    assert violations[0].path == group / "test_row_fidelity.py"
+    assert "closed vocabulary" in violations[0].detail
+
+
+def test_a_closed_aspect_suffix_passes(tmp_path):
+    control = _control(tmp_path)
+    _write(control / "test__demo.py", "x = 1\n")
+    _named_group(
+        control, "style", ["test_row.py", "test_row_press.py", "test_row_layout.py"]
+    )
+
+    assert mod.collect(tmp_path) == []
+
+
+def test_a_standalone_multiword_stem_is_a_compound_object_not_a_bad_aspect(tmp_path):
+    """Rule 10 judges a suffix only beside its object's canonical file."""
+    control = _control(tmp_path)
+    _write(control / "test__demo.py", "x = 1\n")
+    _named_group(control, "style", ["test_crop_box.py", "test_fill.py", "test_icon.py"])
+
+    assert mod.collect(tmp_path) == []
+
+
+def test_an_aspect_exception_silences_a_documented_compound_object(
+    tmp_path, monkeypatch, capsys
+):
+    control = _control(tmp_path)
+    _write(control / "test__demo.py", "x = 1\n")
+    group = _named_group(
+        control, "style", ["test_icon.py", "test_icon_grid.py", "test_fill.py"]
+    )
+    path = mod._relative(group / "test_icon_grid.py")
+    _patch_global(monkeypatch, "CONTROL_TESTS", tmp_path)
+    _patch_global(monkeypatch, "TEST_PY_ROOT", tmp_path)
+    _patch_global(monkeypatch, "ALLOWLIST", ())
+    _patch_global(monkeypatch, "ASPECT_EXCEPTIONS", {path: "compound object"})
+
+    assert mod.main() == 0, capsys.readouterr().out
+
+
+def test_a_stale_aspect_exception_turns_main_red(tmp_path, monkeypatch, capsys):
+    control = _control(tmp_path)
+    _write(control / "test__demo.py", "x = 1\n")
+    _patch_global(monkeypatch, "CONTROL_TESTS", tmp_path)
+    _patch_global(monkeypatch, "TEST_PY_ROOT", tmp_path)
+    _patch_global(monkeypatch, "ALLOWLIST", ())
+    _patch_global(monkeypatch, "ASPECT_EXCEPTIONS", {"ghost.py": "retired name"})
+
+    assert mod.main() == 1
+    out = capsys.readouterr().out
+    assert "stale aspect exception" in out
+    assert "1 stale aspect exception(s)" in out
+
+
+def test_a_plural_stem_beside_its_singular_siblings_is_flagged(tmp_path):
+    """Rule 11: test_rows.py beside test_row_press.py is an unnamed family."""
+    control = _control(tmp_path)
+    _write(control / "test__demo.py", "x = 1\n")
+    group = _named_group(
+        control, "style", ["test_rows.py", "test_row_press.py", "test_row_layout.py"]
+    )
+
+    violations = mod.collect(tmp_path)
+    assert _rules(violations) == ["singular-plural-siblings"]
+    assert violations[0].path == group / "test_rows.py"
+    assert "plural" in violations[0].detail
+    assert "test_row_press.py" in violations[0].detail
+
+
+def test_the_singular_canonical_stem_satisfies_rule_eleven(tmp_path):
+    control = _control(tmp_path)
+    _write(control / "test__demo.py", "x = 1\n")
+    _named_group(
+        control, "style", ["test_row.py", "test_row_press.py", "test_row_layout.py"]
+    )
+
+    assert mod.collect(tmp_path) == []
