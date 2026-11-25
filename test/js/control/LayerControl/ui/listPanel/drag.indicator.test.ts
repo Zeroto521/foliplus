@@ -234,6 +234,46 @@ describe("ui/drag indicator state", () => {
     expect(markedRows(ui)).toHaveLength(0);
   });
 
+  it("acknowledges a folder block placed before another folder", () => {
+    const { ui } = folderFixture(["a", "b"]);
+    const folderRow = (key: string) =>
+      attachedPanel(ui).querySelector(
+        `[${CONST.DATA.FOLDER_KEY}="${key}"]`,
+      ) as HTMLElement;
+    const target = folderRow("b");
+    pinRect(target, 100, 36);
+    handleDragStart(ui, dragEvent(folderRow("a"), { effectAllowed: "" }));
+    handleDrop(ui, dragEvent(target, {}, 102));
+
+    // A folder is a block: the acknowledgement is what the block's own layout
+    // became, so a block placed above its target flashes the BEFORE state.
+    expect(stateOf(folderRow("b"))).toBe(CONST.DRAG_STATE.BEFORE);
+  });
+
+  it("acknowledges a drop after the panel is already gone", () => {
+    const { ui } = initFixture({ data: overlays(3) });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const target = rowOf(ui, "L1");
+    pinRect(target, 100, 36);
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 130));
+    // The unmount wins the race: the commit still lands, and the flash lookup
+    // and the clearer must both survive a container that is already detached
+    // (an unbound panel must not turn a drop into a throw).
+    // uiContainer is a getter: shadow it with an own data property, then drop
+    // the shadow to restore the panel's own view.
+    Object.defineProperty(ui, "uiContainer", { configurable: true, value: null });
+    try {
+      expect(() => handleDrop(ui, dragEvent(target, {}, 130))).not.toThrow();
+    } finally {
+      delete (ui as unknown as { uiContainer?: HTMLElement | null }).uiContainer;
+    }
+    expect(ui.listPanel.dragEntry).toBeNull();
+    // With no container the rows cannot be reached: the clearer is a no-op, not
+    // a throw. The next attach starts from a clean panel.
+    clearDragState(ui);
+    expect(markedRows(ui)).toHaveLength(0);
+  });
+
   it("clears the attribute from every row through the shared clearer", () => {
     const { ui } = initFixture({ data: overlays(3) });
     const rows = ["L0", "L1", "L2"].map(id => rowOf(ui, id));

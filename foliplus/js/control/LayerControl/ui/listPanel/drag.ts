@@ -14,8 +14,7 @@ import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 /** Write the row's ONE indicator state; null clears it. A single attribute
  *  with one value is the whole point: two indicators on one row are
  *  unrepresentable, not merely discouraged. */
-const setDragState = (row: HTMLElement | null, state: string | null): void => {
-  if (!row) return;
+const setDragState = (row: HTMLElement, state: string | null): void => {
   if (state === null) row.removeAttribute(CONST.DRAG_STATE_ATTR);
   else row.setAttribute(CONST.DRAG_STATE_ATTR, state);
 };
