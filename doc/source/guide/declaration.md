@@ -131,6 +131,12 @@ created for it.
 A non-string, blank or over-long name warns once and is ignored — the layer
 stays at the role root.
 
+The layer-level declaration has a control-level sibling: HeatmapControl and
+MeasureControl accept a folder= argument (their layer registers with the
+declaration, so a new page already places it inside the folder). The same
+priority applies — a user drag to another folder (persisted) wins over the
+declaration.
+
 (folders)=
 
 ## `folders` — central folder defaults
@@ -139,10 +145,10 @@ stays at the role root.
 and whether it starts folded. It is a different channel from the per-layer
 `folder` key, and the split is deliberate:
 
-| Channel | Owns | Does not do |
-| ------- | ---- | ----------- |
-| `foliplus={"folder": ...}` on a layer | **membership** — which folder the layer's row groups into | set the folder's default folded state |
-| `LayerControl(folders=...)` | **metadata** — the folder's display name and default folded state, per role | create a folder, move a layer into one, or order folders |
+| Channel                               | Owns                                                                        | Does not do                                              |
+| ------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `foliplus={"folder": ...}` on a layer | **membership** — which folder the layer's row groups into                   | set the folder's default folded state                    |
+| `LayerControl(folders=...)`           | **metadata** — the folder's display name and default folded state, per role | create a folder, move a layer into one, or order folders |
 
 A complete example — declare the folders once, then put each layer in one:
 
