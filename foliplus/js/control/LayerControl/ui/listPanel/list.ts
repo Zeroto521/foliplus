@@ -740,7 +740,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     const block = displayBlocks(ui, role).find(
       b => b.kind === "folder" && b.key === folderKey,
     );
-    const members = block && block.kind === "folder" ? block.block.members : [];
+    const members = block?.kind === "folder" ? block.block.members : [];
     const memberIdx = members.findIndex(m => m.id === layerInfo.id);
     let anchor: HTMLElement = folderRow;
     for (let i = 0; i < memberIdx; i++) {
