@@ -403,6 +403,57 @@ describe("style-mode-usage guard wiring", () => {
   });
 });
 
+// Every guard in test/js/guard/ is registered here with the invariant it
+// guards. The directory is a category, not a mirror (see the layout block
+// below), so a new guard file has no naming rule to satisfy — without this
+// table it could land unannounced and nothing would say what it protects.
+// Adding a guard means adding its entry in the same commit; the layout block
+// fails on an unregistered file and on a stale entry.
+const GUARD_TREE_SUBJECTS: Record<string, string> = {
+  "async-liveness":
+    "async continuations must not outlive the component that mounted them",
+  "config-contract-keys":
+    "the CONFIG payload keeps one snake_case key spelling across Python and JS",
+  "deep-relative-path":
+    "no test file reaches outside its own subtree with three or more ../ segments",
+  "derived-barrier":
+    "derived-state projections run only through the invalidateDerived barrier",
+  "export-decoupling": "ExportControl must not reference LayerControl internals",
+  "file-header": "the canonical file header stays on every registered module",
+  "fold-arrow": "how far a row is opened is one state, not a per-arrow copy",
+  "folder-name-fold-sync":
+    "the folder-name fold rule is the same on the Python and JS sides",
+  "folder-name-limit":
+    "the folder-name length bound is the same on the Python and JS sides",
+  "folder-name-max-sync": "FOLDER_NAME_MAX is one number, not two hand-copied literals",
+  "glyph-prefix-guard":
+    "the panel glyph prefix is single-sourced while the author prefix stays free-form",
+  "hex-color-sync":
+    "the Python declaration reader and the JS color primitive judge hex shapes alike",
+  "keyboard-ownership":
+    "Arrow/Escape handling goes through the shared keyboard primitive",
+  "listener-guard":
+    "raw listener registrations carry an adjacent // listener-exempt: comment",
+  "marker-color-preset":
+    "MARKER_COLOR_PRESET_HEX stays self-consistent in both directions",
+  "marker-icon-set-icon-guard":
+    "marker icon writes flow only through the whitelisted setLeafIcon call site",
+  "mock-specifier": "every vi.mock/vi.doMock specifier resolves to a real file",
+  "role-words-sync": "the layer-role vocabulary is the same on the Python and JS sides",
+  "selected-class-guard": "the selected-class spelling has one owner per widget",
+  "slider-inset": "the slider half-thumb offset is one token, not a repeated calc",
+  "storage-key-scope":
+    "every persisted record key derives from the per-map storage scope",
+  "style-dimension-cycle":
+    "the border and fill style dimensions do not form a module cycle",
+  "task-number-drift":
+    "internal task identifiers never leak into source, tests or comments",
+  "test-path-mirror": "the test tree mirrors the production tree in both directions",
+  "v8-ignore": "v8-ignore comments stay on the lines they claim",
+  vocabulary:
+    "LayerRole is the single word for the overlay/base grouping, with no middle-layer vocabulary",
+};
+
 // Layout of the guard tree (single source of truth for "where does a guard live").
 //
 // `script/check/` holds the executable guards; `test/js/script/check/` mirrors
@@ -434,6 +485,40 @@ describe("guard-tree layout", () => {
 
   it("keeps a test/js/guard/ directory for the repo-wide invariant guards", () => {
     expect(existsSync(GUARD_DIR), "test/js/guard/ must exist").toBe(true);
+  });
+
+  const guardTests = () =>
+    readdirSync(GUARD_DIR)
+      .filter(n => n.endsWith(".test.ts"))
+      .map(n => n.replace(/\.test\.ts$/, ""))
+      .sort();
+
+  const isRegisteredGuard = (stem: string) => stem in GUARD_TREE_SUBJECTS;
+
+  it("every test/js/guard/ test is registered with the invariant it guards", () => {
+    const unregistered = guardTests().filter(stem => !isRegisteredGuard(stem));
+    expect(
+      unregistered,
+      `add an entry to GUARD_TREE_SUBJECTS saying what it guards: ${unregistered.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("the guard registration list is neither stale nor decorative", () => {
+    for (const stem of Object.keys(GUARD_TREE_SUBJECTS)) {
+      expect(
+        guardTests(),
+        `GUARD_TREE_SUBJECTS.${stem} matches no test/js/guard/${stem}.test.ts`,
+      ).toContain(stem);
+      expect(
+        GUARD_TREE_SUBJECTS[stem].trim().length,
+        `GUARD_TREE_SUBJECTS.${stem} needs a description`,
+      ).toBeGreaterThan(0);
+    }
+
+    // Counter-proof: the predicate must reject an unregistered stem, otherwise
+    // the loop above would keep passing after it stopped checking anything.
+    expect(isRegisteredGuard("vocabulary")).toBe(true);
+    expect(isRegisteredGuard("never-a-guard")).toBe(false);
   });
 
   it("every test in test/js/guard/ has NO script/check/<name>.mjs twin", () => {
