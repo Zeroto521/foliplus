@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from foliplus._config_schema import FieldSpec
-from foliplus._declaration import normalise_folder, normalise_zoom_range, normalize_declared_filter
+from foliplus._declaration import (
+    normalise_folder,
+    normalise_zoom_range,
+    normalize_declared_filter,
+)
 from foliplus._typing import ControlPosition, Fraction, PositiveInt
 from foliplus._validate import Bound, validate
 from foliplus.BaseControl import BaseControl
@@ -320,9 +324,7 @@ class HeatmapControl(BaseControl):
         # The author's folder declaration is normalised once, at construction, so
         # CONF carries the cleaned spelling the runtime groups on (NFC + trim +
         # internal-whitespace fold); an invalid value warns and stays None (root).
-        self.folder = normalise_folder(
-            folder, owner="HeatmapControl", source="folder"
-        )
+        self.folder = normalise_folder(folder, owner="HeatmapControl", source="folder")
         # The declaration is normalised here, at construction, so CONF carries
         # the AST the runtime reads (never the friendly shape). A 'field' key
         # inside the declaration, a range with no aggregation field to bind to

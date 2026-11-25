@@ -282,9 +282,7 @@ class MeasureControl(BaseControl):
         # The author's folder declaration is normalised once, at construction, so
         # CONF carries the cleaned spelling the runtime groups on (NFC + trim +
         # internal-whitespace fold); an invalid value warns and stays None (root).
-        self.folder = normalise_folder(
-            folder, owner="MeasureControl", source="folder"
-        )
+        self.folder = normalise_folder(folder, owner="MeasureControl", source="folder")
         self.label_show = label_show
         self.label_collide = label_collide
         self.show_live_coords = show_live_coords
