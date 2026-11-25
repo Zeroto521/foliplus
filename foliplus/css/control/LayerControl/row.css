@@ -271,7 +271,7 @@
     width: var(--foliplus-space-xl);
     height: var(--foliplus-space-xl);
   }
-  .foliplus-layer-item .drag-handle {
+  .foliplus-row .drag-handle {
     opacity: 0;
     transition: opacity var(--foliplus-transition-fast);
   }
@@ -295,13 +295,10 @@
      transition: none is kept on the rows because they are destroyed and
      re-created on every list rebuild; a border-color or background transition
      would flash the already-checked rows on each rebuild. */
-  .foliplus-layer-item,
-  /* The role header joins by its own class: it is deliberately NOT a
-     .foliplus-layer-item (that class means "a layer row" to the panel's
-     selectors and to the browser tests), and listing it explicitly keeps
-     the recipe on the header even if the sep/toggle-all compound it also
-     matches is ever renamed. */
-  .foliplus-layer-role,
+  /* One identity class for every row kind (layer / folder / group / role):
+     a new row kind cannot silently miss the recipe the way the role header
+     did before it carried .foliplus-row. */
+  .foliplus-row,
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     /* Rows always paint an explicit surface — never transparent — so a
        resting unchecked row and an interaction target cannot disagree
@@ -409,8 +406,7 @@
   /* The role row is deliberately not a .foliplus-layer-item (that class means
      "a layer row" to the panel's own selectors), so it needs its own leg:
      without it the role ⋮ menu was painted over by the next row's hover. */
-  .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel),
-  .foliplus-layer-role:has(.foliplus-layer-more-menu.open) {
+  .foliplus-row:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
     z-index: var(--foliplus-z-index-floating);
   }
 
@@ -510,7 +506,7 @@
      a .foliplus-layer-item — that class means "a layer row" to the panel's own
      selectors and to the browser tests, and a header matching it made every
      leaf-row lookup resolve to the header. */
-  :is(.foliplus-layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all) {
+  :is(.foliplus-row, .foliplus-layer-sep.foliplus-layer-toggle-all) {
     /* Identity: gray at rest, wakes to black when the row is active. Accent
        stays reserved for actions (more) and status (border), so the type icon
        reads as focus, not as a call-to-action. The hover wake lives in the
@@ -712,17 +708,17 @@
   /* When the rail has a tree guide, hide the grip until hover; on hover,
      show the grip and hide the guide. A member row shows a grip on hover
      exactly like a root row (spec §3.3). */
-  .foliplus-layer-item .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
+  .foliplus-row .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
     opacity: 0;
     pointer-events: none;
   }
-  .foliplus-layer-item:hover
+  .foliplus-row:hover
     .foliplus-layer-rail:has(.foliplus-fold-tree)
     .drag-handle {
     opacity: 1;
     pointer-events: auto;
   }
-  .foliplus-layer-item:is(:hover, .foliplus-is-focused-row)
+  .foliplus-row:is(:hover, .foliplus-is-focused-row)
     .foliplus-layer-rail:has(.foliplus-fold-tree)
     .foliplus-fold-tree {
     opacity: 0;
