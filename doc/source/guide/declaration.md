@@ -151,9 +151,15 @@ import folium
 import geopandas as gpd
 from foliplus import LayerControl
 
+# 1. Membership: each layer names its own folder. These are the only
+#    declarations that put a row inside a folder. explore() returns a
+#    folium.Map, so build the map first and add each layer to it.
 m = folium.Map(location=[31.2, 121.5], zoom_start=10)
+folium.GeoJson(gdf_basemap, name="底图", foliplus={"folder": "底图"}).add_to(m)
+folium.GeoJson(gdf_roads, name="交通", foliplus={"folder": "交通"}).add_to(m)
+folium.GeoJson(gdf_pois, name="设施", foliplus={"folder": "设施"}).add_to(m)
 
-# 1. Central declaration: folder metadata only — name + default folded state.
+# 2. Central declaration: folder metadata only — name + default folded state.
 #    Keyed by role, because a base folder and an overlay folder may share a name.
 LayerControl(
     folders={
@@ -164,12 +170,7 @@ LayerControl(
         ],
     }
 ).add_to(m)
-
-# 2. Membership: each layer names its own folder. These are the only
-#    declarations that put a row inside a folder.
-gdf_basemap.explore(foliplus={"folder": "底图"}).add_to(m)
-gdf_roads.explore(foliplus={"folder": "交通"}).add_to(m)
-gdf_pois.explore(foliplus={"folder": "设施"}).add_to(m)
+m.save("map.html")
 ```
 
 **Shape**: a mapping keyed by role (`"base"` / `"overlay"`), each value a list
