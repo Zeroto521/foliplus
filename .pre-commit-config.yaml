@@ -4,6 +4,12 @@ ci:
 
     for more information, see https://pre-commit.ci
   autoupdate_commit_msg: "BOT: pre-commit hooks autoupdate"
+  # pre-commit.ci's runner image has no `node` on PATH, so the test-size hook
+  # (language: system) cannot run there; CI still enforces the cap through the
+  # vitest suite (test/js/script/check/test-size.test.ts runs in the `js` job).
+  # `skip` is a TOP-LEVEL ci: key — a `ci:` nested inside the hook is ignored
+  # by pre-commit.ci (it is not part of the hook schema).
+  skip: [test-size]
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -91,11 +97,10 @@ repos:
         language: system
         pass_filenames: false
         files: ^test/js/.*\.test\.ts$
-        # pre-commit.ci's runner image has no `node` on PATH, so the hook is
-        # local-only; CI still enforces the cap through the vitest suite
+        # Local-only: pre-commit.ci's runner image has no `node` on PATH, so
+        # this hook is skipped there via the top-level `ci: skip:` block.
+        # CI still enforces the cap through the vitest suite
         # (test/js/script/check/test-size.test.ts runs in the `js` job).
-        ci:
-          skip: [test-size]
 
       # Enforces code-style rules on foliplus/js/*.ts, build-tool
       # modules under script/ (all subdirs), and the CSS custom-property
