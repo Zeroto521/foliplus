@@ -34,6 +34,7 @@ import {
   normalizeFolderName,
   readFolderLayout,
   renameFolder,
+  reorderRootEntriesToRegistry,
   roleBlocks,
   roleOrder,
   rootLayerEntry,
@@ -302,6 +303,71 @@ describe("freezeRoleOrder", () => {
     // The freeze preserves the unlisted root layer at its anchor position
     // instead of dropping it (single-source with seedBlockOrder).
     expect(layout.order.overlay).toEqual(["roads", "layer:b"]);
+  });
+});
+
+describe("reorderRootEntriesToRegistry", () => {
+  it("returns the layout unchanged when the role has no order entry", () => {
+    const layout = seedFolderLayout([
+      entry("a", "overlay", null, 0),
+      entry("b", "overlay", null, 1),
+    ]);
+    const out = reorderRootEntriesToRegistry(layout, "base", [
+      entry("a", "overlay", null, 0),
+    ] as LayerInfo[]);
+    expect(out).toBe(layout);
+  });
+
+  it("returns the layout unchanged when the role lists no root layers", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["roads"] },
+    };
+    const out = reorderRootEntriesToRegistry(layout, "overlay", [
+      entry("a", "overlay", "roads", 0),
+    ] as LayerInfo[]);
+    expect(out).toBe(layout);
+  });
+
+  it("reorders the listed roots to the registry order and keeps folder keys in place", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["roads", "layer:a", "layer:b"] },
+    };
+    const out = reorderRootEntriesToRegistry(layout, "overlay", [
+      entry("b", "overlay", null, 0),
+      entry("a", "overlay", null, 1),
+    ] as LayerInfo[]);
+    // The folder key stays in place; the listed roots follow the registry.
+    expect(out.order.overlay).toEqual(["roads", "layer:b", "layer:a"]);
+  });
+
+  it("keeps a listed entry in place when the registry has fewer roots", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:b", "layer:a", "layer:c"] },
+    };
+    const out = reorderRootEntriesToRegistry(layout, "overlay", [
+      entry("a", "overlay", null, 0),
+      entry("b", "overlay", null, 1),
+    ] as LayerInfo[]);
+    // The registry knows a and b only; c is a stale listed root. The first
+    // two slots follow the registry, and c keeps its entry (the fallback
+    // when registryRoots runs out) — a stale listed root is never dropped.
+    expect(out.order.overlay).toEqual(["layer:a", "layer:b", "layer:c"]);
+    expect(out).not.toBe(layout);
+  });
+
+  it("returns the same layout when the order already matches the registry", () => {
+    const layout: FolderLayout = {
+      ...emptyFolderLayout(),
+      order: { overlay: ["layer:a", "layer:b"] },
+    };
+    const out = reorderRootEntriesToRegistry(layout, "overlay", [
+      entry("a", "overlay", null, 0),
+      entry("b", "overlay", null, 1),
+    ] as LayerInfo[]);
+    expect(out).toBe(layout);
   });
 });
 
