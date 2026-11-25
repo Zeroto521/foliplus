@@ -1,6 +1,6 @@
 // test/js/control/LayerControl/ui/style/list.folder — folder rows, tree connectors and role fold.
 import { repoPath } from "#test/path.js";
-import { initFixture } from "../fixture.js";
+import { attachedPanel, initFixture } from "../fixture.js";
 import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo } from "#core/layer/index.js";
@@ -514,6 +514,126 @@ describe("ui/list folder rows (render / row structure)", () => {
     // Both members hidden → on=0 → 0/N (the count cell already covers 0/N;
     // this test asserts the partial form by hiding a subset next).
     expect(count.textContent).toContain("0/");
+  });
+
+  it("lands a late-registered folder member inside its folder block, not at registry depth", () => {
+    // Third-party layers (HeatmapControl, ExportControl) register AFTER the
+    // initial render, so rd1 is a late registration. The user dragged it into the
+    // "roads" folder, so BOTH records persist that intent: the layer-state order
+    // ranks rd1 among the overlay rows, and the folder-layout members map assigns
+    // it to the folder. The registration-time seed preserves the members
+    // assignment (seed is idempotent and never overrides), so
+    // folderOf(layout, layerInfo) resolves "roads", and placeAtSavedSlot moves the
+    // new registry entry to its stored rank (index > 0, beside the root layers).
+    // The insert must reuse the renderInitialList placement rule and put the row
+    // inside that folder block (immediately after the folder row), not at the
+    // registry-depth anchor the old insertLayerItem used — which would land it as
+    // a root-layer sibling and show it fallen to root on refresh.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A", "B", "rd1"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "roads", name: "roads" }],
+        order: { overlay: ["roads"] },
+        members: { rd1: { role: "overlay", folder: "roads" } },
+      },
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+
+    manager.registerLayer({ id: "rd1", name: "Roads", role: "overlay" });
+
+    // Sanity: the registry placed rd1 at a non-zero index (its saved slot),
+    // otherwise this test would not exercise the buggy anchor path.
+    expect(manager.layers.map(l => l.id).indexOf("rd1")).toBeGreaterThan(0);
+
+    const children = Array.from(attachedPanel(ui).children);
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === "roads",
+    );
+    const rd1Idx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === "rd1",
+    );
+    const waterIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === "B",
+    );
+    expect(folderIdx).toBeGreaterThanOrEqual(0);
+    // The member row is the flat sibling immediately after its folder row —
+    // renderInitialList's block structure — NOT after the root layer at registry
+    // depth.
+    expect(rd1Idx).toBe(folderIdx + 1);
+    expect(rd1Idx).toBeLessThan(waterIdx);
+    // And it paints as a member: the rail carries the tree connector.
+    const rd1Row = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="rd1"]`,
+    )!;
+    expect(rd1Row.querySelector(`.${CONST.CLASSES.FOLD_TREE}`)).not.toBeNull();
+  });
+
+  it("inserts a late folder member at its rank among the block's members and inherits a folded folder", () => {
+    // Two members already painted; the late member joins the folder row's
+    // flat-sibling run at its rank (after the earlier member), and when the
+    // folder is folded the new row inherits GROUP_FOLDED (the same rule
+    // renderInitialList applies to its block members).
+    const { manager, ui } = initFixture({
+      // rd2's saved rank is after rd1, so placeAtSavedSlot gives it a registry
+      // index beside the folder's existing member — the groupByFolder member
+      // order then ranks it second, and the insert must land it after rd1.
+      seed: { order: ["rd1", "water", "rd2"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "roads", name: "roads" }],
+        order: { overlay: ["roads"] },
+        members: {
+          rd1: { role: "overlay", folder: "roads" },
+          rd2: { role: "overlay", folder: "roads" },
+        },
+      },
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "water",
+          name: "Water",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    ui.listPanel.foldedFolders["overlay::roads"] = true;
+
+    manager.registerLayer({ id: "rd2", name: "Rivers", role: "overlay" });
+
+    const children = Array.from(attachedPanel(ui).children);
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === "roads",
+    );
+    const rd1Idx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === "rd1",
+    );
+    const rd2Idx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.LAYER_ID) === "rd2",
+    );
+    expect(folderIdx).toBeGreaterThanOrEqual(0);
+    // rd2 lands after rd1 (its block rank), both inside the folder block, and
+    // before the root layer.
+    expect(rd2Idx).toBe(rd1Idx + 1);
+    expect(rd2Idx).toBeLessThan(
+      children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "water"),
+    );
+    // The folded folder hides the late member too.
+    const rd2Row = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="rd2"]`,
+    )!;
+    expect(rd2Row.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 });
 
