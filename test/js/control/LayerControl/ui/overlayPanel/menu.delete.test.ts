@@ -219,6 +219,14 @@ describe("LayerUI menu", () => {
       handleMenuClick(ui, event);
     }
 
+    function clickMenu(targetUi: LayerUI, li: HTMLElement) {
+      // The interaction hub dispatches with the menu owner's ui — the second
+      // control on the page has its own arm state.
+      const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "target", { value: li });
+      handleMenuClick(targetUi, event);
+    }
+
     function deleteEntryOf(root: HTMLElement): HTMLLIElement {
       return root.querySelector(
         `button[data-action="${CONST.ACTION.DELETE_LAYER}"]`,
@@ -471,6 +479,87 @@ describe("LayerUI menu", () => {
         expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
           true,
         );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps another control's pending delete armed", () => {
+      // Two LayerControls on one page are a supported rendering model: each
+      // control owns its arming state, so one control arming or closing its
+      // delete entry never walks back the other's. This used to be module-level
+      // state, so the second control's confirm/close silently disarmed the
+      // first one's pending delete.
+      //
+      // A document has a single focus owner, so two live menus cannot stay open
+      // at the same time (opening the second one blurs the first). The second
+      // control's panel is detached here so the first menu keeps focus and the
+      // assertion is about the arm state machine, not about focus.
+      const second = initFixture();
+      second.ui.uiContainer?.remove();
+
+      const itemA = findItem(ui, "overlay1");
+      ui.openMoreMenu(itemA);
+      const deleteA = deleteEntryOf(itemA);
+      click(deleteA);
+      expect(deleteA.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
+
+      const itemB = findItem(second.ui, "overlay1");
+      second.ui.openMoreMenu(itemB);
+      const deleteB = deleteEntryOf(itemB);
+      clickMenu(second.ui, deleteB);
+
+      expect(deleteB.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
+      // Arming B leaves A armed, still showing its confirm label.
+      expect(deleteA.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
+      expect(deleteA.querySelector(CONST.SEL.MENU_DELETE_LABEL)!.textContent).toBe(
+        "LayerControl.delete_confirm",
+      );
+
+      // Closing B's menu disarms B only.
+      second.ui.closeMoreMenu(false);
+      expect(deleteB.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(false);
+      expect(deleteA.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
+      second.manager?.debouncedEnforce?.cancel?.();
+    });
+
+    it("runs each control's arm timeout on its own clock", () => {
+      const second = initFixture();
+      second.ui.uiContainer?.remove();
+      // initFixture runs its attach pass on fake timers and restores the real
+      // clock, so the arm timers under test start here.
+      vi.useFakeTimers();
+      try {
+        const itemA = findItem(ui, "overlay1");
+        ui.openMoreMenu(itemA);
+        const deleteA = deleteEntryOf(itemA);
+        click(deleteA);
+
+        vi.advanceTimersByTime(1000);
+        const itemB = findItem(second.ui, "overlay1");
+        second.ui.openMoreMenu(itemB);
+        const deleteB = deleteEntryOf(itemB);
+        clickMenu(second.ui, deleteB);
+
+        // B arming must not clear A's timer: A is still inside its 3s window.
+        expect(deleteA.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+          true,
+        );
+
+        // A's deadline is 1000ms before B's, so A disarms alone.
+        vi.advanceTimersByTime(2100);
+        expect(deleteA.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+          false,
+        );
+        expect(deleteB.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+          true,
+        );
+
+        vi.advanceTimersByTime(1000);
+        expect(deleteB.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+          false,
+        );
+        second.manager?.debouncedEnforce?.cancel?.();
       } finally {
         vi.useRealTimers();
       }

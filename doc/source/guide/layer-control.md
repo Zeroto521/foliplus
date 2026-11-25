@@ -101,9 +101,9 @@ import geopandas as gpd
 from foliplus import LayerControl
 
 # Two data layers — the select-all toggle covers both.
-roads = gpd.read_file("roads.geojson").explore(color="#555555")
-pois = gpd.read_file("pois.geojson").explore(marker_kwds={"radius": 4})
-m = folium.Map().add_child(roads).add_child(pois)
+m = folium.Map()
+gpd.read_file("roads.geojson").explore(m=m, color="#555555")
+gpd.read_file("pois.geojson").explore(m=m, marker_kwds={"radius": 4})
 LayerControl().add_to(m)
 m.save("map.html")
 ```
@@ -122,9 +122,9 @@ import folium
 import geopandas as gpd
 from foliplus import LayerControl
 
-base = gpd.read_file("basemap.geojson").explore(style_kwds={"weight": 0})
-top = gpd.read_file("points.geojson").explore()
-m = folium.Map().add_child(base).add_child(top)
+m = folium.Map()
+gpd.read_file("basemap.geojson").explore(m=m, style_kwds={"weight": 0})
+gpd.read_file("points.geojson").explore(m=m)
 LayerControl().add_to(m)
 m.save("map.html")
 ```

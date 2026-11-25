@@ -3116,6 +3116,9 @@ class LayerController implements LayerAPI {
     this.isDestroyed = true;
     finalize(
       [
+        // A debounced opacity repaint belongs to this UI: cancel it before the
+        // carriers it would touch are torn down (see scheduleOpacityRedraw).
+        ["release-opacity-redraws", () => this.ui?.releaseOpacityRedraws()],
         // Drop every style-apply frame this UI owns before the pieces it might
         // touch go away: the UI's ownership scope dies here, so no trailing
         // frame can outlive the control and no failure can be reported for a
