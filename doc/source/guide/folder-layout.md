@@ -61,11 +61,20 @@ declaration — see {doc}`folium-integration` and {ref}`group_rows`.
 
 ## Control layers
 
-A control layer's own layer (Heatmap, Measure) is a row too, so it can
-declare a folder. The `folder=` declaration on a control layer lands with
-task-220; this page will document the exact form and cross-reference the PR
-once it opens. Until then a `foliplus={"folder": ...}` on a control layer
-is not read by the panel.
+A control layer's own layer — the heatmap surface, the measurement geometry —
+is a row in the panel too, so it can land in a folder. `HeatmapControl` and
+`MeasureControl` take a `folder=` argument for exactly that:
+
+```python
+foliplus.HeatmapControl(folder="Analysis").add_to(m)
+foliplus.MeasureControl(folder="Analysis").add_to(m)
+LayerControl(folders=[{"name": "Analysis"}]).add_to(m)
+```
+
+A folder a user drags the row into always wins: the panel persists that
+membership per layer id, and a persisted membership is read before the
+author's declaration. Removing the row from the folder (dragging it back to
+the root) persists too, so the declaration does not pull it back on reload.
 
 ## What wins when a folder folds
 
