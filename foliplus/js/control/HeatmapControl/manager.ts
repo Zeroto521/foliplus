@@ -463,6 +463,9 @@ class HeatmapManager {
       // pan/zoom redraw: draws read `getLayerAlpha`, and `redrawHeatmap`
       // drops the CSS so the two carriers never compound.
       opacityBake: "redraw",
+      // The author's folder declaration (CONFIG.folder) reaches the registry
+      // so the controller seeds the layout from it on registration.
+      folder: typeof CONFIG.folder === "string" ? CONFIG.folder : null,
       onOpacity: () => {
         // Opacity-change repaint: drop the slider's CSS carrier first so
         // drawHexagon bakes layerAlpha into pixels and the two never compound.

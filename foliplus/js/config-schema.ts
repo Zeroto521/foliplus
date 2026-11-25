@@ -93,6 +93,8 @@ interface ConfigHeatmap extends ConfigCommon {
   collapse_on_outside: boolean;
   /** Declared zoom range: the control is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
   zoom_range: ZoomRange | null;
+  /** Declared folder name the control's layer joins in the LayerControl panel: the layer registers with this folder assignment, so a new page (no persisted layout) already places it inside the folder. A user drag to another folder wins over this declaration. */
+  folder: string | null;
 }
 
 interface ConfigLayer extends ConfigCommon {
@@ -121,6 +123,8 @@ interface ConfigMeasure extends ConfigCommon {
   collapse_on_outside: boolean;
   /** Declared zoom range: the toolbar is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
   zoom_range: ZoomRange | null;
+  /** Declared folder name the control's measurement layer joins in the LayerControl panel: the layer registers with this folder assignment, so a new page (no persisted layout) already places it inside the folder. A user drag to another folder wins over this declaration. */
+  folder: string | null;
 }
 
 interface ConfigScale extends ConfigCommon {
@@ -172,6 +176,8 @@ interface ComponentConfig {
   collapse_on_outside?: boolean;
   /** Declared zoom range: the control is visible only while the map's zoom is inside it; a malformed or unreachable range is treated as undeclared. */
   zoom_range?: ZoomRange | null;
+  /** Declared folder name the control's layer joins in the LayerControl panel: the layer registers with this folder assignment, so a new page (no persisted layout) already places it inside the folder. A user drag to another folder wins over this declaration. */
+  folder?: string | null;
   label_collide?: boolean;
   icon_prefix?: "fa-solid" | "fa-regular";
   folders?: FolderDefaults | null; // Central folder-defaults config: author-declared default folded state per folder, keyed by role. Entries are {name, folded}; a name may be declared even with no members yet. A user manual fold always wins over the author default; same-name declarations merge (first spelling, folded last-wins).

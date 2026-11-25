@@ -87,3 +87,24 @@ class TestMeasureControlConstructor:
 
     def test_export_format_csv_is_valid(self):
         MeasureControl(export_format="csv")
+
+    def test_declared_folder_serializes(self):
+        """A folder declaration reaches CONFIG for the JS registration path."""
+        html = render_control(MeasureControl(folder="工具图层"))
+        assert_config_value(html, "folder", "工具图层")
+
+    def test_declared_folder_defaults_to_null(self):
+        """No declaration serializes as null (root layer), never a fake name."""
+        html = render_control(MeasureControl())
+        assert_config_value(html, "folder", None)
+
+    def test_declared_folder_normalises_whitespace(self):
+        """A padded declaration normalises (trim + internal-whitespace fold)."""
+        html = render_control(MeasureControl(folder="  工具图层  "))
+        assert_config_value(html, "folder", "工具图层")
+
+    def test_invalid_folder_warns_and_stays_none(self):
+        """A non-string folder warns once and stays None (root layer)."""
+        ctrl = MeasureControl(folder=123)  # type: ignore[arg-type]
+        assert ctrl.folder is None
+        assert ctrl._build_config()["folder"] is None

@@ -1250,6 +1250,7 @@ describe("HeatmapManager — style delegation", () => {
       styleProvider?: () => Record<string, unknown>;
       styleSetters?: Record<string, (v: unknown) => void>;
       styleDefaultsProvider?: () => Record<string, unknown>;
+      folder?: string | null;
     };
   }
 
@@ -1264,6 +1265,18 @@ describe("HeatmapManager — style delegation", () => {
     // Aggregation field is data config — not delegated into the style drawer.
     expect(opts.styleSetters?.field).toBeUndefined();
     expect((opts as any).fieldOptions).toBeUndefined();
+  });
+
+  it("forwards CONFIG.folder to createCanvas", () => {
+    makeManager({ folder: "数据分析" });
+    const opts = getCanvasOpts();
+    expect(opts.folder).toBe("数据分析");
+  });
+
+  it("defaults CONFIG.folder to null when absent", () => {
+    makeManager();
+    const opts = getCanvasOpts();
+    expect(opts.folder).toBeNull();
   });
 
   it("styleProvider returns the live labelShow, color, size and format values", () => {
