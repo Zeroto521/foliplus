@@ -117,10 +117,13 @@ class LayerControl(BaseControl):
         which is singular because one layer belongs to one folder). Entries
         are ``{"name": ..., "folded": ...}``; only ``name`` is required (a
         non-empty string), ``folded`` is an optional bool (default expanded).
-        A name may be declared even with no members yet. A user manual
-        fold always wins over the author default; an explicit expand over an
-        author-folded folder is not yet supported, because the user override is
-        a set of folded keys and cannot record "the user re-expanded this".
+        This payload declares folder defaults only: membership comes from each
+        layer's own `foliplus={"folder": ...}` declaration, never from here.
+        A name may be declared even with no members yet — it then has no row to
+        apply to, and the declaration warns once. A user's manual fold or
+        expand always wins over the author default: the user override is a
+        tri-state map, so an explicit expand over an author-folded folder is
+        recorded and survives.
         Declarations of the same name (NFC → whitespace-fold → trim →
         lower-case) merge within one section: the display name keeps the first
         spelling, ``folded`` is last-wins.

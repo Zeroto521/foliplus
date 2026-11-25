@@ -1,4 +1,4 @@
-"""Split of test_panel.py by dimension."""
+"""Browser tests for the layer more-menu: shell padding and the small-menu scroll guard."""
 
 from __future__ import annotations
 
@@ -242,3 +242,53 @@ class TestPanelBrowser(LayerControlBrowserBase):
             assert state["rows"] == before - 1, f"click on Delete: row kept: {state}"
 
             assert not errors, f"JS errors: {errors}"
+
+
+class TestMoreMenuScrollBrowser:
+    """The ⋮ overflow menu never scrolls when the item list is small."""
+
+    @pytest.mark.browser
+    def test_small_menu_no_scrollbar(self, browser, tmp_path):
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        LayerControl().add_to(m)
+        # A tile basemap is a data row with Style / Focus / Rename / Attributes /
+        # Delete — no Filter row (tile layers have no filterable fields), so the
+        # menu is exactly the 5-item small case from the user report.
+        folium.TileLayer("OpenStreetMap").add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "small_menu")
+        try:
+            panel_ready(page)
+            result = page.evaluate(_js("LayerControl/measure_more_menu_scroll"))
+            assert result["ok"], f"probe failed: {result.get('reason')}"
+            assert result["itemCount"] == 5, (
+                f"expected a 5-item menu, got {result['itemCount']}"
+            )
+            # The no-scroll invariant: content fits the scrollport on both axes.
+            assert result["noHScroll"], (
+                f"menu scrolls horizontally: scrollWidth={result['scrollWidth']} "
+                f"clientWidth={result['clientWidth']}"
+            )
+            assert result["noVScroll"], (
+                f"menu scrolls vertically: scrollHeight={result['scrollHeight']} "
+                f"clientHeight={result['clientHeight']}"
+            )
+            # The shared recipe applied (computed values, not the token string).
+            assert result["scrollbarWidth"] == "thin", (
+                f"scrollbar-width not thin: {result['scrollbarWidth']}"
+            )
+            assert result["scrollbarGutter"] == "auto", (
+                f"menu should not reserve a gutter: {result['scrollbarGutter']}"
+            )
+            # The menu is at least as wide as its content (no horizontal clip).
+            assert result["menuWidth"] >= result["scrollWidth"], (
+                f"menu clips content: width={result['menuWidth']} "
+                f"scrollWidth={result['scrollWidth']}"
+            )
+            # "Confirm Delete" (armed state's label) is the widest item; it must
+            # be present and not clipped. The menu renders "Delete Layer"/"Clear
+            # Data" at rest; the armed label is "Confirm Delete".
+            assert result["confirmDeleteVisible"], "delete entry not found in menu"
+        finally:
+            page.close()
+        assert errors == [], f"console errors: {errors}"
