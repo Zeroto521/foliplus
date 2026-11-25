@@ -349,41 +349,28 @@ const syncRowOrder = (ui: LayerUI): void => {
   // row is a block header, and a root layer can sit between two folder blocks.
   // Walking the registry alone left every folder row out of `targets`, so the
   // moves below pushed them to the end of the panel.
-  const anchorSeen = new Set<string>();
-  const pushRole = (role: string): void => {
-    if (anchorSeen.has(role) || !rolesWithHeader(ui, role)) return;
-    anchorSeen.add(role);
-    const anchor = anchors.get(role);
-    if (anchor) targets.push(anchor);
-    else ui.log?.warn("syncRowOrder: role rows present, anchor missing");
-    // A stub surface (tests, a panel built before the layout exists) has no
-    // block order to walk: the registry order is the whole sequence.
-    if (!ui.c.folderLayoutView) {
-      for (const layerInfo of ui.c.layers) {
-        if (layerInfo.role !== role) continue;
-        const row = rows.get(layerInfo.id);
-        if (row) targets.push(row);
-      }
-      return;
+  // The target sequence is the ONE placement authority: the full-panel
+  // row-key sequence (each role header + its block order, in panel role order).
+  // A folder row is a block header and a root layer can sit between two folder
+  // blocks — walking the registry alone left every folder row out of
+  // `targets`, so the moves below pushed them to the panel's end. Resolving
+  // each key to its live row skips a row that is not on the panel yet (e.g. a
+  // block whose member has not registered).
+  for (const key of rowKeySequenceAll(ui)) {
+    if (key.startsWith("role:")) {
+      const anchor = anchors.get(key.slice("role:".length));
+      if (anchor) targets.push(anchor);
+      else ui.log?.warn("syncRowOrder: role rows present, anchor missing");
+      continue;
     }
-    for (const block of displayBlocks(ui, role)) {
-      if (block.kind === "folder") {
-        const row = folderRows.get(block.key);
-        if (row) targets.push(row);
-        // The block's members follow its header — a folder row without them
-        // would leave every member row behind at the panel's tail.
-        for (const member of block.block.members) {
-          const memberRow = rows.get(member.id);
-          if (memberRow) targets.push(memberRow);
-        }
-      } else {
-        const row = rows.get(block.layer.id);
-        if (row) targets.push(row);
-      }
+    let row: HTMLElement | undefined;
+    if (key.startsWith("folder:")) {
+      row = folderRows.get(key.slice(key.indexOf(":", key.indexOf(":") + 1) + 1));
+    } else {
+      row = rows.get(key.slice("layer:".length));
     }
-  };
-  for (const layerInfo of ui.c.layers) pushRole(layerInfo.role);
-  for (const role of [ROLE.OVERLAY, ROLE.BASE]) pushRole(role);
+    if (row) targets.push(row);
+  }
   // The length check is the cheap side of the panel-matches-registry
   // invariant; only when it breaks is the diff computed and named, so the
   // hot path never pays for the diagnostics. One warn names both sides of
@@ -532,6 +519,157 @@ const displayBlocks = (
         }
       : { kind: "layer" as const, layer: block.info },
   );
+
+/** The panel's row-key sequence for one role — the ONE placement authority.
+ *  A row key is `role:<r>` (the role header), `folder:<r>:<key>` (a folder
+ *  block header) or `layer:<id>` (a leaf row). Every placement path —
+ *  renderInitialList, syncRowOrder and insertLayerItem — derives its position
+ *  from this sequence, so the initial render and a late registration can never
+ *  paint the same layer set in two different orders. The sequence is the block
+ *  order projected by displayBlocks (whose ORDER lives in roleBlocks — the same
+ *  function the stacking order uses). */
+const rowKeySequence = (ui: LayerUI, role: string): string[] => {
+  if (!rolesWithHeader(ui, role)) return [];
+  const seq: string[] = [`role:${role}`];
+  // A stub surface (tests, a panel built before the layout exists) has no
+  // block order to walk: the registry order is the whole sequence.
+  if (!ui.c.folderLayoutView) {
+    for (const layerInfo of ui.c.layers) {
+      if (layerInfo.role === role) seq.push(`layer:${layerInfo.id}`);
+    }
+    return seq;
+  }
+  for (const block of displayBlocks(ui, role)) {
+    if (block.kind === "folder") {
+      seq.push(`folder:${role}:${block.key}`);
+      // The block's members are flat-sibling rows right after their folder
+      // header — the row-key sequence carries them so a late member's key sits
+      // at its rank among the block, exactly where renderInitialList paints it.
+      for (const member of block.block.members) {
+        seq.push(`layer:${member.id}`);
+      }
+    } else {
+      seq.push(`layer:${block.layer.id}`);
+    }
+  }
+  return seq;
+};
+
+/** Resolve a row key to its live panel element. */
+const rowByKey = (ui: LayerUI, key: string): HTMLElement | null => {
+  const container = ui.uiContainer;
+  if (!container) return null;
+  if (key.startsWith("role:")) {
+    return container.querySelector(
+      `${CONST.SEL.TOGGLE_ALL}[data-role="${CSS.escape(key.slice(5))}"]`,
+    );
+  }
+  if (key.startsWith("folder:")) {
+    // folder:<role>:<key> — the folder key may itself contain ':' (normalised
+    // names keep them), so it is everything after the second ':'. The folder
+    // row carries data-folder-key (and data-role) directly, so the query keys
+    // on the folder key alone.
+    const folderKey = key.slice(key.indexOf(":", key.indexOf(":") + 1) + 1);
+    return container.querySelector(
+      `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
+    );
+  }
+  // `layer:` is the default key shape; the terminal querySelector returns null
+  // when the row is not painted yet (a key after the inserted row that has not
+  // registered) — the common no-match case in the placement loops.
+  return container.querySelector(
+    `[${CONST.DATA.LAYER_ID}="${CSS.escape(key.slice(6))}"]`,
+  );
+};
+
+/** Reposition one role's block — its toggle-all header and every row it owns
+ *  (folder rows, member rows, root rows) — to the position rowKeySequenceAll
+ *  assigns it. Used by insertLayerItem when a late registration changes the
+ *  role's order: the panel may have mounted with a different role composition
+ *  (e.g. only the color basemap, so BASE painted first), and once the role
+ *  gains a live row its header must move before the roles that came earlier in
+ *  the mount. Without this, the new row lands correctly but the role's header
+ *  and folder rows stay behind a later role's block. */
+const realignRole = (ui: LayerUI, role: string): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  const seq = rowKeySequenceAll(ui);
+  // The role's first and last keys in the sequence.
+  const roleKeys = seq.filter(k => k.startsWith(`role:${role}`));
+  if (roleKeys.length === 0) return;
+  // The role's DOM block: from its header up to (not including) the next role
+  // header, or the panel end.
+  const header = container.querySelector<HTMLElement>(
+    `${CONST.SEL.TOGGLE_ALL}[data-role="${CSS.escape(role)}"]`,
+  );
+  if (!header) return;
+  const block: HTMLElement[] = [header];
+  let el = header.nextElementSibling;
+  while (el) {
+    if (el.classList.contains(CONST.CLASSES.TOGGLE_ALL)) break;
+    block.push(el as HTMLElement);
+    el = el.nextElementSibling;
+  }
+  // Target: the first existing row at or after the role's FIRST key that is
+  // not part of the block itself. The block (header + its folder rows) must
+  // open the role's slice in seqAll — inserting it before the role's first
+  // member row (or the next role's header) puts the header where the initial
+  // render would have painted it.
+  const roleSeq = rowKeySequence(ui, role);
+  const firstKey = roleSeq[0];
+  const firstIdx = seq.indexOf(firstKey);
+  const inBlock = new Set(block);
+  let target: HTMLElement | null = null;
+  for (let i = firstIdx; i < seq.length; i++) {
+    const candidate = rowByKey(ui, seq[i]);
+    if (candidate && !inBlock.has(candidate)) {
+      target = candidate;
+      break;
+    }
+  }
+  // Already in place: the block's first element is immediately before target
+  // (or the block is at the end when target is null).
+  const first = block[0];
+  if (target) {
+    if (first.nextElementSibling === target) return;
+    // If the block already sits directly before target, no move.
+    if (block[block.length - 1].nextElementSibling === target) return;
+  } else if (block[block.length - 1].nextElementSibling === null) {
+    return;
+  }
+  // Detach the block and re-insert it before the target.
+  const frag = document.createDocumentFragment();
+  for (const node of block) frag.appendChild(node);
+  if (target) container.insertBefore(frag, target);
+  else container.appendChild(frag);
+};
+
+/** The panel's role order: the order the layer sequence introduces the roles
+ *  (overlay then base for a two-role panel), then any role that owns only an
+ *  empty folder key — the same order renderInitialList emits the headers in. */
+const panelRoleOrder = (ui: LayerUI): string[] => {
+  // The order the layer sequence introduces the roles (overlay then base for a
+  // two-role panel), then any role that owns only an empty folder key — the
+  // SAME order renderInitialList emits the headers in, so rowKeySequenceAll and
+  // the initial render can never disagree on where a role's rows belong.
+  const seen: string[] = [];
+  for (const layerInfo of ui.c.layers) {
+    if (!seen.includes(layerInfo.role)) seen.push(layerInfo.role);
+  }
+  for (const role of [ROLE.OVERLAY, ROLE.BASE]) {
+    if (!seen.includes(role)) seen.push(role);
+  }
+  return seen;
+};
+
+/** The full-panel row-key sequence (all roles, in panelRoleOrder) — the ONE
+ *  placement authority for the whole panel. A late-registered row lands before
+ *  the next already-painted row after its key in THIS sequence, so the search
+ *  crosses role boundaries: the last overlay row inserts before the base
+ *  header instead of drifting to the panel's end. */
+const rowKeySequenceAll = (ui: LayerUI): string[] =>
+  panelRoleOrder(ui).flatMap(role => rowKeySequence(ui, role));
+
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -569,7 +707,23 @@ const renderInitialList = (ui: LayerUI) => {
       ui.listPanel.authorDefaultFoldedRoles,
       role,
     );
-    for (const block of displayBlocks(ui, role)) {
+    // The emission order is the ONE placement authority — rowKeySequence —
+    // resolved back to each block: a folder key renders its header row then its
+    // members; a layer key renders its row. Walking displayBlocks directly here
+    // would be a second copy of the sequence, and a future edit to one could
+    // drift the initial render from the late-registration insert.
+    const blocksByKey = new Map(
+      displayBlocks(ui, role).map(block => [
+        block.kind === "folder"
+          ? `folder:${role}:${block.key}`
+          : `layer:${block.layer.id}`,
+        block,
+      ]),
+    );
+    for (const key of rowKeySequence(ui, role)) {
+      if (key.startsWith("role:")) continue; // header emitted above
+      const block = blocksByKey.get(key);
+      if (!block) continue;
       if (block.kind === "folder") {
         const row = renderFolderRow(
           ui,
@@ -608,7 +762,9 @@ const renderInitialList = (ui: LayerUI) => {
     }
   };
   // Roles in the order the layer sequence introduces them (overlay then base
-  // for a two-role panel), then any role that owns only an empty folder key.
+  // for a two-role panel), then any role that owns only an empty folder key —
+  // no live rows — gets its header after the loop, keeping the empty-folder
+  // cleanup button reachable (hard constraint: the empty role trails live rows).
   const seenRoleOrder: string[] = [];
   for (const layerInfo of ui.c.layers) {
     if (!seenRoleOrder.includes(layerInfo.role)) {
@@ -669,16 +825,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const ref = cursorRef(ui);
   const role = layerInfo.role;
 
-  // `firstOfGroup` anchors the INSERT position: the first ROW of this role,
-  // not the role header. The header is checked separately so a late row
-  // lands at its registry depth (beside its role's other rows) instead of
-  // being wedged above the header — the TOGGLE_ALL match must not become an
-  // insertion anchor, so the header stays adjacent to its rows.
-  const firstRowSel =
-    role === ROLE.BASE
-      ? `${CONST.SEL.LEAF_ITEM}[data-layer-type="${ROLE.BASE}"]`
-      : `${CONST.SEL.LEAF_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
-  const firstOfGroup = container.querySelector(firstRowSel);
+  // The role header is emitted with the row when the role is new (a late
+  // registration into a role that owns no rows yet paints its header first);
+  // when the header is already on the panel it stays put and only the row
+  // lands. The header is part of the row-key sequence, so the placement below
+  // keeps it adjacent to its rows by construction.
   const header = container.querySelector(
     `${CONST.SEL.TOGGLE_ALL}[data-role="${role}"]`,
   );
@@ -721,58 +872,34 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     item.classList.add(CONST.CLASSES.GROUP_FOLDED);
   }
 
-  // A folder member joins its folder block (renderInitialList's placement
-  // rule), not the role's root-layer stream: the row is a flat sibling right
-  // after the folder row, at its rank among the block's members. The
-  // registry-depth anchor below landed it beside the root layers instead, so a
-  // late-registered member dragged into a folder showed fallen to root on
-  // refresh. The folder row is already on the panel whenever the folder owns
-  // an order key (the layout the user's drag wrote), so the member-position
-  // insert is the normal path; a folder row that is not on the panel yet falls
-  // through to the registry-depth anchor.
-  const folderKey = folderOf(ui.c.folderLayoutView, layerInfo);
-  const folderRow = folderKey
-    ? container.querySelector<HTMLElement>(
-        `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
-      )
-    : null;
-  if (folderRow) {
-    const block = displayBlocks(ui, role).find(
-      b => b.kind === "folder" && b.key === folderKey,
-    );
-    const members = block?.kind === "folder" ? block.block.members : [];
-    const memberIdx = members.findIndex(m => m.id === layerInfo.id);
-    let anchor: HTMLElement = folderRow;
-    for (let i = 0; i < memberIdx; i++) {
-      const memberRow = container.querySelector<HTMLElement>(
-        `[${CONST.DATA.LAYER_ID}="${CSS.escape(members[i].id)}"]`,
-      );
-      if (memberRow) anchor = memberRow;
-    }
-    anchor.after(frag);
-  } else if (!firstOfGroup) {
-    // BASE inserts before the first base row (end of the base role).
-    // OVERLAY inserts before the first base row; when none exists, append at
-    // the end.
-    const nextAnchor = container.querySelector(
-      `${CONST.SEL.LAYER_ITEM}[data-layer-type="${ROLE.BASE}"]`,
-    );
-    if (nextAnchor) container.insertBefore(frag, nextAnchor);
-    else container.appendChild(frag);
-  } else {
-    // The row lands where the registry put the layer, not at the role's top: a
-    // late registration replayed onto a stored slot must sit at that depth in
-    // the panel too, so the panel's visual order matches the drawn z-order.
-    // The neighbor above is used rather than the one below so the last row of
-    // a role has something to anchor on at all.
-    const above = idx > 0 ? ui.c.layers[idx - 1] : null;
-    const anchor =
-      above?.role === layerInfo.role
-        ? container.querySelector(`[${CONST.DATA.LAYER_ID}="${CSS.escape(above.id)}"]`)
-        : null;
-    if (anchor) anchor.after(frag);
-    else container.insertBefore(frag, firstOfGroup);
+  // Placement is the ONE authority: the row-key sequence (block order
+  // projected by displayBlocks, whose ORDER lives in roleBlocks — the same
+  // function the stacking order uses). The new row's key sits in that
+  // sequence; it lands immediately before the next ALREADY-PAINTED row after
+  // it, or at the panel's end when it is the last key. This replaces the three
+  // parallel placement rules (folder-member rank, first-of-group, registry
+  // depth) that could drift from renderInitialList — the late-registration
+  // path now IS the initial-render path.
+  const seq = rowKeySequenceAll(ui);
+  const newKey = `layer:${layerInfo.id}`;
+  const at = seq.indexOf(newKey);
+  // Insert before the next ALREADY-PAINTED row after the new key (or after
+  // the panel start when the key is not in the sequence — a layer the block
+  // projection does not list lands at its nearest painted successor rather
+  // than being silently appended).
+  let next: HTMLElement | null = null;
+  for (let i = at + 1; i < seq.length; i++) {
+    next = rowByKey(ui, seq[i]);
+    if (next) break;
   }
+  if (next) container.insertBefore(frag, next);
+  else container.appendChild(frag);
+  // A late registration can flip the panel's role order: the mount may have
+  // painted BASE first (only the color basemap present) and the new overlay
+  // layer's row lands before BASE, but the overlay header and its folder rows
+  // were painted behind BASE at mount. Move the whole role block (header +
+  // folder rows + rows) to its rowKeySequenceAll position.
+  realignRole(ui, role);
 
   // Late registration — seed the author's default here, once per id.
   // Initial layers were already seeded in `LayerUI`'s constructor; a
