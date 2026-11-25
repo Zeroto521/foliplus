@@ -95,7 +95,7 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 435,
+    line: 422,
     call: "refreshTreeConnectors(ui);",
     reason:
       "syncRowOrder: the rows moved, so the ├/└ connectors may no longer match the block they sit in (the reorder path)",
