@@ -28,6 +28,7 @@ import type {
   LayerInfo as CoreLayerInfo,
 } from "#core/layer/index.js";
 import { type ModeManager as CoreModeManager } from "#core/lifecycle/index.js";
+import type { HintAPI as CoreHintAPI } from "#core/overlay/index.js";
 import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { ProviderConfig } from "#foliplus/config-schema.js";
 import type { LocaleTables } from "#platform/locale.js";
@@ -131,10 +132,10 @@ declare global {
    * `runtime/index.ts` is the single builder of this object — members added
    * there must land here or they silently type as `unknown`.
    *
-   * Hint methods deliberately do NOT appear on this interface: `showHint` /
-   * `hideHint` / `registerHintIcon` are per-map and live only on
-   * `map.foliplus` (see {@link MapFoliplus}). The hint *module* factory
-   * `ensureHint` is what reaches the per-map namespace. */
+   * Hint instances deliberately do NOT appear on this interface: the per-map
+   * `hint` API (set/clear/registerIcon) lives only on `map.foliplus` (see
+   * {@link MapFoliplus}). The hint *module* factory `ensureHint` is what
+   * reaches the per-map namespace. */
   interface Foliplus {
     isInitialized: boolean;
     /** Build version (`git describe`), set once by the shared runtime. */
@@ -255,17 +256,8 @@ declare global {
   interface MapFoliplus {
     /** LayerControl public API (always available; lightweight until LayerControl upgrades it). */
     LayerAPI: LayerAPI;
-    /** Per-map toast system (HintManager). */
-    showHint: (
-      key: string,
-      text: string,
-      duration: number,
-      append?: boolean,
-      subkey?: string,
-      withLoadingIcon?: boolean,
-    ) => void;
-    hideHint: (key: string, subkey?: string) => void;
-    registerHintIcon: (key: string, iconSvg: string) => void;
+    /** Per-map hint API (set/clear/registerIcon). */
+    hint: CoreHintAPI;
     /** Per-map cross-component event bus. */
     events: CoreEventBus;
     /** Optional per-map diagnostic hook: called with the event name and the

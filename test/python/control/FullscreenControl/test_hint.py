@@ -12,10 +12,10 @@ from .helper import (
 
 
 class TestFullscreenHintBrowser:
-    """Browser-level assertions on showHint call counts."""
+    """Browser-level assertions on hint.set call counts."""
 
     def test_show_hint_once_per_toggle(self, browser, tmp_path):
-        """showHint fires exactly once per fullscreen transition.
+        """hint.set fires exactly once per fullscreen transition.
 
         updateUI is driven by the `fullscreenchange` event, so the
         requestFullscreen/exitFullscreen `.then()` callbacks must not call
@@ -27,7 +27,7 @@ class TestFullscreenHintBrowser:
             page.wait_for_selector(
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
-            # Wrap showHint to count calls (per-map hint on map.foliplus).
+            # Wrap hint.set to count calls (per-map hint on map.foliplus).
             page.evaluate(_js("FullscreenControl/wrap_hint_counter"))
             _enter_fullscreen(page, hide_self=True)
             page.wait_for_timeout(200)

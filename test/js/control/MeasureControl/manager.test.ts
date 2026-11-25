@@ -62,10 +62,19 @@ const filter = (values: string[]): any => ({
   values,
 });
 
+/** Finalize one distance measurement on the manager. registerItemLayers is
+ *  the real manager method that finalizes a measurement's leaves, so it keeps
+ *  the measure surface non-empty across the Escape that ends the mode — the
+ *  content-driven shouldUnregister() in the factory checks exactly this. */
+const finalizeDistance = (manager: any): void => {
+  const finalPoly = { _finalizedDistancePoly: true };
+  manager.layers.registerItemLayers("d1", [finalPoly]);
+};
+
 /** Read the shared filter store record for a manager's map. */
 const readStoreRecord = (manager: any): any => {
   const raw = window.localStorage.getItem(filterStoreKey(manager.map));
-  return raw ? JSON.parse(raw) : null;
+  return raw ? (JSON.parse(raw).data ?? null) : null;
 };
 
 /** Read one layer's measure source from the shared store record. */
@@ -180,7 +189,7 @@ describe("MeasureManager — mode switching", () => {
     manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     manager.clearActiveMode();
     expect(manager.currentMode).toBeNull();
-    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.clear).toHaveBeenCalled();
   });
 
   it("clearAll clears layers and measurements", () => {
@@ -346,13 +355,14 @@ describe("MeasureManager — mode switching", () => {
     // The start hint must persist until the mode is cleared. setMode shows it
     // AFTER cleanMapEvents hides any previous hint, so showHint must be the
     // last hint operation (previously a trailing hideHint swallowed it).
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.any(String),
-      expect.anything(),
+      { duration: expect.anything() },
     );
-    const showOrder = manager.map.foliplus!.showHint.mock.invocationCallOrder[0];
-    const hideOrder = manager.map.foliplus!.hideHint.mock.invocationCallOrder[0];
+    const showOrder = manager.map.foliplus!.hint.set.mock.invocationCallOrder[0];
+    const hideOrder = manager.map.foliplus!.hint.clear.mock.invocationCallOrder[0];
     expect(showOrder).toBeGreaterThan(hideOrder);
   });
 
@@ -401,10 +411,11 @@ describe("MeasureManager — applyEditMode", () => {
     expect(manager.isEditMode).toBe(true);
     expect(editBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(true);
     expect(otherBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(false);
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.any(String),
-      expect.anything(),
+      { duration: expect.anything() },
     );
   });
 
@@ -425,22 +436,22 @@ describe("MeasureManager — applyEditMode", () => {
     editBtn.dataset.mode = CONST.MEASURE_MODE.EDIT;
     manager.toolBtns = [editBtn];
     manager.applyEditMode(true);
-    manager.map.foliplus!.showHint.mockClear();
+    manager.map.foliplus!.hint.set.mockClear();
 
     manager.applyEditMode(false);
 
     expect(manager.isEditMode).toBe(false);
     expect(editBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(false);
-    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
-    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.clear).toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.set).not.toHaveBeenCalled();
   });
 
   it("is idempotent for the same state", () => {
     const { manager } = makeManager();
     manager.applyEditMode(true);
-    manager.map.foliplus!.showHint.mockClear();
+    manager.map.foliplus!.hint.set.mockClear();
     manager.applyEditMode(true); // no-op
-    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.set).not.toHaveBeenCalled();
   });
 
   it("closes registered overlays when disabled", () => {
@@ -643,10 +654,11 @@ describe("MeasureManager — applyEditMode", () => {
     manager.setMode(CONST.MEASURE_MODE.EDIT);
 
     expect(manager.isEditMode).toBe(false);
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.any(String),
-      expect.anything(),
+      { duration: expect.anything() },
     );
   });
 
@@ -749,6 +761,113 @@ describe("MeasureManager — global events", () => {
     );
     expect(spy).toHaveBeenCalled();
   });
+  it("onKeyDown returns early when the mode finalized the drawing", () => {
+    // The document-level shortcut (interaction.ts) is the primary Escape
+    // entry; this pins the manager-level handler too, so the early return
+    // cannot rot into a second clearActiveMode call.
+    const { manager } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => true;
+    const spy = vi.spyOn(manager, "clearActiveMode");
+
+    manager.onKeyDown(new KeyboardEvent("keydown", { key: "Escape" }));
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("Escape keydown returns early when the mode finalized the drawing", () => {
+    // The finish path ends the mode itself; routing must not clear it again.
+    const { manager } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => true;
+    const spy = vi.spyOn(manager, "clearActiveMode");
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("Escape keydown leaves edit mode when no draw mode is active", () => {
+    const { manager } = makeManager();
+    manager.isEditMode = true;
+    const spy = vi.spyOn(manager, "applyEditMode");
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(spy).toHaveBeenCalledWith(false);
+  });
+
+  it("Escape while a distance draw is in flight drops the empty measure row", () => {
+    // clearActiveMode hands the surface back to the factory via unregister();
+    // an in-flight draw holds nothing finalized, so the empty measure row
+    // leaves the LayerControl panel with the cancel.
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.register).toHaveBeenCalled();
+    expect(layers.unregister).toHaveBeenCalled();
+    expect(layers.registered).toBe(false);
+    expect(layers.clearLayers).not.toHaveBeenCalled();
+  });
+
+  it("Escape with a complete in-flight distance (2 points) finalizes and keeps the row", () => {
+    // finishOnExit returns true for a geometry-complete in-flight draw (2+
+    // points); the finish path itself ends the mode and populates content, so
+    // the ESC routing must NOT call clearActiveMode again (that would be a
+    // no-op on content — this test pins that routing via a stub finishOnExit
+    // because the fixture L mocks cannot drive real finishDist internals).
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => {
+      layers.registerItemLayers("d1", [{ _finalPoly: true }]);
+      manager.clearActiveMode();
+      return true;
+    };
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.registered).toBe(true);
+    expect(manager.currentMode).toBeNull();
+  });
+
+  it("Escape with an incomplete in-flight distance (1 point) drops the row", () => {
+    // 1 point is too sparse to finalize; finishOnExit returns false and the
+    // caller calls clearActiveMode → unregister sees no content → row drops.
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    manager.modeInstance!.finishOnExit = () => false;
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.registered).toBe(false);
+  });
+
+  it("Escape after a finalized distance keeps the measure row registered", () => {
+    // The finalized leaves belong to this measurement's registerItemLayers
+    // entry, so the surface still holds content when Escape ends the mode and
+    // the content-driven unregister keeps the row. clearLayers (CLEAR /
+    // destroy / unload) is the path that removes the content outright.
+    const { manager, layers } = makeManager();
+    manager.setMode(CONST.MEASURE_MODE.DISTANCE);
+    finalizeDistance(manager);
+
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+    );
+
+    expect(layers.registered).toBe(true);
+  });
 
   it("Escape keydown does nothing when no mode is active", () => {
     const { manager } = makeManager();
@@ -850,16 +969,17 @@ describe("MeasureManager — export auto-clear", () => {
     manager.setMode("distance");
     expect(manager.currentMode).toBe("distance");
     const events = ensureEvents(manager.map);
-    manager.map.foliplus!.showHint.mockClear();
+    manager.map.foliplus!.hint.set.mockClear();
     events.publish("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
     });
     expect(manager.currentMode).toBeNull();
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.stringContaining("export_paused"),
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
   });
 
@@ -1258,8 +1378,7 @@ function makeLabelManager(config: Partial<typeof window.CONFIG> = {}) {
     off: vi.fn(),
     eachLayer: vi.fn(),
     foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
+      hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
       LayerAPI: { createLayers: vi.fn(() => layers) },
     },
   };

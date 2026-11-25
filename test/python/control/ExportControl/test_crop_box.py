@@ -330,7 +330,27 @@ class TestExportCropBoxBrowser:
             page.wait_for_timeout(50)
             assert not box.get_attribute("class").endswith("dragging")
 
-            # R changes the size, so the hint must be refreshed (and rebuilt).
+            # A resize changes the size, so the hint text changes and the element
+            # is rebuilt (the mark is gone).
+            handle = page.locator(".foliplus-export-handle.br")
+            handle_box = handle.bounding_box()
+            page.mouse.move(
+                handle_box["x"] + handle_box["width"] / 2,
+                handle_box["y"] + handle_box["height"] / 2,
+            )
+            page.mouse.down()
+            page.mouse.move(
+                handle_box["x"] + handle_box["width"] / 2 + 40,
+                handle_box["y"] + handle_box["height"] / 2 + 20,
+                steps=5,
+            )
+            page.mouse.up()
+            page.wait_for_timeout(150)
+            assert page.evaluate(_js("ExportControl/read_size_hint_mark")) != "1"
+
+            # Re-mark, then R resets the size back to the default: another text
+            # change, so another rebuild.
+            page.evaluate(_js("ExportControl/mark_size_hint"))
             page.keyboard.press("r")
             page.wait_for_timeout(150)
             assert page.evaluate(_js("ExportControl/read_size_hint_mark")) != "1"

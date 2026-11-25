@@ -70,6 +70,10 @@ tmp/
 .pytest_cache/
 .playwright-mcp
 .playwright-cli/
+# Playwright browser profile scratch: a local browser run writes its profile
+# here, and `git add -A` must never pick it up.
+.temp/
+playwright_*_profile-*/
 
 # Node / npm
 .npmrc
@@ -112,3 +116,6 @@ debug.log
 nul
 # PR body drafts are scratch files, never committed.
 .pr-body-*.md
+
+# Playwright browser profile scratch (never commit)
+.temp/

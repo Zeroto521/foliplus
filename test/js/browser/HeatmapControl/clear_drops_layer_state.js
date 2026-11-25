@@ -21,7 +21,8 @@ async () => {
       k.startsWith("foliplus_layer_state_"),
     );
     if (!key) return null;
-    const record = JSON.parse(localStorage.getItem(key));
+    const stored = JSON.parse(localStorage.getItem(key));
+    const record = stored && stored.data ? stored.data : stored;
     const entry = record && record.layers ? record.layers[lid()] : null;
     if (!entry) return null;
     return {

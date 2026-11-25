@@ -226,11 +226,9 @@ const isFocusing = (ui: LayerUI): boolean => {
 /** Cancel an in-flight focus: remove rect + mask + row highlight. */
 const cancelFocus = (ui: LayerUI): void => {
   dismissFocus(ui);
-  ui.c.map.foliplus!.showHint(
-    ui.config.name,
-    ui.T("focus_cancelled"),
-    HINT_DURATION.SHORT,
-  );
+  ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("focus_cancelled"), {
+    duration: HINT_DURATION.SHORT,
+  });
 };
 
 /** Internal: tear down focus visuals + state (no hint). */

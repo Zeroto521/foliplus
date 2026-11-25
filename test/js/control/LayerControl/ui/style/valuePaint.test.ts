@@ -79,7 +79,9 @@ const makeUI = (layer: unknown) =>
     c: {
       layerRegistry: new Map([["demo1", { id: "demo1", layer }] as any]),
       findLayer: () => layer,
-      map: { foliplus: { showHint: vi.fn() } },
+      map: {
+        foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
+      },
     },
     T: (key: string) => key,
     config: { name: "LayerControl" },
@@ -220,10 +222,10 @@ it("degrades to equal and reports when the classifier dependency is missing", ()
   }
   // The degradation was reported: a warn and a user-visible hint.
   expect(warnSpy).toHaveBeenCalled();
-  const showHint = (ui.c.map.foliplus as any).showHint;
+  const showHint = (ui.c.map.foliplus as any).hint.set;
   expect(showHint).toHaveBeenCalledTimes(1);
   expect(showHint.mock.calls[0][0]).toBe("LayerControl");
-  expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
+  expect(showHint.mock.calls[0][2]).toBe("style_value_classify_degraded");
   warnSpy.mockRestore();
 });
 
@@ -245,9 +247,9 @@ it("reports the classify degradation at most once per layer per page", () => {
 
   // The hint was deduped: the second apply reused the cached decision and
   // did not re-pop the degradation message.
-  const showHint = (ui.c.map.foliplus as any).showHint;
+  const showHint = (ui.c.map.foliplus as any).hint.set;
   expect(showHint).toHaveBeenCalledTimes(1);
-  expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
+  expect(showHint.mock.calls[0][2]).toBe("style_value_classify_degraded");
   warnSpy.mockRestore();
 });
 
@@ -268,7 +270,7 @@ it("re-arms the hint for a layer id that a removed layer wore", () => {
     { properties: { value: 9 } },
   ]);
   const ui = makeUI(layer);
-  const showHint = (ui.c.map.foliplus as any).showHint;
+  const showHint = (ui.c.map.foliplus as any).hint.set;
 
   paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
   expect(showHint).toHaveBeenCalledTimes(1);
@@ -281,7 +283,7 @@ it("re-arms the hint for a layer id that a removed layer wore", () => {
   paintByValue(ui, "demo1", makeRamp({ method: METHOD.JENKS }), demoDecl);
 
   expect(showHint).toHaveBeenCalledTimes(2);
-  expect(showHint.mock.calls[1][1]).toBe("style_value_classify_degraded");
+  expect(showHint.mock.calls[1][2]).toBe("style_value_classify_degraded");
   warnSpy.mockRestore();
 });
 

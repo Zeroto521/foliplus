@@ -217,7 +217,7 @@ const guardBlocked = (
       if (candidate) text = candidate.text;
     }
   }
-  map.foliplus?.showHint?.(name, text, HINT_DURATION.SHORT);
+  map.foliplus?.hint.set(name, "", text, { duration: HINT_DURATION.SHORT });
   return true;
 };
 

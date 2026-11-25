@@ -97,7 +97,7 @@ const doExport = function (this: ExportManager) {
     // Clear all of this component's hints first. The crop-box size/limit
     // hints are PERSIST (duration 0 sets no timer), so they would otherwise
     // outlive the export and sit on top of whatever status appears next.
-    this.map.foliplus!.hideHint(CONFIG.name);
+    this.map.foliplus!.hint.clear(CONFIG.name);
     this.unlockMap();
     this.endExport();
     return;
@@ -108,8 +108,8 @@ const doExport = function (this: ExportManager) {
   // PERSIST (duration 0 sets no timer), so nothing else removes them once
   // the box is gone — they'd outlive the export entirely, the same registry
   // leak as the object-URL one.
-  this.map.foliplus!.hideHint(CONFIG.name, "size");
-  this.map.foliplus!.hideHint(CONFIG.name, "limit");
+  this.map.foliplus!.hint.clear(CONFIG.name, "size");
+  this.map.foliplus!.hint.clear(CONFIG.name, "limit");
 
   this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 

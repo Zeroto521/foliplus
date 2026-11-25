@@ -105,9 +105,7 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
 
 // Mock window.foliplus runtime (must be set before module imports that capture it)
 window.foliplus = {
-  showHint: vi.fn(),
-  hideHint: vi.fn(),
-  registerHintIcon: vi.fn(),
+  hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
   geocode: vi.fn(),
   reverseGeocode: vi.fn(() => Promise.resolve("")),
   cacheSuggestion: vi.fn(),
@@ -182,8 +180,7 @@ window.CONFIG = makeConfig("SearchControl", {
 });
 window.map = {
   foliplus: {
-    showHint: vi.fn(),
-    hideHint: vi.fn(),
+    hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
   },
   flyTo: vi.fn(),
   addLayer: vi.fn(),

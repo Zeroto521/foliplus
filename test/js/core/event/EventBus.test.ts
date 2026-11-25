@@ -769,9 +769,12 @@ describe("ensureEvents", () => {
   });
 
   it("preserves sibling namespace members already installed by other factories", () => {
-    const map = { foliplus: { showHint: "hint" }, on: vi.fn() } as any;
+    const map = {
+      foliplus: { hint: { set: "hint", clear: vi.fn(), registerIcon: vi.fn() } },
+      on: vi.fn(),
+    } as any;
     ensureEvents(map);
-    expect(map.foliplus.showHint).toBe("hint");
+    expect(map.foliplus.hint.set).toBe("hint");
     expect(map.foliplus.events).toBeDefined();
   });
 

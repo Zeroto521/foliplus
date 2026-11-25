@@ -66,6 +66,13 @@ class MeasureMode {
     }
   }
 
+  /** Finalize an in-flight drawing whose geometry is already complete, so an
+   *  Escape commits it instead of discarding it. Each mode assigns this in
+   *  start() to its local finish closure; it returns true when it finalized
+   *  (and the finish path itself ends the mode), false when the in-flight
+   *  geometry is too sparse to keep (the caller then discards it). */
+  finishOnExit: () => boolean = () => false;
+
   /** Generate a unique measurement ID with type prefix. */
   nextMeasurementId(): string {
     return this.mgr.nextMeasurementId(this.type);
