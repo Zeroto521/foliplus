@@ -127,6 +127,16 @@ const releasePseudo = (map: L.Map) => {
  *  every map on the page. */
 const nativeSessions = new WeakSet<L.Map>();
 
+/** Forget a map's native fullscreen session on control teardown. The exit
+ *  handler clears nativeSessions when the fullscreenchange event lands, but a
+ *  control removed before that event leaves a stale entry: the re-added
+ *  control's fresh handler would then misjudge a sibling's transition as this
+ *  map's own exit. Deleting an absent key is a no-op, so calling this on every
+ *  teardown is safe. */
+const releaseNativeSession = (map: L.Map) => {
+  nativeSessions.delete(map);
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
@@ -237,4 +247,10 @@ const buildFullscreenChangeHandler =
     updateUI(map, fsBtn, container, env);
   };
 
-export { buildFullscreenChangeHandler, releasePseudo, toggleFullscreen, updateUI };
+export {
+  buildFullscreenChangeHandler,
+  releaseNativeSession,
+  releasePseudo,
+  toggleFullscreen,
+  updateUI,
+};

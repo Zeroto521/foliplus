@@ -618,4 +618,43 @@ describe("toggleFullscreen — native API path", () => {
       );
     });
   });
+
+  describe("nativeSessions — control teardown (P3)", () => {
+    it("a re-added control discards a sibling's native transition after teardown", async () => {
+      // P3: nativeSessions is module-level and only deleted by the handler's
+      // exit branch. A control removed before the fullscreenchange event leaves
+      // a stale entry (the handler that would clean it is unbound on removal),
+      // so the re-added control's fresh handler misjudges a sibling's native
+      // transition as this map's own exit — repainting the button and showing
+      // an exit hint for a session it was never part of. Teardown must delete
+      // the map from nativeSessions.
+      const { releaseNativeSession } =
+        await import("#control/FullscreenControl/logic.js");
+
+      // Enter natively: the enter branch records the map in nativeSessions.
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mapMock.isFullscreen).toBe(true);
+
+      // Control removed mid-session (teardown). Without the release the stale
+      // entry survives the re-add and the fresh handler below misjudges a
+      // sibling's transition as this map's own.
+      releaseNativeSession(mapMock);
+      mapMock.isFullscreen = false;
+
+      // Re-added control: a fresh handler bound by the new mounting.
+      const reAdd = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+
+      // A sibling map's native transition fires fullscreenchange for every map.
+      const sibling = document.createElement("div");
+      mocks.getFullscreenEl.mockReturnValue(sibling);
+
+      reAdd();
+
+      // The re-added control must discard it: no repaint, no exit hint.
+      expect(fsBtn.innerHTML).toBe("");
+      expect(mapMock.foliplus.showHint).not.toHaveBeenCalled();
+    });
+  });
 });
