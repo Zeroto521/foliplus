@@ -60,6 +60,35 @@ class TestListBrowser(LayerControlBrowserBase):
             assert result["shiftThrew"] is True, "shift should throw"
 
 
+    def test_drag_reorder_syncs_panel_rows(self, browser, tmp_path):
+        """A plain registry reorder must re-align the panel's row order.
+
+        The bug class this guards: reorderLayer / bringToFront /
+        moveUp / moveDown repriced z from the registry but never wrote the
+        persisted block order, so the panel rows kept the old sequence while
+        the map's stacking order changed. The layout is seeded with the folder
+        key + both roots LISTED (the stale-order precondition), a real drop is
+        driven through onDrop, and the panel rows must then equal the registry.
+        """
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("LayerControl/seed_layout_order"))
+            page.reload()
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl",
+                state="attached",
+                timeout=10000,
+            )
+            result = page.evaluate(_js("LayerControl/drag_roworder_sync"))
+            assert result is not None, "drag_roworder_sync failed"
+            assert result["zOrderChanged"] is True, (
+                f"drop did not change the registry: {result!r}"
+            )
+            assert result["panelMatchesRegistry"] is True, (
+                f"panel rows diverged from registry: {result!r}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+
 class TestListPerformanceBrowser(LayerControlBrowserBase):
     def test_render_initial_list_incremental(self, browser, tmp_path):
         """registerLayer on an existing UI must not rebuild the whole list.

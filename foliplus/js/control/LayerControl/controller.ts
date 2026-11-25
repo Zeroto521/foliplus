@@ -79,6 +79,7 @@ import {
   moveLayerToRoot as moveLayerToRootInLayout,
   normalizeFolderName,
   renameFolder,
+  reorderRootEntriesToRegistry,
   rootLayerEntry,
   seedBlockOrder,
   visibleDomOf,
@@ -1691,6 +1692,20 @@ class LayerController implements LayerAPI {
    *  order disagreeing with the live one. */
   private commitReorder(id: string, item: LayerInfo, mutate: () => void): boolean {
     mutate();
+    // A registry reorder reprices z from the registry but does not write the
+    // block order. Re-align the role's LISTED root-layer entries to the new
+    // registry order so the panel row order and the stacking order stay on the
+    // same sequence (the folder-block moves already write the order; this is
+    // the plain reorder path — reorderLayer, bringToFront, moveUp, moveDown).
+    const aligned = reorderRootEntriesToRegistry(
+      this.folderLayout.layout,
+      item.role,
+      this.layerRegistry.layers,
+    );
+    if (aligned !== this.folderLayout.layout) {
+      this.folderLayout.set(aligned);
+      this.folderLayout.flush();
+    }
     // Both commit steps are owed writes, not alternatives: the pricing pass
     // and the saved snapshot must each run even when the other throws — a
     // persisted record lagging the in-memory arrangement is exactly what the

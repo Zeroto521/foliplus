@@ -74,6 +74,7 @@ export {
   moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
+  reorderRootEntriesToRegistry,
   dropLayer,
 } from "./folderLayout.js";
 export type {

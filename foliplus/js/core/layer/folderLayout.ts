@@ -697,6 +697,46 @@ const moveLayerToRoot = (
   };
 };
 
+/** Reorder the role's LISTED root-layer entries to match the registry order,
+ *  keeping every folder key in its slot. A registry reorder (reorderLayer,
+ *  bringToFront, moveUp, moveDown) reprices z from the registry but does not
+ *  itself write the block order, so without this the listed root entries go
+ *  stale and the panel keeps the old row order while the stacking order has
+ *  already changed. Only listed entries move (an unlisted root layer is
+ *  anchor-merged by roleBlocks and already follows the registry).
+ *  Pure: returns the same layout when nothing changes. */
+const reorderRootEntriesToRegistry = (
+  layout: FolderLayout,
+  role: LayerRole,
+  registryEntries: readonly LayerInfo[],
+): FolderLayout => {
+  const order = layout.order[role];
+  if (!order) return layout;
+  const listedRoots = order.filter(isRootLayerEntry);
+  if (listedRoots.length === 0) return layout;
+  const listedRootSet = new Set(listedRoots);
+  // The role's LISTED root layers, in registry order — the new slot sequence
+  // the listed entries must follow.
+  const registryRoots = registryEntries
+    .filter(
+      e =>
+        e.role === role &&
+        isRootLayer(layout, e) &&
+        listedRootSet.has(rootLayerEntry(e.id)),
+    )
+    .map(e => rootLayerEntry(e.id));
+  let i = 0;
+  let changed = false;
+  const next = order.map(entry => {
+    if (!isRootLayerEntry(entry)) return entry;
+    const replacement = registryRoots[i] ?? entry;
+    if (replacement !== entry) changed = true;
+    i += 1;
+    return replacement;
+  });
+  return changed ? { ...layout, order: { ...layout.order, [role]: next } } : layout;
+};
+
 /** Drop one layer's assignment entirely (the deleteLayer path): the layer is
  *  gone, so its member entry goes with it, but an emptied folder's order key
  *  SURVIVES (the automatic freeze), so the block stays put for the clean
@@ -818,6 +858,7 @@ export {
   moveFolder,
   moveLayerToFolder,
   moveLayerToRoot,
+  reorderRootEntriesToRegistry,
   dropLayer,
 };
 export type { FolderLayout, FolderEntry, FolderMember, FolderLayoutManager };
