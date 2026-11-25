@@ -1,10 +1,11 @@
-"""Split of test_style.py by dimension."""
+"""Value rows: classification, palette and the paint-dimension parity baseline."""
 
 from __future__ import annotations
 
 import base64
 import copy
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -38,6 +39,7 @@ def _method_labels() -> tuple[str, str]:
     return en["foliplus.classification_method"], zh["foliplus.classification_method"]
 
 
+from .. import helper_paint as pp
 from ..helper import _expand_panel, _geo_zone, _tiny_png, _write_html
 from ..helper_browser import LayerControlBrowserBase
 
@@ -460,3 +462,72 @@ class TestStyleBrowser(LayerControlBrowserBase):
                 o and "(" not in o for o in state["fieldOptions"]
             ), f"the field options must be bare field names: {state}"
             assert not errors, f"JS errors: {errors}"
+
+
+class TestPaintDimensionParityBrowser(LayerControlBrowserBase):
+    """Baseline parity of the paint-dimension rows against the pre-S6 baseline."""
+
+    # The geometry -> layer name map (fixture names in build_layers).
+    GEOM_LAYER = {
+        "point": "Points",
+        "line": "Lines",
+        "polygon": "Polygons",
+    }
+
+    @pytest.mark.browser
+    def test_paint_dimension_parity(self, browser, tmp_path):
+        """Sample every offered group and compare against the baseline.
+
+        With UPDATE_BASELINE=1 the snapshot is written as the new baseline
+        instead (S6.0 baseline recording / explicit S6.0 re-record after S5).
+        """
+        update = os.environ.get("UPDATE_BASELINE") == "1"
+        point, line, polygon = pp.build_layers()
+        with use_page(
+            self._make_page,
+            browser,
+            tmp_path,
+            point,
+            line,
+            polygon,
+            slug="paint_dimension_parity",
+        ) as (page, errors):
+            panel_ready(page)
+            # Expand the panel so the overlay rows are rendered.
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+
+            # Sample each geometry's fill + border rows. The probe asks the full
+            # mode matrix and records present:false for a mode the layer does
+            # not offer, so the baseline locks the offering too.
+            snapshot: dict = {"fill": {}, "border": {}}
+            for geom, layer_name in self.GEOM_LAYER.items():
+                res = page.evaluate(
+                    _js("LayerControl/sample_paint_dimension"),
+                    {
+                        "layerName": layer_name,
+                        "dims": ["fill", "border"],
+                        "modes": {
+                            "fill": list(pp.FILL_MODES),
+                            "border": list(pp.BORDER_MODES[geom]),
+                        },
+                    },
+                )
+                assert res.get("ok"), f"{geom}: sampler failed: {res}"
+                for dim in ("fill", "border"):
+                    for mode, entry in res["snapshot"].get(dim, {}).items():
+                        snapshot.setdefault(dim, {}).setdefault(mode, {})[geom] = entry
+
+            assert not errors, f"JS errors: {errors}"
+
+            if update:
+                pp.write_baseline(snapshot)
+                return
+
+            baseline = pp.load_baseline()
+            diffs = pp.compare(baseline, snapshot)
+            assert not diffs, "paint-dimension parity drift:\n" + "\n".join(diffs)
