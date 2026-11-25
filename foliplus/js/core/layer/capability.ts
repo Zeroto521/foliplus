@@ -162,7 +162,7 @@ const hasMarkerColorLeaf = (node: unknown): boolean =>
         const icon = (
           node as { options?: { icon?: { options?: Record<string, unknown> } } }
         )?.options?.icon?.options;
-        // folium emits marker_color (snake); accept both spellings.
+        // folium camelizes every option key at render (folium/template.py); the snake spelling is accepted for hand-built Leaflet icons and as a guard if folium ever stops camelizing. Accept both spellings.
         return typeof (icon?.markerColor ?? icon?.marker_color) === "string";
       })(),
   ) === true;
