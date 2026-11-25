@@ -30,7 +30,7 @@ naming rules, enforced as ten assertions:
 6. A subdirectory is a feature group, so it must hold at least 3 test files
    directly; fewer means the tests belong in the parent directory. A closed
    pair that owns a whole dimension is the one exception, recorded in
-   SMALL_GROUP_EXCEPTIONS with its reason (focus/ today).
+   SMALL_GROUP_EXCEPTIONS with its reason (focus/ and label/ today).
 7. A group's name names a production directory: it must match a directory name
    under foliplus/js/control/<Name>/ or foliplus/control/<Name>/ (private
    packages included). A group called "rendering" or "panel" that no production
@@ -144,6 +144,11 @@ SMALL_GROUP_EXCEPTIONS: dict[str, str] = {
         "focus is a closed pair: behaviour logic (test_focus.py) plus the "
         "pane/overlay browser cases (test_focus_pane.py); a third file would "
         "re-split the pair the scenario aggregation merged"
+    ),
+    "LayerControl/label": (
+        "label is one merged file: canvas drawing, panes and row titles are one "
+        "dimension; a second file would re-split the trio the scenario "
+        "aggregation merged"
     ),
 }
 

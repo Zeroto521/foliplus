@@ -39,7 +39,7 @@ const DECLARATION_ONLY = [/^index$/, /^type$/, /^const$/, /ClassName$/, /\.d$/];
 const NON_MIRRORED_TEST: Record<string, string> = {
   bundle: "build-output smoke test (reads foliplus/dist + manifest), not a module test",
   fixture: "tests the shared test fixture helper test/js/fixture.ts",
-  "listener-guard":
+  "listener-tracking":
     "production-tree listener registration guard (banned forms + allow-list), no single module",
   "toolchain-guard":
     "build/tooling configuration guard (eslint scoping, script coverage), no single module",
