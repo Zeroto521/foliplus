@@ -11,7 +11,7 @@ import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell, countTooltip, writeRoleCount } from "./rowView.js";
-import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
+import { ROLE, folderOf, paintProjection, paintsAtZoom } from "#core/layer/index.js";
 import { setCheckboxState, triStateOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -42,8 +42,14 @@ const getLayerItems = (ui: LayerUI, role: string): Element[] => {
  *  consumers asking "which basemap is on screen?" share — hatch, attribution
  *  and focus each used to assemble a different subset of these four facts. */
 const basePaints = (ui: LayerUI, layerInfo: LayerInfo): boolean =>
-  paintsAtZoom(ui.c.map, layerInfo.layer ?? ui.c.findLayer(layerInfo)) &&
-  currentOpacity(ui, layerInfo) > 0;
+  paintProjection({
+    declared: true,
+    container: true,
+    zoom: paintsAtZoom(ui.c.map, layerInfo.layer ?? ui.c.findLayer(layerInfo)),
+    opacity: currentOpacity(ui, layerInfo) > 0,
+    filter: true,
+    ancestor: true,
+  });
 
 /** A′ no-basemap hatch: paint on the map container and swap the role label
  *  to `no_base_map_label` when zero basemaps are visible. The hatch is CSS
