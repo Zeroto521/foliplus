@@ -950,10 +950,11 @@ describe("mode-lock guard: history entry click when a mode is held", () => {
     expect(map.flyTo).not.toHaveBeenCalled();
     expect(ctrl.marker).toBeNull();
     expect(ctrl.inp.value).toBe("");
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "SearchControl",
+      "",
       "SearchControl.blocked",
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
     ensureModes(window.map).setMode("MeasureControl", null);
   });

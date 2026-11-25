@@ -663,15 +663,16 @@ describe("LayerUI menu", () => {
       ui.focusLayer = focusSpy;
 
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
 
       li.click();
 
       expect(focusSpy).not.toHaveBeenCalled();
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_hidden",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
       // Menu stays open — user sees why focus is unavailable.
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
@@ -689,7 +690,7 @@ describe("LayerUI menu", () => {
       li.focus();
 
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
 
       li.click();
 
@@ -1780,7 +1781,7 @@ describe("LayerUI menu", () => {
       li.setAttribute("aria-disabled", "true");
       li.removeAttribute("title");
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
       runMenuAction(ui, li, { explainDisabled: true });
       expect(hintSpy).not.toHaveBeenCalled();
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
@@ -1795,13 +1796,11 @@ describe("LayerUI menu", () => {
       li.setAttribute("aria-disabled", "true");
       li.setAttribute("title", "why-not");
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
       runMenuAction(ui, li, { explainDisabled: true });
-      expect(hintSpy).toHaveBeenCalledWith(
-        "LayerControl",
-        "why-not",
-        expect.any(Number),
-      );
+      expect(hintSpy).toHaveBeenCalledWith("LayerControl", "", "why-not", {
+        duration: expect.any(Number),
+      });
       expect(item.querySelectorAll(".foliplus-layer-more-menu").length).toBe(1);
     });
 
@@ -1816,7 +1815,7 @@ describe("LayerUI menu", () => {
       li.setAttribute("aria-disabled", "true");
       li.setAttribute("title", "why-not");
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
       runMenuAction(ui, li);
       expect(hintSpy).not.toHaveBeenCalled();
     });

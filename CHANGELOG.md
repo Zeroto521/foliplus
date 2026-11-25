@@ -41,6 +41,8 @@
 - `LayerControl` / `HeatmapControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control, and a heatmap Clear restoring its declared source and fields ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
+- `JS runtime`: the per-map hint surface is `map.foliplus.hint.set/clear/registerIcon` — an identical push no longer rebuilds the hint or restarts its timer, and a changed push replaces it in place (**Breaking** for custom JS that called `map.foliplus.showHint`/`hideHint`/`registerHintIcon`) ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
+- `platform/storage`: versioned object records persist through one `saveVersionedObject`/`loadVersionedObject` pair that reads the `{version, data}` envelope, a legacy flat record or a bare value and migrates or discards it, with the folder layout, filter store, layer state, heatmap config and export bounds migrated onto it ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
 
 ### Removed
 

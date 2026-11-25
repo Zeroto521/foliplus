@@ -833,7 +833,9 @@ const runMenuAction = (
     if (options.explainDisabled) {
       const reason = menuItem.getAttribute("title");
       if (reason) {
-        ui.c.map.foliplus!.showHint(ui.config.name, reason, HINT_DURATION.SHORT);
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", reason, {
+          duration: HINT_DURATION.SHORT,
+        });
       }
     }
     return;

@@ -88,11 +88,9 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // Only an empty-name commit is a user mistake worth flagging;
       // Escape is an intentional abandon — stay silent.
       if (reason === "empty") {
-        ui.c.map.foliplus!.showHint(
-          ui.config.name,
-          ui.T("rename_empty"),
-          HINT_DURATION.SHORT,
-        );
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("rename_empty"), {
+          duration: HINT_DURATION.SHORT,
+        });
       }
       // Escape defers the teardown: tearing the input down now would blur
       // it to `<body>`, and `document.activeElement` is what handleKeyDown's

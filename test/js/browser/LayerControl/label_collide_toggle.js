@@ -56,7 +56,13 @@ doFlip => {
       if (persistence && persistence.flushAll) persistence.flushAll();
       for (const key of Object.keys(localStorage)) {
         const raw = localStorage.getItem(key);
-        if (raw && raw.includes("collide")) stored = raw;
+        if (!raw || !raw.includes("collide")) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          stored = JSON.stringify(parsed && parsed.data ? parsed.data : parsed);
+        } catch {
+          stored = raw;
+        }
       }
     } catch (e) {
       stored = String(e);

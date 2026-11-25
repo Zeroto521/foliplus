@@ -70,10 +70,11 @@ describe("locateMe", () => {
     });
     const ctrl = makeCtrl();
     locateMe(ctrl);
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "LocateControl",
+      "",
       "geo_error",
-      4000,
+      { duration: 4000 },
     );
     expect(ctrl.hasLoading()).toBe(false);
   });
@@ -89,7 +90,7 @@ describe("locateMe", () => {
 
     success({ coords: { longitude: 119.3, latitude: 26.08 } });
     expect(ctrl.hasLoading()).toBe(false);
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
+    expect(window.map.foliplus.hint.clear).toHaveBeenCalledWith("LocateControl");
     expect(map.flyTo).toHaveBeenCalledWith([26.08, 119.3], 16);
     expect(ctrl.marker).not.toBeNull();
   });
@@ -130,7 +131,7 @@ describe("locateMe", () => {
     ac.abort();
     getCurrentPosition.mock.calls[0][1](new Error("permission denied"));
 
-    expect(window.map.foliplus.showHint).not.toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).not.toHaveBeenCalledWith(
       "LocateControl",
       "geo_error",
       expect.anything(),
@@ -166,13 +167,11 @@ describe("locateMe", () => {
     geoStub();
     const ctrl = makeCtrl();
     locateMe(ctrl);
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "LocateControl",
+      "",
       "locating",
-      0, // HINT_DURATION.PERSIST
-      undefined,
-      undefined,
-      true,
+      { duration: 0, icon: "loading" },
     );
   });
 
@@ -183,11 +182,12 @@ describe("locateMe", () => {
     const [, error] = getCurrentPosition.mock.calls[0];
     error({ code: 1, message: "Permission denied" });
     expect(ctrl.hasLoading()).toBe(false);
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("LocateControl");
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.clear).toHaveBeenCalledWith("LocateControl");
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "LocateControl",
+      "",
       "geo_error",
-      4000,
+      { duration: 4000 },
     );
   });
 

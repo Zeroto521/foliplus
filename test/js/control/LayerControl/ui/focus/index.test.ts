@@ -496,16 +496,17 @@ describe("LayerUI focus", () => {
       ) as HTMLInputElement;
       if (checkbox) checkbox.checked = false;
 
-      // ensureEvents() wipes map.foliplus.showHint; re-attach a spy.
+      // ensureEvents() wipes map.foliplus.hint.set; re-attach a spy.
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
 
       ui.focusLayer("overlay1");
 
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_hidden",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
       expect(map.fitBounds).not.toHaveBeenCalled();
       expect(ui.focusController.focusRect).toBeNull();
@@ -597,7 +598,7 @@ describe("LayerUI focus", () => {
 
       // Cancel hint — re-attach spy after ensureEvents().
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
 
       ui.cancelFocus();
 
@@ -606,8 +607,9 @@ describe("LayerUI focus", () => {
       expect(item.classList.contains("foliplus-is-focusing")).toBe(false);
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_cancelled",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
       expect(ui.isFocusing()).toBe(false);
     });
@@ -1664,7 +1666,7 @@ describe("LayerUI focus", () => {
 
     it("double-click on a base basemap row shows a hint instead of focusLayer", () => {
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
       const focusSpy = vi.spyOn(ui, "focusLayer");
       const item = findItem(ui, "base1");
 
@@ -1673,8 +1675,9 @@ describe("LayerUI focus", () => {
       expect(focusSpy).not.toHaveBeenCalled();
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_base",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
       focusSpy.mockRestore();
     });
@@ -1981,7 +1984,7 @@ describe("LayerUI focus", () => {
       expect(item.classList.contains("foliplus-is-focusing")).toBe(true);
 
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
 
       ui.cancelFocus();
 
@@ -1989,8 +1992,9 @@ describe("LayerUI focus", () => {
       expect(ui.isFocusing()).toBe(false);
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_cancelled",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
     });
   });
@@ -2166,27 +2170,30 @@ describe("LayerUI focus", () => {
 
     it("shows the localized hint for each disabled reason", () => {
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
 
       showFocusDisabledHint(ui, "base");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_base",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
 
       showFocusDisabledHint(ui, "hidden");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_hidden",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
 
       showFocusDisabledHint(ui, "no_bounds");
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         "LayerControl.focus_no_bounds",
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
     });
   });
@@ -2860,7 +2867,7 @@ describe("rowNoun group branch (focusLayer hidden path)", () => {
 
   it("uses the group noun in the hidden hint for a container row", () => {
     const hintSpy = vi.fn();
-    map.foliplus.showHint = hintSpy;
+    map.foliplus.hint.set = hintSpy;
     const checkbox = findItem(ui, "grp1").querySelector(
       'input[type="checkbox"]',
     ) as HTMLInputElement;
@@ -2872,6 +2879,8 @@ describe("rowNoun group branch (focusLayer hidden path)", () => {
       "{noun}",
       "LayerControl.noun_group",
     );
-    expect(hintSpy).toHaveBeenCalledWith("LayerControl", expected, expect.any(Number));
+    expect(hintSpy).toHaveBeenCalledWith("LayerControl", "", expected, {
+      duration: expect.any(Number),
+    });
   });
 });

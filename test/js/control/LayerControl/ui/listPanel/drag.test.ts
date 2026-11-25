@@ -6,7 +6,7 @@
 import { attachedPanel, initFixture } from "../fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
+import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
@@ -107,7 +107,7 @@ const makeUi = (
         hasLayer: vi.fn(() => true),
         removeLayer: vi.fn(),
         addLayer: vi.fn(),
-        foliplus: { showHint: vi.fn() },
+        foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
       },
       debouncedEnforce: vi.fn(),
       saveOrder: vi.fn(),
@@ -274,7 +274,7 @@ describe("ui/drag", () => {
 
     it("refuses a folder dropped into another folder", () => {
       const { ui } = folderFixture(["a", "b"]);
-      const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+      const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
       const b = folderRowOf(ui, "b");
       pinRect(b, 100, 36);
@@ -288,11 +288,9 @@ describe("ui/drag", () => {
       // the row is a strip that neither lights up nor accepts.
       expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BLOCKED)).toBe(true);
       expect(ui.listPanel.lastDragOverItem).toBe(b);
-      expect(showHint).toHaveBeenCalledWith(
-        ui.config.name,
-        ui.T("no_nest"),
-        expect.anything(),
-      );
+      expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("no_nest"), {
+        duration: expect.anything(),
+      });
     });
 
     it("clears the chrome when the pointer leaves the folder rows", () => {
@@ -708,9 +706,9 @@ describe("ui/drag", () => {
       });
       handleDragStart(ui, dragEvent(rowOf(ui, "B0")));
       const before = orderOf(manager);
-      // The runtime hint system binds map.foliplus.showHint during attach,
+      // The runtime hint system binds map.foliplus.hint.set during attach,
       // so the spy wraps the bound function the drop actually calls.
-      const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+      const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
 
       handleDrop(ui, dragEvent(rowOf(ui, "L0")));
 
@@ -854,7 +852,7 @@ describe("ui/drag", () => {
         eachLayer: vi.fn(),
         _layers: {},
       })) as never;
-      const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+      const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
       const member = rowOf(ui, "b1");
       withRect(member, 100, 36);
 
@@ -1006,7 +1004,9 @@ describe("showReorderBlockedHint", () => {
       config: { name: "LayerControl" },
       T: (k: string) => k,
       c: {
-        map: { foliplus: { showHint } },
+        map: {
+          foliplus: { hint: { set: showHint, clear: vi.fn(), registerIcon: vi.fn() } },
+        },
       },
       listPanel: {
         lastDragHintAt: 0,
@@ -1019,11 +1019,9 @@ describe("showReorderBlockedHint", () => {
 
     showReorderBlockedHint(ui);
     expect(showHint).toHaveBeenCalledTimes(1);
-    expect(showHint).toHaveBeenCalledWith(
-      "LayerControl",
-      "same_role_only",
-      HINT_DURATION.SHORT,
-    );
+    expect(showHint).toHaveBeenCalledWith("LayerControl", "", "same_role_only", {
+      duration: expect.anything(),
+    });
 
     // A second attempt inside the cooldown window stays silent.
     showReorderBlockedHint(ui);
@@ -1115,7 +1113,7 @@ describe("layer drop on a folder row — hover chrome", () => {
     });
     const row = folderRowOf(ui, "b");
     withRect(row, 100, 36);
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
 
     handleDragOver(ui, dragEvent(row, {}, 118));
@@ -1142,16 +1140,14 @@ describe("layer drop on a folder row — hover chrome", () => {
     });
     const row = rowOf(ui, "G2");
     withRect(row, 100, 36);
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
 
     handleDragOver(ui, dragEvent(row, {}, 118));
 
-    expect(showHint).toHaveBeenCalledWith(
-      ui.config.name,
-      ui.T("no_nest"),
-      expect.anything(),
-    );
+    expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("no_nest"), {
+      duration: expect.anything(),
+    });
     expect(ui.listPanel.lastDragOverItem).toBeNull();
     expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
   });
@@ -1167,7 +1163,7 @@ describe("layer drop on a folder row — hover chrome", () => {
       role: "overlay",
       layer: groupLayerFixture(),
     });
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
 
     handleDragOver(ui, dragEvent(rowOf(ui, "G1"), {}, 0));
@@ -1360,7 +1356,7 @@ describe("block-order gap drop", () => {
       `[${CONST.DATA.FOLDER_KEY}="b"]`,
     )!;
     withRect(baseFolderB, 100, 36);
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
 
     handleDragOver(ui, dragEvent(baseFolderB, { dropEffect: "" }, 118));
@@ -1381,7 +1377,7 @@ describe("block-order gap drop", () => {
     });
     const row = folderRowOf(ui, "b");
     withRect(row, 100, 36);
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
 
     handleDragOver(ui, dragEvent(row, {}, 118));
@@ -1415,7 +1411,7 @@ describe("block-order gap drop", () => {
     });
     const member = rowOf(ui, "b1");
     withRect(member, 100, 36);
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
     const dataTransfer = { dropEffect: "" };
 
@@ -1528,7 +1524,7 @@ describe("drag — the dataTransfer is always optional", () => {
       role: "overlay",
       layer: groupLayerFixture(),
     });
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
 
     handleDragOver(ui, noTransfer(rowOf(ui, "G1")));
@@ -2296,7 +2292,7 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
         },
       ],
     });
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
     const member = rowOf(ui, "b1");
     pinRect(member, 100, 36);
@@ -2304,11 +2300,9 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
 
     handleDragOver(ui, over);
 
-    expect(showHint).toHaveBeenCalledWith(
-      ui.config.name,
-      ui.T("same_role_only"),
-      expect.anything(),
-    );
+    expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("same_role_only"), {
+      duration: expect.anything(),
+    });
     expect(ui.listPanel.lastDragOverItem).toBeNull();
   });
 
@@ -2316,7 +2310,7 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     // The "into" refusal does not depend on the pointer affordance: the dashed
     // blocked chrome and the no_nest sentence must appear without it.
     const { ui } = folderFixture(["a", "b"]);
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
     const b = folderRowOf(ui, "b");
     pinRect(b, 100, 36);
@@ -2346,7 +2340,7 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     });
     const row = rowOf(ui, "G2");
     pinRect(row, 100, 36);
-    const showHint = vi.spyOn(ui.c.map.foliplus, "showHint");
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
     handleDragStart(ui, dragEvent(rowOf(ui, "G1"), { effectAllowed: "" }));
 
     handleDragOver(ui, noTransfer(row, 118));

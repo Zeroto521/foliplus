@@ -1,5 +1,5 @@
 text => {
-  map.foliplus.showHint("hint-width-test", text, 0);
+  map.foliplus.hint.set("hint-width-test", "", text, { duration: 0 });
   const el = document.querySelector(".foliplus-hint");
   if (!el) throw new Error("hint not rendered");
   const r = el.getBoundingClientRect();

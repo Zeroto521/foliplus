@@ -4,7 +4,8 @@ id => {
   const key = Object.keys(localStorage).find(k =>
     k.startsWith("foliplus_layer_state_"),
   );
-  const record = key ? JSON.parse(localStorage.getItem(key) || "null") : null;
+  const stored = key ? JSON.parse(localStorage.getItem(key) || "null") : null;
+  const record = stored && stored.data ? stored.data : stored;
   const entry = record && record.layers ? record.layers[id] : null;
   return {
     stored: entry ? entry.zoomRange : null,

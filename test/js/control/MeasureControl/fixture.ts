@@ -83,8 +83,7 @@ function makeManager(opts?: { id?: string }) {
     getSize: (..._args: unknown[]) => ({ x: 1000, y: 800 }),
     latLngToContainerPoint: (..._args: unknown[]) => ({ x: 0, y: 0 }),
     foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
+      hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
       interaction: { shortcuts: [] as Array<Record<string, unknown>> },
       events: { emit: vi.fn(), publish: vi.fn() },
       LayerAPI: {

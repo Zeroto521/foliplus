@@ -287,7 +287,7 @@ describe("guardBlocked", () => {
     const { map } = makeMapWithLeaf();
     const showHint = vi.fn();
     ensureModes(map as any);
-    (map as any).foliplus!.showHint = showHint;
+    (map as any).foliplus!.hint.set = showHint;
     return { map, showHint };
   };
 
@@ -296,11 +296,9 @@ describe("guardBlocked", () => {
     ensureModes(map as any).setMode("MeasureControl", "distance");
 
     expect(guardBlocked(map as any, "SearchControl", "blocked hint")).toBe(true);
-    expect(showHint).toHaveBeenCalledWith(
-      "SearchControl",
-      "blocked hint",
-      expect.any(Number),
-    );
+    expect(showHint).toHaveBeenCalledWith("SearchControl", "", "blocked hint", {
+      duration: expect.any(Number),
+    });
   });
 
   it("returns false when nothing blocks the component", () => {
@@ -320,11 +318,9 @@ describe("guardBlocked", () => {
         { blockedBy: "LayerControl", text: "Layer focus is active" },
       ]),
     ).toBe(true);
-    expect(showHint).toHaveBeenCalledWith(
-      "MeasureControl",
-      "Export is active",
-      expect.any(Number),
-    );
+    expect(showHint).toHaveBeenCalledWith("MeasureControl", "", "Export is active", {
+      duration: expect.any(Number),
+    });
   });
 
   it("falls back to the generic hint when no candidate matches the blocker", () => {
@@ -336,11 +332,9 @@ describe("guardBlocked", () => {
         { blockedBy: "MeasureControl", text: "Measure is active" },
       ]),
     ).toBe(true);
-    expect(showHint).toHaveBeenCalledWith(
-      "ExportControl",
-      "generic blocked",
-      expect.any(Number),
-    );
+    expect(showHint).toHaveBeenCalledWith("ExportControl", "", "generic blocked", {
+      duration: expect.any(Number),
+    });
   });
 
   it("uses the generic hint when candidates is not provided", () => {
@@ -348,11 +342,9 @@ describe("guardBlocked", () => {
     ensureModes(map as any).setMode("MeasureControl", "distance");
 
     expect(guardBlocked(map as any, "ExportControl", "generic blocked")).toBe(true);
-    expect(showHint).toHaveBeenCalledWith(
-      "ExportControl",
-      "generic blocked",
-      expect.any(Number),
-    );
+    expect(showHint).toHaveBeenCalledWith("ExportControl", "", "generic blocked", {
+      duration: expect.any(Number),
+    });
   });
 });
 

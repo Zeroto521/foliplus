@@ -681,10 +681,11 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
       // only the lightweight LayerAPI stub is installed (no LayerControl
       // added), whereas true means LayerControl is present but has no data.
       const missingLayerControl = !ctrl.mgr.map.foliplus?.LayerAPI?.isLayerControl;
-      ctrl.mgr.map.foliplus!.showHint(
+      ctrl.mgr.map.foliplus!.hint.set(
         ctrl.config.name,
+        "",
         ctrl.T(missingLayerControl ? "no_layercontrol" : "no_layer"),
-        HINT_DURATION.LONG,
+        { duration: HINT_DURATION.LONG },
       );
       ctrl.mgr.hasScanned = true;
       ctrl.ctrl?.setAttribute("data-ready", "true");

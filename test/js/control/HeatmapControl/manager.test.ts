@@ -904,7 +904,11 @@ describe("initScan — single-layer auto-select on first scan only", () => {
   it("settles the no-layer hint after the synchronous attach sequence", async () => {
     const { initScan } = await import("#control/HeatmapControl/ui.js");
     const m = makeManager();
-    window.map.foliplus.showHint = vi.fn();
+    window.map.foliplus.hint = {
+      set: vi.fn(),
+      clear: vi.fn(),
+      registerIcon: vi.fn(),
+    };
     window.map.foliplus.LayerAPI.isLayerControl = false;
     window.map.foliplus.LayerAPI.getLayersByType = vi.fn(() => []);
     const ctrl = makeCtrl(m);
@@ -3241,7 +3245,7 @@ describe("HeatmapManager — filter contract (range branch)", () => {
       const storeRecord = JSON.parse(
         window.localStorage.getItem(filterStoreKey(manager.map))!,
       );
-      expect(storeRecord.layers[manager.layerId].sources.pts).toEqual({
+      expect(storeRecord.data.layers[manager.layerId].sources.pts).toEqual({
         touched: true,
         value: USER_RANGE,
       });
@@ -4141,9 +4145,9 @@ describe("HeatmapManager — versioned persisted config", () => {
 
       const stored = JSON.parse(window.localStorage.getItem(KEY)!);
       expect(stored.version).toBe(CONST.RECORD_VERSION);
-      expect(stored.layerId).toBe("layer_abc");
-      expect(stored.agg).toBe("sum");
-      expect(stored.numClasses).toBe(4);
+      expect(stored.data.layerId).toBe("layer_abc");
+      expect(stored.data.agg).toBe("sum");
+      expect(stored.data.numClasses).toBe(4);
     });
 
     it("saves null layerId when no layer selected", () => {
@@ -4151,7 +4155,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       m.selectedLayerId = null;
       m.saveConfig();
       const stored = JSON.parse(window.localStorage.getItem(KEY)!);
-      expect(stored.layerId).toBeNull();
+      expect(stored.data.layerId).toBeNull();
     });
   });
 
@@ -4390,7 +4394,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       m.field = "";
       m.saveConfig();
       const stored = JSON.parse(window.localStorage.getItem(KEY)!);
-      expect(stored.field).toBe("");
+      expect(stored.data.field).toBe("");
       const m2 = makeManager();
       m2.applySavedConfig(m.loadSavedConfig()!);
       expect(m2.field).toBe("");
@@ -4401,7 +4405,7 @@ describe("HeatmapManager — versioned persisted config", () => {
       m.field = "price";
       m.saveConfig();
       const stored = JSON.parse(window.localStorage.getItem(KEY)!);
-      expect(stored.field).toBe("price");
+      expect(stored.data.field).toBe("price");
       const m2 = makeManager();
       m2.applySavedConfig(m.loadSavedConfig()!);
       expect(m2.field).toBe("price");
@@ -4427,10 +4431,10 @@ describe("HeatmapManager — versioned persisted config", () => {
       m.flush();
 
       const stored = JSON.parse(window.localStorage.getItem(KEY)!);
-      expect(stored.layerId).toBe("layer_x");
-      expect(stored.agg).toBe("avg");
-      expect(stored.scheme).toBe("Greens");
-      expect(stored.numClasses).toBe(5);
+      expect(stored.data.layerId).toBe("layer_x");
+      expect(stored.data.agg).toBe("avg");
+      expect(stored.data.scheme).toBe("Greens");
+      expect(stored.data.numClasses).toBe(5);
       expect(stored.version).toBe(CONST.RECORD_VERSION);
 
       // A second flush must not double-write or drop fields — the timer is
@@ -4478,14 +4482,14 @@ describe("HeatmapManager — versioned persisted config", () => {
       const storeRecord = JSON.parse(
         window.localStorage.getItem(filterStoreKey(m1.map))!,
       );
-      expect(storeRecord.layers[m1.layerId].sources.r1).toEqual({
+      expect(storeRecord.data.layers[m1.layerId].sources.r1).toEqual({
         touched: true,
         value: { kind: "atom", field: "value", op: "between", range: [1, 2] },
       });
 
       const m2 = makeManager();
       const loaded = m2.loadSavedConfig();
-      expect(loaded).toEqual(stored);
+      expect(loaded).toEqual(stored.data);
       m2.applySavedConfig(loaded!);
       expect(m2.selectedLayerId).toBe("r1");
       expect(m2.agg).toBe("avg");
@@ -4546,7 +4550,7 @@ describe("HeatmapManager — persisted per-source filters", () => {
     const storeRecord = JSON.parse(
       window.localStorage.getItem(filterStoreKey(m1.map))!,
     );
-    expect(Object.keys(storeRecord.layers[m1.layerId].sources)).toEqual([
+    expect(Object.keys(storeRecord.data.layers[m1.layerId].sources)).toEqual([
       "layer_a",
       "layer_b",
     ]);

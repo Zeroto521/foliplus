@@ -58,8 +58,13 @@
   const storage = {};
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && key.includes("layer_state")) {
-      storage[key] = localStorage.getItem(key);
+    if (!key || !key.includes("layer_state")) continue;
+    const raw = localStorage.getItem(key);
+    try {
+      const parsed = JSON.parse(raw);
+      storage[key] = JSON.stringify(parsed && parsed.data ? parsed.data : parsed);
+    } catch {
+      storage[key] = raw;
     }
   }
 
