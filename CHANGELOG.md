@@ -18,7 +18,7 @@
 - `LayerControl`: `LayerAPI.getStyle(id)` reads one layer's current effective style and its per-dimension provenance, and `core.layer.readLayerPaint(layer)` reads the colour the layer draws — areal fill, line stroke or marker chassis, with `mixed`/`multicolor` and the transparent-fill-to-stroke rule — over the same resolvers the panel uses ([#1184](https://github.com/Zeroto521/foliplus/pull/1184), [#1305](https://github.com/Zeroto521/foliplus/pull/1305), [#1317](https://github.com/Zeroto521/foliplus/pull/1317))
 - `LayerControl`: a group layer (`FeatureGroup` / `LayerGroup`) shows as a container row with a group glyph, a visible-of-total child count, Style and Filter disabled, and Focus lifting every child pane ([#1264](https://github.com/Zeroto521/foliplus/pull/1264), [#1271](https://github.com/Zeroto521/foliplus/pull/1271), [#1276](https://github.com/Zeroto521/foliplus/pull/1276), [#1287](https://github.com/Zeroto521/foliplus/pull/1287))
 - `LayerControl`: a central `roles={"overlay": {"folded": True}, "base": {"folded": False}}` declaration sets the author's default folded state per role; a user's own fold or expand always wins over the author default ([#1273](https://github.com/Zeroto521/foliplus/pull/1273))
-- `ScaleControl`: `position` is configurable — one of `topleft`/`topright`/`bottomleft`/`bottomright`, default `bottomleft` (Leaflet default), replacing the previously hardcoded bottom-left corner.
+- `ScaleControl`: `position` is configurable — one of `topleft`/`topright`/`bottomleft`/`bottomright`, default `bottomleft` (Leaflet default), replacing the previously hardcoded bottom-left corner ([#1370](https://github.com/Zeroto521/foliplus/pull/1370))
 
 ### Changed
 
@@ -81,7 +81,7 @@
 - `ExportControl`: an export keeps its `exporting` mode for the whole render instead of the crop-box cleanup clearing it, and destroying the control reclaims the blocker and the map lock and retires an in-flight render instead of downloading to a removed control ([#1322](https://github.com/Zeroto521/foliplus/pull/1322))
 - `ExportControl`: an exported image keeps a point marker's custom chassis colour instead of losing the pin body, because the sprite pass now reads the mask+colour channel as well as the background-image sprite ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
 - `ExportControl`: a DivIcon's HTML pin and an awesome-marker shadow sprite now reach the exported image, and an image the canvas cannot read back is reported and counted instead of silently leaving a hole ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
-- `MeasureControl`: stored and exported coordinates keep full precision instead of being rounded to 6 decimals on placement/drag — display (popup, live readout, labels) still rounds, and a legacy rounded record round-trips unchanged.
+- `MeasureControl`: stored and exported coordinates keep full precision instead of being rounded to 6 decimals on placement/drag — display (popup, live readout, labels) still rounds, and a legacy rounded record round-trips unchanged ([#1370](https://github.com/Zeroto521/foliplus/pull/1370))
 
 ## [v0.4.1] (2026-10-18)
 
