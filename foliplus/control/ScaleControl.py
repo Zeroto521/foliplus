@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from foliplus.BaseControl import BaseControl
+from foliplus._typing import ControlPosition
 from foliplus.locale import LocaleConfig
 
 
@@ -9,6 +10,9 @@ class ScaleControl(BaseControl):
 
     Parameters
     ----------
+    position : str, default "bottomleft"
+        One of "topleft", "topright", "bottomleft", "bottomright".
+
     show_zoom : bool, default True
         Whether to show the current map zoom level.
 
@@ -27,8 +31,9 @@ class ScaleControl(BaseControl):
     def __init__(
         self,
         *,
+        position: ControlPosition = "bottomleft",
         show_zoom: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
-        super().__init__(position="bottomleft", locale=locale)
+        super().__init__(position=position, locale=locale)
         self.show_zoom = show_zoom
