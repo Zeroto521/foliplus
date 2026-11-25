@@ -21,6 +21,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Diff classification ──
+  # One classifier job feeds the `if:` of every test job, so a documentation-only
+  # pull request does not run the test suites. Only a diff that touches nothing
+  # but documentation is skipped: the JS and Python halves are coupled (the
+  # Python suite asserts on the built JS/CSS, the JS guards read the Python-emitted
+  # config schema), so any code change runs both. A push or a merge-group run
+  # reports code as changed (see the action), so the gates that must be complete
+  # still are. `format` and `changelog` stay unconditional: they are cheap and
+  # they cover the Markdown a docs-only change touches.
+  classify:
+    name: classify
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/classify-diff
+        id: diff
+
   # ── Node jobs ──
   # Format, lint, and typecheck are independent of the Python matrix, so they
   # run as their own jobs rather than as steps inside `test`: they share no
@@ -39,21 +58,31 @@ jobs:
       - uses: ./.github/actions/setup-deps
       - run: npm run format:check
 
+  # `lint` / `typecheck` / `js` / `python` / `browser` are required status checks, and
+  # GitHub's ruleset does NOT accept a skipped required check: the pull request stays
+  # BLOCKED, so a job-level `if:` would make every documentation-only PR unmergeable.
+  # Those jobs therefore always run, and only their work steps are gated — a skipped
+  # docs-only run costs the bootstrap and nothing else, and the check reports success.
+  # `browser-probe` is not required, so it keeps the job-level skip.
   lint:
     name: lint
+    needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
       - run: npm run lint
+        if: needs.classify.outputs.code == 'true'
 
   typecheck:
     name: typecheck
+    needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
       - run: npm run typecheck
+        if: needs.classify.outputs.code == 'true'
 
   # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
   # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
@@ -96,21 +125,24 @@ jobs:
   # visible.
   js:
     name: js
+    needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
 
       - run: make test-js
+        if: needs.classify.outputs.code == 'true'
 
       - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true'
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() }}
+        if: needs.classify.outputs.code == 'true' && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -121,6 +153,7 @@ jobs:
     # Matrix-expanded per slot; codecov flags reference `job.name` so there is
     # one source of truth for the label.
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
+    needs: classify
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -156,15 +189,17 @@ jobs:
       # non-browser pytest suite (matrix = version compatibility). Browser
       # tests live in the `browser` job below (single cell) — see comment there.
       - run: uv run make test-python-fast
+        if: needs.classify.outputs.code == 'true'
 
       - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true'
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() }}
+        if: needs.classify.outputs.code == 'true' && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -179,6 +214,7 @@ jobs:
     # once per job, retained via actions/cache so a re-run is network-independent
     # after the first download).
     name: browser
+    needs: classify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -215,15 +251,17 @@ jobs:
       - run: uv run make info
 
       - run: uv run make test-browser
+        if: needs.classify.outputs.code == 'true'
 
       - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true'
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
       - uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() }}
+        if: needs.classify.outputs.code == 'true' && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -238,6 +276,8 @@ jobs:
   # job summary plus the `browser-probe` artifact.
   browser-probe:
     name: browser-probe
+    needs: classify
+    if: needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

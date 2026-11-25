@@ -418,6 +418,31 @@ describe("executor: coalesced redraw-branch repaint", () => {
     vi.useRealTimers();
   });
 
+  it("destroy cancels a pending debounced repaint", () => {
+    vi.useFakeTimers();
+    const { container, map } = makeOffMapFixture();
+    const canvas = document.createElement("canvas");
+    const onOpacity = vi.fn();
+
+    const manager = new LayerController(map, [
+      { id: "h", name: "Heat", role: "overlay", canvas, onOpacity },
+    ]);
+    manager.ui = new LayerUI(manager, TEST_ENV);
+    const ui = manager.ui as LayerUI;
+    ui.attachUI(container);
+    setIntent(ui, "h", "opacity", 0.4);
+    ui.intentStore.seedProvenance("h", ["opacity"]);
+    applyProjection(ui, "h", "debounce");
+    const before = onOpacity.mock.calls.length;
+
+    // The repaint is parked on the 60ms debounce. Unmounting the control must
+    // cancel it: a removed panel cannot paint into a canvas it no longer owns.
+    manager.destroy();
+    vi.advanceTimersByTime(200);
+    expect(onOpacity.mock.calls.length).toBe(before);
+    vi.useRealTimers();
+  });
+
   it("commit branch paints synchronously and schedules no timer", () => {
     vi.useFakeTimers();
 

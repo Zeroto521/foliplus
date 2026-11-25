@@ -135,6 +135,21 @@ describe("MarkerMode — start + click", () => {
     expect(window.L.marker).toHaveBeenCalled();
   });
 
+  it("stores full-precision coordinates on click (display rounds, value does not)", () => {
+    const manager = makeManagerMock() as any;
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
+    const mode = new MarkerMode(manager);
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [unknown]) => ev === "click",
+    )?.[1];
+    clickHandler({ latlng: { lat: 31.123456789, lng: 121.987654321 } });
+
+    expect(manager.store.all()[0].lng).toBe(121.987654321);
+    expect(manager.store.all()[0].lat).toBe(31.123456789);
+  });
+
   it("registers pin-drag cleanup via registerFinalized (regression: cleanup must run on clearAll)", () => {
     const manager = makeManagerMock() as any;
     MarkerMode.restore(manager, {
@@ -270,16 +285,16 @@ describe("MarkerMode — start + click", () => {
         originalEvent: { clientX: 10, clientY: 0 },
         latlng: { lat: 31.123456789, lng: 121.987654321 },
       });
-      expect(data.lng).toBe(121.987654);
-      expect(data.lat).toBe(31.123457);
+      expect(data.lng).toBe(121.987654321);
+      expect(data.lat).toBe(31.123456789);
 
       onUp({
         originalEvent: { clientX: 10, clientY: 0 },
         latlng: { lat: 31.123456789, lng: 121.987654321 },
       });
       await flushAsync();
-      expect(data.lng).toBe(121.987654);
-      expect(data.lat).toBe(31.123457);
+      expect(data.lng).toBe(121.987654321);
+      expect(data.lat).toBe(31.123456789);
     } finally {
       vi.unstubAllGlobals();
     }
