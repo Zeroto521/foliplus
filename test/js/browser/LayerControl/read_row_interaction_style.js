@@ -10,12 +10,14 @@ selector => {
   if (!row) return null;
   const cs = getComputedStyle(row);
   const fold = row.querySelector(".foliplus-layer-fold-btn");
+  const more = row.querySelector(".foliplus-layer-more-btn");
   return {
     background: cs.backgroundColor,
     glow: cs.boxShadow,
     leftBar: cs.borderLeftColor,
     outline: cs.outlineStyle,
     foldColor: fold ? getComputedStyle(fold).color : null,
+    moreColor: more ? getComputedStyle(more).color : null,
     active: row.classList.contains("foliplus-active"),
     focused: row.classList.contains("foliplus-is-focused-row"),
     folded: row.classList.contains("foliplus-layer-folded"),

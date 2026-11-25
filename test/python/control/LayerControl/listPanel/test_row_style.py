@@ -338,6 +338,7 @@ class TestRowInteractionParityBrowser(LayerControlBrowserBase):
             page.evaluate(_js("LayerControl/clear_row_cursor"))
             rest_role = self._read(page, _ROLE)
             rest_layer = self._read(page, _LAYER)
+            rest_folder = self._read(page, _FOLDER)
             assert rest_role["background"] == rest_layer["background"]
             assert rest_role["glow"] == rest_layer["glow"] == "none"
             assert rest_role["leftBar"] == rest_layer["leftBar"]
@@ -345,6 +346,16 @@ class TestRowInteractionParityBrowser(LayerControlBrowserBase):
             # Both rows are checked (their layers are on), so both carry the
             # persistent wash and accent bar.
             assert rest_role["active"] and rest_layer["active"]
+            # The ⋮ button is the row's accent affordance: an active row wakes
+            # it to accent on all three row kinds. A role header whose ⋮ stays
+            # text-primary here is the bug the user reported (its menu.css rule
+            # selected on .foliplus-layer-item alone and missed the header).
+            assert (
+                rest_role["moreColor"]
+                == rest_layer["moreColor"]
+                == rest_folder["moreColor"]
+                == accent
+            ), "rest: the ⋮ must wake to accent on every row kind"
 
             # ── Hover: white surface + top/bottom glow, chevron stays neutral ──
             page.hover(_ROLE)
@@ -359,6 +370,15 @@ class TestRowInteractionParityBrowser(LayerControlBrowserBase):
             assert (
                 hover_role["foldColor"] == hover_folder["foldColor"] == text_primary
             ), "hover must not tint the role chevron: a transient accent is the bug"
+            # The ⋮ stays accent on hover for all three row kinds (menu.css
+            # wakes it on :hover via .foliplus-row now, so the role header is
+            # included). A black role ⋮ beside an accent layer ⋮ is the bug.
+            assert (
+                hover_role["moreColor"]
+                == hover_layer["moreColor"]
+                == hover_folder["moreColor"]
+                == accent
+            ), "hover: the ⋮ must be accent on every row kind"
 
             # ── Keyboard focus: same recipe, chevron still neutral ──
             page.evaluate(_js("LayerControl/clear_row_cursor"))
@@ -378,6 +398,13 @@ class TestRowInteractionParityBrowser(LayerControlBrowserBase):
             assert focus_role["leftBar"] == focus_layer["leftBar"]
             assert focus_role["outline"] == focus_layer["outline"] == "none"
             assert focus_role["foldColor"] == focus_folder["foldColor"] == text_primary
+            # The ⋮ wakes to accent under the keyboard cursor on every row kind.
+            assert (
+                focus_role["moreColor"]
+                == focus_layer["moreColor"]
+                == focus_folder["moreColor"]
+                == accent
+            ), "focus: the ⋮ must be accent on every row kind"
 
             # ── Folded: accent chevron + accent left bar, like a folder row ──
             page.evaluate(_js("LayerControl/clear_row_cursor"))
