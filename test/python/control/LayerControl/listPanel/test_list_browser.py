@@ -59,7 +59,6 @@ class TestListBrowser(LayerControlBrowserBase):
             assert result["assignThrew"] is True, "index assign should throw"
             assert result["shiftThrew"] is True, "shift should throw"
 
-
     def test_drag_reorder_syncs_panel_rows(self, browser, tmp_path):
         """A plain registry reorder must re-align the panel's row order.
 
