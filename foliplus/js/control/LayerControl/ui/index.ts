@@ -3,7 +3,12 @@
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
-import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
+import {
+  type ProjectionBatch,
+  applyProjection,
+  applyProjectionAll,
+  releaseOpacityRedraws,
+} from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
 import { seedAuthorVisible } from "./intent.js";
@@ -510,6 +515,12 @@ class LayerUI implements LayerUISurface {
    *  standalone teardown. */
   releaseStyleApplies() {
     return releaseStyleApplyOwner(this);
+  }
+  /** Release every debounced opacity repaint this UI scheduled. Scoped to
+   *  this UI; the controller calls it on destroy and unbindEvents on a
+   *  standalone teardown. Idempotent. */
+  releaseOpacityRedraws() {
+    return releaseOpacityRedraws(this);
   }
   /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
    *  ran, and `vi.spyOn` needs a method on the instance (an imported function
