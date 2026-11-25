@@ -62,10 +62,7 @@ describe("checkSize", () => {
   it("keeps a path with no test/js/ marker as-is", () => {
     // Defensive: a caller may hand a path outside the mirror root; the key then
     // stays the slash-normalised path instead of collapsing to an empty suffix.
-    const bad = checkSize(
-      [{ file: "/abs/elsewhere.test.ts", lines: LIMIT + 1 }],
-      {},
-    );
+    const bad = checkSize([{ file: "/abs/elsewhere.test.ts", lines: LIMIT + 1 }], {});
     expect(bad.map(b => b.file)).toEqual(["/abs/elsewhere.test.ts"]);
   });
 
