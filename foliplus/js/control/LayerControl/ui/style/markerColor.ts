@@ -262,10 +262,7 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
     layerId,
   ).declared;
   const opacityGroup = numberInput({
-    value:
-      typeof storedOpacity === "number"
-        ? storedOpacity
-        : (declaredOpacity ?? 100),
+    value: typeof storedOpacity === "number" ? storedOpacity : (declaredOpacity ?? 100),
     min: 0,
     max: 100,
     step: 1,

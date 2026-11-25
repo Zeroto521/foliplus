@@ -433,10 +433,7 @@ describe("readDeclaredMarkerColor", () => {
 
 describe("readDeclaredOpacity", () => {
   it("reads a declared whole-layer opacity", () => {
-    const { declared, invalid } = readDeclaredOpacity(
-      layerWith({ opacity: 0.6 }),
-      "L",
-    );
+    const { declared, invalid } = readDeclaredOpacity(layerWith({ opacity: 0.6 }), "L");
     expect(declared).toBe(0.6);
     expect(invalid).toEqual([]);
   });
@@ -488,19 +485,13 @@ describe("readDeclaredIconColorOpacity", () => {
   });
 
   it("reads nothing when the icon block is absent", () => {
-    const { declared, invalid } = readDeclaredIconColorOpacity(
-      layerWith({}),
-      "L",
-    );
+    const { declared, invalid } = readDeclaredIconColorOpacity(layerWith({}), "L");
     expect(declared).toBeUndefined();
     expect(invalid).toEqual([]);
   });
 
   it("reads nothing when the icon block is not a mapping", () => {
-    const { declared } = readDeclaredIconColorOpacity(
-      layerWith({ icon: "red" }),
-      "L",
-    );
+    const { declared } = readDeclaredIconColorOpacity(layerWith({ icon: "red" }), "L");
     expect(declared).toBeUndefined();
   });
 
@@ -542,10 +533,7 @@ describe("readDeclaredMarkerColorOpacity", () => {
   });
 
   it("reads nothing when the marker block is absent", () => {
-    const { declared, invalid } = readDeclaredMarkerColorOpacity(
-      layerWith({}),
-      "L",
-    );
+    const { declared, invalid } = readDeclaredMarkerColorOpacity(layerWith({}), "L");
     expect(declared).toBeUndefined();
     expect(invalid).toEqual([]);
   });

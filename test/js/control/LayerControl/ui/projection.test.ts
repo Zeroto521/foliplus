@@ -203,13 +203,9 @@ describe("currentOpacity (resolved opacity read)", () => {
     // only the panel's default read, and an intent still beats both.
     const ui = makeUI();
     const layer = { options: { foliplus: { opacity: 0.55 } } } as any;
-    expect(
-      currentOpacity(ui, { id: "l1", layer, opacity: 0.8 } as any),
-    ).toBe(0.55);
+    expect(currentOpacity(ui, { id: "l1", layer, opacity: 0.8 } as any)).toBe(0.55);
     setIntent(ui, "l1", "opacity", 0.3);
-    expect(
-      currentOpacity(ui, { id: "l1", layer, opacity: 0.8 } as any),
-    ).toBe(0.3);
+    expect(currentOpacity(ui, { id: "l1", layer, opacity: 0.8 } as any)).toBe(0.3);
   });
 });
 

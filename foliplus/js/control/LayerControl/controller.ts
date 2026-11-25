@@ -1,5 +1,9 @@
 import * as CONST from "./const.js";
 import { readDeclaredFilter } from "./declaredFilter.js";
+import {
+  readDeclaredIconColorOpacity,
+  readDeclaredMarkerColorOpacity,
+} from "./declaredParse.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
@@ -96,10 +100,6 @@ import { finishSlidersIn } from "#ui/index.js";
 import { authorGlyphName } from "#control/LayerControl/ui/style/icon.js";
 import { authorIconColor } from "#control/LayerControl/ui/style/iconColor.js";
 import { resolveChassisPaint } from "#control/LayerControl/ui/style/markerColor.js";
-import {
-  readDeclaredIconColorOpacity,
-  readDeclaredMarkerColorOpacity,
-} from "#control/LayerControl/declaredParse.js";
 import { DIM_ORDER, getDimension } from "#control/LayerControl/ui/style/registry.js";
 
 type LayerControllerEnv = {
@@ -357,10 +357,12 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     // The chassis the map draws: author chassis / declared marker_color /
     // the awesome-markers default — the same resolver the row and apply use.
     // The opacity is the author-declared chassis alpha, else 100%.
-    const declaredOpacity =
-      readDeclaredMarkerColorOpacity(layer, id).declared ?? 100;
+    const declaredOpacity = readDeclaredMarkerColorOpacity(layer, id).declared ?? 100;
     return {
-      icon: { markerColor: resolveChassisPaint(layer), markerColorOpacity: declaredOpacity },
+      icon: {
+        markerColor: resolveChassisPaint(layer),
+        markerColorOpacity: declaredOpacity,
+      },
     };
   },
 };

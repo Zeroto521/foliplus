@@ -17,7 +17,7 @@
 // Public API names are unchanged (readDeclaredBorder / readDeclaredIconSize /
 // readDeclaredMarkerColor) — callers are untouched except for the import path.
 import { parseValueDeclaration } from "./declaredFill.js";
-import { camelize, type RejectFn, readDeclaredKey } from "./declaredKey.js";
+import { type RejectFn, camelize, readDeclaredKey } from "./declaredKey.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
@@ -422,8 +422,8 @@ const declaredBlockOf = (
   blockKey: string,
 ): Record<string, unknown> | undefined => {
   if (typeof layer !== "object" || layer === null) return undefined;
-  const foliplus = (layer as { options?: { foliplus?: unknown } }).options
-    ?.foliplus as Record<string, unknown> | undefined;
+  const foliplus = (layer as { options?: { foliplus?: unknown } }).options?.foliplus as
+    Record<string, unknown> | undefined;
   if (!foliplus) return undefined;
   const block = foliplus[blockKey] ?? foliplus[camelize(blockKey) ?? blockKey];
   if (typeof block !== "object" || block === null || Array.isArray(block)) {

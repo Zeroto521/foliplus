@@ -59,19 +59,19 @@ The attribute channel wins when present; the options channel is the fallback.
 
 The recognised keys are:
 
-| Key            | Type | Meaning                                                    |
-| -------------- | ---- | ---------------------------------------------------------- |
-| `zoom_range`   | dict | visible zoom window (see {ref}`zoom_range`).               |
-| `folder`       | str  | layer folder (role) name (see {ref}`folder`).              |
-| `fill`         | dict | value-based or solid fill (see {ref}`fill`).               |
-| `label`        | dict | text labels (see {ref}`label`).                            |
-| `filter`       | dict | value filter (see {ref}`filter`).                          |
-| `border`       | dict | border default mode / colour / weight (see {ref}`border`). |
-| `marker_color` | str  | marker chassis preset (see {ref}`marker_color`).           |
-| `icon_size`    | int  | marker icon pixel size (see {ref}`icon_size`).             |
-| `opacity`      | float| whole-layer opacity, the slider's reset point (see {ref}`opacity`). |
-| `icon`         | dict | icon block: `colorOpacity` glyph alpha (see {ref}`opacity`).  |
-| `marker`       | dict | marker block: `colorOpacity` chassis alpha (see {ref}`opacity`). |
+| Key            | Type  | Meaning                                                             |
+| -------------- | ----- | ------------------------------------------------------------------- |
+| `zoom_range`   | dict  | visible zoom window (see {ref}`zoom_range`).                        |
+| `folder`       | str   | layer folder (role) name (see {ref}`folder`).                       |
+| `fill`         | dict  | value-based or solid fill (see {ref}`fill`).                        |
+| `label`        | dict  | text labels (see {ref}`label`).                                     |
+| `filter`       | dict  | value filter (see {ref}`filter`).                                   |
+| `border`       | dict  | border default mode / colour / weight (see {ref}`border`).          |
+| `marker_color` | str   | marker chassis preset (see {ref}`marker_color`).                    |
+| `icon_size`    | int   | marker icon pixel size (see {ref}`icon_size`).                      |
+| `opacity`      | float | whole-layer opacity, the slider's reset point (see {ref}`opacity`). |
+| `icon`         | dict  | icon block: `colorOpacity` glyph alpha (see {ref}`opacity`).        |
+| `marker`       | dict  | marker block: `colorOpacity` chassis alpha (see {ref}`opacity`).    |
 
 An unknown key warns once and is ignored:
 
@@ -144,10 +144,10 @@ stays at the role root.
 and whether it starts folded. It is a different channel from the per-layer
 `folder` key, and the split is deliberate:
 
-| Channel | Owns | Does not do |
-| ------- | ---- | ----------- |
-| `foliplus={"folder": ...}` on a layer | **membership** — which folder the layer's row groups into | set the folder's default folded state |
-| `LayerControl(folders=...)` | **metadata** — the folder's display name and default folded state, per role | create a folder, move a layer into one, or order folders |
+| Channel                               | Owns                                                                        | Does not do                                              |
+| ------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `foliplus={"folder": ...}` on a layer | **membership** — which folder the layer's row groups into                   | set the folder's default folded state                    |
+| `LayerControl(folders=...)`           | **metadata** — the folder's display name and default folded state, per role | create a folder, move a layer into one, or order folders |
 
 A complete example — declare the folders once, then put each layer in one:
 

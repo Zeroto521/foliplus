@@ -129,5 +129,5 @@ const readDeclaredKey = <R, I>(
   return result;
 };
 
-export { camelize, rawDeclaredKeyOf, readDeclaredKey };
+export { camelize, readDeclaredKey };
 export type { RejectFn };
