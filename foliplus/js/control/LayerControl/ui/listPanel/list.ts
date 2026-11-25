@@ -705,7 +705,52 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
   frag.appendChild(item);
 
-  if (!firstOfGroup) {
+  // A folder member inherits the folder's own fold state the same way
+  // renderInitialList hides its block members: a late registration into a
+  // folded folder must join hidden, not appear as if the folder were open.
+  const memberFolderKey = folderOf(ui.c.folderLayoutView, layerInfo);
+  if (
+    memberFolderKey &&
+    effectiveFolderFolded(
+      ui.listPanel.authorFoldedFolders,
+      ui.listPanel.foldedFolders,
+      role,
+      memberFolderKey,
+    )
+  ) {
+    item.classList.add(CONST.CLASSES.GROUP_FOLDED);
+  }
+
+  // A folder member joins its folder block (renderInitialList's placement
+  // rule), not the role's root-layer stream: the row is a flat sibling right
+  // after the folder row, at its rank among the block's members. The
+  // registry-depth anchor below landed it beside the root layers instead, so a
+  // late-registered member dragged into a folder showed fallen to root on
+  // refresh. The folder row is already on the panel whenever the folder owns
+  // an order key (the layout the user's drag wrote), so the member-position
+  // insert is the normal path; a folder row that is not on the panel yet falls
+  // through to the registry-depth anchor.
+  const folderKey = folderOf(ui.c.folderLayoutView, layerInfo);
+  const folderRow = folderKey
+    ? container.querySelector<HTMLElement>(
+        `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(folderKey)}"]`,
+      )
+    : null;
+  if (folderRow) {
+    const block = displayBlocks(ui, role).find(
+      b => b.kind === "folder" && b.key === folderKey,
+    );
+    const members = block && block.kind === "folder" ? block.block.members : [];
+    const memberIdx = members.findIndex(m => m.id === layerInfo.id);
+    let anchor: HTMLElement = folderRow;
+    for (let i = 0; i < memberIdx; i++) {
+      const memberRow = container.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(members[i].id)}"]`,
+      );
+      if (memberRow) anchor = memberRow;
+    }
+    anchor.after(frag);
+  } else if (!firstOfGroup) {
     // BASE inserts before the first base row (end of the base role).
     // OVERLAY inserts before the first base row; when none exists, append at
     // the end.
