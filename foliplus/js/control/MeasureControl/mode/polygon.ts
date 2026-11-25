@@ -255,6 +255,10 @@ class PolygonMode extends PreviewMode {
       // node), so the finalized leaves left on the surface are the row's
       // content when clearActiveMode hands it back to the factory.
       this._cleanup();
+      // The finish path ends the mode, matching distance: a committed polygon
+      // leaves measuring mode so the measuring cursor and the high-priority
+      // Escape do not linger after the row is finalized.
+      this.mgr.clearActiveMode();
     };
     // Escape with a complete in-flight polygon (>=3 points) commits it rather
     // than discarding it; sparse geometry returns false so the caller discards
