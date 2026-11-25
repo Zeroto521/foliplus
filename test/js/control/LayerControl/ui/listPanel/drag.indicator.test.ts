@@ -283,4 +283,76 @@ describe("ui/drag indicator state", () => {
     clearDragState(ui);
     expect(markedRows(ui)).toHaveLength(0);
   });
+
+  it("keeps the running gap pulse while the pointer moves inside one row", () => {
+    // The pulse is a one-shot animation on the gap line. Re-writing the same
+    // attribute on every dragover tick would restart it, so the line would sit
+    // frozen at 0% for as long as the pointer moves inside the row.
+    const { ui } = initFixture({ data: overlays(3) });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const target = rowOf(ui, "L1");
+    pinRect(target, 100, 36);
+    const observer = new MutationObserver(() => {});
+    observer.observe(target, {
+      attributes: true,
+      attributeFilter: [CONST.DRAG_STATE_ATTR],
+    });
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 130));
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 132));
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 134));
+    const seen = observer.takeRecords();
+    observer.disconnect();
+    expect(stateOf(target)).toBe(CONST.DRAG_STATE.AFTER);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("restarts the pulse when the gap moves to another row", () => {
+    // A new gap is a new animation: the old row is cleared and the returning
+    // row is re-marked, so the pulse starts again instead of staying finished.
+    const { ui } = initFixture({ data: overlays(4) });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const first = rowOf(ui, "L1");
+    const second = rowOf(ui, "L2");
+    pinRect(first, 100, 36);
+    pinRect(second, 140, 36);
+    const observer = new MutationObserver(() => {});
+    observer.observe(first, {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: [CONST.DRAG_STATE_ATTR],
+    });
+    handleDragOver(ui, dragEvent(first, { dropEffect: "" }, 130));
+    handleDragOver(ui, dragEvent(second, { dropEffect: "" }, 170));
+    handleDragOver(ui, dragEvent(first, { dropEffect: "" }, 130));
+    const seen = observer.takeRecords();
+    observer.disconnect();
+    // set, clear, set: the returning gap starts the animation again.
+    expect(seen.map(record => record.oldValue)).toEqual([
+      null,
+      CONST.DRAG_STATE.AFTER,
+      null,
+    ]);
+    expect(stateOf(first)).toBe(CONST.DRAG_STATE.AFTER);
+  });
+
+  it("leaves an unmarked row alone when the pointer leaves it", () => {
+    // The clearer is idempotent: a dragleave on a row that carries no state
+    // must not write, so the animation of a neighbouring gap is untouched.
+    const { ui } = initFixture({ data: overlays(3) });
+    const row = rowOf(ui, "L2");
+    handleDragLeave(dragEvent(row));
+    expect(stateOf(row)).toBeNull();
+  });
+
+  it("leaves no drop state when the pointer is over the carried row", () => {
+    // Hovering the row being carried is not a gap: the layer cannot land on
+    // itself, so the pickup marker is the only state it keeps.
+    const { ui } = initFixture({ data: overlays(3) });
+    const source = rowOf(ui, "L0");
+    handleDragStart(ui, dragEvent(source, { effectAllowed: "" }));
+    pinRect(source, 100, 36);
+    handleDragOver(ui, dragEvent(source, { dropEffect: "" }, 130));
+    expect(targetRows(ui)).toHaveLength(0);
+    expect(stateOf(source)).toBe(CONST.DRAG_STATE.SOURCE);
+  });
 });

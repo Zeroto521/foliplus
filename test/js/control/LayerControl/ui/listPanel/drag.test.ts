@@ -505,13 +505,17 @@ describe("ui/drag", () => {
       );
     });
 
-    it("handleDragOver paints no marker over the armed row itself", () => {
+    it("handleDragOver paints no drop marker over the armed row itself", () => {
       const { ui } = initFixture({ data: overlays(3) });
       handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
 
       handleDragOver(ui, dragEvent(rowOf(ui, "L1")));
 
-      expect(rowOf(ui, "L1").getAttribute(CONST.DRAG_STATE_ATTR)).toBeNull();
+      // The carried row is not a gap: it keeps its pickup marker and gains no
+      // before/after state.
+      expect(rowOf(ui, "L1").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+        CONST.DRAG_STATE.SOURCE,
+      );
     });
 
     it("handleDragOver tolerates an allowed move without a dataTransfer", () => {

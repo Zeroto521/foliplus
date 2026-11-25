@@ -566,10 +566,11 @@ class TestLayerControlRendering:
         """Drag-over drop indicators use CSS custom properties for all parameters."""
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert "--foliplus-drag-border-width" in css
-        assert "--foliplus-drag-top-shadow" in css
-        assert "--foliplus-drag-bottom-shadow" in css
+        assert "--foliplus-drag-gap-line" in css
+        assert "--foliplus-drag-gap-inset-top" in css
+        assert "--foliplus-drag-gap-inset-bottom" in css
         assert "--foliplus-motion-slow" in css
-        # One pulse, on pickup only: the hover states carry no animation.
+        # One pulse per gesture: pickup and the gap line share the count.
         tokens = read_css("foliplus/css/common/token.css")
         assert "--foliplus-drag-pulse-count: 1" in tokens
         # The commit beat the drop acknowledgement holds for.
@@ -589,6 +590,20 @@ class TestLayerControlRendering:
         assert '[data-foliplus-drop="after"]' in css
         assert '[data-foliplus-drop="join"]' in css
         assert '[data-foliplus-drop="refuse"]' in css
+        # The pulse marks the INSERTION GAP: before/after draw it on the row
+        # edge the layer lands against, so up-drag and down-drag agree.
+        # The stylesheet is nested: the edge pseudo-elements live inside the
+        # before/after state blocks.
+        assert "&::before {" in css
+        assert "&::after {" in css
+        assert "animation: foliplus-drag-pulse" in css
+        assert "@keyframes foliplus-drag-join-pulse" in css
+        # The row edge next to the gap sinks, so the gap reads as a slot.
+        assert "box-shadow: var(--foliplus-drag-gap-inset-top)" in css
+        assert "box-shadow: var(--foliplus-drag-gap-inset-bottom)" in css
+        # The old edge indicator (a border on the row itself) is gone.
+        assert "border-top: var(--foliplus-drag-border-width) solid" not in css
+        assert "border-bottom: var(--foliplus-drag-border-width) solid" not in css
         # The four-class vocabulary is gone, not merely unused.
         assert "foliplus-layer-drag-over-top" not in css
         assert "foliplus-layer-drag-over-bottom" not in css

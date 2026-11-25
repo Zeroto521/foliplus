@@ -13,10 +13,17 @@ import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 
 /** Write the row's ONE indicator state; null clears it. A single attribute
  *  with one value is the whole point: two indicators on one row are
- *  unrepresentable, not merely discouraged. */
+ *  unrepresentable, not merely discouraged. Re-writing the same value is a
+ *  no-op so the gap pulse keeps running while the pointer moves inside the
+ *  same row; a new row (or a new gap on the same row) starts the animation. */
 const setDragState = (row: HTMLElement, state: string | null): void => {
-  if (state === null) row.removeAttribute(CONST.DRAG_STATE_ATTR);
-  else row.setAttribute(CONST.DRAG_STATE_ATTR, state);
+  const current = row.getAttribute(CONST.DRAG_STATE_ATTR);
+  if (state === null) {
+    if (current !== null) row.removeAttribute(CONST.DRAG_STATE_ATTR);
+    return;
+  }
+  if (current === state) return;
+  row.setAttribute(CONST.DRAG_STATE_ATTR, state);
 };
 
 /** Clear the indicator from every row in the panel — the one clearer every
@@ -402,7 +409,6 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
 
   const targetIdx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
-  setDragState(item, null);
   ui.listPanel.lastDragOverItem = item;
 
   // A group dropped on a folder's member row would join that folder, which
@@ -442,12 +448,15 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
 
   if (!ui.c.canReorderBetween(dragged, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+    setDragState(item, null);
     ui.listPanel.lastDragOverItem = null;
     showReorderBlockedHint(ui);
     return;
   }
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 
+  // Hovering the carried row itself is not a gap: it keeps its pickup marker
+  // and paints no drop state.
   if (targetIdx < dragged) setDragState(item, CONST.DRAG_STATE.BEFORE);
   else if (targetIdx > dragged) setDragState(item, CONST.DRAG_STATE.AFTER);
 };

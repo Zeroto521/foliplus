@@ -1,9 +1,11 @@
 """Browser tests for the LayerControl drag indicator (one attribute, one state).
 
 Every assertion reads computed style from the real page: the redesign's contract
-is visual, so a jsdom class check is not enough. The refusal case is also the
-regression test for the old double indicator (solid edge + pulse + dashed
-outline on one row).
+is visual, so a jsdom class check is not enough. The indicator marks the
+INSERTION GAP, not the hovered row: before/after paint a pulse line on the row
+edge the layer lands against, so dragging up and dragging down over the same gap
+produce the same picture. The refusal case is also the regression test for the
+old double indicator (solid edge + pulse + dashed outline on one row).
 
 Rows are addressed by their DOM position among layer rows (layers[i]): the
 fixture's GeoJson layers render with an empty title, so ids are hashes and the
@@ -44,8 +46,33 @@ def _marked(result):
     return source, target
 
 
+def _assert_gap_line(style, edge):
+    """The gap line pulses on the row edge, and the edge next to it sinks."""
+    pseudo = style[edge]
+    assert pseudo["animationName"] == "foliplus-drag-pulse", (
+        f"the gap line must pulse: {pseudo['animationName']}"
+    )
+    assert pseudo["animationIterationCount"] == "1", (
+        f"one gesture, one pulse: {pseudo['animationIterationCount']}"
+    )
+    width = (
+        pseudo["borderTopWidth"] if edge == "before" else pseudo["borderBottomWidth"]
+    )
+    assert width == style["gapLineWidth"], (
+        f"the gap line must use the shared token: {width} != {style['gapLineWidth']}"
+    )
+    offset = pseudo["top"] if edge == "before" else pseudo["bottom"]
+    assert offset.startswith("-"), f"the gap line must sit on the edge: {offset}"
+    assert "inset" in style["boxShadow"], (
+        f"the row edge next to the gap must sink: {style['boxShadow']}"
+    )
+    assert style["outlineStyle"] == "none", (
+        f"an accepted gap must not draw an outline: {style['outlineStyle']}"
+    )
+
+
 class TestDragIndicatorBrowser:
-    """Pickup, accepted edges, join and refusal — one indicator per row."""
+    """Pickup, gap lines, join and refusal — one indicator per row."""
 
     def test_pickup_pulses_once(self, browser, tmp_path):
         """The carried row is the only row marked, and its pulse runs once."""
@@ -68,8 +95,8 @@ class TestDragIndicatorBrowser:
         )
         assert not errors, f"console errors: {errors}"
 
-    def test_accepted_edge_is_one_solid_line(self, browser, tmp_path):
-        """An accepted edge draws a solid border and nothing else."""
+    def test_gap_line_pulses_above_the_row(self, browser, tmp_path):
+        """Dragging up marks the gap above the hovered row with a pulse line."""
         page, errors = _page(browser, tmp_path)
         result = page.evaluate(
             _js("LayerControl/drag_indicator"),
@@ -80,23 +107,67 @@ class TestDragIndicatorBrowser:
         assert len(target) == 1, f"expected exactly one drop target, got {target}"
         style = result["target"]
         assert style["state"] == "before"
-        assert style["borderTopWidth"] != "0px", (
-            f"accepted edge lost its border: {style['borderTopWidth']}"
-        )
-        assert style["borderTopWidth"] == style["expectedBorderWidth"], (
-            "the edge must use the shared border token: "
-            f"{style['borderTopWidth']} != {style['expectedBorderWidth']}"
-        )
-        assert style["outlineStyle"] == "none", (
-            f"an accepted edge must not draw an outline: {style['outlineStyle']}"
-        )
+        _assert_gap_line(style, "before")
         assert style["animationName"] == "none", (
-            f"hover states carry no animation: {style['animationName']}"
+            f"the pulse belongs to the gap line, not the row: {style['animationName']}"
         )
         assert not errors, f"console errors: {errors}"
 
-    def test_join_draws_inset_ring(self, browser, tmp_path):
-        """A folder middle is a join: inset ring, no outline, no animation."""
+    def test_gap_line_pulses_below_the_row(self, browser, tmp_path):
+        """Dragging down marks the gap below the hovered row, mirrored."""
+        page, errors = _page(browser, tmp_path)
+        result = page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {"scenario": "hover", "source": 0, "target": 1, "zone": "after"},
+        )
+        source, target = _marked(result)
+        assert len(source) == 1, f"expected the carried row, got {source}"
+        assert len(target) == 1, f"expected exactly one drop target, got {target}"
+        style = result["target"]
+        assert style["state"] == "after"
+        _assert_gap_line(style, "after")
+        assert not errors, f"console errors: {errors}"
+
+    def test_same_gap_looks_the_same_from_both_directions(self, browser, tmp_path):
+        """The symmetry regression: one gap, two drag directions, one picture.
+
+        The gap between layer rows 1 and 2 is reached by dragging row 0 down
+        over row 1 (after row 1) and by dragging row 3 up over row 2 (before
+        row 2). Both must paint the pulse line at the same y with the same
+        computed style — the old indicator pulsed the hovered row instead, so
+        the two directions disagreed.
+        """
+        page, errors = _page(browser, tmp_path)
+        down = page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {"scenario": "symmetry", "source": 0, "target": 1, "zone": "after"},
+        )
+        assert down["target"]["state"] == "after", down["target"]["state"]
+        page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {"scenario": "reset", "source": 0},
+        )
+        up = page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {"scenario": "symmetry", "source": 3, "target": 2, "zone": "before"},
+        )
+        assert up["target"]["state"] == "before", up["target"]["state"]
+
+        assert abs(down["lineY"] - up["lineY"]) <= 1, (
+            "the same gap must pulse at the same y from both directions: "
+            f"{down['lineY']} vs {up['lineY']}"
+        )
+        down_line = down["target"]["after"]
+        up_line = up["target"]["before"]
+        assert down_line["animationName"] == up_line["animationName"]
+        assert down_line["borderBottomWidth"] == up_line["borderTopWidth"]
+        assert down_line["borderBottomColor"] == up_line["borderTopColor"]
+        assert "inset" in down["target"]["boxShadow"]
+        assert "inset" in up["target"]["boxShadow"]
+        assert not errors, f"console errors: {errors}"
+
+    def test_join_pulses_the_whole_row(self, browser, tmp_path):
+        """A folder middle is a join: the whole row's inset ring pulses."""
         page, errors = _page(browser, tmp_path)
         result = page.evaluate(
             _js("LayerControl/drag_indicator"),
@@ -110,11 +181,11 @@ class TestDragIndicatorBrowser:
         assert "inset" in style["boxShadow"], (
             f"join must draw an inset ring: {style['boxShadow']}"
         )
+        assert style["animationName"] == "foliplus-drag-join-pulse", (
+            f"join must pulse the ring: {style['animationName']}"
+        )
         assert style["outlineStyle"] == "none", (
             f"join must not draw an outline: {style['outlineStyle']}"
-        )
-        assert style["animationName"] == "none", (
-            f"join carries no animation: {style['animationName']}"
         )
         assert not errors, f"console errors: {errors}"
 
@@ -155,7 +226,7 @@ class TestDragIndicatorBrowser:
 
         The old writer added the position class and the blocked class here; the
         edge places the layer before/after the folder block, so it must read as
-        an accepted before/after.
+        an accepted gap line.
         """
         page, errors = _page(browser, tmp_path)
         result = page.evaluate(
@@ -172,8 +243,8 @@ class TestDragIndicatorBrowser:
         assert style["outlineStyle"] == "none", (
             f"accepted edge must not draw the refusal outline: {style['outlineStyle']}"
         )
-        assert style["borderTopWidth"] != "0px", (
-            f"accepted edge lost its border: {style['borderTopWidth']}"
+        assert style["before"]["borderTopWidth"] == style["gapLineWidth"], (
+            f"accepted edge lost its gap line: {style['before']['borderTopWidth']}"
         )
         assert not errors, f"console errors: {errors}"
 
@@ -198,7 +269,5 @@ class TestDragCommitBrowser:
         assert len(marked) <= 2, f"the commit flash marked too many rows: {marked}"
         page.wait_for_timeout(400)
         leftover = page.evaluate(f"({snippet_fn('LayerControl/drag_leftover')})()")
-        assert leftover == [], (
-            f"the commit beat did not clear the indicator: {leftover}"
-        )
+        assert leftover == [], f"the drop left an indicator behind: {leftover}"
         assert not errors, f"console errors: {errors}"

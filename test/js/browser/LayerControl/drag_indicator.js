@@ -5,6 +5,20 @@ arg => {
   const layers = all.filter(row => row.getAttribute("data-layer-id") !== null);
   const byFolder = key => all.find(row => row.getAttribute("data-folder-key") === key);
   const pad = name => getComputedStyle(panel).getPropertyValue(name).trim();
+  const pseudo = (row, which) => {
+    const cs = getComputedStyle(row, which);
+    return {
+      content: cs.content,
+      animationName: cs.animationName,
+      animationIterationCount: cs.animationIterationCount,
+      borderTopWidth: cs.borderTopWidth,
+      borderBottomWidth: cs.borderBottomWidth,
+      borderTopColor: cs.borderTopColor,
+      borderBottomColor: cs.borderBottomColor,
+      top: cs.top,
+      bottom: cs.bottom,
+    };
+  };
   const styles = row => {
     const cs = getComputedStyle(row);
     return {
@@ -17,6 +31,9 @@ arg => {
       animationIterationCount: cs.animationIterationCount,
       boxShadow: cs.boxShadow,
       expectedBorderWidth: pad("--foliplus-border-thick"),
+      gapLineWidth: pad("--foliplus-drag-gap-line"),
+      before: pseudo(row, "::before"),
+      after: pseudo(row, "::after"),
     };
   };
   const dt = new DataTransfer();
@@ -42,6 +59,18 @@ arg => {
         folder: row.getAttribute("data-folder-key"),
         state: row.getAttribute("data-foliplus-drop"),
       }));
+  // The gap line's centre, in viewport coordinates: the insertion point the
+  // pulse marks. BEFORE anchors to the row's top edge, AFTER to its bottom.
+  const gapLineY = row => {
+    const box = rect(row);
+    const state = row.getAttribute("data-foliplus-drop");
+    if (state === "before") {
+      const line = parseFloat(pseudo(row, "::before").borderTopWidth) || 0;
+      return box.top + (parseFloat(pseudo(row, "::before").top) || 0) + line / 2;
+    }
+    const line = parseFloat(pseudo(row, "::after").borderBottomWidth) || 0;
+    return box.bottom + (parseFloat(pseudo(row, "::after").bottom) || 0) + line / 2;
+  };
 
   const source =
     arg.sourceFolder !== undefined ? byFolder(arg.sourceFolder) : layers[arg.source];
@@ -49,6 +78,11 @@ arg => {
 
   if (arg.scenario === "pickup") {
     return { source: styles(source), marked: marked() };
+  }
+
+  if (arg.scenario === "reset") {
+    fire(source, "dragend", middle(source));
+    return { marked: marked() };
   }
 
   const target = arg.folder !== undefined ? byFolder(arg.folder) : layers[arg.target];
@@ -62,6 +96,14 @@ arg => {
 
   if (arg.scenario === "hover") {
     return { target: styles(target), marked: marked(), source: styles(source) };
+  }
+
+  if (arg.scenario === "symmetry") {
+    return {
+      target: styles(target),
+      lineY: gapLineY(target),
+      marked: marked(),
+    };
   }
 
   fire(target, "drop", y);

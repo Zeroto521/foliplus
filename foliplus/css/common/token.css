@@ -495,11 +495,7 @@
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
   --foliplus-drag-border-width: var(--foliplus-border-thick);
-  --foliplus-drag-top-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-6)
-    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
-  --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
-    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
-  /* One pulse, on pickup only: the hover states carry no animation. */
+  /* One pulse per gesture: pickup and the gap line share the count. */
   --foliplus-drag-pulse-count: 1;
   --foliplus-drag-border-from: var(--foliplus-accent-primary);
   --foliplus-drag-border-to: var(--foliplus-accent-hover);
@@ -510,6 +506,17 @@
      drag.ts clears it: the drop's acknowledgement is one short flash of the
      same single state. */
   --foliplus-drag-commit: var(--foliplus-motion-quick);
+  /* Insertion-gap indicator: the pulse line sits ON the gap between rows, so
+     the line thickness and the slot depth are one pair of tokens. */
+  --foliplus-drag-gap-line: var(--foliplus-size-2);
+  --foliplus-drag-gap-line-half: calc(var(--foliplus-size-2) / 2);
+  --foliplus-drag-gap-depth: var(--foliplus-size-2);
+  --foliplus-drag-gap-inset-top: inset 0 var(--foliplus-drag-gap-depth)
+    var(--foliplus-drag-gap-depth) calc(-1 * var(--foliplus-border-thin))
+    var(--foliplus-accent-soft-shadow);
+  --foliplus-drag-gap-inset-bottom: inset 0 calc(-1 * var(--foliplus-drag-gap-depth))
+    var(--foliplus-drag-gap-depth) calc(-1 * var(--foliplus-border-thin))
+    var(--foliplus-accent-soft-shadow);
   --foliplus-layer-item-pad-x: calc(
     var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
   );
