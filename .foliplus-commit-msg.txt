@@ -1,7 +1,0 @@
-fix(core): read folium snake_case chassis opacity (#task-216)
-
-The paint read added the snake fallback for the chassis colour but not its
-opacity: paint.ts still read only options.markerColorOpacity (camelCase), so
-a folium marker_color_opacity fell back to the opaque default. Add the
-symmetric options.markerColorOpacity ?? options.marker_color_opacity and a
-snake opacity test pinning the 40 -> 0.4 read.
