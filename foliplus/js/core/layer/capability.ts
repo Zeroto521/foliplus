@@ -158,8 +158,13 @@ const hasMarkerColorLeaf = (node: unknown): boolean =>
   safeRead(
     () =>
       typeof (node as { setIcon?: unknown }).setIcon === "function" &&
-      typeof (node as { options?: { icon?: { options?: { markerColor?: unknown } } } })
-        .options?.icon?.options?.markerColor === "string",
+      (() => {
+        const icon = (
+          node as { options?: { icon?: { options?: Record<string, unknown> } } }
+        )?.options?.icon?.options;
+        // folium emits marker_color (snake); accept both spellings.
+        return typeof (icon?.markerColor ?? icon?.marker_color) === "string";
+      })(),
   ) === true;
 
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a
