@@ -1,0 +1,697 @@
+// test/js/control/LayerControl/controller.order — persisted layer order and its replay.
+import {
+  ENFORCE_ORDER_DEBOUNCE_MS,
+  createLayerControllerFixture,
+  makeStore,
+  seedStorage,
+  teardownLayerControllerFixture,
+} from "./controller.fixture.js";
+import { initFixture, makeDerivedUI } from "./ui/fixture.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EVENTS } from "#core/event/index.js";
+import { ROLE } from "#core/layer/index.js";
+import * as Storage from "#platform/storage.js";
+import * as CONST from "#control/LayerControl/const.js";
+import { LayerController } from "#control/LayerControl/controller.js";
+import { getIntent } from "#control/LayerControl/ui/intent.js";
+import { dropPersistedLayerState, saveState } from "#control/LayerControl/ui/state.js";
+
+describe("LayerController", () => {
+  let manager: LayerController;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, map } = createLayerControllerFixture());
+  });
+
+  afterEach(() => {
+    teardownLayerControllerFixture(manager);
+  });
+
+  // ── batch registration coalescing ──
+
+  it("registerLayer does not run enforceOrder synchronously", () => {
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+    manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("batch registration coalesces into a single debounced enforceOrder", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+    manager.registerLayer({ id: "b", name: "B", layer: new window.L.TileLayer() });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  // ── layeradd re-entry during enforceOrder ──
+
+  it("layeradd during enforceOrder does NOT reschedule debouncedEnforce (prevents freeze loop)", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(manager, "enforceOrder");
+    manager.isEnforcing = true;
+    manager.onLayerAdd({ layer: new window.L.Path() });
+    vi.advanceTimersByTime(ENFORCE_ORDER_DEBOUNCE_MS);
+    expect(spy).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
+    vi.useFakeTimers();
+    const spy = vi.spyOn(Storage, "saveVersionedObject");
+    manager.saveOrder();
+    manager.saveOrder();
+    manager.saveOrder();
+    expect(spy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(100);
+    expect(spy).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  describe("loadSavedOrder", () => {
+    it("restores a persisted overlay/base order", () => {
+      const spy = vi
+        .spyOn(Storage, "loadVersionedObject")
+        .mockReturnValue({ order: ["overlay1", "base1"] });
+      const m = new LayerController(map, [
+        { id: "base1", name: "B", role: "base" },
+        { id: "overlay1", name: "O", role: "overlay" },
+      ]);
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+      spy.mockRestore();
+    });
+
+    it("drops unknown ids from persisted order and keeps the rest", () => {
+      const spy = vi
+        .spyOn(Storage, "loadVersionedObject")
+        .mockReturnValue({ order: ["ghost", "overlay1", "gone", "base1"] });
+      const m = new LayerController(map, [
+        { id: "base1", name: "B", role: "base" },
+        { id: "overlay1", name: "O", role: "overlay" },
+      ]);
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
+      spy.mockRestore();
+    });
+
+    it("ignores non-array storage data", () => {
+      const spy = vi.spyOn(Storage, "loadVersionedObject").mockReturnValue("nope");
+      const m = new LayerController(map, [
+        { id: "overlay1", name: "O", role: "overlay" },
+      ]);
+      // falls back to the initial (insertion) order
+      expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
+      spy.mockRestore();
+    });
+
+    it("reads the record once at construction time", () => {
+      // The constructor runs before LayerControl's UI has attached. Order seeds
+      // the registry's starting arrangement and removed gates the registration
+      // entry point, so both come from this one read rather than a second one
+      // against a registry that has since grown.
+      const spy = vi.spyOn(Storage, "loadVersionedObject");
+      new LayerController(map, [
+        { id: "base1", name: "B", role: "base" },
+        { id: "overlay1", name: "O", role: "overlay" },
+      ]);
+      const keys = spy.mock.calls.map(c => c[0]);
+      expect(keys).toEqual([CONST.STORAGE.KEY]);
+      spy.mockRestore();
+    });
+  });
+
+  // ── Saved-order replay ─────────────────────────────────────────
+
+  // The record's order is read once at construction and held in `savedOrder`;
+  // nothing re-applies it afterwards, so every appearance point has to. A
+  // component that registers after the record was loaded (Heatmap, Measure)
+  // keeps the slot it was inserted into unless its position is replayed, and a
+  // flush that lands first would otherwise erase the position that registration
+  // is meant to read back.
+  describe("saved-order replay", () => {
+    it("places a late registration at its persisted position", () => {
+      seedStorage({ order: ["B", "H", "A"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
+
+      expect(m.layers.map(l => l.id)).toEqual(["B", "H", "A"]);
+    });
+
+    it("keeps a layer stored below every registered layer at the bottom", () => {
+      // Nothing below H is registered, so the placement falls back to the end
+      // of the group. That end must actually be the end — the layer is the
+      // rightmost of the layers that exist, not the topmost.
+      seedStorage({ order: ["B", "A", "H"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
+
+      expect(m.layers.map(l => l.id)).toEqual(["B", "A", "H"]);
+    });
+
+    it("skips a saved neighbor that has not registered yet", () => {
+      // G sits between X and Y in the stored order but is not registered, so it
+      // cannot be located. The walk keeps going past the gap instead of stopping
+      // there and leaving X where prepend put it.
+      seedStorage({ order: ["X", "G", "Y"] });
+      const m = new LayerController(map, [{ id: "Y", name: "Y", role: "overlay" }]);
+
+      m.registerLayer({ id: "X", name: "X", role: "overlay" });
+
+      expect(m.layers.map(l => l.id)).toEqual(["X", "Y"]);
+    });
+
+    it("re-applies the stored order to a layer that drifted below its neighbor", () => {
+      // The drag moved A under B without a flush landing yet. A is now below its
+      // own saved neighbor, which is the case where the target index is not the
+      // neighbor's shifted-down index.
+      seedStorage({ order: ["A", "B"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+      m.layerRegistry.reorder(0, 1);
+      expect(m.layers.map(l => l.id)).toEqual(["B", "A"]);
+
+      m.replaySavedOrder("A");
+
+      expect(m.layers.map(l => l.id)).toEqual(["A", "B"]);
+    });
+
+    it("leaves the registry alone for an id that is not registered", () => {
+      seedStorage({ order: ["A"] });
+      const m = new LayerController(map, [{ id: "A", name: "A", role: "overlay" }]);
+
+      expect(() => m.replaySavedOrder("ghost")).not.toThrow();
+      expect(m.layers.map(l => l.id)).toEqual(["A"]);
+    });
+
+    it("keeps a layer the record never ranked at its live position", () => {
+      // D arrived this session, so the record has no rank for it. The sweep
+      // sorts the ranked ids by rank and leaves the unranked ones in their own
+      // relative order at the bottom.
+      seedStorage({ order: ["D"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
+        { id: "D", name: "D", role: "overlay" },
+      ]);
+      m.layerRegistry.reorder(0, 2);
+      expect(m.layers.map(l => l.id)).toEqual(["A", "B", "D", "C"]);
+
+      m.replaySavedOrder();
+
+      expect(m.layers.map(l => l.id)).toEqual(["D", "A", "B", "C"]);
+    });
+
+    it("writes no saved order from registration alone (no user action)", () => {
+      // #515's original semantics, now enforced by the mechanism itself: only
+      // explicit user reorders snapshot the live order. A boot that registers
+      // the color basemap and further layers must leave the order slot
+      // untouched — not even a snapshot that happens to match the registration
+      // sequence is a user arrangement.
+      seedStorage({});
+      const m = new LayerController(map, [
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
+      ]);
+      m.registerLayer({
+        id: "foliplus_color_map",
+        name: "Color",
+        role: "base",
+      });
+      m.registerLayer({ id: "X", name: "X", role: "overlay" });
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        data?: { order?: string[] | null };
+      };
+      // No order key at all — registration never touched the saved order.
+      expect(record.data?.order).toBeUndefined();
+    });
+
+    it("snapshots every layer present at the user reorder, color basemap included", () => {
+      // A user reorder writes the full live order. The color basemap is an
+      // ordinary layer with zero privileges, so its slot lands on disk like
+      // any other layer's — a late registration that is not on the map yet
+      // does not: the snapshot is what was on screen.
+      seedStorage({ order: ["fg", "tile"] });
+      const m = new LayerController(map, [
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
+      ]);
+      m.registerLayer({
+        id: "foliplus_color_map",
+        name: "Color",
+        role: "base",
+      });
+      expect(m.layers.map(l => l.id)).toEqual(["fg", "foliplus_color_map", "tile"]);
+
+      m.saveOrder();
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
+    });
+
+    it("keeps a dragged solid-color basemap position across a reload (user bug)", () => {
+      // The user drags the color basemap up within the base group and reloads:
+      // the dragged slot must survive. Before the fix, the color layer's slot
+      // was treated as attach timing and dropped from every write, so the
+      // reload fell back to the registration order (bottom of the base group).
+      const m = new LayerController(map, [
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
+      ]);
+      m.registerLayer({
+        id: "foliplus_color_map",
+        name: "Color",
+        role: "base",
+        baseInsert: "bottom",
+      });
+      // Registration order: fg, tile, color (color at the bottom, as createColor
+      // mounts it).
+      expect(m.layers.map(l => l.id)).toEqual(["fg", "tile", "foliplus_color_map"]);
+
+      // The drag moves the color basemap above the tile basemap.
+      m.layerRegistry.reorder(2, 1);
+      m.saveOrder();
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
+
+      // Reload, the way a real page does it: the color basemap is not part of
+      // the author's data — LayerControl re-creates it through registerLayer
+      // (baseInsert bottom), which must replay the dragged slot from the
+      // record instead of sinking to the bottom of the base block.
+      const reloaded = new LayerController(map, [
+        { id: "fg", name: "FG", role: "overlay" },
+        { id: "tile", name: "Tile", role: "base" },
+      ]);
+      reloaded.registerLayer({
+        id: "foliplus_color_map",
+        name: "Color",
+        role: "base",
+        baseInsert: "bottom",
+      });
+      expect(reloaded.layers.map(l => l.id)).toEqual([
+        "fg",
+        "foliplus_color_map",
+        "tile",
+      ]);
+    });
+
+    it("replays a dragged base layer into the base block, never the overlay end", () => {
+      // placeBeforeSavedNeighbor's no-registered-neighbor fallback is
+      // group-local: a base layer with no registered saved neighbor below it
+      // lands at the end of the base block (the registry end), not at the end
+      // of the overlay block — the overlay-before-base invariant holds.
+      seedStorage({ order: ["fg", "baseA", "baseB"] });
+      const m = new LayerController(map, [{ id: "fg", name: "FG", role: "overlay" }]);
+      m.registerLayer({ id: "baseA", name: "A", role: "base" });
+
+      // Neither baseB nor anything else is registered below baseA in the
+      // stored order, so the fallback is the base-block end: below the
+      // overlay, at the bottom of the registry.
+      expect(m.layers.map(l => l.id)).toEqual(["fg", "baseA"]);
+    });
+  });
+
+  // ── replayStoredState (single replay entry) ──
+
+  describe("replayStoredState", () => {
+    it("replays projection/name/order/style via applyUserState then filter, in that order", () => {
+      manager.ui = makeDerivedUI({
+        applyUserState: vi.fn(() => []),
+      }) as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+
+      const moved = manager.replayStoredState("overlay1");
+
+      // The single-entry contract: projection → name → order → style dims run
+      // inside applyUserState(id), then filter replays after — filter's hidden
+      // class depends on the DOM the style pass paints.
+      expect(manager.ui!.applyUserState).toHaveBeenCalledWith("overlay1");
+      expect(filterSpy).toHaveBeenCalledWith("overlay1");
+      expect(filterSpy.mock.invocationCallOrder[0]).toBeGreaterThan(
+        (manager.ui!.applyUserState as ReturnType<typeof vi.fn>).mock
+          .invocationCallOrder[0],
+      );
+      expect(moved).toEqual([]);
+    });
+
+    it("is idempotent — a second call replays the same dimensions the same way", () => {
+      manager.ui = makeDerivedUI({
+        applyUserState: vi.fn(() => []),
+      }) as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+
+      manager.replayStoredState("overlay1");
+      manager.replayStoredState("overlay1");
+
+      expect(manager.ui!.applyUserState).toHaveBeenCalledTimes(2);
+      expect(manager.ui!.applyUserState).toHaveBeenNthCalledWith(1, "overlay1");
+      expect(manager.ui!.applyUserState).toHaveBeenNthCalledWith(2, "overlay1");
+      expect(filterSpy).toHaveBeenCalledTimes(2);
+      expect(filterSpy).toHaveBeenNthCalledWith(1, "overlay1");
+      expect(filterSpy).toHaveBeenNthCalledWith(2, "overlay1");
+    });
+
+    it("tolerates a missing ui (pre-attach) and still replays the filter", () => {
+      manager.ui = undefined as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+
+      const moved = manager.replayStoredState("overlay1");
+
+      expect(moved).toEqual([]);
+      expect(filterSpy).toHaveBeenCalledWith("overlay1");
+    });
+  });
+
+  describe("replayStoredStateAll", () => {
+    it("sweeps applyUserState() once then replays the filter for every registered layer", () => {
+      manager.ui = makeDerivedUI({
+        applyUserState: vi.fn(() => []),
+      }) as any;
+      const filterSpy = vi
+        .spyOn(manager as unknown as { replayFilter(id: string): void }, "replayFilter")
+        .mockImplementation(() => {});
+      const ids = manager.layerRegistry.items.map(l => l.id);
+
+      const moved = manager.replayStoredStateAll();
+
+      // The A-path sweep: projection-all + name + order + declared style dims
+      // in one applyUserState(), then per-layer filter replay.
+      expect(manager.ui!.applyUserState).toHaveBeenCalledTimes(1);
+      expect(manager.ui!.applyUserState).toHaveBeenCalledWith();
+      expect(filterSpy).toHaveBeenCalledTimes(ids.length);
+      for (const id of ids) expect(filterSpy).toHaveBeenCalledWith(id);
+      expect(moved).toEqual([]);
+    });
+  });
+
+  // ── forgetSavedOrder ──
+
+  // Component clear paths (Heatmap, Measure) call this to drop an id from the
+  // stored order without retiring the layer. The next registration lands at
+  // the top of the overlay stack rather than back at the old slot. Contrast
+  // with deleteLayer: forgetSavedOrder filters savedOrder only; it must never
+  // touch removedIds, otherwise a cleared layer could not be re-registered.
+  describe("forgetSavedOrder", () => {
+    it("drops the id from savedOrder and persists the change", () => {
+      // Component clears always unregister the layer before calling this —
+      // saveOrder would otherwise re-insert an id that is still live.
+      seedStorage({ order: ["A", "H", "B", "C"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
+      ]);
+      m.unregisterLayer("H");
+
+      expect(m.forgetSavedOrder("H")).toBe(true);
+      expect((m as any).order.savedOrder).toEqual(["A", "B", "C"]);
+    });
+
+    it("persists the pruned order so a reload does not resurrect the old slot", () => {
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
+        order: string[] | null;
+      };
+      expect(record.order).toEqual(["A", "B"]);
+    });
+
+    it("returns false for an id that is not in savedOrder", () => {
+      seedStorage({ order: ["A", "B"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+      expect(m.forgetSavedOrder("never")).toBe(false);
+    });
+
+    it("returns false when savedOrder is null (fresh page)", () => {
+      const m = new LayerController(map, [{ id: "A", name: "A", role: "overlay" }]);
+      expect((m as any).order.savedOrder).toBeNull();
+      expect(m.forgetSavedOrder("A")).toBe(false);
+    });
+
+    it("does NOT add the id to removedIds — the layer stays registerable", () => {
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+
+      expect((m as any).order.removedIds.has("H")).toBe(false);
+      // And a subsequent registration actually works:
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
+      expect(m.layerRegistry.has("H")).toBe(true);
+    });
+
+    it("next registration lands at the top of the overlay stack", () => {
+      // Without forgetSavedOrder the re-registration would land back at index 1
+      // (below A). With it, insertOverlayAt's prepend branch wins because the
+      // id has no stored rank anymore.
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
+
+      expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
+    });
+
+    it("preserves neighbor order across a reload after forget", () => {
+      // A clear must not disturb the layers around it: forget only removes the
+      // one id and leaves the rest in their saved positions, which replay on
+      // the next construction.
+      seedStorage({ order: ["A", "H", "B", "C"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
+      ]);
+      m.unregisterLayer("H");
+      m.forgetSavedOrder("H");
+      m.persistence.flushAll();
+
+      // Simulate reload: a fresh manager reads the record and gets neighbors
+      // in the same relative order.
+      const fresh = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "C", name: "C", role: "overlay" },
+      ]);
+      expect(fresh.layers.map(l => l.id)).toEqual(["A", "B", "C"]);
+    });
+  });
+
+  // ── dropPersistedLayerState ──
+
+  // The component-clear counterpart of deleteLayer: it drops the same two
+  // sections (stored order + intent row) but never retires the id, so a
+  // cleared component can draw again from the author's defaults.
+  describe("dropPersistedLayerState", () => {
+    it("drops the intent row and its provenance, keeps the id registerable", () => {
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+      ]);
+      const save = vi.fn(() => saveState(m.ui!));
+      m.ui = makeDerivedUI({
+        c: m,
+        listPanel: {} as never,
+        intentStore: makeStore(
+          {
+            H: { visible: false, opacity: 0.35 },
+            A: { visible: false, opacity: 0.4 },
+          },
+          { H: ["visible", "opacity"], A: ["visible", "opacity"] },
+        ),
+        dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui!, id),
+        saveState: save,
+        invalidateFields: vi.fn(),
+      }) as any;
+      // A component clear always unregisters first (saveOrder would otherwise
+      // re-insert an id that is still live).
+      m.unregisterLayer("H");
+
+      expect(m.dropPersistedLayerState("H")).toBe(true);
+
+      expect(getIntent(m.ui!, "H", "visible")).toBeUndefined();
+      expect(getIntent(m.ui!, "H", "opacity")).toBeUndefined();
+      // A sibling's tuning is nobody's business on a component clear.
+      expect(getIntent(m.ui!, "A", "visible")).toBe(false);
+      expect(getIntent(m.ui!, "A", "opacity")).toBe(0.4);
+      expect(m.ui!.intentStore.dumpProvenance()).toEqual({
+        A: ["visible", "opacity"],
+      });
+      expect(save).toHaveBeenCalledTimes(1);
+      // A clear is not a delete: the id stays registerable.
+      expect((m as any).order.removedIds.has("H")).toBe(false);
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
+      expect(m.layerRegistry.has("H")).toBe(true);
+    });
+
+    it("drops the stored order slot too, so a redraw lands at the top", () => {
+      seedStorage({ order: ["A", "H", "B"] });
+      const m = new LayerController(map, [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "H", name: "H", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+      ]);
+      m.unregisterLayer("H");
+
+      expect(m.dropPersistedLayerState("H")).toBe(true);
+
+      expect((m as any).order.savedOrder).toEqual(["A", "B"]);
+      m.registerLayer({ id: "H", name: "H", role: "overlay" });
+      expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
+    });
+
+    it("returns false when nothing was stored for the id", () => {
+      // No panel and no stored order — a clear of a layer the user never
+      // touched erases nothing, and must say so rather than throwing.
+      const m = new LayerController(map, [{ id: "H", name: "H", role: "overlay" }]);
+      expect(m.dropPersistedLayerState("H")).toBe(false);
+    });
+
+    it("persists the erase so a reload cannot resurrect the old tuning", () => {
+      // The probe that motivated this: the entry survived both clear paths, so
+      // a redraw — or a plain reload — handed back the opacity and visibility
+      // the user had arranged for the previous draw.
+      seedStorage({
+        layers: {
+          H: {
+            visible: false,
+            opacity: 0.35,
+            overrides: ["visible", "opacity"],
+          },
+        },
+      });
+      const m = new LayerController(map, [{ id: "H", name: "H", role: "overlay" }]);
+      const save = vi.fn(() => saveState(m.ui!));
+      m.ui = makeDerivedUI({
+        c: m,
+        listPanel: {} as never,
+        intentStore: makeStore(
+          { H: { visible: false, opacity: 0.35 } },
+          { H: ["visible", "opacity"] },
+        ),
+        dropPersistedLayerState: (id: string) => dropPersistedLayerState(m.ui!, id),
+        saveState: save,
+        invalidateFields: vi.fn(),
+      }) as any;
+      m.unregisterLayer("H");
+      m.dropPersistedLayerState("H");
+      m.persistence.flushAll();
+
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
+        layers?: Record<string, unknown>;
+      };
+      expect(record.layers?.H).toBeUndefined();
+      expect(save).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("BEFORE_EXPORT flushes the pending order before the exporter captures", () => {
+    // A debounced reorder would otherwise land after the capture, exporting the
+    // stale z-order the panel already showed.
+    const spy = vi
+      .spyOn(manager, "enforceOrder")
+      .mockImplementation(() => ({ failed: [], skipped: false }));
+    manager.events.publish(EVENTS.BEFORE_EXPORT as string);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("a cross-role re-registration after unregister replays its order role-locally", () => {
+    // The gate says "unregister first"; that path must stay safe. A's old
+    // saved rank sits above B, but A is now a base and B an overlay — an
+    // unconditional replay would push A into the overlay block and strand
+    // the boundary.
+    const { manager } = initFixture({
+      seed: { order: ["A", "B"] },
+      data: [
+        { id: "A", name: "A", role: "overlay" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "T", name: "T", role: "base" },
+      ],
+    });
+
+    manager.unregisterLayer("A");
+    manager.registerLayer({ id: "A", name: "A", role: "base" });
+
+    const firstBase = manager.layers.findIndex(l => l.role === ROLE.BASE);
+    expect(firstBase).not.toBe(-1);
+    expect(manager.layers.slice(0, firstBase).every(l => l.role !== ROLE.BASE)).toBe(
+      true,
+    );
+    expect(manager.layerRegistry.firstBaseIdx).toBe(firstBase);
+  });
+
+  it("a stored record that interleaves roles still replays partitioned", () => {
+    // A corrupted or legacy record ranks T(base) above B(overlay) above
+    // A(base). The full replay sorts per role and concatenates, so the
+    // overlay block never inherits a base.
+    const { manager } = initFixture({
+      seed: { order: ["T", "B", "A"] },
+      data: [
+        { id: "A", name: "A", role: "base" },
+        { id: "B", name: "B", role: "overlay" },
+        { id: "T", name: "T", role: "base" },
+      ],
+    });
+
+    const firstBase = manager.layers.findIndex(l => l.role === ROLE.BASE);
+    expect(manager.layers.slice(0, firstBase).every(l => l.role !== ROLE.BASE)).toBe(
+      true,
+    );
+    expect(manager.layerRegistry.firstBaseIdx).toBe(firstBase);
+    expect(manager.layers[0].id).toBe("B");
+  });
+});
