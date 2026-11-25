@@ -86,8 +86,9 @@ import {
   visibleDomOf,
   walkLeaf,
   zFor,
+  type VisibilityDrift,
+  type VisibilityQuery,
 } from "#core/layer/index.js";
-import type { VisibilityDrift, VisibilityQuery } from "#core/layer/visibility.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";

@@ -121,6 +121,7 @@ export {
 } from "./walkLeaf.js";
 export { resolveVisibility } from "./visibility.js";
 export type {
+  VisibilityDrift,
   VisibilityFactors,
   VisibilityQuery,
   VisibilityReason,

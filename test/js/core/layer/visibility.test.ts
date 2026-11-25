@@ -7,7 +7,7 @@
 // visible is false, reason names the FIRST false factor in a fixed order
 // (declared -> container -> filter -> ancestor) so the answer is stable.
 import { describe, expect, it } from "vitest";
-import { resolveVisibility } from "#core/layer/visibility.js";
+import { resolveVisibility } from "#core/layer/index.js";
 
 describe("resolveVisibility", () => {
   it("all factors true -> visible, reason null", () => {
