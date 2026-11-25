@@ -8,6 +8,11 @@
 // visibilityOf is @internal (not on the public LayerAPI). Its only consumer is
 // this guard, until a real 4-factor consumer appears - see the follow-up card.
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  intentProjection,
+  labelProjection,
+  paintProjection,
+} from "#core/layer/index.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 
 // Minimal Leaflet surface - mirrors the shape controller.test.ts installs.
@@ -116,7 +121,9 @@ describe("visibilityOf factor single-source parity", () => {
         setFilterFeatures: () => undefined,
         getAuthorVisible: () => undefined,
       },
-      intentStore: manager.ui?.intentStore,
+      intentStore: { get: () => undefined },
+      intentStore: { get: () => undefined },
+      focusController: { focusingLayerId: null },
     } as any;
     manager.debouncedEnforce?.cancel?.();
   });
@@ -139,6 +146,8 @@ describe("visibilityOf factor single-source parity", () => {
         setFilterFeatures: () => undefined,
         getAuthorVisible: () => undefined,
       },
+      intentStore: { get: () => undefined },
+      focusController: { focusingLayerId: null },
     } as any;
     const r = manager.visibilityOf!("overlay1");
     expect(r!.factors.declared).toBe(false);
@@ -158,7 +167,7 @@ describe("visibilityOf factor single-source parity", () => {
     expect(r!.reason).toBe("container");
   });
 
-  it("reason priority declared > container > filter > ancestor", () => {
+  it("reason priority declared > container > zoom > opacity > filter > ancestor", () => {
     map.hasLayer.mockReturnValue(false);
     manager.ui = {
       intentVisible: () => false,
@@ -168,6 +177,8 @@ describe("visibilityOf factor single-source parity", () => {
         setFilterFeatures: () => undefined,
         getAuthorVisible: () => undefined,
       },
+      intentStore: { get: () => undefined },
+      focusController: { focusingLayerId: null },
     } as any;
     const r = manager.visibilityOf!("overlay1");
     expect(r!.visible).toBe(false);
@@ -176,5 +187,25 @@ describe("visibilityOf factor single-source parity", () => {
 
   it("unregistered id returns null", () => {
     expect(manager.visibilityOf!("ghost")).toBeNull();
+  });
+
+  it("intentProjection reads the declared factor (panel checkbox)", () => {
+    map.hasLayer.mockReturnValue(true);
+    const r = manager.visibilityOf!("overlay1")!;
+    expect(intentProjection(r.factors)).toBe(r.factors.declared);
+  });
+
+  it("paintProjection matches basePaints (container AND zoom AND opacity)", () => {
+    map.hasLayer.mockReturnValue(true);
+    const r = manager.visibilityOf!("overlay1")!;
+    expect(paintProjection(r.factors)).toBe(
+      r.factors.container && r.factors.zoom && r.factors.opacity,
+    );
+  });
+
+  it("labelProjection matches label isVisible (container AND focused)", () => {
+    map.hasLayer.mockReturnValue(true);
+    const r = manager.visibilityOf!("overlay1")!;
+    expect(labelProjection(r.factors, false)).toBe(r.factors.container && false);
   });
 });

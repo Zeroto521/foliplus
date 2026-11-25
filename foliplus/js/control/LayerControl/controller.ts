@@ -5,6 +5,7 @@ import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { type ProjectionBatch, collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
+import { INTENT, getIntent } from "./ui/intent.js";
 import {
   type CursorRef,
   cursorRef,
@@ -81,6 +82,7 @@ import {
   moveLayerToRootAt as moveLayerToRootAtInLayout,
   moveLayerToRoot as moveLayerToRootInLayout,
   normalizeFolderName,
+  paintsAtZoom,
   renameFolder,
   resolveVisibility,
   rootLayerEntry,
@@ -1934,7 +1936,26 @@ class LayerController implements LayerAPI {
       }
     }
 
-    return resolveVisibility({ declared, container, filter: filterOk, ancestor });
+    // zoom: inside the layer's own minZoom/maxZoom (tile-layer gate; vector
+    // layers pass by construction). Reuses the shared paintsAtZoom probe.
+    const zoom = paintsAtZoom(this.map, layer ?? null);
+
+    // opacity: the resolved opacity is > 0 (a fully transparent layer paints
+    // nothing even though it is on the map). Focus forces 1.
+    const opacity =
+      this.ui.focusController.focusingLayerId === id
+        ? 1
+        : (getIntent(this.ui, id, INTENT.OPACITY) ?? layerInfo.opacity ?? 1);
+    const opacityOk = opacity > 0;
+
+    return resolveVisibility({
+      declared,
+      container,
+      zoom,
+      opacity: opacityOk,
+      filter: filterOk,
+      ancestor,
+    });
   }
 
   /** How far a layer's current intent has drifted from what the author declared,
