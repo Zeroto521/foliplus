@@ -518,3 +518,57 @@ describe("DistanceMode — preview cursor node", () => {
     expect(manager.clearActiveMode).toHaveBeenCalled();
   });
 });
+
+describe("DistanceMode — finishOnExit contract", () => {
+  const clickHandlerOf = (manager: MeasureManager) =>
+    manager.map.on.mock.calls.find(([event]: [unknown]) => event === "click")?.[1] as (
+      e: unknown,
+    ) => void;
+
+  it("finalizes a complete in-flight distance (>=2 points) and returns true", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+
+    expect(mode.finishOnExit()).toBe(true);
+    expect(mode.isFinished).toBe(true);
+    // The finish path itself ended the mode.
+    expect(manager.clearActiveMode).toHaveBeenCalled();
+    // A finalized distance is stored as content, not dropped.
+    expect(manager.store.all()).toHaveLength(1);
+  });
+
+  it("discards a sparse in-flight distance (<2 points) and returns false", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+
+    expect(mode.finishOnExit()).toBe(false);
+    expect(mode.isFinished).toBe(false);
+    expect(manager.store.all()).toHaveLength(0);
+  });
+
+  it("returns false once already finished", () => {
+    const manager = makeManagerMock();
+    const mode = new DistanceMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    expect(mode.finishOnExit()).toBe(true);
+
+    // A second Escape after finalization must not re-finalize.
+    expect(mode.finishOnExit()).toBe(false);
+  });
+});
