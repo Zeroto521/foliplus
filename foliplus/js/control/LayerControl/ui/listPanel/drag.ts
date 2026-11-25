@@ -34,7 +34,7 @@ const clearDragStateAttr = (ui: LayerUI): void => {
 const commitMs = (row: HTMLElement): number => {
   const raw = getComputedStyle(row).getPropertyValue("--foliplus-drag-commit").trim();
   const value = parseFloat(raw);
-  if (!Number.isFinite(value)) return 120;
+  if (!Number.isFinite(value)) return CONST.DRAG.COMMIT_MS;
   return raw.endsWith("ms") ? value : value * 1000;
 };
 

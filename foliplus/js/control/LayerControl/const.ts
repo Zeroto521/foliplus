@@ -41,7 +41,6 @@ const DRAG_STATE = {
   JOIN: "join",
   /** Refused target: dashed outline, no fill. */
   REFUSE: "refuse",
-  /** Post-drop acknowledgement: the solid ring flashes once, then clears. */
 } as const;
 type DragState = (typeof DRAG_STATE)[keyof typeof DRAG_STATE];
 
