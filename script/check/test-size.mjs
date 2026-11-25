@@ -103,7 +103,6 @@ const checkSize = (entries, oversized = OVERSIZED) =>
     .map(({ file, lines }) => ({
       file: relUnderTestJs(file),
       lines,
-      reason: oversized[relUnderTestJs(file)] ?? "",
     }));
 
 /** Walk test/js for every .test.ts file with its line count. */
@@ -152,6 +151,9 @@ const main = (entries = listTestFiles(), argv = process.argv) => {
   return bad.length > 0 ? 1 : 0;
 };
 
+// unreachable: the CLI entry runs only when Node executes this file directly;
+// every branch inside main() is already driven through its injectable args.
+/* v8 ignore next 2 */
 if (process.argv[1] && process.argv[1].endsWith("test-size.mjs")) {
   process.exit(main());
 }
