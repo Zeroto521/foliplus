@@ -362,8 +362,8 @@ describe("child layer registration", () => {
     manager.persistence.flushAll();
     const record = JSON.parse(
       window.localStorage.getItem(CONST.STORAGE.KEY) as string,
-    ) as { layers?: Record<string, unknown> };
-    const ids = Object.keys(record.layers ?? {});
+    ) as { data?: { layers?: Record<string, unknown> } };
+    const ids = Object.keys(record.data?.layers ?? {});
 
     expect(ids).not.toContain(childId);
     expect(ids).toContain("overlay1");
@@ -527,8 +527,8 @@ describe("child layer registration", () => {
 
     const record = JSON.parse(
       window.localStorage.getItem(CONST.STORAGE.KEY) as string,
-    ) as { expandedGroups?: Record<string, boolean> };
-    const keys = Object.keys(record.expandedGroups ?? {});
+    ) as { data?: { expandedGroups?: Record<string, boolean> } };
+    const keys = Object.keys(record.data?.expandedGroups ?? {});
     expect(keys).toContain("fg");
     expect(keys.some(id => id.includes("::"))).toBe(false);
   });

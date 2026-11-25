@@ -446,7 +446,7 @@ const focusChildLayer = (ui: LayerUI, parentId: string, childId: string): void =
   const ref = ui.focusController.focusRect;
   setTimeout(() => {
     if (ui.focusController.focusRect === ref) {
-      ui.c.map.foliplus?.showHint?.(ui.config.name, "", 0);
+      ui.c.map.foliplus?.hint?.clear?.(ui.config.name);
     }
   }, CONST.FOCUS.RECT_DURATION_MS);
   registerAutoCancel(ui, childId);

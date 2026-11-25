@@ -1047,12 +1047,13 @@ describe("group expand — child focus coverage", () => {
     (map.hasLayer as ReturnType<typeof vi.fn>).mockImplementation(
       (l: unknown) => l !== child,
     );
-    const hintSpy = vi.spyOn(map.foliplus, "showHint");
+    const hintSpy = vi.spyOn(map.foliplus.hint, "set");
     focusChildLayer(ui, "fg", childId);
     expect(hintSpy).toHaveBeenCalledWith(
       ui.config.name,
+      "",
       expect.any(String),
-      expect.any(Number),
+      expect.any(Object),
     );
   });
 
@@ -1060,12 +1061,13 @@ describe("group expand — child focus coverage", () => {
     const child = { options: {}, _name: "c" };
     registerGroupWith([child]);
     const childId = childRowId("fg", child);
-    const hintSpy = vi.spyOn(map.foliplus, "showHint");
+    const hintSpy = vi.spyOn(map.foliplus.hint, "set");
     focusChildLayer(ui, "fg", childId);
     expect(hintSpy).toHaveBeenCalledWith(
       ui.config.name,
+      "",
       expect.any(String),
-      expect.any(Number),
+      expect.any(Object),
     );
   });
 
@@ -1142,12 +1144,12 @@ describe("group expand — shared cell helpers (coverage)", () => {
       for (const c of [child]) fn(c);
     });
     manager.registerLayer({ id: "fg", name: "Group", role: "overlay", layer: fg });
-    const hintSpy = vi.spyOn(map.foliplus, "showHint");
+    const hintSpy = vi.spyOn(map.foliplus.hint, "clear");
     vi.useFakeTimers();
     focusChildLayer(ui, "fg", childRowId("fg", child));
     expect(map.fitBounds).toHaveBeenCalled();
     vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS);
-    expect(hintSpy).toHaveBeenCalledWith(ui.config.name, "", 0);
+    expect(hintSpy).toHaveBeenCalledWith(ui.config.name);
   });
 });
 
