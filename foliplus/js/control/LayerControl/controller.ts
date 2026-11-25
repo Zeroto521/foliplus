@@ -1211,6 +1211,15 @@ class LayerController implements LayerAPI {
     this.countDataVersion.set(id, (this.countDataVersion.get(id) ?? 0) + 1);
   }
 
+  /** Drop a layer's count-cache state on unregister. Without this the two
+   *  count maps grow unboundedly in a long session that adds and removes
+   *  layers. Single point of cache removal: unregisterLayer calls this and
+   *  nothing else deletes the entries. */
+  private forgetCount(id: string): void {
+    this.countCache.delete(id);
+    this.countDataVersion.delete(id);
+  }
+
   /** Notify subscribers that a layer's feature count may have changed.
    *  Public API for third-party providers (e.g. Canvas layers whose data
    *  updates independently of LayerController) to trigger an incremental
@@ -1933,6 +1942,9 @@ class LayerController implements LayerAPI {
     // not answer for a re-registered layer with different data.
     this.filterProbe.delete(id);
     this.filterFeaturesRev.delete(id);
+    // The count cache must not answer for a re-registered layer either, and
+    // a long session of add/remove must not grow the two count maps forever.
+    this.forgetCount(id);
 
     const operation = this.beginOperation();
     // Flush before any fan-out: the registry is already updated, and a
@@ -2267,6 +2279,10 @@ class LayerController implements LayerAPI {
     // 50k layers churned through add/drop would grow these maps).
     this.filterProbe.delete(id);
     this.filterFeaturesRev.delete(id);
+    // A deleted layer's count cache is gone with it; a re-add of the same id
+    // must recompute, and a long session of add/delete must not grow the
+    // two count maps forever.
+    this.forgetCount(id);
 
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);

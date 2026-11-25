@@ -304,6 +304,25 @@ describe("LayerController", () => {
       expect(manager.getFeatureCount("late")).toBe(3);
     });
 
+    it("forgets the count cache on unregister (no unbounded map growth)", () => {
+      manager.registerLayer({
+        id: "gone",
+        name: "Gone",
+        layer: { options: {} },
+        featureCountProvider: () => 5,
+      });
+      expect(manager.getFeatureCount("gone")).toBe(5);
+      const cache = (manager as any).countCache;
+      const versions = (manager as any).countDataVersion;
+      // The count was cached (a number), so the cache answers for the id.
+      expect(cache.has("gone")).toBe(true);
+      manager.unregisterLayer("gone");
+      // forgetCount deletes both maps' entries for the departed id, so a
+      // re-add recomputes and a long session does not grow them forever.
+      expect(cache.has("gone")).toBe(false);
+      expect(versions.has("gone")).toBe(false);
+    });
+
     it("counts only data features when a label sub-group is nested under mainLayer", () => {
       const dataPoly = makeLeaf(window.L.Polygon);
       const labelPoly = makeLeaf(window.L.Polygon);
