@@ -1,25 +1,20 @@
 name: Change scope
 description: >-
-  Classify the pull request diff into the areas the jobs gate on, so a
-  documentation-only change does not run the JS and browser suites. A push or a
-  merge-group run reports every area as changed: those are the gates that must
-  be complete, and a merge-queue entry has no pull-request diff to read.
+  Classify the pull request diff so a documentation-only change does not run the
+  test suites. Only a diff that touches nothing but documentation is skipped:
+  the JS and Python halves are coupled (the Python suite asserts on the built
+  JS/CSS, and the JS guards read the Python-emitted config schema), so any code
+  change runs both. A push or a merge-group run always reports code as changed.
 
 outputs:
-  js:
-    description: JS/CSS sources, JS tests, build scripts or JS tooling changed.
-    value: ${{ steps.scope.outputs.js }}
-  python:
-    description: Python sources, Python tests or packaging changed.
-    value: ${{ steps.scope.outputs.python }}
+  code:
+    description: >-
+      A non-documentation file changed. False only when every changed path is
+      documentation or Markdown.
+    value: ${{ steps.scope.outputs.code }}
   docs:
     description: Documentation or Markdown changed.
     value: ${{ steps.scope.outputs.docs }}
-  tests:
-    description: >-
-      Anything that can change a test result (js or python). The Python suite
-      asserts on the built JS/CSS, so a JS change runs it too.
-    value: ${{ steps.scope.outputs.tests }}
 
 runs:
   using: composite
@@ -29,7 +24,7 @@ runs:
       run: |
         set -euo pipefail
         if [ "${{ github.event_name }}" != "pull_request" ]; then
-          printf 'js=true\npython=true\ndocs=true\ntests=true\n' >> "$GITHUB_OUTPUT"
+          printf 'code=true\ndocs=true\n' >> "$GITHUB_OUTPUT"
           exit 0
         fi
         base="${{ github.event.pull_request.base.sha }}"
@@ -37,32 +32,15 @@ runs:
         # before it can be diffed against.
         git fetch --no-tags --depth=1 origin "$base" >/dev/null 2>&1 || true
         files=$(git diff --name-only "$base" HEAD)
-        js=false
-        python=false
+        code=false
         docs=false
-        other=false
         while IFS= read -r f; do
           [ -z "$f" ] && continue
           case "$f" in
-            foliplus/js/*|foliplus/css/*|test/js/*|script/*|config/*)
-              js=true ;;
-            package.json|package-lock.json|tsconfig*.json|.prettierrc*|Makefile)
-              js=true ;;
-            foliplus/*.py|test/python/*|pyproject.toml|foliplus/locale/*|foliplus/cdn.json)
-              python=true ;;
             doc/*|*.md)
               docs=true ;;
             *)
-              other=true ;;
+              code=true ;;
           esac
         done <<< "$files"
-        # An unrecognised path (CI config, a new top-level file) runs everything:
-        # the classifier must never be the reason a gate is skipped.
-        if [ "$other" = true ]; then
-          js=true
-          python=true
-          docs=true
-        fi
-        tests=false
-        if [ "$js" = true ] || [ "$python" = true ]; then tests=true; fi
-        printf 'js=%s\npython=%s\ndocs=%s\ntests=%s\n' "$js" "$python" "$docs" "$tests" >> "$GITHUB_OUTPUT"
+        printf 'code=%s\ndocs=%s\n' "$code" "$docs" >> "$GITHUB_OUTPUT"
