@@ -80,6 +80,7 @@
 - `ExportControl`: an export keeps its `exporting` mode for the whole render instead of the crop-box cleanup clearing it, and destroying the control reclaims the blocker and the map lock and retires an in-flight render instead of downloading to a removed control ([#1322](https://github.com/Zeroto521/foliplus/pull/1322))
 - `ExportControl`: an exported image keeps a point marker's custom chassis colour instead of losing the pin body, because the sprite pass now reads the mask+colour channel as well as the background-image sprite ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
 - `ExportControl`: a DivIcon's HTML pin and an awesome-marker shadow sprite now reach the exported image, and an image the canvas cannot read back is reported and counted instead of silently leaving a hole ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
+- `LayerControl`: the delete-confirm arm state and the debounced opacity repaint belong to their own control now, so a second LayerControl on the page no longer disarms another control's pending delete and a removed panel no longer paints ([#1367](https://github.com/Zeroto521/foliplus/pull/1367))
 
 ## [v0.4.1] (2026-10-18)
 
