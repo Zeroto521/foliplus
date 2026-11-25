@@ -12,9 +12,7 @@ from __future__ import annotations
 import re
 
 import pytest
-
 from conftest import read_css
-
 
 LAYER_ITEM = ".foliplus-layer-item"
 ROW = ".foliplus-row"
@@ -59,7 +57,11 @@ def test_row_level_rules_use_identity_class(path: str):
         # A selector that also lists .foliplus-row or another row kind (the
         # role header, the toggle-all row) is fine; a bare LAYER_ITEM selector
         # is the regression.
-        assert ROW in selector or "foliplus-layer-role" in selector or "foliplus-layer-sep" in selector, (
+        assert (
+            ROW in selector
+            or "foliplus-layer-role" in selector
+            or "foliplus-layer-sep" in selector
+        ), (
             f"{path}: a row-level rule selects on {LAYER_ITEM} alone and will "
             f"miss the role header: {selector.strip()[:120]}"
         )
