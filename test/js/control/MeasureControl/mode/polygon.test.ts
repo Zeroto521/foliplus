@@ -203,7 +203,7 @@ describe("PolygonMode — finish saves centroid", () => {
   });
 
   it("ends the mode when a complete polygon is committed (dblclick finish)", () => {
-    // Regression (task-70): the >=3-point finish path ran only this._cleanup()
+    // Regression (polygon finish leaves the mode active): the >=3-point finish path ran only this._cleanup()
     // and never clearActiveMode, so after a dblclick finalization currentMode
     // stayed POLYGON and the Escape routing (manager.ts onKeyDown) returned
     // early without clearing the mode — leaving the measuring cursor and the
