@@ -11,3 +11,4 @@ Task-oriented guides for using foliplus on a map.
    layer-style-change
    paint
    folium-integration
+   folium-boundary
