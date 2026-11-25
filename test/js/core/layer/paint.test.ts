@@ -162,6 +162,14 @@ describe("readLayerPaint — marker", () => {
 
     expect(paint.opacity).toBe(1);
   });
+
+  it("reads the folium snake_case chassis colour", () => {
+    // folium emits options.marker_color (snake); the paint read must fall
+    // back to it so a folium chassis is not read as "no chassis".
+    const paint = readLayerPaint(markerOf({ marker_color: "red" }));
+    expect(paint.color).toBe("#d63e2a");
+    expect(paint.opacity).toBe(1);
+  });
 });
 
 describe("readLayerPaint — mixed and multicolor", () => {

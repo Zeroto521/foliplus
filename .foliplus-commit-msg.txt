@@ -1,0 +1,15 @@
+fix(core): read folium snake_case icon colour options (#task-216)
+
+folium's Icon emits options.marker_color / icon_color (snake_case) but the
+foliplus runtime reads markerColor / iconColor (camelCase), so an author's
+folium.Icon(color=/icon_color=) chassis and glyph paint never reached the
+browser - a dead value falling back to the default blue/white.
+
+Add a camel-first, snake-fallback read at every vocabulary boundary:
+- markerIcon.authorGlyphColorOf: options.iconColor ?? options.icon_color
+- markerIcon.authorMarkerColor: options.markerColor ?? options.marker_color
+- layer/paint.markerPaintOf: options.markerColor ?? options.marker_color
+- layer/capability.hasMarkerColorLeaf: both spellings count as a chassis
+
+TDD: RED tests (snake options -> chassis/glyph colour) then the read fix;
+three touched suites green (169), tsc clean, prettier + eslint clean.
