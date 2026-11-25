@@ -70,9 +70,10 @@ Pitfall channels
   ``Icon(color="#00A6A6")`` (``is_hex`` path, ``map.py:440-446``), but the
   value only reaches ``options.marker_color`` and is never read back.
 
-  **After** that fix lands (task-216, PR ``#1361``): foliplus reads the
-  snake_case keys too, so ``Icon(color=...)`` paints what the author wrote.
-  This page should be updated to the ``after`` wording once the PR merges.
+  **After** that fix lands (the icon-color compat PR, task-216, PR
+  number to be filled in on merge): foliplus reads the snake_case keys
+  too, so ``Icon(color=...)`` paints what the author wrote. This page
+  should be updated to the ``after`` wording once the PR merges.
 
 ``name=`` and the row label
   ``folium``'s ``name`` is the row's display label (``_collect.py``
