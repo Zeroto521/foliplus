@@ -1,0 +1,8 @@
+# CI-only constraints for transitive dependencies that resolve to a broken
+# release. `uv.lock` is gitignored, so every job resolves fresh; without this
+# a bad upstream release turns main red for every PR at once.
+#
+# fonttools 4.69.0 was published without a wheel or sdist for the py3.15
+# platform, which broke the py3.15 / browser / browser-probe jobs
+# (2026-11-25). Drop this line once a later release installs cleanly again.
+fonttools<4.69

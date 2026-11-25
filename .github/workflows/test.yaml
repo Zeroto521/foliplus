@@ -139,9 +139,9 @@ jobs:
         with:
           python-version: "${{ matrix.python }}"
 
-      - run: uv sync --group test --upgrade-package "folium==${{ matrix.folium }}"
+      - run: uv sync --group test --constraints .github/constraints.txt --upgrade-package "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
-      - run: uv sync --group test
+      - run: uv sync --group test --constraints .github/constraints.txt
         if: ${{ matrix.folium == 'latest' }}
       - run: uv run make info
 
@@ -189,7 +189,7 @@ jobs:
         with:
           python-version: "3.15"
 
-      - run: uv sync --group test
+      - run: uv sync --group test --constraints .github/constraints.txt
 
       # Playwright browsers keyed by the resolved playwright version — no
       # lockfile needed, and `playwright install` still diffs against its own
@@ -249,7 +249,7 @@ jobs:
         with:
           python-version: "3.15"
 
-      - run: uv sync --group test
+      - run: uv sync --group test --constraints .github/constraints.txt
 
       - id: pwver
         name: Resolve Playwright version
