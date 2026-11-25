@@ -1924,7 +1924,7 @@ class LayerController implements LayerAPI {
         const el =
           (node as { getContainer?: () => HTMLElement | null }).getContainer?.() ??
           null;
-        if (el && el.classList.contains(CONST.CLASSES.FOLDED)) {
+        if (el?.classList.contains(CONST.CLASSES.FOLDED)) {
           ancestor = false;
           break;
         }
