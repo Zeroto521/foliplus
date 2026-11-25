@@ -153,21 +153,6 @@ const CLASSES = {
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-is-focused-row",
-  /** The one row attribute that carries the drag indicator state. A single
-   *  attribute with exactly one value makes "two indicators on one row"
-   *  unrepresentable — the old four-class vocabulary allowed it, and shipped
-   *  the bug (a folder edge drop added the position class AND the blocked
-   *  class). Writers set one value; the clearer removes the attribute. */
-  DRAG_STATE_ATTR: "data-foliplus-drop",
-  /** The drag indicator vocabulary: pickup, accepted edge, accepted join,
-   *  refused. One value per row, one visual per value. */
-  DRAG_STATE: {
-    SOURCE: "source",
-    BEFORE: "before",
-    AFTER: "after",
-    JOIN: "join",
-    REFUSE: "refuse",
-  },
   FOLD_BTN: "foliplus-layer-fold-btn",
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",

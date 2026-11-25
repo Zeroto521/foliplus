@@ -32,9 +32,7 @@ const clearDragStateAttr = (ui: LayerUI): void => {
  *  stylesheet stays the single source; the fallback keeps a stylesheet-less
  *  environment (jsdom) working. */
 const commitMs = (row: HTMLElement): number => {
-  const raw = getComputedStyle(row)
-    .getPropertyValue("--foliplus-drag-commit")
-    .trim();
+  const raw = getComputedStyle(row).getPropertyValue("--foliplus-drag-commit").trim();
   const value = parseFloat(raw);
   if (!Number.isFinite(value)) return 120;
   return raw.endsWith("ms") ? value : value * 1000;
@@ -311,9 +309,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
           if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
           setDragState(
             over,
-            dropsAfter(event, over)
-              ? CONST.DRAG_STATE.AFTER
-              : CONST.DRAG_STATE.BEFORE,
+            dropsAfter(event, over) ? CONST.DRAG_STATE.AFTER : CONST.DRAG_STATE.BEFORE,
           );
           ui.listPanel.lastDragOverItem = over;
         }
@@ -337,9 +333,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
     setDragState(
       row,
-      dropsAfter(event, row)
-        ? CONST.DRAG_STATE.AFTER
-        : CONST.DRAG_STATE.BEFORE,
+      dropsAfter(event, row) ? CONST.DRAG_STATE.AFTER : CONST.DRAG_STATE.BEFORE,
     );
     ui.listPanel.lastDragOverItem = row;
     return;
@@ -521,9 +515,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
         flashCommit(
           ui,
           `[${CONST.DATA.FOLDER_KEY}="${targetKey}"]`,
-          dropsAfter(event, row)
-            ? CONST.DRAG_STATE.AFTER
-            : CONST.DRAG_STATE.BEFORE,
+          dropsAfter(event, row) ? CONST.DRAG_STATE.AFTER : CONST.DRAG_STATE.BEFORE,
         );
       }
     }
