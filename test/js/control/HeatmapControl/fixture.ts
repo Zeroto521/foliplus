@@ -23,6 +23,7 @@ const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig =
   border_weight: 1.5,
   border_color: "#333333",
   field: null,
+  folder: null,
   // Locale tables normally arrive inside CONFIG from the Python bridge; provide
   // the keys the hint assertions rely on so the scoped translator resolves.
   locale_tables: {
@@ -67,6 +68,7 @@ function installHeatmapGlobals(confOverrides: Partial<ComponentConfig> = {}) {
       label_color: "#fff",
       label_size: 11,
       label_format: "auto",
+      folder: null,
     },
     confOverrides,
   );

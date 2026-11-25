@@ -1897,6 +1897,52 @@ describe("ui/list folder rows (render / row structure)", () => {
     expect(rd2Row.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
+  it("a late registration's declared folder seeds the layout and places the row inside that folder block", () => {
+    // A third-party control (HeatmapControl/MeasureControl) registers a layer
+    // AFTER the initial render with an author-declared folder (CONFIG.folder,
+    // forwarded through createCanvas/createLayers). The declaration seeds the
+    // layout (registerLayer → folderLayout.seed), and insertLayerItem must
+    // place the row inside the folder block, not at registry depth.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A", "B", "H"] },
+      // The folder already owns an order key (it exists on the panel); H has
+      // no persisted members assignment, so the late declaration seeds it.
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+
+    // The declaration is the registration-time seed; no persisted members
+    // assignment exists, so seed() must assign it.
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    expect(folderIdx).toBeGreaterThanOrEqual(0);
+    // The member row is the flat sibling immediately after its folder row.
+    expect(hIdx).toBe(folderIdx + 1);
+    // And it paints as a member: the rail carries the tree connector.
+    const hRow = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="H"]`,
+    )!;
+    expect(hRow.querySelector(`.${CONST.CLASSES.FOLD_TREE}`)).not.toBeNull();
+  });
+
   it("folder checkbox is tri-state (mixed when some members visible)", () => {
     const { ui } = initFixture({
       seedLayout: layoutFromRoles({ overlay: ["roads"] }),
