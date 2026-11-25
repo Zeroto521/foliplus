@@ -484,8 +484,7 @@
     /* Accepted edge: a solid line on the side the layer lands. No animation:
        the pulse belongs to the pickup, and one gesture gets one indicator. */
     &[data-foliplus-drop="before"] {
-      border-top: var(--foliplus-drag-border-width) solid
-        var(--foliplus-accent-primary);
+      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
       background: var(--foliplus-accent-soft-bg);
       box-shadow: var(--foliplus-drag-top-shadow);
     }
@@ -500,8 +499,7 @@
     /* A refused drop: dashed outline, no fill — visibly "not here" instead of
        the solid edge or full-row fill an accepted drop draws. */
     &[data-foliplus-drop="refuse"] {
-      outline: var(--foliplus-drag-border-width) dashed
-        var(--foliplus-accent-primary);
+      outline: var(--foliplus-drag-border-width) dashed var(--foliplus-accent-primary);
       outline-offset: calc(-1 * var(--foliplus-drag-border-width));
     }
     &[data-foliplus-drop="after"] {

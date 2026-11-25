@@ -126,7 +126,10 @@ describe("ui/drag indicator state", () => {
 
     document.body.innerHTML = "";
     const second = initFixture({ data: overlays(3) });
-    handleDragStart(second.ui, dragEvent(rowOf(second.ui, "L2"), { effectAllowed: "" }));
+    handleDragStart(
+      second.ui,
+      dragEvent(rowOf(second.ui, "L2"), { effectAllowed: "" }),
+    );
     const before = rowOf(second.ui, "L1");
     pinRect(before, 100, 36);
     handleDragOver(second.ui, dragEvent(before, { dropEffect: "" }, 104));
@@ -216,7 +219,9 @@ describe("ui/drag indicator state", () => {
   it("clears the attribute from every row through the shared clearer", () => {
     const { ui } = initFixture({ data: overlays(3) });
     const rows = ["L0", "L1", "L2"].map(id => rowOf(ui, id));
-    rows.forEach(row => row.setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.BEFORE));
+    rows.forEach(row =>
+      row.setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.BEFORE),
+    );
     clearDragState(ui);
     expect(markedRows(ui)).toHaveLength(0);
   });
