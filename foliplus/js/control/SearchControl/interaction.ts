@@ -97,7 +97,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
       ctrl.inp.focus();
     },
     onCollapse: () => {
-      map.foliplus!.hideHint(ctrl.config.name);
+      map.foliplus!.hint.clear(ctrl.config.name);
       removePanel(ctrl);
     },
   });
@@ -140,7 +140,7 @@ const bindEvents = (ctrl: InteractionCtrl): (() => void) | void => {
         ctrl.ctrl.classList.remove(PANEL_CLASS.EXPANDED);
         ctrl.ctrl.classList.add(PANEL_CLASS.COLLAPSED);
         adjustPanelZIndex({ container: ctrl.ctrl, expanded: false });
-        map.foliplus!.hideHint(ctrl.config.name);
+        map.foliplus!.hint.clear(ctrl.config.name);
       },
     },
     {

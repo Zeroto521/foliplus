@@ -64,8 +64,12 @@ const layoutFromRoles = (
 };
 
 /** Read the persisted folder-layout document for a map (null when never written). */
-const readLayoutStorage = (map: any): Record<string, unknown> | null =>
-  JSON.parse(window.localStorage.getItem(folderLayoutKey(map)) ?? "null");
+const readLayoutStorage = (map: any): Record<string, unknown> | null => {
+  const stored = JSON.parse(
+    window.localStorage.getItem(folderLayoutKey(map)) ?? "null",
+  ) as { data?: Record<string, unknown> } | null;
+  return stored?.data ?? null;
+};
 
 const ENFORCE_ORDER_DEBOUNCE_MS = 50;
 
@@ -1427,7 +1431,7 @@ describe("LayerController", () => {
 
   it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
     vi.useFakeTimers();
-    const spy = vi.spyOn(Storage, "saveRecord");
+    const spy = vi.spyOn(Storage, "saveVersionedObject");
     manager.saveOrder();
     manager.saveOrder();
     manager.saveOrder();
@@ -1441,8 +1445,8 @@ describe("LayerController", () => {
   describe("loadSavedOrder", () => {
     it("restores a persisted overlay/base order", () => {
       const spy = vi
-        .spyOn(Storage, "loadRecord")
-        .mockReturnValue(["overlay1", "base1"]);
+        .spyOn(Storage, "loadVersionedObject")
+        .mockReturnValue({ order: ["overlay1", "base1"] });
       const m = new LayerController(map, [
         { id: "base1", name: "B", role: "base" },
         { id: "overlay1", name: "O", role: "overlay" },
@@ -1453,8 +1457,8 @@ describe("LayerController", () => {
 
     it("drops unknown ids from persisted order and keeps the rest", () => {
       const spy = vi
-        .spyOn(Storage, "loadRecord")
-        .mockReturnValue(["ghost", "overlay1", "gone", "base1"]);
+        .spyOn(Storage, "loadVersionedObject")
+        .mockReturnValue({ order: ["ghost", "overlay1", "gone", "base1"] });
       const m = new LayerController(map, [
         { id: "base1", name: "B", role: "base" },
         { id: "overlay1", name: "O", role: "overlay" },
@@ -1464,7 +1468,7 @@ describe("LayerController", () => {
     });
 
     it("ignores non-array storage data", () => {
-      const spy = vi.spyOn(Storage, "loadRecord").mockReturnValue("nope");
+      const spy = vi.spyOn(Storage, "loadVersionedObject").mockReturnValue("nope");
       const m = new LayerController(map, [
         { id: "overlay1", name: "O", role: "overlay" },
       ]);
@@ -1478,7 +1482,7 @@ describe("LayerController", () => {
       // the registry's starting arrangement and removed gates the registration
       // entry point, so both come from this one read rather than a second one
       // against a registry that has since grown.
-      const spy = vi.spyOn(Storage, "loadRecord");
+      const spy = vi.spyOn(Storage, "loadVersionedObject");
       new LayerController(map, [
         { id: "base1", name: "B", role: "base" },
         { id: "overlay1", name: "O", role: "overlay" },
@@ -1601,10 +1605,10 @@ describe("LayerController", () => {
       m.persistence.flushAll();
 
       const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
-        order?: string[] | null;
+        data?: { order?: string[] | null };
       };
       // No order key at all — registration never touched the saved order.
-      expect(record.order).toBeUndefined();
+      expect(record.data?.order).toBeUndefined();
     });
 
     it("snapshots every layer present at the user reorder, color basemap included", () => {
@@ -1627,7 +1631,8 @@ describe("LayerController", () => {
       m.saveOrder();
       m.persistence.flushAll();
 
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
         order: string[] | null;
       };
       expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
@@ -1657,7 +1662,8 @@ describe("LayerController", () => {
       m.saveOrder();
       m.persistence.flushAll();
 
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
         order: string[] | null;
       };
       expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
@@ -1813,7 +1819,8 @@ describe("LayerController", () => {
       m.forgetSavedOrder("H");
       m.persistence.flushAll();
 
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
         order: string[] | null;
       };
       expect(record.order).toEqual(["A", "B"]);
@@ -1993,7 +2000,8 @@ describe("LayerController", () => {
       m.dropPersistedLayerState("H");
       m.persistence.flushAll();
 
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
+        .data as {
         layers?: Record<string, unknown>;
       };
       expect(record.layers?.H).toBeUndefined();
@@ -3107,7 +3115,7 @@ describe("LayerController", () => {
 
     expect(m.deleteLayer("overlay1")).toBe(true);
 
-    const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+    const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data as {
       order: string[] | null;
       removed: string[];
       renamedNames: Record<string, string>;
@@ -3123,7 +3131,9 @@ describe("LayerController", () => {
     // One shared timer, one record: removed must not become a seventh writer
     // that can land on a different tick than the order / names it prunes.
     vi.useFakeTimers();
-    const save = vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
+    const save = vi
+      .spyOn(Storage, "saveVersionedObject")
+      .mockImplementation(() => true);
     // A stored order exists (the user arranged it); the delete prunes the id
     // from it on the same flush as removed.
     seedStorage({ order: ["overlay1", "base1"] });
@@ -3136,10 +3146,11 @@ describe("LayerController", () => {
     m.deleteLayer("overlay1");
 
     expect(save).toHaveBeenCalledTimes(1);
-    const written = save.mock.calls[0]![1] as {
-      removed: string[];
-      order: string[] | null;
-    };
+    const written = (
+      save.mock.calls[0]![1] as {
+        data: { removed: string[]; order: string[] | null };
+      }
+    ).data;
     expect(written.removed).toEqual(["overlay1"]);
     expect(written.order).toEqual(["base1"]);
     save.mockRestore();
@@ -3333,15 +3344,15 @@ describe("LayerController", () => {
       { id: "b", name: "B", role: "overlay" },
     ]);
     m.persistence = new LayerPersistence();
-    const save = vi.spyOn(Storage, "saveRecord");
+    const save = vi.spyOn(Storage, "saveVersionedObject");
     m.saveOrder();
     save.mockClear();
     m.destroy();
-    expect(save).toHaveBeenCalledWith(
-      CONST.STORAGE.KEY,
-      expect.objectContaining({ order: ["a", "b"] }),
-      expect.any(String),
-    );
+    expect(save).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      version: expect.any(Number),
+      data: expect.objectContaining({ order: ["a", "b"] }),
+      name: expect.any(String),
+    });
   });
 
   it("destroy flushes a pending intent write instead of cancelling it", () => {
@@ -3349,19 +3360,19 @@ describe("LayerController", () => {
     // survive a reload, which is the whole point of the flush.
     const m = new LayerController(map, [{ id: "a", name: "A", role: "overlay" }]);
     m.persistence = new LayerPersistence();
-    const save = vi.spyOn(Storage, "saveRecord");
+    const save = vi.spyOn(Storage, "saveVersionedObject");
     m.persistence.schedule({
       layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
     });
     save.mockClear();
     m.destroy();
-    expect(save).toHaveBeenCalledWith(
-      CONST.STORAGE.KEY,
-      expect.objectContaining({
+    expect(save).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      version: expect.any(Number),
+      data: expect.objectContaining({
         layers: { a: { visible: false, overrides: ["visible"] } },
       }),
-      expect.any(String),
-    );
+      name: expect.any(String),
+    });
   });
 
   it("registerLayer with a canvas skips the SVG renderer for its pane", () => {
@@ -4963,7 +4974,7 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     // Flush instead of ticking the clock: the debounces another test left on
     // it would write their own order over this test's read of storage.
     manager.persistence.flushAll();
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)).toEqual(
+    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data).toEqual(
       expect.objectContaining({ order: ["a", "c", "b"] }),
     );
 

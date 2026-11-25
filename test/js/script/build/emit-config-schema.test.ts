@@ -25,7 +25,7 @@ const SLOW = 30000;
 // output to one line so an assertion checks content, not layout.
 const oneLine = (text: string) => text.replace(/\s+/g, " ");
 
-// A minimal but representative schema dump (shape matches foliplus/_config_schema.py).
+// A minimal but representative schema dump (shape matches the foliplus._config_schema dump).
 const schema = {
   version: 1,
   shared: {
@@ -213,6 +213,16 @@ describe("renderShape", () => {
     expect(renderShape("array_string")).toBe("string[]");
   });
 
+  it("renders the object_unknown leaf as an open value bag", () => {
+    // LayerData[].filter carries the normalised filter AST, whose inner shape is
+    // arbitrary: Record<string, unknown> is the honest type and is a leaf
+    // because the grammar has no inline open-object tag.
+    expect(renderShape("object_unknown")).toBe("Record<string, unknown>");
+    expect(renderShape({ filter: [["object_unknown", "null"], "?"] })).toBe(
+      "{ filter?: Record<string, unknown> | null }",
+    );
+  });
+
   it("renders a list of primitive names as an unquoted primitive union", () => {
     expect(renderShape(["string", "number"])).toBe("string | number");
     expect(renderShape(["bool", "null"])).toBe("boolean | null");
@@ -321,7 +331,7 @@ describe("renderShape", () => {
     // Mirrors validate_shape's message on the Python side, which sorts the
     // accepted names.
     expect(() => renderShape("integer", "T.count")).toThrow(
-      `Unknown shape primitive "integer" at T.count — expected one of array_string, bool, null, number, string`,
+      `Unknown shape primitive "integer" at T.count — expected one of array_string, bool, null, number, object_unknown, string`,
     );
     // A prototype-chain name must take this path too, not resolve to Object's
     // constructor and be returned as if it were a TS primitive.
@@ -374,7 +384,7 @@ describe("PrettierOptions", () => {
     // locally and nothing in CI, leaving format() on bare prettier defaults.
     // The build's byte-exact verify then rejected that output with a
     // misleading "config-schema.ts is out of date" message pointing at
-    // _config_schema.py.
+    // the schema dump.
     const config = PrettierOptions as unknown as Record<string, unknown>;
     expect(Object.keys(config).length).toBeGreaterThan(0);
     expect(Array.isArray(config.plugins)).toBe(true);

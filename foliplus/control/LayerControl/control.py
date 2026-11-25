@@ -301,7 +301,7 @@ class LayerControl(BaseControl):
         -------
         dict
             ``{"data": [{"name", "id", "role", "show"}, ...]}`` with optional
-            ``fillAuthor`` / ``zoomRange`` — the ``data`` key is merged into the JS
+            ``fill_author`` / ``zoom_range`` — the ``data`` key is merged into the JS
             ``CONFIG`` object by :meth:`BaseControl._build_config`.
         """
         return collect_layer_data(self)

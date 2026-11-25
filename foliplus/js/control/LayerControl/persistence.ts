@@ -497,8 +497,15 @@ class LayerPersistence {
    * registry, so a stored id never stops being written back.
    */
   load(): LayerPersistedRecord {
-    return parseRecord(
-      Storage.loadRecord<unknown>(CONST.STORAGE.KEY, this.persistName),
+    // One versioned read: the envelope is current, and a flat record (the
+    // pre-envelope shape, its own `version` field) goes through parseRecord,
+    // which owns the per-version field handling.
+    return (
+      Storage.loadVersionedObject<LayerPersistedRecord>(CONST.STORAGE.KEY, {
+        version: RECORD_VERSION,
+        migrate: raw => parseRecord(raw),
+        name: this.persistName,
+      }) ?? emptyRecord()
     );
   }
 
@@ -518,14 +525,12 @@ class LayerPersistence {
   schedule(fields: LiveState): void {
     Object.assign(this.fields, fields);
     this.timer ??= debounce(() => {
-      const record = parseRecord(
-        Storage.loadRecord<unknown>(CONST.STORAGE.KEY, this.persistName),
-      );
-      Storage.saveRecord(
-        CONST.STORAGE.KEY,
-        mergeFields(record, this.fields),
-        this.persistName,
-      );
+      const record = this.load();
+      Storage.saveVersionedObject(CONST.STORAGE.KEY, {
+        version: RECORD_VERSION,
+        data: mergeFields(record, this.fields),
+        name: this.persistName,
+      });
     }, CONST.SAVE_DEBOUNCE_MS);
     this.timer();
   }

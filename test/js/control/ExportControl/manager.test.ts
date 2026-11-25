@@ -1,3 +1,4 @@
+import { makeManager, makeMapMock } from "./fixture.js";
 import { readFileSync } from "fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureHint } from "#core/overlay/index.js";
@@ -48,49 +49,6 @@ vi.mock("geotiff", () => ({
   writeArrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(0)),
 }));
 vi.mock("pako", async () => vi.importActual("pako"));
-
-// Minimal map mock satisfying ExportManager constructor requirements.
-// showHint/hideHint on foliplus mirror setup.ts's window.map mock — ExportManager
-// talks to them via the public map.foliplus! API rather than ensureHint().
-function makeMapMock() {
-  const container = document.createElement("div");
-  return {
-    getContainer: () => container,
-    getBounds: () => ({
-      getSouth: () => -90,
-      getNorth: () => 90,
-      getEast: () => 180,
-      getWest: () => -180,
-    }),
-    latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
-    dragging: { disable: vi.fn(), enable: vi.fn() },
-    scrollWheelZoom: { disable: vi.fn(), enable: vi.fn() },
-    doubleClickZoom: { disable: vi.fn(), enable: vi.fn() },
-    boxZoom: { disable: vi.fn(), enable: vi.fn() },
-    keyboard: { disable: vi.fn(), enable: vi.fn() },
-    touchZoom: { disable: vi.fn(), enable: vi.fn() },
-    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
-    on: vi.fn(),
-    off: vi.fn(),
-    eachLayer: vi.fn(),
-  };
-}
-
-// Build an ExportManager with all UI methods stubbed out.
-function makeManager() {
-  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
-  const manager = new ExportManager(makeMapMock());
-  // Stub methods that call showCropBox/lockCropBox etc. so tests can set
-  // cropState.box directly without needing a real DOM export UI.
-  manager.showCropBox = vi.fn();
-  manager.lockCropBox = vi.fn();
-  manager.unlockCropBox = vi.fn();
-  manager.removeCropBox = vi.fn();
-  manager.updateBoxStyle = vi.fn();
-  manager.showHintWithInfo = vi.fn();
-  manager.showGlobalHint = vi.fn();
-  return manager;
-}
 
 function setCropState(
   manager: ExportManager,
@@ -373,9 +331,13 @@ describe("ExportManager — hint lifecycle", () => {
     // Install the per-map HintManager first: ensureHint() is what puts
     // showHint/hideHint on map.foliplus, so reading it before that is undefined.
     ensureHint(manager.map);
-    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
-    manager.map.foliplus!.showHint(CONFIG.name, "100 × 100 px", 0, undefined, "size");
-    manager.map.foliplus!.showHint(CONFIG.name, "too large", 0, undefined, "limit");
+    const hideHint = vi.spyOn(manager.map.foliplus!.hint, "clear");
+    manager.map.foliplus!.hint.set(CONFIG.name, "size", "100 × 100 px", {
+      duration: 0,
+    });
+    manager.map.foliplus!.hint.set(CONFIG.name, "limit", "too large", {
+      duration: 0,
+    });
 
     const origToBlob = HTMLCanvasElement.prototype.toBlob;
     HTMLCanvasElement.prototype.toBlob = vi.fn(cb => cb(new Blob(["fake"])));
@@ -395,9 +357,13 @@ describe("ExportManager — hint lifecycle", () => {
     // Install the per-map HintManager first: ensureHint() is what puts
     // showHint/hideHint on map.foliplus, so reading it before that is undefined.
     ensureHint(manager.map);
-    const hideHint = vi.spyOn(manager.map.foliplus!, "hideHint");
-    manager.map.foliplus!.showHint(CONFIG.name, "100 × 100 px", 0, undefined, "size");
-    manager.map.foliplus!.showHint(CONFIG.name, "too large", 0, undefined, "limit");
+    const hideHint = vi.spyOn(manager.map.foliplus!.hint, "clear");
+    manager.map.foliplus!.hint.set(CONFIG.name, "size", "100 × 100 px", {
+      duration: 0,
+    });
+    manager.map.foliplus!.hint.set(CONFIG.name, "limit", "too large", {
+      duration: 0,
+    });
     manager.cropState!.rect = { left: 0, top: 0, width: 1000, height: 1000 };
     // CONFIG.max_pixels is captured by const.ts at import time, so it cannot be
     // set per-test here — set the flag checkPixelLimit() normally produces.
@@ -850,7 +816,7 @@ const makePhaseMap = () => {
     boxZoom: { disable: vi.fn(), enable: vi.fn() },
     keyboard: { disable: vi.fn(), enable: vi.fn() },
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
-    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),

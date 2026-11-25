@@ -15,7 +15,7 @@ BFS reachability to a terminal consumer.
 
 Exemptions (hard-coded — Python Jinja loads these at runtime):
 - 8 IIFE component entry ``index.ts`` files (contain ``new XxxControl(...)``)
-- ``config-schema.ts`` (Python ``_config_schema.py`` reads it)
+- ``config-schema.ts`` (the Python ``_config_schema`` package reads it)
 
 Usage (called by pre-commit with ``pass_filenames: false``):
     python script/check/dead_barrel_export.py

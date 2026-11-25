@@ -123,7 +123,7 @@ describe("LayerUI overlay mutual exclusion", () => {
     expect(ui.isFocusing()).toBe(true);
 
     const hintSpy = vi.fn();
-    map.foliplus.showHint = hintSpy;
+    map.foliplus.hint.set = hintSpy;
 
     const item = findItem(ui, "overlay1");
     ui.openAttrsPanel(item);
@@ -148,15 +148,16 @@ describe("LayerUI overlay mutual exclusion", () => {
     ui.focusLayer("overlay1");
 
     const hintSpy = vi.fn();
-    map.foliplus.showHint = hintSpy;
+    map.foliplus.hint.set = hintSpy;
 
     ui.cancelFocus();
 
     expect(ui.isFocusing()).toBe(false);
     expect(hintSpy).toHaveBeenCalledWith(
       "LayerControl",
+      "",
       expect.stringContaining("focus_cancelled"),
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
   });
 

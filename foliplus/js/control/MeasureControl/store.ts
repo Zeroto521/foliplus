@@ -47,11 +47,9 @@ class MeasureStore {
       onFlushError: () => {
         if (!this.warned) {
           this.warned = true;
-          this.map.foliplus?.showHint?.(
-            this.config.name,
-            this.T("err_not_saved"),
-            HINT_DURATION.PERSIST,
-          );
+          this.map.foliplus?.hint.set(this.config.name, "", this.T("err_not_saved"), {
+            duration: HINT_DURATION.PERSIST,
+          });
         }
       },
     });

@@ -34,8 +34,8 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import {
   type MapLike,
-  loadRecord,
-  saveRecord,
+  loadVersionedObject,
+  saveVersionedObject,
   scopedStorageKey,
 } from "#platform/storage.js";
 
@@ -58,6 +58,10 @@ interface FolderMember {
   role: LayerRole;
   folder: string;
 }
+
+/** Shape version of the persisted layout document (the record is invalidated,
+ *  never migrated, when the version is not this one). */
+const FOLDER_LAYOUT_VERSION = 2;
 
 /** The persisted folder layout document. One storage record holds folder
  *  identity, block order and member assignment together, so a user action
@@ -96,7 +100,7 @@ interface FolderBlock {
 const folderLayoutKey = (map: MapLike): string => scopedStorageKey(map, "layer_layout");
 
 /** The longest folder name a declaration may carry, in Unicode code points.
- *  Mirrors FOLDER_NAME_MAX in Python's foliplus/_declaration.py: a folder
+ *  Mirrors FOLDER_NAME_MAX in Python's foliplus/_declaration/key.py: a folder
  *  name is a short label read on a list row, not a data field, and the cap
  *  must match across stacks so Python and JS cannot disagree about which
  *  names reach the panel. */
@@ -202,13 +206,22 @@ const isFolderLayout = (raw: unknown): raw is FolderLayout => {
  *  be trusted as one. Read has NO side effect: a bad record is left as-is,
  *  never repaired on read (mirrors the filter-store read path). */
 const readFolderLayout = (map: MapLike): FolderLayout => {
-  const loaded = loadRecord<unknown>(folderLayoutKey(map));
-  return isFolderLayout(loaded) ? loaded : emptyFolderLayout();
+  // The record has lived in two shapes: the flat v2 document (pre-envelope)
+  // and the versioned envelope that wraps it today. `migrate` accepts only the
+  // flat shape it can validate, so both read back the same layout.
+  const loaded = loadVersionedObject<FolderLayout>(folderLayoutKey(map), {
+    version: FOLDER_LAYOUT_VERSION,
+    migrate: raw => (isFolderLayout(raw) ? raw : null),
+  });
+  return loaded ?? emptyFolderLayout();
 };
 
 /** Write the layout record, always stamping version 2. */
 const writeFolderLayout = (layout: FolderLayout, map: MapLike): void => {
-  saveRecord(folderLayoutKey(map), { ...layout, version: 2 });
+  saveVersionedObject(folderLayoutKey(map), {
+    version: FOLDER_LAYOUT_VERSION,
+    data: { ...layout, version: FOLDER_LAYOUT_VERSION },
+  });
 };
 
 /** Resolve a layer's effective folder assignment from the layout. A persisted

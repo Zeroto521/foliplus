@@ -715,11 +715,11 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     (
       manager as unknown as { persistence: { flushAll(): void } }
     ).persistence.flushAll();
-    const record = JSON.parse(
+    const stored = JSON.parse(
       window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}",
-    ) as { order?: string[] };
-    expect(record.order).toEqual(manager.layers.map(l => l.id));
-    expect(record.order).toEqual(registryBefore);
+    ) as { data?: { order?: string[] } };
+    expect(stored.data?.order).toEqual(manager.layers.map(l => l.id));
+    expect(stored.data?.order).toEqual(registryBefore);
   });
 
   it("brings an overlay to the panel head without rebuilding the rows", () => {
@@ -1277,11 +1277,11 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       (
         manager as unknown as { persistence: { flushAll(): void } }
       ).persistence.flushAll();
-      const record = JSON.parse(
+      const stored = JSON.parse(
         window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}",
-      ) as { order?: string[] };
+      ) as { data?: { order?: string[] } };
       // The persisted snapshot is the full registry, color basemap included.
-      expect(record.order, via).toEqual(manager.layers.map(l => l.id));
+      expect(stored.data?.order, via).toEqual(manager.layers.map(l => l.id));
     }
   });
 

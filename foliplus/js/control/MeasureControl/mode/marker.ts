@@ -13,7 +13,7 @@ import {
   mountMeasureDelIcon,
   wireFinalized,
 } from "./base.js";
-import { createLocationMarker } from "#core/geo/index.js";
+import { createLocationMarker, isLiveMarker } from "#core/geo/index.js";
 import { DEL_ICON_MARKER_ANCHOR, toggleDelIcon } from "#core/leaflet/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
 import { throttleRaf } from "#platform/throttle.js";
@@ -75,6 +75,11 @@ class MarkerMode extends MeasureMode {
         )
           .then(addr => {
             if (gen !== generation) return; // a newer drag superseded us
+            // Liveness guard (same rule as core/geo/locationMarker.ts): the pin
+            // can be deleted or the control destroyed while this lookup is in
+            // flight. Order matters — this must run BEFORE store.update, or the
+            // resolved address lands on a record whose marker is already gone.
+            if (!isLiveMarker(mgr.map, marker)) return;
             mgr.store.update(id, { address: addr });
             if (marker.getPopup()?.isOpen()) {
               marker.setPopupContent(
@@ -227,6 +232,12 @@ class MarkerMode extends MeasureMode {
     this.onMarkerClickRef = this.handleMarkerClick.bind(this);
     this.map.on("click", this.onMarkerClickRef);
     this._cleanup = () => this.map.off("click", this.onMarkerClickRef);
+    // A marker finalizes the instant it is placed (store.add + commitMeasurement
+    // run synchronously in handleMarkerClick), so by the time Escape arrives
+    // either the marker is already in the store (this mode no longer current)
+    // or nothing was placed. finishOnExit only reports false: the Escape path
+    // just discards the empty draw and drops the row.
+    this.finishOnExit = () => false;
   }
 
   /** Handle marker click. */

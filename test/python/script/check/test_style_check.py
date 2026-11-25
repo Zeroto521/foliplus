@@ -8,7 +8,8 @@ Five rules are checked:
   1. one value export block at file end, optionally followed by a single
      ``export type { ... }`` block; inline ``type X`` in a value export must be
      split; re-exports are barrel-only;
-  2. singular file names (``pelias``, ``focus``, ``canvas`` are whitelisted);
+  2. singular file names for TS and Python modules (``pelias``, ``focus``,
+     ``canvas`` are whitelisted);
   3. American spelling in identifiers and string literals — comments are
      exempt because they carry English prose;
   4. CSS custom properties must carry the ``--foliplus-`` prefix (declarations,
@@ -556,6 +557,19 @@ class TestCheckPluralNames:
             "script/build/esbuild-config.mjs",
             "script/build/merge-css.mjs",
         ]:
+            assert mod.check_plural_names(name) == []
+
+    def test_python_module_names_are_checked(self):
+        # Rule 2 covers Python modules too: `_assets.py`, `keys.py` and
+        # `warnings.py` shipped past the TS/mjs-only scope and had to be
+        # renamed by hand (#1335) before this rule widened.
+        assert mod.check_plural_names("foliplus/_declaration/keys.py") != []
+        assert mod.check_plural_names("foliplus/_declaration/warnings.py") != []
+        for name in (
+            "foliplus/_asset.py",
+            "foliplus/_config_schema/__main__.py",
+            "script/check/style_check.py",
+        ):
             assert mod.check_plural_names(name) == []
 
     def test_non_ts_extension_is_allowed(self):

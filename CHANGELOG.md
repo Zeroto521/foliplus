@@ -41,6 +41,8 @@
 - `LayerControl` / `HeatmapControl`: Reset (style) and Clear (filter) restore the defaults and keep their panels open, with focus landing on the action or the next usable control, and a heatmap Clear restoring its declared source and fields ([#1161](https://github.com/Zeroto521/foliplus/pull/1161))
 - `LayerControl`: style Reset is disabled while the layer is on its declared style and re-enables on the first style edit ([#1169](https://github.com/Zeroto521/foliplus/pull/1169))
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
+- `JS runtime`: the per-map hint surface is `map.foliplus.hint.set/clear/registerIcon` — an identical push no longer rebuilds the hint or restarts its timer, and a changed push replaces it in place (**Breaking** for custom JS that called `map.foliplus.showHint`/`hideHint`/`registerHintIcon`) ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
+- `platform/storage`: versioned object records persist through one `saveVersionedObject`/`loadVersionedObject` pair that reads the `{version, data}` envelope, a legacy flat record or a bare value and migrates or discards it, with the folder layout, filter store, layer state, heatmap config and export bounds migrated onto it ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
 
 ### Removed
 
@@ -50,7 +52,7 @@
 
 ### Fixed
 
-- `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728), [#1278](https://github.com/Zeroto521/foliplus/pull/1278))
+- `EventBus`: policy-declared per-event entries — terminal events raise the first failure, notifications record it, owner listeners run first, and unload clears the bus ([#716](https://github.com/Zeroto521/foliplus/pull/716), [#719](https://github.com/Zeroto521/foliplus/pull/719), [#720](https://github.com/Zeroto521/foliplus/pull/720), [#723](https://github.com/Zeroto521/foliplus/pull/723), [#728](https://github.com/Zeroto521/foliplus/pull/728), [#1278](https://github.com/Zeroto521/foliplus/pull/1278), [#1324](https://github.com/Zeroto521/foliplus/pull/1324))
 - `LayerControl`: a row panel (style/attrs) measures the space above and below its anchor row and flips upward when the space below is tight, so a tall panel on a low row is no longer clipped by the map's edge ([#725](https://github.com/Zeroto521/foliplus/pull/725), [#846](https://github.com/Zeroto521/foliplus/pull/846), [#859](https://github.com/Zeroto521/foliplus/pull/859), [#917](https://github.com/Zeroto521/foliplus/pull/917))
 - `LayerControl`: value-based fill follows the layer's real geometry, and features added after a fill was set are repainted instead of keeping the declared colour ([#727](https://github.com/Zeroto521/foliplus/pull/727), [#1050](https://github.com/Zeroto521/foliplus/pull/1050))
 - `LayerControl`: a border chosen before features land still reaches them — the content-change replay covers the stroke face alongside fill, size and opacity ([#730](https://github.com/Zeroto521/foliplus/pull/730), [#1185](https://github.com/Zeroto521/foliplus/pull/1185), [#1254](https://github.com/Zeroto521/foliplus/pull/1254))
@@ -72,6 +74,12 @@
 - `LayerControl` / `HeatmapControl`: a jenks or quantile classification degrades to equal breaks with a user-visible hint when simple-statistics is not loaded, instead of silently leaving the layer uncolored ([#1223](https://github.com/Zeroto521/foliplus/pull/1223), [#1227](https://github.com/Zeroto521/foliplus/pull/1227), [#1231](https://github.com/Zeroto521/foliplus/pull/1231))
 - `LayerControl`: the folder layout and the filter store are scoped to the map container like every other record, so two maps on one page keep their own folders and filters instead of sharing one global key ([#1281](https://github.com/Zeroto521/foliplus/pull/1281))
 - `LayerControl`: derived-state projections (role counts, tree connectors, select-all) replay through one invalidateDerived barrier, pinned by a new static guard test ([#1292](https://github.com/Zeroto521/foliplus/pull/1292))
+- `SearchControl`: a slow response for an older address no longer overwrites a newer result, and removing the control no longer leaves its result marker and delete icon on the map ([#1315](https://github.com/Zeroto521/foliplus/pull/1315))
+- `MeasureControl`: Escape finalizes a measurement once its geometry is complete and removes the row of an empty in-flight drawing ([#1316](https://github.com/Zeroto521/foliplus/pull/1316))
+- `LayerControl` / `HeatmapControl`: the filter panel and heatmap field lists no longer offer folium/geopandas internal keys such as `__folium_color` and `__id` as data fields, and the data itself is untouched ([#1320](https://github.com/Zeroto521/foliplus/pull/1320))
+- `ExportControl`: an export keeps its `exporting` mode for the whole render instead of the crop-box cleanup clearing it, and destroying the control reclaims the blocker and the map lock and retires an in-flight render instead of downloading to a removed control ([#1322](https://github.com/Zeroto521/foliplus/pull/1322))
+- `ExportControl`: an exported image keeps a point marker's custom chassis colour instead of losing the pin body, because the sprite pass now reads the mask+colour channel as well as the background-image sprite ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
+- `ExportControl`: a DivIcon's HTML pin and an awesome-marker shadow sprite now reach the exported image, and an image the canvas cannot read back is reported and counted instead of silently leaving a hole ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
 
 ## [v0.4.1] (2026-10-18)
 

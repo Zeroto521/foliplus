@@ -7,4 +7,7 @@ Task-oriented guides for using foliplus on a map.
    :maxdepth: 1
 
    declaration
+   layer-control
+   layer-style-change
    paint
+   folium-integration

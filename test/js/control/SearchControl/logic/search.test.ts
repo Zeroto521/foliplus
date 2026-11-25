@@ -158,10 +158,11 @@ describe("searchCoord", () => {
   it("shows hint and clears input for invalid coordinates", () => {
     const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "abc");
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "SearchControl",
+      "",
       "SearchControl.coord_error",
-      4000,
+      { duration: 4000 },
     );
     expect(ctrl.inp.value).toBe("");
   });
@@ -169,7 +170,7 @@ describe("searchCoord", () => {
   it("shows hint for out-of-range values", () => {
     const ctrl: any = { ...ctx(), inp: { value: "" }, marker: null, searchHistory: [] };
     searchCoord(ctrl, "200,100");
-    expect(window.map.foliplus.showHint).toHaveBeenCalled();
+    expect(window.map.foliplus.hint.set).toHaveBeenCalled();
     expect(ctrl.inp.value).toBe("");
   });
 
@@ -234,7 +235,7 @@ describe("searchAddress", () => {
       ...ctx(),
       config: {
         ...ctx().config,
-        provider: { id: "myapi", baseUrl: "https://x.example.com" },
+        provider: { id: "myapi", base_url: "https://x.example.com" },
         provider_config: null,
       },
       cachedAddress: {},
@@ -249,7 +250,7 @@ describe("searchAddress", () => {
       map,
       "X",
       "en",
-      { id: "myapi", baseUrl: "https://x.example.com" },
+      { id: "myapi", base_url: "https://x.example.com" },
       null,
     );
   });
@@ -265,10 +266,11 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "nowhere");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(window.map.foliplus.showHint).toHaveBeenLastCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenLastCalledWith(
       "SearchControl",
+      "",
       "SearchControl.addr_not_found",
-      4000,
+      { duration: 4000 },
     );
     expect(ctrl.inp.value).toBe("");
   });
@@ -291,7 +293,7 @@ describe("searchAddress", () => {
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.hint.clear).toHaveBeenCalledWith("SearchControl");
     expect(map.flyTo).toHaveBeenCalledWith([30.2, 120.5], expect.any(Number));
     expect(ctrl.marker).not.toBeNull();
   });
@@ -335,13 +337,11 @@ describe("searchAddress", () => {
     // Hint text is rendered as a TextNode, so an inline SVG would appear as
     // source code instead of an icon; withLoadingIcon renders the built-in
     // spinner in the hint's icon slot instead.
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "SearchControl",
+      "",
       "SearchControl.popup_loading",
-      0,
-      undefined,
-      undefined,
-      true,
+      { duration: 0, icon: "loading" },
     );
   });
 });
@@ -586,10 +586,11 @@ describe("searchCoord edge cases", () => {
     };
     searchCoord(ctrl, "121.47,31.23");
     expect(map.flyTo).not.toHaveBeenCalled();
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "SearchControl",
+      "",
       "SearchControl.blocked",
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
     ensureModes(window.map).setMode("MeasureControl", null);
   });
@@ -615,11 +616,12 @@ describe("searchAddress error paths", () => {
     searchAddress(ctrl, "X");
     await new Promise(r => setTimeout(r, 0));
     await new Promise(r => setTimeout(r, 0));
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledWith("SearchControl");
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.clear).toHaveBeenCalledWith("SearchControl");
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "SearchControl",
+      "",
       "SearchControl.addr_error",
-      4000,
+      { duration: 4000 },
     );
   });
 
@@ -1339,10 +1341,11 @@ describe("mode-lock guard: suggestion click when a mode is held", () => {
     // No marker placed, no history recorded.
     expect(ctrl.marker).toBeNull();
     expect(ctrl.searchHistory).toHaveLength(0);
-    expect(window.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus.hint.set).toHaveBeenCalledWith(
       "SearchControl",
+      "",
       "SearchControl.blocked",
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
     ensureModes(window.map).setMode("MeasureControl", null);
     vi.restoreAllMocks();
@@ -1509,6 +1512,6 @@ describe("searchAddress request lifecycle", () => {
     await tick();
     expect(map.flyTo).not.toHaveBeenCalled();
     expect(ctrl.marker).toBe(markerB);
-    expect(window.map.foliplus.hideHint).toHaveBeenCalledTimes(1);
+    expect(window.map.foliplus.hint.clear).toHaveBeenCalledTimes(1);
   });
 });

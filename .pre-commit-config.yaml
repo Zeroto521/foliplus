@@ -100,7 +100,7 @@ repos:
         name: style-check
         entry: python script/check/style_check.py
         language: python
-        files: (^foliplus/js/.*\.ts$|^foliplus/css/.*\.css$|^script/.*\.(mjs|cjs|js)$|^config/.*\.mjs$|^eslint\.config\.js$)
+        files: (^foliplus/js/.*\.ts$|^foliplus/css/.*\.css$|^foliplus/.*\.py$|^script/.*\.(mjs|cjs|js|py)$|^config/.*\.mjs$|^eslint\.config\.js$)
 
       # Dead barrel/type.ts export gate: detects barrel re-exports and type
       # exports with zero consumers repo-wide. Builds a (file, symbol)
@@ -147,5 +147,35 @@ repos:
         name: module-size-check
         entry: python script/check/module_size_check.py
         language: python
-        files: ^foliplus/control/.*\.py$
+        files: ^foliplus/.*\.py$
         pass_filenames: true
+
+      # Gate: every control's Python test directory follows the two-level layout
+      # standard documented in AGENTS.md ("Control test layout"). The flat pile
+      # hid 3k-line test_panel.py / test_style.py, helpers named like tests, and
+      # three controls without __init__.py. Six assertions: allowed file roles,
+      # __init__.py at every level, depth <= 2, single-file suite <= 800, any
+      # dimension file <= 700, a group directory >= 3 test files. Today's
+      # oversized files are grandfathered in the script's ALLOWLIST, which fails
+      # on a stale entry so it must drain to zero. Check-only.
+      - id: python-test-layout
+        name: python test layout (two-level control test tree)
+        entry: python script/check/python_test_layout.py
+        language: system
+        files: ^test/python/control/.*\.py$
+        pass_filenames: false
+
+      # Gate: every key of the Python-to-JS CONFIG contract is snake_case
+      # (zoom_range, fill_author, per_feature, base_url, throttle_ms). The two
+      # sides spell the same payload, and a camelCase key that lands on one side
+      # only still type-checks on both — that was #1341's failure mode. Zero
+      # exceptions (owner ruling): a key that cannot be renamed is a contract
+      # bug. Reads only the generated declaration file, so it needs no project
+      # install; generation drift itself is caught by `make config-schema-verify`
+      # in the CI python job.
+      - id: config-key-style
+        name: config-key-style (snake_case CONFIG contract keys)
+        entry: python script/check/config_key_style.py
+        language: system
+        files: ^foliplus/js/config-schema\.ts$
+        pass_filenames: false

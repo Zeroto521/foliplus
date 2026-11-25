@@ -367,8 +367,7 @@ const initFixture = (
     _layers: {},
     attributionControl: { _attributions: {}, _update: vi.fn() },
     foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
+      hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
     },
   };
 

@@ -92,13 +92,13 @@ def test_declared_zoom_reaches_conf():
         "data"
     ][0]
 
-    assert entry["zoomRange"] == {"min": 8, "max": 12}
+    assert entry["zoom_range"] == {"min": 8, "max": 12}
 
 
 def test_undeclared_layer_has_no_zoom_key():
     entry = _conf(_render(_geo()))["data"][0]
 
-    assert "zoomRange" not in entry
+    assert "zoom_range" not in entry
 
 
 def test_the_old_zoom_key_is_unknown_and_ignored():
@@ -107,7 +107,7 @@ def test_the_old_zoom_key_is_unknown_and_ignored():
     with pytest.warns(UserWarning, match="unknown foliplus key 'zoom'"):
         html = _render(_geo(foliplus={"zoom": {"min": 8, "max": 12}}))
 
-    assert "zoomRange" not in _conf(html)["data"][0]
+    assert "zoom_range" not in _conf(html)["data"][0]
 
 
 def test_other_foliplus_keys_stay_a_js_side_namespace():
@@ -117,7 +117,7 @@ def test_other_foliplus_keys_stay_a_js_side_namespace():
         "data"
     ][0]
 
-    assert "zoomRange" not in entry
+    assert "zoom_range" not in entry
 
 
 def test_icon_url_declaration_stays_unknown_and_warns_once():
@@ -149,7 +149,7 @@ def test_invalid_zoom_is_dropped_with_a_warning(declaration):
         html = _render(_geo(foliplus=declaration))
 
     entry = _conf(html)["data"][0]
-    assert "zoomRange" not in entry
+    assert "zoom_range" not in entry
     # An invalid declaration is ignored, never fatal: the layer still renders.
     assert entry["name"] == "Declared"
 
@@ -209,7 +209,7 @@ def test_non_mapping_namespace_warns_and_is_ignored():
     with pytest.warns(UserWarning, match="expected a mapping"):
         html = _render(_geo(foliplus=["zoom_range"]))
 
-    assert "zoomRange" not in _conf(html)["data"][0]
+    assert "zoom_range" not in _conf(html)["data"][0]
 
 
 def test_declared_zoom_does_not_touch_leaflet_zoom_options():
@@ -232,7 +232,7 @@ def test_non_mapping_fill_namespace_warns_and_is_ignored():
         html = _render(_geo(foliplus={"fill": "red"}))
 
     entry = _conf(html)["data"][0]
-    assert "zoomRange" not in entry
+    assert "zoom_range" not in entry
     assert entry["name"] == "Declared"
 
 

@@ -15,6 +15,12 @@ interface LocateCtrl {
   T: (key: string) => string;
   _: (key: string) => string;
   config: ComponentConfig;
+  /** The mounting's AbortSignal (BaseControl.signal), present when the caller is
+   *  a mounted control. Locating asks the browser for permission, so the
+   *  callback lands well after the click — long enough for the control to be
+   *  removed while the prompt is open. Optional: the logic is also reachable
+   *  without a mounting, where nothing can be torn down. */
+  signal?: AbortSignal;
 }
 
 /** Toggle the button's loading state — spinner while geolocation resolves. */
@@ -39,8 +45,8 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
   const config = ctrl.config;
   const T = ctrl.T;
   const _ = ctrl._;
-  map.foliplus!.hideHint(config.name);
-  map.flyTo([lat, lng], config.zoom || 15); // eslint-disable-line @typescript-eslint/prefer-nullish-coalescing -- 0 is a valid zoom
+  map.foliplus!.hint.clear(config.name);
+  map.flyTo([lat, lng], config.zoom ?? 15);
   removeMarker(ctrl);
   ctrl.marker = createLocationMarker(
     map,
@@ -79,22 +85,26 @@ const locateMe = (ctrl: LocateCtrl) => {
   if (guardBlocked(map, config.name, T("blocked"))) return;
   const geo = navigator.geolocation;
   if (!geo) {
-    map.foliplus!.showHint(config.name, T("geo_error"), HINT_DURATION.LONG);
+    map.foliplus!.hint.set(config.name, "", T("geo_error"), {
+      duration: HINT_DURATION.LONG,
+    });
     return;
   }
   setLocating(ctrl, true);
-  map.foliplus!.showHint(
-    config.name,
-    T("locating"),
-    HINT_DURATION.PERSIST,
-    undefined,
-    undefined,
-    true,
-  );
+  map.foliplus!.hint.set(config.name, "", T("locating"), {
+    duration: HINT_DURATION.PERSIST,
+    icon: "loading",
+  });
+  // Captured here, before the API call: the mounting's signal getter throws once
+  // the control is removed, and reading it inside the callback would turn a
+  // late result into an exception. Both callbacks go through this one token —
+  // onRemove aborts it before any cleanup runs.
+  const signal = ctrl.signal;
   geo.getCurrentPosition(
     pos => {
+      if (signal?.aborted) return; // the mounting went: no map to fly, no owner for the pin
       setLocating(ctrl, false);
-      map.foliplus!.hideHint(config.name);
+      map.foliplus!.hint.clear(config.name);
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
       const converted = fromWgs84(map, lng, lat);
@@ -103,9 +113,12 @@ const locateMe = (ctrl: LocateCtrl) => {
       placeMarker(ctrl, lng, lat, `${config.name}.popup_title_geo`);
     },
     () => {
+      if (signal?.aborted) return; // a removed mounting must not announce its error
       setLocating(ctrl, false);
-      map.foliplus!.hideHint(config.name);
-      map.foliplus!.showHint(config.name, T("geo_error"), HINT_DURATION.LONG);
+      map.foliplus!.hint.clear(config.name);
+      map.foliplus!.hint.set(config.name, "", T("geo_error"), {
+        duration: HINT_DURATION.LONG,
+      });
     },
   );
 };

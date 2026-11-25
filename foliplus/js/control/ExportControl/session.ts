@@ -49,6 +49,7 @@ const doExport = function (this: ExportManager) {
     return;
   }
   this.lastTileFailures = null;
+  this.lastRenderStats = null;
   // Start as one operation. MODE_CHANGE and BEFORE_EXPORT are *notifications*
   // (see EVENT_POLICY): listeners all run, consumer failures are recorded to
   // the diagnostic log, and an observer cannot derail the start — the export
@@ -96,7 +97,7 @@ const doExport = function (this: ExportManager) {
     // Clear all of this component's hints first. The crop-box size/limit
     // hints are PERSIST (duration 0 sets no timer), so they would otherwise
     // outlive the export and sit on top of whatever status appears next.
-    this.map.foliplus!.hideHint(CONFIG.name);
+    this.map.foliplus!.hint.clear(CONFIG.name);
     this.unlockMap();
     this.endExport();
     return;
@@ -107,8 +108,8 @@ const doExport = function (this: ExportManager) {
   // PERSIST (duration 0 sets no timer), so nothing else removes them once
   // the box is gone — they'd outlive the export entirely, the same registry
   // leak as the object-URL one.
-  this.map.foliplus!.hideHint(CONFIG.name, "size");
-  this.map.foliplus!.hideHint(CONFIG.name, "limit");
+  this.map.foliplus!.hint.clear(CONFIG.name, "size");
+  this.map.foliplus!.hint.clear(CONFIG.name, "limit");
 
   this.showGlobalHint(T("status_exporting"), HINT_DURATION.PERSIST, true);
 
@@ -180,6 +181,7 @@ const doRender = function (
         return;
       }
       this.lastTileFailures = renderer.tileFailures;
+      this.lastRenderStats = renderer.lastStats;
       this.onRenderSuccess(canvas, hideEls);
     })
     .catch(err => {

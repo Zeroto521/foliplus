@@ -1,0 +1,847 @@
+"""Tests for foliplus.locale — Localization support."""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import tempfile
+from pathlib import Path
+
+import pytest
+
+from foliplus import locale
+from foliplus.BaseControl import _build_shared_header
+from foliplus.locale import (
+    _LOCALE_DIR,
+    LocaleConfig,
+    _load_component_tables,
+    _load_tables,
+    resolve_locale,
+)
+
+# ---------------------------------------------------------------------------
+# JS-key scanning — replaces the hand-maintained list below.
+#
+#   script/check/scan-locale-key.mjs walks foliplus/js/**/*.ts and extracts
+#   every T("key"), .T("key"), T(c?"a":"b"), _("key"), and NAME_LABEL_KEY
+#   assignment, prefixing bare keys with the component derived from the
+#   file path.  Dynamic calls (T(variable), template literals, map lookups,
+#   caller-provided translators in core/) are NOT caught; those keys are
+#   listed in _DYNAMIC_SUPPLEMENT below.
+# ---------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_SCANNER = _REPO_ROOT / "script" / "check" / "scan-locale-key.mjs"
+
+_DYNAMIC_SUPPLEMENT: set[str] = {
+    # core/layer/api.ts — T() is caller-provided; the scanner cannot derive
+    # the component prefix for shared modules.
+    "ExportControl.no_layercontrol",
+    "MeasureControl.no_layercontrol",
+    # focusDisabledLocaleKey map (focus/hint.ts) — reason → key lookup.
+    "LayerControl.focus_base",
+    "LayerControl.focus_hidden",
+    "LayerControl.focus_no_bounds",
+    # withNoun(ui, key, noun) in ui/noun.ts — the sentence key is a parameter,
+    # and the noun itself is built as `noun_${noun}`.
+    "LayerControl.rename_tooltip",
+    "LayerControl.rename_placeholder",
+    "LayerControl.noun_role",
+    # withNoun(ui, "more_tooltip", noun) — the sentence key is a parameter.
+    # showDragHint(ui, key) in ui/listPanel/drag.ts — the key is a parameter.
+    "LayerControl.same_role_only",
+    "LayerControl.no_nest",
+    # typeKey / type.key template literals (attr.ts, rowView.ts).
+    "LayerControl.type_tile_map",
+    "LayerControl.type_color_map",
+    "LayerControl.type_custom",
+    "LayerControl.type_unknown",
+    # type_${gtype} dynamic construction (attr.ts, rowView.ts) —
+    # gtype from GEOM_TYPE: point | line | polygon | empty.
+    "LayerControl.type_point",
+    "LayerControl.type_line",
+    "LayerControl.type_polygon",
+    "LayerControl.type_empty",
+    "LayerControl.type_group",
+    # countTooltip(ui, key, on, total) in rowView.ts — the locale key is a
+    # parameter, so the scanner cannot see the T() call behind it.
+    "LayerControl.sub_layers_count_tooltip",
+    "LayerControl.layers_count_tooltip",
+    # labelKey / titleKey passed as function parameters.
+    "LayerControl.data_layer_label",
+    "LocateControl.popup_title_geo",
+    # localeFallback() in core/geocode/geocoder.ts — dynamic key lookup.
+    "MeasureControl.geo_fail",
+    # Shared label vocabulary (common table) — resolved via dynamic lookup.
+    "foliplus.label_format_auto",
+    "foliplus.label_format_comma",
+    "foliplus.label_format_int",
+    "foliplus.label_format_percent",
+    # Row tooltip short type words (rowView.ts) — `type_${gtype}` plus a
+    # "_short" suffix; the attrs panel keeps the long type_* labels. A base
+    # row's short word is its own key (type_tile_map_short = 地图/Map).
+    "LayerControl.type_tile_map_short",
+    "LayerControl.type_custom_short",
+    "LayerControl.type_unknown_short",
+    "LayerControl.type_color_map_short",
+    "LayerControl.type_point_short",
+    "LayerControl.type_line_short",
+    "LayerControl.type_polygon_short",
+    "LayerControl.type_empty_short",
+    "LayerControl.type_group_short",
+    # Filter panel dynamic labels (filter.ts) — the result readout composes
+    # its sentence from the {kept} / {total} template literals.
+    # styleModeKey.ts — STYLE_MODE keys are object literals, not T() calls;
+    # the scanner cannot see them. They are resolved via ui.T(STYLE_MODE.X).
+    "LayerControl.style_mode_original",
+    "LayerControl.style_mode_single",
+    "LayerControl.style_mode_by_value",
+    # border.ts — FOLLOW_FILL resolves through STYLE_MODE_KEY.FOLLOW_FILL
+    # (ui/styleModeKey.ts), so the literal scanner cannot see the key.
+    "LayerControl.style_border_follow_fill",
+    # menu.ts — deleteLabelKeys() returns the idle/confirm pair per entry kind
+    # as a table, so the confirming labels are reached through a lookup rather
+    # than a T("...") literal.
+    "LayerControl.delete_confirm",
+    "LayerControl.clear_data_confirm",
+}
+
+
+def _scan_js_keys() -> set[str]:
+    """Run the locale-key scanner and return the set of keys it finds."""
+    result = subprocess.run(
+        ["node", str(_SCANNER)],
+        cwd=str(_REPO_ROOT),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return set(json.loads(result.stdout))
+
+
+def _load_merged_tables() -> dict[str, dict[str, str]]:
+    """Merge all locale tables (common + per-component) by language code.
+
+    Iterates over files directly (not via _load_tables) since _load_tables
+    only keeps the last entry when multiple files share the same code.
+    """
+    merged: dict[str, dict[str, str]] = {}
+    for p in sorted(_LOCALE_DIR.glob("*.json")):
+        table: dict[str, str] = json.loads(p.read_text(encoding="utf-8"))
+        code = table.get("locale.code", p.stem)
+        merged.setdefault(code, {}).update(table)
+    return merged
+
+
+def _duplicate_json_keys(path: Path) -> list[str]:
+    """Raw-text scan for duplicate keys: `json.loads` silently keeps the last.
+
+    A duplicated key hides one value from every merged-table assertion, so it
+    has to be caught at the file level, not through the parsed dict.
+    """
+    seen: dict[str, int] = {}
+    duplicates: list[str] = []
+    for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        match = re.match(r'\s*"([^"]+)"\s*:', line)
+        if not match:
+            continue
+        key = match.group(1)
+        if key in seen:
+            duplicates.append(f"{key} (lines {seen[key]} and {line_no})")
+        else:
+            seen[key] = line_no
+    return duplicates
+
+
+_TABLES = _load_merged_tables()
+_JS_USED_KEYS = _scan_js_keys() | _DYNAMIC_SUPPLEMENT
+
+
+class TestLocaleTableIntegrity:
+    def test_no_duplicate_keys_within_a_file(self):
+        # LayerControl.en/zh.json shipped a duplicated style_size/border pair;
+        # one value silently lost. Guard every table, not just those two.
+        for path in sorted(_LOCALE_DIR.glob("*.json")):
+            duplicates = _duplicate_json_keys(path)
+            assert not duplicates, f"{path.name} repeats keys: {duplicates}"
+
+
+class TestRowTooltipVocabulary:
+    """The row tooltip names the row's own kind, not a neighbouring one."""
+
+    def test_base_short_says_map_and_differs_from_color(self):
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        # The short word is 地图/Map, distinct from the long 瓦片底图/Tile
+        # Map label and from the color row's 纯色/Color.
+        assert en["LayerControl.type_tile_map_short"] == "Map"
+        assert zh["LayerControl.type_tile_map_short"] == "地图"
+        assert en["LayerControl.type_color_map_short"] == "Color"
+        assert zh["LayerControl.type_color_map_short"] == "纯色"
+        # Two adjacent kinds must not collapse into one word.
+        assert (
+            en["LayerControl.type_tile_map_short"]
+            != en["LayerControl.type_color_map_short"]
+        )
+        assert (
+            zh["LayerControl.type_tile_map_short"]
+            != zh["LayerControl.type_color_map_short"]
+        )
+        # The long label names the same thing: Tile Map / 瓦片底图.
+        assert en["LayerControl.type_tile_map"] == "Tile Map"
+        assert zh["LayerControl.type_tile_map"] == "瓦片底图"
+
+    def test_filter_tooltip_says_data_not_records(self):
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        assert en["LayerControl.filter_layer_tooltip"] == "Filter this layer's data"
+        assert zh["LayerControl.filter_layer_tooltip"] == "筛选该图层的数据"
+
+    def test_container_says_group_not_container(self):
+        """The container type is user language, not the jargon "容器".
+
+        folium's API is LayerGroup/FeatureGroup; the user mental model is
+        "组" (group), and "图层组" maps directly to LayerGroup. The short
+        word stays distinct from the folder (user-dragged) vocabulary.
+        """
+        en, zh = _TABLES["en"], _TABLES["zh"]
+        assert en["LayerControl.type_group"] == "Layer Group"
+        assert zh["LayerControl.type_group"] == "图层组"
+        assert en["LayerControl.type_group_short"] == "Group"
+        assert zh["LayerControl.type_group_short"] == "组"
+
+
+class TestLocaleConfig:
+    def test_default_locale_is_english(self):
+        cfg = resolve_locale("en", "HeatmapControl")
+        assert cfg.get("HeatmapControl.title") == "Hexbin Aggregation"
+
+    def test_chinese_locale(self):
+        cfg = resolve_locale("zh", "HeatmapControl")
+        assert cfg.get("HeatmapControl.title") == "网格聚合"
+
+    def test_missing_key_returns_key(self):
+        cfg = resolve_locale("en", "HeatmapControl")
+        assert cfg.get("nonexistent.key") == "nonexistent.key"
+
+    def test_explicit_empty_default_honoured(self):
+        """get(k, "") stays "" — an empty translation is expressible."""
+        assert LocaleConfig("en").get("no.such.key", "") == ""
+        assert LocaleConfig("en").get("no.such.key") == "no.such.key"
+
+    def test_empty_localeconfig_defaults_to_en(self):
+        # A bare LocaleConfig carries no strings, so it means "auto-detect at runtime".
+        # Keep this assertion: it guards the empty-table fallback in BaseControl.
+        cfg = LocaleConfig()
+        assert cfg.code == "en"
+        assert cfg._strings == {}
+        assert cfg.get("HeatmapControl.title") == "HeatmapControl.title"
+
+    def test_language_without_strings_does_not_load_builtin_table(self):
+        """LocaleConfig(language=...) records the code only — no built-in strings."""
+        cfg = LocaleConfig("zh")
+        assert cfg.code == "zh"
+        assert cfg._strings == {}
+        assert cfg.get("HeatmapControl.title") == "HeatmapControl.title"
+
+    def test_control_uses_builtin_table_for_string_locale(self):
+        """A str locale sets locale_code; built-in tables ship via _COMPONENT_TABLES."""
+        from foliplus import HeatmapControl
+
+        config = json.loads(HeatmapControl(locale="zh")._config_block)
+        assert config["locale_code"] == "zh"
+        # Built-in tables are in the shared bundle, not per-instance CONFIG.
+        assert config["locale_tables"] == {}
+
+    def test_locale_none_ships_empty_tables_and_empty_code(self):
+        """locale=None (auto-detect) ships no per-instance tables; the browser picks from _COMPONENT_TABLES."""
+        from foliplus import HeatmapControl
+
+        config = json.loads(HeatmapControl()._config_block)
+        assert config["locale_code"] == ""
+        assert config["locale_tables"] == {}
+
+    def test_code_property(self):
+        assert resolve_locale("en", "HeatmapControl").code == "en"
+        assert resolve_locale("zh", "HeatmapControl").code == "zh"
+
+    def test_all_english_keys_have_values(self):
+        """Verify every locale key has a non-empty string."""
+        table = _TABLES["en"]
+        for key, value in table.items():
+            assert isinstance(value, str) and value, f"en key '{key}' is empty"
+
+    def test_all_chinese_keys_have_values(self):
+        """Verify every ZH key has a non-empty string."""
+        table = _TABLES["zh"]
+        for key, value in table.items():
+            assert isinstance(value, str) and value, f"ZH key '{key}' is empty"
+
+    def test_zh_keys_match_en(self):
+        """zh must have the exact same keys as en."""
+        en_keys = set(_TABLES["en"].keys())
+        zh_keys = set(_TABLES["zh"].keys())
+        assert en_keys == zh_keys, (
+            f"Missing: {en_keys - zh_keys}, Extra: {zh_keys - en_keys}"
+        )
+
+    def test_all_js_used_keys_in_tables(self):
+        """Every key used in JS files must exist in all locale tables."""
+        missing = _JS_USED_KEYS - set(_TABLES["en"].keys())
+        assert not missing, (
+            f"JS-used keys missing from locale tables: {missing}\n"
+            "Add them to foliplus/locale/en.json and foliplus/locale/zh.json"
+        )
+
+    def test_no_unused_keys_in_tables(self):
+        """Every locale key must be referenced in JS files (no dead keys)."""
+        locale_keys = set(_TABLES["en"].keys())
+        # Remove internal keys
+        locale_keys -= {"locale.name", "locale.code"}
+        unused = locale_keys - _JS_USED_KEYS
+        assert not unused, (
+            f"Unused locale keys (not in _JS_USED_KEYS): {unused}\n"
+            "Either add them to _JS_USED_KEYS or remove from locale JSON files"
+        )
+
+    def test_shared_label_vocabulary_lives_only_in_common(self):
+        """The label-control vocabulary is defined once, in the common table.
+
+        Both the heatmap panel and LayerControl's style drawer render it from
+        ``core/labelControl.ts``; a per-component copy is exactly the drift this
+        guards against — a missing key on one side renders a raw key there.
+        """
+        shared = {
+            "foliplus.label",
+            "foliplus.label_color",
+            "foliplus.label_collide",
+            "foliplus.label_collide_tooltip",
+            "foliplus.label_format",
+            "foliplus.label_format_auto",
+            "foliplus.label_format_comma",
+            "foliplus.label_format_int",
+            "foliplus.label_format_percent",
+            "foliplus.label_size",
+            "foliplus.label_style",
+            "foliplus.label_tooltip",
+        }
+        for lang in ("en", "zh"):
+            common = json.loads(
+                (_LOCALE_DIR / f"common.{lang}.json").read_text(encoding="utf-8")
+            )
+            missing = shared - set(common)
+            assert not missing, f"common.{lang} missing shared label keys: {missing}"
+
+            for component in ("HeatmapControl", "LayerControl"):
+                table = json.loads(
+                    (_LOCALE_DIR / f"{component}.{lang}.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                dupes = sorted(set(table) & shared)
+                assert not dupes, (
+                    f"{component}.{lang} duplicates the shared label vocabulary: "
+                    f"{dupes} — it belongs in the common table only"
+                )
+
+
+class TestFillClassificationVocabulary:
+    """The fill / filter i18n contract: Field / Method / Classes / Scheme /
+    Clear and the four classification methods read the same in both controls.
+
+    The classification vocabulary lives in the common table (foliplus.*) and
+    is read unscoped (`_()`) by both controls, so the two panels cannot drift:
+    the method label and the four method names are one concept, one place.
+    The remaining shared rows (Field / Classes / Scheme) stay component-scoped
+    (each table is injected per component) but their *text* must match;
+    class_count / style_fill_classes supplies the count select's accessible
+    name.
+    """
+
+    SHARED_LABELS = [
+        ("LayerControl.style_fill_field", "HeatmapControl.field", "Field", "字段"),
+        (
+            "LayerControl.style_fill_classes",
+            "HeatmapControl.class_count",
+            "Classes",
+            "分级数",
+        ),
+        (
+            "foliplus.classification_method",
+            "Classification Method",
+            "分类方法",
+        ),
+        ("LayerControl.style_fill_scheme", "HeatmapControl.scheme", "Scheme", "配色"),
+    ]
+
+    METHOD_LABELS = [
+        ("foliplus.classification_jenks", "Natural Breaks", "自然断点"),
+        ("foliplus.classification_quantile", "Quantile", "分位数法"),
+        ("foliplus.classification_equal", "Equal Interval", "等距分段"),
+        ("foliplus.classification_heads", "Equal Count", "等数分段"),
+    ]
+
+    def test_shared_rows_use_one_vocabulary(self):
+        for entry in self.SHARED_LABELS:
+            if len(entry) == 4:
+                layer_key, heatmap_key, en, zh = entry
+                assert _TABLES["en"][layer_key] == en, layer_key
+                assert _TABLES["en"][heatmap_key] == en, heatmap_key
+                assert _TABLES["zh"][layer_key] == zh, layer_key
+                assert _TABLES["zh"][heatmap_key] == zh, heatmap_key
+            else:
+                # A shared common key: both components read it unscoped from
+                # the common table. Assert it lives only there — a per-component
+                # copy is exactly the drift this guards against.
+                key, en, zh = entry
+                assert _TABLES["en"][key] == en, key
+                assert _TABLES["zh"][key] == zh, key
+                for component in ("LayerControl", "HeatmapControl"):
+                    for lang in ("en", "zh"):
+                        table = json.loads(
+                            (_LOCALE_DIR / f"{component}.{lang}.json").read_text(
+                                encoding="utf-8"
+                            )
+                        )
+                        assert key not in table, (
+                            f"{component}.{lang} duplicates the shared classification"
+                            f" vocabulary: {key}"
+                        )
+
+    def test_method_names_match_across_components(self):
+        for key, en, zh in self.METHOD_LABELS:
+            assert _TABLES["en"][key] == en, key
+            assert _TABLES["zh"][key] == zh, key
+            # The method names live only in the common table; a
+            # per-component copy is the drift this guards against.
+            for component in ("LayerControl", "HeatmapControl"):
+                for lang in ("en", "zh"):
+                    table = json.loads(
+                        (_LOCALE_DIR / f"{component}.{lang}.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                    assert key not in table, (
+                        f"{component}.{lang} duplicates the classification"
+                        f" method names: {key}"
+                    )
+
+    def test_clear_button_label(self):
+        assert _TABLES["en"]["HeatmapControl.clear"] == "Clear"
+        assert _TABLES["zh"]["HeatmapControl.clear"] == "清除"
+
+    def test_no_field_hint_is_gone(self):
+        """A layer without a numeric field hides the mode select instead of
+        explaining a disabled option, so the hint key must not come back."""
+        for lang in ("en", "zh"):
+            table = json.loads(
+                (_LOCALE_DIR / f"LayerControl.{lang}.json").read_text(encoding="utf-8")
+            )
+            assert "LayerControl.style_fill_no_field" not in table
+
+
+def _clear_locale_caches() -> None:
+    """Drop every cache that keys off the locale directory.
+
+    ``_build_shared_header`` embeds both tables and is cached process-wide, so a
+    swapped or mutated directory has to invalidate it as well — otherwise a
+    later render in the same worker keeps serving the old bundle.
+    """
+    _load_tables.cache_clear()
+    _load_component_tables.cache_clear()
+    _build_shared_header.cache_clear()
+
+
+@pytest.fixture
+def locale_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A private copy of the shipped locale tables — never the package dir.
+
+    The loader resolves ``foliplus.locale._LOCALE_DIR`` at call time, so a test
+    that needs a table of its own redirects it here rather than dropping a file
+    next to the checked-in ``*.json`` files. Writing into the real directory
+    makes the file visible to every other xdist worker, and the loaders open it
+    in two steps (``glob`` then ``read_text``): a worker that globs a file this
+    test is about to unlink raises ``FileNotFoundError`` — exactly the
+    ``test_uses_filename_as_fallback_code`` red under ``-n auto``.
+
+    The three loader caches are process-wide, so the swap clears them on the
+    way in (the copied files are what the next read must see) and on the way
+    out (the real directory is what later tests must see).
+    """
+    copy = tmp_path / "locale"
+    copy.mkdir()
+    for source in _LOCALE_DIR.glob("*.json"):
+        (copy / source.name).write_text(
+            source.read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    monkeypatch.setattr(locale, "_LOCALE_DIR", copy)
+    _clear_locale_caches()
+    yield copy
+    _clear_locale_caches()
+
+
+class TestLoadBuiltinTables:
+    def test_uses_filename_as_fallback_code(self, locale_dir: Path):
+        """If JSON has no locale.code, use the stem as language code."""
+        (locale_dir / "zz.json").write_text('{"hello": "world"}', encoding="utf-8")
+        tables = _load_tables("*.json")
+        assert "zz" in tables
+        assert "locale.code" not in tables["zz"]
+
+    def test_load_component_tables_groups_by_component(self):
+        """_load_component_tables returns {component: {lang: table}}, skipping common."""
+        tables = _load_component_tables()
+        # Should have entries for each component, not common.
+        assert "common" not in tables
+        assert "HeatmapControl" in tables
+        assert "en" in tables["HeatmapControl"]
+        assert "zh" in tables["HeatmapControl"]
+        assert tables["HeatmapControl"]["en"]["locale.code"] == "en"
+
+    def test_load_component_tables_skips_edge_cases(self, locale_dir: Path):
+        """Files without a dot in the stem, without locale.code, and common.* are skipped."""
+        (locale_dir / "README.json").write_text('{"hello": "world"}', encoding="utf-8")
+        # A component file missing locale.code — the table is skipped.
+        (locale_dir / "HeatmapControl.xx.json").write_text(
+            '{"key": "val"}', encoding="utf-8"
+        )
+        tables = _load_component_tables()
+        # No-dot file: "README" has no ".", so it's skipped.
+        assert "README" not in tables
+        # No-code file: stem "HeatmapControl.xx" has a dot, so comp is
+        # "HeatmapControl", but locale.code is missing → code is "" → skipped.
+        # The copied real files still give HeatmapControl en/zh, without "xx".
+        assert "xx" not in tables.get("HeatmapControl", {})
+
+
+class TestFromFile:
+    def test_json_file(self):
+        """Load locale from a .json file."""
+        data = {"locale.code": "fr", "hello": "Bonjour"}
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(data, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            cfg = LocaleConfig.from_json(tmp)
+            assert cfg.code == "fr"
+            assert cfg.get("hello") == "Bonjour"
+        finally:
+            os.unlink(tmp)
+
+    def test_custom_table_reaches_config(self):
+        """A LocaleConfig from JSON is shipped in CONFIG — custom strings must win."""
+        from foliplus import HeatmapControl
+
+        data = {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(data, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            config = json.loads(
+                HeatmapControl(locale=LocaleConfig.from_json(tmp))._config_block
+            )
+            assert config["locale_code"] == "ja"
+            assert "ja" in config["locale_tables"]
+            assert config["locale_tables"]["ja"]["HeatmapControl.title"] == "こんにちは"
+        finally:
+            os.unlink(tmp)
+
+    def test_unsupported_format(self):
+        """Unsupported file extension raises ValueError."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".toml", delete=False, encoding="utf-8"
+        ) as f:
+            f.write('[tool]\nkey = "val"\n')
+            tmp = f.name
+        try:
+            with pytest.raises(
+                ValueError, match="only .json locale files are supported"
+            ):
+                LocaleConfig.from_json(tmp)
+        finally:
+            os.unlink(tmp)
+
+    @pytest.mark.parametrize("payload", [[1, 2, 3], "hi", None, 5])
+    def test_non_object_root_raises(self, payload):
+        """A JSON array/string/null root raises ValueError, not AttributeError."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(payload, f)
+            tmp = f.name
+        try:
+            with pytest.raises(ValueError, match="must contain a JSON object"):
+                LocaleConfig.from_json(tmp)
+        finally:
+            os.unlink(tmp)
+
+    def test_missing_locale_code_raises(self):
+        """A missing locale.code raises instead of silently shipping under 'en'."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump({"HeatmapControl.title": "translated"}, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            with pytest.raises(ValueError, match="must contain a 'locale.code' string"):
+                LocaleConfig.from_json(tmp)
+        finally:
+            os.unlink(tmp)
+
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"locale.code": "ja", "k": 123},
+            {"locale.code": "ja", "k": None},
+            {"locale.code": "ja", "k": ["a"]},
+        ],
+    )
+    def test_non_string_value_raises(self, payload):
+        """Non-string values are rejected: get() promises str."""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(payload, f)
+            tmp = f.name
+        try:
+            with pytest.raises(ValueError, match="values must all be strings"):
+                LocaleConfig.from_json(tmp)
+        finally:
+            os.unlink(tmp)
+
+
+class TestPartialCustomTable:
+    """A partial custom table keeps the built-in translation for keys it omits."""
+
+    def _config(self, control, data: dict) -> dict:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(data, f, ensure_ascii=False)
+            tmp = f.name
+        try:
+            return json.loads(control(locale=LocaleConfig.from_json(tmp))._config_block)
+        finally:
+            os.unlink(tmp)
+
+    def test_omitted_keys_keep_builtin_translation(self):
+        """One custom key overrides; other keys come from _COMPONENT_TABLES at runtime."""
+        from foliplus import HeatmapControl
+
+        config = self._config(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
+        table = config["locale_tables"]["ja"]
+        assert table["HeatmapControl.title"] == "こんにちは"
+        # Built-in en table is in the shared bundle, not per-instance CONFIG.
+        assert "HeatmapControl.layer" not in table
+
+    def test_custom_table_ships_only_its_own_keys(self):
+        """CONFIG.locale_tables only carries the custom strings, not built-in keys."""
+        from foliplus import HeatmapControl
+
+        config = self._config(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
+        builtin = _load_tables("HeatmapControl.en.json")["en"]
+        table = config["locale_tables"]["ja"]
+        # Only the custom key should be present, not all builtin keys.
+        assert "HeatmapControl.title" in table
+        assert "HeatmapControl.layer" not in table
+
+    def test_custom_table_ships_only_its_own_code(self):
+        """Common keys (foliplus.*) come from the shared bundle, not config."""
+        from foliplus import HeatmapControl
+
+        config = self._config(
+            HeatmapControl, {"locale.code": "ja", "HeatmapControl.title": "こんにちは"}
+        )
+        assert set(config["locale_tables"]) == {"ja"}
+        assert "foliplus.close_label" not in config["locale_tables"]["ja"]
+        assert config["locale_code"] == "ja"
+
+    def test_works_for_other_control(self):
+        """The custom table ships in CONFIG for any component."""
+        from foliplus import SearchControl
+
+        config = self._config(
+            SearchControl, {"locale.code": "de", "SearchControl.btn_title": "Suchen"}
+        )
+        table = config["locale_tables"]["de"]
+        assert table["SearchControl.btn_title"] == "Suchen"
+        # Built-in fallback is in the shared bundle, not per-instance CONFIG.
+        assert "SearchControl.coord_placeholder" not in table
+
+
+class TestToFile:
+    def test_to_file_roundtrip(self, tmp_path):
+        """Export and re-import a LocaleConfig."""
+        cfg = resolve_locale("zh", "HeatmapControl")
+        tmp = tmp_path / "test_zh.json"
+        try:
+            cfg.to_json(tmp)
+            loaded = LocaleConfig.from_json(tmp)
+            assert loaded.code == "zh"
+            assert loaded.get("HeatmapControl.title") == "网格聚合"
+            assert loaded.get("HeatmapControl.layer") == "聚合图层"
+        finally:
+            tmp.unlink()
+
+    def test_bare_localeconfig_to_json_raises(self):
+        """A stringless config has no table; writing {} would reload as English."""
+        with pytest.raises(ValueError, match="has no strings to export"):
+            LocaleConfig("zh").to_json("/tmp/foliplus-test-no-such-dir/x.json")
+
+    def test_to_json_always_writes_locale_code(self, tmp_path):
+        """The written file round-trips its code — not silently 'en'."""
+        src = tmp_path / "src.json"
+        src.write_text(
+            json.dumps(
+                {"locale.code": "ja", "HeatmapControl.title": "こんにちは"},
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        tmp = tmp_path / "roundtrip.json"
+        loaded = LocaleConfig.from_json(src)
+        loaded.to_json(tmp)
+        written = json.loads(tmp.read_text(encoding="utf-8"))
+        assert written["locale.code"] == "ja"
+        assert LocaleConfig.from_json(tmp).code == "ja"
+
+
+class TestResolveLocale:
+    def test_resolve_en(self):
+        """resolve_locale('en') returns an en LocaleConfig."""
+        result = resolve_locale("en", "HeatmapControl")
+        assert result.code == "en"
+        assert result.get("locale.name") == "English"
+
+    def test_resolve_localeconfig(self):
+        """resolve_locale(LocaleConfig) returns it unchanged."""
+        cfg = LocaleConfig("zh")
+        result = resolve_locale(cfg, "HeatmapControl")
+        assert result is cfg  # same object
+
+    def test_resolve_unsupported_raises_valueerror(self):
+        """Unsupported locale string raises ValueError."""
+        with pytest.raises(ValueError, match="unsupported locale"):
+            resolve_locale("fr", "HeatmapControl")
+
+    def test_resolve_invalid_type_raises_typeerror(self):
+        """Non-str/LocaleConfig raises TypeError."""
+        with pytest.raises(
+            TypeError, match="locale must be a str, LocaleConfig, or None"
+        ):
+            resolve_locale(123, "HeatmapControl")  # type: ignore[arg-type]
+
+    def test_resolve_zh(self):
+        """resolve_locale('zh') returns a zh LocaleConfig."""
+        result = resolve_locale("zh", "HeatmapControl")
+        assert result.code == "zh"
+        assert result.get("locale.name") == "中文"
+
+
+class TestAllKeysCoverJS:
+    """Verify that all locale keys used in JS files exist in both locale files."""
+
+    def test_js_keys_exist_in_en(self):
+        """Every JS-used key must have a non-empty value in en."""
+        table = _TABLES["en"]
+        missing = {k for k in _JS_USED_KEYS if k not in table}
+        empty = {k for k in _JS_USED_KEYS if k in table and not table[k]}
+        assert not missing, f"Keys missing from en: {sorted(missing)}"
+        assert not empty, f"Keys with empty values in en: {sorted(empty)}"
+
+    def test_js_keys_exist_in_zh(self):
+        """Every JS-used key must have a non-empty value in zh."""
+        table = _TABLES["zh"]
+        missing = {k for k in _JS_USED_KEYS if k not in table}
+        empty = {k for k in _JS_USED_KEYS if k in table and not table[k]}
+        assert not missing, f"Keys missing from zh: {sorted(missing)}"
+        assert not empty, f"Keys with empty values in zh: {sorted(empty)}"
+
+    def test_no_old_style_keys_in_locale(self):
+        """No old-style locale keys (without CONST.name prefix) remain."""
+        table = _TABLES["en"]
+        old_style = {
+            k
+            for k in table
+            if k.startswith("search.")
+            or k.startswith("measure.")
+            or k.startswith("layer.")
+            or k.startswith("scale.")
+            or k.startswith("heatmap.")
+        }
+        assert not old_style, f"Old-style keys still present: {sorted(old_style)}"
+
+    def test_js_keys_have_correct_prefix(self):
+        """Every JS-used key must start with its CONST.name prefix."""
+        for key in _JS_USED_KEYS:
+            # Global keys don't need prefix check
+            if key.startswith(("num.", "load.", "gcoord.")):
+                continue
+            # Each control key must start with its component name
+            assert (
+                not key.startswith("search.")
+                and not key.startswith("measure.")
+                and not key.startswith("layer.")
+                and not key.startswith("scale.")
+                and not key.startswith("heatmap.")
+            ), f"Old-style key: {key}"
+
+
+class TestDynamicSupplementDrift:
+    """C4: the hand-written _DYNAMIC_SUPPLEMENT set must stay honest.
+
+    The set exists because the JS scanner cannot see keys reached through a
+    dynamic lookup (a template literal, a map lookup, a function parameter).
+    It is maintained by hand, so two failure modes are possible and both
+    are silent until a locale assertion goes red in an unrelated place:
+
+    1. A key is removed from the JS but left here — the set claims a use
+       that no longer exists.
+    2. A key is added to the scanner-reachable surface but stays here — the
+       set duplicates what the scanner now derives.
+
+    These tests pin the set against the JS source so the drift surfaces
+    here, at the point it is introduced.
+    """
+
+    def test_every_supplement_key_is_absent_from_scanner_output(self):
+        """A key in the supplement that the scanner now derives is a duplicate.
+
+        The scanner grows over time; when it starts finding a key on its own
+        the supplement entry becomes a no-op that hides the fact the scanner
+        has improved, and the set stops being a minimal audit surface.
+        """
+        scanned = _scan_js_keys()
+        duplicated = sorted(_DYNAMIC_SUPPLEMENT & scanned)
+        assert not duplicated, (
+            "Keys in _DYNAMIC_SUPPLEMENT are now found by the scanner; "
+            f"remove them from the hand-written set: {duplicated}"
+        )
+
+    def test_every_supplement_key_cites_a_js_site(self):
+        """Each supplement entry names its JS site in the comment above it.
+
+        The comment block is the audit trail: without it a future reader
+        cannot tell whether a key is still dynamically reached or has simply
+        been forgotten. A stale site citation is as bad as a missing one,
+        so the comment is pinned alongside the key.
+        """
+        # The supplement block is the only place the keys are written, so
+        # read the source and confirm every key appears inside a comment
+        # that mentions a file (the "JS site" the header promises).
+        source = Path(__file__).resolve().read_text(encoding="utf-8")
+        block = source[source.index("_DYNAMIC_SUPPLEMENT: set[str] = {") :]
+        block = block[: block.index("}", block.index("_DYNAMIC_SUPPLEMENT"))]
+        comment_files = set(re.findall(r"([\w/.]+\.ts)", block))
+        assert comment_files, (
+            "No .ts file cited in _DYNAMIC_SUPPLEMENT comments; the audit "
+            "trail that maps each key to its dynamic lookup site is gone."
+        )

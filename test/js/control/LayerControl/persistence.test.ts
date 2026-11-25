@@ -26,12 +26,13 @@ const seedStorage = (record: unknown) => {
   window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(record));
 };
 
-/** Spy `Storage.saveRecord` so a test can count writes without touching localStorage
- *  -- the record under assertion is then the one handed to the spy. */
-const spySave = () => vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
+/** Spy `Storage.saveVersionedObject` so a test can count writes without touching
+ *  localStorage -- the record under assertion is the payload the spy received. */
+const spySave = () =>
+  vi.spyOn(Storage, "saveVersionedObject").mockImplementation(() => true);
 
 const lastRecord = (save: ReturnType<typeof spySave>): LayerPersistedRecord =>
-  save.mock.calls.at(-1)![1] as LayerPersistedRecord;
+  (save.mock.calls.at(-1)![1] as { data: LayerPersistedRecord }).data;
 
 const REPO_ROOT = process.cwd();
 
@@ -1619,11 +1620,11 @@ describe("LayerPersistence", () => {
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      expect(save).toHaveBeenCalledWith(
-        CONST.STORAGE.KEY,
-        expect.anything(),
-        "LayerControl",
-      );
+      expect(save).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+        version: RECORD_VERSION,
+        data: expect.anything(),
+        name: "LayerControl",
+      });
       save.mockRestore();
       vi.useRealTimers();
     });

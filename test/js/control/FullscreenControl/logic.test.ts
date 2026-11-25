@@ -3,6 +3,7 @@ import { PANEL_CLASS } from "#ui/panelClassName.js";
 import { CLASSES } from "#control/FullscreenControl/const.js";
 import {
   buildFullscreenChangeHandler,
+  releasePseudo,
   toggleFullscreen,
   updateUI,
 } from "#control/FullscreenControl/logic.js";
@@ -48,7 +49,7 @@ const makeMapMock = (container: HTMLElement): L.Map =>
     getContainer: () => container,
     isFullscreen: false,
     invalidateSize: vi.fn(),
-    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
     on: vi.fn(),
     off: vi.fn(),
   }) as L.Map;
@@ -65,9 +66,11 @@ const makeNativeMapMock = (container: HTMLElement): L.Map => {
 // translator so tests can still compare on the raw key.
 const makeEnv = (
   overrides: Partial<ComponentConfig> = {},
-): { config: ComponentConfig; T: (k: string) => string } => ({
+  extra: { signal?: AbortSignal } = {},
+): { config: ComponentConfig; T: (k: string) => string; signal?: AbortSignal } => ({
   config: { name: "FullscreenControl", ...overrides } as ComponentConfig,
   T: (k: string) => k,
+  ...extra,
 });
 
 describe("updateUI", () => {
@@ -82,7 +85,7 @@ describe("updateUI", () => {
     mapMock = {
       getContainer: () => container,
       isFullscreen: false,
-      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
     } as L.Map;
   });
 
@@ -90,7 +93,7 @@ describe("updateUI", () => {
     updateUI(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
     expect(fsBtn.title).toContain("title");
-    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalled();
   });
 
   it("sets MINIMIZE icon + title when fullscreen", () => {
@@ -98,7 +101,7 @@ describe("updateUI", () => {
     updateUI(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
     expect(fsBtn.title).toContain("title_cancel");
-    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalled();
   });
 
   it("ignores a sibling map's native fullscreen (stays MAXIMIZE)", () => {
@@ -108,7 +111,7 @@ describe("updateUI", () => {
     mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
     updateUI(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
-    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalled();
   });
 
   it("skips hide_others when CONFIG.hide_others is not set", () => {
@@ -158,10 +161,11 @@ describe("updateUI", () => {
   it("hintText override replaces the default enter/exit wording", () => {
     mapMock.isFullscreen = true;
     updateUI(mapMock, fsBtn, container, makeEnv(), "fallback");
-    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalledWith(
       expect.any(String),
+      "",
       "fallback",
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
   });
 });
@@ -188,10 +192,11 @@ describe("toggleFullscreen — pseudo path", () => {
     expect(mapMock.invalidateSize).toHaveBeenCalled();
     // The enter hint is the fallback wording: in an embed without the
     // fullscreen permission the native claim "已进入全屏" would be a lie.
-    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalledWith(
       expect.any(String),
+      "",
       expect.stringContaining("fallback"),
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
   });
 
@@ -207,7 +212,35 @@ describe("toggleFullscreen — pseudo path", () => {
   it("calls updateUI after toggle (icon changes to MINIMIZE)", () => {
     toggleFullscreen(mapMock, fsBtn, container, makeEnv());
     expect(fsBtn.innerHTML).toContain("M8 3v3"); // MINIMIZE
-    expect(mapMock.foliplus.showHint).toHaveBeenCalled();
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalled();
+  });
+});
+
+describe("releasePseudo", () => {
+  it("strips a pseudo session left behind by a removed mounting", () => {
+    const container = makeContainer();
+    container.classList.add(CLASSES.PSEUDO_FULLSCREEN);
+    const mapMock = makeMapMock(container);
+
+    releasePseudo(mapMock);
+
+    expect(container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(false);
+    expect(mapMock.invalidateSize).toHaveBeenCalled();
+    expect(mapMock.isFullscreen).toBe(false);
+  });
+
+  it("leaves a live native session alone (nothing pseudo to release)", () => {
+    // Removing the control while the browser owns fullscreen must not tell the
+    // map it left fullscreen — only the pseudo class is this control's to strip.
+    const container = makeContainer();
+    const mapMock = makeMapMock(container);
+    mapMock.isFullscreen = true;
+
+    releasePseudo(mapMock);
+
+    expect(container.classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(false);
+    expect(mapMock.isFullscreen).toBe(true);
+    expect(mapMock.invalidateSize).not.toHaveBeenCalled();
   });
 });
 
@@ -337,10 +370,11 @@ describe("toggleFullscreen — native API path", () => {
     expect(mapMock.isFullscreen).toBe(true);
     expect(mapMock.invalidateSize).toHaveBeenCalled();
     // The hint explains the fallback instead of announcing "entered fullscreen".
-    expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalledWith(
       expect.any(String),
+      "",
       expect.stringContaining("fallback"),
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
   });
 
@@ -382,6 +416,30 @@ describe("toggleFullscreen — native API path", () => {
     expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
       false,
     );
+  });
+
+  it("does not fall back when the mounting was removed mid-request", async () => {
+    // The rejection lands after map.removeControl(): falling back to pseudo
+    // would re-enter with the toggle already gone, and nothing would ever
+    // strip the class — every body-level overlay would keep resolving its host
+    // to a container no control owns.
+    mapMock.getContainer().requestFullscreen = vi.fn(() =>
+      Promise.reject(new Error("denied")),
+    );
+    const ac = new AbortController();
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv({}, { signal: ac.signal }));
+    ac.abort();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mapMock.getContainer().classList.contains(CLASSES.PSEUDO_FULLSCREEN)).toBe(
+      false,
+    );
+    expect(mapMock.isFullscreen).toBe(false);
+    // The fallback hint explains an in-page fallback; a removed mounting must
+    // not announce one.
+    expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
   });
 
   it("does not exit a sibling map's native fullscreen; requests its own", async () => {
@@ -472,10 +530,11 @@ describe("toggleFullscreen — native API path", () => {
       expect(mapMock.isFullscreen).toBe(true);
       // No updateUI on the failed exit — the icon must not claim "exited".
       expect(fsBtn.innerHTML).toBe("");
-      expect(mapMock.foliplus.showHint).toHaveBeenCalledWith(
+      expect(mapMock.foliplus.hint.set).toHaveBeenCalledWith(
         expect.any(String),
+        "",
         expect.stringContaining("exit_fail"),
-        expect.any(Number),
+        { duration: expect.any(Number) },
       );
     });
   });

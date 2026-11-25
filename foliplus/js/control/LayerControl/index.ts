@@ -19,13 +19,19 @@ const LayerControl = defineControl<LayerController>({
     // through the `LayerInfo` cast below: the cast erases the bridge, so a
     // payload Python ships but the schema does not declare arrives as
     // `undefined` with tsc silent — which is exactly what happened to
-    // `fillAuthor` before #804 declared it. The cast stays because a CONF row
+    // `fill_author` before #804 declared it. The cast stays because a CONF row
     // is a registration seed, not a full registry record: the registry derives
     // kind, carrier, panes and the rest.
+    //
+    // CONF spells its JSON keys snake_case; `LayerInfo` keeps camelCase. This
+    // is the one boundary that renames them — `per_feature` becomes
+    // `perFeature` here and nowhere else.
     const seed = (env.config.data ?? []).map((row: LayerData[number]) => ({
       ...row,
-      fillAuthor: row.fillAuthor ?? null,
-      zoomRange: row.zoomRange ?? null,
+      fillAuthor: row.fill_author
+        ? { ...row.fill_author, perFeature: row.fill_author.per_feature }
+        : null,
+      zoomRange: row.zoom_range ?? null,
       folder: row.folder ?? null,
     }));
     const manager = new LayerController(map, seed as LayerInfo[], {

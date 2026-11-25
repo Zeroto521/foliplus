@@ -123,6 +123,10 @@ export function makeManagerMock(): MeasureManager {
       on: vi.fn(),
       off: vi.fn(),
       removeLayer: vi.fn(),
+      // Present on the real map: the reverse-geocode liveness guard reads it to
+      // skip writing an address onto a marker that was removed mid-lookup.
+      // True here = the mocked marker is alive (these tests assert the live path).
+      hasLayer: vi.fn(() => true),
       getContainer: () => document.createElement("div"),
       mouseEventToContainerPoint: vi.fn(
         (raw: { clientX: number; clientY: number }) => ({
@@ -131,7 +135,7 @@ export function makeManagerMock(): MeasureManager {
         }),
       ),
       dragging: { disable: vi.fn(), enable: vi.fn() },
-      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
     },
     layers: {
       addLayer: vi.fn(l => l),

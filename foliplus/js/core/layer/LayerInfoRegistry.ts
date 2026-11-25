@@ -258,7 +258,7 @@ class LayerInfoRegistry {
       meta: opts.meta ?? existingLi?.meta ?? null,
       metaProvider: opts.metaProvider ?? existingLi?.metaProvider ?? null,
       fillAuthor: opts.fillAuthor ?? existingLi?.fillAuthor ?? null,
-      // Carried the same way `fillAuthor` is: CONF `data[].zoomRange`
+      // Carried the same way `fill_author` is: CONF `data[].zoom_range`
       // reaches this entry through the bulk build's `opts`, and a
       // re-registration that does not resend it keeps the declared range
       // (`existingLi.zoomRange`).

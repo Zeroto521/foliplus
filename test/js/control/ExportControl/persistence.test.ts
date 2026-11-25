@@ -1,7 +1,7 @@
+import { makeManager } from "./fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/ExportControl/const.js";
-import { ExportManager } from "#control/ExportControl/manager.js";
 
 vi.mock("#platform/locale.js", async () => {
   const real = await vi.importActual("#platform/locale.js");
@@ -56,45 +56,6 @@ vi.mock("geotiff", () => ({
 }));
 vi.mock("pako", async () => vi.importActual("pako"));
 
-function makeMapMock() {
-  const container = document.createElement("div");
-  return {
-    getContainer: () => container,
-    getBounds: () => ({
-      getSouth: () => -90,
-      getNorth: () => 90,
-      getEast: () => 180,
-      getWest: () => -180,
-    }),
-    latLngToContainerPoint: vi.fn(({ lat, lng }) => ({ x: lng, y: lat })),
-    dragging: { disable: vi.fn(), enable: vi.fn() },
-    scrollWheelZoom: { disable: vi.fn(), enable: vi.fn() },
-    doubleClickZoom: { disable: vi.fn(), enable: vi.fn() },
-    boxZoom: { disable: vi.fn(), enable: vi.fn() },
-    keyboard: { disable: vi.fn(), enable: vi.fn() },
-    touchZoom: { disable: vi.fn(), enable: vi.fn() },
-    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
-    on: vi.fn(),
-    off: vi.fn(),
-    eachLayer: vi.fn(),
-  };
-}
-
-function makeManager() {
-  window.CONFIG = { ...window.CONFIG, name: "ExportControl", timeout: 7500 };
-  const manager = new ExportManager(makeMapMock());
-  // Stub UI delegation so tests can drive cropState.savedGeoBounds directly
-  // without depending on the DOM crop-box renderers.
-  manager.showCropBox = vi.fn();
-  manager.lockCropBox = vi.fn();
-  manager.unlockCropBox = vi.fn();
-  manager.removeCropBox = vi.fn();
-  manager.updateBoxStyle = vi.fn();
-  manager.showHintWithInfo = vi.fn();
-  manager.showGlobalHint = vi.fn();
-  return manager;
-}
-
 describe("persistenceMethods — loadSavedBounds guards", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -107,7 +68,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       nw: { lat: 50, lng: 50 },
       se: { lat: 40, lng: 60 },
     };
-    vi.spyOn(Storage, "loadRecord").mockReturnValue(null);
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue(null);
     manager.loadSavedBounds();
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
@@ -118,7 +79,9 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       nw: { lat: 50, lng: 50 },
       se: { lat: 40, lng: 60 },
     };
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({ se: { lat: 40, lng: 60 } });
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
+      se: { lat: 40, lng: 60 },
+    });
     manager.loadSavedBounds();
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
@@ -129,7 +92,9 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       nw: { lat: 50, lng: 50 },
       se: { lat: 40, lng: 60 },
     };
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({ nw: { lat: 50, lng: 50 } });
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
+      nw: { lat: 50, lng: 50 },
+    });
     manager.loadSavedBounds();
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
@@ -141,7 +106,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       se: { lat: 40, lng: 60 },
     };
     // 120 exceeds ±90 lat cap; lat check trips.
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 120, lng: 100 },
       se: { lat: 100, lng: 110 },
     });
@@ -156,7 +121,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       se: { lat: 40, lng: 60 },
     };
     // -200 exceeds ±180 lng cap; lng check trips while lat passes.
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 20, lng: -200 },
       se: { lat: 10, lng: -190 },
     });
@@ -178,7 +143,7 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
       getEast: () => 180,
       getWest: () => -180,
     });
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 20, lng: 100 },
       se: { lat: 10, lng: 110 },
     });
@@ -186,10 +151,46 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
     expect(manager.savedBounds!.nw.lat).toBe(50);
   });
 
+  it("loadSavedBounds migrates a pre-envelope flat record", () => {
+    const manager = makeManager();
+    manager.savedBounds = null;
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ nw: { lat: 20, lng: 100 }, se: { lat: 10, lng: 110 } }),
+    );
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toEqual({
+      nw: { lat: 20, lng: 100 },
+      se: { lat: 10, lng: 110 },
+    });
+  });
+
+  it("loadSavedBounds discards a pre-envelope record without nw", () => {
+    const manager = makeManager();
+    manager.savedBounds = null;
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ se: { lat: 10, lng: 110 } }),
+    );
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toBeNull();
+  });
+
+  it("loadSavedBounds discards a pre-envelope record without se", () => {
+    const manager = makeManager();
+    manager.savedBounds = null;
+    window.localStorage.setItem(
+      CONST.STORAGE.KEY,
+      JSON.stringify({ nw: { lat: 20, lng: 100 } }),
+    );
+    manager.loadSavedBounds();
+    expect(manager.savedBounds).toBeNull();
+  });
+
   it("loadSavedBounds accepts a record with valid lat/lng overlapping the map", () => {
     const manager = makeManager();
     manager.savedBounds = null;
-    vi.spyOn(Storage, "loadRecord").mockReturnValue({
+    vi.spyOn(Storage, "loadVersionedObject").mockReturnValue({
       nw: { lat: 20, lng: 100 },
       se: { lat: 10, lng: 110 },
     });
@@ -204,19 +205,19 @@ describe("persistenceMethods — loadSavedBounds guards", () => {
 describe("persistenceMethods — saveBounds", () => {
   it("saveBounds persists the geo bounds under the component's storage key", () => {
     const manager = makeManager();
-    const saveSpy = vi.spyOn(Storage, "saveRecord");
+    const saveSpy = vi.spyOn(Storage, "saveVersionedObject");
     manager.saveBounds({
       nw: { lat: 26.1, lng: 119.2 },
       se: { lat: 26.0, lng: 119.4 },
     });
-    expect(saveSpy).toHaveBeenCalledWith(
-      CONST.STORAGE.KEY,
-      {
+    expect(saveSpy).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
+      version: CONST.STORAGE.VERSION,
+      data: {
         nw: { lat: 26.1, lng: 119.2 },
         se: { lat: 26.0, lng: 119.4 },
       },
-      "ExportControl",
-    );
+      name: "ExportControl",
+    });
   });
 });
 
@@ -307,11 +308,11 @@ describe("persistenceMethods — restoreFromSavedBounds", () => {
     // restoreFromSavedBounds reads the IIFE free variable `map` (window.map in
     // tests), not the manager instance's map — the hint routes through the
     // per-map HintManager attached there, not this.map.foliplus.
-    expect(window.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(window.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "ExportControl",
+      "restore",
       expect.any(String),
-      expect.any(Number),
-      true,
+      { duration: expect.any(Number) },
     );
   });
 });
