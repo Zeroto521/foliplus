@@ -1,6 +1,7 @@
 // HeatmapControl manager — class skeleton; extract/state/filter/canvas/lifecycle/init
-// bodies are installed on HeatmapManager.prototype so method names and this.x()
-// call-through stay identical to the pre-split surface.
+// bodies live in their own modules as arrow functions taking the manager, and the
+// prototype methods below delegate to them so method names and this.x() call-through
+// stay identical to the pre-split surface.
 //
 // Fields marked internal below are read by the mixin modules in this directory;
 // they are not part of the control public surface.
@@ -208,70 +209,158 @@ class HeatmapManager {
   declare persist: Persisted;
 
   // ---- Mixin surface (installed via Object.assign at the bottom) ----
-  declare initPersistence: () => void;
-  declare initStyleDelegation: () => StyleDefaults;
-  declare initOverlay: (defaults: StyleDefaults) => void;
-  declare initEventSubscriptions: () => void;
-  declare initCaches: () => void;
-  declare initFilterHost: () => void;
-  declare bindMapEvents: () => void;
-  declare onBeforeExport: () => void;
-  declare onAfterExport: () => void;
-  declare redrawHeatmap: () => void;
-  declare drawHexagon: (ctx: CanvasRenderingContext2D, feat: HexFeature) => void;
-  declare resolveLabelStyle: () => CanvasLabelStyle;
-  declare drawHexLabel: (
+  initPersistence(): void {
+    return initMethods.initPersistence(this);
+  }
+  initStyleDelegation(): StyleDefaults {
+    return initMethods.initStyleDelegation(this);
+  }
+  initOverlay(defaults: StyleDefaults): void {
+    return initMethods.initOverlay(this, defaults);
+  }
+  initEventSubscriptions(): void {
+    return initMethods.initEventSubscriptions(this);
+  }
+  initCaches(): void {
+    return initMethods.initCaches(this);
+  }
+  initFilterHost(): void {
+    return initMethods.initFilterHost(this);
+  }
+  bindMapEvents(): void {
+    return lifecycleMethods.bindMapEvents(this);
+  }
+  onBeforeExport(): void {
+    return lifecycleMethods.onBeforeExport(this);
+  }
+  onAfterExport(): void {
+    return lifecycleMethods.onAfterExport(this);
+  }
+  redrawHeatmap(): void {
+    return canvasMethods.redrawHeatmap(this);
+  }
+  drawHexagon(ctx: CanvasRenderingContext2D, feat: HexFeature): void {
+    return canvasMethods.drawHexagon(this, ctx, feat);
+  }
+  resolveLabelStyle(): CanvasLabelStyle {
+    return canvasMethods.resolveLabelStyle(this);
+  }
+  drawHexLabel(
     ctx: CanvasRenderingContext2D,
     feat: HexFeature,
     style: CanvasLabelStyle,
-  ) => void;
-  declare computeBounds: () => L.LatLngBounds | null;
-  declare scanMapLayers: () => void;
-  declare resolveDeclaredLayer: () => string | null;
-  declare resolveEffectiveField: (fields: readonly string[]) => string;
-  declare effectiveField: () => string;
-  declare setAvailableFields: (fields: readonly string[]) => string;
-  declare invalidateEffectiveField: () => void;
-  declare warnDeclaration: (kind: "layer" | "field", name: string) => void;
-  declare collectFields: (layers: Array<{ id: string }>) => string[];
-  declare getPointValue: (marker: L.Marker | L.CircleMarker) => number;
-  declare getSelectedPoints: () => SelectedPoint[];
-  declare ensureFilterHost: (sourceId: string) => void;
-  declare syncFilterField: () => void;
-  declare getFilterModel: () => LayerFilterModel | null;
-  declare setFilter: (filter: LayerFilter | undefined) => void;
-  declare warnDeclaredFilter: (reason: string) => void;
-  declare seedDeclaredFilter: () => void;
-  declare revalidateFilter: () => boolean;
-  declare renderHexagons: (
-    operation?: SettledOperation,
-    contentChanged?: boolean,
-  ) => void;
-  declare aggregateData: (
+  ): void {
+    return canvasMethods.drawHexLabel(this, ctx, feat, style);
+  }
+  computeBounds(): L.LatLngBounds | null {
+    return extractMethods.computeBounds(this);
+  }
+  scanMapLayers(): void {
+    return extractMethods.scanMapLayers(this);
+  }
+  resolveDeclaredLayer(): string | null {
+    return extractMethods.resolveDeclaredLayer(this);
+  }
+  resolveEffectiveField(fields: readonly string[]): string {
+    return extractMethods.resolveEffectiveField(this, fields);
+  }
+  effectiveField(): string {
+    return extractMethods.effectiveField(this);
+  }
+  setAvailableFields(fields: readonly string[]): string {
+    return extractMethods.setAvailableFields(this, fields);
+  }
+  invalidateEffectiveField(): void {
+    return extractMethods.invalidateEffectiveField(this);
+  }
+  warnDeclaration(kind: "layer" | "field", name: string): void {
+    return extractMethods.warnDeclaration(this, kind, name);
+  }
+  collectFields(layers: Array<{ id: string }>): string[] {
+    return extractMethods.collectFields(this, layers);
+  }
+  getPointValue(marker: L.Marker | L.CircleMarker): number {
+    return extractMethods.getPointValue(this, marker);
+  }
+  getSelectedPoints(): SelectedPoint[] {
+    return extractMethods.getSelectedPoints(this);
+  }
+  ensureFilterHost(sourceId: string): void {
+    return filterMethods.ensureFilterHost(this, sourceId);
+  }
+  syncFilterField(): void {
+    return filterMethods.syncFilterField(this);
+  }
+  getFilterModel(): LayerFilterModel | null {
+    return filterMethods.getFilterModel(this);
+  }
+  setFilter(filter: LayerFilter | undefined): void {
+    return filterMethods.setFilter(this, filter);
+  }
+  warnDeclaredFilter(reason: string): void {
+    return filterMethods.warnDeclaredFilter(this, reason);
+  }
+  seedDeclaredFilter(): void {
+    return filterMethods.seedDeclaredFilter(this);
+  }
+  revalidateFilter(): boolean {
+    return filterMethods.revalidateFilter(this);
+  }
+  renderHexagons(operation?: SettledOperation, contentChanged?: boolean): void {
+    return canvasMethods.renderHexagons(this, operation, contentChanged);
+  }
+  aggregateData(
     pts: SelectedPoint[],
     res: number,
     include?: Set<number>,
     precomputedBins?: Map<string, number[]>,
     onEmpty?: () => void,
-  ) => AggregatedData | null;
-  declare buildFeatures: (agg: AggregatedData) => HexFeature[];
-  declare renderFeatures: (
-    features: HexFeature[],
-    operation?: SettledOperation,
-  ) => void;
-  declare clearHeatmapCanvas: (
-    operation?: SettledOperation,
-    keepBins?: boolean,
-  ) => void;
-  declare publishCount: (operation?: SettledOperation) => void;
-  declare resetState: (config: ComponentConfig) => void;
-  declare loadSavedConfig: () => SavedConfig | null;
-  declare saveConfig: () => void;
-  declare flush: () => void;
-  declare clearSavedConfig: () => void;
-  declare clearLayerState: () => void;
-  declare syncSourceMeta: () => void;
-  declare applySavedConfig: (saved: SavedConfig) => void;
+  ): AggregatedData | null {
+    return canvasMethods.aggregateData(
+      this,
+      pts,
+      res,
+      include,
+      precomputedBins,
+      onEmpty,
+    );
+  }
+  buildFeatures(agg: AggregatedData): HexFeature[] {
+    return canvasMethods.buildFeatures(this, agg);
+  }
+  renderFeatures(features: HexFeature[], operation?: SettledOperation): void {
+    return canvasMethods.renderFeatures(this, features, operation);
+  }
+  clearHeatmapCanvas(operation?: SettledOperation, keepBins?: boolean): void {
+    return canvasMethods.clearHeatmapCanvas(this, operation, keepBins);
+  }
+  publishCount(operation?: SettledOperation): void {
+    return canvasMethods.publishCount(this, operation);
+  }
+  resetState(config: ComponentConfig): void {
+    return stateMethods.resetState(this, config);
+  }
+  loadSavedConfig(): SavedConfig | null {
+    return stateMethods.loadSavedConfig(this);
+  }
+  saveConfig(): void {
+    return stateMethods.saveConfig(this);
+  }
+  flush(): void {
+    return stateMethods.flush(this);
+  }
+  clearSavedConfig(): void {
+    return stateMethods.clearSavedConfig(this);
+  }
+  clearLayerState(): void {
+    return stateMethods.clearLayerState(this);
+  }
+  syncSourceMeta(): void {
+    return stateMethods.syncSourceMeta(this);
+  }
+  applySavedConfig(saved: SavedConfig): void {
+    return stateMethods.applySavedConfig(this, saved);
+  }
 
   /**
    * @param mapInstance - Leaflet map instance.
@@ -356,15 +445,5 @@ class HeatmapManager {
     this.bindMapEvents();
   }
 }
-
-Object.assign(
-  HeatmapManager.prototype,
-  canvasMethods,
-  extractMethods,
-  filterMethods,
-  initMethods,
-  lifecycleMethods,
-  stateMethods,
-);
 
 export { HeatmapManager };

@@ -1,6 +1,5 @@
-// HeatmapControl canvas rendering — hexagon paint, aggregation and the render tail.
-// Function expressions are installed on HeatmapManager.prototype so this is
-// the manager and instance spies stay interceptable.
+// HeatmapControl canvas — arrow functions that take the manager as their first argument.
+// HeatmapManager's prototype methods delegate to them, so instance spies stay interceptable.
 import {
   aggregateData as aggregateDataFn,
   binPoints as binPointsFn,
@@ -38,78 +37,78 @@ import type { CanvasLabelStyle } from "#ui/index.js";
  *  content, so the notification must go out even when the stored filter
  *  itself survived revalidation unchanged — otherwise an open panel keeps
  *  showing counts that no longer match the map. */
-const renderHexagons = function (
-  this: HeatmapManager,
+const renderHexagons = (
+  m: HeatmapManager,
   operation?: SettledOperation,
   contentChanged = false,
-) {
-  if (!this.map || !this.overlay) return;
-  const op = operation ?? new SettledOperation(this.events);
-  if (!this.selectedLayerId) {
-    this.clearHeatmapCanvas(op);
+) => {
+  if (!m.map || !m.overlay) return;
+  const op = operation ?? new SettledOperation(m.events);
+  if (!m.selectedLayerId) {
+    m.clearHeatmapCanvas(op);
     if (!operation) op.throwIfFailed();
     return;
   }
-  const allPts = this.getSelectedPoints();
+  const allPts = m.getSelectedPoints();
   // Content or identity may have moved under the stored filter (source
   // switch, data update) — align it with the fresh snapshot before the
   // include set is computed, and publish once the render has settled.
-  const filterRevalidated = this.revalidateFilter();
-  const zoom = this.map.getZoom();
+  const filterRevalidated = m.revalidateFilter();
+  const zoom = m.map.getZoom();
   const res = getH3Res(zoom);
-  const sourceId = this.selectedLayerId;
-  const fKey = filterKey(this.filterStore.getFilter(this.layerId, sourceId!));
+  const sourceId = m.selectedLayerId;
+  const fKey = filterKey(m.filterStore.getFilter(m.layerId, sourceId!));
   const includeSet = selectIndices(
-    this.cachedSnapshot,
-    this.filterStore.getFilter(this.layerId, sourceId!),
+    m.cachedSnapshot,
+    m.filterStore.getFilter(m.layerId, sourceId!),
     allPts.length,
   );
   // Bins cache: geometry only, independent of the filter. A filter
   // change reuses the bins and only reruns aggregateBins.
-  const binsKey = `${this.selectedLayerId}|${res}`;
+  const binsKey = `${m.selectedLayerId}|${res}`;
   let bins: Map<string, number[]> | undefined;
-  if (this.cachedBins?.key === binsKey) {
-    bins = this.cachedBins.bins;
+  if (m.cachedBins?.key === binsKey) {
+    bins = m.cachedBins.bins;
   } else {
-    bins = binPointsFn(allPts, res, this.log);
-    this.cachedBins = { key: binsKey, bins };
+    bins = binPointsFn(allPts, res, m.log);
+    m.cachedBins = { key: binsKey, bins };
   }
   // Agg cache: includes the filter key. A filter change invalidates
   // this, but the bins cache above still hits — zero h3 calls.
-  const aggKey = `${binsKey}|${this.agg}|${this.effectiveField()}|${this.method}|${this.scheme}|${this.numClasses}|${fKey}`;
+  const aggKey = `${binsKey}|${m.agg}|${m.effectiveField()}|${m.method}|${m.scheme}|${m.numClasses}|${fKey}`;
   let aggregated: AggregatedData | undefined;
-  if (this.cachedAgg?.key === aggKey) {
-    aggregated = this.cachedAgg.data;
+  if (m.cachedAgg?.key === aggKey) {
+    aggregated = m.cachedAgg.data;
   } else {
     aggregated =
-      this.aggregateData(allPts, res, includeSet, bins, () =>
+      m.aggregateData(allPts, res, includeSet, bins, () =>
         // An empty aggregate (the committed filter kept no cell) clears the
         // canvas but must keep the geometry: the model total is the
         // unfiltered cell count, so the result readout still reads
         // "0 of N". The bins are keyed to the current points, and any
         // content/identity change drops them through
         // onSourceContentChange/onLayerChange.
-        this.clearHeatmapCanvas(op, true),
+        m.clearHeatmapCanvas(op, true),
       ) ?? undefined;
-    if (aggregated) this.cachedAgg = { key: aggKey, data: aggregated };
+    if (aggregated) m.cachedAgg = { key: aggKey, data: aggregated };
   }
   if (!aggregated) {
     if (filterRevalidated || contentChanged) {
       op.emit(
         EVENTS.LAYER_FILTER_CHANGE,
-        { id: this.layerId },
+        { id: m.layerId },
         { kind: "user", via: "panel" },
       );
     }
     if (!operation) op.throwIfFailed();
     return;
   }
-  const features = this.buildFeatures(aggregated);
-  this.renderFeatures(features, op);
+  const features = m.buildFeatures(aggregated);
+  m.renderFeatures(features, op);
   if (filterRevalidated || contentChanged) {
     op.emit(
       EVENTS.LAYER_FILTER_CHANGE,
-      { id: this.layerId },
+      { id: m.layerId },
       { kind: "user", via: "panel" },
     );
   }
@@ -117,8 +116,8 @@ const renderHexagons = function (
 };
 
 /** Redraw the heatmap canvas from cached features. */
-const redrawHeatmap = function (this: HeatmapManager) {
-  if (!this.overlay.canvas || !this.cachedFeatures) return;
+const redrawHeatmap = (m: HeatmapManager) => {
+  if (!m.overlay.canvas || !m.cachedFeatures) return;
   // R11 dual-path handoff. Two cases:
   //
   //  1. CSS empty (default, or cleared by `onOpacity`): bake layerAlpha
@@ -132,82 +131,82 @@ const redrawHeatmap = function (this: HeatmapManager) {
   //     carry the opacity — visually identical, no double-counting.
   //     Restore layerAlpha after the pass so the next repaint that does
   //     bake (post-debounce `onOpacity`) sees the slider value.
-  const layerAlpha = getLayerAlpha(this.overlay.canvas);
-  const preserveCss = this.overlay.canvas.style.opacity !== "" && layerAlpha !== 1;
+  const layerAlpha = getLayerAlpha(m.overlay.canvas);
+  const preserveCss = m.overlay.canvas.style.opacity !== "" && layerAlpha !== 1;
   if (preserveCss) {
-    setLayerAlpha(this.overlay.canvas, 1);
+    setLayerAlpha(m.overlay.canvas, 1);
   } else {
-    this.overlay.canvas.style.opacity = "";
+    m.overlay.canvas.style.opacity = "";
   }
-  const ctx = this.overlay.ctx;
+  const ctx = m.overlay.ctx;
   if (!ctx) return;
-  const container = this.map.getContainer();
+  const container = m.map.getContainer();
   const dpr = window.devicePixelRatio || 1;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, container.clientWidth, container.clientHeight);
 
-  const labelCfg = this.resolveLabelStyle();
-  const bounds = this.renderAll ? null : this.map.getBounds();
+  const labelCfg = m.resolveLabelStyle();
+  const bounds = m.renderAll ? null : m.map.getBounds();
   const isVisible = (feat: HexFeature) => {
     if (!bounds) return true;
     const pt = feat.properties.centroid;
     return !!pt && bounds.contains(L.latLng(pt[0], pt[1]));
   };
 
-  this.cachedFeatures.forEach(feat => {
+  m.cachedFeatures.forEach(feat => {
     if (!isVisible(feat)) return;
-    this.drawHexagon(ctx, feat);
-    if (this.labelShow) this.drawHexLabel(ctx, feat, labelCfg);
+    m.drawHexagon(ctx, feat);
+    if (m.labelShow) m.drawHexLabel(ctx, feat, labelCfg);
   });
-  if (preserveCss) setLayerAlpha(this.overlay.canvas, layerAlpha);
+  if (preserveCss) setLayerAlpha(m.overlay.canvas, layerAlpha);
 };
 
-const clearHeatmapCanvas = function (
-  this: HeatmapManager,
+const clearHeatmapCanvas = (
+  m: HeatmapManager,
   operation?: SettledOperation,
   keepBins = false,
-) {
-  this.cachedFeatures = null;
-  this.cachedAgg = null;
+) => {
+  m.cachedFeatures = null;
+  m.cachedAgg = null;
   // keepBins is for the empty-aggregate path only: the drawn features are
   // gone but the cell set is still the unfiltered total the filter model
   // reports. A real teardown (departure, reset, empty selection) drops it.
-  if (!keepBins) this.cachedBins = null;
+  if (!keepBins) m.cachedBins = null;
   // cachedSnapshot and layerFilters are keyed by source id and survive a
   // canvas clear: switching source (or clearing the canvas on an empty
   // render) must not silently drop another source's committed filter —
   // A → B → A re-selects the same filter the user set. They are wiped
   // with the row itself (resetState / the departing-source branch of
   // onLayerChange), not with every canvas repaint.
-  if (this.overlay) this.overlay.unregister();
+  if (m.overlay) m.overlay.unregister();
   // The panel row is gone and the next draw is new content: drop this id
   // from the stored order so the next registration lands at the top of the
   // overlay stack instead of returning to the slot the user arranged.
   // Without this, insertOverlayAt would find a stored rank and placeBeforeSavedNeighbor
   // would put the redrawn heatmap back where it was, not on top.
-  this.map.foliplus?.LayerAPI?.forgetSavedOrder?.(this.layerId);
-  this.ui?.schemePicker?.close({ restoreFocus: false });
+  m.map.foliplus?.LayerAPI?.forgetSavedOrder?.(m.layerId);
+  m.ui?.schemePicker?.close({ restoreFocus: false });
   // Notify LayerControl to refresh the count column (now 0).
-  this.publishCount(operation);
+  m.publishCount(operation);
 };
 
-const aggregateData = function (
-  this: HeatmapManager,
+const aggregateData = (
+  m: HeatmapManager,
   pts: SelectedPoint[],
   res: number,
   include?: Set<number>,
   precomputedBins?: Map<string, number[]>,
   onEmpty?: () => void,
-) {
+) => {
   return aggregateDataFn(
     pts,
     res,
-    this.agg,
-    this.numClasses,
-    this.method,
-    this.scheme,
-    onEmpty ?? (() => this.clearHeatmapCanvas()),
-    this.log,
+    m.agg,
+    m.numClasses,
+    m.method,
+    m.scheme,
+    onEmpty ?? (() => m.clearHeatmapCanvas()),
+    m.log,
     include,
     precomputedBins,
   );
@@ -216,76 +215,72 @@ const aggregateData = function (
 /** Publish this row's count signal. Routed through the caller's operation
  *  when one exists so a later notification on the same operation still
  *  fans out before the terminal count failure is raised. */
-const publishCount = function (this: HeatmapManager, operation?: SettledOperation) {
+const publishCount = (m: HeatmapManager, operation?: SettledOperation) => {
   if (operation) {
     operation.emit(
       EVENTS.LAYER_ITEM_COUNT_CHANGE,
-      { id: this.layerId },
+      { id: m.layerId },
       { kind: "programmatic", via: "refresh" },
     );
   } else {
     publish(
-      this.events,
+      m.events,
       EVENTS.LAYER_ITEM_COUNT_CHANGE,
-      { id: this.layerId },
+      { id: m.layerId },
       { kind: "programmatic", via: "refresh" },
     );
   }
 };
 
-const renderFeatures = function (
-  this: HeatmapManager,
+const renderFeatures = (
+  m: HeatmapManager,
   features: HexFeature[],
   operation?: SettledOperation,
-) {
+) => {
   if (!features.length) {
-    this.clearHeatmapCanvas(operation);
+    m.clearHeatmapCanvas(operation);
     return;
   }
-  this.cachedFeatures = features;
-  this.overlay.register();
-  this.redrawHeatmap();
+  m.cachedFeatures = features;
+  m.overlay.register();
+  m.redrawHeatmap();
   // Notify LayerControl to refresh the count column for this layer. Queued
   // on the caller's operation when there is one, so a throwing terminal
   // consumer cannot cut off the filter notification that follows.
-  this.publishCount(operation);
+  m.publishCount(operation);
 };
 
 /** Resolve label styling from the shared --foliplus-label-* tokens (cached once). The
  *  values are the same the label canvas reads — both go through
  *  ui/canvasLabel — so a hex value and an label label render as one
  *  language. */
-const resolveLabelStyle = function (this: HeatmapManager) {
-  if (this.cachedLabelStyle) return this.cachedLabelStyle;
-  this.cachedLabelStyle = resolveLabelStyleFn(
-    this.ui!.ctrl,
-    this.labelSize,
-    this.labelColor,
-  );
-  return this.cachedLabelStyle;
+const resolveLabelStyle = (m: HeatmapManager) => {
+  if (m.cachedLabelStyle) return m.cachedLabelStyle;
+  m.cachedLabelStyle = resolveLabelStyleFn(m.ui!.ctrl, m.labelSize, m.labelColor);
+  return m.cachedLabelStyle;
 };
 
 /** Draw a formatted value label centered on the hexagon. */
-const drawHexLabel = function (
-  this: HeatmapManager,
+const drawHexLabel = (
+  m: HeatmapManager,
   ctx: CanvasRenderingContext2D,
   feat: HexFeature,
   style: CanvasLabelStyle,
-) {
-  drawHexLabelFn(ctx, feat, style, this.map, this.labelFormat);
+) => {
+  drawHexLabelFn(ctx, feat, style, m.map, m.labelFormat);
 };
 
 /** Draw a single hexagon polygon (fill + stroke). */
-const drawHexagon = function (
-  this: HeatmapManager,
+const drawHexagon = (
+  m: HeatmapManager,
   ctx: CanvasRenderingContext2D,
   feat: HexFeature,
-) {
-  drawHexagonFn(ctx, feat, this.map, this.borderWeight, this.borderColor);
+) => {
+  drawHexagonFn(ctx, feat, m.map, m.borderWeight, m.borderColor);
 };
 
-const buildFeatures = function (this: HeatmapManager, agg: AggregatedData) {
-  return buildFeaturesFn(agg, this.log);
+const buildFeatures = (m: HeatmapManager, agg: AggregatedData) => {
+  return buildFeaturesFn(agg, m.log);
 };
 
 const canvasMethods = {

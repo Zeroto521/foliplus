@@ -1,6 +1,5 @@
-// HeatmapControl state surface — reset, persistence binding, source metadata.
-// Function expressions are installed on HeatmapManager.prototype so this is
-// the manager and instance spies stay interceptable.
+// HeatmapControl state — arrow functions that take the manager as their first argument.
+// HeatmapManager's prototype methods delegate to them, so instance spies stay interceptable.
 import * as CONST from "./const.js";
 import type { HeatmapManager } from "./manager.js";
 import {
@@ -17,53 +16,53 @@ import { CLASS_COUNT } from "#core/value/index.js";
 /** Reset selection + style state to the defaults declared in `config`. Both
  *  clear entries (the panel's Clear button and LayerControl's more-menu
  *  delete) go through here, so the two can never drift apart. */
-const resetState = function (this: HeatmapManager, config: ComponentConfig) {
+const resetState = (m: HeatmapManager, config: ComponentConfig) => {
   // Was any source carrying a filter (owned or declared)? The whole-layer
   // reset below drops the record without repainting; the notification
   // fires only when there was something to clear.
-  const clearedFilter = this.filterStore
-    .sources(this.layerId)
+  const clearedFilter = m.filterStore
+    .sources(m.layerId)
     .some(
       src =>
-        this.filterStore.isOwned(this.layerId, src) ||
-        this.filterStore.getFilter(this.layerId, src) !== undefined,
+        m.filterStore.isOwned(m.layerId, src) ||
+        m.filterStore.getFilter(m.layerId, src) !== undefined,
     );
-  this.selectedLayerId = null;
-  this.agg = config.agg ?? CONST.AGG.COUNT;
-  this.field = "";
+  m.selectedLayerId = null;
+  m.agg = config.agg ?? CONST.AGG.COUNT;
+  m.field = "";
   // Reset returns to the declared state: the field list belongs to the
   // selection that just went away, and the resolved field must come from
   // the declaration (or stay empty), never from a stale scan.
-  this.availableFields = [];
-  this.invalidateEffectiveField();
-  this.numClasses = config.num_classes ?? CLASS_COUNT.DEFAULT;
-  this.method = resolveClassifyMethod(config.method);
-  this.scheme = config.color_scheme ?? "Reds";
+  m.availableFields = [];
+  m.invalidateEffectiveField();
+  m.numClasses = config.num_classes ?? CLASS_COUNT.DEFAULT;
+  m.method = resolveClassifyMethod(config.method);
+  m.scheme = config.color_scheme ?? "Reds";
   // The clear wipes the row's data — every source's filter (and its
   // declaration) is a statement about data that no longer exists. The
   // store's whole-layer reset drops the record + declarations; the next
   // seed re-establishes the declaration against the fresh snapshot.
-  this.filterStore.reset(this.layerId);
-  this.cachedSnapshot = null;
-  this.cachedSnapshotLayerId = null;
+  m.filterStore.reset(m.layerId);
+  m.cachedSnapshot = null;
+  m.cachedSnapshotLayerId = null;
   // Reset returns the manager to the Python-declared starting state: the
   // record is about to be deleted, so re-open the one-shot guard and let
   // the declaration (and the single-layer auto-select) apply again. The
   // filter slot's ownership goes with it — the declared filter is part of
   // the declared state Reset returns to.
-  this.hasScanned = false;
+  m.hasScanned = false;
   if (clearedFilter) {
     publish(
-      this.events,
+      m.events,
       EVENTS.LAYER_FILTER_CHANGE,
-      { id: this.layerId },
+      { id: m.layerId },
       { kind: "user", via: "panel" },
     );
   }
 };
 
 /** Load saved configuration from localStorage into this manager's state. */
-const loadSavedConfig = function (this: HeatmapManager) {
+const loadSavedConfig = (_m: HeatmapManager) => {
   return loadSavedConfigFn();
 };
 
@@ -71,21 +70,21 @@ const loadSavedConfig = function (this: HeatmapManager) {
  *  binding, so the flat inline-version record stays durable the moment a UI
  *  change lands. The binding reads live state at save time, so callers just
  *  signal a change without restating the fields. */
-const saveConfig = function (this: HeatmapManager) {
+const saveConfig = (m: HeatmapManager) => {
   // The record carries `field`, so a write can be the moment the user's
   // pick changed: re-resolve on the next read instead of trusting a value
   // computed before the pick moved.
-  this.invalidateEffectiveField();
-  this.persist.schedule();
+  m.invalidateEffectiveField();
+  m.persist.schedule();
 };
 
 /** Flush any pending write through the binding — idempotent and teardown-safe. */
-const flush = function (this: HeatmapManager) {
-  this.persist.flush();
+const flush = (m: HeatmapManager) => {
+  m.persist.flush();
 };
 
 /** Remove persisted configuration from localStorage. */
-const clearSavedConfig = function (this: HeatmapManager) {
+const clearSavedConfig = (_m: HeatmapManager) => {
   clearSavedConfigFn();
 };
 
@@ -98,8 +97,8 @@ const clearSavedConfig = function (this: HeatmapManager) {
  * reaches the same prune from `deleteLayer`, and the reload path must never
  * run it — a reload is not a clear.
  */
-const clearLayerState = function (this: HeatmapManager) {
-  this.map.foliplus?.LayerAPI?.dropPersistedLayerState?.(this.layerId);
+const clearLayerState = (m: HeatmapManager) => {
+  m.map.foliplus?.LayerAPI?.dropPersistedLayerState?.(m.layerId);
 };
 
 /**
@@ -110,34 +109,33 @@ const clearLayerState = function (this: HeatmapManager) {
  * `touchLayer` fires only when a published value actually changed, so a
  * no-op dropdown rebuild does not bump the panel's Updated stamp.
  */
-const syncSourceMeta = function (this: HeatmapManager) {
-  const layerName = this.selectedLayerId
-    ? (this.pointLayers.find(i => i.id === this.selectedLayerId)?.name ?? "")
+const syncSourceMeta = (m: HeatmapManager) => {
+  const layerName = m.selectedLayerId
+    ? (m.pointLayers.find(i => i.id === m.selectedLayerId)?.name ?? "")
     : "";
   let fieldLabel = "";
-  if (this.selectedLayerId && this.agg !== CONST.AGG.COUNT) {
-    const key = this.effectiveField();
+  if (m.selectedLayerId && m.agg !== CONST.AGG.COUNT) {
+    const key = m.effectiveField();
     if (key) fieldLabel = bareFieldName(key);
   }
 
-  const sourceKey = this.T("meta_source_layer");
-  const fieldKey = this.T("meta_agg_field");
+  const sourceKey = m.T("meta_source_layer");
+  const fieldKey = m.T("meta_agg_field");
   const changed =
-    this.sourceMeta[sourceKey] !== layerName ||
-    this.sourceMeta[fieldKey] !== fieldLabel;
-  this.sourceMeta[sourceKey] = layerName;
-  this.sourceMeta[fieldKey] = fieldLabel;
+    m.sourceMeta[sourceKey] !== layerName || m.sourceMeta[fieldKey] !== fieldLabel;
+  m.sourceMeta[sourceKey] = layerName;
+  m.sourceMeta[fieldKey] = fieldLabel;
 
   if (!changed) return;
   // Stamp updatedAt so the panel's "Updated" row tracks the latest binding.
   // Free `map` (window.map) — same channel createCanvas / scanMapLayers use;
-  // `this.map` is the Leaflet instance and may not carry the foliplus namespace.
-  map.foliplus?.LayerAPI?.touchLayer?.(this.layerId);
+  // `m.map` is the Leaflet instance and may not carry the foliplus namespace.
+  map.foliplus?.LayerAPI?.touchLayer?.(m.layerId);
 };
 
 /** Apply a loaded config object to the manager's state. */
-const applySavedConfig = function (this: HeatmapManager, saved: SavedConfig) {
-  applySavedConfigFn(this, saved);
+const applySavedConfig = (m: HeatmapManager, saved: SavedConfig) => {
+  applySavedConfigFn(m, saved);
 };
 
 const stateMethods = {

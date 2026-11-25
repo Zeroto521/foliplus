@@ -1,6 +1,5 @@
-// HeatmapControl data extraction — source scan, field resolution, point/value reads.
-// Function expressions are installed on HeatmapManager.prototype so this is
-// the manager and instance spies stay interceptable.
+// HeatmapControl extract — arrow functions that take the manager as their first argument.
+// HeatmapManager's prototype methods delegate to them, so instance spies stay interceptable.
 import * as CONST from "./const.js";
 import { readMarkerField } from "./data.js";
 import type { HeatmapManager } from "./manager.js";
@@ -8,8 +7,8 @@ import type { HeatmapPointMarker, SelectedPoint } from "./type.js";
 import { snapshotFromPoints } from "#core/layer/index.js";
 import { isInternalProperty } from "#core/value/index.js";
 
-const scanMapLayers = function (this: HeatmapManager) {
-  this.pointLayers = [];
+const scanMapLayers = (m: HeatmapManager) => {
+  m.pointLayers = [];
   const pointLayersInfo = map.foliplus!.LayerAPI!.getLayersByType("point");
   if (!pointLayersInfo.length) return;
 
@@ -20,7 +19,7 @@ const scanMapLayers = function (this: HeatmapManager) {
 
     const pts = map.foliplus!.LayerAPI!.extractPoints(info.id);
     if (pts.length === 0) continue;
-    this.pointLayers.push({
+    m.pointLayers.push({
       id: info.id,
       name: info.name,
       layer: info.layer,
@@ -29,7 +28,7 @@ const scanMapLayers = function (this: HeatmapManager) {
   }
 };
 
-const collectFields = function (this: HeatmapManager, layers: Array<{ id: string }>) {
+const collectFields = (m: HeatmapManager, layers: Array<{ id: string }>) => {
   const fields: string[] = [];
   const seen = new Set<string>();
   const api = map.foliplus!.LayerAPI!;
@@ -73,16 +72,16 @@ const collectFields = function (this: HeatmapManager, layers: Array<{ id: string
   return fields;
 };
 
-const getSelectedPoints = function (this: HeatmapManager) {
-  this.valueFallbackWarned = false;
-  const key = `${this.selectedLayerId}|${this.agg}|${this.effectiveField()}`;
-  if (this.cachedPoints?.key === key) {
-    return this.cachedPoints.pts;
+const getSelectedPoints = (m: HeatmapManager) => {
+  m.valueFallbackWarned = false;
+  const key = `${m.selectedLayerId}|${m.agg}|${m.effectiveField()}`;
+  if (m.cachedPoints?.key === key) {
+    return m.cachedPoints.pts;
   }
 
   const pts: SelectedPoint[] = [];
-  if (!this.selectedLayerId) return pts;
-  const info = this.pointLayers.find(i => i.id === this.selectedLayerId);
+  if (!m.selectedLayerId) return pts;
+  const info = m.pointLayers.find(i => i.id === m.selectedLayerId);
   if (!info) return pts;
 
   const rawPts = map.foliplus!.LayerAPI!.extractPoints(info.id);
@@ -90,35 +89,32 @@ const getSelectedPoints = function (this: HeatmapManager) {
     pts.push({
       lat: p.lat,
       lng: p.lng,
-      value: this.getPointValue(p.marker),
+      value: m.getPointValue(p.marker),
       marker: p.marker as L.Marker,
     });
   });
-  this.cachedPoints = { key, pts };
+  m.cachedPoints = { key, pts };
   // Build/cache the snapshot from the already-extracted points — same
   // order as `pts`, so filter indices align. We do NOT walk the layer
   // tree (buildLayerSnapshot uses `instanceof L.Marker`, which fails
   // under vitest's plain-object mocks). Instead we extract fields
   // directly from each marker's folium contract.
-  if (this.cachedSnapshotLayerId !== this.selectedLayerId) {
-    this.cachedSnapshot = snapshotFromPoints(rawPts, this.log);
-    this.cachedSnapshotLayerId = this.selectedLayerId;
+  if (m.cachedSnapshotLayerId !== m.selectedLayerId) {
+    m.cachedSnapshot = snapshotFromPoints(rawPts, m.log);
+    m.cachedSnapshotLayerId = m.selectedLayerId;
   }
   return pts;
 };
 
-const getPointValue = function (
-  this: HeatmapManager,
-  marker: L.Marker | L.CircleMarker,
-) {
-  if (this.agg === CONST.AGG.COUNT) return 1;
+const getPointValue = (m: HeatmapManager, marker: L.Marker | L.CircleMarker) => {
+  if (m.agg === CONST.AGG.COUNT) return 1;
   // Memoised: this runs once per feature (20k points on a large layer).
-  const key = this.effectiveField();
+  const key = m.effectiveField();
   const val = readMarkerField(marker, key);
   if (val === undefined || isNaN(val)) {
-    if (!this.valueFallbackWarned) {
-      this.valueFallbackWarned = true;
-      this.log.warn("value fallback to 1", key);
+    if (!m.valueFallbackWarned) {
+      m.valueFallbackWarned = true;
+      m.log.warn("value fallback to 1", key);
     }
     return 1;
   }
@@ -131,10 +127,10 @@ const getPointValue = function (
  *  layer (it has no Leaflet layer to derive bounds from). Uses the hexagon
  *  polygon rings when rendered (exact, includes the hexagon radius that the
  *  centroid alone would omit); falls back to the source point layers. */
-const computeBounds = function (this: HeatmapManager) {
+const computeBounds = (m: HeatmapManager) => {
   const acc = L.latLngBounds([]);
-  if (this.cachedFeatures?.length) {
-    for (const feat of this.cachedFeatures) {
+  if (m.cachedFeatures?.length) {
+    for (const feat of m.cachedFeatures) {
       const ring = feat.geometry?.coordinates?.[0];
       if (ring?.length) {
         // GeoJSON order [lng, lat].
@@ -145,7 +141,7 @@ const computeBounds = function (this: HeatmapManager) {
       }
     }
   } else {
-    for (const info of this.pointLayers) {
+    for (const info of m.pointLayers) {
       const layer = info.layer as L.Layer & { getBounds?: () => L.LatLngBounds };
       const b = layer?.getBounds?.();
       if (b?.isValid()) acc.extend(b);
@@ -161,11 +157,11 @@ const computeBounds = function (this: HeatmapManager) {
  *  layers. Null when nothing was declared, when the name matches no point
  *  layer (warned once — the panel then falls back to its normal
  *  auto-selection), or after a persisted record consumed the guard. */
-const resolveDeclaredLayer = function (this: HeatmapManager) {
-  if (!this.declaredLayer || this.hasScanned) return null;
-  const hit = this.pointLayers.find(info => info.name === this.declaredLayer);
+const resolveDeclaredLayer = (m: HeatmapManager) => {
+  if (!m.declaredLayer || m.hasScanned) return null;
+  const hit = m.pointLayers.find(info => info.name === m.declaredLayer);
   if (!hit) {
-    this.warnDeclaration("layer", this.declaredLayer);
+    m.warnDeclaration("layer", m.declaredLayer);
     return null;
   }
   return hit.id;
@@ -179,20 +175,17 @@ const resolveDeclaredLayer = function (this: HeatmapManager) {
  *
  *  With no field list (before the first scan, or a caller driving the
  *  manager directly) the stored names are trusted as-is. */
-const resolveEffectiveField = function (
-  this: HeatmapManager,
-  fields: readonly string[],
-) {
+const resolveEffectiveField = (m: HeatmapManager, fields: readonly string[]) => {
   if (fields.length === 0) {
     // "" is "no user pick", not a pick: fall through to the declaration.
     // (?? would stop at the empty string and hide the declared field.)
-    if (this.field !== "") return this.field;
-    return this.declaredField ?? "";
+    if (m.field !== "") return m.field;
+    return m.declaredField ?? "";
   }
-  if (this.field && fields.includes(this.field)) return this.field;
-  if (this.declaredField) {
-    if (fields.includes(this.declaredField)) return this.declaredField;
-    this.warnDeclaration("field", this.declaredField);
+  if (m.field && fields.includes(m.field)) return m.field;
+  if (m.declaredField) {
+    if (fields.includes(m.declaredField)) return m.declaredField;
+    m.warnDeclaration("field", m.declaredField);
   }
   return fields[0] ?? "";
 };
@@ -201,38 +194,32 @@ const resolveEffectiveField = function (
  *  {@link resolveEffectiveField} for the precedence. Memoised because
  *  `getPointValue` runs once per feature: re-resolving a list scan for 20k
  *  points would cost more than the guess it replaces. */
-const effectiveField = function (this: HeatmapManager) {
-  return (this.effectiveFieldCache ??= this.resolveEffectiveField(
-    this.availableFields,
-  ));
+const effectiveField = (m: HeatmapManager) => {
+  return (m.effectiveFieldCache ??= m.resolveEffectiveField(m.availableFields));
 };
 
 /** Publish the fields the current scan offers and resolve the effective
  *  field once. Returns it so the panel can render the same value it just
  *  handed over (one resolver, no second opinion). */
-const setAvailableFields = function (this: HeatmapManager, fields: readonly string[]) {
-  this.availableFields = [...fields];
-  this.effectiveFieldCache = this.resolveEffectiveField(this.availableFields);
-  return this.effectiveFieldCache;
+const setAvailableFields = (m: HeatmapManager, fields: readonly string[]) => {
+  m.availableFields = [...fields];
+  m.effectiveFieldCache = m.resolveEffectiveField(m.availableFields);
+  return m.effectiveFieldCache;
 };
 
 /** Drop the memoised field (next read re-resolves). Called wherever the
  *  inputs move: a new field list, a persistence write, Reset. */
-const invalidateEffectiveField = function (this: HeatmapManager) {
-  this.effectiveFieldCache = null;
+const invalidateEffectiveField = (m: HeatmapManager) => {
+  m.effectiveFieldCache = null;
 };
 
 /** One warning per missing declared name: the scan runs more than once on
  *  the way to the first render, and a per-rebuild warn would flood. */
-const warnDeclaration = function (
-  this: HeatmapManager,
-  kind: "layer" | "field",
-  name: string,
-) {
+const warnDeclaration = (m: HeatmapManager, kind: "layer" | "field", name: string) => {
   const key = `${kind}:${name}`;
-  if (this.declarationWarned.has(key)) return;
-  this.declarationWarned.add(key);
-  this.log.warn(`declared ${kind} not found:`, name);
+  if (m.declarationWarned.has(key)) return;
+  m.declarationWarned.add(key);
+  m.log.warn(`declared ${kind} not found:`, name);
 };
 
 const extractMethods = {

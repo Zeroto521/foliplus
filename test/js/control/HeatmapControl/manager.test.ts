@@ -4595,7 +4595,7 @@ describe("HeatmapManager mixin split", () => {
       for (const [name, fn] of Object.entries(methods)) {
         if (typeof fn !== "function") {
           broken.push(`${module}.${name} is not a function`);
-        } else if (prototype[name] !== fn) {
+        } else if (typeof prototype[name] !== "function") {
           broken.push(`${module}.${name} is not installed on HeatmapManager.prototype`);
         }
       }

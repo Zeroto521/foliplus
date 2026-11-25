@@ -1,6 +1,5 @@
-// HeatmapControl filter capability — the manager is the filter single owner.
-// Function expressions are installed on HeatmapManager.prototype so this is
-// the manager and instance spies stay interceptable.
+// HeatmapControl filter — arrow functions that take the manager as their first argument.
+// HeatmapManager's prototype methods delegate to them, so instance spies stay interceptable.
 import type { HeatmapManager } from "./manager.js";
 import {
   type LayerFilter,
@@ -15,8 +14,8 @@ import {
  *  current selection at call time — is correct for every source it is
  *  registered under. Idempotent: re-selecting a source re-registers the
  *  same host (a no-op after the first call). */
-const ensureFilterHost = function (this: HeatmapManager, sourceId: string) {
-  this.filterStore.registerHost(this.layerId, sourceId, this.filterHost);
+const ensureFilterHost = (m: HeatmapManager, sourceId: string) => {
+  m.filterStore.registerHost(m.layerId, sourceId, m.filterHost);
 };
 
 // --- Filter capability ---
@@ -32,32 +31,32 @@ const ensureFilterHost = function (this: HeatmapManager, sourceId: string) {
  *  it was written for, so a different effective field drops it. The caller
  *  repaints and publishes LAYER_FILTER_CHANGE (the panel re-reads the model,
  *  which is now a different shape, and rebuilds its rail/extent). */
-const syncFilterField = function (this: HeatmapManager) {
-  const sourceId = this.selectedLayerId;
+const syncFilterField = (m: HeatmapManager) => {
+  const sourceId = m.selectedLayerId;
   if (!sourceId) return;
-  this.ensureFilterHost(sourceId);
-  const field = pickFilterField(this.cachedSnapshot, this.effectiveField());
+  m.ensureFilterHost(sourceId);
+  const field = pickFilterField(m.cachedSnapshot, m.effectiveField());
   // A filter whose field no longer matches the effective field is dropped
   // (the field list changed under it). The transform maps an unmatched
   // filter to undefined; revalidate commits the drop without applying —
   // the caller repaints and publishes LAYER_FILTER_CHANGE.
-  const changed = this.filterStore.revalidate(this.layerId, sourceId, f =>
+  const changed = m.filterStore.revalidate(m.layerId, sourceId, f =>
     f && dropStaleFilter(f, field) === f ? f : undefined,
   );
   if (!changed) return;
-  this.cachedAgg = null;
-  this.saveConfig();
+  m.cachedAgg = null;
+  m.saveConfig();
 };
 
 /** The filter panel's view of this row's filter state, computed from
  *  this manager's own state — the single read path. Returns null when
  *  the row has no filterable data (no source selected, or no numeric
  *  field on the snapshot). */
-const getFilterModel = function (this: HeatmapManager) {
-  const sourceId = this.selectedLayerId;
+const getFilterModel = (m: HeatmapManager) => {
+  const sourceId = m.selectedLayerId;
   if (!sourceId) return null;
-  this.getSelectedPoints(); // ensures cachedSnapshot is built for this source
-  const snapshot = this.cachedSnapshot;
+  m.getSelectedPoints(); // ensures cachedSnapshot is built for this source
+  const snapshot = m.cachedSnapshot;
   if (!snapshot || snapshot.numericFields.length === 0) return null;
   // The store is the single read path: dimensions (the range rail bound to
   // the aggregation field), the committed filter (the per-source value,
@@ -66,8 +65,8 @@ const getFilterModel = function (this: HeatmapManager) {
   // points: a filter that drops points inside a cell keeps the cell; the
   // bins cache is the unfiltered cell set, the drawn features are what the
   // committed filter kept).
-  this.ensureFilterHost(sourceId);
-  return this.filterStore.filterModel(this.layerId, sourceId);
+  m.ensureFilterHost(sourceId);
+  return m.filterStore.filterModel(m.layerId, sourceId);
 };
 
 /** Write path for the filter panel. Validates the incoming atom against
@@ -83,8 +82,8 @@ const getFilterModel = function (this: HeatmapManager) {
  *  fan out through one SettledOperation: a throwing count consumer is
  *  raised only after the filter notification has reached its observers,
  *  so a broken subscriber cannot leave the UI reading an old model. */
-const setFilter = function (this: HeatmapManager, filter: LayerFilter | undefined) {
-  const sourceId = this.selectedLayerId;
+const setFilter = (m: HeatmapManager, filter: LayerFilter | undefined) => {
+  const sourceId = m.selectedLayerId;
   if (!sourceId) return;
   // The store is the single write path: it normalizes (the snapshot is the
   // validation baseline — build it here, cached after the first call so the
@@ -93,17 +92,17 @@ const setFilter = function (this: HeatmapManager, filter: LayerFilter | undefine
   // throwIfFailed) through the host's apply. Returns false exactly when the
   // old direct storeFilter early-returned, so the caller's shape is
   // unchanged.
-  this.ensureFilterHost(sourceId);
-  this.filterStore.setFilter(this.layerId, sourceId, filter);
+  m.ensureFilterHost(sourceId);
+  m.filterStore.setFilter(m.layerId, sourceId, filter);
 };
 
 /** One warning per declared-filter problem: the seed runs again on every
  *  rebuild of the first open, and a per-rebuild warn would flood. */
-const warnDeclaredFilter = function (this: HeatmapManager, reason: string) {
+const warnDeclaredFilter = (m: HeatmapManager, reason: string) => {
   const key = `filter:${reason}`;
-  if (this.declarationWarned.has(key)) return;
-  this.declarationWarned.add(key);
-  this.log.warn("declared filter ignored:", reason);
+  if (m.declarationWarned.has(key)) return;
+  m.declarationWarned.add(key);
+  m.log.warn("declared filter ignored:", reason);
 };
 
 /** Seed the Python-declared filter as the starting condition.
@@ -128,23 +127,23 @@ const warnDeclaredFilter = function (this: HeatmapManager, reason: string) {
  *  takes the slot and persists; the store keeps the user's owned value
  *  under its own key, and a declaration never survives a reload as a
  *  filter. A declaration-only slot seeds fresh each load. */
-const seedDeclaredFilter = function (this: HeatmapManager) {
-  const sourceId = this.selectedLayerId;
+const seedDeclaredFilter = (m: HeatmapManager) => {
+  const sourceId = m.selectedLayerId;
   if (!sourceId) return;
-  this.ensureFilterHost(sourceId);
+  m.ensureFilterHost(sourceId);
   // A slot the user owns (a persisted record that says "cleared" or a
   // committed value) keeps the user out; a restored per-source filter
   // (owned) also wins. Only an un-owned slot takes the declaration.
-  if (this.filterStore.isOwned(this.layerId, sourceId)) return;
-  if (this.filterStore.getFilter(this.layerId, sourceId) !== undefined) return;
-  if (!this.declaredFilter) {
-    if (this.declaredFilterInvalid) {
-      this.warnDeclaredFilter("unreadable declaration");
+  if (m.filterStore.isOwned(m.layerId, sourceId)) return;
+  if (m.filterStore.getFilter(m.layerId, sourceId) !== undefined) return;
+  if (!m.declaredFilter) {
+    if (m.declaredFilterInvalid) {
+      m.warnDeclaredFilter("unreadable declaration");
     }
     return;
   }
-  this.getSelectedPoints();
-  const snapshot = this.cachedSnapshot;
+  m.getSelectedPoints();
+  const snapshot = m.cachedSnapshot;
   // An empty (or not-yet-built) snapshot is a *timing* state, not a data
   // defect: the seed runs from the panel build, which can precede the
   // source's first paint, and getSelectedPoints rebuilds the snapshot only
@@ -156,21 +155,19 @@ const seedDeclaredFilter = function (this: HeatmapManager) {
   // being remembered in declarationWarned, would silence the real problem
   // once the data lands.
   if (!snapshot || snapshot.points.length === 0) {
-    this.log.debug("declared filter: the source snapshot is not populated yet");
+    m.log.debug("declared filter: the source snapshot is not populated yet");
     return;
   }
-  const field = pickFilterField(snapshot, this.effectiveField());
-  const declared = this.declaredFilter;
+  const field = pickFilterField(snapshot, m.effectiveField());
+  const declared = m.declaredFilter;
   if (declared.kind !== "atom") {
     // The panel's only dimension is a numeric range; a declared enum/logical
     // node has no numeric row yet (only the atom range shape is supported).
-    this.warnDeclaredFilter("the panel filters a numeric range only");
+    m.warnDeclaredFilter("the panel filters a numeric range only");
     return;
   }
   if (declared.field !== field) {
-    this.warnDeclaredFilter(
-      `bound to "${declared.field}", the panel filters "${field}"`,
-    );
+    m.warnDeclaredFilter(`bound to "${declared.field}", the panel filters "${field}"`);
     return;
   }
   // The panel needs a numeric extent to render a range on: the source has
@@ -181,7 +178,7 @@ const seedDeclaredFilter = function (this: HeatmapManager) {
   // missing the field), so it is a legal no-op, not a defect.
   const bounds = snapshot.ranges[field];
   if (!bounds) {
-    this.warnDeclaredFilter(`"${field}" has no usable extent`);
+    m.warnDeclaredFilter(`"${field}" has no usable extent`);
     return;
   }
   // A range that does not intersect the extent can never keep a point;
@@ -191,7 +188,7 @@ const seedDeclaredFilter = function (this: HeatmapManager) {
   if (declared.range) {
     const [lo, hi] = declared.range;
     if (hi < bounds[0] || lo > bounds[1]) {
-      this.warnDeclaredFilter(
+      m.warnDeclaredFilter(
         `[${lo}, ${hi}] is outside "${field}"'s extent [${bounds[0]}, ${bounds[1]}]`,
       );
       return;
@@ -201,7 +198,7 @@ const seedDeclaredFilter = function (this: HeatmapManager) {
   // Undefined here means the declaration covers the whole extent: the same
   // state as "no filter", so declare nothing and stay quiet.
   if (!next) return;
-  this.filterStore.setDeclaration(this.layerId, sourceId, next);
+  m.filterStore.setDeclaration(m.layerId, sourceId, next);
 };
 
 /** Align the stored filter for the selected source with the freshly
@@ -210,21 +207,21 @@ const seedDeclaredFilter = function (this: HeatmapManager) {
  *  range into the field's current extent and drops the filter when its
  *  field disappeared. Returns true when the stored filter changed, so
  *  the render tail can publish the notification. */
-const revalidateFilter = function (this: HeatmapManager) {
-  const sourceId = this.selectedLayerId;
-  const snapshot = this.cachedSnapshot;
+const revalidateFilter = (m: HeatmapManager) => {
+  const sourceId = m.selectedLayerId;
+  const snapshot = m.cachedSnapshot;
   if (!sourceId || !snapshot) return false;
-  this.ensureFilterHost(sourceId);
+  m.ensureFilterHost(sourceId);
   // The store aligns the current committed-or-declared value against the
   // fresh snapshot (clamp a between range into the current extent, drop a
   // filter whose field disappeared) without applying or publishing — the
   // render tail owns the repaint and the notification.
-  const changed = this.filterStore.revalidate(this.layerId, sourceId, f =>
+  const changed = m.filterStore.revalidate(m.layerId, sourceId, f =>
     normalizeFilter(f, snapshot),
   );
   if (!changed) return false;
-  this.cachedAgg = null;
-  this.saveConfig();
+  m.cachedAgg = null;
+  m.saveConfig();
   return true;
 };
 
