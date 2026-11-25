@@ -386,10 +386,11 @@ class TestLayerControlRendering:
         idx = css.find(".foliplus-layer-count-funnel")
         assert idx != -1
         # The funnel rule lives in the shared row-cell block (":is(.foliplus-
-        # layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all)"), which
-        # closes at two-space indentation. Slice to that close so the scan
-        # cannot leak into the next top-level rule.
-        block = css[idx : css.index("\n  }\n", idx)]
+        # layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all)"), nested
+        # two levels deep. Slice to the funnel rule's own close (six-space
+        # indentation) so the scan cannot leak into the folded rule that
+        # follows it in the same block.
+        block = css[idx : css.index("\n      }", idx)]
         assert "color: var(--foliplus-text-primary)" in block
         assert "fill: currentColor" in block
         assert "var(--foliplus-accent-primary)" not in block

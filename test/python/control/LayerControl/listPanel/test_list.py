@@ -232,6 +232,9 @@ class TestLayerControlRendering:
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in group, (
             "toggle-all row must share the Row-cursor recipe's selector group"
         )
+        assert ".foliplus-layer-role" in group, (
+            "the role header must share the Row-cursor recipe's selector group"
+        )
         assert "is(:hover,:focus-visible,.foliplus-is-focused-row)" not in flat
         assert "border-left-color: var(--foliplus-accent-primary)" in css
         # The old fold-row-only hover used a softer border than the data rows.
@@ -266,16 +269,18 @@ class TestLayerControlRendering:
         assert "margin: 0" in css
 
     def test_folded_fold_btn_turns_accent(self):
-        """Fold button color becomes accent-primary when row is folded."""
+        """Fold button color becomes accent-primary when row is folded.
+
+        The folded paint is shared by every row kind that can fold (folder row,
+        role header), so it lives in the shared row-cell block instead of a
+        per-row-kind rule.
+        """
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        # Find the rule that targets fold-btn itself (not fold-btn svg)
-        # by searching for the closing of the selector without "svg" on the same segment
-        match = re.search(
-            r"foliplus-layer-folded\s+\.foliplus-layer-fold-btn\s*\{([^}]*)\}",
-            css,
-        )
-        assert match, "folded fold-btn rule not found"
-        assert "var(--foliplus-accent-primary)" in match.group(1)
+        idx = css.find("&.foliplus-layer-folded {")
+        assert idx != -1, "shared folded rule not found"
+        block = css[idx : css.index("\n    }", idx)]
+        assert ".foliplus-layer-fold-btn" in block
+        assert "var(--foliplus-accent-primary)" in block
 
     def test_section_divider_fades_when_folded(self):
         """Section divider fades to opacity 0 when the role is folded."""
@@ -499,22 +504,27 @@ class TestLayerControlRendering:
         assert "scale" not in m.group(0)
         assert "transition" not in m.group(0)
 
-    def test_fold_btn_hover_bidirectional_preview(self):
-        """Fold button shows bidirectional preview across hover and the arrow/Tab cursor.
+    def test_fold_btn_has_no_transient_colour_preview(self):
+        """The fold chevron has no hover/focus colour preview.
 
-        Keyed on :is(:hover, .foliplus-is-focused-row) so the fold icon wakes up
-        identically to the Row-cursor recipe. Tab focus is not a CSS trigger —
-        the focusin delegate maps it onto the same JS class.
+        It used to flip accent on hover/focus and back to text-primary while
+        folded — the inverse of a folder row, and a transient accent the user
+        reported as "变红". The chevron colour is the row's persistent state
+        only: accent while folded, text-primary otherwise, from the shared
+        row-cell block.
         """
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        wake = "is(:hover, .foliplus-is-focused-row)"
-        # Expanded row interaction: black → red (preview folded)
-        assert "foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(" in css
-        assert wake in css
-        assert "color: var(--foliplus-accent-primary)" in css
-        # Folded row interaction: red → black (preview expanded)
-        assert "foliplus-layer-toggle-all.foliplus-layer-folded:is(" in css
-        assert "color: var(--foliplus-text-primary)" in css
+        flat = re.sub(r"\s+", "", css)
+        assert ".foliplus-layer-toggle-all:not(.foliplus-layer-folded)" not in flat
+        assert (
+            ".foliplus-layer-toggle-all.foliplus-layer-folded:is(:hover,"
+            ".foliplus-is-focused-row)" not in flat
+        )
+        # The folded accent is the shared rule, not a toggle-all-only one.
+        idx = css.find("&.foliplus-layer-folded {")
+        assert idx != -1, "shared folded rule not found"
+        block = css[idx : css.index("\n    }", idx)]
+        assert "color: var(--foliplus-accent-primary)" in block
 
     def test_fold_btn_background_transition(self):
         """Fold button transitions color and transform (background removed — no bg to transition)."""
