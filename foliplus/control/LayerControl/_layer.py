@@ -103,9 +103,7 @@ def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None
             BORDER_KEY,
             ICON_KEY,
             MARKER_KEY,
-        } and not isinstance(
-            value, dict
-        ):
+        } and not isinstance(value, dict):
             warn_foliplus(
                 f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "

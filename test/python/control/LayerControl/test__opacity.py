@@ -134,9 +134,7 @@ def test_non_icon_key_does_not_touch_opacity() -> None:
 def test_collection_warns_once_per_layer() -> None:
     """Collection validates the shape once per layer; an out-of-range opacity
     on two layers warns twice, each attributable."""
-    layers = [
-        _geo(name=f"L{i}", foliplus={"opacity": 2.0}) for i in range(2)
-    ]
+    layers = [_geo(name=f"L{i}", foliplus={"opacity": 2.0}) for i in range(2)]
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         _render(*layers)
