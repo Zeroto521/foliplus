@@ -83,7 +83,6 @@ class TestScaleControlRendering:
         html = render_control(ScaleControl())
         assert "bottomleft" in html
 
-
     def test_show_zoom_false(self):
         """scale still renders with show_zoom=False."""
         html = render_control(ScaleControl(show_zoom=False))
