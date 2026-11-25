@@ -94,12 +94,13 @@ const markerPaintOf = (leaf: unknown): LeafPaint => {
     .options?.icon;
   // folium emits snake_case marker_color / marker_color_opacity; the runtime
   // reads camelCase. Same vocabulary fallback as markerIcon: camel wins, the
-  // snake spelling is a fallback so a folium chassis reaches the paint read.
+  // snake spelling is a fallback so a folium chassis (colour and opacity)
+  // reaches the paint read.
   const options = icon?.options ?? {};
   const color =
     markerColorHexOf(options.markerColor ?? options.marker_color) ??
     resolveChassisPaint(leaf as L.Layer);
-  const percent = options.markerColorOpacity;
+  const percent = options.markerColorOpacity ?? options.marker_color_opacity;
   const opacity =
     typeof percent === "number" && Number.isFinite(percent) ? percent / 100 : 1;
   return { kind: "marker", color, border: "", opacity: opacityOf(opacity, 1) };
