@@ -393,7 +393,6 @@ def _cdn_cached(
     return None, None
 
 
-
 def _is_cdn_url(url: str) -> bool:
     """True if *url* matches a known CDN asset (fragment substring match)."""
     return any(fragment in url for fragment in _CDN_CACHE)
@@ -528,6 +527,7 @@ class _OfflineReply:
     body: bytes
     content_type: str
     kind: str
+
 
 def _host_of(url: str) -> str:
     """Lower-case hostname of *url* (empty string when absent)."""
