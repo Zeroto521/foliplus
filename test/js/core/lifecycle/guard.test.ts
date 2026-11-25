@@ -12,7 +12,9 @@ describe("requireFoliplus", () => {
   });
 
   it("returns the namespace when it is present", () => {
-    const ns = { showHint: () => {} };
+    const ns = {
+      hint: { set: () => {}, clear: () => {}, registerIcon: () => {} },
+    };
     const map = { foliplus: ns } as unknown as L.Map;
     expect(requireFoliplus(map)).toBe(ns);
   });
@@ -24,8 +26,10 @@ describe("requireRuntime", () => {
     expect(() => requireRuntime("Test")).toThrow("foliplus runtime not found");
   });
 
-  it("passes when foliplus.showHint is available", () => {
-    vi.stubGlobal("foliplus", { showHint: () => {} });
+  it("passes when the map hint API is available", () => {
+    vi.stubGlobal("foliplus", {
+      hint: { set: () => {}, clear: () => {}, registerIcon: () => {} },
+    });
     expect(() => requireRuntime("Test")).not.toThrow();
   });
 });

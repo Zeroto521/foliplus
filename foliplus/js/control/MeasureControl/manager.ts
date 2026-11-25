@@ -299,11 +299,9 @@ class MeasureManager {
     this.offModeChange = this.events.on(EVENTS.MODE_CHANGE, ({ component, mode }) => {
       if (component === COMPONENTS.ExportControl && mode !== null && this.currentMode) {
         this.clearActiveMode();
-        this.map.foliplus?.showHint?.(
-          this.config.name,
-          this.T("export_paused"),
-          HINT_DURATION.SHORT,
-        );
+        this.map.foliplus?.hint.set(this.config.name, "", this.T("export_paused"), {
+          duration: HINT_DURATION.SHORT,
+        });
       }
     });
     this.toolBtns = [];
@@ -601,8 +599,15 @@ class MeasureManager {
 
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (this.currentMode) this.clearActiveMode();
-      else if (this.isEditMode) this.applyEditMode(false);
+      if (this.currentMode) {
+        // A complete in-flight drawing commits on Escape; its finish path ends
+        // the mode, so only fall through to clearActiveMode when nothing was
+        // finalized (sparse geometry is discarded and the empty row drops).
+        if (this.modeInstance?.finishOnExit() === true) return;
+        this.clearActiveMode();
+      } else if (this.isEditMode) {
+        this.applyEditMode(false);
+      }
     };
     this.interactionCleanup = registerInteractions(this);
 
@@ -641,11 +646,9 @@ class MeasureManager {
       // Nothing to edit yet — keep out of edit mode and explain instead of
       // entering a dead state with no clickable measurements.
       if (this.store.count() === 0) {
-        this.map.foliplus!.showHint(
-          this.config.name,
-          this.T("hint_edit_empty"),
-          HINT_DURATION.SHORT,
-        );
+        this.map.foliplus!.hint.set(this.config.name, "", this.T("hint_edit_empty"), {
+          duration: HINT_DURATION.SHORT,
+        });
         return;
       }
       this.applyEditMode(true);
@@ -705,7 +708,9 @@ class MeasureManager {
     }[mode];
 
     if (hintKey) {
-      this.map.foliplus!.showHint(this.config.name, hintKey, HINT_DURATION.PERSIST);
+      this.map.foliplus!.hint.set(this.config.name, "", hintKey, {
+        duration: HINT_DURATION.PERSIST,
+      });
     }
 
     const ModeClass = MODE_MAP[mode as keyof typeof MODE_MAP];
@@ -978,17 +983,15 @@ class MeasureManager {
     // nodes directly draggable, leaving disables them.
     this.editHandles.forEach(h => h.toggleDrag(on));
     if (on) {
-      this.map.foliplus!.showHint(
-        this.config.name,
-        this.T("hint_edit"),
-        HINT_DURATION.PERSIST,
-      );
+      this.map.foliplus!.hint.set(this.config.name, "", this.T("hint_edit"), {
+        duration: HINT_DURATION.PERSIST,
+      });
       // The readout is live in edit mode too: the operator drags nodes to
       // reshape a measurement and wants to see the coordinate under the cursor
       // while doing it.
       this.showCoordReadout();
     } else {
-      this.map.foliplus!.hideHint(this.config.name);
+      this.map.foliplus!.hint.clear(this.config.name);
       this.hideCoordReadout();
       // Close any open overlays so ✕ handles don't linger after leaving edit
       // mode. Keep the handles registered so a later edit session can close
@@ -1004,7 +1007,7 @@ class MeasureManager {
     // Clearing the mode restores map-layer interaction (core/mode lock).
     this.modes.setMode(this.config.name, null);
     this.toolBtns.forEach(btn => btn.classList.remove(PANEL_CLASS.ACTIVE));
-    this.map.foliplus!.hideHint(this.config.name);
+    this.map.foliplus!.hint.clear(this.config.name);
     this.map.getContainer().classList.remove(CONST.CLASSES.MEASURING);
     this.cleanMapEvents();
     // Unregister the high-priority Escape so container-bound shortcuts
@@ -1018,6 +1021,15 @@ class MeasureManager {
     // the manager's lifetime (unregistered only in destroy()); it also drives
     // edit-mode Escape, so unregistering here would break Escape after the
     // first measurement.
+    // Hand the layer surface back to the factory. The factory's shouldUnregister()
+    // is content-driven: it only drops the registration when the surface holds
+    // nothing, so a measurement drawn before the Escape keeps its row in the
+    // LayerControl panel, while an in-flight drawing (a half-run distance, a mode
+    // cancelled before any measurement) loses the empty row. The finalized leaves
+    // belong to their measurement's registerItemLayers entry, not to the drawing
+    // phase, so the mode's _cleanup does not strip them and the content survives
+    // this unregister. clearLayers (the CLEAR mode, destroy, unload) is the path
+    // that removes the content outright.
     this.layers.unregister();
   }
 
@@ -1154,7 +1166,7 @@ class MeasureManager {
       this.modeInstance.cleanup();
       this.modeInstance = null;
     }
-    this.map.foliplus!.hideHint(this.config.name);
+    this.map.foliplus!.hint.clear(this.config.name);
   }
 }
 

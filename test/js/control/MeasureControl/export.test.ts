@@ -611,7 +611,9 @@ describe("Export.handleExportClick", () => {
     return {
       store: { all: () => measurements },
       visibleMeasurements: () => visible,
-      map: { foliplus: { showHint: vi.fn() } },
+      map: {
+        foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
+      },
       config: window.CONFIG,
       T: env.T,
       _: env._,
@@ -641,10 +643,11 @@ describe("Export.handleExportClick", () => {
   it("shows a hint instead of downloading when there is nothing to export", () => {
     const mgr = makeMgr([]);
     Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
-    expect(mgr.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(mgr.map.foliplus.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       "export_no_data",
-      HINT_DURATION.LONG,
+      { duration: HINT_DURATION.LONG },
     );
     expect(dl.anchors.length).toBe(0);
   });
@@ -652,9 +655,9 @@ describe("Export.handleExportClick", () => {
   it("shows a success hint after the download completes", () => {
     const mgr = makeMgr([markerData]);
     Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
-    const [component, text, duration] = mgr.map.foliplus.showHint.mock.calls[0];
+    const [component, , text, opts] = mgr.map.foliplus.hint.set.mock.calls[0];
     expect(component).toBe("MeasureControl");
-    expect(duration).toBe(HINT_DURATION.LONG);
+    expect(opts.duration).toBe(HINT_DURATION.LONG);
     // The success text is two key concatenations — T() is the identity
     // function under the locale mock, so the keys are adjacent.
     expect(text).toBe("export_successexport_file");
@@ -672,10 +675,10 @@ describe("Export.handleExportClick", () => {
     try {
       const mgr = makeMgr([markerData]);
       Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
-      const [component, text, duration] = mgr.map.foliplus.showHint.mock.calls[0];
+      const [component, , text, opts] = mgr.map.foliplus.hint.set.mock.calls[0];
       expect(component).toBe("MeasureControl");
       expect(text).toBe("export_failerr_export");
-      expect(duration).toBe(HINT_DURATION.LONG);
+      expect(opts.duration).toBe(HINT_DURATION.LONG);
       expect(dl.anchors.length).toBe(0);
     } finally {
       stringify.mockRestore();
@@ -689,10 +692,11 @@ describe("Export.handleExportClick", () => {
 
     Export.handleExportClick(mgr as any)({ stopPropagation: vi.fn() } as any);
 
-    expect(mgr.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(mgr.map.foliplus.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       "export_no_data",
-      HINT_DURATION.LONG,
+      { duration: HINT_DURATION.LONG },
     );
     expect(dl.anchors.length).toBe(0);
   });

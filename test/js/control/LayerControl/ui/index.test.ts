@@ -141,7 +141,7 @@ describe("LayerUI shell — event subscriptions", () => {
       _container: container,
       _layers: {},
       attributionControl: { _attributions: {}, _update: vi.fn() },
-      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
     };
     const mgr = new LayerController(m, []);
     mgr.ui = new LayerUI(mgr, TEST_ENV);

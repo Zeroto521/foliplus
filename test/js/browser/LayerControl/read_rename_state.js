@@ -10,7 +10,8 @@
   const raw = localStorage.getItem(key);
   if (raw) {
     try {
-      const record = JSON.parse(raw);
+      const stored = JSON.parse(raw);
+      const record = stored && stored.data ? stored.data : stored;
       storedRename = record?.renamedNames?.[id] ?? null;
     } catch {
       storedRename = null;

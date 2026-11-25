@@ -45,7 +45,7 @@ const placeMarker = (ctrl: LocateCtrl, lng: number, lat: number, titleKey: strin
   const config = ctrl.config;
   const T = ctrl.T;
   const _ = ctrl._;
-  map.foliplus!.hideHint(config.name);
+  map.foliplus!.hint.clear(config.name);
   map.flyTo([lat, lng], config.zoom ?? 15);
   removeMarker(ctrl);
   ctrl.marker = createLocationMarker(
@@ -85,18 +85,16 @@ const locateMe = (ctrl: LocateCtrl) => {
   if (guardBlocked(map, config.name, T("blocked"))) return;
   const geo = navigator.geolocation;
   if (!geo) {
-    map.foliplus!.showHint(config.name, T("geo_error"), HINT_DURATION.LONG);
+    map.foliplus!.hint.set(config.name, "", T("geo_error"), {
+      duration: HINT_DURATION.LONG,
+    });
     return;
   }
   setLocating(ctrl, true);
-  map.foliplus!.showHint(
-    config.name,
-    T("locating"),
-    HINT_DURATION.PERSIST,
-    undefined,
-    undefined,
-    true,
-  );
+  map.foliplus!.hint.set(config.name, "", T("locating"), {
+    duration: HINT_DURATION.PERSIST,
+    icon: "loading",
+  });
   // Captured here, before the API call: the mounting's signal getter throws once
   // the control is removed, and reading it inside the callback would turn a
   // late result into an exception. Both callbacks go through this one token —
@@ -106,7 +104,7 @@ const locateMe = (ctrl: LocateCtrl) => {
     pos => {
       if (signal?.aborted) return; // the mounting went: no map to fly, no owner for the pin
       setLocating(ctrl, false);
-      map.foliplus!.hideHint(config.name);
+      map.foliplus!.hint.clear(config.name);
       let lng = pos.coords.longitude;
       let lat = pos.coords.latitude;
       const converted = fromWgs84(map, lng, lat);
@@ -117,8 +115,10 @@ const locateMe = (ctrl: LocateCtrl) => {
     () => {
       if (signal?.aborted) return; // a removed mounting must not announce its error
       setLocating(ctrl, false);
-      map.foliplus!.hideHint(config.name);
-      map.foliplus!.showHint(config.name, T("geo_error"), HINT_DURATION.LONG);
+      map.foliplus!.hint.clear(config.name);
+      map.foliplus!.hint.set(config.name, "", T("geo_error"), {
+        duration: HINT_DURATION.LONG,
+      });
     },
   );
 };

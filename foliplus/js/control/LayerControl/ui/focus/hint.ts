@@ -69,11 +69,9 @@ const showFocusDisabledHint = (
   reason: FocusDisabled,
   noun: RowNoun = ROW_NOUN.LAYER,
 ): void => {
-  ui.c.map.foliplus!.showHint(
-    ui.config.name,
-    focusDisabledText(ui, reason, noun),
-    HINT_DURATION.SHORT,
-  );
+  ui.c.map.foliplus!.hint.set(ui.config.name, "", focusDisabledText(ui, reason, noun), {
+    duration: HINT_DURATION.SHORT,
+  });
 };
 
 export {

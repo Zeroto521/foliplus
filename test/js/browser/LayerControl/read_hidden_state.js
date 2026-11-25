@@ -73,6 +73,15 @@
     mapCount: map ? Object.keys(map._layers).length : null,
     storage: Object.keys(localStorage)
       .filter(k => k.includes("foliplus"))
-      .reduce((a, k) => ((a[k] = localStorage.getItem(k)), a), {}),
+      .reduce((a, k) => {
+        const raw = localStorage.getItem(k);
+        try {
+          const parsed = JSON.parse(raw);
+          a[k] = JSON.stringify(parsed && parsed.data ? parsed.data : parsed);
+        } catch {
+          a[k] = raw;
+        }
+        return a;
+      }, {}),
   };
 };

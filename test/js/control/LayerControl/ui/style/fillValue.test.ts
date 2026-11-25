@@ -104,7 +104,7 @@ const makeUI = (layer: unknown) =>
       map: {
         getContainer: () => document.createElement("div"),
         on: () => undefined,
-        foliplus: { showHint: vi.fn() },
+        foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
       } as any,
     },
   }) as any;
@@ -227,10 +227,10 @@ describe("applyValueFill", () => {
     expect(call.fillColor).toBeDefined();
     expect(call.fillColor).not.toBe("#3388ff");
     // A user-visible hint was shown through the existing hint channel.
-    const showHint = (ui.c.map as any).foliplus.showHint;
+    const showHint = (ui.c.map as any).foliplus.hint.set;
     expect(showHint).toHaveBeenCalledTimes(1);
     expect(showHint.mock.calls[0][0]).toBe("LayerControl");
-    expect(showHint.mock.calls[0][1]).toBe("style_value_classify_degraded");
+    expect(showHint.mock.calls[0][2]).toBe("style_value_classify_degraded");
     warn.mockRestore();
   });
 

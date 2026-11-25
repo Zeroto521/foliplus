@@ -48,10 +48,14 @@ vi.mock("#core/overlay/hint.js", () => ({
 // the store's T() scoped to whatever name setup.ts installed.
 window.CONFIG.name = "MeasureControl";
 
-/** Store bound to a map carrying a spy on showHint. */
+/** Store bound to a map carrying a spy on its hint channel. */
 const makeStore = () => {
   const showHint = vi.fn();
-  const map = { foliplus: { showHint } } as unknown as L.Map;
+  const map = {
+    foliplus: {
+      hint: { set: showHint, clear: vi.fn(), registerIcon: vi.fn() },
+    },
+  } as unknown as L.Map;
   return { store: new MeasureStore(map, makeControlEnv(), "layer-1"), showHint };
 };
 
@@ -278,8 +282,9 @@ describe("MeasureStore — persist failure", () => {
     expect(showHint).toHaveBeenCalledTimes(1);
     expect(showHint).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       "MeasureControl.err_not_saved",
-      0,
+      { duration: 0 },
     );
     // Every change still writes and still refreshes the LayerControl count column.
     expect(storage.saveVersioned).toHaveBeenCalledTimes(2);

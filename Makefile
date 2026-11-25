@@ -1,7 +1,7 @@
 .PHONY : help
 .PHONY: lint html info env
 .PHONY: dist build-js build-js-dev build-python
-.PHONY: test test-browser test-python test-python-fast test-js
+.PHONY: test test-browser test-python test-python-fast test-js config-schema-verify
 .PHONY: bundle-size-check
 .PHONY: clean clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
@@ -22,6 +22,7 @@ help:
 	@echo "'test-python'  - run all Python tests (unit + browser)"
 	@echo "'test-python-fast' - run Python tests without the browser (local quick pass)"
 	@echo "'test-js'      - run JS tests (skip Python)"
+	@echo "'config-schema-verify' - regenerate the CONFIG schema and assert the committed copy matches"
 	@echo "'bundle-size-check'   - print bundle sizes (brotli) of the current build"
 	@echo "'bundle-gates'   - build + run fuse and delta gates (CI)"
 	@echo "'clean-build'  - remove build artifacts"
@@ -111,6 +112,15 @@ test-browser: build-js-dev
 test-browser-probe:
 	node script/check/browser-probe.mjs --strict
 	pytest -v -r a --color=yes --tb=short -m "browser" test/python/guard/test_browser_probe.py
+
+# CONFIG contract gate: the generated declaration file is committed, so a
+# Python-side field change must be regenerated (never hand-edited) and every
+# contract key must be snake_case on both sides. Runs in the CI python job.
+config-schema-verify:
+	@mkdir -p foliplus/.build/js
+	python -m foliplus._config_schema --out foliplus/.build/js/config-schema.json
+	node script/build/emit-config-schema.mjs --json foliplus/.build/js/config-schema.json --verify
+	python script/check/config_key_style.py --dump foliplus/.build/js/config-schema.json
 
 test-js: build-js-dev
 	npm test

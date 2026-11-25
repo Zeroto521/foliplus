@@ -1258,7 +1258,7 @@ describe("LayerUI style panel", () => {
     // configEntries is the record's only source for the label key, so an
     // empty result is what keeps a reload from re-seeding the shadow.
     expect(manager.label.configEntries()).toHaveLength(0);
-    const rec = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    const rec = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data;
     expect(rec.layers.overlay1?.label).toBeUndefined();
   });
 
@@ -4457,7 +4457,9 @@ describe("LayerUI style panel — zoom range", () => {
     zoomSliderOf(row).commit();
 
     vi.advanceTimersByTime(400);
-    const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}");
+    const stored = JSON.parse(
+      window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}",
+    ).data;
     expect(stored.layers?.overlay1?.overrides).toContain("zoomRange");
     expect(stored.layers?.overlay1?.zoomRange).toEqual([5, 18]);
     vi.useRealTimers();

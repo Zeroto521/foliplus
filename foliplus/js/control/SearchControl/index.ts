@@ -173,7 +173,7 @@ class SearchControl extends defineControl({
     this.inp.value = "";
     releaseMarkerLayers(this);
     if (this.suggestAbortController) this.suggestAbortController.abort();
-    this._map.foliplus!.hideHint(this.config.name);
+    this._map.foliplus!.hint.clear(this.config.name);
     removePanel(this);
     this.inp.focus();
   }

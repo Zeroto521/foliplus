@@ -59,15 +59,18 @@ const updateUI = (
     for (const btn of selfBtns) btn.classList.toggle(PANEL_CLASS.HIDDEN, isFull);
   }
 
-  map.foliplus!.showHint?.(
+  map.foliplus!.hint.set(
     config.name,
+    "",
     hintText ?? (isFull ? T("enter") : T("exit")),
-    HINT_DURATION.MEDIUM,
+    { duration: HINT_DURATION.MEDIUM },
   );
 };
 
 const showExitFailHint = (map: L.Map, env: Env) => {
-  map.foliplus!.showHint?.(env.config.name, env.T("exit_fail"), HINT_DURATION.MEDIUM);
+  map.foliplus!.hint.set(env.config.name, "", env.T("exit_fail"), {
+    duration: HINT_DURATION.MEDIUM,
+  });
 };
 
 // Native fullscreen is unavailable here — embedder policy (Feishu/Notion-style

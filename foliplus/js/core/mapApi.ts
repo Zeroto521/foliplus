@@ -2,7 +2,7 @@
 //
 // Five factories build that namespace piecemeal (ensureHint / ensureEvents /
 // ensureModes / ensureLayerAPI / ensureInteraction), each adding only its own
-// member, yet the rest of the codebase calls `map.foliplus!.showHint(...)`
+// member, yet the rest of the codebase calls `map.foliplus!.hint.set(...)`
 // without narrowing. Keeping the interface's members required is what makes
 // those call sites sound — making them optional would turn every one into a
 // TS2722. This module is where the one necessary lie lives, and it is a leaf:
@@ -17,7 +17,16 @@
  * null — nothing reads the seed value. See `MapFoliplus` in type/global.d.ts.
  */
 const ensureMapFoliplus = (map: L.Map): MapFoliplus => {
-  map.foliplus ??= { LayerAPI: null! } as unknown as MapFoliplus;
+  map.foliplus ??= {
+    LayerAPI: null!,
+    // Inert until `ensureHint` replaces it: a hint call before the control
+    // bootstrap (or on a map whose control never ran) is a no-op, not a crash.
+    hint: {
+      set: () => void 0,
+      clear: () => void 0,
+      registerIcon: () => void 0,
+    },
+  } as unknown as MapFoliplus;
   return map.foliplus;
 };
 

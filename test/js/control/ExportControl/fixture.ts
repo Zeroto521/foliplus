@@ -31,7 +31,7 @@ const makeMapMock = () => {
     boxZoom: { disable: vi.fn(), enable: vi.fn() },
     keyboard: { disable: vi.fn(), enable: vi.fn() },
     touchZoom: { disable: vi.fn(), enable: vi.fn() },
-    foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+    foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
     on: vi.fn(),
     off: vi.fn(),
     eachLayer: vi.fn(),

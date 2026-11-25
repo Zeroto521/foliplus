@@ -2,14 +2,20 @@
 """Gate: every control's Python test directory follows the two-level layout.
 
 The standard (AGENTS.md, "Python Tests" -> "Control test layout") is one shape
-for all eight controls under test/python/control/<Name>/, enforced as six
+for all eight controls under test/python/control/<Name>/, enforced as eight
 assertions:
 
-1. Python modules may only play one of three roles, at any level: __init__.py,
+0. The first level of a grouped control is closed: once a control has any group
+   directory, its own directory may only hold __init__.py, helper*.py,
+   conftest.py and private-module mirror tests (test__<module>.py). Everything
+   else lives in a group, so a reader never has to guess whether a file belongs
+   to "the control" or "a feature".
+1. Python modules may only play one of four roles, at any level: __init__.py,
    helper*.py (shared fixtures; helper_browser.py for Playwright-only
-   scaffolding) and test_*.py. Non-Python files are data, not layout debt: the
-   tracked JSON baseline read by the paint-parity helper is a fixture, not a
-   module, and a gate that demanded it be renamed would be churn.
+   scaffolding), conftest.py (control- or group-level pytest configuration) and
+   test_*.py. Non-Python files are data, not layout debt: the tracked JSON
+   baseline read by the paint-parity helper is a fixture, not a module, and a
+   gate that demanded it be renamed would be churn.
 2. The control directory and every subdirectory carry __init__.py. That file is
    what makes dotted imports (and duplicate basenames across groups) safe under
    pytest's default prepend import mode.
@@ -18,17 +24,27 @@ assertions:
 4. A control that is still a single test_<Name>.py may stay that way only while
    its whole suite is <= 800 code lines; past that it splits by dimension.
 5. Once a control has split into dimension files, no test_*.py exceeds 700 code
-   lines (the single-file shape has its own 800-line cap under rule 4).
+   lines (the single-file shape has its own 800-line cap under rule 4). Rule 4
+   owns that shape: a 750-line single test_<Name>.py passes, and an 801-line one
+   reports single-file-too-large only, never a second file-too-large.
 6. A subdirectory is a feature group, so it must hold at least 3 test files
    directly; fewer means the tests belong in the parent directory.
+7. A group's name names a production directory: it must match a directory name
+   under foliplus/js/control/<Name>/ or foliplus/control/<Name>/ (private
+   packages included). A group called "rendering" or "panel" that no production
+   module owns is indistinguishable from an invented bucket, so it is a
+   violation. shell/ is the one exception: shell, entry and quickstart tests
+   assert the control as a whole and no production subdirectory owns them. The
+   rule is only judged when the production control exists (a fake tree in a
+   unit test has no production counterpart).
 
 code lines = non-blank lines that do not start with '#'; docstrings count, the
 same metric script/check/module_size_check.py uses for shipped modules.
 
-The current tree is mid-migration, so violations are grandfathered in
-ALLOWLIST: every entry names the rule, the temporary reason and the card that
-owns the split. The gate fails on a *new* violation AND on a *stale* entry, so
-the allowlist must drain to zero as the split cards land.
+Violations are grandfathered in ALLOWLIST: every entry names the rule, the
+temporary reason and the card that owns the split. The gate fails on a *new*
+violation AND on a *stale* entry, so the allowlist can only drain. It is empty
+now that the 2026-11 LayerControl split landed; keep it empty.
 
 Usage (called by pre-commit, or directly from the repo root):
     python script/check/python_test_layout.py
@@ -74,38 +90,7 @@ class Exemption:
 # Temporary exemptions while the layout migration drains. Every entry must be
 # removed by the split card it names; the gate fails on an entry that no longer
 # matches a violation so this list cannot silently rot.
-ALLOWLIST: tuple[Exemption, ...] = (
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test__fill_author.py",
-        "1010 code lines; split into the fill/icon style groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_icon.py",
-        "727 code lines; fold into the style icon/label groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_panel.py",
-        "3045 code lines; split into the panel/fold/filter groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_rendering.py",
-        "981 code lines; split into rendering lifecycle / registry groups.",
-        "python test layout phase 2",
-    ),
-    Exemption(
-        "file-too-large",
-        "test/python/control/LayerControl/test_style.py",
-        "3219 code lines; split into the style groups (fill/border/icon/label/...).",
-        "python test layout phase 2",
-    ),
-)
+ALLOWLIST: tuple[Exemption, ...] = ()
 
 
 def code_lines(path: Path) -> int:
@@ -123,13 +108,53 @@ def code_lines(path: Path) -> int:
     return count
 
 
+# Groups whose production counterpart does not exist, with the reason.
+GROUP_NAME_EXCEPTIONS: dict[str, str] = {
+    "shell": "shell/entry/quickstart tests assert the control as a whole",
+}
+
+_JS_CONTROL_DIR = _REPO_ROOT / "foliplus" / "js" / "control"
+_PY_CONTROL_DIR = _REPO_ROOT / "foliplus" / "control"
+
+
 def is_allowed_name(name: str) -> bool:
-    """Whether a Python module filename plays one of the three allowed roles."""
+    """Whether a Python module filename plays one of the four allowed roles."""
     return (
         name == "__init__.py"
+        or name == "conftest.py"
         or fnmatch.fnmatch(name, "helper*.py")
         or fnmatch.fnmatch(name, "test_*.py")
     )
+
+
+def production_dirs(control_name: str) -> set[str] | None:
+    """Production directory names for one control, or None when it has none.
+
+    The group a test lives in names the production directory whose behaviour it
+    asserts. Both stacks are scanned: TypeScript components split into ui/
+    subpackages and Python controls split into private packages, so a group may
+    mirror either. None means the control has no production tree here (a fake
+    tree in a unit test), so the mirror rule cannot be judged and is skipped
+    rather than guessed.
+    """
+    roots = [
+        base
+        for base in (_JS_CONTROL_DIR / control_name, _PY_CONTROL_DIR / control_name)
+        if base.is_dir()
+    ]
+    if not roots:
+        return None
+    names: set[str] = set()
+    for base in roots:
+        for path in base.rglob("*"):
+            if path.is_dir() and "__pycache__" not in path.parts:
+                names.add(path.name)
+    return names
+
+
+def is_mirror_test(name: str) -> bool:
+    """Whether a first-level test module mirrors one private production module."""
+    return name.startswith("test__") and name.endswith(".py")
 
 
 def control_dirs(root: Path) -> list[Path]:
@@ -193,7 +218,12 @@ def _size_violations(control: Path) -> list[Violation]:
     return violations
 
 
-def _scan(directory: Path, depth: int, violations: list[Violation]) -> None:
+def _scan(
+    directory: Path,
+    depth: int,
+    violations: list[Violation],
+    production: set[str] | None = None,
+) -> None:
     """Check one directory's names, __init__.py, group size and recurse."""
     if not (directory / "__init__.py").is_file():
         violations.append(
@@ -229,7 +259,21 @@ def _scan(directory: Path, depth: int, violations: list[Violation]) -> None:
                     )
                 )
                 continue
-            _scan(child, depth + 1, violations)
+            if depth + 1 == MAX_GROUP_DEPTH and production is not None:
+                if (
+                    child.name not in production
+                    and child.name not in GROUP_NAME_EXCEPTIONS
+                ):
+                    violations.append(
+                        Violation(
+                            "group-not-in-production",
+                            child,
+                            f"group {child.name!r} mirrors no production directory "
+                            f"under foliplus/js/control/ or foliplus/control/ "
+                            f"(or a GROUP_NAME_EXCEPTIONS entry)",
+                        )
+                    )
+            _scan(child, depth + 1, violations, production)
             continue
         if not child.is_file() or child.suffix != ".py":
             continue
@@ -243,11 +287,37 @@ def _scan(directory: Path, depth: int, violations: list[Violation]) -> None:
             )
 
 
+def _grouped(control: Path) -> bool:
+    """Whether the control has at least one group directory."""
+    return any(child.is_dir() for child in _children(control))
+
+
+def _first_level_violations(control: Path) -> list[Violation]:
+    """Rule 0: a grouped control's own directory only holds mirrors and helpers."""
+    if not _grouped(control):
+        return []
+    violations: list[Violation] = []
+    for child in _children(control):
+        if not child.is_file() or child.suffix != ".py":
+            continue
+        if child.name.startswith("test_") and not is_mirror_test(child.name):
+            violations.append(
+                Violation(
+                    "first-level-not-mirror",
+                    child,
+                    f"{child.name} sits at the first level of a grouped control; "
+                    "only private-module mirrors (test__<module>.py) stay here",
+                )
+            )
+    return violations
+
+
 def collect(root: Path) -> list[Violation]:
     """Every layout violation under one control-test root, in path order."""
     violations: list[Violation] = []
     for control in control_dirs(root):
-        _scan(control, 1, violations)
+        _scan(control, 1, violations, production_dirs(control.name))
+        violations.extend(_first_level_violations(control))
         violations.extend(_size_violations(control))
     return sorted(violations, key=lambda v: (_relative(v.path), v.rule))
 

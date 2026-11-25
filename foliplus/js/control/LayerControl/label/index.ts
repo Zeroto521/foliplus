@@ -17,7 +17,7 @@ import {
   layoutLabel,
   planLabelLayout,
 } from "./layout.js";
-import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { EVENTS, ensureEvents, subscribe } from "#core/event/index.js";
 import { areaCentroid } from "#core/geo/index.js";
 import {
   type Box,
@@ -238,32 +238,43 @@ class LabelManager {
     // script. The bus also filters out the unrelated activity the raw pair
     // used to fire for (markers and overlays the other controls add), which is
     // why HeatmapControl switched the same way.
+    // Membership changes are batched, not handled per emit: a bulk registration
+    // (or a container expand) can fire dozens of LAYER_CHANGE in one task, and a
+    // synchronous repaint per emit is dozens of passes for one frame of output.
+    // `subscribe` merges them per (event, id) and delivers once in the next
+    // frame, so the burst costs one pass over the distinct ids. Repaint stays
+    // per layer — only the layer that moved re-plans.
     this.unsubscribe.push(
-      events.on(
-        EVENTS.LAYER_CHANGE,
-        payload => {
-          // Guard: third-party or historical bare emit (no payload).
-          // All product emit sites carry {id, kind} — a missing payload here
-          // means an external caller fired the event without the contract.
-          // Fallback to full refresh (repaint every label-bearing layer), which
-          // is the old raw layeradd/layerremove behavior.
-          if (!payload) {
-            this.refresh();
-            return;
+      subscribe(
+        this.map,
+        { events: [EVENTS.LAYER_CHANGE] },
+        batch => {
+          for (const { payload } of batch) {
+            // Guard: third-party or historical bare emit (no payload).
+            // All product emit sites carry {id, kind} — a missing payload here
+            // means an external caller fired the event without the contract.
+            // Fallback to full refresh (repaint every label-bearing layer), which
+            // is the old raw layeradd/layerremove behavior.
+            if (!payload) {
+              this.refresh();
+              continue;
+            }
+            const { id, kind } = payload;
+            // A tile basemap, a solid color face, and a self-drawn canvas never
+            // get a label pane — the registration edge declares it only for
+            // a labelable feature tree — so they can never own a canvas to repaint.
+            if (NO_FEATURE_TREE_KINDS.has(kind)) continue;
+            this.onLayerMembership(id);
           }
-          const { id, kind } = payload;
-          // A tile basemap, a solid color face, and a self-drawn canvas never
-          // get an label pane — the registration edge declares it only for
-          // a labelable feature tree — so they can never own a canvas to repaint.
-          if (NO_FEATURE_TREE_KINDS.has(kind)) return;
-          this.onLayerMembership(id);
         },
-        "internal",
+        { phase: "internal" },
       ),
       // Export safety: the exporter's locked path grows the container and shifts
       // the view, then captures on the very next frame — so the redraw here is
-      // synchronous. A throttled one would land a frame late and the capture
-      // would read the pre-export canvas.
+      // synchronous on purpose. A coalesced one would land a frame late and the
+      // capture would read the pre-export canvas. Same reason the filter change
+      // below stays synchronous: its hidden-leaf walk must be reflected before
+      // the next paint commits, not merged into a later frame.
       events.on(EVENTS.BEFORE_EXPORT, () => this.refresh(), "internal"),
       events.on(EVENTS.AFTER_EXPORT, () => this.refresh(), "internal"),
       // A filter change rewrites which leaves the label walk may draw, so the
