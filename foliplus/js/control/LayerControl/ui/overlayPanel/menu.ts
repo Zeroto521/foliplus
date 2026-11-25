@@ -431,9 +431,9 @@ type DeleteMode = "clear" | "delete" | "absent";
  *  the entry stays focused and forgotten. */
 const DELETE_CONFIRM_TIMEOUT_MS = 3000;
 
-/** One armed delete entry (the two-click confirm). The arm lives on
+/** One pending delete entry (the two-click confirm). The pending state lives on
  *  ui.overlayPanel because it is per-UI: a second LayerControl on the page
- *  arms and disarms only its own entry, and closing this control's menu never
+ *  confirms and cancels only its own entry, and closing this control's menu never
  *  cancels another map's pending delete. */
 interface PendingDelete {
   label: HTMLElement;
@@ -560,7 +560,7 @@ const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
 
 /** Back out of the confirming state on this control's menu. Idempotent, and
  *  called on every path that closes the menu so an abandoned attempt never
- *  leaves a pending entry behind. Scoped to the ui that armed it. */
+ *  leaves a pending entry behind. Scoped to the ui that opened it. */
 const disconfirmDelete = (ui: LayerUI): void => {
   const timer = ui.overlayPanel.pendingDeleteTimer;
   if (timer) clearTimeout(timer);

@@ -52,10 +52,10 @@ class OverlayPanel {
    *  openMoreMenu, released by closeMoreMenu. */
   menuRemovedUnsub: (() => void) | null = null;
   /** The overflow-menu entry currently in its confirm (second-click) state,
-   *  or null. Per-UI on purpose: each control arms and disarms only its own
+   *  or null. Per-UI on purpose: each control confirms and cancels only its own
    *  entry, so a second map's menu cannot cancel a pending delete here. */
   pendingDelete: PendingDelete | null = null;
-  /** The arm timeout that backs the pending entry out automatically. */
+  /** The timeout that backs the pending entry out automatically. */
   pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined;
   /** Currently visible attributes panel, or null. */
   activeAttrsPanel: {
