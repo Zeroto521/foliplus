@@ -46,6 +46,8 @@ const NON_MIRRORED_TEST: Record<string, string> = {
   tsconfig: "test TypeScript config guard, no single module",
   "control/LayerControl/label/labelReplay-perf":
     "wall-clock gate for the label replay (control/LayerControl/label/index.ts renderLabels); the -perf suffix marks it a timing gate, not a mirror of a labelReplay-perf module",
+  "control/LayerControl/controller.visibility-parity":
+    "aspect file of control/LayerControl/controller.ts (visibilityOf factor parity guard); the -parity aspect names the invariant, not a controller.visibility-parity module",
 };
 
 /** Test directories that are categories, not mirrors (each file still names the
