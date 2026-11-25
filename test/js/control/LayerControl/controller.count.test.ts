@@ -297,7 +297,7 @@ describe("LayerController", () => {
         id: "late",
         name: "Late",
         layer: { options: {} },
-        featureCountProvider: () => count,
+        featureCountProvider: () => count as number,
       });
       expect(manager.getFeatureCount("late")).toBe(undefined);
       count = 3;
