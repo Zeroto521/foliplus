@@ -173,10 +173,7 @@ const authorGlyphColorOf = (
   if (inline) return inline;
   const declared = (icon as { options?: { iconColor?: unknown; icon_color?: unknown } })
     ?.options?.iconColor;
-  // folium emits options.icon_color (snake_case); awesome-markers and this
-  // read both expect iconColor (camelCase). The snake spelling is a fallback
-  // so a folium.Icon(icon_color=) glyph paint reaches the derive, not a
-  // second vocabulary. CamelCase wins when both are present.
+  // folium camelizes every option key at render (folium/template.py); the snake spelling is accepted for hand-built Leaflet icons and as a guard if folium ever stops camelizing. CamelCase wins when both are present.
   const snake = (icon as { options?: { icon_color?: unknown } })?.options?.icon_color;
   const paint = declared ?? snake;
   return typeof paint === "string" && paint !== "" ? paint : undefined;
@@ -948,8 +945,7 @@ const authorMarkerColor = (layer: unknown): string | null => {
     const options = (
       icon as { options?: { markerColor?: unknown; marker_color?: unknown } }
     )?.options;
-    // folium emits options.marker_color (snake_case); the runtime reads
-    // markerColor (camelCase). Same vocabulary fallback as the glyph read.
+    // folium camelizes every option key at render (folium/template.py); the snake spelling is accepted for hand-built Leaflet icons and as a guard if folium ever stops camelizing. Same vocabulary fallback as the glyph read.
     const own = options?.markerColor ?? options?.marker_color;
     if (typeof own === "string" && own) found = own;
   });
