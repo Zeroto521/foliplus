@@ -37,6 +37,36 @@ _NOMINATIM_SEARCH = (
     "https://nominatim.openstreetmap.org/search?format=jsonv2&q=test&limit=1"
 )
 
+#: Every tile endpoint the controls/tests reference; each must answer 404.
+_TILE_URLS = (
+    "https://a.tile.openstreetmap.org/12/3340/1720.png",
+    "https://b.tile.openstreetmap.org/7/104/53.png",
+    "https://tile.openstreetmap.org/3/4/2.png",
+    "https://tiles.foliplus.test/12/3340/1720.png",
+    "https://a.basemaps.cartocdn.com/light_all/12/3340/1720.png",
+    "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/"
+    "World_Dark_Gray_Base/MapServer/tile/12/1720/3340",
+    "https://stamen-tiles-a.a.ssl.fastly.net/terrain/12/3340/1720.png",
+    "https://t0.tianditu.com/DataServer?T=vec_w&x=1&y=2&l=3",
+    "https://webrd01.autonavi.com/appmaptile?x=1&y=2&z=3",
+    "https://wprd01.amap.com/appmaptile?x=1&y=2&z=3",
+    "https://p2.map.gtimg.com/maptilesv2/12/3340/1720/1.png",
+    "https://online1.bdimg.com/tile/?qt=tile&x=1&y=2&z=3",
+)
+
+#: External http(s) URLs the handler must answer without network forwarding.
+_HTTP_CORPUS = (
+    _NOMINATIM_REVERSE,
+    _NOMINATIM_SEARCH,
+    "https://photon.komoot.io/api/?q=test&limit=1",
+    "https://api.demo.pelias.io/v1/search?text=test&size=1",
+    "https://a.tile.openstreetmap.org/12/3340/1720.png",
+    "https://tiles.foliplus.test/12/3340/1720.png",
+    "https://a.basemaps.cartocdn.com/light_all/12/3340/1720.png",
+    "https://example.com/anything.json",
+    "https://api.github.com/repos/owner/repo",
+)
+
 
 class _FakeRequest:
     """The two request attributes the route handler reads."""
@@ -105,28 +135,12 @@ class TestGeocodeClassification:
 class TestTileClassification:
     """Every tile endpoint the controls/tests reference is answered 404."""
 
-    TILE_URLS = (
-        "https://a.tile.openstreetmap.org/12/3340/1720.png",
-        "https://b.tile.openstreetmap.org/7/104/53.png",
-        "https://tile.openstreetmap.org/3/4/2.png",
-        "https://tiles.foliplus.test/12/3340/1720.png",
-        "https://a.basemaps.cartocdn.com/light_all/12/3340/1720.png",
-        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/"
-        "World_Dark_Gray_Base/MapServer/tile/12/1720/3340",
-        "https://stamen-tiles-a.a.ssl.fastly.net/terrain/12/3340/1720.png",
-        "https://t0.tianditu.com/DataServer?T=vec_w&x=1&y=2&l=3",
-        "https://webrd01.autonavi.com/appmaptile?x=1&y=2&z=3",
-        "https://wprd01.amap.com/appmaptile?x=1&y=2&z=3",
-        "https://p2.map.gtimg.com/maptilesv2/12/3340/1720/1.png",
-        "https://online1.bdimg.com/tile/?qt=tile&x=1&y=2&z=3",
-    )
-
     def test_tile_urls_are_recognised(self):
-        for url in self.TILE_URLS:
+        for url in _TILE_URLS:
             assert _is_tile_url(url), url
 
     def test_tile_images_answer_404(self):
-        for url in self.TILE_URLS:
+        for url in _TILE_URLS:
             reply = _external_reply(url, "image")
             assert reply is not None
             assert reply.kind == "tile"
@@ -169,24 +183,12 @@ class TestHandlerInvariant:
     fail if any external http(s) request regresses to network forwarding.
     """
 
-    HTTP_CORPUS = (
-        _NOMINATIM_REVERSE,
-        _NOMINATIM_SEARCH,
-        "https://photon.komoot.io/api/?q=test&limit=1",
-        "https://api.demo.pelias.io/v1/search?text=test&size=1",
-        "https://a.tile.openstreetmap.org/12/3340/1720.png",
-        "https://tiles.foliplus.test/12/3340/1720.png",
-        "https://a.basemaps.cartocdn.com/light_all/12/3340/1720.png",
-        "https://example.com/anything.json",
-        "https://api.github.com/repos/owner/repo",
-    )
-
     def test_handler_never_continues_an_http_request(self, monkeypatch):
         # Keep the CDN branch deterministic too: a cache miss would otherwise
         # attempt a download inside this test.
         monkeypatch.setattr(conftest, "_cdn_cached", lambda url: (b"cdn", "text/plain"))
         handler = _make_route_handler()
-        for url in self.HTTP_CORPUS:
+        for url in _HTTP_CORPUS:
             route = _FakeRoute(url)
             handler(route)
             assert not route.continued, url
@@ -195,7 +197,7 @@ class TestHandlerInvariant:
     def test_route_reply_never_falls_through_for_http(self, monkeypatch):
         """No http(s) URL may resolve to None - that is the continue_() path."""
         monkeypatch.setattr(conftest, "_cdn_cached", lambda url: (b"", "text/plain"))
-        for url in self.HTTP_CORPUS:
+        for url in _HTTP_CORPUS:
             assert _route_reply(_FakeRoute(url)) is not None, url
 
     def test_cdn_asset_is_served_from_the_cache(self, monkeypatch):

@@ -38,6 +38,180 @@ if TYPE_CHECKING:
 # (shared ones under test/data/common/geojson/).
 _GEOJSON_DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
+# ── CDN cache (browser tests) ──
+#
+# Browser tests load folium's base page which references CDN scripts
+# (leaflet/jquery/bootstrap/awesome-markers).  In slow or flaky networks
+# these can exceed Playwright's navigation timeout and produce spurious
+# `Page.goto` timeouts.  We intercept those requests and serve them from a
+# local cache (downloaded once to /tmp) so tests are network-independent.
+# FOLIPLUS_CDN_CACHE_DIR lets a sandboxed local run point the cache at a
+# writable directory (CI keeps the /tmp default).
+_CDN_CACHE_DIR = Path(
+    os.environ.get("FOLIPLUS_CDN_CACHE_DIR", "/tmp/foliplus-cdn-cache")
+)
+# Fast single-attempt prefetch during session setup — the per-request
+# handler below retains the full retry budget for flaky CI networks.
+_CDN_PREFETCH_TIMEOUT = 10  # seconds
+_CDN_DOWNLOAD_TIMEOUT = 30  # seconds
+_CDN_DOWNLOAD_RETRIES = 3  # retry attempts
+# Minimum free space on the cache volume before we let a download attempt start.
+# A full disk would stall retries inside a page.route handler, which surfaces
+# as a spurious `Page.goto: Timeout` in whichever browser is waiting on it.
+_CDN_MIN_FREE_BYTES = 32 * 1024 * 1024  # 32 MiB
+
+# CDN URL fragment -> (cache filename, mime type), loaded from cdn.json so
+# adding a new pinned dependency is a JSON edit rather than a Python edit.
+# JSON object keys preserve order, so the dict inherits the file's ordering.
+_CDN_CACHE_PATH = Path(__file__).resolve().parent / "cdn.json"
+_CDN_CACHE: dict[str, tuple[str, str]] = {
+    url: (entry[0], entry[1])
+    for url, entry in json.loads(_CDN_CACHE_PATH.read_text(encoding="utf-8")).items()
+}
+
+# Prefetch lock: one worker warms the cache, the others wait for it.
+_CDN_PREFETCH_LOCK = _CDN_CACHE_DIR / ".prefetch.lock"
+_CDN_PREFETCH_LOCK_WAIT_S = 120
+_CDN_PREFETCH_LOCK_STALE_S = 300
+_css_cache: dict[str, str] = {}
+
+
+# ── Offline network policy (browser tests) ──
+#
+# Browser test pages are file:// documents, so their origin is "null". Every
+# request that escapes to the runner's network yields a runner-state outcome
+# instead of product behaviour: online, a cross-origin fetch whose response
+# lacks Access-Control-Allow-Origin logs "blocked by CORS policy" as a console
+# error; offline, the same fetch fails differently. Both variants have already
+# reddened a browser round that looked like a product regression (the
+# geocode-flake round: 17 CORS failures, one cause).
+#
+# So no http(s) request may leave the page. Every one is answered here,
+# deterministically:
+#
+#   1. non-http(s) schemes (data:/file:/blob:/about:) are left alone - the
+#      handler does not own them;
+#   2. a known CDN asset (cdn.json) is served from the local cache;
+#   3. a tile endpoint/URL is answered 404 - Leaflet tolerates a failed tile,
+#      and "Failed to load resource" never enters the console-error list
+#      collected by make_browser_page;
+#   4. a geocode provider host is answered with a small provider-shaped
+#      fixture plus Access-Control-Allow-Origin: *, because the page fetch is
+#      cross-origin from a null origin. Tests that assert a concrete address
+#      intercept the provider themselves (their later page.route wins:
+#      Playwright matches routes in reverse registration order), so the
+#      fixture only has to be stable, not realistic;
+#   5. everything else is answered by resource type: images/fonts/media 404,
+#      script/stylesheet 200 with an empty body (an empty body cannot fail to
+#      load), fetch/xhr empty JSON 200, documents empty HTML 200, websockets
+#      aborted (a websocket cannot be fulfilled).
+#
+# route.continue_() for an http(s) URL is exactly the bug this policy
+# replaces; the guard in test/python/guard/test_offline_route.py fails if it
+# comes back.
+_ACAO = {"Access-Control-Allow-Origin": "*"}
+
+#: Tile endpoints used by the bundled controls and their tests. A z/x/y path
+#: also classifies as a tile, so a new tile server cannot silently fall into
+#: the generic branch.
+_TILE_HOSTS = (
+    "tile.openstreetmap.org",
+    "tiles.foliplus.test",
+    "server.arcgisonline.com",
+    "basemaps.cartocdn.com",
+    "t0.tianditu.com",
+    "webrd01.autonavi.com",
+    "wprd01.amap.com",
+    "p2.map.gtimg.com",
+    "online1.bdimg.com",
+)
+_TILE_HOST_SUBSTRINGS = ("stamen-tiles-",)
+_TILE_PATH_RE = re.compile(r"/\d+/\d+/\d+(?:\.[A-Za-z0-9]+)?$")
+
+#: Stable reverse-geocode answer. It is what a test sees when it did not
+#: intercept the provider itself; it must never depend on network state.
+_FIXTURE_ADDRESS = "Foliplus Test Address, Test City, Test Country"
+
+
+# Playwright's default navigation timeout is 30 000 ms. Under CI contention
+# the browser can sit on its main thread waiting for first paint, which
+# makes ``page.goto`` trip the default. 45 s is a buffer, not a mask — it
+# stops legitimate slow startup from being misread as a flake. Deliberately
+# set on navigation only; per-action timeouts (click / wait_for_*) stay at
+# Playwright defaults so real slowness in assertions still surfaces.
+_BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
+
+
+# ── Health probe (flaky-95 investigation) ──
+#
+# Inert observer for browser tests under `-n 24` xdist load. Samples worker
+# process + Chromium resource usage to a per-worker JSONL log in the gitignored
+# scratch directory so a future 95-anomaly-round can be attributed
+# (context accumulation? worker resource exhaustion? Chromium spawn burst?)
+# rather than filed as an unsolved flake.
+#
+# Sampling cadence is deliberately low (every Nth ``new_page()``) so the
+# probe itself does not distort the very behavior it is measuring.
+# Threshold warnings fire once per metric per worker session — enough to
+# leave a marker in the run log, quiet enough to not spam healthy rounds.
+#
+# Env overrides (all opt-out / opt-in; nothing in main defaults changes):
+#   FOLIPLUS_HEALTH_PROBE=0       disable entirely (default on)
+#   FOLIPLUS_HEALTH_SAMPLE_N=N    sample every Nth ``new_page()`` (default 8)
+#   FOLIPLUS_BROWSER_MODE=shared  single session-scoped BrowserContext instead
+#                                 of the baseline per-page context. Diagnostic
+#                                 only — see the storage-isolation
+#                                 caveat under ``file://`` origins.
+#
+# The log directory is gitignored; the probe leaves no tracked artifacts.
+#
+# Findings (2026-09-25):
+#   Windows local (15 baseline rounds of -n 24):
+#   - 95-class anomaly reproduced (Round 14: 116 failures / 409 s; Round 12:
+#     99 failures / 321 s) with per-page context baseline.
+#   - Round 14 workers at page 8 show ``contexts`` = 1-5 (vs 1-2 in clean
+#     rounds) and ``chromium_procs`` = 19-31 (vs 19-29 in clean rounds).
+#   - Correlation: chromium process count tracks per-worker context count
+#     one-to-one — each open context is a Chromium renderer/helper.
+#   - 5 rounds of -n 12 (halved workers): 0 failures, ctxMax=1 throughout.
+#   - Root cause (Windows only): process pressure at -n 24 causes intermittent
+#     per-worker context accumulation, which cascades into the 95-anomaly
+#     (workers stuck on page.goto timeouts, unable to progress past po=8).
+#
+#   Linux CI (GitHub Actions, 51 failed test runs sampled):
+#   - No 95-class anomaly visible. Observed failures are 2-20 test flakes
+#     (normal level) or non-test failures (format / lint / esbuild).
+#   - Do NOT interpret the Windows root cause as universal. A global
+#     JOBS 24 → 12 change would mis-cap healthy Linux CI runners.
+#
+#   Disposition (per review):
+#   - Keep probes + tightened thresholds (contexts>3, chromium_procs>28).
+#   - Windows local workaround: run ``make test-browser JOBS=12`` on Windows
+#     machines when 24-worker flake rate spikes. Do not change the Makefile
+#     default (JOBS=auto) — Linux CI has not reproduced the symptom.
+#   - A future platform-conditional JOBS in Makefile is only justified once
+#     the same 95-anomaly class is observed on Linux CI.
+#
+_HEALTH_PROBE_ENABLED = os.environ.get("FOLIPLUS_HEALTH_PROBE", "1") != "0"
+_HEALTH_SAMPLE_N = int(os.environ.get("FOLIPLUS_HEALTH_SAMPLE_N", "8"))
+_BROWSER_MODE = os.environ.get("FOLIPLUS_BROWSER_MODE", "per_page")
+_HEALTH_DIR = Path(".foliplus") / "flaky95"
+# Permissive thresholds — outliers only, not normal variance. Adjust after
+# collecting a baseline distribution from the first round of clean runs.
+_HEALTH_THRESHOLDS = {
+    "rss_mb": 512,
+    "contexts": 3,
+    "chromium_procs": 28,
+    "handles": 2000,
+}
+
+
+# Chromium reports as different binary names per platform and Playwright
+# build: ``chrome.exe`` on Windows, ``chrome`` on older Linux headless,
+# ``headless_shell`` on newer ones. Exact matching would read a constant
+# zero on Linux, so the family is matched by prefix.
+_CHROMIUM_NAME_PREFIXES = ("chrome", "headless_shell", "chromium")
+
 
 # ── JS snippet reader (browser tests) ──
 # Reads test/js/browser/<Component>/<name>.js for page.evaluate().
@@ -141,38 +315,6 @@ def point_feature(
     return feat
 
 
-# ── CDN cache (browser tests) ──
-#
-# Browser tests load folium's base page which references CDN scripts
-# (leaflet/jquery/bootstrap/awesome-markers).  In slow or flaky networks
-# these can exceed Playwright's navigation timeout and produce spurious
-# `Page.goto` timeouts.  We intercept those requests and serve them from a
-# local cache (downloaded once to /tmp) so tests are network-independent.
-# FOLIPLUS_CDN_CACHE_DIR lets a sandboxed local run point the cache at a
-# writable directory (CI keeps the /tmp default).
-_CDN_CACHE_DIR = Path(
-    os.environ.get("FOLIPLUS_CDN_CACHE_DIR", "/tmp/foliplus-cdn-cache")
-)
-# Fast single-attempt prefetch during session setup — the per-request
-# handler below retains the full retry budget for flaky CI networks.
-_CDN_PREFETCH_TIMEOUT = 10  # seconds
-_CDN_DOWNLOAD_TIMEOUT = 30  # seconds
-_CDN_DOWNLOAD_RETRIES = 3  # retry attempts
-# Minimum free space on the cache volume before we let a download attempt start.
-# A full disk would stall retries inside a page.route handler, which surfaces
-# as a spurious `Page.goto: Timeout` in whichever browser is waiting on it.
-_CDN_MIN_FREE_BYTES = 32 * 1024 * 1024  # 32 MiB
-
-# CDN URL fragment -> (cache filename, mime type), loaded from cdn.json so
-# adding a new pinned dependency is a JSON edit rather than a Python edit.
-# JSON object keys preserve order, so the dict inherits the file's ordering.
-_CDN_CACHE_PATH = Path(__file__).resolve().parent / "cdn.json"
-_CDN_CACHE: dict[str, tuple[str, str]] = {
-    url: (entry[0], entry[1])
-    for url, entry in json.loads(_CDN_CACHE_PATH.read_text(encoding="utf-8")).items()
-}
-
-
 def _has_disk_space(path: Path, min_bytes: int) -> bool:
     """True if the filesystem holding *path* has at least *min_bytes* free.
 
@@ -256,11 +398,6 @@ def _is_cdn_url(url: str) -> bool:
     return any(fragment in url for fragment in _CDN_CACHE)
 
 
-_CDN_PREFETCH_LOCK = _CDN_CACHE_DIR / ".prefetch.lock"
-_CDN_PREFETCH_LOCK_WAIT_S = 120
-_CDN_PREFETCH_LOCK_STALE_S = 300
-
-
 def _acquire_prefetch_lock() -> int | None:
     """Serialize the cache warm-up across xdist workers.
 
@@ -333,9 +470,6 @@ def _prefetch_cdn_cache() -> None:
             pass
 
 
-_css_cache: dict[str, str] = {}
-
-
 def read_css(path: str) -> str:
     """Read a CSS file, caching the result in memory.
 
@@ -380,41 +514,6 @@ def read_css_dir(path: str, name: str) -> str:
     return _css_cache[key]
 
 
-# ── Offline network policy (browser tests) ──
-#
-# Browser test pages are file:// documents, so their origin is "null". Every
-# request that escapes to the runner's network yields a runner-state outcome
-# instead of product behaviour: online, a cross-origin fetch whose response
-# lacks Access-Control-Allow-Origin logs "blocked by CORS policy" as a console
-# error; offline, the same fetch fails differently. Both variants have already
-# reddened a browser round that looked like a product regression (the
-# geocode-flake round: 17 CORS failures, one cause).
-#
-# So no http(s) request may leave the page. Every one is answered here,
-# deterministically:
-#
-#   1. non-http(s) schemes (data:/file:/blob:/about:) are left alone - the
-#      handler does not own them;
-#   2. a known CDN asset (cdn.json) is served from the local cache;
-#   3. a tile endpoint/URL is answered 404 - Leaflet tolerates a failed tile,
-#      and "Failed to load resource" never enters the console-error list
-#      collected by make_browser_page;
-#   4. a geocode provider host is answered with a small provider-shaped
-#      fixture plus Access-Control-Allow-Origin: *, because the page fetch is
-#      cross-origin from a null origin. Tests that assert a concrete address
-#      intercept the provider themselves (their later page.route wins:
-#      Playwright matches routes in reverse registration order), so the
-#      fixture only has to be stable, not realistic;
-#   5. everything else is answered by resource type: images/fonts/media 404,
-#      script/stylesheet 200 with an empty body (an empty body cannot fail to
-#      load), fetch/xhr empty JSON 200, documents empty HTML 200, websockets
-#      aborted (a websocket cannot be fulfilled).
-#
-# route.continue_() for an http(s) URL is exactly the bug this policy
-# replaces; the guard in test/python/guard/test_offline_route.py fails if it
-# comes back.
-
-
 @dataclass(frozen=True)
 class _OfflineReply:
     """Deterministic response for one intercepted browser request.
@@ -428,30 +527,6 @@ class _OfflineReply:
     body: bytes
     content_type: str
     kind: str
-
-
-_ACAO = {"Access-Control-Allow-Origin": "*"}
-
-#: Tile endpoints used by the bundled controls and their tests. A z/x/y path
-#: also classifies as a tile, so a new tile server cannot silently fall into
-#: the generic branch.
-_TILE_HOSTS = (
-    "tile.openstreetmap.org",
-    "tiles.foliplus.test",
-    "server.arcgisonline.com",
-    "basemaps.cartocdn.com",
-    "t0.tianditu.com",
-    "webrd01.autonavi.com",
-    "wprd01.amap.com",
-    "p2.map.gtimg.com",
-    "online1.bdimg.com",
-)
-_TILE_HOST_SUBSTRINGS = ("stamen-tiles-",)
-_TILE_PATH_RE = re.compile(r"/\d+/\d+/\d+(?:\.[A-Za-z0-9]+)?$")
-
-#: Stable reverse-geocode answer. It is what a test sees when it did not
-#: intercept the provider itself; it must never depend on network state.
-_FIXTURE_ADDRESS = "Foliplus Test Address, Test City, Test Country"
 
 
 def _host_of(url: str) -> str:
@@ -632,86 +707,6 @@ def _install_offline_route(target: Any) -> None:
     covers every page in that context) or a ``Page`` (per-page fallback).
     """
     target.route("**/*", _make_route_handler())
-
-
-# Playwright's default navigation timeout is 30 000 ms. Under CI contention
-# the browser can sit on its main thread waiting for first paint, which
-# makes ``page.goto`` trip the default. 45 s is a buffer, not a mask — it
-# stops legitimate slow startup from being misread as a flake. Deliberately
-# set on navigation only; per-action timeouts (click / wait_for_*) stay at
-# Playwright defaults so real slowness in assertions still surfaces.
-_BROWSER_DEFAULT_NAV_TIMEOUT_MS = 45_000
-
-
-# ── Health probe (flaky-95 investigation) ──
-#
-# Inert observer for browser tests under `-n 24` xdist load. Samples worker
-# process + Chromium resource usage to a per-worker JSONL log in the gitignored
-# scratch directory so a future 95-anomaly-round can be attributed
-# (context accumulation? worker resource exhaustion? Chromium spawn burst?)
-# rather than filed as an unsolved flake.
-#
-# Sampling cadence is deliberately low (every Nth ``new_page()``) so the
-# probe itself does not distort the very behavior it is measuring.
-# Threshold warnings fire once per metric per worker session — enough to
-# leave a marker in the run log, quiet enough to not spam healthy rounds.
-#
-# Env overrides (all opt-out / opt-in; nothing in main defaults changes):
-#   FOLIPLUS_HEALTH_PROBE=0       disable entirely (default on)
-#   FOLIPLUS_HEALTH_SAMPLE_N=N    sample every Nth ``new_page()`` (default 8)
-#   FOLIPLUS_BROWSER_MODE=shared  single session-scoped BrowserContext instead
-#                                 of the baseline per-page context. Diagnostic
-#                                 only — see the storage-isolation
-#                                 caveat under ``file://`` origins.
-#
-# The log directory is gitignored; the probe leaves no tracked artifacts.
-#
-# Findings (2026-09-25):
-#   Windows local (15 baseline rounds of -n 24):
-#   - 95-class anomaly reproduced (Round 14: 116 failures / 409 s; Round 12:
-#     99 failures / 321 s) with per-page context baseline.
-#   - Round 14 workers at page 8 show ``contexts`` = 1-5 (vs 1-2 in clean
-#     rounds) and ``chromium_procs`` = 19-31 (vs 19-29 in clean rounds).
-#   - Correlation: chromium process count tracks per-worker context count
-#     one-to-one — each open context is a Chromium renderer/helper.
-#   - 5 rounds of -n 12 (halved workers): 0 failures, ctxMax=1 throughout.
-#   - Root cause (Windows only): process pressure at -n 24 causes intermittent
-#     per-worker context accumulation, which cascades into the 95-anomaly
-#     (workers stuck on page.goto timeouts, unable to progress past po=8).
-#
-#   Linux CI (GitHub Actions, 51 failed test runs sampled):
-#   - No 95-class anomaly visible. Observed failures are 2-20 test flakes
-#     (normal level) or non-test failures (format / lint / esbuild).
-#   - Do NOT interpret the Windows root cause as universal. A global
-#     JOBS 24 → 12 change would mis-cap healthy Linux CI runners.
-#
-#   Disposition (per review):
-#   - Keep probes + tightened thresholds (contexts>3, chromium_procs>28).
-#   - Windows local workaround: run ``make test-browser JOBS=12`` on Windows
-#     machines when 24-worker flake rate spikes. Do not change the Makefile
-#     default (JOBS=auto) — Linux CI has not reproduced the symptom.
-#   - A future platform-conditional JOBS in Makefile is only justified once
-#     the same 95-anomaly class is observed on Linux CI.
-#
-_HEALTH_PROBE_ENABLED = os.environ.get("FOLIPLUS_HEALTH_PROBE", "1") != "0"
-_HEALTH_SAMPLE_N = int(os.environ.get("FOLIPLUS_HEALTH_SAMPLE_N", "8"))
-_BROWSER_MODE = os.environ.get("FOLIPLUS_BROWSER_MODE", "per_page")
-_HEALTH_DIR = Path(".foliplus") / "flaky95"
-# Permissive thresholds — outliers only, not normal variance. Adjust after
-# collecting a baseline distribution from the first round of clean runs.
-_HEALTH_THRESHOLDS = {
-    "rss_mb": 512,
-    "contexts": 3,
-    "chromium_procs": 28,
-    "handles": 2000,
-}
-
-
-# Chromium reports as different binary names per platform and Playwright
-# build: ``chrome.exe`` on Windows, ``chrome`` on older Linux headless,
-# ``headless_shell`` on newer ones. Exact matching would read a constant
-# zero on Linux, so the family is matched by prefix.
-_CHROMIUM_NAME_PREFIXES = ("chrome", "headless_shell", "chromium")
 
 
 def _is_chromium_process(name: str | None) -> bool:

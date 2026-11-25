@@ -31,6 +31,11 @@ _MAJOR = re.compile(r"\d+")
 #: guard passes forever.
 _EXPECTED_SHARED = frozenset({"pako", "geotiff", "h3-js"})
 
+#: External assets a rendered folium page loads. Tiles and attribution links
+#: are not assets: tiles are answered by the offline route policy, and the
+#: copyright link is never fetched.
+_ASSET_TAG_RE = re.compile(r'<(?:script|link)[^>]+(?:src|href)="(https?://[^"]+)"')
+
 
 def _major_of(spec: str) -> int | None:
     """Leading major of a version spec: ``^2.1.0`` / ``2.1.0`` / ``~3`` → 2 / 2 / 3."""
@@ -116,12 +121,6 @@ class TestCdnNpmVersionConsistency:
             "hardcoded cdn.json urls in tests — read them via "
             "load_cdn(<Control>) instead:\n  " + "\n  ".join(hits)
         )
-
-
-#: External assets a rendered folium page loads. Tiles and attribution links
-#: are not assets: tiles are answered by the offline route policy, and the
-#: copyright link is never fetched.
-_ASSET_TAG_RE = re.compile(r'<(?:script|link)[^>]+(?:src|href)="(https?://[^"]+)"')
 
 
 def _rendered_asset_urls() -> set[str]:
