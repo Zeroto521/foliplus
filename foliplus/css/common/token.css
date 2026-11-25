@@ -443,8 +443,9 @@
      only their own geometry (strip inset, scrollbar lane), never these. */
   --foliplus-menu-gap: var(--foliplus-size-4);
   /* The menu-row family height: one clickable option line. Members:
-     dropdown option, scheme picker item, search result, more-menu button.
-     A member must not declare its own height. */
+     dropdown option, scheme picker item, search result. A member must not
+     declare its own height. The ⋮ action menu is NOT a member: it is a
+     compact action list, tighter than an option row by design. */
   --foliplus-menu-row-h: var(--foliplus-ctrl-size);
   --foliplus-menu-row-hover-bg: var(--foliplus-accent-light);
   --foliplus-menu-row-hover-ink: var(--foliplus-accent-primary);

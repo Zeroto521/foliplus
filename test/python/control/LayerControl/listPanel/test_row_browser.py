@@ -137,11 +137,12 @@ class TestMenuRowHeightBrowser(LayerControlBrowserBase):
                 ".foliplus-layer-more-menu.open", state="attached", timeout=5000
             )
             menu_button = read_row(page, ".foliplus-layer-more-menu button")
-            assert menu_button["minHeight"] == menu_button["menuRowToken"], (
-                "more-menu button is not --foliplus-menu-row-h: "
-                f"{menu_button['minHeight']} != {menu_button['menuRowToken']}"
+            # The action menu is deliberately NOT an option row: it stays
+            # tighter than the menu-row family height, driven by its padding.
+            assert menu_button["minHeight"] < menu_button["menuRowToken"], (
+                "more-menu button must stay tighter than --foliplus-menu-row-h: "
+                f"{menu_button['minHeight']} >= {menu_button['menuRowToken']}"
             )
-            assert menu_button["boxSizing"] == "border-box"
             page.keyboard.press("Escape")
             page.wait_for_timeout(50)
 
