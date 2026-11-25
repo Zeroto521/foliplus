@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import folium
+import pytest
 from conftest import (
     _js,
     assert_config_value,
@@ -29,9 +30,10 @@ class TestScaleControlConstructor:
     def test_default_position(self):
         assert ScaleControl().position == "bottomleft"
 
-    def test_custom_position(self):
-        """position is configurable (not hardcoded to bottomleft)."""
-        assert ScaleControl(position="topright").position == "topright"
+    def test_position_fixed_to_bottomleft(self):
+        """ScaleControl position is always bottomleft; passing position raises TypeError."""
+        with pytest.raises(TypeError):
+            ScaleControl(position="topright")
 
     def test_default_locale(self):
         assert ScaleControl()._locale_code == ""
@@ -81,10 +83,6 @@ class TestScaleControlRendering:
         html = render_control(ScaleControl())
         assert "bottomleft" in html
 
-    def test_scale_position_custom(self):
-        """A custom position is passed through to the JS CONFIG."""
-        html = render_control(ScaleControl(position="topright"))
-        assert "topright" in html
 
     def test_show_zoom_false(self):
         """scale still renders with show_zoom=False."""
