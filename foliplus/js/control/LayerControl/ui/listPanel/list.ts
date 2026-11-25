@@ -1327,4 +1327,6 @@ export {
   colorLayerName,
   initLayerItem,
   refreshTreeConnectors,
+  realignRole,
+  rowByKey,
 };
