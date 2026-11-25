@@ -2,26 +2,46 @@
 
 token.css declares two families, one token each; a row belongs to exactly one:
 
-- **list rows** (--foliplus-row-min-height, 35.6px): layer rows and form rows —
-  multi-column content plus interaction controls;
-- **menu rows** (--foliplus-menu-row-h, 30px): one clickable option line —
-  dropdown option, scheme item, search result, more-menu button.
+- **list rows** (--foliplus-row-min-height, 35.6px): the layer rows and the
+  toggle-all role row — multi-column content plus interaction controls;
+- **menu rows** (--foliplus-menu-row-h, 30px): one clickable option line — the
+  dropdown option, the scheme picker item, the search result and the more-menu
+  button.
 
-The assertions compare each row's computed height with the computed value of
-its family token, so a future row that declares a private height (or a token
-that drifts off its family) turns the test red without hardcoded pixels. The
-rows outside the families are pinned too: the panel header keeps
---foliplus-ctrl-size and a form row keeps --foliplus-toggle-size (it is a
-control row, not a list row).
+Every assertion compares a row's computed height with the computed value of its
+family token, so a future row that declares a private height (or a token that
+drifts off its family) turns the test red without hardcoded pixels. The rows
+outside the families are pinned too: a panel header is chrome
+(--foliplus-ctrl-size) and a form row is a control row
+(--foliplus-toggle-size), so neither may be "converged" onto the list rhythm.
 """
 
 from __future__ import annotations
 
+import json
+
+import folium
 import pytest
-from conftest import _js, panel_ready, use_page
+from conftest import _js, load_geojson, panel_ready, use_page
 
 from ..helper_browser import LayerControlBrowserBase
-from ..helper_paint import build_layers
+
+LIST_ROW = ".foliplus-layer-item"
+TOGGLE_ROW = ".foliplus-layer-toggle-all"
+STYLE_PANEL = ".foliplus-layer-style-panel"
+
+
+def polygon_layer() -> folium.GeoJson:
+    """One polygon overlay carrying a numeric property, so VALUE fill is offered.
+
+    A single overlay row keeps the first row the polygon everywhere the test
+    clicks: the style drawer's fill rows (mode select, scheme trigger) only
+    exist on a fill-capable row.
+    """
+    return folium.GeoJson(
+        json.dumps(load_geojson("common", "polygons_fuzhou_3offset")),
+        name="Polygon data",
+    )
 
 
 def read_row(page, selector: str, root: str | None = None) -> dict:
@@ -32,30 +52,34 @@ def read_row(page, selector: str, root: str | None = None) -> dict:
 
 
 def open_expanded_panel(page) -> None:
-    """Open the control and wait for the row list to render."""
-    panel_ready(page)
+    """Expand the control and wait for its init pass."""
     page.evaluate(_js("LayerControl/open_panel"))
     page.wait_for_selector(
         ".foliplus-layer-ctrl.foliplus-is-expanded", state="attached", timeout=5000
     )
+    panel_ready(page)
+
+
+def open_style_drawer(page) -> None:
+    """Open ⋮ -> Style on the overlay row and wait for the drawer to paint."""
+    opened = page.evaluate(_js("LayerControl/open_style_panel"))
+    assert opened["ok"], f"style panel did not open: {opened}"
+    page.wait_for_selector(STYLE_PANEL, state="visible", timeout=5000)
 
 
 class TestListRowHeightBrowser(LayerControlBrowserBase):
-    """Layer rows and form rows resolve to the shared list-row height."""
+    """Layer rows and form rows resolve to their own family heights."""
 
     @pytest.mark.browser
     def test_list_rows_share_one_height(self, browser, tmp_path):
-        # The polygon row renders first so the style drawer offers the fill
-        # rows this test samples (a point row has no fill row).
-        point, line, polygon = build_layers()
-        with use_page(self._make_page, browser, tmp_path, polygon, line, point) as (
+        with use_page(self._make_page, browser, tmp_path, polygon_layer()) as (
             page,
             errors,
         ):
             open_expanded_panel(page)
 
             # A data row and its role header are the same list-row family.
-            layer_row = read_row(page, ".foliplus-layer-item")
+            layer_row = read_row(page, LIST_ROW)
             assert layer_row["minHeight"] == layer_row["listRowToken"], (
                 "layer row does not resolve to --foliplus-row-min-height: "
                 f"{layer_row['minHeight']} != {layer_row['listRowToken']}"
@@ -63,12 +87,12 @@ class TestListRowHeightBrowser(LayerControlBrowserBase):
             assert layer_row["listRowToken"] == "35.6px", (
                 f"list-row token drifted: {layer_row['listRowToken']}"
             )
-            toggle_row = read_row(page, ".foliplus-layer-toggle-all")
+            toggle_row = read_row(page, TOGGLE_ROW)
             assert toggle_row["minHeight"] == toggle_row["listRowToken"]
 
-            # The horizontal insets stay the layer row's own derivation: the
-            # right inset is the shared base minus the border compensation, the
-            # left one is the rail's base step.
+            # The horizontal insets stay derived, not repeated: the right inset
+            # is the shared base minus the border compensation, the left one is
+            # the rail's base step.
             assert layer_row["paddingRight"] == layer_row["layerPadToken"], (
                 "layer row right inset is not --foliplus-layer-item-pad-x: "
                 f"{layer_row['paddingRight']} != {layer_row['layerPadToken']}"
@@ -83,9 +107,9 @@ class TestListRowHeightBrowser(LayerControlBrowserBase):
             )
 
             # A form row is a control row: it keeps --foliplus-toggle-size.
-            assert page.evaluate(_js("LayerControl/open_style_panel"))["ok"]
+            open_style_drawer(page)
             page.wait_for_selector(
-                ".foliplus-layer-style-panel .foliplus-form-row", timeout=5000
+                f"{STYLE_PANEL} .foliplus-form-row", state="visible", timeout=5000
             )
             form_row = read_row(page, ".foliplus-form-row")
             assert form_row["minHeight"] == form_row["toggleSizeToken"], (
@@ -97,25 +121,21 @@ class TestListRowHeightBrowser(LayerControlBrowserBase):
 
 
 class TestMenuRowHeightBrowser(LayerControlBrowserBase):
-    """Every menu row resolves to the shared menu-row height."""
+    """The overflow menu, the dropdown list and the scheme list are one family."""
 
     @pytest.mark.browser
     def test_menu_rows_share_one_height(self, browser, tmp_path):
-        # The polygon row renders first so the style drawer offers the fill
-        # rows this test samples (a point row has no fill row).
-        point, line, polygon = build_layers()
-        with use_page(self._make_page, browser, tmp_path, polygon, line, point) as (
+        with use_page(self._make_page, browser, tmp_path, polygon_layer()) as (
             page,
             errors,
         ):
             open_expanded_panel(page)
 
             # More-menu button: the overflow menu's action rows.
-            page.evaluate(
-                _js("LayerControl/click_first_row_more_btn"),
-                ".foliplus-layer-item",
+            page.evaluate(_js("LayerControl/click_first_row_more_btn"), LIST_ROW)
+            page.wait_for_selector(
+                ".foliplus-layer-more-menu.open", state="attached", timeout=5000
             )
-            page.wait_for_selector(".foliplus-layer-more-menu", timeout=5000)
             menu_button = read_row(page, ".foliplus-layer-more-menu button")
             assert menu_button["minHeight"] == menu_button["menuRowToken"], (
                 "more-menu button is not --foliplus-menu-row-h: "
@@ -123,16 +143,17 @@ class TestMenuRowHeightBrowser(LayerControlBrowserBase):
             )
             assert menu_button["boxSizing"] == "border-box"
             page.keyboard.press("Escape")
-            page.wait_for_timeout(100)
+            page.wait_for_timeout(50)
 
             # Dropdown option: the style drawer's bridged select list.
-            assert page.evaluate(_js("LayerControl/open_style_panel"))["ok"]
+            open_style_drawer(page)
             trigger = page.wait_for_selector(
-                ".foliplus-layer-style-panel .foliplus-dropdown-trigger",
-                timeout=5000,
+                f"{STYLE_PANEL} .foliplus-dropdown-trigger", timeout=5000
             )
             trigger.click()
-            page.wait_for_selector(".foliplus-dropdown-option", timeout=5000)
+            page.wait_for_selector(
+                ".foliplus-dropdown-option", state="visible", timeout=5000
+            )
             option = read_row(page, ".foliplus-dropdown-option")
             assert option["minHeight"] == option["menuRowToken"], (
                 "dropdown option is not --foliplus-menu-row-h: "
@@ -140,13 +161,19 @@ class TestMenuRowHeightBrowser(LayerControlBrowserBase):
             )
             assert option["boxSizing"] == "border-box"
             page.keyboard.press("Escape")
-            page.wait_for_timeout(100)
+            page.wait_for_timeout(50)
 
-            # Scheme item: the style drawer's color-scheme list.
-            prep = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
-            assert prep.get("ok"), prep
-            page.mouse.click(prep["triggerX"], prep["triggerY"])
-            page.wait_for_selector(".foliplus-scheme-picker-item", timeout=5000)
+            # Scheme item: the style drawer's color-scheme list, opened on a real
+            # press (the picker binds the document mousedown capture phase).
+            prepared = page.evaluate(_js("LayerControl/style_scheme_portal_prepare"))
+            assert prepared.get("ok"), f"the ramp mode did not settle: {prepared}"
+            page.mouse.click(prepared["triggerX"], prepared["triggerY"])
+            page.wait_for_selector(
+                ".foliplus-scheme-picker-portal", state="attached", timeout=3000
+            )
+            page.wait_for_function(
+                _js("platform/wait_scheme_dropdown_settled"), timeout=5000
+            )
             item = read_row(page, ".foliplus-scheme-picker-item")
             assert item["height"] == item["menuRowToken"], (
                 "scheme item is not --foliplus-menu-row-h: "
