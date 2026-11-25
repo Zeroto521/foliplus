@@ -2030,8 +2030,8 @@ describe("ui/list folder rows (render / row structure)", () => {
     expect(item).toContain("cursor: grab");
     expect(item).not.toContain("cursor: default");
     const dragging = row.slice(
-      row.indexOf("&.foliplus-layer-dragging {"),
-      row.indexOf("&.foliplus-layer-drag-over-top {"),
+      row.indexOf('&[data-foliplus-drop="source"] {'),
+      row.indexOf('&[data-foliplus-drop="before"] {'),
     );
     expect(dragging).toContain("cursor: grabbing");
   });

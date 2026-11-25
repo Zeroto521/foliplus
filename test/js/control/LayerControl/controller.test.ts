@@ -5945,7 +5945,9 @@ describe("retireEntry finalization", () => {
     const original = container.querySelectorAll.bind(container);
     let armed = true;
     container.querySelectorAll = ((selector: string) => {
-      if (armed && String(selector).includes(CONST.SEL.LAYER_ITEM)) {
+      // The cancel-drag step scans the panel for the drop attribute, so arming
+      // on that selector makes the drag step the one that fails.
+      if (armed && String(selector).includes(CONST.DRAG_STATE_ATTR)) {
         armed = false;
         throw new Error("drag boom");
       }

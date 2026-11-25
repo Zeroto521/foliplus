@@ -937,7 +937,7 @@ describe("LayerUI style panel", () => {
     item.dispatchEvent(dragstart);
 
     expect(dragstart.defaultPrevented).toBe(true);
-    expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+    expect(item.getAttribute(CONST.DRAG_STATE_ATTR)).toBeNull();
     expect(ui.listPanel.dragEntry).toBeNull();
   });
 
@@ -952,7 +952,7 @@ describe("LayerUI style panel", () => {
     item.dispatchEvent(dragstart);
 
     expect(dragstart.defaultPrevented).toBe(false);
-    expect(item.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+    expect(item.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.SOURCE);
   });
 
   // ─────────────────── row cursor vs panel controls ───────────────────

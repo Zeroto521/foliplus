@@ -123,8 +123,8 @@ class ListPanel {
   /** Wall-clock timestamp of the last drag hint shown; used to enforce the
    *  hint cooldown so a fast drag does not spam the tooltip. */
   lastDragHintAt: number = 0;
-  /** Last element the drag pointer hovered; used to move the
-   *  `DRAG_OVER_TOP` / `DRAG_OVER_BOTTOM` class as the pointer moves. */
+  /** Last element the drag pointer hovered; used to move the one
+   *  `data-foliplus-drop` state as the pointer moves (and to clear it). */
   lastDragOverItem: HTMLElement | null = null;
   /** Cleanup for the interaction manager (keyboard nav, drag gestures) —
    *  called once on unbind. */

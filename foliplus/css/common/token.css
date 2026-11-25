@@ -499,12 +499,17 @@
     calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
   --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
     calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
-  --foliplus-drag-pulse-count: 3;
+  /* One pulse, on pickup only: the hover states carry no animation. */
+  --foliplus-drag-pulse-count: 1;
   --foliplus-drag-border-from: var(--foliplus-accent-primary);
   --foliplus-drag-border-to: var(--foliplus-accent-hover);
   --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
     calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
   --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
+  /* How long the committed indicator holds on the row's new position before
+     drag.ts clears it: the drop's acknowledgement is one short flash of the
+     same single state. */
+  --foliplus-drag-commit: var(--foliplus-motion-quick);
   --foliplus-layer-item-pad-x: calc(
     var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
   );

@@ -1,7 +1,7 @@
 /* ── Layer Control ── */
 .foliplus-layer-ctrl {
   /* ── Drag & Drop Variables ──
-     Used by .foliplus-layer-item.{drag-over-top|drag-over-bottom} rules below. */
+     Used by the .foliplus-layer-item[data-foliplus-drop] rules below. */
 
   /* Drop-position glow (top/bottom) */
 
@@ -469,39 +469,46 @@
        carries the checked-row (active) wake. The old bare :hover branch was
        removed: on a row-panel hover the recipe is carved out, so a stray
        :hover here would still wake the type icon to black. */
-    &.foliplus-layer-dragging {
+    /* Drag indicator: ONE attribute, one value, one visual (DRAG_STATE in
+       const.ts). A single attribute makes "two indicators on one row"
+       unrepresentable — the old four-class vocabulary allowed it and shipped
+       a row carrying a solid edge, the pulse and a dashed outline at once. */
+    &[data-foliplus-drop="source"] {
       background: var(--foliplus-accent-light);
       opacity: var(--foliplus-alpha-70);
       cursor: grabbing;
-    }
-    &.foliplus-layer-drag-over-top {
-      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: var(--foliplus-drag-top-shadow);
+      /* The pulse marks the pickup, once — not every hover. */
       animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
         var(--foliplus-drag-pulse-count);
+    }
+    /* Accepted edge: a solid line on the side the layer lands. No animation:
+       the pulse belongs to the pickup, and one gesture gets one indicator. */
+    &[data-foliplus-drop="before"] {
+      border-top: var(--foliplus-drag-border-width) solid
+        var(--foliplus-accent-primary);
+      background: var(--foliplus-accent-soft-bg);
+      box-shadow: var(--foliplus-drag-top-shadow);
     }
     /* A folder row the dragged layer would join: the whole row lights up
        instead of a before/after edge, because the drop is "into", not
        "beside". */
-    &.foliplus-layer-drag-over-into {
+    &[data-foliplus-drop="join"] {
       background: var(--foliplus-accent-soft-bg);
       box-shadow: inset 0 0 0 var(--foliplus-drag-border-width)
         var(--foliplus-accent-primary);
     }
     /* A refused drop: dashed outline, no fill — visibly "not here" instead of
        the solid edge or full-row fill an accepted drop draws. */
-    &.foliplus-layer-drag-over-blocked {
-      outline: var(--foliplus-drag-border-width) dashed var(--foliplus-accent-primary);
+    &[data-foliplus-drop="refuse"] {
+      outline: var(--foliplus-drag-border-width) dashed
+        var(--foliplus-accent-primary);
       outline-offset: calc(-1 * var(--foliplus-drag-border-width));
     }
-    &.foliplus-layer-drag-over-bottom {
+    &[data-foliplus-drop="after"] {
       border-bottom: var(--foliplus-drag-border-width) solid
         var(--foliplus-accent-primary);
       background: var(--foliplus-accent-soft-bg);
       box-shadow: var(--foliplus-drag-bottom-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
-        var(--foliplus-drag-pulse-count);
     }
   }
 

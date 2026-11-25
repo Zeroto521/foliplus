@@ -568,8 +568,33 @@ class TestLayerControlRendering:
         assert "--foliplus-drag-border-width" in css
         assert "--foliplus-drag-top-shadow" in css
         assert "--foliplus-drag-bottom-shadow" in css
-        assert "--foliplus-drag-pulse-count" in css
         assert "--foliplus-motion-slow" in css
+        # One pulse, on pickup only: the hover states carry no animation.
+        tokens = read_css("foliplus/css/common/token.css")
+        assert "--foliplus-drag-pulse-count: 1" in tokens
+        # The commit beat the drop acknowledgement holds for.
+        assert "--foliplus-drag-commit" in tokens
+
+    def test_drag_indicator_css_is_one_row_attribute(self):
+        """The drag indicator is ONE row attribute with one value per state.
+
+        The old vocabulary was four independent classes, which allowed two
+        indicators on one row at once (a layer over a folder row's edge drew a
+        solid border, the pulse and a dashed outline together). A single
+        attribute with exactly one value makes that unrepresentable.
+        """
+        css = read_css("foliplus/css/control/LayerControl/index.css")
+        assert '[data-foliplus-drop="source"]' in css
+        assert '[data-foliplus-drop="before"]' in css
+        assert '[data-foliplus-drop="after"]' in css
+        assert '[data-foliplus-drop="join"]' in css
+        assert '[data-foliplus-drop="refuse"]' in css
+        # The four-class vocabulary is gone, not merely unused.
+        assert "foliplus-layer-drag-over-top" not in css
+        assert "foliplus-layer-drag-over-bottom" not in css
+        assert "foliplus-layer-drag-over-into" not in css
+        assert "foliplus-layer-drag-over-blocked" not in css
+        assert "foliplus-layer-dragging" not in css
 
     def test_focus_glow_reads_motion_quick(self):
         """The focus-pane glow entrance reads its duration from the motion

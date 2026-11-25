@@ -11,6 +11,45 @@ import {
 } from "#control/LayerControl/declaredFolder.js";
 import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
 
+/** Write the row's ONE indicator state; null clears it. A single attribute
+ *  with one value is the whole point: two indicators on one row are
+ *  unrepresentable, not merely discouraged. */
+const setDragState = (row: HTMLElement | null, state: string | null): void => {
+  if (!row) return;
+  if (state === null) row.removeAttribute(CONST.DRAG_STATE_ATTR);
+  else row.setAttribute(CONST.DRAG_STATE_ATTR, state);
+};
+
+/** Clear the indicator from every row in the panel — the one clearer every
+ *  teardown path shares. */
+const clearDragStateAttr = (ui: LayerUI): void => {
+  ui.uiContainer
+    ?.querySelectorAll<HTMLElement>(`[${CONST.DRAG_STATE_ATTR}]`)
+    .forEach(row => row.removeAttribute(CONST.DRAG_STATE_ATTR));
+};
+
+/** The commit acknowledgement's duration, read from the CSS token so the
+ *  stylesheet stays the single source; the fallback keeps a stylesheet-less
+ *  environment (jsdom) working. */
+const commitMs = (row: HTMLElement): number => {
+  const raw = getComputedStyle(row)
+    .getPropertyValue("--foliplus-drag-commit")
+    .trim();
+  const value = parseFloat(raw);
+  if (!Number.isFinite(value)) return 120;
+  return raw.endsWith("ms") ? value : value * 1000;
+};
+
+/** Hold the committed state on the row's new position for one commit beat,
+ *  then clear it: the drop is acknowledged with the same single indicator the
+ *  hover used, never with a second channel. */
+const flashCommit = (ui: LayerUI, selector: string, state: string): void => {
+  const row = ui.uiContainer?.querySelector<HTMLElement>(selector);
+  if (!row) return;
+  setDragState(row, state);
+  window.setTimeout(() => setDragState(row, null), commitMs(row));
+};
+
 /** Fold or unfold one role. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */
 const toggleFold = (ui: LayerUI, role: string): void => {
@@ -107,7 +146,7 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     // which is why a folder could not be dragged at all. The block still
     // travels as one unit: the drop commits the layout's block order, not the
     // members' positions, so the members do not need to be folded away.
-    item.classList.add(CONST.CLASSES.DRAGGING);
+    setDragState(item, CONST.DRAG_STATE.SOURCE);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
     return;
   }
@@ -116,7 +155,7 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
   const entry = id ? ui.c.layerRegistry.get(id) : undefined;
   if (!entry) return;
   ui.listPanel.dragEntry = entry;
-  item.classList.add(CONST.CLASSES.DRAGGING);
+  setDragState(item, CONST.DRAG_STATE.SOURCE);
   if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
 };
 
@@ -242,12 +281,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   if (draggedFolder) {
     const row = folderDropTarget(ui, event);
     const prev = ui.listPanel.lastDragOverItem;
-    if (prev && prev !== row) {
-      prev.classList.remove(
-        CONST.CLASSES.DRAG_OVER_TOP,
-        CONST.CLASSES.DRAG_OVER_BOTTOM,
-      );
-    }
+    if (prev && prev !== row) setDragState(prev, null);
     if (!row) {
       ui.listPanel.lastDragOverItem = null;
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
@@ -275,10 +309,11 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         } else {
           event.preventDefault();
           if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-          over.classList.add(
+          setDragState(
+            over,
             dropsAfter(event, over)
-              ? CONST.CLASSES.DRAG_OVER_BOTTOM
-              : CONST.CLASSES.DRAG_OVER_TOP,
+              ? CONST.DRAG_STATE.AFTER
+              : CONST.DRAG_STATE.BEFORE,
           );
           ui.listPanel.lastDragOverItem = over;
         }
@@ -290,22 +325,21 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     // named rather than silently ignored.
     if (folderDropZone(row, event.clientY) === "into") {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      row.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
       // Draw the refusal: without it the middle half of the row is a strip
       // that neither lights up nor accepts, and the user cannot tell whether
       // the pointer is over a droppable zone.
-      row.classList.add(CONST.CLASSES.DRAG_OVER_BLOCKED);
+      setDragState(row, CONST.DRAG_STATE.REFUSE);
       ui.listPanel.lastDragOverItem = row;
       showDragHint(ui, "no_nest");
       return;
     }
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    row.classList.remove(CONST.CLASSES.DRAG_OVER_TOP, CONST.CLASSES.DRAG_OVER_BOTTOM);
-    row.classList.add(
+    setDragState(
+      row,
       dropsAfter(event, row)
-        ? CONST.CLASSES.DRAG_OVER_BOTTOM
-        : CONST.CLASSES.DRAG_OVER_TOP,
+        ? CONST.DRAG_STATE.AFTER
+        : CONST.DRAG_STATE.BEFORE,
     );
     ui.listPanel.lastDragOverItem = row;
     return;
@@ -325,14 +359,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   const prev = ui.listPanel.lastDragOverItem;
-  if (prev && prev !== item) {
-    prev.classList.remove(
-      CONST.CLASSES.DRAG_OVER_TOP,
-      CONST.CLASSES.DRAG_OVER_BOTTOM,
-      CONST.CLASSES.DRAG_OVER_INTO,
-      CONST.CLASSES.DRAG_OVER_BLOCKED,
-    );
-  }
+  if (prev && prev !== item) setDragState(prev, null);
   // A folder row is a drop target: the layer joins that folder. A group
   // row is not — its children are its own sub-layers, so it never joins a
   // folder.
@@ -346,43 +373,31 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     const targetRole = item.getAttribute(CONST.DATA.ROLE) ?? "";
     if (targetRole && targetRole !== ui.listPanel.dragEntry!.role) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      item.classList.remove(
-        CONST.CLASSES.DRAG_OVER_TOP,
-        CONST.CLASSES.DRAG_OVER_BOTTOM,
-        CONST.CLASSES.DRAG_OVER_INTO,
-        CONST.CLASSES.DRAG_OVER_BLOCKED,
-      );
-      ui.listPanel.lastDragOverItem = null;
+      setDragState(item, CONST.DRAG_STATE.REFUSE);
+      ui.listPanel.lastDragOverItem = item;
       showDragHint(ui, "same_role_only");
       return;
     }
     const zone = folderDropZone(item, event.clientY);
     if (zone === "into" && isGroupDrag(ui, ui.listPanel.dragEntry!.id)) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      item.classList.remove(
-        CONST.CLASSES.DRAG_OVER_TOP,
-        CONST.CLASSES.DRAG_OVER_BOTTOM,
-        CONST.CLASSES.DRAG_OVER_INTO,
-        CONST.CLASSES.DRAG_OVER_BLOCKED,
-      );
-      ui.listPanel.lastDragOverItem = null;
+      setDragState(item, CONST.DRAG_STATE.REFUSE);
+      ui.listPanel.lastDragOverItem = item;
       showDragHint(ui, "no_nest");
       return;
     }
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    item.classList.remove(
-      CONST.CLASSES.DRAG_OVER_TOP,
-      CONST.CLASSES.DRAG_OVER_BOTTOM,
-      CONST.CLASSES.DRAG_OVER_INTO,
-      CONST.CLASSES.DRAG_OVER_BLOCKED,
-    );
-    item.classList.add(
+    // The edge zones are legal moves (the drop handler places the layer
+    // before/after the folder block), so they are position states — never a
+    // refusal. The old writer added the blocked class here as well, which is
+    // the double indicator this redesign removes.
+    setDragState(
+      item,
       zone === "before"
-        ? CONST.CLASSES.DRAG_OVER_TOP
+        ? CONST.DRAG_STATE.BEFORE
         : zone === "after"
-          ? CONST.CLASSES.DRAG_OVER_BOTTOM
-          : CONST.CLASSES.DRAG_OVER_INTO,
-      CONST.CLASSES.DRAG_OVER_BLOCKED,
+          ? CONST.DRAG_STATE.AFTER
+          : CONST.DRAG_STATE.JOIN,
     );
     ui.listPanel.lastDragOverItem = item;
     return;
@@ -396,12 +411,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
 
   const targetIdx = registryIdx(ui, item.getAttribute(CONST.DATA.LAYER_ID));
   if (targetIdx < 0) return;
-  item.classList.remove(
-    CONST.CLASSES.DRAG_OVER_TOP,
-    CONST.CLASSES.DRAG_OVER_BOTTOM,
-    CONST.CLASSES.DRAG_OVER_INTO,
-    CONST.CLASSES.DRAG_OVER_BLOCKED,
-  );
+  setDragState(item, null);
   ui.listPanel.lastDragOverItem = item;
 
   // A group dropped on a folder's member row would join that folder, which
@@ -420,13 +430,8 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     folderDropZone(item, event.clientY) === "into"
   ) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-    item.classList.remove(
-      CONST.CLASSES.DRAG_OVER_TOP,
-      CONST.CLASSES.DRAG_OVER_BOTTOM,
-      CONST.CLASSES.DRAG_OVER_INTO,
-      CONST.CLASSES.DRAG_OVER_BLOCKED,
-    );
-    ui.listPanel.lastDragOverItem = null;
+    setDragState(item, CONST.DRAG_STATE.REFUSE);
+    ui.listPanel.lastDragOverItem = item;
     showDragHint(ui, "no_nest");
     return;
   }
@@ -436,8 +441,9 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     ui.c.folderNameOf(targetId)
   ) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-    // A refusal is not a hover: drop the pointer so the next move does not
-    // treat this row as the highlighted target.
+    // A refusal is not a hover: the row still shows the refusal state, but the
+    // pointer is dropped so the next move does not treat it as a target.
+    setDragState(item, CONST.DRAG_STATE.REFUSE);
     ui.listPanel.lastDragOverItem = null;
     showDragHint(ui, "no_nest");
     return;
@@ -451,22 +457,15 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   }
   if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
 
-  if (targetIdx < dragged) item.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
-  else if (targetIdx > dragged) item.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+  if (targetIdx < dragged) setDragState(item, CONST.DRAG_STATE.BEFORE);
+  else if (targetIdx > dragged) setDragState(item, CONST.DRAG_STATE.AFTER);
 };
 
 const handleDragLeave = (event: DragEvent) => {
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
-  if (item) {
-    item.classList.remove(
-      CONST.CLASSES.DRAG_OVER_TOP,
-      CONST.CLASSES.DRAG_OVER_BOTTOM,
-      CONST.CLASSES.DRAG_OVER_INTO,
-      CONST.CLASSES.DRAG_OVER_BLOCKED,
-    );
-  }
+  if (item) setDragState(item, null);
 };
 
 const handleDrop = (ui: LayerUI, event: DragEvent) => {
@@ -516,6 +515,17 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
       }
     } finally {
       clearDragState(ui);
+      // The commit acknowledgement: the same single state, held on the block's
+      // new position for one --foliplus-drag-commit beat.
+      if (row && targetKey) {
+        flashCommit(
+          ui,
+          `[${CONST.DATA.FOLDER_KEY}="${targetKey}"]`,
+          dropsAfter(event, row)
+            ? CONST.DRAG_STATE.AFTER
+            : CONST.DRAG_STATE.BEFORE,
+        );
+      }
     }
     return;
   }
@@ -530,8 +540,8 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // group, whose children are its own sub-layers.
   const folderKey = target?.getAttribute(CONST.DATA.FOLDER_KEY) ?? null;
   if (target && folderKey) {
+    const zone = folderDropZone(target, event.clientY);
     try {
-      const zone = folderDropZone(target, event.clientY);
       if (zone === "into") {
         if (!isGroupDrag(ui, draggedEntry.id)) {
           ui.c.moveLayerToFolder(draggedEntry.id, folderKey);
@@ -544,6 +554,15 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
       }
     } finally {
       clearDragState(ui);
+      flashCommit(
+        ui,
+        `[${CONST.DATA.FOLDER_KEY}="${folderKey}"]`,
+        zone === "into"
+          ? CONST.DRAG_STATE.JOIN
+          : zone === "before"
+            ? CONST.DRAG_STATE.BEFORE
+            : CONST.DRAG_STATE.AFTER,
+      );
     }
     return;
   }
@@ -612,6 +631,11 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
     ui.c.reorderLayer(draggedEntry.id, targetId!);
   } finally {
     clearDragState(ui);
+    flashCommit(
+      ui,
+      `[${CONST.DATA.LAYER_ID}="${targetId}"]`,
+      dragged < targetIdx ? CONST.DRAG_STATE.AFTER : CONST.DRAG_STATE.BEFORE,
+    );
   }
 };
 
@@ -624,16 +648,7 @@ const clearDragState = (ui: LayerUI): void => {
   ui.listPanel.dragEntry = null;
   ui.listPanel.dragFolder = null;
   ui.listPanel.lastDragOverItem = null;
-  const allItems = ui.uiContainer?.querySelectorAll(CONST.SEL.LAYER_ITEM);
-  allItems?.forEach((i: Element) =>
-    i.classList.remove(
-      CONST.CLASSES.DRAGGING,
-      CONST.CLASSES.DRAG_OVER_TOP,
-      CONST.CLASSES.DRAG_OVER_BOTTOM,
-      CONST.CLASSES.DRAG_OVER_INTO,
-      CONST.CLASSES.DRAG_OVER_BLOCKED,
-    ),
-  );
+  clearDragStateAttr(ui);
 };
 
 const handleDragEnd = (ui: LayerUI) => {

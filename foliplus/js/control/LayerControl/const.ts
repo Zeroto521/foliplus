@@ -19,8 +19,31 @@ const INVALIDATE_DERIVED_DEBOUNCE_MS = 50;
  *  so there is a single timer rather than one per dimension. */
 const SAVE_DEBOUNCE_MS = 100;
 
-/** Drag hint cooldown. */
-const DRAG = { HINT_COOLDOWN_MS: 800 };
+/** Drag gesture timing. */
+const DRAG = {
+  /** One refusal toast per gesture, throttled. */
+  HINT_COOLDOWN_MS: 800,
+  /** Post-drop acknowledgement flash; matches --foliplus-drag-commit. */
+  COMMIT_MS: 200,
+};
+
+/** Drag & drop state vocabulary — the single source for the row attribute.
+ *  One attribute, one value: a row can never paint two indicators at once. */
+const DRAG_STATE_ATTR = "data-foliplus-drop";
+const DRAG_STATE = {
+  /** The row being carried: pickup pulse, once. */
+  SOURCE: "source",
+  /** Accepted drop above the row: solid top edge. */
+  BEFORE: "before",
+  /** Accepted drop below the row: solid bottom edge. */
+  AFTER: "after",
+  /** Accepted drop into the row (folder): solid inset ring + soft fill. */
+  JOIN: "join",
+  /** Refused target: dashed outline, no fill. */
+  REFUSE: "refuse",
+  /** Post-drop acknowledgement: the solid ring flashes once, then clears. */
+} as const;
+type DragState = (typeof DRAG_STATE)[keyof typeof DRAG_STATE];
 
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
@@ -130,15 +153,21 @@ const CLASSES = {
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-is-focused-row",
-  DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
-  DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
-  /** A folder row the dragged layer would join. */
-  DRAG_OVER_INTO: "foliplus-layer-drag-over-into",
-  /** A drop the panel refuses (nesting a folder in a folder, a group in a
-   *  folder): the row draws a dashed outline so the zone reads as blocked
-   *  rather than as a dead strip that silently swallows the pointer. */
-  DRAG_OVER_BLOCKED: "foliplus-layer-drag-over-blocked",
-  DRAGGING: "foliplus-layer-dragging",
+  /** The one row attribute that carries the drag indicator state. A single
+   *  attribute with exactly one value makes "two indicators on one row"
+   *  unrepresentable — the old four-class vocabulary allowed it, and shipped
+   *  the bug (a folder edge drop added the position class AND the blocked
+   *  class). Writers set one value; the clearer removes the attribute. */
+  DRAG_STATE_ATTR: "data-foliplus-drop",
+  /** The drag indicator vocabulary: pickup, accepted edge, accepted join,
+   *  refused. One value per row, one visual per value. */
+  DRAG_STATE: {
+    SOURCE: "source",
+    BEFORE: "before",
+    AFTER: "after",
+    JOIN: "join",
+    REFUSE: "refuse",
+  },
   FOLD_BTN: "foliplus-layer-fold-btn",
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",
@@ -463,6 +492,8 @@ export {
   DATA,
   DEFAULT_LABEL,
   DRAG,
+  DRAG_STATE,
+  DRAG_STATE_ATTR,
   ENFORCE_ORDER_DEBOUNCE_MS,
   INVALIDATE_DERIVED_DEBOUNCE_MS,
   FOCUS,
@@ -475,3 +506,6 @@ export {
   STORAGE,
   TOGGLE_ALL_ROLE,
 };
+
+export type { DragState };
+
