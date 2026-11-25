@@ -102,21 +102,21 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 110,
+    line: 116,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a batch toggle (the toggled rows' intent was just rewritten)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 274,
+    line: 280,
     call: "syncToggleAll(ui, layerInfo.role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a single-row toggle",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 378,
+    line: 384,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a bulk tail toggle",
