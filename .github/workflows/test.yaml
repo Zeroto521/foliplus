@@ -139,9 +139,9 @@ jobs:
         with:
           python-version: "${{ matrix.python }}"
 
-      - run: uv sync --group test --constraints .github/constraints.txt --upgrade-package "folium==${{ matrix.folium }}"
+      - run: uv sync --group test --exclude-newer-package "fonttools=2026-11-24" --upgrade-package "folium==${{ matrix.folium }}"
         if: ${{ matrix.folium != 'latest' }}
-      - run: uv sync --group test --constraints .github/constraints.txt
+      - run: uv sync --group test --exclude-newer-package "fonttools=2026-11-24"
         if: ${{ matrix.folium == 'latest' }}
       - run: uv run make info
 
@@ -189,7 +189,7 @@ jobs:
         with:
           python-version: "3.15"
 
-      - run: uv sync --group test --constraints .github/constraints.txt
+      - run: uv sync --group test --exclude-newer-package "fonttools=2026-11-24"
 
       # Playwright browsers keyed by the resolved playwright version — no
       # lockfile needed, and `playwright install` still diffs against its own
@@ -249,7 +249,7 @@ jobs:
         with:
           python-version: "3.15"
 
-      - run: uv sync --group test --constraints .github/constraints.txt
+      - run: uv sync --group test --exclude-newer-package "fonttools=2026-11-24"
 
       - id: pwver
         name: Resolve Playwright version
