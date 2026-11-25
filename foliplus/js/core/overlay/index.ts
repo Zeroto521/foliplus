@@ -21,3 +21,4 @@ export type {
   OverlayRegistry,
 } from "./overlayRegistry.js";
 export { ensureHint, HINT_DURATION, HintManager, registerHintIcon } from "./hint.js";
+export type { HintAPI } from "./hint.js";

@@ -246,10 +246,11 @@ const paintByValue = (
           if (!hinted.has(layerId)) {
             hinted.add(layerId);
             degradedHintedLayers.set(ui.c.map, hinted);
-            ui.c.map.foliplus!.showHint(
+            ui.c.map.foliplus!.hint.set(
               ui.config.name,
+              "",
               ui.T("style_value_classify_degraded"),
-              HINT_DURATION.LONG,
+              { duration: HINT_DURATION.LONG },
             );
           }
         },

@@ -65,7 +65,7 @@ const filter = (values: string[]): any => ({
 /** Read the shared filter store record for a manager's map. */
 const readStoreRecord = (manager: any): any => {
   const raw = window.localStorage.getItem(filterStoreKey(manager.map));
-  return raw ? JSON.parse(raw) : null;
+  return raw ? (JSON.parse(raw).data ?? null) : null;
 };
 
 /** Read one layer's measure source from the shared store record. */
@@ -180,7 +180,7 @@ describe("MeasureManager — mode switching", () => {
     manager.currentMode = CONST.MEASURE_MODE.DISTANCE;
     manager.clearActiveMode();
     expect(manager.currentMode).toBeNull();
-    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.clear).toHaveBeenCalled();
   });
 
   it("clearAll clears layers and measurements", () => {
@@ -346,13 +346,14 @@ describe("MeasureManager — mode switching", () => {
     // The start hint must persist until the mode is cleared. setMode shows it
     // AFTER cleanMapEvents hides any previous hint, so showHint must be the
     // last hint operation (previously a trailing hideHint swallowed it).
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.any(String),
-      expect.anything(),
+      { duration: expect.anything() },
     );
-    const showOrder = manager.map.foliplus!.showHint.mock.invocationCallOrder[0];
-    const hideOrder = manager.map.foliplus!.hideHint.mock.invocationCallOrder[0];
+    const showOrder = manager.map.foliplus!.hint.set.mock.invocationCallOrder[0];
+    const hideOrder = manager.map.foliplus!.hint.clear.mock.invocationCallOrder[0];
     expect(showOrder).toBeGreaterThan(hideOrder);
   });
 
@@ -401,10 +402,11 @@ describe("MeasureManager — applyEditMode", () => {
     expect(manager.isEditMode).toBe(true);
     expect(editBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(true);
     expect(otherBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(false);
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.any(String),
-      expect.anything(),
+      { duration: expect.anything() },
     );
   });
 
@@ -425,22 +427,22 @@ describe("MeasureManager — applyEditMode", () => {
     editBtn.dataset.mode = CONST.MEASURE_MODE.EDIT;
     manager.toolBtns = [editBtn];
     manager.applyEditMode(true);
-    manager.map.foliplus!.showHint.mockClear();
+    manager.map.foliplus!.hint.set.mockClear();
 
     manager.applyEditMode(false);
 
     expect(manager.isEditMode).toBe(false);
     expect(editBtn.classList.contains(PANEL_CLASS.ACTIVE)).toBe(false);
-    expect(manager.map.foliplus!.hideHint).toHaveBeenCalled();
-    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.clear).toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.set).not.toHaveBeenCalled();
   });
 
   it("is idempotent for the same state", () => {
     const { manager } = makeManager();
     manager.applyEditMode(true);
-    manager.map.foliplus!.showHint.mockClear();
+    manager.map.foliplus!.hint.set.mockClear();
     manager.applyEditMode(true); // no-op
-    expect(manager.map.foliplus!.showHint).not.toHaveBeenCalled();
+    expect(manager.map.foliplus!.hint.set).not.toHaveBeenCalled();
   });
 
   it("closes registered overlays when disabled", () => {
@@ -643,10 +645,11 @@ describe("MeasureManager — applyEditMode", () => {
     manager.setMode(CONST.MEASURE_MODE.EDIT);
 
     expect(manager.isEditMode).toBe(false);
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.any(String),
-      expect.anything(),
+      { duration: expect.anything() },
     );
   });
 
@@ -850,16 +853,17 @@ describe("MeasureManager — export auto-clear", () => {
     manager.setMode("distance");
     expect(manager.currentMode).toBe("distance");
     const events = ensureEvents(manager.map);
-    manager.map.foliplus!.showHint.mockClear();
+    manager.map.foliplus!.hint.set.mockClear();
     events.publish("foliplus:mode:change", {
       component: "ExportControl",
       mode: "selecting",
     });
     expect(manager.currentMode).toBeNull();
-    expect(manager.map.foliplus!.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus!.hint.set).toHaveBeenCalledWith(
       "MeasureControl",
+      "",
       expect.stringContaining("export_paused"),
-      expect.any(Number),
+      { duration: expect.any(Number) },
     );
   });
 
@@ -1258,8 +1262,7 @@ function makeLabelManager(config: Partial<typeof window.CONFIG> = {}) {
     off: vi.fn(),
     eachLayer: vi.fn(),
     foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
+      hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
       LayerAPI: { createLayers: vi.fn(() => layers) },
     },
   };

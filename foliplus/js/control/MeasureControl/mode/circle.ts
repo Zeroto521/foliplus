@@ -151,10 +151,11 @@ class CircleMode extends PreviewMode {
           CONST.PANES.NODE,
         );
         phase = 1;
-        this.map.foliplus!.showHint(
+        this.map.foliplus!.hint.set(
           this.config.name,
+          "",
           this.T("hint_circle_radius"),
-          HINT_DURATION.PERSIST,
+          { duration: HINT_DURATION.PERSIST },
         );
       } else if (phase === 1) {
         const r = Util.distance(center!, event.latlng);
@@ -344,7 +345,7 @@ class CircleMode extends PreviewMode {
       unbindMapEvents(this.map, circleEvents);
       this.clearCursorNode();
       resetPreviews();
-      this.map.foliplus!.hideHint(this.config.name);
+      this.map.foliplus!.hint.clear(this.config.name);
     };
   }
 

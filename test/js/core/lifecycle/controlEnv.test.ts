@@ -8,7 +8,9 @@ vi.mock("#core/overlay/index.js", () => ({
 
 beforeEach(() => {
   vi.mocked(registerHintIcon).mockClear();
-  vi.stubGlobal("foliplus", { showHint: vi.fn() });
+  vi.stubGlobal("foliplus", {
+    hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
+  });
 });
 
 describe("createControlEnv", () => {

@@ -960,7 +960,7 @@ describe("initScan — hints keyed by the injected config", () => {
     const showHint = vi.fn();
     (m.map as unknown as { foliplus: unknown }).foliplus = {
       LayerAPI: { isLayerControl: false },
-      showHint,
+      hint: { set: showHint, clear: vi.fn(), registerIcon: vi.fn() },
     };
 
     vi.useFakeTimers();
@@ -970,8 +970,9 @@ describe("initScan — hints keyed by the injected config", () => {
 
     expect(showHint).toHaveBeenCalledWith(
       "HeatmapControl",
+      "",
       expect.stringContaining("requires LayerControl"),
-      HINT_DURATION.LONG,
+      { duration: HINT_DURATION.LONG },
     );
   });
 
@@ -981,7 +982,7 @@ describe("initScan — hints keyed by the injected config", () => {
     const showHint = vi.fn();
     (m.map as unknown as { foliplus: unknown }).foliplus = {
       LayerAPI: { isLayerControl: true },
-      showHint,
+      hint: { set: showHint, clear: vi.fn(), registerIcon: vi.fn() },
     };
 
     vi.useFakeTimers();
@@ -991,8 +992,9 @@ describe("initScan — hints keyed by the injected config", () => {
 
     expect(showHint).toHaveBeenCalledWith(
       "HeatmapControl",
+      "",
       expect.stringContaining("No point layers found"),
-      HINT_DURATION.LONG,
+      { duration: HINT_DURATION.LONG },
     );
   });
 });
@@ -1197,7 +1199,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
     // aggregation), but the field key is the empty sentinel: nothing guessed
     // its way in, and the loaded record carries no field at all.
     const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
-    expect(stored.field).toBe("");
+    expect(stored.data.field).toBe("");
     expect(m.loadSavedConfig()?.field).toBeUndefined();
   });
 
@@ -1234,7 +1236,7 @@ describe("updateFieldSelector — concrete field resolution", () => {
       "Needs a numeric field to aggregate by value",
     );
     expect(ctrl.fieldWrap.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).agg).toBe(
+    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data.agg).toBe(
       "count",
     );
   });

@@ -41,8 +41,7 @@ function makeMapMock() {
     // The UI functions now reach the map via mgr.map — the mock must carry the
     // foliplus runtime like the real Leaflet map (hints, per-map events/modes).
     foliplus: {
-      showHint: vi.fn(),
-      hideHint: vi.fn(),
+      hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() },
     },
   };
 }
@@ -92,7 +91,7 @@ describe("ExportControl ui — extra hint and toolbar paths", () => {
     cancelUnlocked!.click();
     expect(manager.cropState).toBeNull();
     expect(ctrl.classList.contains(PANEL_CLASS.COLLAPSED)).toBe(true);
-    expect(manager.map.foliplus.hideHint).toHaveBeenCalled();
+    expect(manager.map.foliplus.hint.clear).toHaveBeenCalled();
   });
 });
 
@@ -192,26 +191,24 @@ describe("ExportControl ui — hints and toolbar via the injected config", () =>
   it("showGlobalHint uses the injected config name", () => {
     const manager = inject(makeManager());
     (manager.showGlobalHint as (text: string) => void)("working");
-    expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus.hint.set).toHaveBeenCalledWith(
       "ExportControl",
+      "",
       "working",
-      HINT_DURATION.PERSIST,
-      undefined,
-      undefined,
-      false,
+      { duration: HINT_DURATION.PERSIST },
     );
   });
 
   it("size hint text comes from the injected config, not from window.CONFIG", () => {
     const manager = inject(makeManager());
     showCropBox(manager);
-    const size = manager.map.foliplus.showHint.mock.calls.find(
-      (c: unknown[]) => c[4] === "size",
+    const size = manager.map.foliplus.hint.set.mock.calls.find(
+      (c: unknown[]) => c[1] === "size",
     );
     expect(size).toBeDefined();
     expect(size![0]).toBe("ExportControl");
-    expect(size![1]).toContain("SZ ");
-    expect(size![1]).toContain("px");
+    expect(size![2]).toContain("SZ ");
+    expect(size![2]).toContain("px");
   });
 
   it("pixel-limit hint formats the config max_pixels when the crop overflows", () => {
@@ -223,11 +220,11 @@ describe("ExportControl ui — hints and toolbar via the injected config", () =>
     manager.cropState!.rect = { left: 0, top: 0, width: 50, height: 50 };
     manager.showHintWithInfo(manager.cropState!.rect);
 
-    const limit = manager.map.foliplus.showHint.mock.calls.find(
-      (c: unknown[]) => c[4] === "limit",
+    const limit = manager.map.foliplus.hint.set.mock.calls.find(
+      (c: unknown[]) => c[1] === "limit",
     );
     expect(limit).toBeDefined();
-    expect(limit![1]).toContain("over the 100 cap");
+    expect(limit![2]).toContain("over the 100 cap");
   });
 
   it("lockCropBox re-renders the toolbar with the injected titles", () => {
@@ -245,7 +242,7 @@ describe("ExportControl ui — hints and toolbar via the injected config", () =>
     const manager = inject(makeManager());
     showCropBox(manager);
     manager.lockCropBox(true);
-    const texts = manager.map.foliplus.showHint.mock.calls.map((c: unknown[]) =>
+    const texts = manager.map.foliplus.hint.set.mock.calls.map((c: unknown[]) =>
       String(c[1]),
     );
     // onMapChange may refresh the size hint, but the locked-instruction hint
@@ -256,26 +253,22 @@ describe("ExportControl ui — hints and toolbar via the injected config", () =>
   it("showGlobalHint with loading passes the spinner flag through", () => {
     const manager = makeManager();
     showGlobalHint(manager, "Exporting map... (42%)", 0, true);
-    expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus.hint.set).toHaveBeenCalledWith(
       "ExportControl",
+      "",
       "Exporting map... (42%)",
-      0,
-      undefined,
-      undefined,
-      true,
+      { duration: 0, icon: "loading" },
     );
   });
 
   it("showGlobalHint defaults to the control icon for status messages", () => {
     const manager = makeManager();
     showGlobalHint(manager, "Export successful", 4000);
-    expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus.hint.set).toHaveBeenCalledWith(
       "ExportControl",
+      "",
       "Export successful",
-      4000,
-      undefined,
-      undefined,
-      false,
+      { duration: 4000 },
     );
   });
 });
@@ -368,10 +361,11 @@ describe("ExportControl ui — crop-state guards and locked map sync", () => {
     expect(manager.mapContainer.querySelectorAll(".foliplus-export-box")).toHaveLength(
       0,
     );
-    expect(manager.map.foliplus.showHint).toHaveBeenCalledWith(
+    expect(manager.map.foliplus.hint.set).toHaveBeenCalledWith(
       manager.config.name,
+      "",
       manager.T("blocked_measure"),
-      HINT_DURATION.SHORT,
+      { duration: HINT_DURATION.SHORT },
     );
   });
 

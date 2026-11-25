@@ -243,11 +243,9 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
   const measurements = mgr.visibleMeasurements();
   if (!measurements || measurements.length === 0) {
     // foliplus is per-map — hint via the manager's map instance.
-    mgr.map.foliplus?.showHint?.(
-      mgr.config.name,
-      mgr.T("export_no_data"),
-      HINT_DURATION.LONG,
-    );
+    mgr.map.foliplus?.hint.set(mgr.config.name, "", mgr.T("export_no_data"), {
+      duration: HINT_DURATION.LONG,
+    });
     return;
   }
   // Serialization and the download anchor are pure local operations, so a
@@ -258,23 +256,25 @@ const handleExportClick = (mgr: MeasureManager) => (event: Event) => {
     exportMeasurements(mgr.env, measurements, format);
   } catch (err) {
     mgr.log.warn("export failed:", err);
-    mgr.map.foliplus?.showHint?.(
+    mgr.map.foliplus?.hint.set(
       mgr.config.name,
+      "",
       mgr.T("export_fail") + mgr.T("err_export"),
-      HINT_DURATION.LONG,
+      { duration: HINT_DURATION.LONG },
     );
     return;
   }
   // Reported only after the download call returns: a throwing export never
   // wrote the file, so success is not claimed on that path.
-  mgr.map.foliplus?.showHint?.(
+  mgr.map.foliplus?.hint.set(
     mgr.config.name,
+    "",
     mgr.T("export_success") +
       mgr
         .T("export_file")
         .replace("{n}", String(measurements.length))
         .replace("{f}", exportFilename(mgr.env, format)),
-    HINT_DURATION.LONG,
+    { duration: HINT_DURATION.LONG },
   );
 };
 

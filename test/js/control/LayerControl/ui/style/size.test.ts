@@ -340,7 +340,7 @@ describe("commitSize", () => {
   it("persists under layers[id].size with its provenance marker", () => {
     commitSize(ui, "overlay1", 30);
     ui.c.persistence.flushAll();
-    const rec = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    const rec = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data;
     expect(rec.layers.overlay1.size).toBe(30);
     expect(rec.layers.overlay1.overrides).toContain("size");
   });
@@ -348,8 +348,8 @@ describe("commitSize", () => {
   it("only writes the radius key", () => {
     commitSize(ui, "overlay1", 30);
     ui.c.persistence.flushAll();
-    const entry = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).layers
-      .overlay1;
+    const entry = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data
+      .layers.overlay1;
     expect(entry).toEqual({ size: 30, overrides: ["size"] });
   });
 });
@@ -428,8 +428,8 @@ describe("resetLayerSize", () => {
     expect(layer.getRadius()).toBe(12);
     expect(getIntent(ui, "overlay1", "size")).toBeUndefined();
     expect(ui.intentStore.isUserSet("overlay1", "size")).toBe(false);
-    const entry = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).layers
-      ?.overlay1;
+    const entry = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data
+      .layers?.overlay1;
     expect(entry?.size).toBeUndefined();
     expect(entry?.overrides ?? []).not.toContain("size");
   });

@@ -140,6 +140,7 @@ const SHAPE_PRIMITIVES = {
   bool: "boolean",
   null: "null",
   array_string: "string[]",
+  object_unknown: "Record<string, unknown>",
 };
 
 /** Tell a primitive union apart from a literal union. JSON flattens Python

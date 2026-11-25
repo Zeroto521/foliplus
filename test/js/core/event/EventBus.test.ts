@@ -760,4 +760,49 @@ describe("ensureEvents", () => {
     const mapB = {} as any;
     expect(ensureEvents(mapA)).not.toBe(ensureEvents(mapB));
   });
+
+  it("keeps the original bus across repeat calls", () => {
+    const map = { on: vi.fn() } as any;
+    const a = ensureEvents(map);
+    ensureEvents(map);
+    expect(map.foliplus.events).toBe(a);
+  });
+
+  it("preserves sibling namespace members already installed by other factories", () => {
+    const map = {
+      foliplus: { hint: { set: "hint", clear: vi.fn(), registerIcon: vi.fn() } },
+      on: vi.fn(),
+    } as any;
+    ensureEvents(map);
+    expect(map.foliplus.hint.set).toBe("hint");
+    expect(map.foliplus.events).toBeDefined();
+  });
+
+  it("clears the bus when the map unloads", () => {
+    const map = { on: vi.fn() } as any;
+    const bus = ensureEvents(map);
+    const handler = vi.fn();
+    bus.on("evt", handler);
+    const unload = map.on.mock.calls.find((c: unknown[]) => c[0] === "unload");
+    expect(unload).toBeDefined();
+    (unload![1] as () => void)();
+
+    bus.emit("evt");
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("emits through the namespace handle components actually read", () => {
+    const map = { on: vi.fn() } as any;
+    // Subscribe on the locally held bus, emit through the namespace. The
+    // assertion only means something if the two are the same object — which is
+    // what the callers actually rely on.
+    const bus = ensureEvents(map);
+    const seen: unknown[] = [];
+    bus.on(EVENTS.MODE_CHANGE, (p: unknown) => seen.push(p));
+    map.foliplus.events.publish(EVENTS.MODE_CHANGE, {
+      component: "MeasureControl",
+      mode: "distance",
+    });
+    expect(seen).toEqual([{ component: "MeasureControl", mode: "distance" }]);
+  });
 });

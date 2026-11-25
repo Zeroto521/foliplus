@@ -79,7 +79,8 @@ async data => {
     const key = localStorage.key(i);
     if (!key || !key.includes("foliplus")) continue;
     try {
-      const data = JSON.parse(localStorage.getItem(key));
+      const stored = JSON.parse(localStorage.getItem(key));
+      const data = stored && stored.data ? stored.data : stored;
       const entry = data?.layers?.["zr_close"];
       if (entry) {
         disk = {

@@ -850,31 +850,33 @@ describe("LayerUI keyboard", () => {
       );
 
     it("hints when the top overlay layer cannot move up", () => {
-      // ensureEvents() wipes map.foliplus.showHint; re-attach a spy.
+      // ensureEvents() wipes map.foliplus.hint.set; re-attach a spy.
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
       const overlay = findItem(ui, "overlay1");
       pressKey(overlay, "ArrowDown"); // establish the keyboard cursor
       ctrlArrow(overlay, "ArrowUp");
 
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         expect.stringContaining("reorder_top"),
-        HINT_DURATION.SHORT,
+        { duration: HINT_DURATION.SHORT },
       );
     });
 
     it("hints when the last overlay layer cannot move down", () => {
       const hintSpy = vi.fn();
-      map.foliplus.showHint = hintSpy;
+      map.foliplus.hint.set = hintSpy;
       const overlay = findItem(ui, "overlay2");
       pressKey(overlay, "ArrowDown");
       ctrlArrow(overlay, "ArrowDown");
 
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
+        "",
         expect.stringContaining("reorder_bottom"),
-        HINT_DURATION.SHORT,
+        { duration: HINT_DURATION.SHORT },
       );
     });
   });
@@ -1214,7 +1216,9 @@ describe("LayerUI keyboard", () => {
       const item = findItem(ui, "base1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(item));
       const showHint = vi.fn();
-      (ui.c.map as any).foliplus = { showHint };
+      (ui.c.map as any).foliplus = {
+        hint: { set: showHint, clear: vi.fn(), registerIcon: vi.fn() },
+      };
       ui.handleKeyDown(keyEvent("ArrowUp", { ctrlKey: true }));
       expect(showHint).toHaveBeenCalled();
     });
@@ -1223,7 +1227,9 @@ describe("LayerUI keyboard", () => {
       const items = ui.getNavigableItems();
       ui.setActiveItem(items.length - 1);
       const showHint = vi.fn();
-      (ui.c.map as any).foliplus = { showHint };
+      (ui.c.map as any).foliplus = {
+        hint: { set: showHint, clear: vi.fn(), registerIcon: vi.fn() },
+      };
       ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true }));
       expect(showHint).toHaveBeenCalled();
     });

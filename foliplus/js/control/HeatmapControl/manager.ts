@@ -12,7 +12,7 @@ import {
   applySavedConfig as applySavedConfigFn,
   clearSavedConfig as clearSavedConfigFn,
   loadSavedConfig as loadSavedConfigFn,
-  toSavedConfig,
+  saveSavedConfig as saveSavedConfigFn,
 } from "./persistence.js";
 import {
   drawHexLabel as drawHexLabelFn,
@@ -69,7 +69,7 @@ import { normalizeHexColor } from "#platform/color.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
-import { type Persisted, createPersisted, saveRecord } from "#platform/storage.js";
+import { type Persisted, createPersisted } from "#platform/storage.js";
 import type { Logger } from "#platform/type.js";
 import {
   BORDER_WEIGHT,
@@ -316,7 +316,7 @@ class HeatmapManager {
     // Write-through binding: config is durable the moment a UI change lands,
     // so there is nothing to coalesce. Flush on teardown stays idempotent.
     this.persist = createPersisted({
-      save: () => saveRecord(CONST.STORAGE.KEY, toSavedConfig(this), CONFIG.name),
+      save: () => saveSavedConfigFn(this),
     });
     // Snapshot the Python CONFIG style defaults before any runtime toggle so
     // Reset restores exactly what construction started from (never localStorage).

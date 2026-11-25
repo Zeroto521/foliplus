@@ -162,11 +162,33 @@ const toSavedConfig = (mgr: ManagerLike): SavedConfig => ({
   field: mgr.field,
 });
 
-/** Load saved configuration from localStorage, through the runtime schema. */
-const loadSavedConfig = (): SavedConfig | null =>
-  parseSavedConfig(Storage.loadRecord<unknown>(CONST.STORAGE.KEY, CONFIG.name));
+/** Load saved configuration from localStorage, through the runtime schema.
+ *
+ *  Records written before the versioned envelope were flat (`{version, ...}`,
+ *  the version stamped on the payload itself); the migrator runs the same
+ *  schema parse on that shape, so an older save still reads back. */
+const loadSavedConfig = (): SavedConfig | null => {
+  const loaded = Storage.loadVersionedObject<unknown>(CONST.STORAGE.KEY, {
+    version: CONST.RECORD_VERSION,
+    migrate: parseSavedConfig,
+    name: CONFIG.name,
+  });
+  // The read schema is the authority for the envelope payload too: a record
+  // can hold values a later write must not trust (an empty `field`, a
+  // clamped-out number), and parsing here keeps the current and migrated
+  // shapes on one read path.
+  return loaded === null ? null : parseSavedConfig(loaded);
+};
 
 /** Remove persisted configuration from localStorage. */
+/** Persist the current manager state behind the versioned envelope. */
+const saveSavedConfig = (mgr: ManagerLike): boolean =>
+  Storage.saveVersionedObject(CONST.STORAGE.KEY, {
+    version: CONST.RECORD_VERSION,
+    data: toSavedConfig(mgr),
+    name: CONFIG.name,
+  });
+
 const clearSavedConfig = (): void => {
   Storage.removeRecord(CONST.STORAGE.KEY, CONFIG.name);
 };
@@ -214,5 +236,6 @@ export {
   loadSavedConfig,
   parseSavedConfig,
   SAVED_FIELDS,
+  saveSavedConfig,
   toSavedConfig,
 };
