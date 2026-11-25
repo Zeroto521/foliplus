@@ -300,12 +300,13 @@ def _aspect_violations(directory: Path) -> list[Violation]:
         parts = stem.split("_")
         if len(parts) < 2:
             continue
-        known_object = any("_".join(parts[:idx]) in canonical for idx in range(1, len(parts)))
+        known_object = any(
+            "_".join(parts[:idx]) in canonical for idx in range(1, len(parts))
+        )
         if not known_object:
             continue
         closed = any(
-            "_".join(parts[:idx]) in canonical
-            and "_".join(parts[idx:]) in ASPECT_WORDS
+            "_".join(parts[:idx]) in canonical and "_".join(parts[idx:]) in ASPECT_WORDS
             for idx in range(1, len(parts))
         )
         if closed:
