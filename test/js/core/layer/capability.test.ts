@@ -308,6 +308,17 @@ describe("LayerSurface capabilities.iconColor (glyph-color probe)", () => {
   it("is native for an awesome-markers-style icon (createIcon reads this.options)", () => {
     expect(makeSurface(new AwMarker()).capabilities.iconColor).toBe("native");
   });
+  it("is native for a folium snake_case chassis (marker_color)", () => {
+    // folium emits options.marker_color (snake); the markerColor capability
+    // gate must accept it so a folium chassis row is not shown as disabled.
+    class SnakeMarker {
+      options = { icon: { options: { marker_color: "red" } } };
+      setIcon() {
+        return this;
+      }
+    }
+    expect(makeSurface(new SnakeMarker()).capabilities.markerColor).toBe("native");
+  });
 
   it("is native for a plain divIcon (no glyph node yet)", () => {
     class DivMarker {
