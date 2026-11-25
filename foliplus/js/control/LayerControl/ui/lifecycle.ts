@@ -10,6 +10,7 @@ import {
   applyProjectionAll,
   notifyDelta,
   notifyDeltas,
+  releaseOpacityRedraws,
 } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
@@ -554,6 +555,10 @@ const unbindEvents = (ui: LayerUI): void => {
   // the cleanup. Pure session state clears even when the panel is already
   // gone, which is why this runs before the container guard.
   clearDragState(ui);
+  // Timers this UI scheduled (the debounced opacity repaint) must not outlive
+  // the panel, even when the container is already gone — clear them beside
+  // the drag session, before the container guard.
+  releaseOpacityRedraws(ui);
   ui.unsubscribeEscape?.();
   ui.unsubscribeEscape = null;
   const container = ui.uiContainer;

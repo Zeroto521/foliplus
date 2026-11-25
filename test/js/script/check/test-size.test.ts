@@ -1,0 +1,121 @@
+// test/js/script/check/test-size — the JS test-file size guard.
+//
+// The rule: every test/js/**/*.test.ts stays at or under the 1200-line
+// threshold. Oversized files must be on the guard's burn-down allowlist, each
+// entry naming the split card that removes it. checkSize() is pure over an
+// injected (file, lines) tree, so these feed a synthetic tree without touching
+// disk and pin the three verdicts: an unlisted oversized file is red, an
+// allowlisted oversized file is quiet, and the guard's path normalisation maps
+// an absolute path back to its test/js/ key.
+import { describe, expect, it, vi } from "vitest";
+import {
+  LIMIT,
+  checkSize,
+  listTestFiles,
+  main,
+  remainingAllowlist,
+} from "#script/check/test-size.mjs";
+
+describe("checkSize", () => {
+  it("reports an unlisted oversized file as red", () => {
+    const bad = checkSize(
+      [{ file: "test/js/ui/listbox.test.ts", lines: LIMIT + 1 }],
+      {},
+    );
+    expect(bad).toHaveLength(1);
+    expect(bad[0].file).toBe("ui/listbox.test.ts");
+    expect(bad[0].lines).toBe(LIMIT + 1);
+  });
+
+  it("keeps an allowlisted oversized file quiet", () => {
+    // The file is over the cap, but the allowlist carries its split card, so
+    // the guard stays green until the split lands and the entry is deleted.
+    const bad = checkSize(
+      [{ file: "test/js/ui/listbox.test.ts", lines: LIMIT + 500 }],
+      { "ui/listbox.test.ts": "split pending" },
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("keeps a file at or under the cap quiet", () => {
+    expect(
+      checkSize([{ file: "test/js/ui/listbox.test.ts", lines: LIMIT }], {}),
+    ).toEqual([]);
+  });
+
+  it("normalises an absolute path back to its test/js/ key", () => {
+    // A real caller walks the tree and yields absolute paths; the guard keys
+    // its allowlist on the repo-relative test/js/ form, so an absolute path
+    // must not escape the allowlist and trip a false red.
+    const bad = checkSize(
+      [
+        {
+          file: "/abs/repo/test/js/core/layer/folderLayout.test.ts",
+          lines: LIMIT + 1,
+        },
+      ],
+      { "core/layer/folderLayout.test.ts": "split pending" },
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("keeps a path with no test/js/ marker as-is", () => {
+    // Defensive: a caller may hand a path outside the mirror root; the key then
+    // stays the slash-normalised path instead of collapsing to an empty suffix.
+    const bad = checkSize([{ file: "/abs/elsewhere.test.ts", lines: LIMIT + 1 }], {});
+    expect(bad.map(b => b.file)).toEqual(["/abs/elsewhere.test.ts"]);
+  });
+
+  it("splits several oversized files, listing each unlisted one", () => {
+    const bad = checkSize(
+      [
+        { file: "test/js/a.test.ts", lines: LIMIT + 1 },
+        { file: "test/js/b.test.ts", lines: LIMIT },
+        { file: "test/js/c.test.ts", lines: LIMIT + 99 },
+      ],
+      {},
+    );
+    expect(bad.map(b => b.file)).toEqual(["a.test.ts", "c.test.ts"]);
+  });
+});
+
+describe("the real tree", () => {
+  it("walks every test/js file with its raw line count", () => {
+    const files = listTestFiles();
+    expect(files.length).toBeGreaterThan(200);
+    expect(files.every(f => f.file.endsWith(".test.ts"))).toBe(true);
+    expect(files.every(f => f.lines > 0)).toBe(true);
+  });
+
+  it("reports only allowlist entries that still exist on disk", () => {
+    // The burn-down view: an entry whose split landed must be deleted, so the
+    // list is the set of entries still owed a split.
+    const remaining = remainingAllowlist();
+    expect(remaining.length).toBeGreaterThan(0);
+    expect(remaining.every(stem => stem.endsWith(".test.ts"))).toBe(true);
+  });
+
+  it("exits 0 on the current tree", () => {
+    // The guard must be green on the tree it ships with; a red here means an
+    // oversized file landed without an allowlist entry.
+    expect(main()).toBe(0);
+  });
+
+  it("reports an oversized file and exits 1", () => {
+    // The reporting branch: one line per offending file, non-zero exit.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const code = main([
+      { file: "test/js/ui/not-allowlisted.test.ts", lines: LIMIT + 1 },
+    ]);
+    expect(code).toBe(1);
+    expect(log.mock.calls.flat().join(" ")).toContain("ui/not-allowlisted.test.ts");
+    log.mockRestore();
+  });
+
+  it("prints the burn-down view under --list", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(main([], ["node", "test-size.mjs", "--list"])).toBe(0);
+    expect(log.mock.calls.flat().join(" ")).toContain("allowlist:");
+    log.mockRestore();
+  });
+});
