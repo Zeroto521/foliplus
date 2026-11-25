@@ -134,15 +134,15 @@ jobs:
       - if: needs.classify.outputs.code == 'true'
         run: make test-js
 
-      - if: needs.classify.outputs.code == 'true'
-        uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true'
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
-      - if: needs.classify.outputs.code == 'true' && !cancelled()
-        uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true' && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -191,15 +191,15 @@ jobs:
       - if: needs.classify.outputs.code == 'true'
         run: uv run make test-python-fast
 
-      - if: needs.classify.outputs.code == 'true'
-        uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true'
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
-      - if: needs.classify.outputs.code == 'true' && !cancelled()
-        uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true' && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -253,15 +253,15 @@ jobs:
       - if: needs.classify.outputs.code == 'true'
         run: uv run make test-browser
 
-      - if: needs.classify.outputs.code == 'true'
-        uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true'
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: true
           flags: ${{ job.name }}
-      - if: needs.classify.outputs.code == 'true' && !cancelled()
-        uses: codecov/codecov-action@v7
+      - uses: codecov/codecov-action@v7
+        if: needs.classify.outputs.code == 'true' && !cancelled()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
