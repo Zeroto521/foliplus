@@ -55,6 +55,25 @@ describe("CircleMode — click stops propagation to data layers", () => {
 });
 
 describe("CircleMode — toGeoFeature", () => {
+  describe("CircleMode — finishOnExit", () => {
+    it("never finalizes on Escape: the radius needs the confirming second click", () => {
+      const manager = makeManagerMock();
+      const mode = new CircleMode(manager);
+      manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
+      mode.start();
+
+      // Phase 0 — no center yet.
+      expect(mode.finishOnExit()).toBe(false);
+
+      // Phase 1 — the center is placed but the radius still follows the cursor,
+      // so the geometry was never confirmed by the user.
+      const clickHandler = manager.map.on.mock.calls.find(
+        ([event]: [unknown]) => event === "click",
+      )?.[1];
+      clickHandler({ latlng: { lat: 30, lng: 120 }, originalEvent: {} });
+      expect(mode.finishOnExit()).toBe(false);
+    });
+  });
   it("returns a Polygon from turf.circle", () => {
     const mockCircle = loadFeature("MeasureControl", "circle_polygon");
     globalThis.turf.circle = vi.fn(() => mockCircle);

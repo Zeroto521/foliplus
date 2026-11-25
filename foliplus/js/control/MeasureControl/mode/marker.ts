@@ -232,6 +232,12 @@ class MarkerMode extends MeasureMode {
     this.onMarkerClickRef = this.handleMarkerClick.bind(this);
     this.map.on("click", this.onMarkerClickRef);
     this._cleanup = () => this.map.off("click", this.onMarkerClickRef);
+    // A marker finalizes the instant it is placed (store.add + commitMeasurement
+    // run synchronously in handleMarkerClick), so by the time Escape arrives
+    // either the marker is already in the store (this mode no longer current)
+    // or nothing was placed. finishOnExit only reports false: the Escape path
+    // just discards the empty draw and drops the row.
+    this.finishOnExit = () => false;
   }
 
   /** Handle marker click. */

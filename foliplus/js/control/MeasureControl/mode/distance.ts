@@ -201,6 +201,15 @@ class DistanceMode extends PreviewMode {
       }
       this.mgr.clearActiveMode();
     };
+    // Escape with a complete in-flight distance (>=2 points) commits it rather
+    // than discarding it; sparse geometry (0-1 points) returns false so the
+    // caller discards it and drops the empty row.
+    this.finishOnExit = () => {
+      if (this.isFinished) return false;
+      if (points.length < 2) return false;
+      finishDist();
+      return true;
+    };
 
     const onDistMove = (event: L.LeafletMouseEvent) => {
       if (points.length === 0) return;

@@ -599,8 +599,15 @@ class MeasureManager {
 
     this.onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (this.currentMode) this.clearActiveMode();
-      else if (this.isEditMode) this.applyEditMode(false);
+      if (this.currentMode) {
+        // A complete in-flight drawing commits on Escape; its finish path ends
+        // the mode, so only fall through to clearActiveMode when nothing was
+        // finalized (sparse geometry is discarded and the empty row drops).
+        if (this.modeInstance?.finishOnExit() === true) return;
+        this.clearActiveMode();
+      } else if (this.isEditMode) {
+        this.applyEditMode(false);
+      }
     };
     this.interactionCleanup = registerInteractions(this);
 
@@ -1014,6 +1021,15 @@ class MeasureManager {
     // the manager's lifetime (unregistered only in destroy()); it also drives
     // edit-mode Escape, so unregistering here would break Escape after the
     // first measurement.
+    // Hand the layer surface back to the factory. The factory's shouldUnregister()
+    // is content-driven: it only drops the registration when the surface holds
+    // nothing, so a measurement drawn before the Escape keeps its row in the
+    // LayerControl panel, while an in-flight drawing (a half-run distance, a mode
+    // cancelled before any measurement) loses the empty row. The finalized leaves
+    // belong to their measurement's registerItemLayers entry, not to the drawing
+    // phase, so the mode's _cleanup does not strip them and the content survives
+    // this unregister. clearLayers (the CLEAR mode, destroy, unload) is the path
+    // that removes the content outright.
     this.layers.unregister();
   }
 
