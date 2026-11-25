@@ -1968,7 +1968,7 @@ class LayerController implements LayerAPI {
       typeof intentOpacity === "number" &&
       intentOpacity !== declaredOpacity
     )
-      drift.push("opacity");
+      {drift.push("opacity");}
     // filter: a user-set generic filter differs from the author's declaration.
     const layerInfo = this.layerRegistry.get(id);
     const declared = layerInfo ? readDeclaredFilter(layerInfo) : undefined;

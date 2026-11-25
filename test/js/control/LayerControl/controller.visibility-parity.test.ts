@@ -8,11 +8,7 @@
 // visibilityOf is @internal (not on the public LayerAPI). Its only consumer is
 // this guard, until a real 4-factor consumer appears - see the follow-up card.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveVisibility } from "#core/layer/visibility.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
-import { getIntent, setIntent } from "#control/LayerControl/ui/intent.js";
-import { INTENT } from "#control/LayerControl/ui/intent.js";
 
 // Minimal Leaflet surface - mirrors the shape controller.test.ts installs.
 class TileLayer {
@@ -30,21 +26,27 @@ describe("visibilityOf factor single-source parity", () => {
     class Path {
       options = {};
     }
+
     class Marker {
       getElement() {
         return null;
       }
     }
+
     class CircleMarker {}
+
     class Polygon {
       options = {};
     }
+
     class Polyline {
       options = {};
     }
+
     class GridLayer {
       options = {};
     }
+
     class Renderer {}
     const stamp = (() => {
       let id = 0;
