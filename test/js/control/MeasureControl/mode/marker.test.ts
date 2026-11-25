@@ -754,3 +754,26 @@ describe("MarkerMode — pin edit overlay (✕)", () => {
     expect(pin.closePopup).toHaveBeenCalled();
   });
 });
+
+describe("MarkerMode — finishOnExit contract", () => {
+  it("never finalizes on Escape: placement commits synchronously, Escape only discards an empty draw", () => {
+    const manager = makeManagerMock() as any;
+    manager.currentMode = CONST.MEASURE_MODE.MARKER;
+    const mode = new MarkerMode(manager);
+    mode.start();
+
+    // Phase 0 — nothing placed yet: nothing to finalize.
+    expect(mode.finishOnExit()).toBe(false);
+
+    // Phase 1 — a marker is placed (store.add runs synchronously in
+    // handleMarkerClick); the mode stays current for repeated placement, so
+    // Escape still has nothing in-flight to finalize. The already-stored
+    // marker survives via the content-driven unregister.
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([ev]: [unknown]) => ev === "click",
+    )?.[1];
+    clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
+    expect(manager.store.all()).toHaveLength(1);
+    expect(mode.finishOnExit()).toBe(false);
+  });
+});
