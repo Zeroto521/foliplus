@@ -282,7 +282,7 @@ describe("buildFullscreenChangeHandler", () => {
     handler();
     expect(mapMock.isFullscreen).toBe(false);
     expect(fsBtn.innerHTML).toBe(""); // never repainted
-    expect(mapMock.foliplus.showHint).not.toHaveBeenCalled();
+    expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
   });
 
   it("handler repaints when this map\'s own native session ends", () => {
@@ -337,7 +337,7 @@ describe("buildFullscreenChangeHandler", () => {
     );
     handler();
 
-    expect(mapMock.foliplus.showHint).not.toHaveBeenCalled();
+    expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
     expect(otherCtrl.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
@@ -420,13 +420,13 @@ describe("toggleFullscreen — native API path", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(mapMock.isFullscreen).toBe(false);
-    expect(mapMock.foliplus.showHint).not.toHaveBeenCalled();
+    expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
 
     mocks.getFullscreenEl.mockReturnValue(null);
     handler();
 
     expect(mapMock.isFullscreen).toBe(false);
-    expect(mapMock.foliplus.showHint).toHaveBeenCalledTimes(1);
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalledTimes(1);
     expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
   });
 
@@ -658,7 +658,7 @@ describe("toggleFullscreen — native API path", () => {
 
       // The re-added control must discard it: no repaint, no exit hint.
       expect(fsBtn.innerHTML).toBe("");
-      expect(mapMock.foliplus.showHint).not.toHaveBeenCalled();
+      expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
     });
   });
 });
