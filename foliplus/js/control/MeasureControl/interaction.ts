@@ -21,7 +21,13 @@ const registerActiveEscape = (mgr: MeasureManager): (() => void) => {
     {
       key: "Escape",
       priority: 1,
-      handler: () => mgr.clearActiveMode(),
+      handler: () => {
+        // An in-flight drawing whose geometry is already complete commits on
+        // Escape rather than being discarded; its finish path ends the mode
+        // itself (clearActiveMode), so we return without clearing again.
+        if (mgr.modeInstance?.finishOnExit() === true) return;
+        mgr.clearActiveMode();
+      },
     },
   ]);
 };

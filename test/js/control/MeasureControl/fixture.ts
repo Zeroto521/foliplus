@@ -19,11 +19,36 @@ function mockLayerAPI() {
   // The real mainLayer is a Leaflet LayerGroup; the filter's visibility path
   // asks it which leaves are attached, so the mock tracks membership too.
   const attached = new Set<unknown>();
-  return {
-    register: vi.fn(),
-    unregister: vi.fn(),
+  const api = {
+    register: vi.fn(() => {
+      api.registered = true;
+    }),
+    unregister: vi.fn(() => {
+      // The real factory's shouldUnregister() is content-driven: it only drops
+      // the registration when the surface holds nothing. registerItemLayers
+      // below is what makes the surface non-empty, so a finalized measurement
+      // keeps its row and an in-flight draw loses the empty one.
+      if (api.content.size > 0) return;
+      api.registered = false;
+    }),
+    registered: true,
+    // Finalized measurement leaves (registerItemLayers) that keep the surface
+    // non-empty across an Escape-cancelled clearActiveMode.
+    content: new Set<unknown>(),
+    // Mirrors the real factory: clearing the content also unregisters the
+    // surface, so a caller can tell content removal from a bare unregister.
+    // The mock's own mock calls unregister directly (instead of nesting vi.fn
+    // calls) so spies on it stay plain.
     clearLayers: vi.fn(),
     addLayer: vi.fn(l => l),
+    // Finalizing a measurement hands its leaves here, which is what keeps the
+    // surface non-empty so a later clearActiveMode unregister() is guarded by
+    // the real shouldUnregister(). Tests read the registered flag to assert.
+    // Declared inside the literal (not assigned after) so the object's inferred
+    // type carries the property (TS2339 otherwise).
+    registerItemLayers: vi.fn((_id: unknown, leaves: unknown[]) => {
+      leaves.filter(Boolean).forEach(l => api.content.add(l));
+    }),
     removeLayer: vi.fn(),
     mainLayer: {
       addLayer: vi.fn((leaf: unknown) => {
@@ -37,6 +62,8 @@ function mockLayerAPI() {
       hasLayer: vi.fn((leaf: unknown) => attached.has(leaf)),
     },
   };
+  api.clearLayers.mockImplementation(() => api.unregister());
+  return api;
 }
 
 function makeManager(opts?: { id?: string }) {
