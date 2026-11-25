@@ -171,8 +171,15 @@ const authorGlyphColorOf = (
   const inner = div ? div.querySelector("i") : null;
   const inline = inner ? (inner as HTMLElement).style.color : "";
   if (inline) return inline;
-  const declared = (icon as { options?: { iconColor?: unknown } })?.options?.iconColor;
-  return typeof declared === "string" && declared !== "" ? declared : undefined;
+  const declared = (icon as { options?: { iconColor?: unknown; icon_color?: unknown } })
+    ?.options?.iconColor;
+  // folium emits options.icon_color (snake_case); awesome-markers and this
+  // read both expect iconColor (camelCase). The snake spelling is a fallback
+  // so a folium.Icon(icon_color=) glyph paint reaches the derive, not a
+  // second vocabulary. CamelCase wins when both are present.
+  const snake = (icon as { options?: { icon_color?: unknown } })?.options?.icon_color;
+  const paint = declared ?? snake;
+  return typeof paint === "string" && paint !== "" ? paint : undefined;
 };
 
 /** Derive a marker icon that swaps only the inner symbol. The author's icon
@@ -938,7 +945,12 @@ const authorMarkerColor = (layer: unknown): string | null => {
     if (found) return;
     const icon = authorIconOf(leaf);
     if (!icon) return;
-    const own = (icon as { options?: { markerColor?: unknown } }).options?.markerColor;
+    const options = (
+      icon as { options?: { markerColor?: unknown; marker_color?: unknown } }
+    )?.options;
+    // folium emits options.marker_color (snake_case); the runtime reads
+    // markerColor (camelCase). Same vocabulary fallback as the glyph read.
+    const own = options?.markerColor ?? options?.marker_color;
     if (typeof own === "string" && own) found = own;
   });
   return found;
