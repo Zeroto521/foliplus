@@ -58,6 +58,8 @@ import {
   type StyleProvenance,
   SurfaceIndex,
   type ValueConfig,
+  type VisibilityDrift,
+  type VisibilityQuery,
   buildFilterFeatures,
   countFeatureGeometry,
   createFolder,
@@ -86,8 +88,6 @@ import {
   visibleDomOf,
   walkLeaf,
   zFor,
-  type VisibilityDrift,
-  type VisibilityQuery,
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
