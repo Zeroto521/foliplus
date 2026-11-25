@@ -71,8 +71,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
-      - if: needs.classify.outputs.code == 'true'
-        run: npm run lint
+      - run: npm run lint
+        if: needs.classify.outputs.code == 'true'
 
   typecheck:
     name: typecheck
@@ -81,8 +81,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
-      - if: needs.classify.outputs.code == 'true'
-        run: npm run typecheck
+      - run: npm run typecheck
+        if: needs.classify.outputs.code == 'true'
 
   # ── CHANGELOG existence check (needs GITHUB_TOKEN) ──
   # Sort-order is enforced by pre-commit.ci (language: system, --fix mode).
@@ -131,8 +131,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup-deps
 
-      - if: needs.classify.outputs.code == 'true'
-        run: make test-js
+      - run: make test-js
+        if: needs.classify.outputs.code == 'true'
 
       - uses: codecov/codecov-action@v7
         if: needs.classify.outputs.code == 'true'
@@ -188,8 +188,8 @@ jobs:
       # `make test-python-fast` builds `foliplus/dist/` internally and runs the
       # non-browser pytest suite (matrix = version compatibility). Browser
       # tests live in the `browser` job below (single cell) — see comment there.
-      - if: needs.classify.outputs.code == 'true'
-        run: uv run make test-python-fast
+      - run: uv run make test-python-fast
+        if: needs.classify.outputs.code == 'true'
 
       - uses: codecov/codecov-action@v7
         if: needs.classify.outputs.code == 'true'
@@ -250,8 +250,8 @@ jobs:
       - run: uv run playwright install chromium
       - run: uv run make info
 
-      - if: needs.classify.outputs.code == 'true'
-        run: uv run make test-browser
+      - run: uv run make test-browser
+        if: needs.classify.outputs.code == 'true'
 
       - uses: codecov/codecov-action@v7
         if: needs.classify.outputs.code == 'true'
