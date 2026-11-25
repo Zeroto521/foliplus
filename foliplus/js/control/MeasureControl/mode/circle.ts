@@ -151,10 +151,11 @@ class CircleMode extends PreviewMode {
           CONST.PANES.NODE,
         );
         phase = 1;
-        this.map.foliplus!.showHint(
+        this.map.foliplus!.hint.set(
           this.config.name,
+          "",
           this.T("hint_circle_radius"),
-          HINT_DURATION.PERSIST,
+          { duration: HINT_DURATION.PERSIST },
         );
       } else if (phase === 1) {
         const r = Util.distance(center!, event.latlng);
@@ -215,6 +216,15 @@ class CircleMode extends PreviewMode {
           ),
       );
     };
+
+    // A circle requires a second click to confirm the radius. After only the
+    // center is placed (phase 1), the radius follows the cursor and was never
+    // confirmed by the user — finalizing here would freeze an arbitrary mouse
+    // position as a measurement result. Distance (2 points) and polygon
+    // (3 points) differ: each vertex is a discrete click, so the geometry is
+    // fully user-confirmed. finishOnExit therefore always returns false; ESC
+    // cancels, drops the preview and the row, and only a second click commits.
+    this.finishOnExit = () => false;
 
     const onContext = (event: L.LeafletMouseEvent) => {
       stopEvent(event);
@@ -344,7 +354,7 @@ class CircleMode extends PreviewMode {
       unbindMapEvents(this.map, circleEvents);
       this.clearCursorNode();
       resetPreviews();
-      this.map.foliplus!.hideHint(this.config.name);
+      this.map.foliplus!.hint.clear(this.config.name);
     };
   }
 

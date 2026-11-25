@@ -157,7 +157,8 @@ async ([layerName, size, reset] = []) => {
   const key = Object.keys(localStorage).find(k =>
     k.startsWith("foliplus_layer_state_"),
   );
-  const record = key ? JSON.parse(localStorage.getItem(key) || "null") : null;
+  const stored = key ? JSON.parse(localStorage.getItem(key) || "null") : null;
+  const record = stored && stored.data ? stored.data : stored;
   const layers = record && record.layers ? record.layers : {};
   const rowId = row.getAttribute("data-layer-id");
   const entry = layers[rowId] ?? (byName && byName.id ? layers[byName.id] : null);

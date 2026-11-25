@@ -126,7 +126,9 @@ const showDragHint = (ui: LayerUI, key: string) => {
   const now = Date.now();
   if (now - ui.listPanel.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   ui.listPanel.lastDragHintAt = now;
-  ui.c.map.foliplus!.showHint(ui.config.name, ui.T(key), HINT_DURATION.SHORT);
+  ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T(key), {
+    duration: HINT_DURATION.SHORT,
+  });
 };
 
 const showReorderBlockedHint = (ui: LayerUI) => {

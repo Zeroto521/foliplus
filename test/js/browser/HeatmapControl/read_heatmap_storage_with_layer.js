@@ -3,7 +3,8 @@
   // cache cleared, LayerAPI row count, and the persisted record contents.
   const m = window.__heatmapCtrl.mgr;
   const key = Object.keys(localStorage).find(x => x.startsWith("foliplus_heatmap_"));
-  const rec = key ? JSON.parse(localStorage.getItem(key)) : null;
+  const stored = key ? JSON.parse(localStorage.getItem(key)) : null;
+  const rec = stored && stored.data ? stored.data : stored;
   return {
     selected: m.selectedLayerId,
     hasFeatures: m.cachedFeatures !== null,

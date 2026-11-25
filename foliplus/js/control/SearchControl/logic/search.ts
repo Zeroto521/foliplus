@@ -61,7 +61,9 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
   if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
   const parsed = parseCoord(raw);
   if (!parsed) {
-    map.foliplus!.showHint(ctrl.config.name, ctrl.T("coord_error"), HINT_DURATION.LONG);
+    map.foliplus!.hint.set(ctrl.config.name, "", ctrl.T("coord_error"), {
+      duration: HINT_DURATION.LONG,
+    });
     ctrl.inp.value = "";
     return;
   }
@@ -69,7 +71,7 @@ const searchCoord = (ctrl: SearchControlCtx, raw: string) => {
   // Canonical key, not the raw input: otherwise "120,32" and "120, 32"
   // would be stored as two entries that display identically.
   const key = `${lng},${lat}`;
-  map.foliplus!.hideHint(ctrl.config.name);
+  map.foliplus!.hint.clear(ctrl.config.name);
   map.flyTo([lat, lng], ctrl.config.zoom ?? ZOOM.MAX);
   ownLayer(
     ctrl,
@@ -131,14 +133,10 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
   if (guardBlocked(map, ctrl.config.name, ctrl.T("blocked"))) return;
   if (ctrl.disposed) return;
   // foliplus.geocode handles caching (CRS-aware), timeout, and CRS conversion internally.
-  map.foliplus!.showHint(
-    ctrl.config.name,
-    ctrl.T("popup_loading"),
-    HINT_DURATION.PERSIST,
-    undefined,
-    undefined,
-    true,
-  );
+  map.foliplus!.hint.set(ctrl.config.name, "", ctrl.T("popup_loading"), {
+    duration: HINT_DURATION.PERSIST,
+    icon: "loading",
+  });
   // One gate for the whole read: the newest query owns the map, and teardown
   // invalidates the counter so a late response cannot place a pin.
   const addrSeq = beginRequest(ctrl, "address");
@@ -146,13 +144,11 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
     .geocode(map, query, ctrl.config.locale_code, ...providerArgs(ctrl.config))
     .then(result => {
       if (!requestCurrent(ctrl, "address", addrSeq)) return;
-      map.foliplus!.hideHint(ctrl.config.name);
+      map.foliplus!.hint.clear(ctrl.config.name);
       if (!result) {
-        map.foliplus!.showHint(
-          ctrl.config.name,
-          ctrl.T("addr_not_found"),
-          HINT_DURATION.LONG,
-        );
+        map.foliplus!.hint.set(ctrl.config.name, "", ctrl.T("addr_not_found"), {
+          duration: HINT_DURATION.LONG,
+        });
         ctrl.inp.value = "";
         return;
       }
@@ -178,12 +174,10 @@ const searchAddress = (ctrl: SearchControlCtx, query: string) => {
     })
     .catch(() => {
       if (!requestCurrent(ctrl, "address", addrSeq)) return;
-      map.foliplus!.hideHint(ctrl.config.name);
-      map.foliplus!.showHint(
-        ctrl.config.name,
-        ctrl.T("addr_error"),
-        HINT_DURATION.LONG,
-      );
+      map.foliplus!.hint.clear(ctrl.config.name);
+      map.foliplus!.hint.set(ctrl.config.name, "", ctrl.T("addr_error"), {
+        duration: HINT_DURATION.LONG,
+      });
     });
 };
 

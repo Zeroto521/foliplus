@@ -137,21 +137,17 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       event.preventDefault();
       const moved = ui.c.moveLayerUp(id);
       if (!moved) {
-        ui.c.map.foliplus!.showHint(
-          ui.config.name,
-          ui.T("reorder_top"),
-          HINT_DURATION.SHORT,
-        );
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_top"), {
+          duration: HINT_DURATION.SHORT,
+        });
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       const moved = ui.c.moveLayerDown(id);
       if (!moved) {
-        ui.c.map.foliplus!.showHint(
-          ui.config.name,
-          ui.T("reorder_bottom"),
-          HINT_DURATION.SHORT,
-        );
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_bottom"), {
+          duration: HINT_DURATION.SHORT,
+        });
       }
     }
     const newItems = getNavigableItems(ui);

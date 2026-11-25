@@ -19,7 +19,8 @@
   const key = Object.keys(localStorage).find(k =>
     k.startsWith("foliplus_layer_state_"),
   );
-  const record = key ? JSON.parse(localStorage.getItem(key) || "null") : null;
+  const stored = key ? JSON.parse(localStorage.getItem(key) || "null") : null;
+  const record = stored && stored.data ? stored.data : stored;
   const entry = record && record.layers ? record.layers[li.id] : null;
 
   const pane = map.getPane(`foliplus-canvas-${li.id}`);
@@ -119,11 +120,12 @@
   const dispatched = driveThumb(outMin);
   const hiddenOut = canvas.classList.contains("hidden");
   const rowOutOfRange = zoomRow.classList.contains("foliplus-zoom-range-out-of-range");
-  const rangeMap = JSON.parse(
+  const storedRange = JSON.parse(
     localStorage.getItem(
       Object.keys(localStorage).find(k => k.startsWith("foliplus_layer_state_")) || "",
     ) || "{}",
   );
+  const rangeMap = storedRange && storedRange.data ? storedRange.data : storedRange;
   const rangeAfterInput =
     rangeMap.layers && rangeMap.layers[li.id] ? rangeMap.layers[li.id].zoomRange : null;
 

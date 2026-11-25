@@ -682,7 +682,7 @@ describe("LAYER_ITEM_REMOVED — the classify-degradation dedup drops its id", (
    */
   const takeHintChannel = () => {
     const shown = vi.fn();
-    map.foliplus.showHint = shown;
+    map.foliplus.hint.set = shown;
     return shown;
   };
 
@@ -712,7 +712,7 @@ describe("LAYER_ITEM_REMOVED — the classify-degradation dedup drops its id", (
     degrade(group);
 
     expect(shown).toHaveBeenCalledTimes(1);
-    expect(shown.mock.calls[0][1]).toBe(ui.T("style_value_classify_degraded"));
+    expect(shown.mock.calls[0][2]).toBe(ui.T("style_value_classify_degraded"));
     // And it degraded rather than silently keeping the author's color.
     expect((group.leaves[0].setStyle as any).mock.calls.at(-1)![0].fillColor).toBe(
       "#ff0000",
@@ -735,7 +735,7 @@ describe("LAYER_ITEM_REMOVED — the classify-degradation dedup drops its id", (
     degrade(polygonGroup([5, 10]));
 
     expect(shown).toHaveBeenCalledTimes(2);
-    expect(shown.mock.calls[1][1]).toBe(ui.T("style_value_classify_degraded"));
+    expect(shown.mock.calls[1][2]).toBe(ui.T("style_value_classify_degraded"));
     warn.mockRestore();
   });
 });

@@ -179,6 +179,172 @@ class TestMeasureModeBrowser:
             assert mode is None, f"expected mode to be None after Escape, got {mode}"
             assert not errors, f"JS errors: {errors}"
 
+    def test_escape_before_drawing_drops_the_empty_measure_row(self, browser, tmp_path):
+        """Escape on an empty (in-flight) measure layer drops its row.
+
+        The factory's unregister is content-driven: an in-flight draw holds
+        nothing, so ending the mode drops the empty row from the panel.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/click_distance_button"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            before = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert before["registered"], f"row missing before Escape: {before}"
+
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after Escape, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert not after["registered"], (
+                f"Escape on an empty layer kept the row: before={before}, after={after}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_with_complete_inflight_distance_finalizes_and_keeps_row(
+        self, browser, tmp_path
+    ):
+        """Escape with two placed points (geometry complete, mode still active)
+        commits the measurement and keeps its row.
+
+        finishOnExit finalizes a drawing whose geometry is already complete, so
+        the row survives; only a sparse (0-1 point) draw is discarded.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/click_distance_button"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            # Place two points (geometry complete) but do NOT contextmenu-finalize.
+            page.evaluate(_js("MeasureControl/draw_distance_two_points"))
+            page.wait_for_timeout(300)
+            before = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert before["registered"], f"row missing before Escape: {before}"
+
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after Escape, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert after["registered"], (
+                f"Escape on a complete in-flight distance dropped the row: "
+                f"before={before}, after={after}"
+            )
+            assert after["row"], f"finalized row not rendered after Escape: {after}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_with_circle_center_only_drops_the_row(self, browser, tmp_path):
+        """Escape after only the circle center is placed drops the row.
+
+        A circle requires a second click to confirm the radius; after only the
+        center, the radius follows the cursor and was never confirmed. ESC
+        cancels (finishOnExit always returns false for circle), discards the
+        center and preview, and the empty layer row drops.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            # Activate circle mode via the tool button.
+            page.evaluate(_js("MeasureControl/click_circle_button"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            before = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert before["registered"], f"row missing before ESC: {before}"
+
+            page.evaluate(_js("MeasureControl/draw_circle_center_only"))
+            page.wait_for_timeout(300)
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after ESC, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert not after["registered"], (
+                f"ESC on circle center-only kept the row: before={before}, after={after}"
+            )
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_after_circle_two_clicks_keeps_the_row(self, browser, tmp_path):
+        """Escape after a fully-confirmed circle (two clicks) keeps its row.
+
+        The circle's finish path fires on the second click (synchronously
+        via setTimeout in the click handler), so by the time ESC arrives the
+        mode is already cleared and the content is in the store. The content-
+        driven unregister keeps the row.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/click_circle_button"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_timeout(300)
+
+            # Two clicks: center + radius → finishCircle fires (async delay).
+            page.evaluate(_js("MeasureControl/draw_circle_two_points"))
+            page.wait_for_timeout(800)  # wait for FINALIZE_DELAY setTimeout
+
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert after["registered"], (
+                f"ESC after a two-click circle dropped the row: after={after}"
+            )
+            assert after["row"], f"circle row not rendered after ESC: {after}"
+            assert not errors, f"JS errors: {errors}"
+
+    def test_escape_after_finalized_distance_keeps_the_measure_row(
+        self, browser, tmp_path
+    ):
+        """Escape after a finalized distance keeps its row.
+
+        The finalized leaves belong to the measurement, so the layer stays
+        non-empty and the content-driven unregister keeps the row.
+        """
+        with use_page(_make_page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("MeasureControl/click_layer_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.evaluate(_js("MeasureControl/draw_distance"))
+            page.wait_for_timeout(500)
+            page.evaluate(_js("MeasureControl/press_escape"))
+            page.wait_for_timeout(500)
+
+            mode = page.evaluate(_js("MeasureControl/read_current_mode"))
+            assert mode is None, f"expected mode to be None after Escape, got {mode}"
+            after = page.evaluate(_js("MeasureControl/read_measure_layer_row"))
+            assert after["registered"], (
+                f"Escape dropped a finalized measurement's row: after={after}"
+            )
+            assert after["row"], f"finalized row not rendered: {after}"
+            assert not errors, f"JS errors: {errors}"
+
     def test_measure_mode_disables_other_layer_interaction(self, browser, tmp_path):
         """Activating a measure mode disables interactivity on other map layers
         (so clicks fall through to the map), and exiting restores it."""

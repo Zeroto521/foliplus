@@ -15,14 +15,14 @@
   // assertion is "the icon is dropped and the text stays".
   const key = `xss-hint-probe-${Date.now()}`;
 
-  const reg = window.map.foliplus.registerHintIcon;
-  const show = window.map.foliplus.showHint;
+  const reg = window.map.foliplus.hint.registerIcon;
+  const show = window.map.foliplus.hint.set;
 
   // --- 1. Full hostile payload: strip everything active, keep nothing runnable
   const HOSTILE = `<svg xmlns="http://www.w3.org/2000/svg" class="foliplus-spin" viewBox="0 0 8 8" onload="window.__pwn1=1"><script>window.__pwn2=1</script><foreignObject><body><img src=x onerror="window.__pwn3=1"></body></foreignObject><rect width="4" height="4" class="foliplus-spin" onmouseover="window.__pwn4=1"/></svg>`;
   reg(`${key}-hostile`, HOSTILE);
   const poisonText = "<img src=x onerror=alert(1)>probe";
-  show(`${key}-hostile`, poisonText, 0);
+  show(`${key}-hostile`, "", poisonText, { duration: 0 });
 
   const hostile = document.querySelector(`.foliplus-hint.foliplus-hint-${key}-hostile`);
   const hostileIcon = hostile ? hostile.querySelector(".foliplus-hint-icon") : null;
@@ -35,7 +35,7 @@
   //     what is doing the work.
   const FOREIGN_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><foreignObject><g><rect width="2" height="2" class="foliplus-spin"/></g></foreignObject><rect width="4" height="4" class="foliplus-spin"/></svg>`;
   reg(`${key}-foreignsvg`, FOREIGN_SVG);
-  show(`${key}-foreignsvg`, "fsvg", 0);
+  show(`${key}-foreignsvg`, "", "fsvg", { duration: 0 });
   const foreignSvg = document.querySelector(
     `.foliplus-hint.foliplus-hint-${key}-foreignsvg`,
   );
@@ -43,7 +43,7 @@
   // --- 3. Benign payload: presentation attributes must survive the allowlist
   const BENEIGN = `<svg class="foliplus-spin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="4" height="4" class="foliplus-spin" fill="currentColor" stroke="currentColor"/></svg>`;
   reg(`${key}-benign`, BENEIGN);
-  show(`${key}-benign`, "locating", 0);
+  show(`${key}-benign`, "", "locating", { duration: 0 });
 
   const benign = document.querySelector(`.foliplus-hint.foliplus-hint-${key}-benign`);
   const benignIcon = benign ? benign.querySelector(".foliplus-hint-icon") : null;
@@ -52,7 +52,7 @@
 
   // --- 4. Whole tree active: no presentational residue left to keep
   reg(`${key}-dead`, "<script>window.__pwn5=1</script>");
-  show(`${key}-dead`, "dead", 0);
+  show(`${key}-dead`, "", "dead", { duration: 0 });
   const dead = document.querySelector(`.foliplus-hint.foliplus-hint-${key}-dead`);
 
   const roundTrip = svg

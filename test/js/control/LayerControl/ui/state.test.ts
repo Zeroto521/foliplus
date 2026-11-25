@@ -109,7 +109,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
         createPane: vi.fn(() => document.createElement("div")),
         options: { maxZoom: 18 },
-        foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+        foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
       },
       addLayer,
       removeLayer,
@@ -319,7 +319,11 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         ghost: { visible: false },
         gone: { visible: false },
       });
-      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      // The test seeds a pre-envelope record and schedules no write, so the
+      // flat shot is still what storage holds.
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!) as {
+        layers: Record<string, unknown>;
+      };
       expect(Object.keys(stored.layers).sort()).toEqual(["ghost", "gone", "overlay1"]);
     });
 
@@ -492,7 +496,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
 
       // The record carries both the value and the provenance: a hidden layer
       // shows up under `layers` with `visible: false` and a `visible` override.
-      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data;
       expect(stored.layers.overlay1.visible).toBe(false);
       expect(stored.layers.overlay1.overrides).toContain("visible");
     });
@@ -520,7 +524,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
       vi.useRealTimers();
 
-      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+      const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data;
       expect(stored.layers.overlay1.visible).toBe(true);
       expect(stored.layers.overlay1.overrides).toContain("visible");
     });
@@ -655,7 +659,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
         _container: container,
         _layers: {},
         attributionControl: { _attributions: {}, _update: vi.fn() },
-        foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+        foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
       };
       const manager = new LayerController(map, data);
       manager.enforceOrder();
@@ -802,7 +806,7 @@ describe("LayerUI visibility persistence (intents.visible)", () => {
             getPanes: vi.fn(() => ({ mapPane: document.createElement("div") })),
             createPane: vi.fn(() => document.createElement("div")),
             options: { maxZoom: 18 },
-            foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+            foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
           },
           removeLayer: rl,
         };
@@ -962,7 +966,7 @@ describe("LayerUI opacity restore / retention", () => {
         style: {},
         classList: { add: vi.fn(), remove: vi.fn(), contains: vi.fn(() => true) },
       })),
-      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
       getZoom: vi.fn(() => 4),
       getMaxZoom: vi.fn(() => 18),
       getMinZoom: vi.fn(() => 0),
@@ -2000,7 +2004,7 @@ describe("ui/state intentStore and per-layer state persistence", () => {
     expect(ui.intentStore.dumpIntents()).toEqual({ overlay1: { visible: false } });
     expect(ui.intentStore.dumpProvenance().overlay1).toEqual(["visible"]);
 
-    const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!);
+    const stored = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data;
     expect(stored.layers.overlay1).toEqual({
       visible: false,
       overrides: ["visible"],

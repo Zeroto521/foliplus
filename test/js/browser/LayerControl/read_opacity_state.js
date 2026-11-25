@@ -13,7 +13,8 @@
   const key = Object.keys(localStorage).find(k =>
     k.startsWith("foliplus_layer_state_"),
   );
-  const record = key ? JSON.parse(localStorage.getItem(key)) : null;
+  const stored = key ? JSON.parse(localStorage.getItem(key)) : null;
+  const record = stored && stored.data ? stored.data : stored;
   const entry = record && record.layers ? record.layers[id] : null;
   const pane = map && map.getPane ? map.getPane(`foliplus-canvas-${id}`) : null;
   const canvas = pane ? pane.querySelector("canvas.foliplus-canvas-layer") : null;

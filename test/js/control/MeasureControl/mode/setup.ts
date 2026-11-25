@@ -135,7 +135,7 @@ export function makeManagerMock(): MeasureManager {
         }),
       ),
       dragging: { disable: vi.fn(), enable: vi.fn() },
-      foliplus: { showHint: vi.fn(), hideHint: vi.fn() },
+      foliplus: { hint: { set: vi.fn(), clear: vi.fn(), registerIcon: vi.fn() } },
     },
     layers: {
       addLayer: vi.fn(l => l),

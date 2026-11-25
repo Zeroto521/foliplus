@@ -3,9 +3,11 @@ import {
   createPersisted,
   loadRecord,
   loadVersioned,
+  loadVersionedObject,
   removeRecord,
   saveRecord,
   saveVersioned,
+  saveVersionedObject,
 } from "#platform/storage.js";
 
 // jsdom implements Storage#getOwnPropertyDescriptor as a trap that throws on
@@ -351,5 +353,107 @@ describe("storage", () => {
       p.schedule();
       expect(onFlushError).not.toHaveBeenCalled();
     });
+  });
+});
+describe("versioned objects", () => {
+  it("returns the payload when the stored version matches", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ version: 3, data: { a: 1 } }));
+    expect(loadVersionedObject("obj", { version: 3 })).toEqual({ a: 1 });
+  });
+
+  it("migrates the payload of a different version and hands it the old number", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ version: 1, data: { a: 1 } }));
+    const migrate = vi.fn((data: unknown, version: number | null) => ({
+      ...(data as object),
+      from: version,
+    }));
+    expect(loadVersionedObject("obj", { version: 3, migrate })).toEqual({
+      a: 1,
+      from: 1,
+    });
+    expect(migrate).toHaveBeenCalledWith({ a: 1 }, 1);
+  });
+
+  it("migrates a legacy flat object that carries no version", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ items: ["a"] }));
+    const migrate = vi.fn((data: unknown, version: number | null) => ({
+      items: (data as { items: string[] }).items,
+      from: version,
+    }));
+    expect(loadVersionedObject("obj", { version: 2, migrate })).toEqual({
+      items: ["a"],
+      from: null,
+    });
+    expect(migrate).toHaveBeenCalledWith({ items: ["a"] }, null);
+  });
+
+  it("migrates a legacy flat record that stamps the current version on itself", () => {
+    // Pre-envelope consumers wrote `{ version, ...fields }` with the version on
+    // the payload. The reader still hands that shape to the migrator, so a
+    // consumer does not need a second version reader to accept its own history.
+    window.localStorage.setItem("obj", JSON.stringify({ version: 2, items: ["a"] }));
+    const migrate = vi.fn((data: unknown, version: number | null) => ({
+      items: (data as { items: string[] }).items,
+      from: version,
+    }));
+    expect(loadVersionedObject("obj", { version: 2, migrate })).toEqual({
+      items: ["a"],
+      from: 2,
+    });
+    expect(migrate).toHaveBeenCalledWith({ version: 2, items: ["a"] }, 2);
+  });
+
+  it("discards a legacy flat record when there is no migrate", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ version: 2, items: ["a"] }));
+    expect(loadVersionedObject("obj", { version: 2 })).toBeNull();
+  });
+
+  it("discards a record of a different version when there is no migrate", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ version: 1, data: { a: 1 } }));
+    expect(loadVersionedObject("obj", { version: 2 })).toBeNull();
+  });
+
+  it("discards an unversioned record when there is no migrate", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ a: 1 }));
+    expect(loadVersionedObject("obj", { version: 2 })).toBeNull();
+  });
+
+  it("discards the record when the migration refuses it", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ version: 1, data: { a: 1 } }));
+    expect(loadVersionedObject("obj", { version: 2, migrate: () => null })).toBeNull();
+  });
+
+  it("returns null when the envelope has no data field", () => {
+    window.localStorage.setItem("obj", JSON.stringify({ version: 2 }));
+    expect(loadVersionedObject("obj", { version: 2 })).toBeNull();
+  });
+
+  it("returns null when the key is missing", () => {
+    expect(loadVersionedObject("missing", { version: 1 })).toBeNull();
+  });
+
+  it("returns null for corrupted JSON", () => {
+    window.localStorage.setItem("obj", "not json");
+    expect(loadVersionedObject("obj", { version: 1 })).toBeNull();
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it("writes the versioned envelope", () => {
+    expect(saveVersionedObject("obj", { data: { a: 1 }, version: 2 })).toBe(true);
+    expect(JSON.parse(window.localStorage.getItem("obj")!)).toEqual({
+      version: 2,
+      data: { a: 1 },
+    });
+  });
+
+  it("reports false when the backend rejects the write", () => {
+    runWithSetItem(
+      () => {
+        throw new DOMException("quota", "QuotaExceededError");
+      },
+      () => {
+        expect(saveVersionedObject("obj", { data: { a: 1 }, version: 2 })).toBe(false);
+      },
+    );
   });
 });

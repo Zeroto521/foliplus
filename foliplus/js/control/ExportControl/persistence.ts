@@ -14,7 +14,16 @@ import { nextFrame } from "#platform/throttle.js";
 const T = createScopedTranslator(CONFIG);
 
 const loadSavedBounds = function (this: ExportManager) {
-  const data = Storage.loadRecord<SavedBounds | null>(CONST.STORAGE.KEY, CONFIG.name);
+  // Pre-envelope records wrote the bounds flat; the migrator accepts that shape
+  // and the versioned reader returns the same object either way.
+  const data = Storage.loadVersionedObject<SavedBounds | null>(CONST.STORAGE.KEY, {
+    version: CONST.STORAGE.VERSION,
+    migrate: raw => {
+      const o = raw as Partial<SavedBounds> | null;
+      return o?.nw && o?.se ? (o as SavedBounds) : null;
+    },
+    name: CONFIG.name,
+  });
   if (!data?.nw || !data.se) return;
   const nw = data.nw;
   const se = data.se;
@@ -40,14 +49,14 @@ const loadSavedBounds = function (this: ExportManager) {
 };
 
 const saveBounds = function (this: ExportManager, bounds: GeoBounds) {
-  Storage.saveRecord(
-    CONST.STORAGE.KEY,
-    {
+  Storage.saveVersionedObject(CONST.STORAGE.KEY, {
+    version: CONST.STORAGE.VERSION,
+    data: {
       nw: { lat: bounds.nw.lat, lng: bounds.nw.lng },
       se: { lat: bounds.se.lat, lng: bounds.se.lng },
     },
-    CONFIG.name,
-  );
+    name: CONFIG.name,
+  });
 };
 
 /** Restore and lock crop box from saved geo bounds. */
@@ -61,7 +70,9 @@ const restoreFromSavedBounds = function (this: ExportManager) {
       se: { lat: this.savedBounds.se.lat, lng: this.savedBounds.se.lng },
     };
     this.lockCropBox(true);
-    map.foliplus!.showHint(CONFIG.name, T("hint_restore"), HINT_DURATION.MEDIUM, true);
+    map.foliplus!.hint.set(CONFIG.name, "restore", T("hint_restore"), {
+      duration: HINT_DURATION.MEDIUM,
+    });
   });
 };
 

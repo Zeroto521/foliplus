@@ -300,7 +300,7 @@ describe("applyVisibility", () => {
     manager.persistence.flushAll();
     const stored = window.localStorage.getItem(CONST.STORAGE.KEY);
     expect(stored).not.toBeNull();
-    expect(JSON.parse(stored!).layers.overlay1).toEqual({
+    expect(JSON.parse(stored!).data.layers.overlay1).toEqual({
       visible: false,
       overrides: ["visible"],
     });
@@ -328,7 +328,7 @@ describe("applyVisibility", () => {
     // undone on reload, which is exactly the point. The value records the
     // choice instead.
     const stored = window.localStorage.getItem(CONST.STORAGE.KEY);
-    expect(JSON.parse(stored!).layers.overlay1).toEqual({
+    expect(JSON.parse(stored!).data.layers.overlay1).toEqual({
       visible: true,
       overrides: ["visible"],
     });

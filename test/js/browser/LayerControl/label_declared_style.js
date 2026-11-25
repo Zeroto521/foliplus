@@ -68,7 +68,13 @@
       const persistence = layerUi.c && layerUi.c.persistence;
       if (persistence && persistence.flushAll) persistence.flushAll();
       for (const key of Object.keys(localStorage)) {
-        storage[key] = localStorage.getItem(key);
+        const raw = localStorage.getItem(key);
+        try {
+          const parsed = JSON.parse(raw);
+          storage[key] = JSON.stringify(parsed && parsed.data ? parsed.data : parsed);
+        } catch {
+          storage[key] = raw;
+        }
       }
     } catch (e) {
       storage = { error: String(e) };
