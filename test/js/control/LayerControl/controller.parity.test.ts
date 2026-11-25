@@ -122,7 +122,6 @@ describe("visibilityOf factor single-source parity", () => {
         getAuthorVisible: () => undefined,
       },
       intentStore: { get: () => undefined },
-      intentStore: { get: () => undefined },
       focusController: { focusingLayerId: null },
     } as any;
     manager.debouncedEnforce?.cancel?.();
