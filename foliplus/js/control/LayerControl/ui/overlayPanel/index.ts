@@ -10,7 +10,12 @@
 // module receives a bare OverlayPanel.
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { type FilterPanelState, closeFilterPanel, openFilterPanel } from "./filter.js";
-import { activateDeleteItem, closeMoreMenu, openMoreMenu } from "./menu.js";
+import {
+  type PendingDelete,
+  activateDeleteItem,
+  closeMoreMenu,
+  openMoreMenu,
+} from "./menu.js";
 import { finishRename, renameLayer } from "./rename.js";
 import type { PanelController } from "#core/leaflet/index.js";
 
@@ -46,6 +51,12 @@ class OverlayPanel {
    *  LAYER_DELETED for the anchored layer close the menu. Installed by
    *  openMoreMenu, released by closeMoreMenu. */
   menuRemovedUnsub: (() => void) | null = null;
+  /** The overflow-menu entry currently in its confirm (second-click) state,
+   *  or null. Per-UI on purpose: each control arms and disarms only its own
+   *  entry, so a second map's menu cannot cancel a pending delete here. */
+  pendingDelete: PendingDelete | null = null;
+  /** The arm timeout that backs the pending entry out automatically. */
+  pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined;
   /** Currently visible attributes panel, or null. */
   activeAttrsPanel: {
     item: HTMLElement;
