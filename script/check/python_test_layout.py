@@ -111,50 +111,9 @@ class Exemption:
 
 # Temporary exemptions while the layout migration drains. Every entry must be
 # removed by the split card it names; the gate fails on an entry that no longer
-# matches a violation so this list cannot silently rot.
-ALLOWLIST: tuple[Exemption, ...] = (
-    Exemption(
-        "browser-file-too-small",
-        "test/python/control/ExportControl/test_markers_browser.py",
-        "one scenario in one small file; merge into the ExportControl theme file once "
-        "the scenario table is accepted",
-        "board: scenario aggregation review",
-    ),
-    Exemption(
-        "browser-file-too-small",
-        "test/python/control/LayerControl/listPanel/test_folder_row_browser.py",
-        "one scenario in one small file; merge into the listPanel theme file once "
-        "the scenario table is accepted",
-        "board: scenario aggregation review",
-    ),
-    Exemption(
-        "browser-file-too-small",
-        "test/python/control/LayerControl/overlayPanel/test_more_menu_browser.py",
-        "one scenario in one small file; merge into the overlayPanel theme file once "
-        "the scenario table is accepted",
-        "board: scenario aggregation review",
-    ),
-    Exemption(
-        "browser-file-too-small",
-        "test/python/control/LayerControl/style/test_border_value_first_frame_browser.py",
-        "one scenario in one small file; merge into the style theme file once "
-        "the scenario table is accepted",
-        "board: scenario aggregation review",
-    ),
-    Exemption(
-        "browser-file-too-small",
-        "test/python/control/LayerControl/style/test_paint_dimension_parity_browser.py",
-        "one scenario in one small file; merge into the style theme file once "
-        "the scenario table is accepted",
-        "board: scenario aggregation review",
-    ),
-    Exemption(
-        "browser-name-is-data-point",
-        "test/python/control/LayerControl/style/test_border_value_first_frame_browser.py",
-        "named after one frame; rename with the scenario table",
-        "board: scenario aggregation review",
-    ),
-)
+# matches a violation so this list cannot silently rot. Empty since the
+# 2026-11 browser scenario merge; keep it empty.
+ALLOWLIST: tuple[Exemption, ...] = ()
 
 
 def code_lines(path: Path) -> int:
