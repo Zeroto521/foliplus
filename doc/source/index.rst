@@ -65,7 +65,10 @@ Features
       :padding: 2
       :link: api/foliplus.ScaleControl.html
 
-      Scale bar with metric units and optional zoom level display.
+      Scale bar with metric units and optional zoom level display. The
+      position is fixed to the bottom-left corner — a scale bar reads only
+      along the map's bottom edge, and the bottom-right corner belongs to
+      Leaflet's attribution.
 
    .. grid-item-card:: 🔍 SearchControl
       :padding: 2

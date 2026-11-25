@@ -1,0 +1,51 @@
+name: Classify diff
+description: >-
+  Classify the pull request diff so a documentation-only change does not run the
+  test suites. Only a diff that touches nothing but documentation is skipped:
+  the JS and Python halves are coupled (the Python suite asserts on the built
+  JS/CSS, and the JS guards read the Python-emitted config schema), so any code
+  change runs both. A push or a merge-group run always reports code as changed,
+  and a diff that cannot be read does too — the classifier must never be the
+  reason a gate is skipped.
+
+outputs:
+  code:
+    description: >-
+      A non-documentation file changed. False only when every changed path is
+      documentation or Markdown.
+    value: ${{ steps.diff.outputs.code }}
+
+runs:
+  using: composite
+  steps:
+    - id: diff
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "${{ github.event_name }}" != "pull_request" ]; then
+          echo 'code=true' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        base="${{ github.event.pull_request.base.sha }}"
+        # The default checkout is depth 1, so the base commit has to be fetched
+        # before it can be diffed against. A diff that cannot be read runs the
+        # full matrix: an unreadable diff is not evidence of a docs-only change.
+        if ! git fetch --no-tags --depth=1 origin "$base" >/dev/null 2>&1; then
+          echo 'code=true' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if ! files=$(git diff --name-only "$base" HEAD); then
+          echo 'code=true' >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        code=false
+        while IFS= read -r f; do
+          [ -z "$f" ] && continue
+          case "$f" in
+            doc/*|*.md) ;;
+            *)
+              code=true
+              break ;;
+          esac
+        done <<< "$files"
+        printf 'code=%s\n' "$code" >> "$GITHUB_OUTPUT"

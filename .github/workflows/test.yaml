@@ -21,6 +21,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Diff classification ──
+  # One classifier job feeds the `if:` of every test job, so a documentation-only
+  # pull request does not run the test suites. Only a diff that touches nothing
+  # but documentation is skipped: the JS and Python halves are coupled (the
+  # Python suite asserts on the built JS/CSS, the JS guards read the Python-emitted
+  # config schema), so any code change runs both. A push or a merge-group run
+  # reports code as changed (see the action), so the gates that must be complete
+  # still are. `format` and `changelog` stay unconditional: they are cheap and
+  # they cover the Markdown a docs-only change touches.
+  classify:
+    name: classify
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/classify-diff
+        id: diff
+
   # ── Node jobs ──
   # Format, lint, and typecheck are independent of the Python matrix, so they
   # run as their own jobs rather than as steps inside `test`: they share no
@@ -41,6 +60,8 @@ jobs:
 
   lint:
     name: lint
+    needs: classify
+    if: needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -49,6 +70,8 @@ jobs:
 
   typecheck:
     name: typecheck
+    needs: classify
+    if: needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -96,6 +119,8 @@ jobs:
   # visible.
   js:
     name: js
+    needs: classify
+    if: needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -121,6 +146,8 @@ jobs:
     # Matrix-expanded per slot; codecov flags reference `job.name` so there is
     # one source of truth for the label.
     name: py${{ matrix.python }}-folium-${{ matrix.folium }}
+    needs: classify
+    if: needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -179,6 +206,8 @@ jobs:
     # once per job, retained via actions/cache so a re-run is network-independent
     # after the first download).
     name: browser
+    needs: classify
+    if: needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -238,6 +267,8 @@ jobs:
   # job summary plus the `browser-probe` artifact.
   browser-probe:
     name: browser-probe
+    needs: classify
+    if: needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
