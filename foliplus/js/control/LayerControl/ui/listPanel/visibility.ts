@@ -10,6 +10,8 @@ import {
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
+import { childParentId, resolveChild } from "./childRow.js";
+import { refreshAllChildRows, refreshChildRows } from "./groupExpand.js";
 import { applyRowView, buildRowCell, countTooltip, writeRoleCount } from "./rowView.js";
 import { ROLE, folderOf, paintsAtZoom } from "#core/layer/index.js";
 import { setCheckboxState, triStateOf } from "#ui/index.js";
@@ -100,6 +102,11 @@ const toggleAll = (ui: LayerUI, role: string, newState: boolean) => {
     if (delta.wroteVisible || delta.intentMoved) moved.set(id, delta);
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
+
+  // A bulk toggle cascades to the expanded groups' child rows too: the
+  // projection wrote map membership for the groups, and their child rows read
+  // that fact directly.
+  refreshAllChildRows(ui, role);
 
   // Persist the hidden-set after bulk toggle (single debounced write for the
   // batch).
@@ -266,6 +273,9 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   // Paint after the projection lands: the cell reads the intent this
   // transition just recorded.
   if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
+  // A container's own toggle cascades to its children's map membership; the
+  // child rows are not registry rows, so repaint them from that fact here.
+  refreshChildRows(ui, id);
 
   // One aggregate pass repaints the role header and every folder row of the
   // role from the same table. The old path kept a cached count and nudged it
@@ -372,6 +382,9 @@ const setFolderVisible = (
     );
     if (row) applyRowView(ui, row, buildRowCell(ui, info));
   }
+  // Folder-wide hides cascade to the groups' child rows the same way the role
+  // toggle-all does.
+  refreshAllChildRows(ui, role);
   saveState(ui);
   // One aggregate pass for the whole tail: the role header and every folder
   // row repaint from this table.
@@ -384,6 +397,22 @@ const setFolderVisible = (
 const handleChange = (ui: LayerUI, event: Event) => {
   const target = event.target as HTMLInputElement;
   if (target.tagName.toLowerCase() !== "input" || target.type !== "checkbox") return;
+  // A child row's checkbox talks to the map directly: the child is not a
+  // registry row (no LayerInfo), so the layer-change path below would no-op.
+  // The row id is parentId::stamp; resolve the parent and the child.
+  const childRow = target.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
+  const childId = childRow?.getAttribute(CONST.DATA.LAYER_ID);
+  if (childId?.includes("::")) {
+    // A child id is a chain (outer::inner::leaf): the immediate parent is the
+    // last segment, so a nested child toggles its own container, not the root.
+    const child = resolveChild(ui, childParentId(childId), childId);
+    if (child && ui.c.map) {
+      if (target.checked) ui.c.map.addLayer(child);
+      else ui.c.map.removeLayer(child);
+    }
+    return;
+  }
+
   // A folder row's checkbox is a group toggle for every member: the folder
   // row has no data-layer-id (it is a group row, not a leaf), so the layer
   // change path below would no-op. Climb to the folder row by its key.

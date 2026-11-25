@@ -13,6 +13,8 @@ import {
   restoreCursor,
   syncListCursor,
 } from "./cursor.js";
+import { groupChildren, isGroupExpanded, renderChildBlock } from "./groupExpand.js";
+import { buildMoreBtn, buildRailCell, buildTypeIconCol } from "./rowCell.js";
 import {
   applyRowView,
   buildRowCell,
@@ -33,6 +35,7 @@ import {
   folderEntries,
   folderOf,
   groupByFolder,
+  isGroupRow,
   roleBlocks,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
@@ -537,6 +540,11 @@ const renderInitialList = (ui: LayerUI) => {
   // live panel for the whole pass.
   const container = ui.uiContainer;
   if (!container) return;
+  // Child entries are registry-only and born from a rendered child row, so a
+  // rebuild starts by dropping every one of them: the children this pass
+  // renders register again below, and a group that is now folded/collapsed
+  // leaves no orphan entry behind.
+  ui.c.unregisterChildEntries();
   // Remember the cursor by identity — the item elements are rebuilt below,
   // so an element reference would dangle. Layer rows key on data-layer-id,
   // toggle-all rows on data-role (they have no layer id). The identity also
@@ -597,6 +605,22 @@ const renderInitialList = (ui: LayerUI) => {
             item.classList.add(CONST.CLASSES.GROUP_FOLDED);
           }
           frag.appendChild(item);
+          // A folder member that is an expanded container renders its direct
+          // children right after itself, exactly like the non-member path
+          // below. Child rows are not registry rows.
+          const memberLayer = ui.c.findLayer(member);
+          if (
+            !roleFolded &&
+            !folderFolded &&
+            isGroupRow(member, memberLayer) &&
+            isGroupExpanded(ui, member.id)
+          ) {
+            for (const child of groupChildren(ui, member.id)) {
+              for (const childRow of renderChildBlock(ui, member.id, child)) {
+                frag.appendChild(childRow);
+              }
+            }
+          }
         }
       } else {
         const item = renderLayerItem(ui, block.layer);
@@ -604,6 +628,21 @@ const renderInitialList = (ui: LayerUI) => {
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);
         }
         frag.appendChild(item);
+        // A container row, when expanded, renders its children right after
+        // itself (recursively for an expanded nested group); each rendered row
+        // registers its registry-only LayerInfo as it is built.
+        const layer = ui.c.findLayer(block.layer);
+        if (
+          !roleFolded &&
+          isGroupRow(block.layer, layer) &&
+          isGroupExpanded(ui, block.layer.id)
+        ) {
+          for (const child of groupChildren(ui, block.layer.id)) {
+            for (const childRow of renderChildBlock(ui, block.layer.id, child)) {
+              frag.appendChild(childRow);
+            }
+          }
+        }
       }
     }
   };
@@ -858,29 +897,12 @@ const renderToggleAllRow = (
     ),
   );
   children.push(
-    dom.el(
-      "div",
-      {
-        class: CONST.CLASSES.TYPE_ICON_COL,
-        // Same sentence shape as a layer row's type cell: the count, then the
-        // word for what the row is.
-        title: countLabelTitle(countText, ui.T(labelKey)),
-      },
-      { html: role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS },
+    buildTypeIconCol(
+      countLabelTitle(countText, ui.T(labelKey)),
+      role === ROLE.BASE ? ICON_GLOBE : SVGs.ICON_LAYERS,
     ),
   );
-  children.push(
-    dom.el(
-      "button",
-      {
-        class: CONST.CLASSES.MORE_BTN,
-        type: "button",
-        title: withNoun(ui, "more_tooltip", ROW_NOUN.ROLE),
-        "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.ROLE),
-      },
-      { html: SVGs.ICON_MORE },
-    ),
-  );
+  children.push(buildMoreBtn(withNoun(ui, "more_tooltip", ROW_NOUN.ROLE)));
   return dom.el(
     "div",
     {
@@ -970,24 +992,8 @@ const renderFolderRow = (
       },
       countText,
     ),
-    dom.el(
-      "div",
-      {
-        class: CONST.CLASSES.TYPE_ICON_COL,
-        title: countLabelTitle(countText, ui.T("noun_folder")),
-      },
-      { html: SVGs.ICON_FOLDER },
-    ),
-    dom.el(
-      "button",
-      {
-        class: CONST.CLASSES.MORE_BTN,
-        type: "button",
-        title: withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER),
-        "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER),
-      },
-      { html: SVGs.ICON_MORE },
-    ),
+    buildTypeIconCol(countLabelTitle(countText, ui.T("noun_folder")), SVGs.ICON_FOLDER),
+    buildMoreBtn(withNoun(ui, "more_tooltip", ROW_NOUN.FOLDER)),
   );
 };
 
@@ -1020,24 +1026,34 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   const typeIconEl = dom.el("div", { class: CONST.CLASSES.TYPE_ICON_COL });
   if (layerInfo.iconSvg) typeIconEl.innerHTML = layerInfo.iconSvg;
 
-  const moreBtn = dom.el(
-    "button",
-    {
-      class: CONST.CLASSES.MORE_BTN,
-      type: "button",
-      // A container row is corrected to the group noun by applyRowView, which
-      // is the first point that knows the layer resolved to a group.
-      title: withNoun(ui, "more_tooltip", ROW_NOUN.LAYER),
-      "aria-label": withNoun(ui, "more_tooltip", ROW_NOUN.LAYER),
-    },
-    { html: SVGs.ICON_MORE },
-  );
+  // A container row is corrected to the group noun by applyRowView, which
+  // is the first point that knows the layer resolved to a group.
+  const moreBtn = buildMoreBtn(withNoun(ui, "more_tooltip", ROW_NOUN.LAYER));
   // All layers get the "more" button — data layers can focus + rename, base
   // maps can rename (focus on a base map is a harmless full-world fitBounds).
 
+  const layer = ui.c.findLayer(layerInfo);
+  const isContainer = isGroupRow(layerInfo, layer);
+  const groupExpanded = isContainer && isGroupExpanded(ui, layerInfo.id);
   const withFolders = hasAnyFolder(ui);
   const railChildren: HTMLElement[] = [];
-  if (withFolders) {
+  if (isContainer) {
+    // A container row's chevron is the expand entry (like a folder row's),
+    // not a drag hint: the rail slot is the chevron, the grip is the hover
+    // swap below.
+    railChildren.push(
+      dom.el(
+        "button",
+        {
+          class: CONST.CLASSES.FOLD_BTN,
+          "aria-expanded": groupExpanded ? "true" : "false",
+          "aria-label": name,
+          title: ui.T(groupExpanded ? "fold_tooltip" : "unfold_tooltip"),
+        },
+        { html: SVGs.ICON_FOLD },
+      ),
+    );
+  } else if (withFolders) {
     // v3.6: with folders the rail slot is the tree-line (member) or empty
     // (root) at rest, and the drag grip appears on hover. The grip element is
     // always present (existing drag-probe readers query it); the tree node is
@@ -1057,11 +1073,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       );
     }
   }
-  const railCell = dom.el(
-    "span",
-    { class: CONST.CLASSES.RAIL_CELL, title: ui.T("drag_tooltip") },
-    ...railChildren,
-  );
+  const railCell = buildRailCell(railChildren, ui.T("drag_tooltip"));
   railCell.insertAdjacentHTML("beforeend", SVGs.ICON_DRAG_HANDLE);
   const children: HTMLElement[] = [
     railCell,

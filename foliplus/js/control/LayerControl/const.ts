@@ -110,6 +110,10 @@ const CLASSES = {
   LAYER_LABEL: "foliplus-layer-label",
   /** A layer-group row: a grouping, not an item (heavier name, group noun). */
   GROUP_ROW: "foliplus-layer-item-group",
+  /** A group child row (an expanded group member). Not a registry row. */
+  CHILD_ROW: "foliplus-layer-item-child",
+  CHILD_MORE: "foliplus-layer-child-more",
+  CHILD_MORE_BTN: "foliplus-child-more-btn",
   /** Folder row container (a user-created group inside a role). */
   FOLDER_ROW: "foliplus-layer-item-folder",
   /** Folder row name label. */

@@ -1,0 +1,695 @@
+// LayerControl UI — child-layer registration (stage 2).
+//
+// An expanded group container used to render its direct children as pure DOM
+// rows with no LayerInfo, so the style and filter panels could not resolve
+// them. This suite pins the stage-2 contract: every rendered child row owns a
+// registry-only LayerInfo (child: true, parentId), the entry exists iff the row
+// is rendered, and the style / filter projections answer for it.
+import { attachedPanel, initFixture, installLeafletGlobals } from "./fixture.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as CONST from "#control/LayerControl/const.js";
+import type { LayerController } from "#control/LayerControl/controller.js";
+import { focusChildLayer } from "#control/LayerControl/ui/focus/index.js";
+import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { INTENT } from "#control/LayerControl/ui/intent.js";
+import {
+  childRowId,
+  expandChildCap,
+  refreshAllChildRows,
+  refreshChildRows,
+  removeChildLayer,
+  renderChildBlock,
+  toggleGroupExpand,
+} from "#control/LayerControl/ui/listPanel/groupExpand.js";
+import { styleCapability } from "#control/LayerControl/ui/style/styleCapability.js";
+
+describe("child layer registration", () => {
+  let manager: LayerController;
+  let ui: LayerUI;
+  let map: any;
+
+  beforeEach(() => {
+    ({ manager, ui, map } = initFixture());
+  });
+
+  afterEach(() => {
+    manager?.debouncedEnforce?.cancel?.();
+    document.body.innerHTML = "";
+    // The FeatureGroup class is a test-local addition to the mock L (see
+    // makeGroup); drop it so a later file in the same worker sees the fixture's
+    // own shape-fallback world again.
+    delete (window.L as unknown as { FeatureGroup?: unknown }).FeatureGroup;
+    vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** A polygon child leaf: areal rings + a real setStyle + optional GeoJSON
+   *  properties (the filter builder reads feature.properties). */
+  const makeChild = (props?: Record<string, unknown>) => {
+    const leaf = new window.L.Polygon();
+    leaf.setStyle = vi.fn();
+    leaf.feature = props
+      ? { type: "Feature", geometry: { type: "Polygon" }, properties: props }
+      : undefined;
+    return leaf;
+  };
+
+  const makeGroup = (children: unknown[]) => {
+    // The fixture's mock L has no FeatureGroup class, so isGroupLayer falls
+    // back to the GeoJSON shape ("every child carries a feature envelope") —
+    // which would misread a group whose children carry .feature as a data
+    // layer. Register the canonical class for these groups: a real
+    // L.FeatureGroup is a user-facing group whatever its children carry.
+    const FeatureGroup =
+      typeof (window.L as unknown as { FeatureGroup?: unknown }).FeatureGroup ===
+      "function"
+        ? (window.L as unknown as { FeatureGroup: new () => object }).FeatureGroup
+        : ((window.L as unknown as { FeatureGroup: new () => object }).FeatureGroup =
+            class FeatureGroup {});
+    const group: any = {
+      options: {},
+      clearLayers: vi.fn(),
+      getBounds: vi.fn(),
+      addLayer: vi.fn(),
+      removeLayer: vi.fn(),
+      getLayers: vi.fn(() => children),
+      _layers: {},
+    };
+    Object.setPrototypeOf(group, FeatureGroup.prototype);
+    group.eachLayer = vi.fn((fn: (child: unknown) => void) => {
+      for (const child of children) fn(child);
+    });
+    return group;
+  };
+
+  const registerGroup = (children: unknown[]) => {
+    const group = makeGroup(children);
+    manager.registerLayer({
+      id: "fg",
+      name: "Group",
+      role: "overlay",
+      layer: group as never,
+    });
+    vi.useFakeTimers();
+    vi.advanceTimersByTime(200);
+    vi.useRealTimers();
+    return group;
+  };
+
+  const groupRow = (): HTMLElement =>
+    attachedPanel(ui).querySelector(
+      `${CONST.SEL.LAYER_ITEM}[data-layer-id="fg"]`,
+    ) as HTMLElement;
+
+  const expandGroup = (): void => {
+    groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+  };
+
+  const childRows = (): HTMLElement[] =>
+    Array.from(
+      attachedPanel(ui).querySelectorAll<HTMLElement>(
+        `${CONST.SEL.LAYER_ITEM}[data-layer-id^="fg::"]:not(.${CONST.CLASSES.CHILD_MORE})`,
+      ),
+    );
+
+  it("registers each rendered child row as a registry-only LayerInfo", () => {
+    installLeafletGlobals();
+    const a = makeChild({ a: 1 });
+    const b = makeChild({ b: 2 });
+    registerGroup([a, b]);
+    expandGroup();
+
+    expect(childRows().length).toBe(2);
+    for (const child of [a, b]) {
+      const info = manager.layerRegistry.get(childRowId("fg", child));
+      expect(info).toBeDefined();
+      expect(info!.child).toBe(true);
+      expect(info!.parentId).toBe("fg");
+      expect(info!.layer).toBe(child);
+      expect(info!.role).toBe("overlay");
+    }
+  });
+
+  it("keeps child entries out of the ordered list and the role count", () => {
+    installLeafletGlobals();
+    registerGroup([makeChild({ a: 1 }), makeChild({ b: 2 })]);
+    const before = manager.layers.length;
+    expandGroup();
+
+    expect(manager.layers.length).toBe(before);
+    expect(manager.layers.some(entry => entry.child)).toBe(false);
+    // The group row's count stays its direct-child count.
+    expect(groupRow().querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("2");
+  });
+
+  it("unregisters the children when the group collapses", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    registerGroup([a]);
+    expandGroup();
+    const id = childRowId("fg", a);
+    expect(manager.layerRegistry.get(id)).toBeDefined();
+
+    groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+
+    expect(childRows().length).toBe(0);
+    expect(manager.layerRegistry.get(id)).toBeUndefined();
+  });
+
+  it("re-registers the entries after a panel rebuild (entry iff row)", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    registerGroup([a]);
+    expandGroup();
+    const id = childRowId("fg", a);
+
+    ui.rebuildAfterLayoutChange();
+
+    expect(childRows().length).toBe(1);
+    expect(manager.layerRegistry.get(id)).toBeDefined();
+  });
+
+  it("removes the child rows when a group is unregistered", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    const b = makeChild();
+    registerGroup([a, b]);
+    expandGroup();
+    expect(childRows().length).toBe(2);
+
+    manager.unregisterLayer("fg");
+
+    expect(childRows().length).toBe(0);
+    expect(attachedPanel(ui).querySelector('[data-layer-id="fg"]')).toBeNull();
+  });
+
+  it("removes the child rows and entries when a group is deleted", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    registerGroup([a]);
+    expandGroup();
+    const id = childRowId("fg", a);
+    expect(manager.layerRegistry.get(id)).toBeDefined();
+
+    expect(manager.deleteLayer("fg")).toBe(true);
+
+    expect(childRows().length).toBe(0);
+    expect(manager.layerRegistry.get(id)).toBeUndefined();
+  });
+
+  it("cascades a parent unregister to its child entries", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    const b = makeChild();
+    registerGroup([a, b]);
+    expandGroup();
+    const ids = [childRowId("fg", a), childRowId("fg", b)];
+    for (const id of ids) expect(manager.layerRegistry.get(id)).toBeDefined();
+
+    manager.unregisterLayer("fg");
+
+    for (const id of ids) expect(manager.layerRegistry.get(id)).toBeUndefined();
+  });
+
+  it("answers the style projection with the child's leaf-level dims", () => {
+    installLeafletGlobals();
+    const child = makeChild({ a: 1 });
+    registerGroup([child]);
+    expandGroup();
+
+    const cap = styleCapability(ui, childRowId("fg", child));
+    expect(cap.geometry).toBe("polygon");
+    // Leaf-level axes are honest: the style panel writes them through the
+    // child's own leaves.
+    expect(cap.dims.fill).toBe(true);
+    expect(cap.dims.border).toBe(true);
+    // Pane-level axes are not: the child paints in the parent group's pane.
+    expect(cap.dims.opacity).toBe(false);
+    expect(cap.dims.zoomRange).toBe(false);
+  });
+
+  it("declares the generic filter capability on the child entry", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+
+    const info = manager.layerRegistry.get(childRowId("fg", child))!;
+    expect(typeof info.filterProvider).toBe("function");
+    expect(typeof info.filterSetter).toBe("function");
+    expect(manager.hasFilterableFields(info.id)).toBe(true);
+    const model = info.filterProvider!();
+    expect(model).not.toBeNull();
+    expect(model!.dimensions.map(d => d.field)).toContain("score");
+  });
+
+  it("repaints child rows when the group row is toggled off", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    const b = makeChild();
+    const group = registerGroup([a, b]);
+    expandGroup();
+    // The group's own checkbox drives map membership through the projection;
+    // make the map reflect that so the child rows read a real fact.
+    map.hasLayer = vi.fn((layer: unknown) => layer === group);
+
+    const groupBox = groupRow().querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    groupBox.checked = false;
+    groupBox.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const boxes = childRows().map(
+      row => (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+    );
+    expect(boxes).toEqual([false, false]);
+    expect(childRows()[0].querySelector(CONST.SEL.COUNT_COL)?.textContent).toBe("0/1");
+  });
+
+  it("repaints child rows when the role toggle-all hides the group", () => {
+    installLeafletGlobals();
+    const a = makeChild();
+    const group = registerGroup([a]);
+    expandGroup();
+    map.hasLayer = vi.fn((layer: unknown) => layer === group);
+
+    const allBox = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.TOGGLE_ALL}[data-role="overlay"] input[type="checkbox"]`,
+    ) as HTMLInputElement;
+    allBox.checked = false;
+    allBox.dispatchEvent(new Event("change", { bubbles: true }));
+
+    const childBox = childRows()[0].querySelector(
+      'input[type="checkbox"]',
+    ) as HTMLInputElement;
+    expect(childBox.checked).toBe(false);
+  });
+
+  it("keeps a focused child visible by marking the pane it paints through", () => {
+    installLeafletGlobals();
+    const child = makeChild();
+    const paneEl = document.createElement("div");
+    paneEl.className = "foliplus-layer-pane";
+    map.getPane = vi.fn((name: string) =>
+      name === "child-pane" ? paneEl : document.createElement("div"),
+    );
+    registerGroup([child]);
+    expandGroup();
+    // A real focusable child carries bounds; the fixture's Polygon has none.
+    child.getBounds = () => ({
+      isValid: () => true,
+      getSouthWest: () => ({ lat: 30, lng: 100 }),
+      getNorthEast: () => ({ lat: 40, lng: 110 }),
+      getCenter: () => ({ lat: 35, lng: 105 }),
+    });
+    // The child declares its own pane (a third-party layer can). Focus must
+    // mark it, or the focus-hide CSS swallows the very layer being focused.
+    child.options.pane = "child-pane";
+    expect(ui.c.getLayerPanes(child)).toContain("child-pane");
+
+    focusChildLayer(ui, "fg", childRowId("fg", child));
+
+    expect(paneEl.classList.contains(CONST.CLASSES.FOCUS_PANE)).toBe(true);
+  });
+
+  it("refreshes a child row's filtered count without touching its checkbox", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+    const id = childRowId("fg", child);
+    // Hide the child through its own checkbox: that is a map fact, not a
+    // registry intent (child entries have none).
+    map.hasLayer = vi.fn((layer: unknown) => layer !== child);
+    const row = childRows()[0];
+    const box = row.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    box.checked = false;
+    box.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(box.checked).toBe(false);
+
+    // Filter the child so nothing matches: the kept count is 0 of 1.
+    manager.layerRegistry.get(id)!.filterSetter!({
+      kind: "atom",
+      field: "score",
+      op: "between",
+      range: [0, 1],
+    });
+
+    const countCol = row.querySelector(CONST.SEL.COUNT_COL) as HTMLElement;
+    expect(countCol.classList.contains(CONST.CLASSES.COUNT_FILTERED)).toBe(true);
+    expect(countCol.querySelector(`.${CONST.CLASSES.COUNT_VALUE}`)?.textContent).toBe(
+      "0",
+    );
+    // The filter repaint must not resurrect the checkbox from an intent the
+    // child never had.
+    expect(
+      (row.querySelector('input[type="checkbox"]') as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  it("does not persist a child's style intent under its unstable stamp id", () => {
+    installLeafletGlobals();
+    const child = makeChild();
+    registerGroup([child]);
+    expandGroup();
+    const childId = childRowId("fg", child);
+
+    // What a style panel write does: one intent keyed by the row id.
+    ui.intentStore.setRaw(childId, INTENT.FILL_COLOR, "#112233");
+    // A normal registry layer must still persist — the strip is child-only.
+    ui.intentStore.setRaw("overlay1", INTENT.FILL_COLOR, "#445566");
+    ui.saveState();
+    manager.persistence.flushAll();
+    const record = JSON.parse(
+      window.localStorage.getItem(CONST.STORAGE.KEY) as string,
+    ) as { data?: { layers?: Record<string, unknown> } };
+    const ids = Object.keys(record.data?.layers ?? {});
+
+    expect(ids).not.toContain(childId);
+    expect(ids).toContain("overlay1");
+  });
+
+  it("renders an explicit more row instead of silently dropping children past the cap", () => {
+    installLeafletGlobals();
+    registerGroup(Array.from({ length: 51 }, () => makeChild()));
+    expandGroup();
+
+    // Past the first 50 children nothing renders silently: the cap announces
+    // what it hid.
+    expect(childRows().length).toBe(50);
+    const more = attachedPanel(ui).querySelector<HTMLElement>(
+      `.${CONST.CLASSES.CHILD_MORE}`,
+    );
+    expect(more).not.toBeNull();
+    // The row states the hidden count through the translator (the fixture's
+    // stub returns the key, so compare against the same substitution).
+    expect(more!.textContent).toContain(ui.T("child_more").replace("{count}", "1"));
+
+    more!.querySelector("button")!.click();
+
+    expect(childRows().length).toBe(51);
+    expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.CHILD_MORE}`)).toBeNull();
+  });
+
+  it("offers style and filter in the child row's ⋮ menu", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+
+    const row = childRows()[0];
+    ui.openMoreMenu(row);
+
+    const menu = attachedPanel(ui).querySelector(`.${CONST.CLASSES.MORE_MENU}`);
+    expect(menu).not.toBeNull();
+    const styleEntry = menu!.querySelector(
+      `[data-action="${CONST.ACTION.STYLE_LAYER}"]`,
+    );
+    const filterEntry = menu!.querySelector(
+      `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
+    );
+    expect(styleEntry).not.toBeNull();
+    expect(styleEntry!.getAttribute("aria-disabled")).toBe("false");
+    expect(filterEntry).not.toBeNull();
+    expect(filterEntry!.getAttribute("aria-disabled")).toBe("false");
+  });
+
+  it("renames a child row and keeps the name session-only", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+    const id = childRowId("fg", child);
+    const row = childRows()[0];
+
+    ui.openMoreMenu(row);
+    const renameEntry = attachedPanel(ui).querySelector<HTMLElement>(
+      `[data-action="${CONST.ACTION.RENAME_LAYER}"]`,
+    );
+    expect(renameEntry).not.toBeNull();
+    renameEntry!.click();
+
+    const input = row.querySelector<HTMLInputElement>(`.${CONST.CLASSES.RENAME_INPUT}`);
+    expect(input).not.toBeNull();
+    input!.value = "My child";
+    input!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    // Both projections of the name follow the intent: the row label and the
+    // registry entry the style / filter panels resolve.
+    expect(childRows()[0]?.querySelector("label")?.textContent).toBe("My child");
+    expect(manager.layerRegistry.get(id)?.name).toBe("My child");
+
+    // The stamp id is not stable across a reload, so the name must not be
+    // written to the persisted record (child rows are not persisted).
+    ui.c.persistence.flushAll();
+    const record = JSON.parse(
+      window.localStorage.getItem(CONST.STORAGE.KEY) as string,
+    ) as { renamedNames?: Record<string, string> };
+    expect(Object.keys(record.renamedNames ?? {})).not.toContain(id);
+
+    // Collapsing destroys the entry; re-expanding rebuilds it from the
+    // session intent, so the name survives the row's lifetime.
+    groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+    groupRow().querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!.click();
+    expect(childRows()[0].querySelector("label")?.textContent).toBe("My child");
+  });
+
+  it("expands a nested group in place and keeps the ids chained", () => {
+    installLeafletGlobals();
+    const leafA = makeChild({ name: "a" });
+    const leafB = makeChild({ name: "b" });
+    const inner = makeGroup([leafA, leafB]);
+    registerGroup([inner]);
+    expandGroup();
+
+    const innerId = childRowId("fg", inner);
+    const innerRow = attachedPanel(ui).querySelector<HTMLElement>(
+      `[data-layer-id="${innerId}"]`,
+    );
+    expect(innerRow).not.toBeNull();
+    const chevron = innerRow!.querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`);
+    expect(chevron).not.toBeNull();
+
+    chevron!.click();
+
+    const leafAId = childRowId(innerId, leafA);
+    const leafBId = childRowId(innerId, leafB);
+    expect(
+      attachedPanel(ui).querySelector(`[data-layer-id="${leafAId}"]`),
+    ).not.toBeNull();
+    expect(
+      attachedPanel(ui).querySelector(`[data-layer-id="${leafBId}"]`),
+    ).not.toBeNull();
+    // The nested rows are children of the nested group, not of the root.
+    const leafInfo = manager.layerRegistry.get(leafAId);
+    expect(leafInfo).toBeDefined();
+    expect(leafInfo!.child).toBe(true);
+    expect(leafInfo!.parentId).toBe(innerId);
+    expect(chevron!.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("collapses a nested group without touching the parent block", () => {
+    installLeafletGlobals();
+    const leaf = makeChild();
+    const inner = makeGroup([leaf]);
+    registerGroup([makeChild(), inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    const chevron = attachedPanel(ui)
+      .querySelector<HTMLElement>(`[data-layer-id="${innerId}"]`)!
+      .querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`);
+    chevron!.click();
+    const leafId = childRowId(innerId, leaf);
+    expect(manager.layerRegistry.get(leafId)).toBeDefined();
+
+    chevron!.click();
+
+    expect(manager.layerRegistry.get(leafId)).toBeUndefined();
+    expect(attachedPanel(ui).querySelector(`[data-layer-id="${leafId}"]`)).toBeNull();
+    // The nested group row itself is still rendered under its parent.
+    expect(
+      attachedPanel(ui).querySelector(`[data-layer-id="${innerId}"]`),
+    ).not.toBeNull();
+    expect(manager.layerRegistry.get(innerId)).toBeDefined();
+  });
+
+  it("persists only root-group expansion, never a stamped nested id", () => {
+    installLeafletGlobals();
+    const inner = makeGroup([makeChild()]);
+    registerGroup([inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    attachedPanel(ui)
+      .querySelector<HTMLElement>(`[data-layer-id="${innerId}"]`)!
+      .querySelector<HTMLElement>(`.${CONST.CLASSES.FOLD_BTN}`)!
+      .click();
+    manager.persistence.flushAll();
+
+    const record = JSON.parse(
+      window.localStorage.getItem(CONST.STORAGE.KEY) as string,
+    ) as { data?: { expandedGroups?: Record<string, boolean> } };
+    const keys = Object.keys(record.data?.expandedGroups ?? {});
+    expect(keys).toContain("fg");
+    expect(keys.some(id => id.includes("::"))).toBe(false);
+  });
+
+  it("renders a nested block only while its own group is expanded", () => {
+    installLeafletGlobals();
+    const leaf = makeChild({ a: 1 });
+    const inner = makeGroup([leaf]);
+    registerGroup([inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    const chevron = () =>
+      attachedPanel(ui).querySelector<HTMLElement>(
+        `[data-layer-id="${innerId}"] .${CONST.CLASSES.FOLD_BTN}`,
+      )!;
+
+    // A folded nested group is one row: no children, and its own chevron says so.
+    expect(chevron().getAttribute("aria-expanded")).toBe("false");
+    expect(chevron().title).toBe(ui.T("unfold_tooltip"));
+    expect(renderChildBlock(ui, "fg", inner)).toHaveLength(1);
+
+    chevron().click();
+    expect(renderChildBlock(ui, "fg", inner)).toHaveLength(2);
+    expect(chevron().getAttribute("aria-expanded")).toBe("true");
+    expect(chevron().title).toBe(ui.T("fold_tooltip"));
+
+    chevron().click();
+    expect(renderChildBlock(ui, "fg", inner)).toHaveLength(1);
+  });
+
+  it("caps a nested block with the more row and lifts the cap", () => {
+    installLeafletGlobals();
+    const leaves = Array.from({ length: 51 }, (_, i) => makeChild({ i }));
+    registerGroup([makeGroup(leaves)]);
+    expandGroup();
+    const inner = (manager.layerRegistry.get("fg")!.layer as any).getLayers()[0];
+    const innerId = childRowId("fg", inner);
+    toggleGroupExpand(ui, innerId);
+
+    const rows = renderChildBlock(ui, "fg", inner);
+    expect(rows).toHaveLength(52);
+    expect(rows[51].classList.contains(CONST.CLASSES.CHILD_MORE)).toBe(true);
+
+    // Lifting the cap repaints the attached block and drops the notice row.
+    expandChildCap(ui, innerId);
+    const lifted = renderChildBlock(ui, "fg", inner);
+    // The group row plus all 51 children, with no remainder row.
+    expect(lifted).toHaveLength(52);
+    expect(lifted.some(row => row.classList.contains(CONST.CLASSES.CHILD_MORE))).toBe(
+      false,
+    );
+    expect(attachedPanel(ui).querySelector(`.${CONST.CLASSES.CHILD_MORE}`)).toBeNull();
+  });
+
+  it("repaints nested child rows from their own container", () => {
+    installLeafletGlobals();
+    const leafA = makeChild();
+    const leafB = makeChild();
+    const inner = makeGroup([leafA, leafB]);
+    registerGroup([inner]);
+    expandGroup();
+    const innerId = childRowId("fg", inner);
+    toggleGroupExpand(ui, innerId);
+    const leafId = childRowId(innerId, leafA);
+    const leafRow = () =>
+      attachedPanel(ui).querySelector<HTMLElement>(`[data-layer-id="${leafId}"]`)!;
+
+    map.hasLayer = vi.fn((layer: unknown) => layer !== leafA);
+    refreshChildRows(ui, "fg");
+    expect(
+      leafRow().querySelector<HTMLInputElement>('input[type="checkbox"]')!.checked,
+    ).toBe(false);
+
+    // A row without a checkbox still gets its count refreshed.
+    leafRow().querySelector('input[type="checkbox"]')!.remove();
+    expect(() => refreshChildRows(ui, "fg")).not.toThrow();
+    expect(leafRow().querySelector('input[type="checkbox"]')).toBeNull();
+
+    // A row whose child is no longer a member of the container is skipped.
+    const ghost = document.createElement("div");
+    ghost.className = CONST.CLASSES.LAYER_ITEM;
+    ghost.setAttribute(CONST.DATA.LAYER_ID, `${innerId}::ghost`);
+    attachedPanel(ui).appendChild(ghost);
+    expect(() => refreshChildRows(ui, "fg")).not.toThrow();
+
+    // Without a container there is nothing to paint.
+    (ui.c as unknown as { uiContainer: null }).uiContainer = null;
+    expect(() => refreshChildRows(ui, "fg")).not.toThrow();
+  });
+
+  it("sweeps the expanded groups of one role only", () => {
+    installLeafletGlobals();
+    registerGroup([makeGroup([makeChild()])]);
+    expandGroup();
+    ui.listPanel.expandedGroups.collapsed = false;
+
+    // No role: every expanded group is refreshed.
+    expect(() => refreshAllChildRows(ui)).not.toThrow();
+    // A role the group is not in: skipped.
+    expect(() => refreshAllChildRows(ui, "base")).not.toThrow();
+    // The group's own role: refreshed.
+    expect(() => refreshAllChildRows(ui, "overlay")).not.toThrow();
+  });
+
+  it("lifts a cap only for an attached expanded group", () => {
+    installLeafletGlobals();
+    registerGroup([makeGroup([makeChild()])]);
+    expandGroup();
+    // No row for that id.
+    expect(() => expandChildCap(ui, "fg::absent")).not.toThrow();
+    // A row exists but the group is folded.
+    ui.listPanel.expandedGroups.fg = false;
+    expect(() => expandChildCap(ui, "fg")).not.toThrow();
+  });
+
+  it("drops a child entry with the row it was created for", () => {
+    installLeafletGlobals();
+    const leaf = makeChild();
+    const other = makeChild();
+    registerGroup([makeGroup([leaf, other])]);
+    expandGroup();
+    const leafId = childRowId("fg", leaf);
+
+    // The child is already off the map: only the entry and the row go.
+    map.hasLayer = vi.fn(() => false);
+    removeChildLayer(ui, "fg", leafId);
+    expect(manager.layerRegistry.get(leafId)).toBeUndefined();
+    expect(map.removeLayer).not.toHaveBeenCalled();
+
+    // Unknown child id: nothing to resolve.
+    expect(() => removeChildLayer(ui, "fg", "fg::nope")).not.toThrow();
+
+    // No container to paint into.
+    (ui.c as unknown as { uiContainer: null }).uiContainer = null;
+    expect(() => removeChildLayer(ui, "fg", childRowId("fg", other))).not.toThrow();
+  });
+
+  it("renders the style panel against the child's own leaves", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+
+    ui.openStylePanel(childRowId("fg", child));
+
+    const row = childRows()[0];
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_PANEL}`)).not.toBeNull();
+    // A polygon child has an honest fill row; the pane-level rows (opacity /
+    // zoom range) are absent because the child owns no pane.
+    expect(row.querySelector(`.${CONST.CLASSES.STYLE_FILL_ROW}`)).not.toBeNull();
+  });
+
+  it("renders the filter panel with the child's own fields", () => {
+    installLeafletGlobals();
+    const child = makeChild({ score: 7 });
+    registerGroup([child]);
+    expandGroup();
+
+    const row = childRows()[0];
+    ui.openFilterPanel(row);
+
+    expect(row.querySelector(`.${CONST.CLASSES.FILTER_PANEL}`)).not.toBeNull();
+  });
+});

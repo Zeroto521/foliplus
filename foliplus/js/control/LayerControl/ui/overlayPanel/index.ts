@@ -37,6 +37,9 @@ class OverlayPanel {
     folderKey?: string;
     /** The role the menu was opened for (role rows only). */
     role?: string;
+    /** The parent group id a child row's menu was opened for (child rows
+     *  only: a non-registry child of an expanded group). */
+    childParentId?: string;
   } | null = null;
   /** Unregister for the overflow menu's registry entry (installed while open). */
   menuOverlayUnregister: (() => void) | null = null;

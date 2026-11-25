@@ -31,6 +31,11 @@ import {
   toggleFold,
   toggleFolderFold,
 } from "./listPanel/drag.js";
+import {
+  expandChildCap,
+  refreshAllChildRows,
+  toggleGroupExpand,
+} from "./listPanel/groupExpand.js";
 import { handleDblClick } from "./listPanel/keyboard.js";
 import {
   initLayerItem,
@@ -40,7 +45,7 @@ import {
   syncRowOrder,
   updateLayerItemLabel,
 } from "./listPanel/list.js";
-import { applyRowView, buildRowCell } from "./listPanel/rowView.js";
+import { applyRowCountView, applyRowView, buildRowCell } from "./listPanel/rowView.js";
 import {
   getLayerItems,
   handleChange,
@@ -232,6 +237,51 @@ const bindLayerEvents = (ui: LayerUI): void => {
       }
     }
 
+    // A group row's chevron is the expand entry (design: chevron, not
+    // the row body — the row body stays a selectable layer row). The chevron
+    // is a .FOLD_BTN inside a .GROUP_ROW row; this branch must run before the
+    // folder-row branch (a group row is not a folder row).
+    // A capped group states its remainder in a "N more" row; the click asks for
+    // the rest and repaints the block with the raised cap.
+    const childMore = el.closest(`.${CONST.CLASSES.CHILD_MORE}`) as HTMLElement | null;
+    if (childMore) {
+      const moreId =
+        childMore.closest(CONST.SEL.LAYER_ITEM)?.getAttribute(CONST.DATA.LAYER_ID) ??
+        "";
+      const moreParent = moreId.slice(0, moreId.lastIndexOf("::"));
+      if (moreParent) expandChildCap(ui, moreParent);
+      return;
+    }
+
+    const groupChevron = el.closest(
+      `.${CONST.CLASSES.GROUP_ROW} .${CONST.CLASSES.FOLD_BTN}`,
+    ) as HTMLElement | null;
+    if (groupChevron) {
+      const parentId = groupChevron
+        .closest(CONST.SEL.LAYER_ITEM)
+        ?.getAttribute(CONST.DATA.LAYER_ID);
+      if (parentId) {
+        toggleGroupExpand(ui, parentId);
+      }
+      return;
+    }
+
+    // A child row that is itself a group carries the same chevron (nested
+    // expand). Its id is the chain to that container, so the same state map and
+    // the same render path serve it.
+    const childChevron = el.closest(
+      `.${CONST.CLASSES.CHILD_ROW} .${CONST.CLASSES.FOLD_BTN}`,
+    ) as HTMLElement | null;
+    if (childChevron) {
+      const childGroupId = childChevron
+        .closest(CONST.SEL.LAYER_ITEM)
+        ?.getAttribute(CONST.DATA.LAYER_ID);
+      if (childGroupId) {
+        toggleGroupExpand(ui, childGroupId);
+      }
+      return;
+    }
+
     // The fold branch climbs on the header row's identity key, never on the
     // row class (see SEL.TOGGLE_ALL_ROW), and the click landing on the row's own
     // toggle-all checkbox is the onChange path, not a fold.
@@ -350,6 +400,9 @@ const bindLayerEvents = (ui: LayerUI): void => {
   // row sees the settled face rather than the pre-zoom out-of-range state.
   ui.onZoomEnd = () => {
     const swept = applyProjectionAll(ui);
+    // A zoom-range sweep hides/shows whole groups with their children; the
+    // expanded groups' child rows read that membership fact directly.
+    refreshAllChildRows(ui);
     ui.overlayPanel.styleZoomEndHandler?.();
     notifyDeltas(ui, swept);
   };
@@ -416,7 +469,11 @@ const bindLayerEvents = (ui: LayerUI): void => {
       const item = ui.uiContainer.querySelector<HTMLElement>(
         `[${CONST.DATA.LAYER_ID}="${CSS.escape(payload.id)}"]`,
       );
-      if (item) applyRowView(ui, item, buildRowCell(ui, layerInfo));
+      if (!item) return;
+      // A child row's checkbox is the map fact, not a registry intent: a full
+      // row paint would resurrect a hidden child. Refresh only its count.
+      if (layerInfo.child) applyRowCountView(ui, item, buildRowCell(ui, layerInfo));
+      else applyRowView(ui, item, buildRowCell(ui, layerInfo));
     }),
     subscribe(EVENTS.LAYER_ITEM_REMOVED, (payload: { id: string }) => {
       // Cache drop only: unregister already tore the labels and their canvas
@@ -543,7 +600,10 @@ const refreshAllCounts = (ui: LayerUI): void => {
   items.forEach((item: Element) => {
     const id = item.getAttribute(CONST.DATA.LAYER_ID);
     const layerInfo = id ? ui.c.layerRegistry.get(id) : undefined;
-    if (!layerInfo) return;
+    // A child entry is registry-only: its row is painted by the group's expand
+    // renderer, which owns the child's actual map membership. Repainting it
+    // here would write the registry's (unset) intent over a child the user hid.
+    if (!layerInfo || layerInfo.child) return;
     applyRowView(ui, item as HTMLElement, buildRowCell(ui, layerInfo));
   });
 };

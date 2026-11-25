@@ -233,6 +233,10 @@ class LayerOrchestration {
       canvas: Boolean(layerInfo.carrier.canvas),
       getBounds: layerInfo.getBounds,
       color: layerInfo.color,
+      // A child entry never gets a rendering face of its own: it paints inside
+      // its parent group's pane. The probe still answers capabilities and
+      // geometry for the style panel.
+      probeOnly: Boolean(layerInfo.child),
     };
     const existing = this.surfaceIndex.get(layerInfo.id);
     if (existing?.matches(surfaceFace)) return existing;
@@ -379,6 +383,21 @@ class LayerOrchestration {
     // surface anyway; the mark on the old surface is harmless.
     if (existingLi) this.surfaceIndex.get(opts.id)?.markContentDirty();
     const layerInfo = this.layerRegistry.createLayerInfo(opts, existingLi, this.map);
+
+    // A child entry is registry-only: it must reach `byId` (the style / filter
+    // panels resolve it as a LayerInfo) without entering the ordered list, the
+    // z ladder or a rendered row. The group's own expand renderer owns the row
+    // and the map membership, so there is no surface to materialize and no
+    // order slot to claim here.
+    if (layerInfo.child) {
+      this.layerRegistry.upsert(layerInfo);
+      opts.onCommitted?.(layerInfo);
+      return {
+        layerInfo,
+        hidden: false,
+        mutation: { kind: "insert", entry: layerInfo, index: -1 },
+      };
+    }
 
     // Same id, new layer object: the old layer is being replaced, not
     // joined. Retire it from the map BEFORE the registry forgets it —

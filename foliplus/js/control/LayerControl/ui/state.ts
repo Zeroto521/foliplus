@@ -27,14 +27,30 @@ const loadPersistedState = (ui: LayerUI) => {
   // The author default is re-derived on every load so it stays fresh if the
   // author changes the declaration.
   ui.listPanel.foldedFolders = { ...state.foldedFolders };
+  // Nested child groups are keyed by their stamp-bearing chain ids: never load
+  // them (they name no child of this page). Only registry rows persist.
+  ui.listPanel.expandedGroups = Object.fromEntries(
+    Object.entries(state.expandedGroups ?? {}).filter(([id]) => !id.includes("::")),
+  );
   ui.listPanel.authorFoldedFolders = authorFoldedKeys(ui.config?.folders);
   ui.listPanel.authorDefaultFoldedRoles = authorDefaultRoleFolds(ui.config?.roles);
   // Intent values + provenance sink into the store. The label config is read
   // from `layers[id].label` only — the legacy top-level `annotations`
   // segment was dropped.
+  // A record written before the child-id strip (or by another page) can carry
+  // `::` entries; never load them — their stamps do not describe this page's
+  // children.
+  const layers = Object.fromEntries(
+    Object.entries(state.layers).filter(([id]) => !id.includes("::")),
+  );
+  // Child names are session-only too: a persisted `::` entry describes no
+  // child of this page.
+  const renamedNames = Object.fromEntries(
+    Object.entries(state.renamedNames).filter(([id]) => !id.includes("::")),
+  );
   ui.intentStore.loadFromPersisted({
-    renamedNames: state.renamedNames,
-    layers: state.layers,
+    renamedNames,
+    layers,
   });
 };
 
@@ -44,6 +60,12 @@ const saveFoldState = (ui: LayerUI) => {
   ui.c.persistence.schedule({
     foldedRoles: () => ({ ...ui.listPanel.foldedRoles }),
     foldedFolders: () => ({ ...ui.listPanel.foldedFolders }),
+    expandedGroups: () =>
+      Object.fromEntries(
+        Object.entries(ui.listPanel.expandedGroups).filter(
+          ([id]) => !id.includes("::"),
+        ),
+      ),
   });
 };
 
@@ -67,7 +89,15 @@ const hasLiveValue = (ui: LayerUI, id: string, override: LayerOverride): boolean
  *  `overrides` array, which `parseLayerState` keeps for exactly this). */
 const buildLayerStates = (ui: LayerUI) => {
   const labels = Object.fromEntries(ui.c.label.configEntries());
-  return ui.intentStore.toPersisted(labels);
+  const states = ui.intentStore.toPersisted(labels);
+  // A child row's id embeds `L.stamp` (`parentId::stamp`), which a reload does
+  // not reproduce: the next session re-stamps its children, so an old stamp
+  // would apply one child's style to another. Child intents are session-only —
+  // strip them here, the one place the record is assembled.
+  for (const id of Object.keys(states)) {
+    if (id.includes("::")) delete states[id];
+  }
+  return states;
 };
 
 /** Save the per-layer intent -- visibility, opacity, zoom range and the
@@ -263,6 +293,10 @@ const dropPersistedLayerState = (ui: LayerUI, id: string): boolean => {
 const saveNamesState = (ui: LayerUI) => {
   const names: Record<string, string> = {};
   for (const [id, name] of ui.intentStore.nameEntries()) {
+    // A child row's id carries L.stamp (parentId::stamp): the name is
+    // session-only for the same reason its style intent is (see
+    // buildLayerStates) — the next session's stamps name different children.
+    if (id.includes("::")) continue;
     names[id] = name;
   }
   ui.c.persistence.schedule({ renamedNames: () => names });

@@ -613,6 +613,19 @@
     }
   }
 
+  /* ── Container child row (expanded group member) ──
+     A child row is a leaf-looking row one level deeper: the rail holds the
+     drag grip (no tree node, no chevron), the row keeps the same cells as a
+     leaf, and the label reads one weight lighter than the group header. */
+  .foliplus-layer-item-child {
+    grid-template-areas: "rail check label count icon";
+    cursor: default;
+
+    .foliplus-layer-label {
+      font-weight: var(--foliplus-font-weight-normal);
+    }
+  }
+
   /* ── Role row (section header, now a ⋮ row too) ── */
   .foliplus-layer-role {
     font-size: var(--foliplus-font-size-xs);
@@ -723,5 +736,28 @@
     .foliplus-layer-rail:has(.foliplus-fold-tree)
     .foliplus-fold-tree {
     opacity: 0;
+  }
+}
+
+/* ── Capped group remainder — the "N more" row ──
+   Same block rhythm as a child row, but its only content is one button: the
+   group's remaining children are one click away, never silently dropped. */
+.foliplus-layer-item-child.foliplus-layer-child-more {
+  display: flex;
+  align-items: center;
+  padding-inline-start: var(--foliplus-space-md);
+  cursor: default;
+
+  .foliplus-child-more-btn {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: var(--foliplus-accent-primary);
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }

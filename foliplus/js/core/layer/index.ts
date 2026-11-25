@@ -117,6 +117,7 @@ export {
   walkTree,
   findLeaf,
   findNode,
+  childrenOf,
   countChildLayers,
 } from "./walkLeaf.js";
 // `isArealStyleLeaf` is the fill walker's leaf predicate. The build's registry

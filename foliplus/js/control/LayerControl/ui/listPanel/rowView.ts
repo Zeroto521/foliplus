@@ -25,6 +25,7 @@ import {
 import { setLabelTitle } from "#platform/dom.js";
 import { formatNumber } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
+import { setCheckboxState } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 import * as Util from "#control/LayerControl/util.js";
@@ -310,6 +311,44 @@ const buildRowCell = (ui: LayerUI, layerInfo: LayerInfo): RowCell => {
  *  updates the rest rather than being skipped. An empty `typeSvg` leaves the
  *  icon column as it is — nothing to paint is not the same as a blank.
  */
+/** Write one row's count cell from the projected view. Shared by
+ *  `applyRowView` (full row paint) and `applyRowCountView` (a child row's
+ *  count-only repaint after a committed filter). */
+const writeCountCell = (item: HTMLElement, view: RowView): void => {
+  const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
+  if (!countCol) return;
+  countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
+  if (view.filtered) {
+    // Funnel first, then the compact kept count. innerHTML is the funnel's
+    // own module SVG (never a caller string), same as the type column.
+    countCol.innerHTML = `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">${view.countIconSvg}</span><span class="${CONST.CLASSES.COUNT_VALUE}">${view.countText}</span>`;
+  } else {
+    countCol.textContent = view.countText;
+  }
+  // The count cell is label, but its sentence is the filtered fact: mirror the
+  // row title so hover/AT read the same numbers. Set the attribute only when
+  // it carries text: an empty title attribute would swallow the row title on
+  // hover instead of letting it bubble.
+  if (view.filtered) countCol.title = view.title;
+  else countCol.removeAttribute("title");
+  countCol.setAttribute("aria-label", view.title);
+};
+
+/** Repaint only a row's count cell.
+ *
+ *  A child row is not a registry row: its checkbox is the map fact, not
+ *  `intentVisibleOf`, so a committed filter must refresh the funnel/count
+ *  without rewriting the checkbox from an intent the child never had. */
+const applyRowCountView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
+  writeCountCell(
+    item,
+    rowView(cell, {
+      select: ui.T("select_tooltip"),
+      deselect: ui.T("deselect_tooltip"),
+    }),
+  );
+};
+
 const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   const view = rowView(cell, {
     select: ui.T("select_tooltip"),
@@ -335,24 +374,7 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
     moreBtn.setAttribute("aria-label", label);
   }
 
-  const countCol = item.querySelector<HTMLElement>(CONST.SEL.COUNT_COL);
-  if (countCol) {
-    countCol.classList.toggle(CONST.CLASSES.COUNT_FILTERED, view.filtered);
-    if (view.filtered) {
-      // Funnel first, then the compact kept count. innerHTML is the funnel's
-      // own module SVG (never a caller string), same as the type column.
-      countCol.innerHTML = `<span class="${CONST.CLASSES.COUNT_FUNNEL}" aria-hidden="true">${view.countIconSvg}</span><span class="${CONST.CLASSES.COUNT_VALUE}">${view.countText}</span>`;
-    } else {
-      countCol.textContent = view.countText;
-    }
-    // The count cell is label, but its sentence is the filtered fact:
-    // mirror the row title so hover/AT read the same numbers. Set the
-    // attribute only when it carries text: an empty title attribute would
-    // swallow the row title on hover instead of letting it bubble.
-    if (view.filtered) countCol.title = view.title;
-    else countCol.removeAttribute("title");
-    countCol.setAttribute("aria-label", view.title);
-  }
+  writeCountCell(item, view);
   if (view.typeSvg) {
     const typeCol = item.querySelector<HTMLElement>(`.${CONST.CLASSES.TYPE_ICON_COL}`);
     if (typeCol) {
@@ -379,11 +401,15 @@ const applyRowView = (ui: LayerUI, item: HTMLElement, cell: RowCell): void => {
   item.title = view.title;
 };
 
-// The tri-state checkbox paint moved to the shared ui/checkbox primitive
-// (createCheckbox / setCheckboxState / triStateOf) so a checkbox created by
-// LayerControl and one created by any other consumer paint the identical
-// checked / indeterminate / aria-checked contract. rowView no longer owns a
-// second copy of the rule.
+/** Write one row checkbox's binary visual. applyRowView writes the
+ *  registry rows (from the intent projection); a child row has no intent store
+ *  — its membership is the map's fact — so this is the one binary write, kept
+ *  in the row-view writer so the charter still has a single writer. The paint
+ *  itself is the shared checkbox primitive's, so a child box cannot drift from
+ *  the registry rows' boxes. */
+const writeRowChecked = (input: HTMLInputElement, checked: boolean): void => {
+  setCheckboxState(input, checked ? "checked" : "unchecked");
+};
 
 /** Write the role row's count cell — text and tooltip — from the same
  *  `{ total, on }` aggregate the tri-state checkbox paints. A row visual
@@ -403,8 +429,10 @@ const writeRoleCount = (
 };
 
 export {
+  applyRowCountView,
   applyRowView,
   buildRowCell,
+  writeRowChecked,
   countLabelTitle,
   countTooltip,
   displayName,

@@ -34,6 +34,7 @@ import {
   showReorderBlockedHint,
   toggleFold,
 } from "./drag.js";
+import { toggleGroupExpand } from "./groupExpand.js";
 import { handleDblClick, handleKeyDown, handleOutsideMousedown } from "./keyboard.js";
 import {
   colorLayerName,
@@ -101,6 +102,17 @@ class ListPanel {
    *  (foldedRoles) is checked first and this falls back under it. See
    *  control/LayerControl/declaredRole.ts. */
   authorDefaultFoldedRoles: Record<string, boolean> = {};
+  /** Per-group expand opinion. Record<parentLayerId, boolean>:
+   *  true (expanded) / false (explicit collapsed); absent key = never
+   *  touched, so the group follows the built-in collapsed default.
+   *  Groups are the OPPOSITE of roles/folders: a fresh group is
+   *  collapsed, and only an explicit expand opens it. Persisted through the
+   *  same channel as the fold state (state.ts saveFoldState). */
+  expandedGroups: Record<string, boolean> = {};
+  /** Per-group override of CHILD_RENDER_CAP: a group whose remaining children
+   *  the user asked for renders them all. Session-only — like the child rows
+   *  themselves it is not persisted. */
+  childLimits: Record<string, number> = {};
   /** Index of the currently-navigable row the cursor is parked on, or null
    *  when the cursor is cleared (Escape, outside press). */
   activeIdx: number | null = null;
@@ -146,6 +158,7 @@ export {
   refreshTreeConnectors,
 };
 export { ListPanel };
+export { toggleGroupExpand };
 export {
   applyRowView,
   buildRowCell,

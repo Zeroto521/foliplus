@@ -73,6 +73,7 @@ import {
   folderNameTooLong,
   folderOf,
   freezeRoleOrder,
+  isGroupLayer,
   moveFolder,
   moveLayerToFolder as moveLayerToFolderInLayout,
   moveLayerToRootAt as moveLayerToRootAtInLayout,
@@ -1540,6 +1541,11 @@ class LayerController implements LayerAPI {
       opts,
       Boolean(this.ui),
     );
+    // A child entry is registry-only (see RegisterLayerOpts.child): the
+    // group's expand renderer owns its row and its map membership, so this
+    // registration is finished — no row event, no projection replay, no z
+    // pricing, no persistence, no panel state.
+    if (opts.child) return null;
     // A layer registered after init can still declare a folder. Seed the layout
     // from the registry so the row joins that folder: the seed is idempotent and
     // never overrides an existing assignment, so a re-registration is a no-op.
@@ -1859,6 +1865,21 @@ class LayerController implements LayerAPI {
    * @returns {boolean} true if layer was found and removed, false otherwise.
    */
   unregisterLayer(id: string): boolean {
+    const entry = this.layerRegistry.get(id);
+    // A child entry is registry-only: drop the entry and its filter caches.
+    // The group's expand renderer owns the row and the map membership, so
+    // there is no row / role / persistence fan-out here.
+    if (entry?.child) {
+      const retiredChild = this.domain.unregisterEntry(id);
+      if (!retiredChild.layerInfo) return false;
+      this.filterProbe.delete(id);
+      this.filterFeaturesRev.delete(id);
+      return true;
+    }
+    // A group's children must leave the registry before the group does: their
+    // entries are keyed by the parent id, and a retired parent would strand
+    // them as orphans no row can reach.
+    this.retireChildEntries(id, entry);
     const retired = this.retireEntry(id);
     if (!retired) return false;
 
@@ -1877,6 +1898,36 @@ class LayerController implements LayerAPI {
     if (retired.error) throw retired.error;
     operation.throwIfFailed();
     return true;
+  }
+
+  /** Drop a group's child entries before the group itself retires.
+   *
+   *  Child entries are keyed by the parent id, so a retired parent would strand
+   *  them as orphans no row can reach. Every retirement path funnels through
+   *  here: `unregisterLayer` (generic teardown) and `deleteLayer` (which takes
+   *  `retireEntry` directly and so cannot rely on the unregister cascade). */
+  private retireChildEntries(id: string, entry?: LayerInfo): void {
+    if (!entry) return;
+    const groupLayer = this.findLayer(entry);
+    if (!groupLayer || !isGroupLayer(groupLayer)) return;
+    for (const child of this.layerRegistry.childEntriesOf(id)) {
+      this.unregisterLayer(child.id);
+    }
+  }
+
+  /** Every child entry owned by one group (registry-only entries, see
+   *  {@link RegisterLayerOpts.child}). */
+  childEntriesOf(parentId: string): LayerInfo[] {
+    return this.layerRegistry.childEntriesOf(parentId);
+  }
+
+  /** Drop every child entry. The list rebuild calls this before re-rendering
+   *  the rows: the rendered children re-register as they render, so the
+   *  invariant "entry exists iff the row is rendered" survives a rebuild. */
+  unregisterChildEntries(): void {
+    for (const child of this.layerRegistry.childEntries()) {
+      this.unregisterLayer(child.id);
+    }
   }
 
   /** The panel row currently carrying this id, or null. */
@@ -1905,6 +1956,16 @@ class LayerController implements LayerAPI {
     target.remove();
     const container = this.uiContainer;
     if (!container) return;
+    // An expanded group's child rows are DOM siblings, not descendants of the
+    // group row, so removing the row above does not take them. They are keyed
+    // by the parent's id prefix and must go with it, or a retired group leaves
+    // orphan rows no registry entry can answer for.
+    const childSep = `${layerInfo.id}::`;
+    for (const row of container.querySelectorAll(
+      `${CONST.SEL.LAYER_ITEM}[${CONST.DATA.LAYER_ID}^="${childSep}"]`,
+    )) {
+      row.remove();
+    }
     // Check if the role is now empty and remove the toggle-all row if so.
     const role = layerInfo.role;
     const anchorSel =
@@ -2152,6 +2213,9 @@ class LayerController implements LayerAPI {
     // self-contradictory. The persisted layout then keeps the emptied folder's
     // position (the block order stays frozen while the role has no live
     // members) and a later new folder lands at the block tail.
+    // deleteLayer retires through retireEntry, not unregisterLayer, so the
+    // group's child entries need their cascade here (rows follow in retireRow).
+    this.retireChildEntries(id, layerInfo);
     const frozen = this.freezeEmptyFolder(layerInfo);
     const retired = this.retireEntry(id);
     if (!retired) return false;

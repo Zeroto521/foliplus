@@ -1,5 +1,10 @@
 // LayerControl UI — Overflow (⋮) menu.
-import { focusDisabledReason, focusDisabledText } from "../focus/index.js";
+import {
+  focusChildLayer,
+  focusDisabledReason,
+  focusDisabledText,
+} from "../focus/index.js";
+import { removeChildLayer } from "../listPanel/groupExpand.js";
 import { emptyFolderKeys, rebuildList } from "../listPanel/list.js";
 import { ROW_NOUN, type RowNoun, withNoun } from "../rowNoun.js";
 import { saveState } from "../state.js";
@@ -178,159 +183,262 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // data, so its style and filter panels stay available.
   const isGroup = isGroupRow(ui.c.layerRegistry.get(layerId), ui.c.findLayer(layerId));
   const menu = dom.el("ul", { class: `${CONST.CLASSES.MORE_MENU} open`, role: "menu" });
-  // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
-  // layers whose surface reports no bounds carrier. The disabled li carries
-  // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
-  const focusReason = focusDisabledReason(ui, item);
-  const focusDisabled = focusReason !== undefined;
-  // A container row is a layer group, so its sentences say "layer group"
-  // rather than "layer"; every other row is a plain layer.
-  const focusNoun: RowNoun = isGroup ? ROW_NOUN.GROUP : ROW_NOUN.LAYER;
-  const focusDisabledTitle =
-    focusReason !== undefined
-      ? focusDisabledText(ui, focusReason, focusNoun)
-      : withNoun(ui, "focus_tooltip", focusNoun);
+  // A child row of an expanded group is not a registry row: its layer id is
+  // parentId::stamp. Its menu is the child entry set (focus / remove) — the
+  // row's capabilities are the child's own, not the group's.
+  const isChild = layerId.includes("::");
+  // The immediate container of a child row: everything before the LAST "::"
+  // (child ids chain through nested groups).
+  const childParentId = isChild ? layerId.slice(0, layerId.lastIndexOf("::")) : "";
+  if (!isChild) {
+    // Focus-layer is disabled for basemaps (no useful extent), hidden rows, and
+    // layers whose surface reports no bounds carrier. The disabled li carries
+    // cursor: not-allowed (common menu CSS) and the reason as its tooltip.
+    const focusReason = focusDisabledReason(ui, item);
+    const focusDisabled = focusReason !== undefined;
+    // A container row is a layer group, so its sentences say "layer group"
+    // rather than "layer"; every other row is a plain layer.
+    const focusNoun: RowNoun = isGroup ? ROW_NOUN.GROUP : ROW_NOUN.LAYER;
+    const focusDisabledTitle =
+      focusReason !== undefined
+        ? focusDisabledText(ui, focusReason, focusNoun)
+        : withNoun(ui, "focus_tooltip", focusNoun);
 
-  // Capability gate: only rows that declare the filter capability render the
-  // entry. A capable row with no filterable field stays visible but disabled
-  // (with the empty-state reason as tooltip) so the user is told why, instead
-  // of opening an empty panel.
-  const filterInfo = filterCapabilityOf(ui, layerId);
-  const filterHasFields = layerSupportsFilter(ui, layerId);
-  // Consistent with style: a hidden layer gets no visual feedback from a
-  // filter action (the panel would target an invisible layer), so the entry
-  // is disabled for the same reason style is. Tooltip priority mirrors
-  // style: the hidden reason first, then the no-fields reason.
-  const filterDisabled = isGroup || focusReason === "hidden" || !filterHasFields;
-  if (filterInfo) {
+    // Capability gate: only rows that declare the filter capability render the
+    // entry. A capable row with no filterable field stays visible but disabled
+    // (with the empty-state reason as tooltip) so the user is told why, instead
+    // of opening an empty panel.
+    const filterInfo = filterCapabilityOf(ui, layerId);
+    const filterHasFields = layerSupportsFilter(ui, layerId);
+    // Consistent with style: a hidden layer gets no visual feedback from a
+    // filter action (the panel would target an invisible layer), so the entry
+    // is disabled for the same reason style is. Tooltip priority mirrors
+    // style: the hidden reason first, then the no-fields reason.
+    const filterDisabled = isGroup || focusReason === "hidden" || !filterHasFields;
+    if (filterInfo) {
+      menu.appendChild(
+        dom.el(
+          "button",
+          {
+            type: "button",
+            "data-action": CONST.ACTION.FILTER_LAYER,
+            role: "menuitem",
+            title: isGroup
+              ? ui.T("group_no_style_filter")
+              : focusReason === "hidden"
+                ? focusDisabledText(ui, "hidden", focusNoun)
+                : filterHasFields
+                  ? ui.T("filter_layer_tooltip")
+                  : ui.T("filter_empty"),
+            "aria-disabled": filterDisabled ? "true" : "false",
+          },
+          { html: SVGs.ICON_FILTER },
+          menuLabel(ui.T("filter_layer")),
+        ),
+      );
+    }
+
+    // The Style menu entry is the surface for the per-layer style panel — the
+    // current implementation only ships the "labels" dimension, but the same
+    // entry will host future style dimensions (color, opacity, …). Disable it
+    // exactly like focus-layer when there is nothing to configure.
+    //
+    // Capability-driven gate. A layer whose surface reports opacity and
+    // zoomRange as "none" (e.g. MarkerCluster) cannot be styled for those
+    // dimensions, so the panel is disabled unless it still has label fields or
+    // style delegation to configure.
+    //
+    // `focusReason` cascades into `styleDisabled` only for the reasons that
+    // make styling impossible: a hidden row has nothing visible to style.
+    // A "no_bounds" row is still visible and configurable — it simply has no
+    // geographic extent to focus on — so it keeps its style entry enabled.
+    // Basemaps are configurable too: the solid-color basemap has a fill row
+    // in its style panel, and tile basemaps can still tune opacity.
+    // One projection answers both the panel and the menu: a layer is
+    // configurable when any style dimension it honestly supports is on. The
+    // the reader reads the same capability slots and author declarations the rows
+    // use, so the entry can never enable a panel whose rows would not render
+    // (or vice versa) — and it cannot drift from the panel's dimension list.
+    const cap = styleCapability(ui, layerId);
+    const canConfigure = Object.values(cap.dims).some(Boolean) || cap.styleDelegation;
+    const styleDisabled = isGroup || focusReason === "hidden" || !canConfigure;
+
     menu.appendChild(
       dom.el(
         "button",
         {
           type: "button",
-          "data-action": CONST.ACTION.FILTER_LAYER,
+          "data-action": CONST.ACTION.STYLE_LAYER,
           role: "menuitem",
           title: isGroup
             ? ui.T("group_no_style_filter")
-            : focusReason === "hidden"
-              ? focusDisabledText(ui, "hidden", focusNoun)
-              : filterHasFields
-                ? ui.T("filter_layer_tooltip")
-                : ui.T("filter_empty"),
-          "aria-disabled": filterDisabled ? "true" : "false",
+            : styleDisabled
+              ? ui.T("style_label_no_data")
+              : ui.T("style_layer_tooltip"),
+          "aria-disabled": styleDisabled ? "true" : "false",
         },
-        { html: SVGs.ICON_FILTER },
-        menuLabel(ui.T("filter_layer")),
+        { html: SVGs.ICON_STYLE },
+        menuLabel(ui.T("style_layer")),
       ),
     );
-  }
 
-  // The Style menu entry is the surface for the per-layer style panel — the
-  // current implementation only ships the "labels" dimension, but the same
-  // entry will host future style dimensions (color, opacity, …). Disable it
-  // exactly like focus-layer when there is nothing to configure.
-  //
-  // Capability-driven gate. A layer whose surface reports opacity and
-  // zoomRange as "none" (e.g. MarkerCluster) cannot be styled for those
-  // dimensions, so the panel is disabled unless it still has label fields or
-  // style delegation to configure.
-  //
-  // `focusReason` cascades into `styleDisabled` only for the reasons that
-  // make styling impossible: a hidden row has nothing visible to style.
-  // A "no_bounds" row is still visible and configurable — it simply has no
-  // geographic extent to focus on — so it keeps its style entry enabled.
-  // Basemaps are configurable too: the solid-color basemap has a fill row
-  // in its style panel, and tile basemaps can still tune opacity.
-  // One projection answers both the panel and the menu: a layer is
-  // configurable when any style dimension it honestly supports is on. The
-  // the reader reads the same capability slots and author declarations the rows
-  // use, so the entry can never enable a panel whose rows would not render
-  // (or vice versa) — and it cannot drift from the panel's dimension list.
-  const cap = styleCapability(ui, layerId);
-  const canConfigure = Object.values(cap.dims).some(Boolean) || cap.styleDelegation;
-  const styleDisabled = isGroup || focusReason === "hidden" || !canConfigure;
+    // Focus follows Style: the reversible view action keeps a fixed, safe slot
+    // just after the configure action instead of opening the menu (a double-
+    // click on the trigger must never land on the destructive tail).
+    const itemAttrs = {
+      type: "button",
+      "data-action": "focus-layer",
+      role: "menuitem",
+      title: focusDisabledTitle,
+      "aria-disabled": focusDisabled ? "true" : "false",
+    };
 
-  menu.appendChild(
-    dom.el(
-      "button",
-      {
-        type: "button",
-        "data-action": CONST.ACTION.STYLE_LAYER,
-        role: "menuitem",
-        title: isGroup
-          ? ui.T("group_no_style_filter")
-          : styleDisabled
-            ? ui.T("style_label_no_data")
-            : ui.T("style_layer_tooltip"),
-        "aria-disabled": styleDisabled ? "true" : "false",
-      },
-      { html: SVGs.ICON_STYLE },
-      menuLabel(ui.T("style_layer")),
-    ),
-  );
+    menu.appendChild(
+      dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, menuLabel(ui.T("focus"))),
+    );
 
-  // Focus follows Style: the reversible view action keeps a fixed, safe slot
-  // just after the configure action instead of opening the menu (a double-
-  // click on the trigger must never land on the destructive tail).
-  const itemAttrs = {
-    type: "button",
-    "data-action": "focus-layer",
-    role: "menuitem",
-    title: focusDisabledTitle,
-    "aria-disabled": focusDisabled ? "true" : "false",
-  };
+    // Rename writes to the layer itself, so it sits above the display-only
+    // entry rather than at the tail of the working actions.
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.RENAME_LAYER,
+          role: "menuitem",
+          title: withNoun(ui, "rename_tooltip", focusNoun),
+        },
+        { html: Icons.ICON_EDIT },
+        menuLabel(ui.T("rename")),
+      ),
+    );
 
-  menu.appendChild(
-    dom.el("button", itemAttrs, { html: SVGs.ICON_FOCUS }, menuLabel(ui.T("focus"))),
-  );
+    // Attributes is display-only, so it is never disabled — a hidden layer
+    // still has name / source / visibility to show.
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.ATTRS_LAYER,
+          role: "menuitem",
+          title: ui.T("attributes_layer_tooltip"),
+        },
+        { html: Icons.ICON_INFO },
+        menuLabel(ui.T("attributes_layer")),
+      ),
+    );
+    // Deleting the folder a layer belongs to is the folder row's own operation,
+    // not the layer's: each row type owns its entry set, and a layer menu with
+    // two entries both labelled "Delete" would make the user guess which one
+    // they are confirming.
 
-  // Rename writes to the layer itself, so it sits above the display-only
-  // entry rather than at the tail of the working actions.
-  menu.appendChild(
-    dom.el(
-      "button",
-      {
-        type: "button",
-        "data-action": CONST.ACTION.RENAME_LAYER,
-        role: "menuitem",
-        title: withNoun(ui, "rename_tooltip", focusNoun),
-      },
-      { html: Icons.ICON_EDIT },
-      menuLabel(ui.T("rename")),
-    ),
-  );
-
-  // Attributes is display-only, so it is never disabled — a hidden layer
-  // still has name / source / visibility to show.
-  menu.appendChild(
-    dom.el(
-      "button",
-      {
-        type: "button",
-        "data-action": CONST.ACTION.ATTRS_LAYER,
-        role: "menuitem",
-        title: ui.T("attributes_layer_tooltip"),
-      },
-      { html: Icons.ICON_INFO },
-      menuLabel(ui.T("attributes_layer")),
-    ),
-  );
-  // Deleting the folder a layer belongs to is the folder row's own operation,
-  // not the layer's: each row type owns its entry set, and a layer menu with
-  // two entries both labelled "Delete" would make the user guess which one
-  // they are confirming.
-
-  // Delete goes behind a divider: everything above it is reversible (view,
-  // configure, rename, inspect), and this is the only entry that is not. Three
-  // modes share the entry: user-owned data layers (retire the id for good,
-  // tile basemaps included — dropping to a bare background is a legal end
-  // state), component-owned layers (Measure, Heatmap: clear their data through
-  // LAYER_DELETED, id stays registerable), and the solid color basemap (clear
-  // the fill and return to the grid empty state). The label and tooltip vary
-  // by mode — "Delete Layer" for real deletion, "Clear Data" for component
-  // clear — so the action name matches the effect.
-  const deleteMode = deleteModeFor(ui, layerId);
-  if (deleteMode !== "absent") {
+    // Delete goes behind a divider: everything above it is reversible (view,
+    // configure, rename, inspect), and this is the only entry that is not. Three
+    // modes share the entry: user-owned data layers (retire the id for good,
+    // tile basemaps included — dropping to a bare background is a legal end
+    // state), component-owned layers (Measure, Heatmap: clear their data through
+    // LAYER_DELETED, id stays registerable), and the solid color basemap (clear
+    // the fill and return to the grid empty state). The label and tooltip vary
+    // by mode — "Delete Layer" for real deletion, "Clear Data" for component
+    // clear — so the action name matches the effect.
+    const deleteMode = deleteModeFor(ui, layerId);
+    if (deleteMode !== "absent") {
+      menu.appendChild(
+        dom.el("li", {
+          class: `${CONST.CLASSES.MENU_DIVIDER} ${PANEL_CLASS.SECTION_DIVIDER}`,
+          role: "separator",
+          "aria-hidden": "true",
+        }),
+      );
+      menu.appendChild(buildDeleteItem(ui, deleteMode));
+    }
+  } else {
+    // Child row menu: the child is a registry-only LayerInfo now, so the style
+    // and filter panels resolve it exactly like a top-level row. Focus and
+    // remove keep their child-specific paths (both resolve through the parent
+    // group). A hidden child gets the same "nothing to configure" gate a
+    // hidden row gets — the panels would target invisible paint.
+    const childLayer = ui.c.findLayer(layerId);
+    const childHidden = !childLayer || !ui.c.map.hasLayer(childLayer);
+    const childIsGroup = isGroupRow(ui.c.layerRegistry.get(layerId), childLayer);
+    const filterInfo = filterCapabilityOf(ui, layerId);
+    const filterHasFields = layerSupportsFilter(ui, layerId);
+    if (filterInfo) {
+      const filterDisabled = childIsGroup || childHidden || !filterHasFields;
+      menu.appendChild(
+        dom.el(
+          "button",
+          {
+            type: "button",
+            "data-action": CONST.ACTION.FILTER_LAYER,
+            role: "menuitem",
+            title: childIsGroup
+              ? ui.T("group_no_style_filter")
+              : childHidden
+                ? focusDisabledText(ui, "hidden", ROW_NOUN.LAYER)
+                : filterHasFields
+                  ? ui.T("filter_layer_tooltip")
+                  : ui.T("filter_empty"),
+            "aria-disabled": filterDisabled ? "true" : "false",
+          },
+          { html: SVGs.ICON_FILTER },
+          menuLabel(ui.T("filter_layer")),
+        ),
+      );
+    }
+    const childCap = styleCapability(ui, layerId);
+    const childCanConfigure =
+      Object.values(childCap.dims).some(Boolean) || childCap.styleDelegation;
+    const childStyleDisabled = childIsGroup || childHidden || !childCanConfigure;
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.STYLE_LAYER,
+          role: "menuitem",
+          title: childIsGroup
+            ? ui.T("group_no_style_filter")
+            : childStyleDisabled
+              ? childHidden
+                ? focusDisabledText(ui, "hidden", ROW_NOUN.LAYER)
+                : ui.T("style_label_no_data")
+              : ui.T("style_layer_tooltip"),
+          "aria-disabled": childStyleDisabled ? "true" : "false",
+        },
+        { html: SVGs.ICON_STYLE },
+        menuLabel(ui.T("style_layer")),
+      ),
+    );
+    // Rename writes the row's name (a session intent), never the layer's data:
+    // a hidden child can still be renamed, same as a hidden layer.
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.RENAME_LAYER,
+          role: "menuitem",
+          title: withNoun(ui, "rename_tooltip", ROW_NOUN.LAYER),
+        },
+        { html: Icons.ICON_EDIT },
+        menuLabel(ui.T("rename")),
+      ),
+    );
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.FOCUS_LAYER,
+          role: "menuitem",
+          title: ui.T("focus_tooltip").replace("{noun}", ui.T("noun_layer")),
+        },
+        { html: SVGs.ICON_FOCUS },
+        menuLabel(ui.T("focus")),
+      ),
+    );
     menu.appendChild(
       dom.el("li", {
         class: `${CONST.CLASSES.MENU_DIVIDER} ${PANEL_CLASS.SECTION_DIVIDER}`,
@@ -338,7 +446,19 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
         "aria-hidden": "true",
       }),
     );
-    menu.appendChild(buildDeleteItem(ui, deleteMode));
+    menu.appendChild(
+      dom.el(
+        "button",
+        {
+          type: "button",
+          "data-action": CONST.ACTION.DELETE_LAYER,
+          role: "menuitem",
+          title: ui.T("delete_layer_tooltip"),
+        },
+        { html: Icons.ICON_DELETE },
+        menuLabel(ui.T("delete"), CONST.CLASSES.MENU_DELETE_LABEL),
+      ),
+    );
   }
 
   // Tab moving focus out of the menu dismisses it — an open menu owns the
@@ -361,6 +481,16 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // which deliberately keeps its stopPropagation — an action may tear the menu
   // down mid-dispatch, and swallowing here keeps the click off the map). The
   // registry entry is generated by attachPanel below.
+  return finishOpenMenu(ui, item, menu, layerId, childParentId);
+};
+
+const finishOpenMenu = (
+  ui: LayerUI,
+  item: HTMLElement,
+  menu: HTMLElement,
+  layerId: string,
+  childParentId = "",
+): void => {
   const controller: PanelController = createPanel({
     owner: "layer",
     localId: "menu",
@@ -391,7 +521,12 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
   // delegate was the only reason the menu needed a document listener.
   menu.addEventListener("click", event => handleMenuClick(ui, event));
 
-  ui.overlayPanel.activeMenu = { item, menu, layerId };
+  ui.overlayPanel.activeMenu = {
+    item,
+    menu,
+    layerId,
+    ...(childParentId ? { childParentId } : {}),
+  };
   // Anchor-teardown contract (cross-panel): an external delete/clear of the
   // anchored layer must not leave the menu (and its activeMenu / reposition /
   // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
@@ -609,6 +744,12 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
     return true;
   }
   const layerId = ui.overlayPanel.activeMenu?.layerId ?? "";
+  const childParentId = ui.overlayPanel.activeMenu?.childParentId;
+  if (childParentId) {
+    removeChildLayer(ui, childParentId, layerId);
+    ui.closeMoreMenu(true);
+    return true;
+  }
   ui.c.deleteLayer(layerId);
   return true;
 };
@@ -683,6 +824,25 @@ const setAllFoldersFolded = (ui: LayerUI, role: string, folded: boolean) => {
   saveState(ui);
 };
 
+/** The role's group layers (LayerInfo entries whose layer is a group). */
+const roleGroupEntries = (ui: LayerUI, role: string) =>
+  [...ui.c.layerRegistry].filter(
+    entry => entry.role === role && isGroupRow(entry, ui.c.findLayer(entry.id)),
+  );
+
+/** Expand or collapse every group in a role. Groups default collapsed, so
+ *  expand-all opens them and collapse-all folds them back; the expanded flag is
+ *  the same listPanel.expandedGroups the row toggle writes, so the DOM rebuild
+ *  reflects it. Unlike folders there is no author-folding distinction — the
+ *  expandedGroups map IS the only state. */
+const setAllGroupsExpanded = (ui: LayerUI, role: string, expanded: boolean) => {
+  for (const entry of roleGroupEntries(ui, role)) {
+    ui.listPanel.expandedGroups[entry.id] = expanded;
+  }
+  rebuildList(ui);
+  saveState(ui);
+};
+
 /** Start an inline rename on a folder row's label. The folder identity is the
  *  role + normalized key; the label shows the display name. Commit calls the
  *  controller so the block key, member spellings and persistence stay single-
@@ -747,7 +907,12 @@ const MENU_ACTIONS: Record<
     return { closeMenu: true, restoreRowFocus: true };
   },
   [CONST.ACTION.FOCUS_LAYER]: ui => {
-    ui.focusLayer(menuLayerId(ui));
+    const childParentId = ui.overlayPanel.activeMenu?.childParentId;
+    if (childParentId) {
+      focusChildLayer(ui, childParentId, menuLayerId(ui));
+    } else {
+      ui.focusLayer(menuLayerId(ui));
+    }
     return { closeMenu: true, restoreRowFocus: true };
   },
   [CONST.ACTION.RENAME_LAYER]: ui => {
@@ -804,12 +969,18 @@ const MENU_ACTIONS: Record<
   },
   [CONST.ACTION.EXPAND_ALL]: ui => {
     const role = ui.overlayPanel.activeMenu?.role ?? "";
-    if (role) setAllFoldersFolded(ui, role, false);
+    if (role) {
+      setAllFoldersFolded(ui, role, false);
+      setAllGroupsExpanded(ui, role, true);
+    }
     return { closeMenu: true, restoreRowFocus: true };
   },
   [CONST.ACTION.COLLAPSE_ALL]: ui => {
     const role = ui.overlayPanel.activeMenu?.role ?? "";
-    if (role) setAllFoldersFolded(ui, role, true);
+    if (role) {
+      setAllFoldersFolded(ui, role, true);
+      setAllGroupsExpanded(ui, role, false);
+    }
     return { closeMenu: true, restoreRowFocus: true };
   },
 };
@@ -970,8 +1141,20 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
       key,
     ),
   ).length;
-  const expandDisabled = folderKeys.length === 0 || foldedCount === 0;
-  const collapseDisabled = folderKeys.length === 0 || foldedCount === folderKeys.length;
+  // Groups are expandable/collapsible too: a role with no folders but a group
+  // still gets a live expand-all. Groups default collapsed.
+  const groupEntries = roleGroupEntries(ui, role);
+  const expandedGroupCount = groupEntries.filter(
+    entry => ui.listPanel.expandedGroups[entry.id],
+  ).length;
+  const hasExpandTarget = folderKeys.length > 0 || groupEntries.length > 0;
+  const hasCollapseTarget = folderKeys.length > 0 || expandedGroupCount > 0;
+  const expandDisabled =
+    !hasExpandTarget ||
+    (foldedCount === 0 && expandedGroupCount === groupEntries.length);
+  const collapseDisabled =
+    !hasCollapseTarget ||
+    (foldedCount === folderKeys.length && expandedGroupCount === 0);
   menu.appendChild(
     dom.el(
       "button",

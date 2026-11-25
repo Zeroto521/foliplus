@@ -8,6 +8,7 @@ import {
   applyProjectionAll,
   notifyDeltas,
 } from "../apply.js";
+import { resolveChild } from "../listPanel/childRow.js";
 import { ROW_NOUN, type RowNoun } from "../rowNoun.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays } from "../teardown.js";
@@ -373,9 +374,88 @@ const clearFocusedRowHighlight = (ui: LayerUI): void => {
   prev?.classList.remove(CONST.CLASSES.FOCUSING);
 };
 
+/**
+ * Focus the map on one child of a group.
+ *
+ * A child row is a registry-only LayerInfo: the shared focusLayer expects a
+ * registry row (its own count / order slot) and would paint the group pane
+ * instead of the child, so the child keeps its own path — resolve the Leaflet
+ * child through the parent own children, fit to its bounds and highlight its
+ * row. Before marking the focus pane, the child registry entry is lifted so
+ * the focus-hide CSS does not swallow the very layer being focused (the
+ * probe-only child surface owns no pane; the shared writer discovers the panes
+ * the child paints through).
+ */
+const focusChildLayer = (ui: LayerUI, parentId: string, childId: string): void => {
+  if (guardBlocked(ui.c.map, ui.config.name, ui.T("blocked"))) return;
+  const child = resolveChild(ui, parentId, childId);
+  if (!child) return;
+  if (!ui.c.map.hasLayer(child)) {
+    showFocusDisabledHint(ui, "hidden");
+    return;
+  }
+  const bounds = computeLayerBounds(child);
+  if (!bounds?.isValid()) {
+    showFocusDisabledHint(ui, "no_bounds");
+    return;
+  }
+  closeOverlays(ui);
+  hideOtherLayers(ui);
+  // The child paints inside its container pane. Without marking that pane as
+  // the focus pane, the focus-hide CSS would swallow the very layer being
+  // focused (the child probe-only surface has no panes of its own, so the
+  // shared writer falls back to discovering the panes the child paints
+  // through and lifts/marks those).
+  const childInfo = ui.c.layerRegistry.get(childId);
+  if (childInfo) bringFocusedLayerToFront(ui, childInfo);
+  ui.c.label.setFocusFilter(childId);
+  const itemEl =
+    ui.uiContainer?.querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="${CSS.escape(childId)}"]`,
+    ) ?? null;
+  const modes = ensureModes(ui.c.map);
+  modes.setMode(ui.config.name, "focusing");
+  ui.focusController.focusingLayerId = childId;
+  const southWest = bounds.getSouthWest();
+  const northEast = bounds.getNorthEast();
+  const area =
+    Math.abs(northEast.lat - southWest.lat) * Math.abs(northEast.lng - southWest.lng);
+  if (area < CONST.FOCUS.MIN_BOUNDS_AREA) {
+    const center = bounds.getCenter();
+    const maxZoom = Math.min(
+      ui.c.map.getMaxZoom(),
+      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+    );
+    ui.c.map.flyTo(center, maxZoom, { duration: CONST.FOCUS.FIT_DURATION });
+    if (itemEl) highlightFocusedRow(ui, itemEl, childId);
+    registerAutoCancel(ui, childId);
+    return;
+  }
+  drawFocusMask(ui, bounds);
+  drawFocusRect(ui, bounds);
+  if (itemEl) highlightFocusedRow(ui, itemEl, childId);
+  ui.c.map.fitBounds(bounds, {
+    animate: true,
+    duration: CONST.FOCUS.FIT_DURATION,
+    padding: CONST.FOCUS.PADDING,
+    maxZoom: Math.min(
+      ui.c.map.getMaxZoom(),
+      ui.c.map.getZoom() + CONST.FOCUS.MAX_ZOOM_STEP,
+    ),
+  });
+  const ref = ui.focusController.focusRect;
+  setTimeout(() => {
+    if (ui.focusController.focusRect === ref) {
+      ui.c.map.foliplus?.hint?.clear?.(ui.config.name);
+    }
+  }, CONST.FOCUS.RECT_DURATION_MS);
+  registerAutoCancel(ui, childId);
+};
+
 export {
   cancelFocus,
   dismissFocus,
+  focusChildLayer,
   focusLayer,
   highlightFocusedRow,
   isFocusing,

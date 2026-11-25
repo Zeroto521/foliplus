@@ -109,6 +109,14 @@ interface SurfaceFaceOpts {
    *  honest carrier for focus, so the UI disables the action rather than
    *  letting a click land as a silent no-op. */
   getBounds?: (() => L.LatLngBounds | null) | null;
+  /** Build a capability / geometry probe instead of a rendering face. A child
+   *  entry of an expanded group paints inside its parent group's pane, so it
+   *  owns no pane of its own: the probe never books or synthesizes one, and
+   *  reports the pane-level axes (opacity / zoomRange / label) as `none`
+   *  because a write there would move the parent's shared pane. The leaf-level
+   *  style axes stay honest — the style panel writes those through the child's
+   *  own leaves. */
+  probeOnly?: boolean;
 }
 
 /** Whether a node enumerates children. `eachLayer`, not `isGroupLike`: the pin
@@ -259,6 +267,18 @@ class LayerSurface implements LayerSurfaceContract {
     const resolution = detectCapabilities(opts, carrier);
     this.capabilities = resolution.capabilities;
     this.treeDerived = resolution.treeDerived;
+
+    // A probe-only surface (a child entry of an expanded group) owns no pane:
+    // stop before any pane admission. The leaf-level axes keep the probe's
+    // answer; the pane-level ones are honestly none (see the option docs).
+    if (opts.probeOnly) {
+      this.pinTarget = null;
+      this.capabilities.opacity = CAP_TIER.NONE;
+      this.capabilities.zoomRange = CAP_TIER.NONE;
+      this.capabilities.label = CAP_TIER.NONE;
+      this.capabilities.relocatable = false;
+      return;
+    }
 
     if (declared) {
       // The declared pane's own spec — matched BY NAME, not position: a
