@@ -97,6 +97,10 @@
     gap: var(--foliplus-space-md);
     width: 100%;
     padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
+    /* Menu-row family: one clickable option line, the same 30px height as a
+       dropdown option and a scheme item (see token.css row families). */
+    min-height: var(--foliplus-menu-row-h);
+    box-sizing: border-box;
     margin: 0;
     border: none;
     background: none;

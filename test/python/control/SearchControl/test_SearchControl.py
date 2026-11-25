@@ -441,6 +441,29 @@ class TestSearchControlBrowser:
                 f"Placeholder should not be empty, got: '{placeholder}'"
             )
 
+    @pytest.mark.browser
+    def test_result_row_uses_menu_row_height(self, browser, tmp_path):
+        """A search result row resolves to the shared menu-row height."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            # A seeded coord-history entry renders a result row offline.
+            page.evaluate(_js("SearchControl/seed_history_entry"))
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+            self._expand(page)
+            page.wait_for_selector(
+                ".foliplus-search-result-item", state="attached", timeout=5000
+            )
+            row = page.evaluate(
+                _js("_row_metrics"), {"selector": ".foliplus-search-result-item"}
+            )
+            assert row.get("ok"), row
+            assert row["minHeight"] == row["menuRowToken"], (
+                "search result row is not --foliplus-menu-row-h: "
+                f"{row['minHeight']} != {row['menuRowToken']}"
+            )
+            assert row["boxSizing"] == "border-box"
+            assert not errors, f"JS errors: {errors}"
+
     def test_coord_history_click_restores_coord_display(self, browser, tmp_path):
         """Clicking a coord history entry puts the coord display into the
         input so it matches what the panel shows (the reverse-geocoded
