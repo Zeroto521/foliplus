@@ -53,6 +53,18 @@ doc = [
 ]
 dev = [{ include-group = "test" }, { include-group = "doc" }, "build", "twine"]
 
+[tool.uv]
+# Resolution constraints, not dependencies: they narrow which releases uv may
+# pick without changing what foliplus depends on, so the published package is
+# unaffected. `uv.lock` is gitignored, so every CI job and the Read the Docs
+# build resolve from scratch — a broken upstream release would otherwise turn
+# main red for every PR at once.
+#
+# fonttools 4.69.0 shipped without a wheel or sdist for the py3.15 platform,
+# which failed `uv sync` in the py3.15 / browser / browser-probe jobs and the
+# RTD build (2026-11-25). Drop this line once a later release installs cleanly.
+constraint-dependencies = ["fonttools<4.69"]
+
 [tool.setuptools_scm]
 write_to = "foliplus/_version.py"
 
