@@ -439,7 +439,9 @@ def test_the_real_tree_passes(capsys):
 
 def test_the_aspect_vocabulary_is_closed_and_excludes_quality_adjectives():
     """Rule 10's vocabulary is a mechanism, not a suggestion."""
-    assert {"layout", "press", "pane", "browser", "rendering"} <= mod.ASPECT_WORDS
+    assert {"layout", "press", "pane", "browser", "rendering", "rename"} <= (
+        mod.ASPECT_WORDS
+    )
     assert not ({"fidelity", "misc", "util", "extra"} & mod.ASPECT_WORDS)
 
 

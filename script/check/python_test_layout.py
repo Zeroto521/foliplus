@@ -59,7 +59,9 @@ naming rules, enforced as twelve assertions:
    the plural test_<object>s.py), because a standalone multi-word stem may be a
    compound object name (crop_box, zoom_range) and that is a review question,
    not a mechanical one. Quality adjectives (fidelity, misc, util, extra) are
-   never in the closed set. A pre-v2 name that reads as one compound object is
+   never in the closed set; the vocabulary names user-visible behaviour
+   (rename = the inline rename of a row). A pre-v2 name that reads as one
+   compound object is
    tolerated in ASPECT_EXCEPTIONS with the reason and retires when its file is
    renamed; the gate fails on a stale entry.
 11. Two stems in one directory may not differ only by a plural: a plural stem
@@ -104,7 +106,8 @@ BROWSER_MIN_TEST_CLASSES = 2
 DATA_POINT_NOUNS = ("first_frame", "facility_points")
 
 # Rule 10: the closed aspect vocabulary a dimension file may suffix an object
-# with. Quality adjectives (fidelity, misc, util, extra) are deliberately
+# with. Entries are behaviour words: rename is the inline rename of a row.
+# Quality adjectives (fidelity, misc, util, extra) are deliberately
 # absent: they describe the author's confidence, not the behaviour asserted.
 ASPECT_WORDS = frozenset(
     {
@@ -126,6 +129,7 @@ ASPECT_WORDS = frozenset(
         "panel",
         "persist",
         "press",
+        "rename",
         "rendering",
         "scenario",
         "sort",
