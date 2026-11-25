@@ -71,7 +71,7 @@ class TestListBrowser(LayerControlBrowserBase):
         """
         with use_page(self._make_page, browser, tmp_path) as (page, errors):
             page.evaluate(_js("LayerControl/seed_layout_order"))
-            page.reload()
+            page.reload(wait_until="domcontentloaded")
             page.wait_for_selector(
                 ".foliplus-layer-ctrl",
                 state="attached",
