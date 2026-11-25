@@ -82,7 +82,9 @@ class TestNormaliseColorOpacity:
 
     def test_an_out_of_range_percent_is_rejected_with_a_warning(self) -> None:
         for bad in (-1, 101):
-            with pytest.warns(UserWarning, match="expected a whole number from 0 to 100"):
+            with pytest.warns(
+                UserWarning, match="expected a whole number from 0 to 100"
+            ):
                 assert normalise_color_opacity(bad, owner="Owner") is None
 
     def test_the_subject_and_source_are_in_the_warning(self) -> None:
