@@ -34,6 +34,14 @@ Two `.py` files inspect the JS tree. They are intentional, not oversights:
 | `check/dead_barrel_export.py` | Dead exports in `foliplus/js` with zero consumers repo-wide. | Lives alongside the other barrel/registry guards that share the Python pre-commit group; the JS equivalent would duplicate the tree-walk logic already in this file. |
 | `check/style_check.py` | Code-style rules on `foliplus/js/*.ts` and `foliplus/css/*.css`. | Predates the eslint config consolidation; the rules were written against Python's `re` engine and have no direct eslint equivalent. |
 
+A third file joins that group for the CONFIG contract specifically:
+`check/config_key_style.py` reads the generated `foliplus/js/config-schema.ts`
+declaration (and, with `--dump`, the Python schema dump) to prove every
+Python-to-JS payload key is snake_case. It is stdlib-only on purpose, so the
+pre-commit hook runs in the isolated hook env; the generation-drift half needs
+Python plus Node and lives in `make config-schema-verify` (wired into the CI
+python job).
+
 If you are about to add a new guard that inspects `foliplus/js/**`, prefer `.mjs`
 unless you have a concrete reason not to.
 
@@ -60,4 +68,5 @@ unless you have a concrete reason not to.
 | `bare_reload.py` | pre-commit.ci |
 | `docstring_check.py` | pre-commit.ci |
 | `module_size_check.py` | pre-commit.ci |
+| `config_key_style.py` | pre-commit.ci + `make config-schema-verify` (CI python job) |
 | `smoke_wheel.py` | `release` workflow (sdist + wheel jobs) |
