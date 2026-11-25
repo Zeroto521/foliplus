@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from foliplus.BaseControl import BaseControl
 from foliplus._typing import ControlPosition
+from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
 
