@@ -442,7 +442,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "role-words-sync": "the layer-role vocabulary is the same on the Python and JS sides",
   "selected-class-guard": "the selected-class spelling has one owner per widget",
   "slider-inset": "the slider half-thumb offset is one token, not a repeated calc",
-  "row-identity": "every row builder emits the shared .foliplus-row identity class, and role-header rows are first-class in it",
+  "row-identity":
+    "every row builder emits the shared .foliplus-row identity class, and role-header rows are first-class in it",
   "storage-key-scope":
     "every persisted record key derives from the per-map storage scope",
   "style-dimension-cycle":
