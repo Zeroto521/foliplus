@@ -86,6 +86,7 @@
 - `ExportControl`: a DivIcon's HTML pin and an awesome-marker shadow sprite now reach the exported image, and an image the canvas cannot read back is reported and counted instead of silently leaving a hole ([#1333](https://github.com/Zeroto521/foliplus/pull/1333))
 
 ## [v0.4.1] (2026-10-18)
+- `LayerControl`: the role header joins the shared row-interaction recipe and its fold chevron follows the same folded rule as a folder row, so hover/focus no longer tint it accent and a folded role keeps the accent ([#1378](https://github.com/Zeroto521/foliplus/pull/1378))
 
 ### Added
 
