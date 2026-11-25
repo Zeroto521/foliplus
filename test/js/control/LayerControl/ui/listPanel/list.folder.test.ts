@@ -657,10 +657,34 @@ describe("ui/list folder rows (render / row structure)", () => {
     const panelB = initFixture({
       seedLayout,
       data: [
-        { id: "rd1", name: "Roads", role: "overlay", folder: "roads", layer: polygonLayer() },
-        { id: "water", name: "Water", role: "overlay", folder: "", layer: polygonLayer() },
-        { id: "rd2", name: "Rivers", role: "overlay", folder: "roads", layer: polygonLayer() },
-        { id: "land", name: "Land", role: "overlay", folder: "", layer: polygonLayer() },
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "water",
+          name: "Water",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "land",
+          name: "Land",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
       ],
     });
     const panelA = initFixture({ seedLayout, data: [] });
