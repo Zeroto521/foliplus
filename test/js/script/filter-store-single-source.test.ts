@@ -22,6 +22,7 @@ const read = (rel: string) => readFileSync(resolve(REPO_ROOT, rel), "utf8");
 const CONTROLLER = "foliplus/js/control/LayerControl/controller.ts";
 const MEASURE_MGR = "foliplus/js/control/MeasureControl/manager.ts";
 const HEATMAP_MGR = "foliplus/js/control/HeatmapControl/manager.ts";
+const HEATMAP_INIT = "foliplus/js/control/HeatmapControl/init.ts";
 
 describe("generic filter single-source guard (G1)", () => {
   it("the controller no longer keeps a layerFilters mirror map", () => {
@@ -39,7 +40,7 @@ describe("generic filter single-source guard (G1)", () => {
 });
 
 describe("filter persistence only through the shared store (G3b)", () => {
-  const filterFiles = [CONTROLLER, MEASURE_MGR, HEATMAP_MGR];
+  const filterFiles = [CONTROLLER, MEASURE_MGR, HEATMAP_MGR, HEATMAP_INIT];
 
   it.each(filterFiles)("no direct storage write of a filter key in %s", file => {
     const src = read(file);
@@ -48,7 +49,9 @@ describe("filter persistence only through the shared store (G3b)", () => {
   });
 
   it("Heatmap own config persistence stays allowed (exempt, not a filter key)", () => {
-    const src = read(HEATMAP_MGR);
+    // The manager split moved the persistence binding into init.ts; the
+    // exemption follows the module that owns it.
+    const src = read(HEATMAP_MGR) + read(HEATMAP_INIT);
     expect(src).toMatch(/createPersisted|saveRecord/);
   });
 });
