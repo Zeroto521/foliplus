@@ -461,6 +461,23 @@ class LayerController implements LayerAPI {
    *  dataRevision; a mismatch means the feature set changed and the row
    *  must be rebuilt. */
   private readonly filterFeaturesRev = new Map<string, number>();
+  /** Count cache for the row's feature-count column: layerId -> {count,
+   *  dataVersion}. `dataVersion` is the layer's content version at the time
+   *  the count was computed; a mismatch means the content changed and the
+   *  next read recomputes. Invalidation is single-source: content changes
+   *  (feature add/remove/clear, provider data change) bump the version via
+   *  `bumpCountVersion`; style changes do not, so a style-only repaint reads
+   *  the cached count without re-walking the layer tree. */
+  private readonly countCache = new Map<
+    string,
+    { count: number | null | undefined; dataVersion: number }
+  >();
+  /** Per-layer content version for the count cache. Bumped only by content
+   *  changes (see `bumpCountVersion`), never by style changes. */
+  private readonly countDataVersion = new Map<string, number>();
+  /** Unsubscribe for the count-cache invalidation listener; null until the
+   *  constructor wires it. Cleaned on destroy. */
+  private countChangeOff: (() => void) | null = null;
   /** The icon-replay handler registered on the shared markerIcon module. A
    *  marker icon rebuild swaps the element but not the leaf; this re-applies
    *  the filter hidden class so the DOM class and the leaf-keyed hidden set
@@ -807,6 +824,16 @@ class LayerController implements LayerAPI {
       },
       "internal",
     );
+    // The count cache invalidates on LAYER_ITEM_COUNT_CHANGE — the canonical
+    // "content changed" signal. refreshCount publishes it (a double-bump
+    // is harmless); an external publisher (third-party provider) or a
+    // direct emit also invalidates, so the cache stays single-source on
+    // this event. Style changes never publish it, so they never re-walk.
+    this.countChangeOff = this.events.on(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      ({ id }: { id: string }) => this.bumpCountVersion(id),
+      "internal",
+    );
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerController itself implements LayerAPI, so it becomes the map's API.
@@ -1089,6 +1116,11 @@ class LayerController implements LayerAPI {
   invalidateType(id: string): void {
     const surface = this.surfaceIndex.get(id);
     const layerInfo = this.layerRegistry.get(id);
+    // Content structure changed (feature add/remove/clear): the count cache
+    // must recompute on the next read. invalidateType is the factory's
+    // content-change path, so this is the single source of count invalidation
+    // for structural changes.
+    this.bumpCountVersion(id);
     surface?.invalidate();
     if (layerInfo) layerInfo.type = null;
     // A destroyed manager must not schedule, whatever the id: check this
@@ -1126,6 +1158,25 @@ class LayerController implements LayerAPI {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
     if (layerInfo.role === ROLE.BASE) return undefined;
+    // Count cache: one walk per (layer, content version). A style-only
+    // repaint calls getFeatureCount again with the same dataVersion, so the
+    // cached count is returned without re-walking the layer tree. The cache
+    // is keyed by layerId and validated against the layer's content version
+    // (`countDataVersion`), which only content changes bump.
+    const dataVersion = this.countDataVersion.get(id) ?? 0;
+    const cached = this.countCache.get(id);
+    if (cached?.dataVersion === dataVersion) return cached.count;
+    const count = this.computeFeatureCount(id, layerInfo);
+    this.countCache.set(id, { count, dataVersion });
+    return count;
+  }
+
+  /** Compute a layer's feature count without the cache. Third-party provider
+   *  wins (Canvas layers need this); the fallback walks the layer tree. */
+  private computeFeatureCount(
+    id: string,
+    layerInfo: LayerInfo,
+  ): number | null | undefined {
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -1148,6 +1199,13 @@ class LayerController implements LayerAPI {
     return undefined;
   }
 
+  /** Bump a layer's content version so the count cache recomputes on the
+   *  next read. Single source of count invalidation: content changes call
+   *  this, style changes never do. */
+  private bumpCountVersion(id: string): void {
+    this.countDataVersion.set(id, (this.countDataVersion.get(id) ?? 0) + 1);
+  }
+
   /** Notify subscribers that a layer's feature count may have changed.
    *  Public API for third-party providers (e.g. Canvas layers whose data
    *  updates independently of LayerController) to trigger an incremental
@@ -1165,6 +1223,10 @@ class LayerController implements LayerAPI {
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.role === ROLE.BASE) return;
+    // Provider-driven data change: the count cache must recompute on the
+    // next read. Same single-source rule as invalidateType — content change
+    // only, never a style change.
+    this.bumpCountVersion(id);
     // Settled: one consumer throwing must not keep the other count listeners
     // (the row repaint, the fill ramp) from seeing the final geometry.
     publish(
@@ -3117,6 +3179,7 @@ class LayerController implements LayerAPI {
         ],
         ["detach-layerremove", () => this.map.off("layerremove", this.onLayerRemove)],
         ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
+        ["off-count-change", () => this.countChangeOff?.()],
         // Flush before destroy: the writes are debounced at 100ms, wide enough
         // for the control to be removed before the timer fires. unbindEvents
         // also flushes, but it only runs when a panel is attached.

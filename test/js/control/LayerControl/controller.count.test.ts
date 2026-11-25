@@ -6,6 +6,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { GEOM_TYPE } from "#core/layer/index.js";
+import * as layerMod from "#core/layer/index.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 
 describe("LayerController", () => {
@@ -296,6 +297,116 @@ describe("LayerController", () => {
       const mainLayer = wrap(dataPoly, labelGroup);
       manager.registerLayer({ id: "nested", name: "Nested", layer: mainLayer });
       expect(manager.getFeatureCount("nested")).toBe(1);
+    });
+  });
+
+  describe("feature count cache", () => {
+    const makeLeaf = (ctor: any, extra: Record<string, unknown> = {}) =>
+      Object.assign(Object.create(ctor.prototype), {
+        options: {},
+        getElement: () => null,
+        ...extra,
+      });
+    const wrap = (...leaves: unknown[]) =>
+      ({
+        options: {},
+        eachLayer: (cb: (l: unknown) => void) => leaves.forEach(cb),
+      }) as any;
+    let walkSpy: any;
+
+    beforeEach(() => {
+      manager.map.hasLayer.mockReturnValue(false);
+      walkSpy = vi.spyOn(layerMod, "countFeatureGeometry");
+    });
+
+    afterEach(() => {
+      walkSpy.mockRestore();
+    });
+
+    it("caches: a second read of an unchanged layer does not re-walk", () => {
+      const layer = wrap(makeLeaf(window.L.Polygon), makeLeaf(window.L.Polygon));
+      manager.registerLayer({ id: "c1", name: "C", layer });
+      expect(manager.getFeatureCount("c1")).toBe(2);
+      const walksAfterFirst = walkSpy.mock.calls.length;
+      expect(manager.getFeatureCount("c1")).toBe(2);
+      expect(walkSpy.mock.calls.length).toBe(walksAfterFirst);
+    });
+
+    it("content change (invalidateType) invalidates the cached count", () => {
+      const layer = wrap(makeLeaf(window.L.Polygon));
+      manager.registerLayer({ id: "c2", name: "C", layer });
+      expect(manager.getFeatureCount("c2")).toBe(1);
+      manager.invalidateType("c2");
+      expect(manager.getFeatureCount("c2")).toBe(1);
+      expect(walkSpy.mock.calls.length).toBe(2);
+    });
+
+    it("style change does not re-walk (single-source invalidation)", () => {
+      const layer = wrap(makeLeaf(window.L.Polygon));
+      manager.registerLayer({ id: "c3", name: "C", layer });
+      expect(manager.getFeatureCount("c3")).toBe(1);
+      // A style change (setVisible / setOpacity) does not bump the count
+      // version — only invalidateType and refreshCount do.
+      manager.setVisible("c3", false);
+      manager.getFeatureCount("c3");
+      expect(walkSpy.mock.calls.length).toBe(1);
+    });
+
+    it("style event (LAYER_STYLE_CHANGE) does not invalidate the cache", () => {
+      // A style event must NOT bump the count version — only content
+      // changes (LAYER_ITEM_COUNT_CHANGE) do. If someone rewires the
+      // invalidation to LAYER_CHANGE/LAYER_STYLE_CHANGE, this goes red.
+      const layer = wrap(makeLeaf(window.L.Polygon));
+      manager.registerLayer({ id: "c5", name: "C", layer });
+      expect(manager.getFeatureCount("c5")).toBe(1);
+      map.foliplus!.events.emit(EVENTS.LAYER_STYLE_CHANGE, { id: "c5" });
+      expect(manager.getFeatureCount("c5")).toBe(1);
+      expect(walkSpy.mock.calls.length).toBe(1);
+    });
+
+    it("refreshCount (provider data change) invalidates the cached count", () => {
+      const provider = vi.fn(() => 5);
+      manager.registerLayer({
+        id: "c4",
+        name: "C",
+        layer: { options: {} },
+        featureCountProvider: provider,
+      });
+      expect(manager.getFeatureCount("c4")).toBe(5);
+      expect(provider).toHaveBeenCalledTimes(1);
+      manager.refreshCount("c4");
+      expect(manager.getFeatureCount("c4")).toBe(5);
+      expect(provider).toHaveBeenCalledTimes(2);
+    });
+
+    it("perf probe: a style-only rebuild does not re-walk 20x5k layers", () => {
+      // 20 layer groups x 5000 polygon leaves. The first read walks each
+      // tree once (20 walks = 100k leaf visits); a style-only change (no
+      // content bump) must serve every row from the cache — 0 new walks.
+      const N_LAYERS = 20;
+      const N_LEAVES = 5000;
+      for (let i = 0; i < N_LAYERS; i++) {
+        const leaves = Array.from({ length: N_LEAVES }, () =>
+          makeLeaf(window.L.Polygon),
+        );
+        manager.registerLayer({
+          id: `perf${i}`,
+          name: `Perf${i}`,
+          layer: wrap(...leaves),
+        });
+      }
+      // First build: one walk per layer.
+      for (let i = 0; i < N_LAYERS; i++) {
+        expect(manager.getFeatureCount(`perf${i}`)).toBe(N_LEAVES);
+      }
+      const walksAfterBuild = walkSpy.mock.calls.length;
+      expect(walksAfterBuild).toBe(N_LAYERS);
+      // Style-only rebuild (a folder checkbox toggle): no content bump.
+      // Every row reads the cache — no new walks.
+      for (let i = 0; i < N_LAYERS; i++) {
+        expect(manager.getFeatureCount(`perf${i}`)).toBe(N_LEAVES);
+      }
+      expect(walkSpy.mock.calls.length).toBe(walksAfterBuild);
     });
   });
 
