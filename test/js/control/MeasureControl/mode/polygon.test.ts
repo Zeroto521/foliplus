@@ -515,3 +515,57 @@ describe("PolygonMode — preview cursor node", () => {
     expect(manager.store.add).toHaveBeenCalled();
   });
 });
+
+describe("PolygonMode — finishOnExit contract", () => {
+  const clickHandlerOf = (manager: MeasureManager) =>
+    manager.map.on.mock.calls.find(([event]: [unknown]) => event === "click")?.[1] as (
+      e: unknown,
+    ) => void;
+
+  it("finalizes a complete in-flight polygon (>=3 points) and returns true", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 122 } });
+
+    expect(mode.finishOnExit()).toBe(true);
+    expect(mode.isFinished).toBe(true);
+    // The finalized polygon is stored as content (the row survives).
+    expect(manager.store.all()).toHaveLength(1);
+  });
+
+  it("discards a sparse in-flight polygon (<3 points) and returns false", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+
+    expect(mode.finishOnExit()).toBe(false);
+    expect(mode.isFinished).toBe(false);
+    expect(manager.store.all()).toHaveLength(0);
+  });
+
+  it("returns false once already finished", () => {
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = clickHandlerOf(manager);
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 122 } });
+    expect(mode.finishOnExit()).toBe(true);
+
+    expect(mode.finishOnExit()).toBe(false);
+  });
+});
