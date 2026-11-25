@@ -144,7 +144,7 @@ exclude_lines = [
 omit = ["*/test/*", "*/site-packages/*"]
 
 [tool.codespell]
-ignore-words-list = "afterAll, vas"
+ignore-words-list = "afterAll, vas, reAdd"
 
 [tool.mypy]
 # Mirrors the pre-commit hook — the package ships py.typed, so the check holds
