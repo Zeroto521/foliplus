@@ -2,8 +2,8 @@
 """Gate: every control's Python test directory follows the two-level layout.
 
 The standard (AGENTS.md, "Python Tests" -> "Control test layout") is one shape
-for all eight controls under test/python/control/<Name>/, enforced as eight
-assertions:
+for all eight controls under test/python/control/<Name>/, plus the browser-test
+naming rules, enforced as ten assertions:
 
 0. The first level of a grouped control is closed: once a control has any group
    directory, its own directory may only hold __init__.py, helper*.py,
@@ -28,7 +28,9 @@ assertions:
    owns that shape: a 750-line single test_<Name>.py passes, and an 801-line one
    reports single-file-too-large only, never a second file-too-large.
 6. A subdirectory is a feature group, so it must hold at least 3 test files
-   directly; fewer means the tests belong in the parent directory.
+   directly; fewer means the tests belong in the parent directory. A closed
+   pair that owns a whole dimension is the one exception, recorded in
+   SMALL_GROUP_EXCEPTIONS with its reason (focus/ today).
 7. A group's name names a production directory: it must match a directory name
    under foliplus/js/control/<Name>/ or foliplus/control/<Name>/ (private
    packages included). A group called "rendering" or "panel" that no production
@@ -37,6 +39,19 @@ assertions:
    assert the control as a whole and no production subdirectory owns them. The
    rule is only judged when the production control exists (a fake tree in a
    unit test has no production counterpart).
+8. A test_*_browser.py is a scenario file, so it must be substantial enough to
+   hold a scenario: >= 150 code lines OR >= 2 test classes. A single small
+   browser file pins one data point that belongs beside its theme as a class,
+   not as a file of its own; a genuine scenario that is short grows a second
+   class instead of splitting into more files. helper*_browser.py is
+   scaffolding, not a scenario, so it is not judged.
+9. A test_*_browser.py must not be named after one data point. A filename that
+   encodes a single fixture or a single frame (first_frame, facility_points)
+   describes the sample, not the behaviour, and it stops naming the scenario as
+   soon as the sample changes. The data-point vocabulary is kept in
+   DATA_POINT_NOUNS; the rest of the naming judgement stays a review rule: a
+   filename must read as the scenario a class asserts, and a noun that is not
+   in the tuple is caught in review, not mechanically.
 
 code lines = non-blank lines that do not start with '#'; docstrings count, the
 same metric script/check/module_size_check.py uses for shipped modules.
@@ -60,12 +75,19 @@ from dataclasses import dataclass
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-CONTROL_TESTS = _REPO_ROOT / "test" / "python" / "control"
+TEST_PY_ROOT = _REPO_ROOT / "test" / "python"
+CONTROL_TESTS = TEST_PY_ROOT / "control"
 
 # The documented thresholds. They do not move to fit the code.
 MAX_FILE_CODE_LINES = 700
 SINGLE_FILE_MAX_CODE_LINES = 800
 MAX_GROUP_DEPTH = 2  # control/<Name>/ = 1, control/<Name>/<group>/ = 2
+MIN_BROWSER_FILE_CODE_LINES = 150
+BROWSER_MIN_TEST_CLASSES = 2
+
+# One data-point noun: a filename built on it names the sample, not the
+# scenario. Extend this tuple when review catches a new one.
+DATA_POINT_NOUNS = ("first_frame", "facility_points")
 
 
 @dataclass(frozen=True)
@@ -90,7 +112,49 @@ class Exemption:
 # Temporary exemptions while the layout migration drains. Every entry must be
 # removed by the split card it names; the gate fails on an entry that no longer
 # matches a violation so this list cannot silently rot.
-ALLOWLIST: tuple[Exemption, ...] = ()
+ALLOWLIST: tuple[Exemption, ...] = (
+    Exemption(
+        "browser-file-too-small",
+        "test/python/control/ExportControl/test_markers_browser.py",
+        "one scenario in one small file; merge into the ExportControl theme file once "
+        "the scenario table is accepted",
+        "board: scenario aggregation review",
+    ),
+    Exemption(
+        "browser-file-too-small",
+        "test/python/control/LayerControl/listPanel/test_folder_row_browser.py",
+        "one scenario in one small file; merge into the listPanel theme file once "
+        "the scenario table is accepted",
+        "board: scenario aggregation review",
+    ),
+    Exemption(
+        "browser-file-too-small",
+        "test/python/control/LayerControl/overlayPanel/test_more_menu_browser.py",
+        "one scenario in one small file; merge into the overlayPanel theme file once "
+        "the scenario table is accepted",
+        "board: scenario aggregation review",
+    ),
+    Exemption(
+        "browser-file-too-small",
+        "test/python/control/LayerControl/style/test_border_value_first_frame_browser.py",
+        "one scenario in one small file; merge into the style theme file once "
+        "the scenario table is accepted",
+        "board: scenario aggregation review",
+    ),
+    Exemption(
+        "browser-file-too-small",
+        "test/python/control/LayerControl/style/test_paint_dimension_parity_browser.py",
+        "one scenario in one small file; merge into the style theme file once "
+        "the scenario table is accepted",
+        "board: scenario aggregation review",
+    ),
+    Exemption(
+        "browser-name-is-data-point",
+        "test/python/control/LayerControl/style/test_border_value_first_frame_browser.py",
+        "named after one frame; rename with the scenario table",
+        "board: scenario aggregation review",
+    ),
+)
 
 
 def code_lines(path: Path) -> int:
@@ -111,6 +175,17 @@ def code_lines(path: Path) -> int:
 # Groups whose production counterpart does not exist, with the reason.
 GROUP_NAME_EXCEPTIONS: dict[str, str] = {
     "shell": "shell/entry/quickstart tests assert the control as a whole",
+}
+
+# A group normally holds >= 3 test files (rule 6). A closed pair is the one
+# deliberate exception: two files that together own a whole dimension, where a
+# third file would re-split the pair. Keyed "<Control>/<group>".
+SMALL_GROUP_EXCEPTIONS: dict[str, str] = {
+    "LayerControl/focus": (
+        "focus is a closed pair: behaviour logic (test_focus.py) plus the "
+        "pane/overlay browser cases (test_focus_pane.py); a third file would "
+        "re-split the pair the scenario aggregation merged"
+    ),
 }
 
 _JS_CONTROL_DIR = _REPO_ROOT / "foliplus" / "js" / "control"
@@ -239,7 +314,8 @@ def _scan(
             for child in _children(directory)
             if child.is_file() and child.name.startswith("test_")
         ]
-        if len(tests) < 3:
+        group_key = f"{directory.parent.name}/{directory.name}"
+        if len(tests) < 3 and group_key not in SMALL_GROUP_EXCEPTIONS:
             violations.append(
                 Violation(
                     "too-few-tests",
@@ -312,6 +388,58 @@ def _first_level_violations(control: Path) -> list[Violation]:
     return violations
 
 
+def is_browser_test(name: str) -> bool:
+    """Whether a module is a browser scenario file (not browser scaffolding)."""
+    return name.startswith("test_") and name.endswith("_browser.py")
+
+
+def browser_test_files(root: Path) -> list[Path]:
+    """Every test_*_browser.py under one test root, in path order."""
+    return sorted(
+        path
+        for path in root.rglob("test_*_browser.py")
+        if "__pycache__" not in path.parts
+    )
+
+
+def test_class_count(path: Path) -> int:
+    """The number of top-level Test* classes in a module."""
+    return sum(
+        1
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith("class Test")
+    )
+
+
+def _browser_violations(root: Path) -> list[Violation]:
+    """Rules 8 and 9 for the browser scenario files under one test root."""
+    violations: list[Violation] = []
+    for path in browser_test_files(root):
+        count = code_lines(path)
+        classes = test_class_count(path)
+        if count < MIN_BROWSER_FILE_CODE_LINES and classes < BROWSER_MIN_TEST_CLASSES:
+            violations.append(
+                Violation(
+                    "browser-file-too-small",
+                    path,
+                    f"{count} code lines and {classes} test class(es); a browser "
+                    f"scenario file needs >= {MIN_BROWSER_FILE_CODE_LINES} code "
+                    f"lines or >= {BROWSER_MIN_TEST_CLASSES} test classes",
+                )
+            )
+        nouns = [noun for noun in DATA_POINT_NOUNS if noun in path.name]
+        if nouns:
+            violations.append(
+                Violation(
+                    "browser-name-is-data-point",
+                    path,
+                    f"filename carries the data-point noun(s) {chr(44).join(nouns)}; "
+                    "name the scenario the tests assert",
+                )
+            )
+    return violations
+
+
 def collect(root: Path) -> list[Violation]:
     """Every layout violation under one control-test root, in path order."""
     violations: list[Violation] = []
@@ -320,6 +448,14 @@ def collect(root: Path) -> list[Violation]:
         violations.extend(_first_level_violations(control))
         violations.extend(_size_violations(control))
     return sorted(violations, key=lambda v: (_relative(v.path), v.rule))
+
+
+def collect_all() -> list[Violation]:
+    """Every violation this gate owns: the control tree plus browser files."""
+    return sorted(
+        collect(CONTROL_TESTS) + _browser_violations(TEST_PY_ROOT),
+        key=lambda v: (_relative(v.path), v.rule),
+    )
 
 
 def _key(rule: str, path: str) -> tuple[str, str]:
@@ -344,7 +480,7 @@ def stale(
 
 def main() -> int:
     """Check the control test tree and report unexempted + stale entries."""
-    violations = collect(CONTROL_TESTS)
+    violations = collect_all()
     unexempted_violations = unexempted(violations, ALLOWLIST)
     stale_exemptions = stale(violations, ALLOWLIST)
     for violation in unexempted_violations:
