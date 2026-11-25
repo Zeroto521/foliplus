@@ -92,8 +92,7 @@ const linePaintOf = (options: Record<string, unknown>): LeafPaint => {
 const markerPaintOf = (leaf: unknown): LeafPaint => {
   const icon = (leaf as { options?: { icon?: { options?: Record<string, unknown> } } })
     .options?.icon;
-  // folium emits snake_case marker_color / marker_color_opacity; the runtime
-  // reads camelCase. Same vocabulary fallback as markerIcon: camel wins, the
+  // folium camelizes every option key at render (folium/template.py); the snake spelling is accepted for hand-built Leaflet icons and as a guard if folium ever stops camelizing. Same vocabulary fallback as markerIcon: camel wins, the
   // snake spelling is a fallback so a folium chassis (colour and opacity)
   // reaches the paint read.
   const options = icon?.options ?? {};
