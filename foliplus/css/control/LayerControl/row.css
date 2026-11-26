@@ -143,7 +143,7 @@
     align-items: center;
     /* Padding mirrors .foliplus-layer-item's horizontal insets, so a group row
        and a data row measure out to the same total box height: padding +
-       --foliplus-layer-row-min-height. A group header without an explicit right padding
+       --foliplus-row-min-height. A group header without an explicit right padding
        would fall back to the browser default (~8px), making it visibly taller
        and misaligning its left border with the data rows below it. */
     padding: var(--foliplus-space-md) var(--foliplus-layer-item-pad-x)

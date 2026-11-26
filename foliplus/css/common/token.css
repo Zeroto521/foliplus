@@ -552,9 +552,6 @@
     var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
       var(--foliplus-line-height-hint)
   );
-  /* Deprecated alias: #1224 dropdown option and the layer rows read this
-     name; it resolves to the shared list-row token so the two cannot drift. */
-  --foliplus-layer-row-min-height: var(--foliplus-row-min-height);
 
   /* ── Common (dot anchors) ──
      Fill and stroke colors for map/crop anchor dots. Geometry tokens
