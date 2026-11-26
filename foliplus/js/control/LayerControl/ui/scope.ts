@@ -87,6 +87,12 @@ const createScope = (): PanelScope => {
         off();
       };
       const unsubscribe = () => {
+        // Do not "optimise" this into a Map<handle, step>: entries leave the
+        // queue through splice (dispose drains it), so the Map would have to be
+        // kept in sync with the array — a second source of truth for the same
+        // queue, which is the double state this scope exists to remove. The
+        // queue is constant-sized (fewer than 50 entries) and one lookup per
+        // handle call is O(n) over that constant.
         const idx = steps.findIndex(entry => entry.run === wrapped);
         if (idx !== -1) steps.splice(idx, 1);
         wrapped();
