@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// script/check/style-mode-usage — FILL_MODE usage has one audited inventory, so the migration cannot leave a stray user
+// script/check/style-mode-usage — one audited inventory of FILL_MODE users, so a stray user fails the gate instead of being missed
 /**
  * Read-only usage inventory: who still uses FILL_MODE / FillMode to represent
  * the style mode, and where.

@@ -155,9 +155,11 @@ describe("file headers follow the canonical form", () => {
 //
 // The repo-root tooling carries the same header, anchored at the repo root:
 // line 1 (line 2 after a shebang) is `// script/<rel> — <desc>`, <rel> being
-// the module path from the root with no .mjs extension. No registry: every
-// module under script/ is shipped tooling, so the whole directory is scanned.
-// script/sonda is generated build output, not tooling, and is skipped.
+// the module path from the root with no .mjs extension. The tooling is the
+// code with the fewest readers — a gate script has no imports to orient one —
+// so this header is the only statement of what the file is FOR. No registry:
+// every module under script/ is shipped tooling, so the whole directory is
+// scanned. script/sonda is generated build output, not tooling, and is skipped.
 
 const SCRIPT_DIR = resolve(REPO_ROOT, "script");
 
