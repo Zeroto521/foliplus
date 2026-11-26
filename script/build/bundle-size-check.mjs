@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/build/bundle-size-check — growth gate against the base branch, so an immaterial percentage cannot fail a PR
 /**
  * Bundle size checker — compares the built dist bundles' brotli sizes against
  * another build's sizes (typically the base branch), flagging bundles that grow

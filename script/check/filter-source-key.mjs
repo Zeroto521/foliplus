@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/filter-source-key — filter source keys come from FILTER_SOURCE, never a drifting literal
 /**
  * Guard: FILTER_SOURCE key drift over the MeasureControl surface.
  *

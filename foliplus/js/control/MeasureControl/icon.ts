@@ -1,3 +1,4 @@
+// control/MeasureControl/icon — the ruler, circle and polygon glyphs for the measure modes.
 const ICON_RULER = `
   <svg viewBox="0 0 24 24">
     <g transform="rotate(-45 12 12)">

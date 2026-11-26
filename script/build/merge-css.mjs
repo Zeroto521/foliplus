@@ -1,3 +1,4 @@
+// script/build/merge-css — pure stylesheet merge, so the declared cascade order survives into the flat bundle
 /**
  * Stylesheet merge helpers for the build.
  *

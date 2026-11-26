@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/class-owner — one owner per foliplus-* class token, and consumers import it instead of spelling it
 /**
  * Guard: every `foliplus-*` class token has one owner, and consumers read it
  * from the owner module rather than spelling the literal.

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/typecheck-test — test typecheck gates only on test/js lines, so loose CDN globals cannot mask real test errors
 /**
  * Typecheck the test suite and gate only on the `test/js` lines.
  *

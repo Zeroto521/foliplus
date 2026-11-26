@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/event-origin — every publish carries an origin or declares why not, so subscribers never guess who acted
 /**
  * Guard: every semantic event publish carries an origin.
  *

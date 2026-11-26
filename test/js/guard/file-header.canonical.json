@@ -1,5 +1,8 @@
 [
+  "control/ExportControl/icon",
+  "control/ExportControl/util",
   "control/LayerControl/declaredParse",
+  "control/MeasureControl/icon",
   "core/event/subscription",
   "core/event/type",
   "core/geo/type",

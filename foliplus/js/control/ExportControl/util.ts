@@ -1,3 +1,4 @@
+// control/ExportControl/util — canvas image/text helpers behind the export preview, each failure path closing what it opened.
 import * as CONST from "./const.js";
 import { createScopedTranslator } from "#platform/locale.js";
 

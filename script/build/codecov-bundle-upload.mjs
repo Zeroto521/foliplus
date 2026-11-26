@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/build/codecov-bundle-upload — fail-soft Codecov upload, so a broken upload never blocks the gates or merge
 /**
  * Codecov Bundle Analysis upload — thin client for the bundler-plugin HTTP
  * protocol. Official plugins (Rollup/Vite/Webpack) own their own bundler

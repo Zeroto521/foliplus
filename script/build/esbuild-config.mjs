@@ -1,3 +1,4 @@
+// script/build/esbuild-config — the real esbuild flags in one object, so tests cannot drift from the build
 /**
  * The shared esbuild config for every artifact build.mjs emits.
  *
