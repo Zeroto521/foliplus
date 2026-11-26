@@ -19,7 +19,6 @@
 - `LayerControl`: a central `roles={"overlay": {"folded": True}, "base": {"folded": False}}` declaration sets the author's default folded state per role; a user's own fold or expand always wins over the author default, and the toggle-all header resolves by the same role identity key ([#1202](https://github.com/Zeroto521/foliplus/pull/1202), [#1273](https://github.com/Zeroto521/foliplus/pull/1273))
 - `LayerControl`: a group layer (`FeatureGroup` / `LayerGroup`) shows as a container row with a group glyph, a visible-of-total child count, Style and Filter disabled, and Focus lifting every child pane ([#1264](https://github.com/Zeroto521/foliplus/pull/1264), [#1271](https://github.com/Zeroto521/foliplus/pull/1271), [#1276](https://github.com/Zeroto521/foliplus/pull/1276), [#1287](https://github.com/Zeroto521/foliplus/pull/1287))
 
-
 ### Changed
 
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714), [#1173](https://github.com/Zeroto521/foliplus/pull/1173))
