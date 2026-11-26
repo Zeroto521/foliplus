@@ -504,6 +504,13 @@
        so it marks a slot rather than a border. */
     &[data-foliplus-drop="before"] {
       z-index: 1;
+      /* The row the slot pairs with carries the same directional red glow the
+         shipped indicator had: the line alone reads as a hairline floating on
+         white, and the glow is what makes the target ROW participate instead
+         of only its edge. 0 X-offset, so it hugs the top edge and does not
+         bleed sideways. */
+      box-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4)
+        var(--foliplus-accent-primary);
       background-image: linear-gradient(
         var(--foliplus-drag-target-wash),
         var(--foliplus-drag-target-wash)
@@ -524,6 +531,8 @@
     /* Insertion below the row: the same line, mirrored. */
     &[data-foliplus-drop="after"] {
       z-index: 1;
+      box-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-4)
+        var(--foliplus-accent-primary);
       background-image: linear-gradient(
         var(--foliplus-drag-target-wash),
         var(--foliplus-drag-target-wash)
