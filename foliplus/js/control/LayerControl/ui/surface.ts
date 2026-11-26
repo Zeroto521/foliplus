@@ -24,6 +24,7 @@ import type { ProjectionBatch } from "./apply.js";
 import type { FocusController } from "./focus/focusController.js";
 import type { ListPanel } from "./listPanel/index.js";
 import type { OverlayPanel } from "./overlayPanel/index.js";
+import type { ScopeSubscription } from "./scope.js";
 import { type EventBus } from "#core/event/index.js";
 import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.js";
 import type { Logger } from "#platform/type.js";
@@ -67,7 +68,7 @@ interface LayerUI {
   unsubscribeCountChange: (() => void) | null;
   unsubscribeControlAttached: (() => void) | null;
   unsubscribeEscape: (() => void) | null;
-  unsubscribeLayerSignals: (() => void)[];
+  unsubscribeLayerSignals: ScopeSubscription[];
 
   // ── controller / DOM views ──
   readonly c: LayerController;

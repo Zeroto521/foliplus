@@ -165,10 +165,10 @@
     font-weight: var(--foliplus-font-weight-semibold);
     color: var(--foliplus-text-primary);
   }
-  /* Folded: accent left border + accent fold-btn; divider fades out */
-  .foliplus-layer-sep.foliplus-layer-toggle-all.foliplus-layer-folded {
-    border-left-color: var(--foliplus-accent-primary);
-  }
+  /* Folded: the accent left border and the accent fold-btn are painted by the
+     shared row-cell "folded" rule (it selects .foliplus-row), so the row no
+     longer needs its own copy here. Only the divider fade stays: the divider
+     belongs to the role header alone. */
   .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-section-divider {
     opacity: 0;
     transition: opacity var(--foliplus-transition-fast);
@@ -297,9 +297,11 @@
      would flash the already-checked rows on each rebuild. */
   /* One identity class for every row kind (layer / folder / group / role):
      a new row kind cannot silently miss the recipe the way the role header
-     did before it carried .foliplus-row. */
-  .foliplus-row,
-  .foliplus-layer-sep.foliplus-layer-toggle-all {
+     did before it carried .foliplus-row. The role header no longer needs its
+     own leg here (the sep/toggle-all compound): it carries .foliplus-row too,
+     and listing it twice only gave that row one extra specificity level —
+     the asymmetry this block is meant to remove. */
+  .foliplus-row {
     /* Rows always paint an explicit surface — never transparent — so a
        resting unchecked row and an interaction target cannot disagree
        (one "white via the container", one "painted white"). Checked rows
@@ -506,7 +508,7 @@
      a .foliplus-layer-item — that class means "a layer row" to the panel's own
      selectors and to the browser tests, and a header matching it made every
      leaf-row lookup resolve to the header. */
-  :is(.foliplus-row, .foliplus-layer-sep.foliplus-layer-toggle-all) {
+  .foliplus-row {
     /* Identity: gray at rest, wakes to black when the row is active. Accent
        stays reserved for actions (more) and status (border), so the type icon
        reads as focus, not as a call-to-action. The hover wake lives in the
