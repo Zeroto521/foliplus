@@ -593,10 +593,10 @@ class TestLayerControlRendering:
     def test_drag_over_css_variables(self):
         """Every drag parameter is a token; the values are pinned here.
 
-        The line is 2px with a 1px half-alpha halo (3px painted width), the
-        insertion line breathes forever while the carried row pulses once and
-        then stays dimmed, and a join wash stays at 4% so it cannot out-weigh
-        the row's own label.
+        The line is 2px with a halo that opens from 1px at rest to 5px at the
+        peak, the insertion line breathes forever while the carried row pulses
+        once and then stays dimmed, and a join wash stays at 4% so it cannot
+        out-weigh the row's own label.
         """
         css = read_css("foliplus/css/control/LayerControl/index.css")
         for token in (
@@ -606,8 +606,11 @@ class TestLayerControlRendering:
             "--foliplus-drag-line-radius",
             "--foliplus-drag-line-from",
             "--foliplus-drag-line-glow",
+            "--foliplus-drag-line-glow-trough",
+            "--foliplus-drag-line-alpha-trough",
+            "--foliplus-drag-target-wash",
             "--foliplus-drag-pulse-duration",
-            "--foliplus-drag-pulse-pickup",
+            "--foliplus-drag-pulse-pickup-count",
             "--foliplus-drag-pulse-target",
             "--foliplus-drag-push-shift",
             "--foliplus-drag-source-opacity",
@@ -617,10 +620,17 @@ class TestLayerControlRendering:
 
         tokens = read_css("foliplus/css/common/token.css")
         assert "--foliplus-drag-line: var(--foliplus-size-2)" in tokens
-        assert "--foliplus-drag-line-inset: var(--foliplus-size-2)" in tokens
-        assert "--foliplus-drag-line-radius: 1px" in tokens
-        assert "--foliplus-drag-pulse-duration: 1.6s" in tokens
-        assert "--foliplus-drag-pulse-pickup: 1" in tokens
+        # The line spans the row width (inset 0) and takes the row's own corner
+        # radius: an inset line read as a floating slot with a gap at the end of
+        # the row, not as the border it stands in for.
+        assert "--foliplus-drag-line-inset: 0" in tokens
+        assert "--foliplus-drag-line-radius: var(--foliplus-radius-sm)" in tokens
+        # The breathing swing is carried by alpha, not by hue: accent-primary and
+        # accent-hover are two neighbouring reds, so a hue-only swing at full
+        # opacity read as a static line.
+        assert "--foliplus-drag-line-alpha-trough: 0.5" in tokens
+        assert "--foliplus-drag-pulse-duration: 1.15s" in tokens
+        assert "--foliplus-drag-pulse-pickup-count: 1" in tokens
         assert "--foliplus-drag-pulse-target: infinite" in tokens
         assert "--foliplus-drag-push-shift: 1px" in tokens
         assert "--foliplus-drag-source-opacity: 0.6" in tokens
@@ -651,7 +661,7 @@ class TestLayerControlRendering:
         assert '[data-foliplus-drop="source"] {' in css
         assert "opacity: var(--foliplus-drag-source-opacity)" in css
         assert "animation: foliplus-drag-pickup" in css
-        assert "var(--foliplus-drag-pulse-pickup)" in css
+        assert "var(--foliplus-drag-pulse-pickup-count)" in css
         # The pulse marks the INSERTION GAP: before/after draw it on the row
         # edge the layer lands against, so up-drag and down-drag agree.
         assert "&::before {" in css
