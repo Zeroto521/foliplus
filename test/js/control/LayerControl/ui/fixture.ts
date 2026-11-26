@@ -290,8 +290,9 @@ const v2LayoutToArrangement = (
       if (entryKey.startsWith("layer:")) {
         roles[role].push({ kind: "layer", id: entryKey.slice("layer:".length) });
       } else if (folderKeys.has(entryKey)) {
-        if (!blocks[entryKey])
+        if (!blocks[entryKey]) {
           blocks[entryKey] = { kind: "folder", key: entryKey, name: entryKey };
+        }
         roles[role].push({ kind: "folder", key: entryKey, children: [] });
       } else {
         roles[role].push({ kind: "layer", id: entryKey });
