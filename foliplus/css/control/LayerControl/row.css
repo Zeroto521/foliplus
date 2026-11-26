@@ -554,6 +554,14 @@
        inside this row"), on a wash light enough to keep the label readable, and
        the chevron dips in step to hint that the row opens. */
     &[data-foliplus-drop="join"] {
+      /* A join target is a whole ROW, not a slot, so it is the only state that
+         outlines the row: the shipped indicator drew this as an inset ring, and
+         without it the row loses the left rail and the right edge stops
+         reading as part of the target. The two edge lines below stay (they are
+         what pulses); the ring is the static "the row is the container" half. */
+      box-shadow:
+        inset 0 0 0 var(--foliplus-size-2) var(--foliplus-accent-primary),
+        0 0 var(--foliplus-size-4) var(--foliplus-accent-primary);
       background: var(--foliplus-drag-join-fill);
       z-index: 1;
       &::before,
@@ -570,13 +578,15 @@
       /* Both edges sit INSIDE the target row, not on the boundary it shares
          with its neighbors: the join is this row's own frame, and a line
          straddling the boundary would read as the previous row's bottom edge
-         lighting up — a second indicator for one target. */
+         lighting up — a second indicator for one target. They also sit inside
+         the ring above, one ring-width in, or the ring paints over them and the
+         "both edges pulse" half of the indicator disappears. */
       &::before {
-        top: 0;
+        top: var(--foliplus-size-2);
         border-top: var(--foliplus-drag-line) solid var(--foliplus-drag-line-from);
       }
       &::after {
-        bottom: 0;
+        bottom: var(--foliplus-size-2);
         border-bottom: var(--foliplus-drag-line) solid var(--foliplus-drag-line-from);
       }
       & .foliplus-layer-fold-btn {
@@ -593,16 +603,17 @@
     &[data-foliplus-push="bottom"] {
       transform: translateY(calc(-1 * var(--foliplus-drag-push-shift)));
     }
-    /* A refused target draws no geometry at all: the absence of the line is the
-       refusal. The pointer and the panel's hint line carry the message. */
+    /* A refused target is still ANNOUNCED on the row — the user compared the
+       panel against the shipped build and asked for the ring back: "左侧没有红
+       竖条，右侧没有发光". What a refusal must NOT do is draw an insertion LINE
+       (that means "it will land here"); the ring says "this row is the target",
+       the missing line plus the hint line say "and it will not take it". */
     &[data-foliplus-drop="refuse"] {
       cursor: no-drop;
-      /* The row wash and the lit rail are this panel's "live target" language;
-         a refusal must not borrow them, or the row still looks droppable and
-         the missing line reads as a glitch instead of an answer. The cursor and
-         the hint line carry the reason. */
       background: transparent;
-      box-shadow: none;
+      box-shadow:
+        inset 0 0 0 var(--foliplus-size-2) var(--foliplus-accent-primary),
+        0 0 var(--foliplus-size-4) var(--foliplus-accent-primary);
       & .foliplus-layer-rail {
         background: transparent;
         border-color: transparent;
