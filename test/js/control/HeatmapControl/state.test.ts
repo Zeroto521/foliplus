@@ -1,14 +1,11 @@
 // Unit tests for HeatmapControl/state — the state mixin methods.
-import {
-  makeManager,
-  fsGet,
-} from "./fixture.js";
+import { fsGet, makeManager } from "./fixture.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { filterStoreKey } from "#core/layer/index.js";
 import { CLASS_COUNT, METHOD } from "#core/value/index.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
-import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import * as CONST from "#control/HeatmapControl/const.js";
+import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 
 afterEach(() => {
   delete globalThis.h3;

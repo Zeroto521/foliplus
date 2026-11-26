@@ -1,24 +1,27 @@
 // Unit tests for HeatmapControl/manager — the manager assembly layer and cross-mixin integration.
 import { initFixture, trackMembership } from "../LayerControl/ui/fixture.js";
 import {
+  FakeGroup,
+  SCAN_DEBOUNCE,
+  fsSize,
   makeManager,
   makeManagerOn,
-  makeMarker, SCAN_DEBOUNCE, setupWithPoints, FakeGroup, fsSize,
+  makeMarker,
+  setupWithPoints,
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, SettledOperation } from "#core/event/index.js";
 import { CLASS_COUNT, SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
 import { canvasMethods } from "#control/HeatmapControl/canvas.js";
+import * as CONST from "#control/HeatmapControl/const.js";
 import { extractMethods } from "#control/HeatmapControl/extract.js";
 import { filterMethods } from "#control/HeatmapControl/filter.js";
 import { initMethods } from "#control/HeatmapControl/init.js";
 import { lifecycleMethods } from "#control/HeatmapControl/lifecycle.js";
-import { stateMethods } from "#control/HeatmapControl/state.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
+import { stateMethods } from "#control/HeatmapControl/state.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
-import * as CONST from "#control/HeatmapControl/const.js";
-
 
 describe("HeatmapManager — style delegation", () => {
   function getCanvasOpts() {

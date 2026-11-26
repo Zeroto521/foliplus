@@ -9,9 +9,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { getLayerAlpha, setLayerAlpha } from "#core/layer/index.js";
+import * as CONST from "#control/HeatmapControl/const.js";
 import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
-import * as CONST from "#control/HeatmapControl/const.js";
 
 afterEach(() => {
   delete globalThis.h3;

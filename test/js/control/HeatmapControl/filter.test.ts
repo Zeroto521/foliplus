@@ -1,13 +1,22 @@
 // Unit tests for HeatmapControl/filter — the filter mixin methods.
 import {
+  RANGE,
+  USER_RANGE,
+  fsGet,
+  fsHas,
+  fsSize,
   makeConfig,
   makeCtrl,
   makeManager,
-  RANGE, USER_RANGE, snapshot, prepare, seedable, reload, userWrite, fsGet, fsHas, fsSize,
+  prepare,
+  reload,
+  seedable,
+  snapshot,
+  userWrite,
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
-import { extractMarkerFields, filterStoreKey, type LayerFilter } from "#core/layer/index.js";
+import { type LayerFilter, filterStoreKey } from "#core/layer/index.js";
 import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 
 afterEach(() => {
@@ -1163,29 +1172,6 @@ describe("HeatmapControl filter owner", () => {
     // instead of emitting an empty cell.
     m.setFilter({ kind: "atom", field: "value", op: "between", range: [15, 15] });
     expect((m as any).cachedFeatures).toBeNull();
-  });
-
-  it("extractMarkerFields resolves value, options.value, and properties fields", () => {
-    const marker1 = { value: 42, options: {}, feature: { properties: {} } } as any;
-    expect(extractMarkerFields(marker1)).toEqual({ value: 42 });
-
-    const marker2 = { options: { value: 99 }, feature: { properties: {} } } as any;
-    expect(extractMarkerFields(marker2)).toEqual({ value: 99 });
-
-    const marker3 = {
-      options: {},
-      feature: { properties: { temperature: 36.5, status: "ok" } },
-    } as any;
-    expect(extractMarkerFields(marker3)).toEqual({ temperature: 36.5 });
-  });
-
-  it("extractMarkerFields skips a properties key the contract already holds", () => {
-    const marker = {
-      value: 42,
-      options: {},
-      feature: { properties: { value: 7, other: 3 } },
-    } as any;
-    expect(extractMarkerFields(marker)).toEqual({ value: 42, other: 3 });
   });
 });
 

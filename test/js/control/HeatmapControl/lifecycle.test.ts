@@ -1,14 +1,10 @@
 // Unit tests for HeatmapControl/lifecycle — the lifecycle mixin methods.
-import {
-  makeConfig,
-  makeCtrl,
-  makeManager,
-} from "./fixture.js";
+import { makeConfig, makeCtrl, makeManager } from "./fixture.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import { PANEL_CLASS } from "#ui/index.js";
-import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import * as CONST from "#control/HeatmapControl/const.js";
+import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 
 afterEach(() => {
   delete globalThis.h3;

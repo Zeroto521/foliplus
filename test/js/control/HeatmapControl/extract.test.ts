@@ -1,10 +1,7 @@
 // Unit tests for HeatmapControl/extract — the extract mixin methods.
-import {
-  loadGeometry,
-  makeManager,
-} from "./fixture.js";
+import { loadGeometry, makeManager } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
+import { extractMarkerFields } from "#core/layer/index.js";
 import * as CONST from "#control/HeatmapControl/const.js";
 
 afterEach(() => {
@@ -415,8 +412,27 @@ describe("effective aggregation field - the auto default never becomes a record"
   });
 });
 
-// ── Declared filter guards (HeatmapManager) ───────────────────────────
-//
-// The matrix below pins the cross-branch rows; these are the Heatmap-only
-// guards the range branch needs: clamping to the snapshot extent, timing versus
-// data defects, and the field/aggregation coupling.
+describe("extractMarkerFields", () => {
+  it("resolves value, options.value, and properties fields", () => {
+    const marker1 = { value: 42, options: {}, feature: { properties: {} } } as any;
+    expect(extractMarkerFields(marker1)).toEqual({ value: 42 });
+
+    const marker2 = { options: { value: 99 }, feature: { properties: {} } } as any;
+    expect(extractMarkerFields(marker2)).toEqual({ value: 99 });
+
+    const marker3 = {
+      options: {},
+      feature: { properties: { temperature: 36.5, status: "ok" } },
+    } as any;
+    expect(extractMarkerFields(marker3)).toEqual({ temperature: 36.5 });
+  });
+
+  it("skips a properties key the contract already holds", () => {
+    const marker = {
+      value: 42,
+      options: {},
+      feature: { properties: { value: 7, other: 3 } },
+    } as any;
+    expect(extractMarkerFields(marker)).toEqual({ value: 42, other: 3 });
+  });
+});

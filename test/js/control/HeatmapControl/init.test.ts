@@ -1,13 +1,10 @@
 // Unit tests for HeatmapControl/init — the init mixin methods.
-import {
-  makeCtrl,
-  makeManager,
-} from "./fixture.js";
+import { makeCtrl, makeManager } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import * as CONST from "#control/HeatmapControl/const.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import { rebuildLayerDropdown } from "#control/HeatmapControl/ui.js";
-import * as CONST from "#control/HeatmapControl/const.js";
 
 afterEach(() => {
   delete globalThis.h3;
