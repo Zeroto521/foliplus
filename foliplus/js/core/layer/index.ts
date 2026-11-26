@@ -138,6 +138,13 @@ export {
   findNode,
   countChildLayers,
 } from "./walkLeaf.js";
+export { labelProjection, paintProjection, resolveVisibility } from "./visibility.js";
+export type {
+  VisibilityDrift,
+  VisibilityFactors,
+  VisibilityQuery,
+  VisibilityReason,
+} from "./visibility.js";
 // `isArealStyleLeaf` is the fill walker's leaf predicate. The build's registry
 // scan folds any `#core/layer/<file>.js` import into this barrel, so a name
 // the barrel does not re-export fails the build loudly rather than shimming to
