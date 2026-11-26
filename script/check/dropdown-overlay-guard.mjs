@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/dropdown-overlay-guard — the dropdown overlay stays required and supplied, so no second Escape dispatcher appears
 /**
  * Guard: createDropdown overlay must be supplied and typed required.
  *

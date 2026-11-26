@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/event-name — every event name keeps the published foliplus:<domain>:<action> shape, or every subscriber breaks
 /**
  * Guard: semantic event-name convention over the event dictionary.
  *

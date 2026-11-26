@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/browser-probe — probe corpus gate, so no browser probe is malformed, orphaned or dangling
 /**
  * Inventory + syntax gate for the `test/js/browser` probe corpus.
  *

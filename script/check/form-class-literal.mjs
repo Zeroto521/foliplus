@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/form-class-literal — form class tokens appear only in their vocabulary file, so a rename cannot leave a site un-styled
 /**
  * Guard: bare FORM_CLASS literal drift over the shared form-input vocabulary.
  *

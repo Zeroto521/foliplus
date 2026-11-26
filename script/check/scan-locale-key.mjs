@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/scan-locale-key — locale keys are scanned from code, so the Python test never hand-maintains the used-key list
 /**
  * Scan JS source for locale key usage and emit the sorted set of full keys
  * used by the code, so the Python test suite can derive `_JS_USED_KEYS`

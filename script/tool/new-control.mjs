@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/tool/new-control — scaffolds a control and patches every registration point, so a new control cannot be half-wired
 /**
  * Scaffold a new foliplus control and patch every registration point.
  *

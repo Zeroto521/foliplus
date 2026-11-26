@@ -1,4 +1,4 @@
-// Source-transform utilities for the foliplus build pipeline.
+// script/build/compress — inline SVG/HTML transforms, so shipped markup is minified without a source mirror
 //
 // Pure functions — no esbuild dependency, so they can be unit-tested or
 // reused by other tooling (e.g. a watch script).

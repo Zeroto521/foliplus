@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/build/build — the one build entry, so dev and minified artifacts share the same pipeline and mode marker
 /**
  * Build script — minify foliplus JS/CSS assets with esbuild.
  *
