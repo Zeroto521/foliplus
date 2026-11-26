@@ -8,12 +8,20 @@ arg => {
     row =>
       row.getAttribute("data-layer-id") !== null &&
       row.getAttribute("data-folder-key") === null &&
-      !row.closest("[class*='fold-tree']") &&
-      !row.classList.contains("foliplus-fold-tree-mid") &&
-      !row.classList.contains("foliplus-fold-tree-last") &&
-      !row.classList.contains("foliplus-layer-item-group"),
+      !row.classList.contains("foliplus-layer-item-group") &&
+      // A folder's member row wraps its tree rail in .foliplus-fold-tree; the
+      // drag code uses the same marker to tell a member row from a root row.
+      row.querySelector(".foliplus-fold-tree") === null,
   );
   const byFolder = key => all.find(row => row.getAttribute("data-folder-key") === key);
+  // A folder's member row wraps its tree rail; nothing else does.
+  const memberRows = all.filter(
+    row =>
+      row.getAttribute("data-layer-id") !== null &&
+      row.querySelector(".foliplus-fold-tree") !== null,
+  );
+  const baseRow = all.find(row => row.getAttribute("data-layer-type") === "base");
+  const visibleRows = () => all.filter(row => rect(row).height > 0).length;
   const pad = name => getComputedStyle(panel).getPropertyValue(name).trim();
   const pseudo = (row, which) => {
     const cs = getComputedStyle(row, which);
@@ -35,6 +43,7 @@ arg => {
       state: row.getAttribute("data-foliplus-drop"),
       outlineStyle: cs.outlineStyle,
       outlineWidth: cs.outlineWidth,
+      outlineColor: cs.outlineColor,
       borderTopWidth: cs.borderTopWidth,
       borderBottomWidth: cs.borderBottomWidth,
       animationName: cs.animationName,
@@ -42,6 +51,8 @@ arg => {
       boxShadow: cs.boxShadow,
       expectedBorderWidth: pad("--foliplus-border-thick"),
       gapLineWidth: pad("--foliplus-drag-gap-line"),
+      refuseColor: pad("--foliplus-drag-refuse"),
+      acceptColor: pad("--foliplus-accent-primary"),
       before: pseudo(row, "::before"),
       after: pseudo(row, "::after"),
     };
@@ -71,6 +82,15 @@ arg => {
       }));
   // The gap line's centre, in viewport coordinates: the insertion point the
   // pulse marks. BEFORE anchors to the row's top edge, AFTER to its bottom.
+  // The row on the far side of the gap sinks: the insertion presses it in.
+  const pushed = () =>
+    all
+      .filter(row => row.getAttribute("data-foliplus-push") !== null)
+      .map(row => ({
+        push: row.getAttribute("data-foliplus-push"),
+        boxShadow: getComputedStyle(row).boxShadow,
+        inset: getComputedStyle(row).boxShadow.includes("inset"),
+      }));
   const gapLineY = row => {
     const box = rect(row);
     const state = row.getAttribute("data-foliplus-drop");
@@ -90,12 +110,45 @@ arg => {
     return { source: styles(source), marked: marked() };
   }
 
+  if (arg.scenario === "fold") {
+    // The generic dragstart above already started the gesture; clear it first so
+    // "before" really means before this drag.
+    fire(source, "dragend", middle(source));
+    const visibleBefore = visibleRows();
+    fire(source, "dragstart", middle(source));
+    const visibleDuring = visibleRows();
+    // Read the folded rows' computed style while the gesture is still live: the
+    // marker is session-only and the dragend teardown restores the rows.
+    const folded = all
+      .filter(row => row.getAttribute("data-foliplus-drag-folded") !== null)
+      .map(row => ({
+        display: getComputedStyle(row).display,
+        height: rect(row).height,
+      }));
+    fire(source, "dragend", middle(source));
+    fire(panel, "dragend", 0);
+    return {
+      visibleBefore,
+      visibleDuring,
+      visibleAfter: visibleRows(),
+      foldedDuring: folded.length,
+      foldedRows: folded,
+    };
+  }
+
   if (arg.scenario === "reset") {
     fire(source, "dragend", middle(source));
     return { marked: marked() };
   }
 
-  const target = arg.folder !== undefined ? byFolder(arg.folder) : layers[arg.target];
+  const target =
+    arg.targetKind === "base"
+      ? baseRow
+      : arg.targetKind === "member"
+        ? memberRows[arg.member ?? 0]
+        : arg.folder !== undefined
+          ? byFolder(arg.folder)
+          : layers[arg.target];
   const y =
     arg.zone === "before"
       ? top(target)
@@ -105,7 +158,12 @@ arg => {
   fire(target, "dragover", y);
 
   if (arg.scenario === "hover") {
-    return { target: styles(target), marked: marked(), source: styles(source) };
+    return {
+      target: styles(target),
+      marked: marked(),
+      source: styles(source),
+      pushed: pushed(),
+    };
   }
 
   if (arg.scenario === "symmetry") {
@@ -113,6 +171,7 @@ arg => {
       target: styles(target),
       lineY: gapLineY(target),
       marked: marked(),
+      pushed: pushed(),
     };
   }
 

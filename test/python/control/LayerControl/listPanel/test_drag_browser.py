@@ -48,8 +48,8 @@ def _marked(result):
     return source, target
 
 
-def _assert_gap_line(style, edge):
-    """The gap line pulses on the row edge, and the edge next to it sinks."""
+def _assert_gap_line(style, edge, pushed):
+    """The gap line pulses on the row edge, and the row across the gap sinks."""
     pseudo = style[edge]
     assert pseudo["animationName"] == "foliplus-drag-pulse", (
         f"the gap line must pulse: {pseudo['animationName']}"
@@ -65,9 +65,16 @@ def _assert_gap_line(style, edge):
     )
     offset = pseudo["top"] if edge == "before" else pseudo["bottom"]
     assert offset.startswith("-"), f"the gap line must sit on the edge: {offset}"
-    assert "inset" in style["boxShadow"], (
-        f"the row edge next to the gap must sink: {style['boxShadow']}"
+    assert "inset" not in style["boxShadow"], (
+        "the dent belongs to the row across the gap, not the hovered row: "
+        f"{style['boxShadow']}"
     )
+    assert len(pushed) == 1, f"expected exactly one pressed row, got {pushed}"
+    expected = "bottom" if edge == "before" else "top"
+    assert pushed[0]["push"] == expected, (
+        f"the gap must press the {expected} edge of the row across it: {pushed[0]}"
+    )
+    assert pushed[0]["inset"] is True, f"the pressed row must sink: {pushed[0]}"
     assert style["outlineStyle"] == "none", (
         f"an accepted gap must not draw an outline: {style['outlineStyle']}"
     )
@@ -109,7 +116,7 @@ class TestDragIndicatorBrowser:
         assert len(target) == 1, f"expected exactly one drop target, got {target}"
         style = result["target"]
         assert style["state"] == "before"
-        _assert_gap_line(style, "before")
+        _assert_gap_line(style, "before", result["pushed"])
         assert style["animationName"] == "none", (
             f"the pulse belongs to the gap line, not the row: {style['animationName']}"
         )
@@ -127,7 +134,7 @@ class TestDragIndicatorBrowser:
         assert len(target) == 1, f"expected exactly one drop target, got {target}"
         style = result["target"]
         assert style["state"] == "after"
-        _assert_gap_line(style, "after")
+        _assert_gap_line(style, "after", result["pushed"])
         assert not errors, f"console errors: {errors}"
 
     def test_same_gap_looks_the_same_from_both_directions(self, browser, tmp_path):
@@ -164,8 +171,12 @@ class TestDragIndicatorBrowser:
         assert down_line["animationName"] == up_line["animationName"]
         assert down_line["borderBottomWidth"] == up_line["borderTopWidth"]
         assert down_line["borderBottomColor"] == up_line["borderTopColor"]
-        assert "inset" in down["target"]["boxShadow"]
-        assert "inset" in up["target"]["boxShadow"]
+        assert down["target"]["state"] == "after"
+        assert up["target"]["state"] == "before"
+        assert "inset" not in down["target"]["boxShadow"]
+        assert "inset" not in up["target"]["boxShadow"]
+        assert down["pushed"][0]["push"] == "top", down["pushed"]
+        assert up["pushed"][0]["push"] == "bottom", up["pushed"]
         assert not errors, f"console errors: {errors}"
 
     def test_join_pulses_the_whole_row(self, browser, tmp_path):
@@ -249,6 +260,96 @@ class TestDragIndicatorBrowser:
             f"accepted edge lost its gap line: {style['before']['borderTopWidth']}"
         )
         assert not errors, f"console errors: {errors}"
+
+    def test_refusal_has_its_own_colour(self, browser, tmp_path):
+        """A refusal is a different answer, not a weaker accept.
+
+        The dashed outline must use the refusal token, which has to differ from
+        the accept accent — the old indicator reused the accept colour, so a
+        refused drop looked like a red-hot legal one.
+        """
+        page, errors = _page(browser, tmp_path)
+        result = page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {
+                "scenario": "hover",
+                "sourceFolder": "roads",
+                "folder": "water",
+                "zone": "into",
+            },
+        )
+        style = result["target"]
+        assert style["state"] == "refuse"
+        assert style["outlineStyle"] == "dashed"
+        assert style["outlineColor"] == _rgb(style["refuseColor"]), (
+            f"the refusal must use its own token: {style['outlineColor']} "
+            f"!= {style['refuseColor']}"
+        )
+        assert style["outlineColor"] != _rgb(style["acceptColor"]), (
+            "a refusal must not wear the accept colour"
+        )
+        assert style["borderTopWidth"] == "0px"
+        assert style["animationName"] == "none"
+        assert not errors, f"console errors: {errors}"
+
+    def test_base_row_refuses_an_overlay(self, browser, tmp_path):
+        """An overlay never becomes a basemap: the base row refuses the gesture."""
+        page, errors = _page(browser, tmp_path)
+        result = page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {"scenario": "hover", "source": 0, "targetKind": "base", "zone": "middle"},
+        )
+        style = result["target"]
+        assert style["state"] == "refuse", (
+            f"a base row must refuse an overlay, got {style['state']}"
+        )
+        assert style["outlineStyle"] == "dashed"
+        assert not errors, f"console errors: {errors}"
+
+    def test_member_row_of_another_folder_refuses(self, browser, tmp_path):
+        """Joining happens on the folder header, never between its children."""
+        page, errors = _page(browser, tmp_path)
+        result = page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {"scenario": "hover", "source": 0, "targetKind": "member", "member": 1},
+        )
+        style = result["target"]
+        assert style["state"] == "refuse", (
+            f"a root layer over another folder's member row must refuse, "
+            f"got {style['state']}"
+        )
+        assert style["outlineStyle"] == "dashed"
+        assert not errors, f"console errors: {errors}"
+
+    def test_dragged_folder_folds_its_members(self, browser, tmp_path):
+        """The dragged block's members are not rows for the gesture only."""
+        page, errors = _page(browser, tmp_path)
+        result = page.evaluate(
+            _js("LayerControl/drag_indicator"),
+            {"scenario": "fold", "sourceFolder": "roads"},
+        )
+        assert result["foldedDuring"] >= 1, result
+        for row in result["foldedRows"]:
+            assert row["display"] == "none", (
+                f"a member of the dragged block leaves the row list: {row}"
+            )
+            assert row["height"] == 0, row
+        assert (
+            result["visibleDuring"] == result["visibleBefore"] - result["foldedDuring"]
+        )
+        assert result["visibleAfter"] == result["visibleBefore"], (
+            f"the fold is session-only and must come back: {result}"
+        )
+        assert not errors, f"console errors: {errors}"
+
+
+def _rgb(token: str) -> str:
+    """The computed-style form of a hex token value."""
+    value = token.strip().lstrip("#")
+    if len(value) == 3:
+        value = "".join(ch * 2 for ch in value)
+    red, green, blue = (int(value[i : i + 2], 16) for i in (0, 2, 4))
+    return f"rgb({red}, {green}, {blue})"
 
 
 class TestDragCommitBrowser:
