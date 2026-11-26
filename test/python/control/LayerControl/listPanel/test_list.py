@@ -222,15 +222,20 @@ class TestLayerControlRendering:
             ".foliplus-is-focused-row)"
         )
         assert recipe_mark in flat, "Row-cursor recipe shape not found"
-        # The toggle-all row joins the SAME compound selector that carries this
-        # recipe (the &:is() parent), so it cannot drift into a private hover.
+        # Every row kind joins the SAME selector that carries this recipe: the
+        # row identity class, and nothing enumerated beside it. The role
+        # header used to be re-listed here as its own sep/toggle-all compound,
+        # which gave that row a higher specificity than every other row (and,
+        # through :is(), raised the checked-row wash above this recipe for all
+        # of them). One identity class, one leg.
         recipe_at = flat.index(recipe_mark)
-        group_start = flat.rfind(".foliplus-row,", 0, recipe_at)
-        assert group_start != -1, "Row-cursor compound selector not found"
+        group_start = flat.rfind(".foliplus-row{", 0, recipe_at)
+        assert group_start != -1, "Row-cursor recipe selector not found"
         group_end = flat.index("{", group_start)
         group = flat[group_start:group_end]
-        assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in group, (
-            "toggle-all row must share the Row-cursor recipe's selector group"
+        assert group == ".foliplus-row", (
+            "the Row-cursor recipe must select the row identity alone, not an "
+            f"enumerated group: {group[:120]}"
         )
         # The role header joins by the row identity class: it is deliberately
         # NOT a .foliplus-layer-item, so the recipe selector is the identity,

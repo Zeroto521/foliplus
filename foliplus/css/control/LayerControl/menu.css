@@ -100,6 +100,9 @@
     gap: var(--foliplus-space-md);
     width: 100%;
     padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
+    /* Deliberately NOT the menu-row family height: this is a compact action
+       list (rename / delete / focus), not a list of options. Its height comes
+       from the padding above, so it stays tighter than a dropdown option. */
     margin: 0;
     border: none;
     background: none;

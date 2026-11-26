@@ -44,10 +44,10 @@ class TestRowDragBrowser(LayerControlBrowserBase):
             )
             hint_text = page.evaluate(_js("LayerControl/read_hint_text"))
             # The refusal is named by its reason: the target row is a base row,
-            # so the hint names the base section instead of the generic
-            # "same section" wording (the base row cannot take an overlay).
-            assert ("base layer section" in hint_text.lower()) or (
-                "基础图层" in hint_text
+            # so the hint says a base layer can only move between base layers
+            # instead of the generic "same section" wording.
+            assert ("base layers can only move" in hint_text.lower()) or (
+                "底图层只能放在底图层之间" in hint_text
             )
 
     def test_dragdrop_relocates_only_the_id_match_row(self, browser, tmp_path):

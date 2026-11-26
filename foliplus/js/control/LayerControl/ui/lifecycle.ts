@@ -54,6 +54,7 @@ import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeFilterPanel } from "./overlayPanel/filter.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
 import { finishRename } from "./overlayPanel/rename.js";
+import { type PanelScope, type ScopeSubscription, createScope } from "./scope.js";
 import { loadPersistedState } from "./state.js";
 import {
   closeStylePanel,
@@ -72,6 +73,21 @@ import type { LayerUI } from "./surface.js";
 import { EVENTS, type EventPayloadMap, ensureEvents } from "#core/event/index.js";
 import { ROLE } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
+
+/**
+ * The teardown step name for one bus event: strip the bus prefix, then flatten
+ * the remaining separators ("foliplus:layer:item-count-change" →
+ * "layer-item-count-change"). A failed unsubscribe then reports a name a reader
+ * can grep instead of a queue index.
+ *
+ * The mapping is injective only while no event name mixes a hyphenated segment
+ * with a nested one — `foliplus:foo-bar:baz` and `foliplus:foo:bar-baz` both
+ * flatten to "foo-bar-baz". test/js/guard/teardown-step-name.test.ts pins the
+ * dictionary's injectivity under this function, so such a pair cannot land
+ * silently.
+ */
+const teardownStepName = (event: string): string =>
+  event.replace(/^foliplus:/, "").replace(/:/g, "-");
 
 /**
  * Attach UI to the given container div.
@@ -380,8 +396,13 @@ const bindLayerEvents = (ui: LayerUI): void => {
   const subscribe = <E extends keyof EventPayloadMap>(
     event: E,
     handler: (payload: EventPayloadMap[E]) => void,
-  ): (() => void) => bus.on(event, handler, "internal");
-  const signalHandlers: Array<() => void> = [];
+  ): ScopeSubscription => ({
+    // The event, stripped of the bus prefix and punctuation, is the step name
+    // the teardown reports a failure against: "layer-item-added", not index 7.
+    name: teardownStepName(String(event)),
+    off: bus.on(event, handler, "internal"),
+  });
+  const signalHandlers: ScopeSubscription[] = [];
   signalHandlers.push(
     subscribe(EVENTS.LAYER_ITEM_ADDED, (payload: { id: string }) => {
       const layerInfo = registry.get(payload.id);
@@ -549,84 +570,160 @@ const refreshAllCounts = (ui: LayerUI): void => {
   });
 };
 
-const unbindEvents = (ui: LayerUI): void => {
-  // The unmount boundary owns in-flight gesture state: once the drag
-  // listeners below come off, no later native dragend can arrive to finish
-  // the cleanup. Pure session state clears even when the panel is already
-  // gone, which is why this runs before the container guard.
-  clearDragState(ui);
+/** The panel's teardown as one ordered, named step list.
+ *
+ *  Registration order IS execution order — the order test pins these names.
+ *  Each subscription is its own step, so one unsubscriber that throws cannot
+ *  strand the rest, and a missing `off` shows up as a gap in the list instead
+ *  of a subscriber that silently outlives the panel.
+ *
+ *  The container-less branch is deliberate: a UI whose panel is already gone
+ *  owns only what it scheduled — the drag session, the timers, the escape
+ *  hook, the style-apply scheduler. It has no overlay to close, no listener to
+ *  remove, no cursor to destroy and no persistence of its own to flush (that
+ *  write belongs to the panel that went away), so it must NOT run the
+ *  container half. */
+const createTeardownScope = (ui: LayerUI): PanelScope => {
+  const scope = createScope();
+  // ── Owned outside the panel: always runs ──────────────────────────────
+  scope.step("clear-drag-state", () => clearDragState(ui));
   // Timers this UI scheduled (the debounced opacity repaint) must not outlive
-  // the panel, even when the container is already gone — clear them beside
-  // the drag session, before the container guard.
-  releaseOpacityRedraws(ui);
-  ui.unsubscribeEscape?.();
-  ui.unsubscribeEscape = null;
+  // the panel, even when the container is already gone.
+  scope.step("release-opacity-redraws", () => releaseOpacityRedraws(ui));
+  scope.step("unsubscribe-escape", () => {
+    ui.unsubscribeEscape?.();
+    ui.unsubscribeEscape = null;
+  });
   const container = ui.uiContainer;
   if (!container) {
     // No panel to close, but the UI still owns whatever it scheduled — a
     // detached UI must not leave a trailing frame (or its reporter) behind.
-    releaseStyleApplyOwner(ui);
-    return;
+    scope.step("release-style-apply-owner", () => releaseStyleApplyOwner(ui));
+    return scope;
   }
-  // Unmount must clean up unconditionally — a subscription may already have
+
+  // ── Open overlays ─────────────────────────────────────────────────────
+  // Unmount must clean up unconditionally: a subscription may already have
   // been `off`'d by a third party, or is about to be. Emitting OVERLAY_CLEAR
-  // here would only reach whatever subscribers are still listening, so call
-  // the close functions directly. OVERLAY_CLEAR is reserved for the
-  // "open A, close B" user-driven mutual exclusion.
-  closeMoreMenu(ui, false);
-  closeStylePanel(ui, false);
-  closeAttrsPanel(ui, false);
-  closeFilterPanel(ui, false);
-  finishRename(ui, true);
+  // here would only reach whatever subscribers are still listening, so the
+  // close functions are called directly — OVERLAY_CLEAR stays reserved for the
+  // user-driven "open A, close B" mutual exclusion.
+  scope.step("close-more-menu", () => closeMoreMenu(ui, false));
+  scope.step("close-style-panel", () => closeStylePanel(ui, false));
+  scope.step("close-attrs-panel", () => closeAttrsPanel(ui, false));
+  scope.step("close-filter-panel", () => closeFilterPanel(ui, false));
+  scope.step("finish-rename", () => finishRename(ui, true));
   // Remove any focus animation still in flight (rect + row highlight).
-  dismissFocus(ui);
-  if (ui.onChange) container.removeEventListener("change", ui.onChange);
-  if (ui.onClick) container.removeEventListener("click", ui.onClick);
-  if (ui.onFocusIn) container.removeEventListener("focusin", ui.onFocusIn);
-  if (ui.onFocusOut) container.removeEventListener("focusout", ui.onFocusOut);
-  if (ui.onDragStart) container.removeEventListener("dragstart", ui.onDragStart);
-  if (ui.onDragOver) container.removeEventListener("dragover", ui.onDragOver);
-  if (ui.onDragLeave) container.removeEventListener("dragleave", ui.onDragLeave);
-  if (ui.onDrop) container.removeEventListener("drop", ui.onDrop);
-  if (ui.onDragEnd) container.removeEventListener("dragend", ui.onDragEnd);
-  if (ui.onDblClick) container.removeEventListener("dblclick", ui.onDblClick);
-  if (ui.onMoreClick) container.removeEventListener("click", ui.onMoreClick);
-  if (ui.onMoreMapClick) ui.c.map.off("click", ui.onMoreMapClick);
-  if (ui.onZoomEnd) ui.c.map.off("zoomend", ui.onZoomEnd);
-  clearActiveItem(ui);
-  ui.listPanel.listCursor?.destroy();
-  ui.listPanel.listCursor = null;
-  ui.listPanel.interactionCleanup?.();
-  ui.geometryMarqueeCleanup?.();
-  ui.geometryMarqueeCleanup = null;
+  scope.step("dismiss-focus", () => dismissFocus(ui));
+
+  // ── Container listeners ───────────────────────────────────────────────
+  // One step per listener instead of one block: a throwing removal (a handler
+  // already detached elsewhere, a patched DOM) must not leave the rest bound.
+  // The handlers take FocusEvent / DragEvent / MouseEvent, so the slot is
+  // typed by the callable shape only: removeEventListener receives the same
+  // reference the bind added, which is all the DOM matches on.
+  const listenerStep = (
+    name: string,
+    type: string,
+    handler: ((event: never) => void) | null,
+  ): void => {
+    scope.step(name, () => {
+      if (handler) {
+        container.removeEventListener(type, handler as EventListener);
+      }
+    });
+  };
+  listenerStep("off-change", "change", ui.onChange);
+  listenerStep("off-click", "click", ui.onClick);
+  listenerStep("off-focusin", "focusin", ui.onFocusIn);
+  listenerStep("off-focusout", "focusout", ui.onFocusOut);
+  listenerStep("off-dragstart", "dragstart", ui.onDragStart);
+  listenerStep("off-dragover", "dragover", ui.onDragOver);
+  listenerStep("off-dragleave", "dragleave", ui.onDragLeave);
+  listenerStep("off-drop", "drop", ui.onDrop);
+  listenerStep("off-dragend", "dragend", ui.onDragEnd);
+  listenerStep("off-dblclick", "dblclick", ui.onDblClick);
+  listenerStep("off-more-click", "click", ui.onMoreClick);
+
+  // ── Map listeners ─────────────────────────────────────────────────────
+  const onMoreMapClick = ui.onMoreMapClick;
+  scope.step("off-more-map-click", () => {
+    if (onMoreMapClick) ui.c.map.off("click", onMoreMapClick);
+  });
+  const onZoomEnd = ui.onZoomEnd;
+  scope.step("off-zoomend", () => {
+    if (onZoomEnd) ui.c.map.off("zoomend", onZoomEnd);
+  });
+
+  // ── Panel state ───────────────────────────────────────────────────────
+  scope.step("clear-active-item", () => clearActiveItem(ui));
+  scope.step("destroy-list-cursor", () => {
+    ui.listPanel.listCursor?.destroy();
+    ui.listPanel.listCursor = null;
+  });
+  scope.step("interaction-cleanup", () => ui.listPanel.interactionCleanup?.());
+  scope.step("geometry-marquee-cleanup", () => {
+    ui.geometryMarqueeCleanup?.();
+    ui.geometryMarqueeCleanup = null;
+  });
   // Flush the last pending write before the timer is cleared.
-  ui.c.persistence.flushAll();
-  ui.onChange = ui.onClick = null;
-  ui.onFocusIn = ui.onFocusOut = null;
-  ui.onDragStart = ui.onDragOver = ui.onDragLeave = null;
-  ui.onDrop = ui.onDragEnd = null;
-  ui.onMoreClick = null;
-  ui.onMoreMapClick = null;
-  ui.onZoomEnd = null;
-  if (ui.unsubscribeCountChange) {
-    ui.unsubscribeCountChange();
-    ui.unsubscribeCountChange = null;
+  scope.step("flush-persistence", () => ui.c.persistence.flushAll());
+  scope.step("reset-handlers", () => {
+    ui.onChange = ui.onClick = null;
+    ui.onFocusIn = ui.onFocusOut = null;
+    ui.onDragStart = ui.onDragOver = ui.onDragLeave = null;
+    ui.onDrop = ui.onDragEnd = null;
+    ui.onMoreClick = null;
+    ui.onMoreMapClick = null;
+    ui.onZoomEnd = null;
+  });
+
+  // ── Bus subscriptions ─────────────────────────────────────────────────
+  // `add` registers the unsubscribe as its own step and returns an idempotent
+  // handle, so a dispose that runs first makes a later third-party `off` a
+  // no-op instead of a double-detach.
+  const unsubscribeCountChange = ui.unsubscribeCountChange;
+  if (unsubscribeCountChange) {
+    scope.add("unsubscribe-count-change", () => {
+      unsubscribeCountChange();
+      ui.unsubscribeCountChange = null;
+    });
   }
-  if (ui.unsubscribeControlAttached) {
-    ui.unsubscribeControlAttached();
-    ui.unsubscribeControlAttached = null;
+  const unsubscribeControlAttached = ui.unsubscribeControlAttached;
+  if (unsubscribeControlAttached) {
+    scope.add("unsubscribe-control-attached", () => {
+      unsubscribeControlAttached();
+      ui.unsubscribeControlAttached = null;
+    });
   }
-  for (const off of ui.unsubscribeLayerSignals) off();
-  ui.unsubscribeLayerSignals = [];
-  // Last: closeStylePanel above flushed the panel's trailing writes, so
-  // releasing the scheduler here cancels only frames that no longer have a
-  // UI to land on. Scoped to this UI — another map keeps its own boxes.
-  releaseStyleApplyOwner(ui);
+  for (const subscription of ui.unsubscribeLayerSignals) {
+    scope.add(`unsubscribe-${subscription.name}`, subscription.off);
+  }
+  // Clearing the list is a STEP, not part of building the scope: a builder
+  // that mutates the owner would make the order test (and a second call) see
+  // a different list depending on when it ran.
+  scope.step("reset-signal-list", () => {
+    ui.unsubscribeLayerSignals = [];
+  });
+
+  // Last: the close steps above flushed their trailing writes, so releasing
+  // the scheduler here cancels only frames that no longer have a UI to land
+  // on. Scoped to this UI — another map keeps its own boxes.
+  scope.step("release-style-apply-owner", () => releaseStyleApplyOwner(ui));
+  return scope;
 };
 
+/** Detach the panel: run the teardown scope, then re-raise its first failure.
+ *  Every step runs before the raise, so a broken step cannot shorten the
+ *  teardown — the caller still learns that something broke. */
+const unbindEvents = (ui: LayerUI): void => {
+  createTeardownScope(ui).dispose().throwIfFailed();
+};
 export {
   attachUI,
   bindLayerEvents,
+  createTeardownScope,
+  teardownStepName,
   onLayerItemCountChange,
   refreshAllCounts,
   unbindEvents,

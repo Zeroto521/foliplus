@@ -1017,6 +1017,7 @@ interface LayerAPI {
    *  consumer sees `undefined`, falling back to `true`.
    */
   intentVisible?: (id: string) => boolean;
+
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (

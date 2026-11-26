@@ -26,7 +26,12 @@ import {
   resolveSelectedField,
   withinRect,
 } from "#core/label/index.js";
-import { NO_FEATURE_TREE_KINDS, findNode, walkLeaf } from "#core/layer/index.js";
+import {
+  NO_FEATURE_TREE_KINDS,
+  findNode,
+  labelProjection,
+  walkLeaf,
+} from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { normalizeHexColor } from "#platform/color.js";
@@ -844,9 +849,19 @@ class LabelManager {
    *  rendered on a vector canvas — there is no GridLayer zoom gate that
    *  would skip drawing outside `minZoom`/`maxZoom`. */
   private isVisible(id: string): boolean {
-    if (this.focusFilter !== null && id !== this.focusFilter) return false;
     const layer = this.layerFind(id);
-    return !!layer && this.map.hasLayer(layer);
+    const focused = this.focusFilter === null || id === this.focusFilter;
+    return labelProjection(
+      {
+        declared: true,
+        container: !!layer && this.map.hasLayer(layer),
+        zoom: true,
+        opacity: true,
+        filter: true,
+        ancestor: true,
+      },
+      focused,
+    );
   }
 
   /** Mount a layer's label canvas into its surface-declared label pane.

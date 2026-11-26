@@ -57,6 +57,7 @@ import { OverlayPanel } from "./overlayPanel/index.js";
 import { closeMoreMenu, openMoreMenu, openRoleMenu } from "./overlayPanel/menu.js";
 import { finishRename, renameLayer } from "./overlayPanel/rename.js";
 import { intentVisibleOf } from "./projection.js";
+import type { ScopeSubscription } from "./scope.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -187,7 +188,7 @@ class LayerUI implements LayerUISurface {
    *  change, content invalidation). Batched into one array so a single
    *  unbind call tears down every listener; the controller no longer drives
    *  these UI methods directly. */
-  unsubscribeLayerSignals: Array<() => void>;
+  unsubscribeLayerSignals: ScopeSubscription[];
 
   constructor(
     controller: LayerController,

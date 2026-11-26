@@ -82,6 +82,25 @@ export type {
   FolderMember,
   FolderLayoutManager,
 } from "./folderLayout.js";
+export {
+  ARRANGEMENT_VERSION,
+  ROLES as ARRANGEMENT_ROLES,
+  anchorOfNode,
+  fromV2,
+  hydrate,
+  projectRows,
+  projectZ,
+} from "./arrangement.js";
+export type {
+  Arrangement,
+  BlockKind,
+  BlockMeta,
+  FolderNode,
+  GroupNode,
+  LayerNode,
+  OrderNode,
+  ResolvedTree,
+} from "./arrangement.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -119,6 +138,13 @@ export {
   findNode,
   countChildLayers,
 } from "./walkLeaf.js";
+export { labelProjection, paintProjection, resolveVisibility } from "./visibility.js";
+export type {
+  VisibilityDrift,
+  VisibilityFactors,
+  VisibilityQuery,
+  VisibilityReason,
+} from "./visibility.js";
 // `isArealStyleLeaf` is the fill walker's leaf predicate. The build's registry
 // scan folds any `#core/layer/<file>.js` import into this barrel, so a name
 // the barrel does not re-export fails the build loudly rather than shimming to
