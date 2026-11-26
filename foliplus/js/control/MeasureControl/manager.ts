@@ -49,8 +49,7 @@ import { HINT_DURATION } from "#core/overlay/index.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import { createTimers } from "#platform/timer.js";
-import type { Timers } from "#platform/type.js";
-import type { Logger } from "#platform/type.js";
+import type { Logger, Timers } from "#platform/type.js";
 import { PANEL_CLASS, placeSurface } from "#ui/index.js";
 
 /** Measurement types in toolbar order with the locale key of their tool name.
