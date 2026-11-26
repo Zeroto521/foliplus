@@ -412,6 +412,8 @@ describe("style-mode-usage guard wiring", () => {
 const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "async-liveness":
     "async continuations must not outlive the component that mounted them",
+  "browser-snippet":
+    "every browser probe is cited by a consumer and no two probes share a body",
   "config-contract-keys":
     "the CONFIG payload keeps one snake_case key spelling across Python and JS",
   "deep-relative-path":
