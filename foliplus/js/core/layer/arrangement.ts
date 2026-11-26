@@ -137,14 +137,58 @@ const layerNodes = (members: readonly LayerInfo[]): OrderNode[] =>
  *  registry anchor order, no folders. Used when no persisted tree exists or
  *  when the persisted record is an unknown shape (dropped + rebuilt, not
  *  migrated and not an error). */
+/** Build the default arrangement: every registered layer placed by its
+ *  author declaration — a declared folder becomes a folder block (children in
+ *  registry anchor order, first-seen name), a root declaration or no
+ *  declaration becomes a role-root layer. Folder blocks sit at the role tail
+ *  (the author's declaration order is not frozen), matching what the v2 seed
+ *  materialised before the first user move. Used when no persisted tree
+ *  exists or when the persisted record is an unknown shape (dropped +
+ *  rebuilt, not migrated and not an error). */
 const defaultArrangement = (
   registryEntries: readonly LayerInfo[],
 ): Arrangement => {
   const roles = emptyRoleNodes();
+  const blocks: Record<string, BlockMeta> = {};
+  const NO_MEMBERS: FolderLayout["members"] = {};
   for (const info of registryEntries) {
+    const placement = placementOf(
+      { version: 2, folders: [], order: {}, members: NO_MEMBERS } as FolderLayout,
+      info,
+    );
+    if (placement.kind === "dropped") continue;
+    if (placement.kind === "folder") {
+      const key = placement.key;
+      let folder = roles[info.role].find(
+        node => node.kind !== "layer" && node.key === key,
+      ) as FolderNode | undefined;
+      if (!folder) {
+        folder = { kind: "folder", key, children: [] };
+        roles[info.role].push(folder);
+        blocks[key] ??= { kind: "folder", key, name: info.folder ?? key };
+      }
+      folder.children.push({ kind: "layer", id: info.id });
+      continue;
+    }
     roles[info.role].push({ kind: "layer", id: info.id });
   }
-  return { blocks: {}, roles };
+  return { blocks, roles };
+};
+
+/** Narrow a persisted record to the arrangement shape: a plain object with
+ *  `blocks` and `roles` records. Anything else (an unknown shape, a v2
+ *  envelope, a non-object) is NOT accepted — the caller drops it and rebuilds
+ *  the default. The guard is deliberately shallow (block/nodes are validated
+ *  by the projections, which are resilient to a partial record). */
+const isArrangementShape = (raw: unknown): raw is Arrangement => {
+  if (typeof raw !== "object" || raw === null) return false;
+  const record = raw as Record<string, unknown>;
+  const blocks = record.blocks as unknown;
+  const roles = record.roles as unknown;
+  return (
+    typeof blocks === "object" && blocks !== null &&
+    typeof roles === "object" && roles !== null
+  );
 };
 
 /** Whether a node already carries `id`. */
@@ -299,12 +343,73 @@ const projectZ = (resolved: ResolvedTree): string[] => {
   return ids;
 };
 
+/** Project one role's display blocks (the panel row sequence): a folder
+ *  block with its live members, or a root layer. The ORDER is the tree's
+ *  (projectRows); names + members come from the resolved blocks + registry.
+ *  This replaces the v2 roleBlocks read for the panel — the tree is the single
+ *  order source, so a row can never paint in one place and stack in another. */
+const projectBlocks = (
+  resolved: ResolvedTree,
+  role: LayerRole,
+  registryEntries: readonly LayerInfo[],
+): Array<
+  | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
+  | { kind: "layer"; layer: LayerInfo }
+> => {
+  const byId = new Map(registryEntries.map(info => [info.id, info]));
+  const out: Array<
+    | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
+    | { kind: "layer"; layer: LayerInfo }
+  > = [];
+  for (const node of resolved.roles[role] ?? []) {
+    if (node.kind === "layer") {
+      const info = byId.get(node.id);
+      if (info) out.push({ kind: "layer", layer: info });
+      continue;
+    }
+    const members = node.children
+      .filter(child => child.kind === "layer")
+      .map(child => byId.get(child.id))
+      .filter((info): info is LayerInfo => info !== undefined);
+    const name = resolved.blocks[node.key]?.name ?? node.key;
+    out.push({ kind: "folder", key: node.key, name, block: { members } });
+  }
+  return out;
+};
+
 /** The role that owns a leaf id, or null when the tree does not hold it. */
 const roleOfLeaf = (resolved: ResolvedTree, id: string): LayerRole | null => {
   for (const role of ROLES) {
     if ((resolved.roles[role] ?? []).some(node => carries(node, id))) return role;
   }
   return null;
+};
+
+/** Project the resolved tree back into the v2-shaped layout mirror the
+ *  controller's folderLayout manager feeds (the derived state: folder
+ *  directory, block order, member assignment). This is the inverse of
+ *  fromV2, but it is DERIVED — never persisted, never read by the panel or
+ *  the registry once they switch to projectRows/projectZ. A group node
+ *  mirrors as a folder block (the v2 model has no group kind). */
+const projectLayout = (resolved: ResolvedTree): FolderLayout => {
+  const folders: { key: string; name: string }[] = [];
+  for (const block of Object.values(resolved.blocks)) {
+    if (block.kind === "folder") folders.push({ key: block.key, name: block.name });
+  }
+  const order: Partial<Record<LayerRole, string[]>> = {};
+  const members: Record<string, { role: LayerRole; folder: string }> = {};
+  for (const role of ROLES) {
+    order[role] = (resolved.roles[role] ?? []).map(node =>
+      node.kind === "layer" ? rootLayerEntry(node.id) : node.key,
+    );
+  }
+  for (const id of Object.keys(resolved.parentOf)) {
+    const parent = resolved.parentOf[id];
+    const role = roleOfLeaf(resolved, id);
+    if (!role) continue;
+    members[id] = { role, folder: parent ?? "" };
+  }
+  return { version: 2, folders, order, members };
 };
 
 /** The container + index of a leaf id in a role's tree, or null when absent.
@@ -429,6 +534,121 @@ const moveEntry = (
     return { ...tree, roles: { ...roles, [role]: next }, blocks };
   }
   return { ...tree, roles: { ...roles, [role]: withFolder } };
+};
+
+/** Add a layer node to a role's tree if the id is not already carried.
+ *  A declared folder (non-null) receives the leaf at its tail, materialising
+ *  the folder block when absent; otherwise the leaf lands at the role tail.
+ *  Pure: returns the same tree when the id is already carried. */
+const addLeaf = (
+  tree: Arrangement,
+  role: LayerRole,
+  id: string,
+  folder: { key: string; name: string } | null,
+  position: "top" | "bottom" = "top",
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  if (nodes.some(node => carries(node, id))) return tree;
+  const leaf: OrderNode = { kind: "layer", id };
+  if (folder === null) {
+    // A fresh root layer goes on top of its role block (the registration
+    // default) unless the caller asks for the bottom; a ranked layer is
+    // repositioned to its saved slot afterwards.
+    const root = position === "bottom" ? [...nodes, leaf] : [leaf, ...nodes];
+    return { ...tree, roles: { ...tree.roles, [role]: root } };
+  }
+  let found = false;
+  const next = nodes.map(node => {
+    if (node.kind === "layer" || node.key !== folder.key) return node;
+    found = true;
+    // A fresh member joins its folder the way the registration default puts a
+    // root layer on top: the v2 registry prepended the new layer, and the
+    // folder's member order followed the registry, so a new member lands at
+    // the top of its folder unless the caller asks for the bottom.
+    const children =
+      position === "bottom" ? [...node.children, leaf] : [leaf, ...node.children];
+    return { ...node, children };
+  });
+  if (found) return { ...tree, roles: { ...tree.roles, [role]: next } };
+  const folderNode: OrderNode = { kind: "folder", key: folder.key, children: [leaf] };
+  const meta: BlockMeta = { kind: "folder", key: folder.key, name: folder.name };
+  return {
+    ...tree,
+    roles: { ...tree.roles, [role]: [...nodes, folderNode] },
+    blocks: { ...tree.blocks, [folder.key]: meta },
+  };
+};
+
+/** Reorder a role's ROOT LAYER nodes to the saved-order rank (the legacy
+ *  LayerControl order record). Folder/group blocks keep their relative
+ *  positions; unranked root layers keep their live order at the block tail.
+ *  Pure. `saved` is the role-agnostic id list — each role reads its own ids. */
+const applySavedOrder = (
+  tree: Arrangement,
+  role: LayerRole,
+  saved: readonly string[],
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  if (nodes.length === 0) return tree;
+  const rank = new Map(saved.map((id, i) => [id, i]));
+  const byRank = (a: OrderNode, b: OrderNode): number => {
+    if (a.kind !== "layer" || b.kind !== "layer") return 0;
+    const ra = rank.get(a.id);
+    const rb = rank.get(b.id);
+    if (ra === undefined) return rb === undefined ? 0 : 1;
+    if (rb === undefined) return -1;
+    return ra - rb;
+  };
+  const layers = nodes.filter((n): n is LayerNode => n.kind === "layer").sort(byRank);
+  let i = 0;
+  const next = nodes.map(node => (node.kind === "layer" ? layers[i++] : node));
+  return { ...tree, roles: { ...tree.roles, [role]: next } };
+};
+
+/** Move a ROOT layer to its saved-order slot (the legacy order record):
+ *  before the first registered layer that ranks after it in `saved`, or to
+ *  the role tail among root layers when no such neighbour is present yet.
+ *  Only root layers are moved (a member inside a folder keeps its folder).
+ *  Pure. */
+const placeLeafAtSaved = (
+  tree: Arrangement,
+  role: LayerRole,
+  id: string,
+  saved: readonly string[],
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  const at = nodes.findIndex(n => n.kind === "layer" && n.id === id);
+  if (at === -1) return tree;
+  const target = saved.indexOf(id);
+  if (target === -1) return tree;
+  let insert = -1;
+  for (let i = target + 1; i < saved.length; i += 1) {
+    const nid = saved[i];
+    const idx = nodes.findIndex(n => n.kind === "layer" && n.id === nid);
+    if (idx !== -1) { insert = idx; break; }
+  }
+  // No registered neighbour after it: the leaf is the rightmost of the role's
+  // root layers (nothing below the saved slot exists yet).
+  if (insert === -1) insert = nodes.length;
+  if (insert === at || insert === at + 1) return tree;
+  const next = [...nodes];
+  const [leaf] = next.splice(at, 1);
+  next.splice(insert > at ? insert - 1 : insert, 0, leaf);
+  return { ...tree, roles: { ...tree.roles, [role]: next } };
+};
+
+/** Remove a layer node from a role's tree (the deleteLayer splice). A folder
+ *  that loses its last member keeps its (empty) block — the delete removes the
+ *  leaf, not the folder. Pure: returns the same tree when the id is absent. */
+const dropLeaf = (
+  tree: Arrangement,
+  role: LayerRole,
+  id: string,
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  const [next, moved] = detachLeaf(nodes, id);
+  if (!moved) return tree;
+  return { ...tree, roles: { ...tree.roles, [role]: next } };
 };
 
 /** Compare two node sequences by identity (shallow: children not compared). */
@@ -562,17 +782,25 @@ const renameBlock = (
 export {
   ROLES,
   addBlock,
+  addLeaf,
   anchorOfNode,
+  applySavedOrder,
   defaultArrangement,
   deleteBlock,
   deleteEmptyBlocks,
+  dropLeaf,
   hydrate,
+  isArrangementShape,
   leafPosition,
   moveBlock,
   moveEntry,
+  placeLeafAtSaved,
+  projectBlocks,
+  projectLayout,
   projectRows,
   projectZ,
   renameBlock,
+  roleOfLeaf,
 };
 export type {
   Arrangement,
