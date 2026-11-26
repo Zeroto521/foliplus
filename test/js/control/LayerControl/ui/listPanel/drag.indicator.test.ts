@@ -344,6 +344,99 @@ describe("ui/drag indicator state", () => {
     expect(stateOf(row)).toBeNull();
   });
 
+  it("places a dragged folder beside a layer row", () => {
+    // A folder's block can sit between layer rows, so hovering a layer row
+    // paints the same gap a layer drag would.
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        { id: "L0", name: "L0", role: "overlay" as const },
+      ],
+    });
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const last = rowOf(ui, "L0");
+    pinRect(last, 100, 36);
+    handleDragOver(ui, dragEvent(last, { dropEffect: "" }, 130));
+    expect(stateOf(last)).toBe(CONST.DRAG_STATE.AFTER);
+    // No row follows the gap, so nothing is pressed — the walk ends quietly.
+    expect(
+      attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_PUSH_ATTR}]`),
+    ).toHaveLength(0);
+  });
+
+  it("leaves a dragged folder's own row unmarked", () => {
+    // Dropping a block on itself is not a move: it is a no-op, not a gap
+    // between the block and itself.
+    const { ui } = folderFixture(["a"]);
+    const own = folderRowOf(ui, "a");
+    handleDragStart(ui, dragEvent(own, { effectAllowed: "" }));
+    pinRect(own, 100, 36);
+    handleDragOver(ui, dragEvent(own, { dropEffect: "" }, 130));
+    // Only the pickup marker stays: no gap, no refusal.
+    expect(stateOf(own)).toBe(CONST.DRAG_STATE.SOURCE);
+  });
+
+  it("does not place a folder over a role header", () => {
+    // A role header is a section title, not a block: no position exists there.
+    const { ui } = folderFixture(["a"]);
+    const header = attachedPanel(ui).querySelector(
+      `.${CONST.CLASSES.ROLE_ROW}`,
+    ) as HTMLElement;
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    pinRect(header, 100, 36);
+    handleDragOver(ui, dragEvent(header, { dropEffect: "" }, 130));
+    expect(
+      attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_STATE_ATTR}]`),
+    ).toHaveLength(1); // only the carried row keeps its pickup marker
+  });
+
+  it("refuses a folder over the other role's rows", () => {
+    // Blocks belong to one section: an overlay folder never lands among the
+    // basemaps, so the base row answers with a refusal.
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        { id: "B0", name: "B0", role: "base" as const },
+      ],
+    });
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const base = attachedPanel(ui).querySelector(
+      `[${CONST.DATA.LAYER_ID}="B0"]`,
+    ) as HTMLElement;
+    pinRect(base, 100, 36);
+    handleDragOver(ui, dragEvent(base, { dropEffect: "" }, 130));
+    expect(stateOf(base)).toBe(CONST.DRAG_STATE.REFUSE);
+  });
+
+  it("leaves the gap unpainted when the reorder is blocked", () => {
+    // The registry is the authority on what may move: when it says no, the
+    // indicator stays clear instead of naming a position the drop cannot take.
+    const { ui } = initFixture({ data: overlays(2) });
+    vi.spyOn(ui.c, "canReorderBetween").mockReturnValue(false);
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const second = rowOf(ui, "L1");
+    pinRect(second, 100, 36);
+    handleDragOver(ui, dragEvent(second, { dropEffect: "" }, 130));
+    expect(stateOf(second)).toBeNull();
+    expect(
+      attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_PUSH_ATTR}]`),
+    ).toHaveLength(0);
+  });
+
   it("sinks the row on the far side of the gap", () => {
     // The gap line sits on one row, but the insertion PRESSES the row on the
     // far side: above the gap for BEFORE, below it for AFTER. The marker names
