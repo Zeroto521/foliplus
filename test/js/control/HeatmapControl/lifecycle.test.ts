@@ -431,4 +431,3 @@ describe("HeatmapManager — EVENTS.LAYER_DELETED auto-clear", () => {
     expect(m.numClasses).toBe(6);
   });
 });
-

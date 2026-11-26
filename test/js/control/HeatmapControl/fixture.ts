@@ -262,4 +262,3 @@ export function setupWithPoints(m: HeatmapManager, points: Array<{ lat: number; 
 export const watchFilterEvents = (m: HeatmapManager, events: ReturnType<typeof ensureEvents>) => { const spy = vi.fn(); events.on(EVENTS.LAYER_FILTER_CHANGE, spy); return spy; };
 
 export { makeConfig, makeCtrl, makeManager, makeManagerOn, installHeatmapGlobals };
-

@@ -590,4 +590,3 @@ describe("HeatmapManager — persisted per-source filters", () => {
     expect(stored.filters).toBeUndefined();
   });
 });
-

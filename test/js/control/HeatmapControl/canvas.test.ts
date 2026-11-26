@@ -764,4 +764,3 @@ describe("HeatmapManager aggregateData onEmpty default", () => {
     clear.mockRestore();
   });
 });
-

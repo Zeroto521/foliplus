@@ -350,4 +350,3 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(renderSpy).toHaveBeenCalled();
   });
 });
-
