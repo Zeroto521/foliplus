@@ -1,7 +1,6 @@
 // test/js/control/LayerControl/controller.folder — folder create, rename, reorder and delete.
 import {
   arrangementFromRoles,
-  arrangementKey,
   makeStore,
   readArrangementStorage,
   readLayoutStorage,
@@ -218,7 +217,11 @@ describe("cleanEmptyFolders", () => {
     const count = manager.cleanEmptyFolders("overlay");
 
     expect(count).toBe(2);
-    expect((manager.folderLayoutView.order.overlay ?? []).filter(k => !k.startsWith("layer:"))).toEqual(["full"]);
+    expect(
+      (manager.folderLayoutView.order.overlay ?? []).filter(
+        k => !k.startsWith("layer:"),
+      ),
+    ).toEqual(["full"]);
     expect(readArrangementStorage(manager.map)).not.toBeNull();
   });
 
@@ -460,8 +463,14 @@ describe("createFolder", () => {
 
     expect(okOverlay).toEqual({ ok: true, key: "roads" });
     expect(okBase).toEqual({ ok: false, reason: "duplicate" }); // base already has "roads"
-    expect((manager.folderLayoutView.order.overlay ?? []).filter(k => !k.startsWith("layer:"))).toEqual(["roads"]);
-    expect((manager.folderLayoutView.order.base ?? []).filter(k => !k.startsWith("layer:"))).toEqual(["roads"]);
+    expect(
+      (manager.folderLayoutView.order.overlay ?? []).filter(
+        k => !k.startsWith("layer:"),
+      ),
+    ).toEqual(["roads"]);
+    expect(
+      (manager.folderLayoutView.order.base ?? []).filter(k => !k.startsWith("layer:")),
+    ).toEqual(["roads"]);
   });
 
   it("createFolder lets a different role reuse a name held only by the other role's live member", () => {

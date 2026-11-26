@@ -272,8 +272,12 @@ export const makeDerivedUI = (overrides: Record<string, unknown> = {}): LayerUI 
  *  children are left empty for the controller boot to fill from each layer's
  *  declared folder. Only the UI fixture needs this — production persists the
  *  tree directly, and a v2 record is dropped and rebuilt as the default. */
-const v2LayoutToArrangement = (doc: Record<string, unknown>): Record<string, unknown> => {
-  const folders = Array.isArray(doc.folders) ? (doc.folders as Array<{ key: string }>) : [];
+const v2LayoutToArrangement = (
+  doc: Record<string, unknown>,
+): Record<string, unknown> => {
+  const folders = Array.isArray(doc.folders)
+    ? (doc.folders as Array<{ key: string }>)
+    : [];
   const folderKeys = new Set(folders.map(f => f.key));
   const order = (doc.order ?? {}) as Record<string, unknown[]>;
   const blocks: Record<string, unknown> = {};
@@ -286,7 +290,8 @@ const v2LayoutToArrangement = (doc: Record<string, unknown>): Record<string, unk
       if (entryKey.startsWith("layer:")) {
         roles[role].push({ kind: "layer", id: entryKey.slice("layer:".length) });
       } else if (folderKeys.has(entryKey)) {
-        if (!blocks[entryKey]) blocks[entryKey] = { kind: "folder", key: entryKey, name: entryKey };
+        if (!blocks[entryKey])
+          blocks[entryKey] = { kind: "folder", key: entryKey, name: entryKey };
         roles[role].push({ kind: "folder", key: entryKey, children: [] });
       } else {
         roles[role].push({ kind: "layer", id: entryKey });
@@ -296,7 +301,11 @@ const v2LayoutToArrangement = (doc: Record<string, unknown>): Record<string, unk
   // A declared folder the order never listed lands at the role tail (the v2
   // anchor rule) — overlay by default, since the v2 order may only name one.
   for (const f of folders) {
-    if (!Object.values(roles).some(roleNodes => roleNodes.some(n => (n as any).key === f.key))) {
+    if (
+      !Object.values(roles).some(roleNodes =>
+        roleNodes.some(n => (n as any).key === f.key),
+      )
+    ) {
       roles.overlay.push({ kind: "folder", key: f.key, children: [] });
     }
   }

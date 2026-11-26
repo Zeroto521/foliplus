@@ -589,7 +589,10 @@ describe("LayerInfoRegistry", () => {
         blocks: {},
         roles: {
           overlay: [{ kind: "layer", id: "overlay1" }],
-          base: [{ kind: "layer", id: "base1" }, { kind: "layer", id: "base2" }],
+          base: [
+            { kind: "layer", id: "base1" },
+            { kind: "layer", id: "base2" },
+          ],
         },
         parentOf: { overlay1: null, base1: null, base2: null },
         orphans: [],

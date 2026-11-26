@@ -1,4 +1,3 @@
-
 // core/layer/arrangement — the ordered-tree model of a role's layer stack.
 //
 // The single-order refactor: the model, its two pure projections and the
@@ -87,10 +86,6 @@ interface ResolvedTree {
  *  above base layers, and both projections concatenate roles in this order. */
 const ROLES: readonly LayerRole[] = [ROLE.OVERLAY, ROLE.BASE];
 
-/** The block-order prefix that marks a root-layer entry (`layer:<id>`). Taken
- *  from `rootLayerEntry` so the literal lives in one place. */
-const ROOT_LAYER_PREFIX = rootLayerEntry("");
-
 /** Empty per-role node arrays. */
 const emptyRoleNodes = (): Record<LayerRole, OrderNode[]> => ({
   [ROLE.OVERLAY]: [],
@@ -129,10 +124,6 @@ const placementOf = (layout: FolderLayout, info: LayerInfo): Placement => {
   return info.folder ? placementFrom(info.folder) : { kind: "root" };
 };
 
-/** Append a layer node for every entry, preserving the given order. */
-const layerNodes = (members: readonly LayerInfo[]): OrderNode[] =>
-  members.map(info => ({ kind: "layer" as const, id: info.id }));
-
 /** Build the default arrangement: every registered layer at its role root, in
  *  registry anchor order, no folders. Used when no persisted tree exists or
  *  when the persisted record is an unknown shape (dropped + rebuilt, not
@@ -145,9 +136,7 @@ const layerNodes = (members: readonly LayerInfo[]): OrderNode[] =>
  *  materialised before the first user move. Used when no persisted tree
  *  exists or when the persisted record is an unknown shape (dropped +
  *  rebuilt, not migrated and not an error). */
-const defaultArrangement = (
-  registryEntries: readonly LayerInfo[],
-): Arrangement => {
+const defaultArrangement = (registryEntries: readonly LayerInfo[]): Arrangement => {
   const roles = emptyRoleNodes();
   const blocks: Record<string, BlockMeta> = {};
   const NO_MEMBERS: FolderLayout["members"] = {};
@@ -186,8 +175,10 @@ const isArrangementShape = (raw: unknown): raw is Arrangement => {
   const blocks = record.blocks as unknown;
   const roles = record.roles as unknown;
   return (
-    typeof blocks === "object" && blocks !== null &&
-    typeof roles === "object" && roles !== null
+    typeof blocks === "object" &&
+    blocks !== null &&
+    typeof roles === "object" &&
+    roles !== null
   );
 };
 
@@ -468,7 +459,9 @@ const insertLeaf = (nodes: OrderNode[], id: string, index: number): OrderNode[] 
 /** The role-root index of a top-level entry (a block key or `layer:<id>`),
  *  or -1 when the entry is not top-level. */
 const topLevelIndex = (nodes: readonly OrderNode[], entry: string): number =>
-  nodes.findIndex(node => (node.kind === "layer" ? rootLayerEntry(node.id) === entry : node.key === entry));
+  nodes.findIndex(node =>
+    node.kind === "layer" ? rootLayerEntry(node.id) === entry : node.key === entry,
+  );
 
 /** A placement target for a layer move. */
 type MovePlacement =
@@ -625,7 +618,10 @@ const placeLeafAtSaved = (
   for (let i = target + 1; i < saved.length; i += 1) {
     const nid = saved[i];
     const idx = nodes.findIndex(n => n.kind === "layer" && n.id === nid);
-    if (idx !== -1) { insert = idx; break; }
+    if (idx !== -1) {
+      insert = idx;
+      break;
+    }
   }
   // No registered neighbour after it: the leaf is the rightmost of the role's
   // root layers (nothing below the saved slot exists yet).
@@ -640,11 +636,7 @@ const placeLeafAtSaved = (
 /** Remove a layer node from a role's tree (the deleteLayer splice). A folder
  *  that loses its last member keeps its (empty) block — the delete removes the
  *  leaf, not the folder. Pure: returns the same tree when the id is absent. */
-const dropLeaf = (
-  tree: Arrangement,
-  role: LayerRole,
-  id: string,
-): Arrangement => {
+const dropLeaf = (tree: Arrangement, role: LayerRole, id: string): Arrangement => {
   const nodes = tree.roles[role] ?? [];
   const [next, moved] = detachLeaf(nodes, id);
   if (!moved) return tree;
@@ -677,7 +669,9 @@ const moveBlock = (
   );
   if (from === -1) return tree;
   const to = nodes.findIndex(node =>
-    node.kind === "layer" ? rootLayerEntry(node.id) === targetKey : node.key === targetKey,
+    node.kind === "layer"
+      ? rootLayerEntry(node.id) === targetKey
+      : node.key === targetKey,
   );
   if (to === -1 || to === from) return tree;
   const [block] = nodes.splice(from, 1);
@@ -718,11 +712,7 @@ const addBlock = (
  *  PROMOTED to role root (inserted at the block's former position), never
  *  retired — the v2 deleteFolder contract. The directory entry is removed.
  *  Pure: returns the same tree when the block is absent. */
-const deleteBlock = (
-  tree: Arrangement,
-  role: LayerRole,
-  key: string,
-): Arrangement => {
+const deleteBlock = (tree: Arrangement, role: LayerRole, key: string): Arrangement => {
   const nodes = tree.roles[role] ?? [];
   const at = nodes.findIndex(node => node.kind !== "layer" && node.key === key);
   if (at === -1) return tree;

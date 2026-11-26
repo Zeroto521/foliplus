@@ -24,6 +24,8 @@ import {
   publish,
 } from "#core/event/index.js";
 import {
+  ARRANGEMENT_ROLES,
+  type Arrangement,
   type CreateCanvasAPI,
   type CreateCanvasOpts,
   type CreateColorAPI,
@@ -55,6 +57,8 @@ import {
   type LayerRole,
   type LayerStyleSnapshot,
   type LayerSurface,
+  type MovePlacement,
+  type OrderNode,
   PaneManager,
   RECURSION,
   ROLE,
@@ -65,62 +69,48 @@ import {
   type ValueConfig,
   type VisibilityDrift,
   type VisibilityQuery,
+  arrangementAddBlock,
+  arrangementAddLeaf,
+  arrangementApplySavedOrder,
+  arrangementDeleteBlock,
+  arrangementDeleteEmptyBlocks,
+  arrangementDropLeaf,
+  hydrate as arrangementHydrate,
+  arrangementLeafPosition,
+  arrangementMoveBlock,
+  arrangementMoveEntry,
+  arrangementPlaceLeafAtSaved,
+  projectLayout as arrangementProjectLayout,
+  arrangementRenameBlock,
   buildFilterFeatures,
   countFeatureGeometry,
-  createFolder,
-  deleteFolder,
-  dropLayer,
+  defaultArrangement,
   ensureFilterStore,
   ensureFolderLayout,
   ensureLayerAPI,
   filterLeafSet,
   filterStep,
   findLayer,
-  folderEntries,
   folderNameLength,
   folderNameTooLong,
   folderOf,
   freezeRoleOrder,
-  moveFolder,
-  moveLayerToFolder as moveLayerToFolderInLayout,
-  moveLayerToRootAt as moveLayerToRootAtInLayout,
-  moveLayerToRoot as moveLayerToRootInLayout,
+  isArrangementShape,
   normalizeFolderName,
   paintsAtZoom,
-  renameFolder,
   resolveVisibility,
   rootLayerEntry,
-  seedBlockOrder,
   visibleDomOf,
   walkLeaf,
   zFor,
-  defaultArrangement,
-  hydrate as arrangementHydrate,
-  isArrangementShape,
-  projectLayout as arrangementProjectLayout,
-  ARRANGEMENT_ROLES,
-  arrangementAddBlock,
-  arrangementAddLeaf,
-  arrangementApplySavedOrder,
-  arrangementDeleteBlock,
-  arrangementPlaceLeafAtSaved,
-  arrangementDeleteEmptyBlocks,
-  arrangementDropLeaf,
-  arrangementLeafPosition,
-  arrangementMoveBlock,
-  arrangementMoveEntry,
-  arrangementRenameBlock,
-  type Arrangement,
-  type MovePlacement,
-  type OrderNode,
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
-import { loadRecord, saveRecord, scopedStorageKey } from "#platform/storage.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
+import { loadRecord, saveRecord, scopedStorageKey } from "#platform/storage.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
 import { authorGlyphName } from "#control/LayerControl/ui/style/icon.js";
@@ -878,7 +868,11 @@ class LayerController implements LayerAPI {
     // z. Folder blocks keep their positions; unranked layers stay at the tail.
     if (this.order.savedOrder) {
       for (const role of ARRANGEMENT_ROLES) {
-        this.arrangement = arrangementApplySavedOrder(this.arrangement, role, this.order.savedOrder);
+        this.arrangement = arrangementApplySavedOrder(
+          this.arrangement,
+          role,
+          this.order.savedOrder,
+        );
       }
     }
     // The tree is the source: derive the layout mirror + the registry (z axis)
@@ -1073,7 +1067,7 @@ class LayerController implements LayerAPI {
    *  layer at its role root) when none exists. An unknown shape is DROPPED and
    *  rebuilt as the default — no version, no migrate, no error. */
   private readArrangement(): Arrangement {
-    const raw = loadRecord<unknown>(this.arrangementKey());
+    const raw = loadRecord<unknown>(scopedStorageKey(this.map, "layer_arrangement"));
     if (isArrangementShape(raw)) return raw;
     return defaultArrangement(this.layerRegistry.layers);
   }
@@ -1081,7 +1075,7 @@ class LayerController implements LayerAPI {
   /** Persist the tree as a bare record on the debounced writer (coalesces a
    *  move batch). */
   private persistArrangement(tree: Arrangement): void {
-    saveRecord(this.arrangementKey(), tree);
+    saveRecord(scopedStorageKey(this.map, "layer_arrangement"), tree);
   }
 
   /** The resolved tree (the single order source projected against the live
@@ -1107,8 +1101,8 @@ class LayerController implements LayerAPI {
    *  moveLayerToRootAt): the tree is the write, the derived state follows,
    *  and the z pricing pass runs last (mirrors commitReorder's local-commit
    *  rule). */
-  private commitFolderMove(next: Arrangement): void {
-    this.applyTree(next, { persist: true });
+  private commitFolderMove(next: Arrangement, persist = true): void {
+    this.applyTree(next, { persist });
     this.enforceOrder();
     if (this.ui) this.ui.rebuildAfterLayoutChange();
   }
@@ -1761,7 +1755,12 @@ class LayerController implements LayerAPI {
     // A layer the saved order ranks takes its slot among the tree's root
     // layers (the legacy user z); an unranked layer keeps the insert.
     if (this.order.savedOrder) {
-      nextTree = arrangementPlaceLeafAtSaved(nextTree, layerInfo.role, layerInfo.id, this.order.savedOrder);
+      nextTree = arrangementPlaceLeafAtSaved(
+        nextTree,
+        layerInfo.role,
+        layerInfo.id,
+        this.order.savedOrder,
+      );
     }
     if (nextTree !== this.arrangement) {
       this.applyTree(nextTree, { persist: true });
@@ -2010,18 +2009,39 @@ class LayerController implements LayerAPI {
     // which also owns the bounds check, below.
     if (from === to) return false;
     if (!this.canReorderBetween(from, to)) return false;
-    // Resolve the target's slot in the tree and move the dragged layer there.
-    const pos = arrangementLeafPosition(
-      this.arrangement.roles[item.role] ?? [],
-      targetId,
+    // The live registry order is the user-visible order; a caller that
+    // reordered the registry directly (LayerInfoRegistry.reorder) leaves the
+    // tree stale, so re-sync the role's root layers to the registry rank
+    // before resolving the target slot. Folder blocks keep their own slots;
+    // only root layers are ranked. In steady state this is a no-op.
+    const synced = arrangementApplySavedOrder(
+      this.arrangement,
+      item.role,
+      this.layers.map(layer => layer.id),
     );
+    const nodes = synced.roles[item.role] ?? [];
+    const pos = arrangementLeafPosition(nodes, targetId);
     if (!pos) return false;
-    const placement: MovePlacement =
-      pos.container === "root"
-        ? { kind: "root", index: pos.index }
-        : { kind: "folder", key: pos.container.key, index: pos.index };
-    const next = arrangementMoveEntry(this.arrangement, item.role, id, placement);
-    if (next === this.arrangement) return false;
+    let placement: MovePlacement;
+    if (pos.container === "root") {
+      // Insert at the target's own slot: moveEntry detaches `id` first, so a
+      // drop onto a row below the dragged layer still lands the dragged layer
+      // at the target's former position (the slot is the target's original
+      // index, not a detach-adjusted one).
+      placement = { kind: "root", index: pos.index };
+    } else {
+      // A folder-member target: the dragged layer joins the same folder at the
+      // target's position. `moveEntry` detaches `id` before inserting, so when
+      // the dragged layer sits ABOVE the target inside the same folder the
+      // target's index shifts down by one — correct for it.
+      const key = pos.container.key;
+      const src = arrangementLeafPosition(nodes, id);
+      const sameFolder = src && src.container !== "root" && src.container.key === key;
+      const index = sameFolder && src.index < pos.index ? pos.index - 1 : pos.index;
+      placement = { kind: "folder", key, index };
+    }
+    const next = arrangementMoveEntry(synced, item.role, id, placement);
+    if (next === synced) return false;
     return this.commitReorder(id, item, () => this.applyTree(next, { persist: true }));
   }
 
@@ -2642,11 +2662,18 @@ class LayerController implements LayerAPI {
     const nodes = this.arrangement.roles[role] ?? [];
     const duplicate =
       nodes.some(node => node.kind !== "layer" && node.key === key) ||
-      this.layerRegistry.layers.some(l => l.role === role && folderOf(this.folderLayout.layout, l) === key);
+      this.layerRegistry.layers.some(
+        l => l.role === role && folderOf(this.folderLayout.layout, l) === key,
+      );
     if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the role tail through the tree (the
     // single order source). The block directory entry is written with it.
-    const next = arrangementAddBlock(this.arrangement, role, { kind: "folder", key, name }, null);
+    const next = arrangementAddBlock(
+      this.arrangement,
+      role,
+      { kind: "folder", key, name },
+      null,
+    );
     this.applyTree(next, { persist: opts?.persist !== false });
     if (this.ui) this.ui.rebuildAfterLayoutChange();
     // The key travels back: the caller opens the inline rename on the row it
@@ -2690,14 +2717,21 @@ class LayerController implements LayerAPI {
     // block here would read as a duplicate.
     if (folderKey !== "") {
       const roleNodes = this.arrangement.roles[layerInfo.role] ?? [];
-      const hasFolder = roleNodes.some(node => node.kind !== "layer" && node.key === folderKey);
+      const hasFolder = roleNodes.some(
+        node => node.kind !== "layer" && node.key === folderKey,
+      );
       if (!hasFolder) return false;
     }
     const placement: MovePlacement =
       folderKey === ""
         ? { kind: "root", beforeEntry: null }
         : { kind: "folder", key: folderKey, index: Number.MAX_SAFE_INTEGER };
-    const next = arrangementMoveEntry(this.arrangement, layerInfo.role, layerId, placement);
+    const next = arrangementMoveEntry(
+      this.arrangement,
+      layerInfo.role,
+      layerId,
+      placement,
+    );
     if (next === this.arrangement) return false;
     this.commitFolderMove(next);
     return true;
@@ -2715,7 +2749,12 @@ class LayerController implements LayerAPI {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return false;
     const placement: MovePlacement = { kind: "root", beforeEntry };
-    const next = arrangementMoveEntry(this.arrangement, layerInfo.role, layerId, placement);
+    const next = arrangementMoveEntry(
+      this.arrangement,
+      layerInfo.role,
+      layerId,
+      placement,
+    );
     if (next === this.arrangement) return false;
     this.commitFolderMove(next);
     return true;
@@ -2768,7 +2807,9 @@ class LayerController implements LayerAPI {
     // display name. The folder must exist as a block (any role) to rename.
     const tree = this.arrangement;
     const inDirectory = tree.blocks[oldKey] !== undefined;
-    const inRoleNodes = (tree.roles[role] ?? []).some(node => node.kind !== "layer" && node.key === oldKey);
+    const inRoleNodes = (tree.roles[role] ?? []).some(
+      node => node.kind !== "layer" && node.key === oldKey,
+    );
     if (!inDirectory && !inRoleNodes) return { ok: false, reason: "missing" };
     // The directory is name-keyed and global (one entry per key, shared by both
     // roles): a rename to a key already claimed by a DIFFERENT folder is a
@@ -2776,7 +2817,9 @@ class LayerController implements LayerAPI {
     const duplicate =
       newKey !== oldKey &&
       (tree.blocks[newKey] !== undefined ||
-        (tree.roles[role] ?? []).some(node => node.kind !== "layer" && node.key === newKey));
+        (tree.roles[role] ?? []).some(
+          node => node.kind !== "layer" && node.key === newKey,
+        ));
     if (duplicate) return { ok: false, reason: "duplicate" };
     // Rename the display name in place (trimmed); the key and every member
     // assignment are untouched, so the block stays put.
@@ -2816,13 +2859,15 @@ class LayerController implements LayerAPI {
   deleteFolder(role: LayerRole, key: string, opts?: { persist?: boolean }): boolean {
     const tree = this.arrangement;
     const inBlock = tree.blocks[key] !== undefined;
-    const inRoleNodes = (tree.roles[role] ?? []).some(node => node.kind !== "layer" && node.key === key);
+    const inRoleNodes = (tree.roles[role] ?? []).some(
+      node => node.kind !== "layer" && node.key === key,
+    );
     if (!inBlock && !inRoleNodes) return false;
     // The delete promotes every member to root and removes the block; the
     // registry re-derives the display order from the tree.
     const next = arrangementDeleteBlock(tree, role, key);
     if (next === tree) return false;
-    this.commitFolderMove(next);
+    this.commitFolderMove(next, opts?.persist);
     return true;
   }
 
@@ -3385,13 +3430,12 @@ class LayerController implements LayerAPI {
       // The previous/next sibling in the role-root sequence (a block or a
       // root layer). The move inserts before that anchor.
       const prev = nodes[pos.index - 1];
-      const next = nodes[pos.index + 1];
       if (up) {
         if (!prev) return false;
         placement = { kind: "root", beforeEntry: this.anchorOf(prev) };
       } else {
-        // Move after `next`: insert before the node that follows it, or append
-        // when `next` is the last root node.
+        // Move after the following sibling: insert before the node that follows
+        // it, or append when it is the last root node.
         const after = nodes[pos.index + 2];
         placement = { kind: "root", beforeEntry: after ? this.anchorOf(after) : null };
       }
@@ -3406,7 +3450,9 @@ class LayerController implements LayerAPI {
         placement = { kind: "folder", key: containerKey, index: pos.index - 1 };
       } else {
         if (pos.index >= children.length - 1) return false;
-        placement = { kind: "folder", key: containerKey, index: pos.index + 2 };
+        // moveEntry detaches `id` before inserting, so the member that followed
+        // it sits at pos.index afterwards — insert after it (pos.index + 1).
+        placement = { kind: "folder", key: containerKey, index: pos.index + 1 };
       }
     }
     const next = arrangementMoveEntry(this.arrangement, role, id, placement);
