@@ -422,6 +422,8 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         return;
       }
       if (overRole !== draggedFolder.role) {
+        // A block belongs to one role: the copy names the section the drop
+        // would have to cross.
         refuse(overRole === "base" ? "drop_base_layer" : "same_role_only");
         return;
       }
@@ -538,9 +540,11 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   ui.listPanel.lastDragOverItem = item;
 
   const draggedEntry = ui.listPanel.dragEntry!;
-  const targetId = item.getAttribute(CONST.DATA.LAYER_ID);
+  // registryIdx() above already rejected a row without a registered layer id,
+  // so this attribute is present on every row that reaches the branch below.
+  const targetId = item.getAttribute(CONST.DATA.LAYER_ID) as string;
   const draggedIsGroup = isGroupDrag(ui, draggedEntry.id);
-  const targetIsGroup = targetId ? isGroupDrag(ui, targetId) : false;
+  const targetIsGroup = isGroupDrag(ui, targetId);
   const refuse = (key: string, keepPointer: boolean) => {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
     paintDragState(ui, item, CONST.DRAG_STATE.REFUSE);
@@ -566,14 +570,14 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // layer group cannot do: a member row is the folder's middle reached from the
   // inside, so it answers the same way instead of falling through to the
   // reorder path (which allows the hover and then silently drops the move).
-  const targetFolderKey = targetId ? (ui.c.folderKeyOf(targetId) ?? "") : "";
+  const targetFolderKey = ui.c.folderKeyOf(targetId) ?? "";
   if (draggedIsGroup && targetFolderKey) {
     refuse("drop_other_group_member", false);
     return;
   }
   // A row of another role is not a gap: an overlay never becomes a base layer,
   // so the drag is refused here instead of ending in a silent no-op.
-  const targetRole = targetId ? ui.c.layerRegistry.get(targetId)?.role : undefined;
+  const targetRole = ui.c.layerRegistry.get(targetId)?.role;
   if (targetRole && targetRole !== draggedEntry.role) {
     refuse(targetRole === "base" ? "drop_base_layer" : "same_role_only", true);
     return;

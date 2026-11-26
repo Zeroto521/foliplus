@@ -322,8 +322,8 @@
        re-asserting the fill with more specificity — keeps one source for "who
        paints this row's background". A gap (before/after) keeps the wash: the
        row is still the checked layer, and the line is the only new signal. */
-    &.foliplus-active:not([data-foliplus-drop="join"]):not(
-        [data-foliplus-drop="refuse"]
+    &.foliplus-active:where(
+        :not([data-foliplus-drop="join"]):not([data-foliplus-drop="refuse"])
       ) {
       border-left-color: var(--foliplus-accent-primary);
       background: var(--foliplus-accent-light);

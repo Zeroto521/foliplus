@@ -348,6 +348,102 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     expect(showHint).toHaveBeenCalled();
   });
 
+  it("a folder over a row it cannot place refuses instead of ignoring", () => {
+    // A row with neither a folder key nor a layer id names no block, so there
+    // is no gap to draw: silence would read as a broken drag, so the refusal is
+    // painted and named.
+    const { ui } = folderFixture(["a", "b"]);
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const stray = document.createElement("div");
+    stray.className = CONST.CLASSES.LAYER_ITEM;
+    attachedPanel(ui).appendChild(stray);
+    pinRect(stray, 200, 36);
+
+    handleDragOver(ui, dragEvent(stray, { dropEffect: "" }, 218));
+
+    expect(stray.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
+    expect(ui.listPanel.lastDragOverItem).toBe(stray);
+    expect(showHint).toHaveBeenCalled();
+  });
+
+  it("a member row over a sibling member is a gap, not a refusal", () => {
+    // Siblings inside one block are the one place a member row names a gap:
+    // the same folder key on both sides means the drop stays inside the block.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "a", name: "a" }],
+        order: { overlay: ["a"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "m1",
+          name: "m1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "m2",
+          name: "m2",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const target = rowOf(ui, "m2");
+    pinRect(target, 100, 36);
+
+    handleDragStart(ui, dragEvent(rowOf(ui, "m1"), { effectAllowed: "" }));
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 102));
+
+    // Position, not the pointer half, decides the side: the target sits after
+    // the carried row, so the gap is below it.
+    expect(target.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.AFTER);
+  });
+
+  it("a base folder over an overlay row is refused by its section name", () => {
+    // A block belongs to one role: the copy names the section the drop would
+    // cross instead of the generic "same section" wording.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "b", name: "b" }],
+        order: { overlay: [], base: ["b"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "b1",
+          name: "b1",
+          role: "base",
+          folder: "b",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "O1",
+          name: "O1",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
+    const overlayRow = rowOf(ui, "O1");
+    pinRect(overlayRow, 100, 36);
+
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "b"), { effectAllowed: "" }));
+    handleDragOver(ui, dragEvent(overlayRow, { dropEffect: "" }, 118));
+
+    expect(overlayRow.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.REFUSE,
+    );
+    expect(showHint).toHaveBeenCalled();
+  });
+
   it("a group on another group's middle zone without a transfer refuses by name", () => {
     // Two layer groups never nest; the refusal is named whether or not the
     // browser supplied a dataTransfer.

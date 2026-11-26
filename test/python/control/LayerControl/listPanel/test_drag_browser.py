@@ -191,6 +191,13 @@ class TestDragIndicatorBrowser:
         assert _alpha(target["backgroundColor"]) <= 0.05, (
             f"join wash too strong: {target['backgroundColor']}"
         )
+        # The lines are the only new ink: the row itself is not dented (that
+        # belongs to the gap, whose neighbor is pressed open).
+        assert "inset" not in target["before"]["boxShadow"]
+        assert "inset" not in target["after"]["boxShadow"]
+        assert target["boxShadow"] == "none", (
+            f"a join must not also dent its own row: {target['boxShadow']}"
+        )
         assert target["chevronAnimation"] == "foliplus-drag-chevron", (
             "the chevron must hint that the row opens"
         )
@@ -215,8 +222,39 @@ class TestDragIndicatorBrowser:
             f"the pointer must say no: {target['cursor']}"
         )
         assert target["backgroundColor"] in {"rgba(0, 0, 0, 0)", "transparent"}
+        # Zero geometry, read off both pseudo elements: no line is even
+        # generated, so there is nothing for the eye to mistake for a target.
+        assert target["before"]["content"] == "none", (
+            f"a refusal must not draw a top edge: {target['before']['content']}"
+        )
+        assert target["after"]["content"] == "none", (
+            f"a refusal must not draw a bottom edge: {target['after']['content']}"
+        )
+        assert target["before"]["borderTopWidth"] == "0px"
+        assert target["after"]["borderBottomWidth"] == "0px"
         assert snapshot["pushed"] == [], "a refusal presses nothing"
         assert snapshot["hint"], "a refusal must explain itself in one line of text"
+        assert errors == []
+
+    def test_reduced_motion_keeps_the_line_still(self, browser, tmp_path):
+        """With motion reduced, the line stays lit and nothing pulses."""
+        page, errors = _page(browser, tmp_path)
+        page.emulate_media(reduced_motion="reduce")
+        _act(page, action="drag", source=0, target=1)
+        page.wait_for_timeout(200)
+        snapshot = _read(page)
+
+        target = _only(snapshot, "after")
+        assert target["animationName"] == "none", (
+            f"the carried row must not pulse: {target['animationName']}"
+        )
+        assert target["after"]["animationName"] == "none", (
+            f"the line must not breathe: {target['after']['animationName']}"
+        )
+        # The static line is still the insertion marker — accessibility is not
+        # the absence of the indicator.
+        assert target["after"]["borderBottomWidth"] == "2px"
+        assert target["after"]["content"] != "none"
         assert errors == []
 
     def test_folder_drag_uses_the_same_source_rule(self, browser, tmp_path):

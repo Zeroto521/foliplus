@@ -394,6 +394,48 @@ describe("drag — the dataTransfer is always optional", () => {
     expect(ui.listPanel.lastDragOverItem).toBeNull();
   });
 
+  it("refuses a base layer dragged over an overlay row", () => {
+    // Roles do not mix: a base layer stays in the base section, so the target
+    // is refused by name instead of silently reordering.
+    const { ui } = initFixture({
+      data: [
+        { id: "B1", name: "B1", role: "base", layer: { options: {} } },
+        {
+          id: "O1",
+          name: "O1",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
+    const overlayRow = rowOf(ui, "O1");
+    withRect(overlayRow, 100, 36);
+
+    handleDragStart(ui, dragEvent(rowOf(ui, "B1"), { effectAllowed: "" }));
+    handleDragOver(ui, dragEvent(overlayRow, { dropEffect: "" }, 118));
+
+    expect(overlayRow.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.REFUSE,
+    );
+    expect(showHint).toHaveBeenCalled();
+  });
+
+  it("refuses a member row dragged onto another folder's member row", () => {
+    // A member row is inside a block: the gap that reaches it is the block
+    // header's, so the drop is named instead of landing between members.
+    const { ui } = folderFixture(["a", "b"]);
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
+    const target = rowOf(ui, "b1");
+    pinRect(target, 100, 36);
+
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 118));
+
+    expect(target.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
+    expect(showHint).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses a layer on the other role's folder row without a dataTransfer", () => {
     // The cross-role guard must not depend on the dataTransfer: a refusal
     // that silently turns into a drop is worse than no marker at all.

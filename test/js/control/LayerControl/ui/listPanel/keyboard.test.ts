@@ -978,6 +978,40 @@ describe("LayerUI keyboard", () => {
       expect(fixture.manager.layers.map(entry => entry.id)).toEqual(before);
       expect(rowIds(fixture.ui)).toEqual(rowsBefore);
     });
+
+    it("refuses a ctrl+ArrowDown step that crosses a block boundary", () => {
+      // The guard is direction-agnostic: the downward step out of a block is
+      // refused exactly like the upward one.
+      const fixture = initFixture({
+        seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+        data: [
+          {
+            id: "rd1",
+            name: "Roads",
+            role: "overlay",
+            folder: "roads",
+            layer: polygonLayer(),
+          },
+          { id: "root1", name: "Root", role: "overlay", layer: polygonLayer() },
+        ],
+      });
+      const hintSpy = vi.fn();
+      (fixture.map as any).foliplus.hint.set = hintSpy;
+      const before = fixture.manager.layers.map(entry => entry.id);
+      const rowsBefore = rowIds(fixture.ui);
+      const folderIsFirst = before.indexOf("rd1") < before.indexOf("root1");
+      const row = findItem(fixture.ui, folderIsFirst ? "rd1" : "root1");
+      step(fixture.ui, row, "ArrowDown");
+
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "",
+        expect.stringContaining("reorder_same_block"),
+        { duration: HINT_DURATION.SHORT },
+      );
+      expect(fixture.manager.layers.map(entry => entry.id)).toEqual(before);
+      expect(rowIds(fixture.ui)).toEqual(rowsBefore);
+    });
   });
 
   describe("onItemKeydown guard branches", () => {

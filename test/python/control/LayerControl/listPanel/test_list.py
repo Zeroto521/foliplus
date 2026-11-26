@@ -692,7 +692,11 @@ class TestLayerControlRendering:
         # The join wash and the row wash have ONE owner: a target that paints
         # its own fill is excluded from the checked wash, so they cannot stack.
         assert '[data-foliplus-drop="join"]' in css
-        assert "&.foliplus-active:not(" in css
+        # The exclusion rides in :where(), which contributes no specificity:
+        # the checked wash keeps the same weight as the hover rule, so a
+        # checked row still turns white under the cursor.
+        assert "&.foliplus-active:where(" in css
+        assert "&.foliplus-active:not(" not in css
         assert ":not(" in css
         # The four-class vocabulary is gone, not merely unused.
         assert "foliplus-layer-drag-over-top" not in css
