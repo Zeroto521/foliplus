@@ -290,7 +290,7 @@ class TestDragIndicatorBrowser:
 
         # A reload reads the same record: the layer is still inside the folder,
         # in the same position relative to its new sibling.
-        page.reload()
+        page.reload(wait_until="domcontentloaded")
         page.wait_for_selector(".foliplus-layer-item", state="attached", timeout=10000)
         page.evaluate(_js("LayerControl/open_panel"))
         page.wait_for_timeout(400)
