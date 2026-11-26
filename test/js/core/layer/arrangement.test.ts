@@ -11,6 +11,7 @@ import {
   type ResolvedTree,
   arrangementAddBlock as addBlock,
   anchorOfNode,
+  arrangementRoleOfLeaf,
   defaultArrangement,
   arrangementDeleteBlock as deleteBlock,
   arrangementDeleteEmptyBlocks as deleteEmptyBlocks,
@@ -71,6 +72,27 @@ describe("defaultArrangement", () => {
       },
       { kind: "layer", id: "c" },
     ]);
+  });
+
+  it("drops a layer whose folder declaration normalises to nothing", () => {
+    // placementFrom classifies a whitespace-only declaration as `dropped`: the
+    // layer is neither a root layer (the declaration is truthy) nor a block
+    // member (the key is empty) — it renders nowhere, never silently "root".
+    const tree = defaultArrangement([entry("x", "overlay", "  ", 0)]);
+    expect(tree.blocks).toEqual({});
+    expect(tree.roles.overlay).toEqual([]);
+  });
+});
+
+describe("roleOfLeaf", () => {
+  it("returns the role that owns a leaf, and null for an id the tree does not hold", () => {
+    const entries = [entry("a", "overlay", "roads", 0), entry("c", "base", null, 1)];
+    const tree = defaultArrangement(entries);
+    const resolved = hydrate(tree, entries);
+    expect(arrangementRoleOfLeaf(resolved, "a")).toBe("overlay");
+    expect(arrangementRoleOfLeaf(resolved, "c")).toBe("base");
+    // An id the tree does not hold: the null branch (not found in either role).
+    expect(arrangementRoleOfLeaf(resolved, "missing")).toBeNull();
   });
 });
 

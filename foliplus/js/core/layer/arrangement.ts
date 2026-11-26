@@ -112,17 +112,12 @@ const placementFrom = (spelling: string): Placement => {
   return key === "" ? { kind: "dropped" } : { kind: "folder", key };
 };
 
-/** Resolve one layer's placement: the persisted assignment when the layout has
- *  one, otherwise the author declaration. Mirrors `isRootLayer` + `folderOf`. */
-const placementOf = (layout: FolderLayout, info: LayerInfo): Placement => {
-  const assigned = layout.members[info.id];
-  if (assigned !== undefined) {
-    // A materialised root ("") pins the layer at the role root.
-    return assigned.folder === "" ? { kind: "root" } : placementFrom(assigned.folder);
-  }
-  // No declaration at all is a root layer; anything truthy is a folder claim.
-  return info.folder ? placementFrom(info.folder) : { kind: "root" };
-};
+/** Resolve one layer's placement from its author declaration. Mirrors
+ *  `isRootLayer` + `folderOf`. Stage 2 no longer feeds a persisted member
+ *  assignment here (the tree IS the persisted shape), so the layout override
+ *  branch was removed — only the declaration decides. */
+const placementOf = (info: LayerInfo): Placement =>
+  info.folder ? placementFrom(info.folder) : { kind: "root" };
 
 /** Build the default arrangement: every registered layer at its role root, in
  *  registry anchor order, no folders. Used when no persisted tree exists or
@@ -139,12 +134,8 @@ const placementOf = (layout: FolderLayout, info: LayerInfo): Placement => {
 const defaultArrangement = (registryEntries: readonly LayerInfo[]): Arrangement => {
   const roles = emptyRoleNodes();
   const blocks: Record<string, BlockMeta> = {};
-  const NO_MEMBERS: FolderLayout["members"] = {};
   for (const info of registryEntries) {
-    const placement = placementOf(
-      { version: 2, folders: [], order: {}, members: NO_MEMBERS } as FolderLayout,
-      info,
-    );
+    const placement = placementOf(info);
     if (placement.kind === "dropped") continue;
     if (placement.kind === "folder") {
       const key = placement.key;
@@ -503,7 +494,11 @@ const moveEntry = (
       }
     }
     const next = insertLeaf(detached, id, index);
-    if (sameNodes(next, detached)) return tree;
+    // No-op when the re-inserted sequence is element-identical to the original
+    // (the id already sat at the target slot). Compare to `nodes`, not to
+    // `detached`: the latter always has one fewer element, so a same-position
+    // move would never be detected.
+    if (sameNodes(next, nodes)) return tree;
     return { ...tree, roles: { ...roles, [role]: next } };
   }
   // Folder placement: find the folder node, insert inside it.

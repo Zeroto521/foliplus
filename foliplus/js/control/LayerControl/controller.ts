@@ -3445,6 +3445,9 @@ class LayerController implements LayerAPI {
         n => n.kind !== "layer" && n.key === containerKey,
       ) as (OrderNode & { children: OrderNode[] }) | undefined;
       const children = container?.children ?? [];
+      // Folder children have no anchor concept (a member is identified by its
+      // index inside the folder, not by an anchor entry), so the folder branch
+      // places by index rather than by beforeEntry. up = pos.index - 1.
       if (up) {
         if (pos.index <= 0) return false;
         placement = { kind: "folder", key: containerKey, index: pos.index - 1 };
