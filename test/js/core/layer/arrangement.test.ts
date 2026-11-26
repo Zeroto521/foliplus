@@ -177,6 +177,7 @@ describe("projectRows", () => {
         ],
         base: [],
       },
+      listed: { overlay: [], base: [] },
     };
     const entries = [entry("a", "overlay", null, 0), entry("b", "overlay", null, 1)];
     const resolved = hydrate(tree, entries);

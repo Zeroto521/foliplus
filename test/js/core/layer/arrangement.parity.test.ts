@@ -27,6 +27,8 @@ import {
   moveLayerToFolder,
   moveLayerToRoot,
   moveLayerToRootAt,
+  normalizeFolderName,
+  projectLayout,
   projectRows,
   projectZ,
   renameFolder,
@@ -79,6 +81,29 @@ const expectParity = (layout: FolderLayout, entries: readonly LayerInfo[]): void
   expect(projectZ(resolved)).toEqual(
     fullDisplayOrder(entries, layout).map(info => info.id),
   );
+  // The layout mirror is the second read contract: projectLayout's three read
+  // shapes must equal v2's READ shapes field for field, on every layout state.
+  // v2 reads order[role] with a missing-role default of [], the members map
+  // through folderOf (pin, else author declaration, normalised, "" = root) and
+  // the folders directory as listed.
+  const mirror = projectLayout(resolved);
+  for (const role of ROLES) {
+    expect(mirror.order[role] ?? []).toEqual(layout.order[role] ?? []);
+  }
+  for (const info of entries) {
+    const assigned = layout.members[info.id];
+    const v2Folder = assigned !== undefined ? assigned.folder : (info.folder ?? "");
+    // v2 folderOf normalises the assignment to its identity key ("" = root).
+    expect(mirror.members[info.id]?.folder ?? "").toEqual(
+      v2Folder === "" ? "" : normalizeFolderName(v2Folder),
+    );
+  }
+  // The folders directory is read by key: every folder block's display name
+  // must match v2's directory entry (or the key itself when v2 has none).
+  for (const folder of mirror.folders) {
+    const v2Name = layout.folders.find(f => f.key === folder.key)?.name ?? folder.key;
+    expect(folder.name).toEqual(v2Name);
+  }
 };
 
 /** A mixed fixture: both roles, declared folders with shared names, roots. */

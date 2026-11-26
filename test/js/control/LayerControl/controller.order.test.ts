@@ -118,7 +118,10 @@ describe("LayerController", () => {
         { id: "overlay1", name: "O", role: "overlay" },
       ]);
       const keys = spy.mock.calls.map(c => c[0]);
-      expect(keys).toEqual([CONST.STORAGE.KEY]);
+      // Two reads at construction: the v2 layer-state slot (saved order + removed
+      // ids) and the v3 arrangement tree. Both are the single-order inputs the
+      // boot pass derives from; each is read exactly once.
+      expect(keys).toEqual([CONST.STORAGE.KEY, "foliplus_layer_arrangement_"]);
       spy.mockRestore();
     });
   });

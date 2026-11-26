@@ -24,8 +24,12 @@ export const layoutFromRoles = (
 
 /** Read the persisted folder-layout document for a map (null when never written). */
 export const readLayoutStorage = (map: any): Record<string, unknown> | null => {
+  // v3: folder persistence moved from the v2 `layer_layout` key to the
+  // arrangement tree on `layer_arrangement`; the fixture reads the v3 key so
+  // "the layout was written" still means "the single order source was saved".
+  const v3Key = folderLayoutKey(map).replace("layer_layout", "layer_arrangement");
   const stored = JSON.parse(
-    window.localStorage.getItem(folderLayoutKey(map)) ?? "null",
+    window.localStorage.getItem(v3Key) ?? "null",
   ) as { data?: Record<string, unknown> } | null;
   return stored?.data ?? null;
 };
