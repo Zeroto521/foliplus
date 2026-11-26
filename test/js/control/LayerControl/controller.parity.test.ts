@@ -8,11 +8,7 @@
 // visibilityOf is @internal (not on the public LayerAPI). Its only consumer is
 // this guard, until a real 4-factor consumer appears - see the follow-up card.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  intentProjection,
-  labelProjection,
-  paintProjection,
-} from "#core/layer/index.js";
+import { labelProjection, paintProjection } from "#core/layer/index.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 
 // Minimal Leaflet surface - mirrors the shape controller.test.ts installs.
@@ -186,12 +182,6 @@ describe("visibilityOf factor single-source parity", () => {
 
   it("unregistered id returns null", () => {
     expect(manager.visibilityOf!("ghost")).toBeNull();
-  });
-
-  it("intentProjection reads the declared factor (panel checkbox)", () => {
-    map.hasLayer.mockReturnValue(true);
-    const r = manager.visibilityOf!("overlay1")!;
-    expect(intentProjection(r.factors)).toBe(r.factors.declared);
   });
 
   it("paintProjection matches basePaints (container AND zoom AND opacity)", () => {

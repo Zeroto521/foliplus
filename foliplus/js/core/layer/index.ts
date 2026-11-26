@@ -119,12 +119,7 @@ export {
   findNode,
   countChildLayers,
 } from "./walkLeaf.js";
-export {
-  intentProjection,
-  labelProjection,
-  paintProjection,
-  resolveVisibility,
-} from "./visibility.js";
+export { labelProjection, paintProjection, resolveVisibility } from "./visibility.js";
 export type {
   VisibilityDrift,
   VisibilityFactors,

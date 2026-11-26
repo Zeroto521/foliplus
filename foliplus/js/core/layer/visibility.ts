@@ -7,15 +7,14 @@
 // and DOM-free lets Heatmap/Measure - which do not all go through LayerAPI -
 // reuse the same composition without a second copy of the AND + reason logic.
 //
-// Three named projections answer the three questions the panel actually asks,
+// Two named projections answer the two questions the panel actually asks,
 // each a subset of the same six factors:
 //
-//   intentProjection  = declared                       (the checkbox)
-//   paintProjection   = declared*container*zoom*opacity (the basemap hatch)
-//   labelProjection   = container*focus                (label rendering)
+//   paintProjection   = container*zoom*opacity (the basemap hatch)
+//   labelProjection   = container*focus        (label rendering)
 //
 // A projection never re-derives its factors: it reads the SAME record the
-// caller assembled for resolveVisibility, so the three answers cannot drift.
+// caller assembled for resolveVisibility, so the two answers cannot drift.
 
 /** Why a layer is not visible right now. The fixed evaluation order below is
  *  part of the contract: a caller can branch on the reason knowing it names the
@@ -77,9 +76,6 @@ const resolveVisibility = (factors: VisibilityFactors): VisibilityQuery => {
   return { visible: reason === null, factors, reason };
 };
 
-/** The panel checkbox's answer: the intent fact alone. */
-const intentProjection = (f: VisibilityFactors): boolean => f.declared;
-
 /** The basemap-hatch answer: on the map, in range, and not fully transparent.
  *  Declared is deliberately excluded - a basemap can be "checked" yet absent
  *  from the screen (outside its zoom range, off the map, opacity 0), and the
@@ -98,5 +94,5 @@ const labelProjection = (f: VisibilityFactors, focused: boolean): boolean =>
 type VisibilityDrift = "visible" | "opacity" | "filter";
 
 /** @internal - LayerControl-private composition; not part of the public LayerAPI. */
-export { intentProjection, labelProjection, paintProjection, resolveVisibility };
+export { labelProjection, paintProjection, resolveVisibility };
 export type { VisibilityDrift, VisibilityFactors, VisibilityQuery, VisibilityReason };
