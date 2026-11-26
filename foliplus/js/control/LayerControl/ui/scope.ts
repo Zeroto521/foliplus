@@ -75,17 +75,27 @@ const createScope = (): PanelScope => {
     },
     add(name, off) {
       let live = true;
-      const unsubscribe = () => {
-        if (!live) return;
-        live = false;
-        const idx = steps.findIndex(entry => entry.run === wrapped);
-        if (idx !== -1) steps.splice(idx, 1);
-        off();
-      };
+      // One liveness owner: the queued step. The handle only decides whether the
+      // entry is still queued — dropping it keeps names() honest — and then runs
+      // the step, which is what actually releases the subscription. So the two
+      // ways a release can already have happened (a second handle call, or a
+      // dispose that ran the queue) converge on the same no-op, and neither
+      // path needs a second guard of its own.
       const wrapped = () => {
         if (!live) return;
         live = false;
         off();
+      };
+      const unsubscribe = () => {
+        // Do not "optimise" this into a Map<handle, step>: entries leave the
+        // queue through splice (dispose drains it), so the Map would have to be
+        // kept in sync with the array — a second source of truth for the same
+        // queue, which is the double state this scope exists to remove. The
+        // queue is constant-sized (fewer than 50 entries) and one lookup per
+        // handle call is O(n) over that constant.
+        const idx = steps.findIndex(entry => entry.run === wrapped);
+        if (idx !== -1) steps.splice(idx, 1);
+        wrapped();
       };
       scope.step(name, wrapped);
       return unsubscribe;
