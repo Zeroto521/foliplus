@@ -40,8 +40,8 @@ const clearDragStateAttr = (ui: LayerUI): void => {
 };
 
 /** The next row on one side of `row`, skipping role headers and rows the
- *  gesture folded away — the neighbours the gap actually pushes against. */
-const neighbourRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null => {
+ *  gesture folded away — the neighbors the gap actually pushes against. */
+const neighborRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null => {
   let el = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
   while (el) {
     // A role header ends the section: the gap at the edge of a role has no row
@@ -64,7 +64,7 @@ const neighbourRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null =
  *
  *  The state attribute stays single-valued on the row that anchors the gap; the
  *  marker goes on the row on the FAR side of that gap, because opening a slot
- *  presses the neighbouring row — the dent and the line are two faces of one
+ *  presses the neighboring row — the dent and the line are two faces of one
  *  indication, derived from one value, so they can never disagree. */
 const paintDragState = (ui: LayerUI, row: HTMLElement, state: string | null): void => {
   setDragState(row, state);
@@ -77,21 +77,21 @@ const paintDragState = (ui: LayerUI, row: HTMLElement, state: string | null): vo
   // BEFORE anchors on the row's top edge, so the row above the gap sinks
   // (bottom edge); AFTER anchors on the bottom edge, so the row below sinks
   // (top edge). The value names the edge, which is what the stylesheet paints.
-  const neighbour = neighbourRow(row, state === CONST.DRAG_STATE.BEFORE ? -1 : 1);
+  const neighbor = neighborRow(row, state === CONST.DRAG_STATE.BEFORE ? -1 : 1);
   // The carried row keeps its pickup marker: denting it would read as a second
   // state on the row that is already leaving.
   if (
-    !neighbour ||
-    neighbour.getAttribute(CONST.DRAG_STATE_ATTR) === CONST.DRAG_STATE.SOURCE
+    !neighbor ||
+    neighbor.getAttribute(CONST.DRAG_STATE_ATTR) === CONST.DRAG_STATE.SOURCE
   ) {
     return;
   }
   const edge =
     state === CONST.DRAG_STATE.BEFORE ? CONST.DRAG_PUSH.BOTTOM : CONST.DRAG_PUSH.TOP;
-  if (neighbour.getAttribute(CONST.DRAG_PUSH_ATTR) !== edge) {
-    neighbour.setAttribute(CONST.DRAG_PUSH_ATTR, edge);
+  if (neighbor.getAttribute(CONST.DRAG_PUSH_ATTR) !== edge) {
+    neighbor.setAttribute(CONST.DRAG_PUSH_ATTR, edge);
   }
-  ui.listPanel.lastPushRow = neighbour;
+  ui.listPanel.lastPushRow = neighbor;
 };
 
 /** Fold the dragged block's member rows for the duration of the gesture: they
