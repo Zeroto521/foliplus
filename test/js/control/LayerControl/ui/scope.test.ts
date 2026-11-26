@@ -1,5 +1,5 @@
 // LayerControl ui/scope.ts — teardown as one ordered, failure-isolated list.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createTimers } from "#platform/timer.js";
 import { createScope } from "#control/LayerControl/ui/scope.js";
 
