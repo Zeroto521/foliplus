@@ -91,8 +91,12 @@ class TestDragIndicatorBrowser:
         assert source["animationName"] == "foliplus-drag-pickup", (
             f"pickup pulse missing: {source['animationName']}"
         )
-        assert source["animationIterationCount"] == "1", "the pickup pulse must run once"
-        assert snapshot["lineRows"] == [], f"pickup must not draw a line: {snapshot['lineRows']}"
+        assert source["animationIterationCount"] == "1", (
+            "the pickup pulse must run once"
+        )
+        assert snapshot["lineRows"] == [], (
+            f"pickup must not draw a line: {snapshot['lineRows']}"
+        )
         assert errors == []
 
     def test_gap_below_marks_exactly_one_line(self, browser, tmp_path):
@@ -105,7 +109,9 @@ class TestDragIndicatorBrowser:
         _act(page, action="drag", source=0, target=1)
         snapshot = _read(page)
 
-        assert len(snapshot["lineRows"]) == 1, f"one gap, one line: {snapshot['lineRows']}"
+        assert len(snapshot["lineRows"]) == 1, (
+            f"one gap, one line: {snapshot['lineRows']}"
+        )
         target = _only(snapshot, "after")
         assert snapshot["lineRows"] == [target["key"]]
         pseudo = target["after"]
@@ -118,7 +124,9 @@ class TestDragIndicatorBrowser:
         assert target["outlineStyle"] == "none", "an accepted gap draws no outline"
         # The neighbor across the gap is pushed open by a transform, never a
         # re-layout. The pressed row is the one AFTER the gap.
-        assert len(snapshot["pushed"]) == 1, f"expected one pressed row: {snapshot['pushed']}"
+        assert len(snapshot["pushed"]) == 1, (
+            f"expected one pressed row: {snapshot['pushed']}"
+        )
         assert snapshot["pushed"][0]["push"] == "top"
         assert errors == []
 
@@ -128,7 +136,9 @@ class TestDragIndicatorBrowser:
         _act(page, action="drag", source=3, target=2)
         snapshot = _read(page)
 
-        assert len(snapshot["lineRows"]) == 1, f"one gap, one line: {snapshot['lineRows']}"
+        assert len(snapshot["lineRows"]) == 1, (
+            f"one gap, one line: {snapshot['lineRows']}"
+        )
         target = _only(snapshot, "before")
         assert target["before"]["borderTopWidth"] == "2px"
         assert target["before"]["animationIterationCount"] == "infinite"
@@ -157,7 +167,10 @@ class TestDragIndicatorBrowser:
         )
         assert from_above["before"]["borderTopWidth"] == "2px"
         assert from_below["after"]["borderBottomWidth"] == "2px"
-        assert from_above["before"]["animationName"] == from_below["after"]["animationName"]
+        assert (
+            from_above["before"]["animationName"]
+            == from_below["after"]["animationName"]
+        )
 
     def test_join_lights_both_edges_of_one_row(self, browser, tmp_path):
         """A join is a row, not a gap: both edges light on one row only."""
@@ -192,9 +205,15 @@ class TestDragIndicatorBrowser:
         snapshot = _read(page)
 
         target = _only(snapshot, "refuse")
-        assert snapshot["lineRows"] == [], f"a refusal draws no line: {snapshot['lineRows']}"
-        assert target["outlineStyle"] == "none", f"no dashed box: {target['outlineStyle']}"
-        assert target["cursor"] == "no-drop", f"the pointer must say no: {target['cursor']}"
+        assert snapshot["lineRows"] == [], (
+            f"a refusal draws no line: {snapshot['lineRows']}"
+        )
+        assert target["outlineStyle"] == "none", (
+            f"no dashed box: {target['outlineStyle']}"
+        )
+        assert target["cursor"] == "no-drop", (
+            f"the pointer must say no: {target['cursor']}"
+        )
         assert target["backgroundColor"] in {"rgba(0, 0, 0, 0)", "transparent"}
         assert snapshot["pushed"] == [], "a refusal presses nothing"
         assert snapshot["hint"], "a refusal must explain itself in one line of text"
@@ -238,6 +257,8 @@ class TestDragCommitBrowser:
         assert len(after["marked"]) <= 2, "a commit may flash, never multiply"
         page.wait_for_timeout(600)
         cleared = _read(page)
-        assert cleared["marked"] == [], f"indicators must clear after the commit: {cleared['marked']}"
+        assert cleared["marked"] == [], (
+            f"indicators must clear after the commit: {cleared['marked']}"
+        )
         assert cleared["pushed"] == []
         assert errors == []
