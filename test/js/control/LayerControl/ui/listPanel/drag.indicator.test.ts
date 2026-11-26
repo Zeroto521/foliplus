@@ -383,6 +383,23 @@ describe("ui/drag indicator state", () => {
     );
   });
 
+  it("does not press a row across a role boundary", () => {
+    // The role header ends the section: a gap at the edge of a role has no row
+    // on the far side, so nothing is dented — denting the next section's first
+    // row would claim a pressure that never happens.
+    const { ui } = initFixture({
+      data: [...overlays(2), { id: "B0", name: "B0", role: "base" as const }],
+    });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const last = rowOf(ui, "L1");
+    pinRect(last, 100, 36);
+    handleDragOver(ui, dragEvent(last, { dropEffect: "" }, 130));
+    expect(stateOf(last)).toBe(CONST.DRAG_STATE.AFTER);
+    expect(
+      attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_PUSH_ATTR}]`),
+    ).toHaveLength(0);
+  });
+
   it("clears the sunk edge when the gap moves away", () => {
     const { ui } = initFixture({ data: overlays(4) });
     handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
