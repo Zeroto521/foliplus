@@ -565,6 +565,27 @@ describe("LayerUI menu", () => {
       }
     });
 
+    it("teardown disarms a pending confirm and leaves no timer behind", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item);
+      click(deleteLi);
+      expect(
+        deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING),
+      ).toBe(true);
+
+      ui.unbindEvents();
+
+      // The arm timeout is the panel's timer, not a module-level one: its
+      // teardown disposes the owner, so no later tick can walk the confirm
+      // back on a panel that is gone.
+      expect(ui.timers.disposed).toBe(true);
+      expect(ui.timers.names()).toEqual([]);
+      expect(
+        deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING),
+      ).toBe(false);
+    });
+
     it("activateDeleteItem confirms on the first call and fires on the second", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);

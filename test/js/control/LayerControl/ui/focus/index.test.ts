@@ -1051,4 +1051,20 @@ describe("rowNoun group branch (focusLayer hidden path)", () => {
       duration: expect.any(Number),
     });
   });
+
+  describe("focus timers and the panel's timer owner", () => {
+    it("releases the auto-dismiss timer with the panel", () => {
+      vi.useFakeTimers();
+      ui.focusLayer("overlay1");
+      expect(ui.timers.names()).toContain("focus-rect");
+
+      ui.unbindEvents();
+
+      expect(ui.timers.disposed).toBe(true);
+      expect(ui.timers.names()).toEqual([]);
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
+      expect(ui.focusController.focusRect).toBeNull();
+      vi.useRealTimers();
+    });
+  });
 });

@@ -102,7 +102,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
       // blur from re-committing. Enter and blur have no document-level
       // handler to reach, so they tear down immediately.
       if (reason === "escape") {
-        setTimeout(() => finishRename(ui, true), 0);
+        ui.timers.timeout("rename-deferred-teardown", () => finishRename(ui, true), 0);
       } else {
         finishRename(ui, true);
       }

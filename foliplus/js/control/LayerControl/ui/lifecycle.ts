@@ -10,7 +10,6 @@ import {
   applyProjectionAll,
   notifyDelta,
   notifyDeltas,
-  releaseOpacityRedraws,
 } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
@@ -144,7 +143,11 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // runtime). initTypesAndVisibility is idempotent — repeated runs are
   // cheap and converge on the final layer state.
   subscribeControlAttached(ui);
-  setTimeout(() => {
+  // The settle pass is the panel's timer: teardown disposes the owner, so a
+  // detached panel cannot replay the init sequence into a UI it no longer owns.
+  ui.timers.timeout(
+    "settle-pass",
+    () => {
     if (!ui.uiContainer?.isConnected) return;
     const replayed = ui.initTypesAndVisibility();
     // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
@@ -159,7 +162,9 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
     // carry extra flips the outer one could not have known about.
     markSettled(ui);
     notifyDeltas(ui, replayed);
-  }, 0);
+    },
+    0,
+  );
 
   markSettled(ui);
   // The round goes out last: every row is painted, the counts agree with them
@@ -589,7 +594,10 @@ const createTeardownScope = (ui: LayerUI): PanelScope => {
   scope.step("clear-drag-state", () => clearDragState(ui));
   // Timers this UI scheduled (the debounced opacity repaint) must not outlive
   // the panel, even when the container is already gone.
-  scope.step("release-opacity-redraws", () => releaseOpacityRedraws(ui));
+  // Every delayed effect the panel scheduled is dropped here — not run late
+  // against a panel that is being taken apart. After this step a timer
+  // scheduled by a later step is the step's own responsibility.
+  scope.step("release-timers", () => ui.timers.dispose());
   scope.step("unsubscribe-escape", () => {
     ui.unsubscribeEscape?.();
     ui.unsubscribeEscape = null;

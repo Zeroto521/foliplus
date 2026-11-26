@@ -7,7 +7,6 @@ import {
   type ProjectionBatch,
   applyProjection,
   applyProjectionAll,
-  releaseOpacityRedraws,
 } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
@@ -95,7 +94,8 @@ import {
   type LayerInfo,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
-import type { Logger } from "#platform/type.js";
+import { createTimers } from "#platform/timer.js";
+import type { Logger, Timers } from "#platform/type.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:
@@ -126,6 +126,10 @@ class LayerUI implements LayerUISurface {
    *  construction from the runtime env (`env.log`), which is the same
    *  instance the controller holds. */
   log: Logger;
+  /** The panel's timer owner: every delayed effect (settle pass, deferred
+   *  rename teardown, delete-confirm disarm, focus auto-dismiss, opacity
+   *  repaint) is named here, and one teardown step disposes the owner. */
+  readonly timers: Timers;
   /** View subsystem: row layout state (fold, cursor, drag). */
   listPanel: ListPanel;
   /** View subsystem: floating panels (menu / attrs / rename / style). */
@@ -214,6 +218,7 @@ class LayerUI implements LayerUISurface {
     setStyleApplyFailureReporter(failure => {
       this.c.map.foliplus?.onError?.(failure.source, failure.error);
     }, this);
+    this.timers = createTimers();
     this.listPanel = new ListPanel();
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();
@@ -516,12 +521,6 @@ class LayerUI implements LayerUISurface {
    *  standalone teardown. */
   releaseStyleApplies() {
     return releaseStyleApplyOwner(this);
-  }
-  /** Release every debounced opacity repaint this UI scheduled. Scoped to
-   *  this UI; the controller calls it on destroy and unbindEvents on a
-   *  standalone teardown. Idempotent. */
-  releaseOpacityRedraws() {
-    return releaseOpacityRedraws(this);
   }
   /** Spy-sensitive entry point: the CONTROL_ATTACHED re-entry test asserts this
    *  ran, and `vi.spyOn` needs a method on the instance (an imported function
