@@ -364,7 +364,7 @@ describe("ui/list folder rows (render / row structure)", () => {
     expect(block).toContain("justify-self: start");
   });
 
-  it("draws two distinct fold-tree shapes, centred on the rail (issue 5)", () => {
+  it("draws two distinct fold-tree shapes, centered on the rail (issue 5)", () => {
     // --mid is a branch that continues below (├), --last is the elbow that ends
     // it (└). Both used to render the same full-height stem, so the tree had
     // one shape where it needed two. The stem also sat off-centre, so it did

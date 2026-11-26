@@ -1326,7 +1326,7 @@ describe("LayerUI keyboard", () => {
       expect(ui.listPanel.activeIdx).toBe((before as number) - 1);
     });
 
-    it("folded rows are skipped when finding a visible neighbour", () => {
+    it("folded rows are skipped when finding a visible neighbor", () => {
       ui.listPanel.foldedRoles = { [ROLE.OVERLAY]: true };
       const base = findItem(ui, "base1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(base));
@@ -1368,7 +1368,7 @@ describe("LayerUI keyboard", () => {
       expect(showHint).toHaveBeenCalled();
     });
 
-    it("Ctrl+ArrowDown moves the row when a neighbour exists", () => {
+    it("Ctrl+ArrowDown moves the row when a neighbor exists", () => {
       ui.setActiveItem(0);
       const moveLayerDown = vi.spyOn(ui.c, "moveLayerDown").mockReturnValue(true);
       expect(() =>
