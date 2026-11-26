@@ -266,6 +266,43 @@ export const makeDerivedUI = (overrides: Record<string, unknown> = {}): LayerUI 
   }) as unknown as LayerUI;
 };
 
+/** Convert a persisted v2 folder-layout document into the ordered-tree
+ *  arrangement that now drives the panel. The v2 block order (folder keys and
+ *  `layer:<id>` root-layer entries) becomes the role's node sequence; folder
+ *  children are left empty for the controller boot to fill from each layer's
+ *  declared folder. Only the UI fixture needs this — production persists the
+ *  tree directly, and a v2 record is dropped and rebuilt as the default. */
+const v2LayoutToArrangement = (doc: Record<string, unknown>): Record<string, unknown> => {
+  const folders = Array.isArray(doc.folders) ? (doc.folders as Array<{ key: string }>) : [];
+  const folderKeys = new Set(folders.map(f => f.key));
+  const order = (doc.order ?? {}) as Record<string, unknown[]>;
+  const blocks: Record<string, unknown> = {};
+  for (const f of folders) blocks[f.key] = { kind: "folder", key: f.key, name: f.key };
+  const roles: Record<string, unknown[]> = { overlay: [], base: [] };
+  for (const [role, entries] of Object.entries(order)) {
+    if (!roles[role]) roles[role] = [];
+    for (const entry of entries) {
+      const entryKey = String(entry);
+      if (entryKey.startsWith("layer:")) {
+        roles[role].push({ kind: "layer", id: entryKey.slice("layer:".length) });
+      } else if (folderKeys.has(entryKey)) {
+        if (!blocks[entryKey]) blocks[entryKey] = { kind: "folder", key: entryKey, name: entryKey };
+        roles[role].push({ kind: "folder", key: entryKey, children: [] });
+      } else {
+        roles[role].push({ kind: "layer", id: entryKey });
+      }
+    }
+  }
+  // A declared folder the order never listed lands at the role tail (the v2
+  // anchor rule) — overlay by default, since the v2 order may only name one.
+  for (const f of folders) {
+    if (!Object.values(roles).some(roleNodes => roleNodes.some(n => (n as any).key === f.key))) {
+      roles.overlay.push({ kind: "folder", key: f.key, children: [] });
+    }
+  }
+  return { blocks, roles };
+};
+
 const initFixture = (
   options: {
     initialZoom?: number;
@@ -276,6 +313,9 @@ const initFixture = (
     /** The persisted folder-layout document (v2), written under its own storage
      *  key before the manager is constructed. */
     seedLayout?: Record<string, unknown>;
+    /** The persisted ARRANGEMENT (tree) document, written under its own storage
+     *  key before the manager is constructed. */
+    seedArrangement?: Record<string, unknown>;
     /** Runs once the UI shell exists but before attachUI — the point where a
      *  subscriber can catch the attach sweep's notify. */
     beforeAttach?: (manager: LayerController, ui: LayerUI) => void;
@@ -295,6 +335,23 @@ const initFixture = (
     window.localStorage.setItem(
       folderLayoutKey({ getContainer: () => container }),
       JSON.stringify(options.seedLayout),
+    );
+    // The tree is the single order source: a v2 layout seed must also
+    // materialise the same block order as the tree, or the panel renders the
+    // registration order (the v2 order no longer drives anything). The folder
+    // children start empty — the boot's addLeaf fills them from each layer's
+    // declared folder, and an unlisted folder materialises at the role tail.
+    if (!options.seedArrangement) {
+      window.localStorage.setItem(
+        `foliplus_layer_arrangement_${container.id}`,
+        JSON.stringify(v2LayoutToArrangement(options.seedLayout)),
+      );
+    }
+  }
+  if (options.seedArrangement) {
+    window.localStorage.setItem(
+      `foliplus_layer_arrangement_${container.id}`,
+      JSON.stringify(options.seedArrangement),
     );
   }
 
