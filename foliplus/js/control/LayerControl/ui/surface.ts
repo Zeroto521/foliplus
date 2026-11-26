@@ -34,7 +34,7 @@ interface LayerUI {
   // ── env ──
   events: EventBus;
   config: ComponentConfig;
-  T: (key: string) => string;
+  T: (key: string, params?: Record<string, string | number>) => string;
   _: (key: string) => string;
   log: Logger;
 

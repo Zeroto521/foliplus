@@ -260,6 +260,8 @@ const showDragHint = (ui: LayerUI, key: string) => {
   const now = Date.now();
   if (now - ui.listPanel.lastDragHintAt < CONST.DRAG.HINT_COOLDOWN_MS) return;
   ui.listPanel.lastDragHintAt = now;
+  // ui.T takes optional interpolation params; a hint is composed from them in
+  // the translation table, never by joining strings at the call site.
   ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T(key), {
     duration: HINT_DURATION.SHORT,
   });
@@ -431,9 +433,10 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       // header, so a gap drawn between members would name a position the drop
       // never takes.
       if (over.querySelector(CONST.SEL.FOLD_TREE)) {
-        // A member row belongs to its own folder's block: the boundary is at
-        // that block's header, so this row names no reachable gap.
-        refuse("drop_other_group_member");
+        // A member row is inside another block: a folder cannot join a
+        // folder (blocks never nest), so this row names no landing place for a
+        // block drag. That is the one refusal the new rule keeps.
+        refuse("drop_group_into_folder");
         return;
       }
       event.preventDefault();
@@ -572,7 +575,10 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // reorder path (which allows the hover and then silently drops the move).
   const targetFolderKey = ui.c.folderKeyOf(targetId) ?? "";
   if (draggedIsGroup && targetFolderKey) {
-    refuse("drop_other_group_member", false);
+    // A group is a layer, not a container: it cannot join a folder, so a
+    // member row is not a landing place for it even though the same row is a
+    // legal gap for a plain layer (see the gap path below).
+    refuse("drop_group_into_folder", false);
     return;
   }
   // A row of another role is not a gap: an overlay never becomes a base layer,
@@ -582,19 +588,10 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     refuse(targetRole === "base" ? "drop_base_layer" : "same_role_only", true);
     return;
   }
-  // Joining a folder happens on its header row, never between its children: a
-  // member row is inside a block, and a drop there would land somewhere the
-  // gap line does not show.
-  if (
-    targetFolderKey &&
-    targetFolderKey !== (ui.c.folderKeyOf(draggedEntry.id) ?? "")
-  ) {
-    // Another folder's member row: the row is inside a block, and the drop
-    // that would reach it is the block header's.
-    refuse("drop_other_group_member", true);
-    return;
-  }
-
+  // Another folder's member row IS a landing place: the drop adopts that
+  // row's folder and takes the row's position (see handleDrop). So it paints
+  // the same before/after gap as any other row, rather than a refusal — the
+  // gap line means "you land here", and here is a real position.
   if (!ui.c.canReorderBetween(dragged, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
     paintDragState(ui, item, null);
@@ -752,15 +749,14 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // not display names: a renamed folder's name no longer normalises to its key,
   // so a name-keyed move would materialise a second folder under the new name.
   const targetFolder = ui.c.folderKeyOf(targetId!) ?? "";
-  const sourceFolder = ui.c.folderKeyOf(draggedEntry.id) ?? "";
-  // A folder's member rows accept only their own siblings: joining a folder is
-  // done on its header, and the refusal the hover painted must not turn into a
-  // silent re-parenting on drop.
-  if (targetFolder && targetFolder !== sourceFolder) {
-    clearDragState(ui);
-    return;
-  }
-  if (targetFolder !== sourceFolder && !isGroupDrag(ui, draggedEntry.id)) {
+  // The adopt happens before the reorder so the position is resolved against
+  // the folder the layer now belongs to: a member row is a position inside its
+  // own block, which only exists once the layer joined that block. Groups are
+  // excluded — a group is a layer, not a container, and never changes folder.
+  if (
+    targetFolder !== (ui.c.folderKeyOf(draggedEntry.id) ?? "") &&
+    !isGroupDrag(ui, draggedEntry.id)
+  ) {
     ui.c.moveLayerToFolder(draggedEntry.id, targetFolder);
   }
   if (dragged === targetIdx) {

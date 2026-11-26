@@ -64,6 +64,31 @@ describe("createTranslator", () => {
     expect(t("missing.key")).toBe("missing.key");
   });
 
+  it("fills {name} slots from the params and leaves unknown slots alone", () => {
+    // Refusal copy names the folder it refers to, so the translator has to be
+    // the place that fills the name in — never string concatenation at the
+    // call site.
+    const config = {
+      locale_code: "en",
+      locale_tables: {
+        en: {
+          "LayerControl.drop_other_group_member":
+            'To move it into a folder, drop on the "{folder}" title row',
+        },
+      },
+    };
+    const t = createTranslator(config);
+    expect(t("LayerControl.drop_other_group_member", { folder: "Water" })).toBe(
+      'To move it into a folder, drop on the "Water" title row',
+    );
+    // No params: the template comes back untouched, never half-filled.
+    expect(t("LayerControl.drop_other_group_member")).toContain("{folder}");
+    // An unknown slot stays a slot instead of reading "undefined".
+    expect(t("LayerControl.drop_other_group_member", { other: "x" })).toContain(
+      "{folder}",
+    );
+  });
+
   it("auto-detects locale from navigator.language", () => {
     const original = navigator.language;
     Object.defineProperty(navigator, "language", {

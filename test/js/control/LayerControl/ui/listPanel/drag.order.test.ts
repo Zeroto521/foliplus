@@ -284,32 +284,24 @@ describe("block-order gap drop", () => {
   });
 });
 
-describe("a folder's member rows accept only their own siblings", () => {
-  it("refuses to re-parent a root layer onto another folder's member row", () => {
+describe("a member row adopts the folder it lands in", () => {
+  it("moves a root layer into another folder between its members", () => {
+    // A non-empty folder is reachable two ways: its header (join = append) and
+    // any of its member rows (join + that member's position). Both are real
+    // destinations, so both paint the gap and both commit.
     const { manager, ui } = folderFixture(["a", "b"]);
     manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
     const member = rowOf(ui, "b1");
-    member.getBoundingClientRect = () =>
-      ({
-        top: 100,
-        height: 36,
-        bottom: 136,
-        left: 0,
-        right: 0,
-        width: 0,
-        x: 0,
-        y: 100,
-        toJSON: () => ({}),
-      }) as DOMRect;
+    pinRect(member, 100, 36);
 
     handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
-    handleDrop(ui, dragEvent(member, {}, 118));
+    handleDrop(ui, dragEvent(member, {}, 130));
 
-    // Joining a folder is done on its header row: a drop between its members
-    // has no position the gap line can name, so it must not re-parent — the
-    // hover already refused it, and the drop cannot quietly disagree.
-    expect(manager.folderNameOf("R1")).toBeNull();
+    expect(manager.folderNameOf("R1")).toBe("b");
     expect(ui.listPanel.dragEntry).toBeNull();
+    // Lower half of the row: the layer takes b1's position, after it.
+    const order = ui.c.layers.map(layer => layer.id);
+    expect(order.indexOf("R1")).toBe(order.indexOf("b1") + 1);
   });
 });
 
@@ -421,19 +413,22 @@ describe("drag — the dataTransfer is always optional", () => {
     expect(showHint).toHaveBeenCalled();
   });
 
-  it("refuses a member row dragged onto another folder's member row", () => {
-    // A member row is inside a block: the gap that reaches it is the block
-    // header's, so the drop is named instead of landing between members.
-    const { ui } = folderFixture(["a", "b"]);
-    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
+  it("moves a member row into another folder between its members", () => {
+    // A member row is a position inside its own block, and a legal landing
+    // place for a layer from another block: the drop leaves the old folder,
+    // joins the new one, and keeps the row's position.
+    const { manager, ui } = folderFixture(["a", "b"]);
     const target = rowOf(ui, "b1");
     pinRect(target, 100, 36);
 
     handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
-    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 118));
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 130));
+    expect(target.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.AFTER);
+    handleDrop(ui, dragEvent(target, {}, 130));
 
-    expect(target.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
-    expect(showHint).toHaveBeenCalledTimes(1);
+    expect(manager.folderNameOf("a1")).toBe("b");
+    const order = ui.c.layers.map(layer => layer.id);
+    expect(order.indexOf("a1")).toBe(order.indexOf("b1") + 1);
   });
 
   it("refuses a layer on the other role's folder row without a dataTransfer", () => {

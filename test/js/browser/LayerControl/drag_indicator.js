@@ -155,6 +155,20 @@ arg => {
     lineRows: frames.filter(f => f.hasLine).map(f => f.key),
     visibleRows: frames.filter(f => f.display !== "none").length,
     ids: layers().map(row => row.getAttribute("data-layer-id")),
+    // Row order as the panel paints it, blocks and members included.
+    order: rows().map(pick),
+    members: memberRows().map(row => ({
+      id: row.getAttribute("data-layer-id"),
+      folder: row.getAttribute("data-folder-key"),
+    })),
+    // The persisted layout, read back from storage: "the position survives a
+    // reload" is about the record, not about the DOM that happens to be open.
+    layout: (() => {
+      const key = Object.keys(localStorage).find(k => k.includes("layer_layout"));
+      // The record is a wrapper (version + data): hand back the document.
+      const raw = key ? JSON.parse(localStorage.getItem(key)) : null;
+      return raw && raw.data ? raw.data : raw;
+    })(),
     hint: hint ? hint.textContent.trim() : null,
     tokens: {
       line: token("--foliplus-drag-line"),

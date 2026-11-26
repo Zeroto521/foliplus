@@ -207,8 +207,9 @@ class TestDragIndicatorBrowser:
     def test_refusal_draws_no_geometry(self, browser, tmp_path):
         """A refusal has no line, no ring and no wash — the pointer and hint talk."""
         page, errors = _page(browser, tmp_path)
-        # Roads is a folder; Rivers belongs to Water, so hovering it refuses.
-        _act(page, action="drag", sourceFolder="Roads", targetKind="member", member=1)
+        # An overlay row cannot become a base layer: the base row is a refusal
+        # (a member row is a legal gap now — see the adoption test below).
+        _act(page, action="drag", source=0, targetKind="base")
         snapshot = _read(page)
 
         target = _only(snapshot, "refuse")
@@ -234,6 +235,7 @@ class TestDragIndicatorBrowser:
         assert target["after"]["borderBottomWidth"] == "0px"
         assert snapshot["pushed"] == [], "a refusal presses nothing"
         assert snapshot["hint"], "a refusal must explain itself in one line of text"
+        assert "{folder}" not in snapshot["hint"]
         assert errors == []
 
     def test_reduced_motion_keeps_the_line_still(self, browser, tmp_path):
@@ -255,6 +257,48 @@ class TestDragIndicatorBrowser:
         # the absence of the indicator.
         assert target["after"]["borderBottomWidth"] == "2px"
         assert target["after"]["content"] != "none"
+        assert errors == []
+
+    def test_member_row_adopts_its_folder_and_persists(self, browser, tmp_path):
+        """A non-empty folder is reachable from its member rows, and it sticks."""
+        page, errors = _page(browser, tmp_path)
+        before = _read(page)
+        source_id = before["ids"][0]
+
+        _act(page, action="drop", source=0, targetKind="member", member=0)
+        page.wait_for_timeout(600)
+        after = _read(page)
+
+        # Membership is the persisted record's answer, not the DOM's: the layer
+        # joined the folder of the row it landed on...
+        members = after["layout"]["members"]
+        folder = members[source_id]["folder"]
+        assert folder in {"roads", "water"}, members[source_id]
+        # ... at a position inside that block: directly above a sibling member,
+        # after the block header.
+        order = after["order"]
+        index = order.index(source_id)
+        assert index > 0
+        header = order[index - 1]
+        below = order[index + 1]
+        assert header == f"folder:{folder}" or members.get(header, {}).get(
+            "folder"
+        ) == folder, order
+        assert members[below]["folder"] == folder, order
+        assert after["marked"] == []
+
+        # A reload reads the same record: the layer is still inside the folder,
+        # in the same position relative to its new sibling.
+        page.reload()
+        page.wait_for_selector(".foliplus-layer-item", state="attached", timeout=10000)
+        page.evaluate(_js("LayerControl/open_panel"))
+        page.wait_for_timeout(400)
+        reloaded = _read(page)
+        assert reloaded["layout"]["members"][source_id]["folder"] == folder
+        order = reloaded["order"]
+        assert order.index(source_id) == order.index(header) + 1 or order.index(
+            source_id
+        ) == order.index(header) + 2, order
         assert errors == []
 
     def test_folder_drag_uses_the_same_source_rule(self, browser, tmp_path):

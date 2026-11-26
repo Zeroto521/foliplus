@@ -696,10 +696,9 @@ describe("ui/drag indicator state", () => {
     expect(ui.listPanel.lastDragOverItem).toBe(base);
   });
 
-  it("refuses another folder's member row", () => {
-    // Joining a folder happens on its header row: a member row is inside
-    // another block, so a gap drawn there would name a position the drop never
-    // takes.
+  it("marks another folder's member row as a gap", () => {
+    // The row is a real position — the drop adopts its folder — so the
+    // indicator is the same before/after gap as on any other row.
     const { ui } = folderFixture(["a", "b"]);
     handleDragStart(ui, dragEvent(rowOf(ui, "b1"), { effectAllowed: "" }));
     const foreign = rowOf(ui, "a1");
@@ -707,7 +706,7 @@ describe("ui/drag indicator state", () => {
 
     handleDragOver(ui, dragEvent(foreign, { dropEffect: "" }, 104));
 
-    expect(stateOf(foreign)).toBe(CONST.DRAG_STATE.REFUSE);
+    expect(stateOf(foreign)).toBe(CONST.DRAG_STATE.BEFORE);
   });
 
   it("folds the dragged block's members for the gesture only", () => {

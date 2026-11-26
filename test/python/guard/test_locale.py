@@ -58,7 +58,7 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     "LayerControl.no_nest",
     # ... and the same parameter carries the target-kind-specific refusals.
     "LayerControl.drop_group_row",
-    "LayerControl.drop_other_group_member",
+    "LayerControl.drop_group_into_folder",
     "LayerControl.drop_base_layer",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
     "LayerControl.type_tile_map",
