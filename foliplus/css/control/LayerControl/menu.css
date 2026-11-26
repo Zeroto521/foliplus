@@ -44,8 +44,11 @@
       display: block;
     }
   }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.foliplus-active .foliplus-layer-more-btn {
+  /* "Any row" means the row identity class, not .foliplus-layer-item: the role
+     header is a row too, and selecting on LAYER_ITEM here left the role ⋮
+     unpainted (black at rest instead of the accent wake a layer row gets). */
+  .foliplus-row:hover .foliplus-layer-more-btn,
+  .foliplus-row.foliplus-active .foliplus-layer-more-btn {
     color: var(--foliplus-accent-primary);
   }
 

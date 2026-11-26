@@ -39,3 +39,15 @@ MARKER_COLOR_KEY = "marker_color"
 #: size for the marker icon. folium's Icon carries a fixed pixel size and
 #: exposes no scaling channel, so this too is a foliplus-only declaration.
 ICON_SIZE_KEY = "icon_size"
+#: The per-layer whole-layer opacity declaration key: a 0-1 number (Leaflet's
+#: opacity unit) the panel's opacity slider starts at and Reset returns to.
+#: folium's ``opacity=`` kwarg is the author's DRAW value; this declaration is
+#: the panel's read-time default, so the two channels never fight.
+OPACITY_KEY = "opacity"
+#: The per-layer icon declaration block key: the icon face's sub-dimensions
+#: (glyph, color, colorOpacity) ride one in-block mapping, the same shape
+#: fill/border use.
+ICON_KEY = "icon"
+#: The per-layer marker declaration block key: the marker face's
+#: sub-dimensions (color, colorOpacity) ride one in-block mapping.
+MARKER_KEY = "marker"

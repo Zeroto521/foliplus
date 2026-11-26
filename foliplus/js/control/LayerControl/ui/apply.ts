@@ -161,21 +161,47 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
  *  converges to the slider's terminal position — no more waiting
  *  for pan/zoom. */
 const OPACITY_REPAINT_DEBOUNCE_MS = 60;
-const pendingRedraws = new WeakMap<LayerInfo, number>();
+/** Pending debounced repaints, scoped per UI. A repaint belongs to the panel
+ *  that scheduled it, so unmounting that panel cancels it; the inner map is
+ *  enumerable so releaseOpacityRedraws can clear the timers, and the outer
+ *  WeakMap keeps a torn-down UI's entry collectable. */
+const pendingRedraws = new WeakMap<
+  LayerUI,
+  Map<LayerInfo, ReturnType<typeof setTimeout>>
+>();
+
 const scheduleOpacityRedraw = (
+  ui: LayerUI,
   layerInfo: LayerInfo,
   mode: "debounce" | "none" = "none",
 ): void => {
   if (mode === "none") return;
-  const prev = pendingRedraws.get(layerInfo);
+  let timers = pendingRedraws.get(ui);
+  if (!timers) {
+    timers = new Map();
+    pendingRedraws.set(ui, timers);
+  }
+  const prev = timers.get(layerInfo);
   if (prev !== undefined) clearTimeout(prev);
-  pendingRedraws.set(
+  timers.set(
     layerInfo,
     setTimeout(() => {
-      pendingRedraws.delete(layerInfo);
+      timers.delete(layerInfo);
       layerInfo.onOpacity?.(getLayerAlpha(layerInfo.canvas));
     }, OPACITY_REPAINT_DEBOUNCE_MS),
   );
+};
+
+/** Cancel every debounced opacity repaint this UI scheduled. Called on
+ *  control destroy and on panel teardown: a removed panel must not paint into
+ *  a canvas it no longer owns. Idempotent, and scoped to this UI — another
+ *  map's in-flight repaints stand. */
+const releaseOpacityRedraws = (ui: LayerUI): void => {
+  const timers = pendingRedraws.get(ui);
+  if (!timers) return;
+  for (const timer of timers.values()) clearTimeout(timer);
+  timers.clear();
+  pendingRedraws.delete(ui);
 };
 
 /** Carrier identity the executor's last write landed on.
@@ -318,7 +344,7 @@ const dispatchStateOp = (
         // canvas and repaints, then clears the CSS so the two never
         // compound.
         layerInfo.canvas.style.opacity = String(value);
-        scheduleOpacityRedraw(layerInfo, repaintMode);
+        scheduleOpacityRedraw(ui, layerInfo, repaintMode);
       }
       layerInfo.opacity = value;
       return false;
@@ -846,4 +872,5 @@ export {
   collectDeltas,
   authorZoomBoundsForLayer,
   NO_DELTA,
+  releaseOpacityRedraws,
 };

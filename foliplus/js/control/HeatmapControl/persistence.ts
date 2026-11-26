@@ -6,6 +6,7 @@ import * as CONST from "./const.js";
 import type { SavedConfig } from "./type.js";
 import { bareFieldName } from "#core/label/index.js";
 import {
+  METHOD as CLASSIFY_METHOD,
   CLASS_COUNT,
   type ClassifyMethod,
   isClassifyMethod,
@@ -29,6 +30,15 @@ const LABEL_FORMATS: Record<NumberStyle, true> = {
   comma: true,
   percent: true,
 };
+
+/** Adopt a method name only when it is one of the four the classifier
+ *  implements; anything else falls back to the documented default. The Python
+ *  declaration is typed, so this only fires for a hand-edited config - and
+ *  keeping it here makes the manager's `method` a closed value, which is what
+ *  lets `computeBreaks` reject an unknown name instead of silently running
+ *  the equal split. */
+const resolveClassifyMethod = (value: unknown): ClassifyMethod =>
+  isClassifyMethod(value) ? value : CLASSIFY_METHOD.JENKS;
 
 /** Read one saved record through a runtime schema.
  *
@@ -235,6 +245,7 @@ export {
   clearSavedConfig,
   loadSavedConfig,
   parseSavedConfig,
+  resolveClassifyMethod,
   SAVED_FIELDS,
   saveSavedConfig,
   toSavedConfig,

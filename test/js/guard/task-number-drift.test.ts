@@ -36,6 +36,11 @@ const SKIP_DIR = new Set([
   "coverage",
   ".agents",
   "__pycache__",
+  // Scratch space (notes / tmp / design packets) and sandbox-generated pytest
+  // caches: untracked, not source. The walker also cannot read some of them in
+  // a sandboxed checkout.
+  ".foliplus",
+  ".pytest_cache",
 ]);
 
 function walk(dir: string, out: string[], exts: Set<string>): string[] {

@@ -6,12 +6,7 @@ import { reverseGeocode } from "#core/geocode/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
 import { cssVar } from "#platform/cssvar.js";
 import { buildPopupEl } from "#platform/dom.js";
-import {
-  LAT_LNG_PRECISION,
-  NUMBER_FORMAT,
-  formatLatLng,
-  formatNumber,
-} from "#platform/format.js";
+import { NUMBER_FORMAT, formatLatLng, formatNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 import { BUTTON_CLASS } from "#ui/index.js";
@@ -221,10 +216,6 @@ const recalculateSegments = (
 const pointsToLatLngs = (points: Array<{ lng: number; lat: number }>): L.LatLng[] =>
   points.map(p => L.latLng(p.lat, p.lng));
 
-/** Round a coordinate to the persisted precision, so a dragged pin displays
- *  identically to a freshly placed one (which is rounded on placement). */
-const roundCoord = (n: number): number => parseFloat(n.toFixed(LAT_LNG_PRECISION));
-
 // ── Live coordinate readout ─────────────────────────────────────────
 
 /** A point in the map's display CRS. Accepts both Leaflet's `lat/lng` shape and
@@ -281,7 +272,6 @@ export {
   recalculateSegments,
   readLatLng,
   resetNodeRadiusCache,
-  roundCoord,
   setLabelText,
   getEventTarget,
   geocodeAddress,

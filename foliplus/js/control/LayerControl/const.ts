@@ -114,6 +114,14 @@ const CLASSES = {
   FOLDER_ROW: "foliplus-layer-item-folder",
   /** Folder row name label. */
   FOLDER_LABEL: "foliplus-layer-label-folder",
+  /** The row identity: EVERY row in the panel (layer, folder, group, role) carries
+   *  this class. CSS rules that mean "any row" (the more-btn hover/active wake,
+   *  the drag grip, the interaction recipe) select on it, so a new row kind cannot
+   *  silently miss a rule that was written against LAYER_ITEM alone. The narrow
+   *  LAYER_ITEM class keeps its "a layer row" meaning; anything that genuinely
+   *  means "a data layer row" (not a folder, not the role header) continues to
+   *  select on it. */
+  ROW: "foliplus-row",
   /** Role (section) row container — the overlay/base group header. */
   ROLE_ROW: "foliplus-layer-role",
   /** Tree-line node inside a folder member's rail (static state). */

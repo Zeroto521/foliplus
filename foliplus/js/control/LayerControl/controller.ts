@@ -1,5 +1,9 @@
 import * as CONST from "./const.js";
 import { readDeclaredFilter } from "./declaredFilter.js";
+import {
+  readDeclaredIconColorOpacity,
+  readDeclaredMarkerColorOpacity,
+} from "./declaredParse.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
@@ -339,9 +343,13 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     if (v) return { icon: { color: v.value, colorOpacity: v.opacity } };
     if (!getDimension(DIM.ICON_COLOR)?.gate(ui, id)) return undefined;
     const authorColor = authorIconColor(ui, id);
-    // 100% is the row's default when the author declares no glyph opacity.
+    // The read-time default: the author-declared glyph alpha, else 100%.
+    const layer = ui.c.findLayer(id);
+    const declaredOpacity = layer
+      ? (readDeclaredIconColorOpacity(layer, id).declared ?? 100)
+      : 100;
     return authorColor
-      ? { icon: { color: authorColor, colorOpacity: 100 } }
+      ? { icon: { color: authorColor, colorOpacity: declaredOpacity } }
       : undefined;
   },
   [DIM.MARKER_COLOR]: (ui, id) => {
@@ -354,8 +362,13 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     if (!layer) return undefined;
     // The chassis the map draws: author chassis / declared marker_color /
     // the awesome-markers default — the same resolver the row and apply use.
+    // The opacity is the author-declared chassis alpha, else 100%.
+    const declaredOpacity = readDeclaredMarkerColorOpacity(layer, id).declared ?? 100;
     return {
-      icon: { markerColor: resolveChassisPaint(layer), markerColorOpacity: 100 },
+      icon: {
+        markerColor: resolveChassisPaint(layer),
+        markerColorOpacity: declaredOpacity,
+      },
     };
   },
 };
@@ -467,6 +480,23 @@ class LayerController implements LayerAPI {
    *  dataRevision; a mismatch means the feature set changed and the row
    *  must be rebuilt. */
   private readonly filterFeaturesRev = new Map<string, number>();
+  /** Count cache for the row's feature-count column: layerId -> {count,
+   *  dataVersion}. `dataVersion` is the layer's content version at the time
+   *  the count was computed; a mismatch means the content changed and the
+   *  next read recomputes. Invalidation is single-source: content changes
+   *  (feature add/remove/clear, provider data change) bump the version via
+   *  `bumpCountVersion`; style changes do not, so a style-only repaint reads
+   *  the cached count without re-walking the layer tree. */
+  private readonly countCache = new Map<
+    string,
+    { count: number | null | undefined; dataVersion: number }
+  >();
+  /** Per-layer content version for the count cache. Bumped only by content
+   *  changes (see `bumpCountVersion`), never by style changes. */
+  private readonly countDataVersion = new Map<string, number>();
+  /** Unsubscribe for the count-cache invalidation listener; null until the
+   *  constructor wires it. Cleaned on destroy. */
+  private countChangeOff: (() => void) | null = null;
   /** The icon-replay handler registered on the shared markerIcon module. A
    *  marker icon rebuild swaps the element but not the leaf; this re-applies
    *  the filter hidden class so the DOM class and the leaf-keyed hidden set
@@ -813,6 +843,16 @@ class LayerController implements LayerAPI {
       },
       "internal",
     );
+    // The count cache invalidates on LAYER_ITEM_COUNT_CHANGE — the canonical
+    // "content changed" signal. refreshCount publishes it (a double-bump
+    // is harmless); an external publisher (third-party provider) or a
+    // direct emit also invalidates, so the cache stays single-source on
+    // this event. Style changes never publish it, so they never re-walk.
+    this.countChangeOff = this.events.on(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      ({ id }: { id: string }) => this.bumpCountVersion(id),
+      "internal",
+    );
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerController itself implements LayerAPI, so it becomes the map's API.
@@ -1095,6 +1135,11 @@ class LayerController implements LayerAPI {
   invalidateType(id: string): void {
     const surface = this.surfaceIndex.get(id);
     const layerInfo = this.layerRegistry.get(id);
+    // Content structure changed (feature add/remove/clear): the count cache
+    // must recompute on the next read. invalidateType is the factory's
+    // content-change path, so this is the single source of count invalidation
+    // for structural changes.
+    this.bumpCountVersion(id);
     surface?.invalidate();
     if (layerInfo) layerInfo.type = null;
     // A destroyed manager must not schedule, whatever the id: check this
@@ -1132,6 +1177,30 @@ class LayerController implements LayerAPI {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
     if (layerInfo.role === ROLE.BASE) return undefined;
+    // Count cache: one walk per (layer, content version). A style-only
+    // repaint calls getFeatureCount again with the same dataVersion, so the
+    // cached count is returned without re-walking the layer tree. The cache
+    // is keyed by layerId and validated against the layer's content version
+    // (`countDataVersion`), which only content changes bump.
+    const dataVersion = this.countDataVersion.get(id) ?? 0;
+    const cached = this.countCache.get(id);
+    if (cached?.dataVersion === dataVersion) return cached.count;
+    const count = this.computeFeatureCount(id, layerInfo);
+    // Cache only a real number. An undefined/null count means the layer had
+    // no meaningful count at this moment (content not loaded, no provider,
+    // not a group) — caching it would make a premature read sticky and the
+    // row would keep "no count" after the content arrives without a version
+    // bump. Those reads stay uncached and recompute on each call.
+    if (typeof count === "number") this.countCache.set(id, { count, dataVersion });
+    return count;
+  }
+
+  /** Compute a layer's feature count without the cache. Third-party provider
+   *  wins (Canvas layers need this); the fallback walks the layer tree. */
+  private computeFeatureCount(
+    id: string,
+    layerInfo: LayerInfo,
+  ): number | null | undefined {
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -1154,6 +1223,22 @@ class LayerController implements LayerAPI {
     return undefined;
   }
 
+  /** Bump a layer's content version so the count cache recomputes on the
+   *  next read. Single source of count invalidation: content changes call
+   *  this, style changes never do. */
+  private bumpCountVersion(id: string): void {
+    this.countDataVersion.set(id, (this.countDataVersion.get(id) ?? 0) + 1);
+  }
+
+  /** Drop a layer's count-cache state on unregister. Without this the two
+   *  count maps grow unboundedly in a long session that adds and removes
+   *  layers. Single point of cache removal: unregisterLayer calls this and
+   *  nothing else deletes the entries. */
+  private forgetCount(id: string): void {
+    this.countCache.delete(id);
+    this.countDataVersion.delete(id);
+  }
+
   /** Notify subscribers that a layer's feature count may have changed.
    *  Public API for third-party providers (e.g. Canvas layers whose data
    *  updates independently of LayerController) to trigger an incremental
@@ -1171,6 +1256,10 @@ class LayerController implements LayerAPI {
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.role === ROLE.BASE) return;
+    // Provider-driven data change: the count cache must recompute on the
+    // next read. Same single-source rule as invalidateType — content change
+    // only, never a style change.
+    this.bumpCountVersion(id);
     // Settled: one consumer throwing must not keep the other count listeners
     // (the row repaint, the fill ramp) from seeing the final geometry.
     publish(
@@ -2022,6 +2111,9 @@ class LayerController implements LayerAPI {
     // not answer for a re-registered layer with different data.
     this.filterProbe.delete(id);
     this.filterFeaturesRev.delete(id);
+    // The count cache must not answer for a re-registered layer either, and
+    // a long session of add/remove must not grow the two count maps forever.
+    this.forgetCount(id);
 
     const operation = this.beginOperation();
     // Flush before any fan-out: the registry is already updated, and a
@@ -2356,6 +2448,10 @@ class LayerController implements LayerAPI {
     // 50k layers churned through add/drop would grow these maps).
     this.filterProbe.delete(id);
     this.filterFeaturesRev.delete(id);
+    // A deleted layer's count cache is gone with it; a re-add of the same id
+    // must recompute, and a long session of add/delete must not grow the
+    // two count maps forever.
+    this.forgetCount(id);
 
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);
@@ -3259,6 +3355,9 @@ class LayerController implements LayerAPI {
     this.isDestroyed = true;
     finalize(
       [
+        // A debounced opacity repaint belongs to this UI: cancel it before the
+        // carriers it would touch are torn down (see scheduleOpacityRedraw).
+        ["release-opacity-redraws", () => this.ui?.releaseOpacityRedraws()],
         // Drop every style-apply frame this UI owns before the pieces it might
         // touch go away: the UI's ownership scope dies here, so no trailing
         // frame can outlive the control and no failure can be reported for a
@@ -3273,6 +3372,7 @@ class LayerController implements LayerAPI {
         ],
         ["detach-layerremove", () => this.map.off("layerremove", this.onLayerRemove)],
         ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
+        ["off-count-change", () => this.countChangeOff?.()],
         // Flush before destroy: the writes are debounced at 100ms, wide enough
         // for the control to be removed before the timer fires. unbindEvents
         // also flushes, but it only runs when a panel is attached.
