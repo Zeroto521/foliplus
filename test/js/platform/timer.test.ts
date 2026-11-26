@@ -8,6 +8,7 @@ describe("createTimers", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -86,6 +87,41 @@ describe("createTimers", () => {
 
     expect(fn).toHaveBeenCalledTimes(1);
     expect(timers.names()).toEqual([]);
+  });
+
+  it("releases a pending frame through the frame canceller, not the timeout one", () => {
+    const timers = createTimers();
+    const fn = vi.fn();
+    const cancelFrame = vi.spyOn(globalThis, "cancelAnimationFrame");
+    const cancelTimeout = vi.spyOn(globalThis, "clearTimeout");
+
+    timers.raf("measure", fn);
+    timers.clear("measure");
+
+    // A frame id is not a timeout id: clearing it through clearTimeout is a
+    // silent no-op, so the repaint would land after its owner released it —
+    // exactly the leak this module exists to prevent.
+    expect(cancelTimeout).not.toHaveBeenCalled();
+    expect(cancelFrame).toHaveBeenCalledTimes(1);
+    expect(timers.names()).toEqual([]);
+
+    vi.advanceTimersByTime(100);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it("dispose releases a pending frame through the frame canceller", () => {
+    const timers = createTimers();
+    const fn = vi.fn();
+    const cancelFrame = vi.spyOn(globalThis, "cancelAnimationFrame");
+
+    timers.raf("measure", fn);
+    timers.dispose();
+
+    expect(cancelFrame).toHaveBeenCalledTimes(1);
+    expect(timers.names()).toEqual([]);
+
+    vi.advanceTimersByTime(100);
+    expect(fn).not.toHaveBeenCalled();
   });
 
   it("dispose clears every pending timer and none of them fire", () => {
