@@ -145,6 +145,12 @@ const viewsOf = (file: string): Record<Surface, string> => {
   return views;
 };
 
+// `\bas\s+any\b` also matches `as any[]`, because `any` is followed by a
+// non-word character (`[`) and the boundary holds. That is intended: widening
+// to `any[]` is still a type escape, not a false positive. A legitimate
+// `as any[]` therefore cannot be exempted by loosening this pattern — an
+// exception belongs in an explicit allowance (the mechanism NARROW_CASTS
+// provides for the double assertions), so the next reader can see and count it.
 const BANNED: Array<{ name: string; re: RegExp; surface: Surface }> = [
   { name: "`as any`", re: /\bas\s+any\b/g, surface: "code" },
   { name: "`@ts-ignore`", re: /@ts-ignore/g, surface: "comments" },
@@ -281,6 +287,7 @@ describe("bypass scan teeth", () => {
     expect(countOn("// @ts-ignore\nconst x = y;", TS_DIRECTIVE, "comments")).toBe(1);
     expect(countOn("/* @ts-nocheck */", TS_DIRECTIVE, "comments")).toBe(1);
     expect(countOn('const s = "@ts-ignore";', TS_DIRECTIVE, "comments")).toBe(0);
+    expect(countOn("const re = /@ts-ignore/;", TS_DIRECTIVE, "comments")).toBe(0);
   });
 
   it("ignores a narrow cast described in a comment", () => {
@@ -288,5 +295,14 @@ describe("bypass scan teeth", () => {
       countOn("// narrow it as unknown as Row\nconst x = y;", NARROW_CAST_RE),
     ).toBe(0);
     expect(countOn("const x = y as unknown as Row;", NARROW_CAST_RE)).toBe(1);
+    // A real cast with a trailing comment stays one hit. The second case repeats
+    // the pattern inside the comment, so code that leaked comment text into the
+    // code surface reports two, and a surface swap reports zero.
+    expect(countOn("const x = y as unknown as Row; // narrow ok", NARROW_CAST_RE)).toBe(
+      1,
+    );
+    expect(countOn("const x = y as unknown as Row; // as never", NARROW_CAST_RE)).toBe(
+      1,
+    );
   });
 });
