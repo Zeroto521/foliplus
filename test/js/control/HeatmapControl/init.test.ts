@@ -1,9 +1,12 @@
 // Unit tests for HeatmapControl/init — the init mixin methods.
-import { makeCtrl, makeManager } from "./fixture.js";
+import { installHeatmapGlobals, makeCtrl, makeManager } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { createScopedTranslator } from "#platform/locale.js";
 import * as CONST from "#control/HeatmapControl/const.js";
+import { initMethods } from "#control/HeatmapControl/init.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
+import type { StyleDefaults } from "#control/HeatmapControl/type.js";
 import { rebuildLayerDropdown } from "#control/HeatmapControl/ui.js";
 
 afterEach(() => {
@@ -345,5 +348,125 @@ describe("initScan — single-layer auto-select on first scan only", () => {
 
     expect(m2.selectedLayerId).toBe("lonely");
     expect(renderSpy).toHaveBeenCalled();
+  });
+});
+describe("manager.init — six-phase order and data flow", () => {
+  const PHASES = [
+    "initPersistence",
+    "initStyleDelegation",
+    "initOverlay",
+    "initEventSubscriptions",
+    "initCaches",
+    "initFilterHost",
+  ] as const;
+
+  /** Build a HeatmapManager with all external deps stubbed, WITHOUT running
+   *  init() so the test can install spies before the act. */
+  function makeManagerNoInit() {
+    installHeatmapGlobals();
+    const map = {
+      getContainer: vi.fn(() => {
+        const c = document.createElement("div");
+        c.id = "heatmap-init-test-map";
+        return c;
+      }),
+      getBounds: vi.fn(),
+      getZoom: vi.fn(),
+      on: vi.fn(),
+      off: vi.fn(),
+    };
+    const manager = new HeatmapManager(map, {
+      T: createScopedTranslator(window.CONFIG),
+      log: { warn: () => {}, error: () => {}, debug: () => {}, msg: (m: string) => m },
+    });
+    return { manager, map };
+  }
+
+  it("calls the six init phases in the pinned order", () => {
+    const { manager } = makeManagerNoInit();
+    const calls: string[] = [];
+    // Spies installed BEFORE the act, wrapping the real prototype methods
+    // (callThrough) so the real wiring still runs.
+    for (const name of PHASES) {
+      vi.spyOn(HeatmapManager.prototype, name).mockImplementation(function (
+        this: any,
+        ...args: unknown[]
+      ) {
+        calls.push(name);
+        return (initMethods[name] as any)(this as HeatmapManager, ...args);
+      });
+    }
+
+    manager.init();
+
+    expect(calls).toEqual([
+      "initPersistence",
+      "initStyleDelegation",
+      "initOverlay",
+      "initEventSubscriptions",
+      "initCaches",
+      "initFilterHost",
+    ]);
+  });
+
+  it("passes initStyleDelegation's return value to initOverlay (same object)", () => {
+    const { manager } = makeManagerNoInit();
+    const sentinel = { isSentinel: true } as unknown as StyleDefaults;
+    const styleSpy = vi
+      .spyOn(HeatmapManager.prototype, "initStyleDelegation")
+      .mockImplementation(function (this: any) {
+        return sentinel as never;
+      });
+    const overlaySpy = vi.spyOn(HeatmapManager.prototype, "initOverlay");
+
+    manager.init();
+
+    expect(styleSpy).toHaveBeenCalledTimes(1);
+    expect(overlaySpy).toHaveBeenCalledTimes(1);
+    // initOverlay must receive the EXACT object initStyleDelegation returned —
+    // if the wiring recomputed defaults instead, this reference check fails.
+    expect(overlaySpy.mock.calls[0][0]).toBe(sentinel);
+  });
+
+  it("order test is a real check: a reordered init() body is caught", () => {
+    const { manager } = makeManagerNoInit();
+    const calls: string[] = [];
+    for (const name of PHASES) {
+      vi.spyOn(HeatmapManager.prototype, name).mockImplementation(function (
+        this: any,
+        ...args: unknown[]
+      ) {
+        calls.push(name);
+        return (initMethods[name] as any)(this as HeatmapManager, ...args);
+      });
+    }
+    // Simulate the regression the order test exists to catch: an init() body
+    // that calls initEventSubscriptions before initOverlay. The strict order
+    // assertion must observe the swapped sequence and fail.
+    vi.spyOn(HeatmapManager.prototype, "init").mockImplementation(function (this: any) {
+      this.initPersistence();
+      this.initStyleDelegation();
+      this.initEventSubscriptions();
+      this.initOverlay(this.initStyleDelegation());
+      this.initCaches();
+      this.initFilterHost();
+    });
+
+    manager.init();
+
+    // The swapped body must be observable: the strict order assertion above
+    // (toEqual canonical) would fail on this sequence. The not.toEqual here is
+    // the sensitivity proof, not a second expectation on a fragile order.
+    expect(calls).not.toEqual([
+      "initPersistence",
+      "initStyleDelegation",
+      "initOverlay",
+      "initEventSubscriptions",
+      "initCaches",
+      "initFilterHost",
+    ]);
+    expect(calls[0]).toBe("initPersistence");
+    expect(calls[1]).toBe("initStyleDelegation");
+    expect(calls[2]).toBe("initEventSubscriptions");
   });
 });
