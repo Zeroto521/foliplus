@@ -82,6 +82,25 @@ export type {
   FolderMember,
   FolderLayoutManager,
 } from "./folderLayout.js";
+export {
+  ARRANGEMENT_VERSION,
+  ROLES as ARRANGEMENT_ROLES,
+  anchorOfNode,
+  fromV2,
+  hydrate,
+  projectRows,
+  projectZ,
+} from "./arrangement.js";
+export type {
+  Arrangement,
+  BlockKind,
+  BlockMeta,
+  FolderNode,
+  GroupNode,
+  LayerNode,
+  OrderNode,
+  ResolvedTree,
+} from "./arrangement.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
