@@ -104,23 +104,36 @@ const emptyRoleNodes = (): Record<LayerRole, OrderNode[]> => ({
   [ROLE.BASE]: [],
 });
 
-/** True when a v2 layout pins the layer at its role root: a materialised root
- *  assignment (`folder: ""`), or — when the layout has no entry for the layer —
- *  no author declaration at all. Mirrors `isRootLayer` in folderLayout.ts, the
- *  decision the panel's projection makes. */
-const isRootAssignment = (layout: FolderLayout, info: LayerInfo): boolean => {
-  const assigned = layout.members[info.id];
-  if (assigned !== undefined) return assigned.folder === "";
-  return !info.folder;
+/** Where a v2 layout puts one layer: at its role root, inside a folder, or
+ *  nowhere at all.
+ *
+ *  `dropped` is the degenerate declaration case, and it is spelled out rather
+ *  than folded into `root` because the v2 projection really does drop such a
+ *  layer: a non-root layer whose folder normalises to nothing (a
+ *  whitespace-only declaration) is neither a root layer (the declaration is
+ *  truthy, so `isRootLayer` refuses it) nor a block member (`groupByFolder`
+ *  skips a falsy key) — it renders nowhere. Keeping the third case explicit is
+ *  what makes the tree equivalent instead of quietly "better". */
+type Placement =
+  { kind: "root" } | { kind: "folder"; key: string } | { kind: "dropped" };
+
+/** Classify a declared folder spelling: a normalised key, or `dropped` when it
+ *  normalises to nothing. */
+const placementFrom = (spelling: string): Placement => {
+  const key = normalizeFolderName(spelling);
+  return key === "" ? { kind: "dropped" } : { kind: "folder", key };
 };
 
-/** The layer's effective folder key from a v2 layout: the persisted assignment
- *  when one exists, otherwise the author declaration. `null` means "no folder"
- *  (a materialised root or an absent declaration). Mirrors `folderOf`. */
-const folderKeyOf = (layout: FolderLayout, info: LayerInfo): string | null => {
+/** Resolve one layer's placement: the persisted assignment when the layout has
+ *  one, otherwise the author declaration. Mirrors `isRootLayer` + `folderOf`. */
+const placementOf = (layout: FolderLayout, info: LayerInfo): Placement => {
   const assigned = layout.members[info.id];
-  const folder = assigned !== undefined ? assigned.folder : (info.folder ?? "");
-  return folder === "" ? null : normalizeFolderName(folder);
+  if (assigned !== undefined) {
+    // A materialised root ("") pins the layer at the role root.
+    return assigned.folder === "" ? { kind: "root" } : placementFrom(assigned.folder);
+  }
+  // No declaration at all is a root layer; anything truthy is a folder claim.
+  return info.folder ? placementFrom(info.folder) : { kind: "root" };
 };
 
 /** Append a layer node for every entry, preserving the given order. */
@@ -172,23 +185,22 @@ const fromV2 = (
   };
   const roles = emptyRoleNodes();
   for (const role of ROLES) {
-    const buckets = new Map<string, LayerInfo[]>();
-    const anchorOf = new Map<string, number>();
+    // Bucket per folder key, keeping the FIRST member's registry index as the
+    // block anchor (the position an unlisted block sorts by).
+    const buckets = new Map<string, { at: number; members: LayerInfo[] }>();
     const roots: { at: number; info: LayerInfo }[] = [];
     registryEntries.forEach((info, index) => {
       if (info.role !== role) return;
-      if (isRootAssignment(layout, info)) {
+      const placement = placementOf(layout, info);
+      if (placement.kind === "root") {
         roots.push({ at: index, info });
         return;
       }
-      const key = folderKeyOf(layout, info);
-      if (!key) return;
+      if (placement.kind === "dropped") return;
+      const key = placement.key;
       const bucket = buckets.get(key);
-      if (bucket) bucket.push(info);
-      else {
-        buckets.set(key, [info]);
-        anchorOf.set(key, index);
-      }
+      if (bucket) bucket.members.push(info);
+      else buckets.set(key, { at: index, members: [info] });
       ensureBlock(key);
     });
     const listed = layout.order[role] ?? [];
@@ -213,15 +225,15 @@ const fromV2 = (
       nodes.push({
         kind: "folder",
         key: entry,
-        children: layerNodes(buckets.get(entry) ?? []),
+        children: layerNodes(buckets.get(entry)?.members ?? []),
       });
     }
     const slots: { at: number; node: OrderNode }[] = [];
-    for (const [key, members] of buckets) {
+    for (const [key, bucket] of buckets) {
       if (listedKeys.has(key)) continue;
       slots.push({
-        at: anchorOf.get(key) ?? Number.MAX_SAFE_INTEGER,
-        node: { kind: "folder", key, children: layerNodes(members) },
+        at: bucket.at,
+        node: { kind: "folder", key, children: layerNodes(bucket.members) },
       });
     }
     for (const { at, info } of roots) {
@@ -317,7 +329,7 @@ const hydrate = (
       }
       return out;
     };
-    kept.push(...keep(tree.roles[role] ?? []));
+    kept.push(...keep(tree.roles[role]));
     // Insert the registry's missing layers at their anchor: before the first
     // kept node whose anchor sorts after them.
     registryEntries.forEach((info, index) => {
@@ -361,7 +373,7 @@ const projectRows = (resolved: ResolvedTree, role: LayerRole): string[] => {
       walk(node.children);
     }
   };
-  walk(resolved.roles[role] ?? []);
+  walk(resolved.roles[role]);
   return rows;
 };
 
@@ -382,7 +394,7 @@ const projectZ = (resolved: ResolvedTree): string[] => {
       else walk(node.children);
     }
   };
-  for (const role of ROLES) walk(resolved.roles[role] ?? []);
+  for (const role of ROLES) walk(resolved.roles[role]);
   return ids;
 };
 
