@@ -91,11 +91,15 @@ import {
   fromV2 as arrangementFromV2,
   hydrate as arrangementHydrate,
   projectLayout as arrangementProjectLayout,
+  projectZ as arrangementProjectZ,
   moveEntry as arrangementMoveEntry,
   moveBlock as arrangementMoveBlock,
   addBlock as arrangementAddBlock,
   deleteBlock as arrangementDeleteBlock,
   deleteEmptyBlocks as arrangementDeleteEmptyBlocks,
+  freezeBlockOrder as arrangementFreezeBlockOrder,
+  ensureLayer as arrangementEnsureLayer,
+  dropLeaf as arrangementDropLeaf,
   renameBlock as arrangementRenameBlock,
   leafPosition as arrangementLeafPosition,
   type Arrangement,
@@ -593,7 +597,7 @@ class LayerController implements LayerAPI {
     this.folderLayout.seed(this.layerRegistry.layers);
     // The single order source: migrate the v2 layout (or read a v3 tree) into
     // the arrangement model BEFORE the boot pass derives everything from it.
-    this._arrangement = this.readArrangement();
+    this._arrangement = this.readArrangement(saved.order);
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -1036,14 +1040,18 @@ class LayerController implements LayerAPI {
   /** Read the persisted tree: a v3 record, or the v2 layout migrated in-memory
    *  (fromV2) when no v3 exists yet. A corrupt/unknown record reads as empty.
    *  The v2 layout is NOT written back here — the first user move writes v3. */
-  private readArrangement(): Arrangement {
+  private readArrangement(savedOrder?: readonly string[] | null): Arrangement {
     const v3 = loadVersionedObject<Arrangement>(this.arrangementKey(), {
       version: 3,
-      migrate: raw => (raw as Arrangement) ?? null,
+      migrate: raw => {
+        const tree = raw as Arrangement | null;
+        if (!tree || !tree.roles || !tree.blocks) return null;
+        return tree;
+      },
       name: CONFIG.name,
     });
-    if (v3) return v3;
-    return arrangementFromV2(this.folderLayout.layout, this.layerRegistry.layers);
+    if (v3 && v3.roles && v3.blocks) return v3;
+    return arrangementFromV2(this.folderLayout.layout, this.layerRegistry.layers, savedOrder ?? undefined);
   }
 
   /** Persist the tree as v3 on the debounced writer (coalesces a move batch). */
@@ -1065,8 +1073,59 @@ class LayerController implements LayerAPI {
     const derived = arrangementProjectLayout(resolved);
     // The tree owns persistence (v3); this mirror is read-only (no v2 write).
     this.folderLayout.setDerived(derived);
+    // Block-level display order first, then the EXACT leaf order: projectZ is
+    // the tree's z axis, and the v2 layout's `members` is a map (no intra-folder
+    // sequence), so normalizeGroups alone would leave intra-folder order at the
+    // registry's previous anchor - exactly the user's bug. replace() wins.
     this.layerRegistry.normalizeGroups(derived);
+    const z = arrangementProjectZ(resolved);
+    this.layerRegistry.replace(
+      z.map(id => this.layerRegistry.get(id)).filter((l): l is LayerInfo => l != null),
+    );
     if (opts.persist) this.persistArrangement(next);
+  }
+
+  /** Reconcile the tree with a (re-)registration: hydrate the live registry so
+   *  the layer lands at its anchor (new) or recorded position (re-register),
+   *  then join a declared folder if it has one, then apply the tree so the
+   *  registry and panel follow. Never persists: registration is not a user
+   *  arrangement (the lead's hard rule), only the tree membership changes. */
+  private reconcileArrangement(layerInfo: LayerInfo, folderDeclared?: string): void {
+    // Ensure ONLY this registration in the persisted tree: a re-registration must
+    // return to its recorded parent block and rank, so tree-only nodes (orphans)
+    // are never pruned here — writing back hydrate's projection would permanently
+    // drop a layer that unregistered while an unrelated layer registered. The
+    // projection reads the pruned resolved shape; the persisted tree keeps the
+    // recorded position (see `ensureLayer`).
+    const ensured = arrangementEnsureLayer(
+      this._arrangement,
+      layerInfo.role,
+      layerInfo.id,
+      this.layerRegistry.layers,
+    );
+    // ensureLayer returns the SAME tree when the id is already present (a
+    // tombstone kept after unregister): the recorded slot must win. A NEW tree
+    // means the layer was inserted fresh (a genuinely new member).
+    const isNew = ensured !== this._arrangement;
+    let tree = ensured;
+    if (folderDeclared) {
+      const key = normalizeFolderName(folderDeclared);
+      if (!tree.blocks[key]) {
+        tree = arrangementAddBlock(tree, layerInfo.role, { kind: "folder", key, name: folderDeclared }, null, false);
+      }
+      // A genuinely NEW member joins the TOP of its declared folder (prepend —
+      // the v2 contract: a new layer is drawn on top). A re-registration keeps
+      // its tombstone slot (the recorded position); only a fresh insert is
+      // prepended so the folder's existing members keep their rank.
+      if (isNew) {
+        tree = arrangementMoveEntry(tree, layerInfo.role, layerInfo.id, {
+          kind: "folder",
+          key,
+          index: 0,
+        });
+      }
+    }
+    this.applyTree(tree, { persist: false });
   }
 
   /** Apply a folder-structure move (reorderFolder / moveLayerToFolder /
@@ -1714,6 +1773,12 @@ class LayerController implements LayerAPI {
     // Without it the declaration only reached the layout at init, and a late
     // layer's folder row fell back to the normalised key for its display name.
     this.folderLayout?.seed(this.layerRegistry.layers);
+    // The tree is the single order source: a late registration must land where
+    // the tree puts it (anchor for a new layer, recorded position for a
+    // re-registration), and a late folder declaration must join its folder. The
+    // registry is reordered to the tree's z (projectZ) below so the panel row,
+    // the registry index and the map z all agree — the user's reported bug.
+    this.reconcileArrangement(layerInfo, opts.folder ?? undefined);
     // The commit token reaches the factory inside `registerEntry`, at the
     // registry write point — the only place that knows the entry exists before
     // `materialize()`/pane work can throw. Nothing to forward from here.
@@ -2448,7 +2513,11 @@ class LayerController implements LayerAPI {
     if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the role tail through the tree (the
     // single order source). The block directory entry is written with it.
-    const next = arrangementAddBlock(this._arrangement, role, { kind: "folder", key, name }, null);
+    // Creating a folder FREEZES the current block order first (the v2
+    // contract: materialising a new block lists every block currently in the
+    // role, so a later move between author-declared folders finds both).
+    const frozen = arrangementFreezeBlockOrder(this._arrangement, role);
+    const next = arrangementAddBlock(frozen, role, { kind: "folder", key, name }, null);
     this.applyTree(next, { persist: opts?.persist !== false });
     if (this.ui) this.ui.rebuildAfterLayoutChange();
     // The key travels back: the caller opens the inline rename on the row it
@@ -2469,8 +2538,12 @@ class LayerController implements LayerAPI {
     targetKey: string,
     after: boolean,
   ): boolean {
-    const next = arrangementMoveBlock(this._arrangement, role, key, targetKey, after);
-    if (next === this._arrangement) return false;
+    // Freeze the current block order first (the v2 reorder contract: a move
+    // between author-declared folders whose role order is still empty must
+    // materialise the order before moving, or the target key is not listed).
+    const frozen = arrangementFreezeBlockOrder(this._arrangement, role);
+    const next = arrangementMoveBlock(frozen, role, key, targetKey, after);
+    if (next === frozen) return false;
     this.commitFolderMove(next);
     return true;
   }
@@ -2671,7 +2744,28 @@ class LayerController implements LayerAPI {
    *   otherwise (nothing to forget).
    */
   forgetSavedOrder(id: string): boolean {
-    return this.order.forgetSavedOrder(id);
+    const dropped = this.order.forgetSavedOrder(id);
+    // The tree is the single order source: forgetting a layer's persisted
+    // position must drop its tree slot too, or a re-registration would return
+    // to a position the user explicitly abandoned instead of landing at the
+    // role's top (the v2 "prepend when no stored rank" contract). The id may
+    // already be unregistered (a clear/delete forgets after retiring the row),
+    // so find the leaf by scanning the roles instead of the registry.
+    if (dropped) {
+      let next = this._arrangement;
+      for (const role of [ROLE.OVERLAY, ROLE.BASE]) {
+        const candidate = arrangementDropLeaf(next, role, id);
+        if (candidate !== next) {
+          next = candidate;
+          break;
+        }
+      }
+      if (next !== this._arrangement) {
+        this._arrangement = next;
+        this.applyTree(next, { persist: false });
+      }
+    }
+    return dropped;
   }
 
   /**
@@ -2695,7 +2789,7 @@ class LayerController implements LayerAPI {
    *   stored for this id (nothing to erase is not an error).
    */
   dropPersistedLayerState(id: string): boolean {
-    const orderDropped = this.order.forgetSavedOrder(id);
+    const orderDropped = this.forgetSavedOrder(id);
     const intentDropped = this.ui ? this.ui.dropPersistedLayerState(id) : false;
     if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
     return orderDropped || intentDropped;
