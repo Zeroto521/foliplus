@@ -550,8 +550,10 @@
   /* The row across the gap is nudged, never re-laid out: transform only, so the
      list cannot reflow under the pointer. */
   --foliplus-drag-push-shift: 1px;
-  /* The carried row stays dimmed for the whole gesture. */
-  --foliplus-drag-source-opacity: 0.6;
+  /* The carried row stays dimmed for the whole gesture. Low enough that the
+     rows on either side stay legible — the user judges where the row belongs by
+     the rails above and below it, so its own rail must not compete. */
+  --foliplus-drag-source-opacity: 0.5;
   /* A join target is a row, not a gap: both edges light and the row takes a
      wash light enough to keep the label readable. */
   --foliplus-drag-join-fill: color-mix(

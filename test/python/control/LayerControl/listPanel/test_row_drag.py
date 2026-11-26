@@ -43,11 +43,12 @@ class TestRowDragBrowser(LayerControlBrowserBase):
                 ".foliplus-hint-LayerControl", state="attached", timeout=5000
             )
             hint_text = page.evaluate(_js("LayerControl/read_hint_text"))
-            # The refusal is named by its reason: the target row is a base row,
-            # so the hint says a base layer can only move between base layers
-            # instead of the generic "same section" wording.
-            assert ("base layers can only move" in hint_text.lower()) or (
-                "底图层只能放在底图层之间" in hint_text
+            # The refusal is named by its rule, and base IS a role: the hint
+            # says items move only within one section. A base-specific message
+            # was dropped because it restated the same rule with a second key.
+            assert (
+                "between layers of the same section" in hint_text.lower()
+                or "只能移到同类的图层之间" in hint_text
             )
 
     def test_dragdrop_relocates_only_the_id_match_row(self, browser, tmp_path):
