@@ -388,9 +388,12 @@ describe("manager.init — six-phase order and data flow", () => {
     // Spies installed BEFORE the act, wrapping the real prototype methods
     // (callThrough) so the real wiring still runs.
     for (const name of PHASES) {
-      vi.spyOn(HeatmapManager.prototype, name).mockImplementation(function (this: any) {
+      vi.spyOn(HeatmapManager.prototype, name).mockImplementation(function (
+        this: any,
+        ...args: unknown[]
+      ) {
         calls.push(name);
-        return (initMethods[name] as any)(this as HeatmapManager, ...arguments);
+        return (initMethods[name] as any)(this as HeatmapManager, ...args);
       });
     }
 
@@ -429,9 +432,12 @@ describe("manager.init — six-phase order and data flow", () => {
     const { manager } = makeManagerNoInit();
     const calls: string[] = [];
     for (const name of PHASES) {
-      vi.spyOn(HeatmapManager.prototype, name).mockImplementation(function (this: any) {
+      vi.spyOn(HeatmapManager.prototype, name).mockImplementation(function (
+        this: any,
+        ...args: unknown[]
+      ) {
         calls.push(name);
-        return (initMethods[name] as any)(this as HeatmapManager, ...arguments);
+        return (initMethods[name] as any)(this as HeatmapManager, ...args);
       });
     }
     // Simulate the regression the order test exists to catch: an init() body
