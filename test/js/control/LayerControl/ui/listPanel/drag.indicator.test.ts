@@ -709,6 +709,43 @@ describe("ui/drag indicator state", () => {
     expect(stateOf(foreign)).toBe(CONST.DRAG_STATE.BEFORE);
   });
 
+  it("steps over the folded members when it looks for the row across the gap", () => {
+    // A folder drag folds its members but leaves them in the DOM; the walk that
+    // finds the row on the far side of the gap has to step over them, in both
+    // directions.
+    const { ui } = initFixture({
+      seedLayout: {
+        version: 2,
+        folders: [{ key: "a", name: "a" }],
+        order: { overlay: ["a", "layer:R"] },
+        members: {},
+      },
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay",
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        { id: "R", name: "R", role: "overlay" },
+      ],
+    });
+    const target = rowOf(ui, "R");
+    pinRect(target, 100, 36);
+
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 104));
+
+    // The gap sits above R, so the row it presses is the one above — reached by
+    // walking back over the folded member row, landing on the carried block.
+    expect(stateOf(target)).toBe(CONST.DRAG_STATE.BEFORE);
+    expect(folderRowOf(ui, "a").hasAttribute(CONST.DRAG_PUSH_ATTR)).toBe(false);
+    expect(folderRowOf(ui, "a").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.SOURCE,
+    );
+  });
+
   it("folds the dragged block's members for the gesture only", () => {
     // The dragged block travels as one unit, so its members stop being rows
     // while it moves: they are not drop targets and they would stretch the gap

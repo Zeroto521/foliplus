@@ -42,7 +42,12 @@ const clearDragStateAttr = (ui: LayerUI): void => {
 /** The next row on one side of `row`, skipping role headers and rows the
  *  gesture folded away — the neighbors the gap actually pushes against. */
 const neighborRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null => {
-  let el = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+  // One step in the gesture's direction, taken for the first row and for every
+  // row skipped after it — the walk cannot drift from the direction it started
+  // in, and both directions run the same line.
+  const step = (node: Element): Element | null =>
+    direction < 0 ? node.previousElementSibling : node.nextElementSibling;
+  let el = step(row);
   while (el) {
     // A role header ends the section: the gap at the edge of a role has no row
     // on the far side, and denting the next section's first row would claim a
@@ -55,7 +60,7 @@ const neighborRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null =>
     ) {
       return el;
     }
-    el = direction < 0 ? el.previousElementSibling : el.nextElementSibling;
+    el = step(el);
   }
   // unreachable: the walk stops on a role header in both directions, so it
   // never runs out of siblings; the trailing return is the type's floor.
@@ -590,7 +595,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   }
   // Another folder's member row IS a landing place: the drop adopts that
   // row's folder and takes the row's position (see handleDrop). So it paints
-  // the same before/after gap as any other row, rather than a refusal — the
+  // the same before/after gap as every other row, rather than a refusal — the
   // gap line means "you land here", and here is a real position.
   if (!ui.c.canReorderBetween(dragged, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
