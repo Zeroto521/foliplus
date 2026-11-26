@@ -111,7 +111,7 @@ export { PaneManager } from "./PaneManager.js";
 export { SurfaceIndex } from "./SurfaceIndex.js";
 export { findLayer, isLayerInPanes, paintsAtZoom } from "./capability.js";
 export { getGeometryType, countFeatureGeometry } from "./geometry.js";
-export { setInteractive, suspendMapInteractions } from "./interaction.js";
+export { setInteractive } from "./hitTarget.js";
 export {
   isGroupLayer,
   isGroupRow,

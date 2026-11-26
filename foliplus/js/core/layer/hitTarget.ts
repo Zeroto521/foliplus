@@ -1,9 +1,11 @@
-// core/layer/interaction — turn per-leaf hit targets on or off for one leaf or a whole map.
+// core/layer/hitTarget — who owns a layer's Leaflet hit-target registration.
 //
-// Leaflet registers a layer's hit targets once, at add time, so flipping
-// options.interactive alone leaves them in map._targets. These two helpers own
-// the add/remove half a live toggle needs.
-import { walkLeaf } from "./walkLeaf.js";
+// Leaflet registers a hit target once, at add time (`_addPath` for SVG paths,
+// `_initInteraction` for markers, `onAdd` for overlays), and only the canvas
+// renderer reads `options.interactive` live. setInteractive owns both halves of
+// a live toggle: the option, and the add/remove of the target plus the
+// `leaflet-interactive` cursor class. Flipping the option alone leaves a layer
+// clickable after the UI says it is not.
 import {
   layerElements,
   layerIcon,
@@ -67,43 +69,4 @@ const setInteractive = (layer: L.Layer, interactive: boolean): void => {
   }
 };
 
-/**
- * Suspend interaction on every interactive leaf of a map and return a
- * restore closure. Centralizes the "exclusive map interaction" policy shared
- * by measure modes and export crop selection: while a component owns the map,
- * clicks must fall through to the map instead of firing feature handlers.
- *
- * Only leaves whose options.interactive is currently true are collected and
- * disabled, so the restore closure re-enables exactly those and leaves
- * everything else (tiles, labels, non-interactive previews) untouched.
- *
- * A `skip` predicate lets a caller exempt some leaves (e.g. edit mode keeps
- * its own measurement layers interactive while suspending everything else).
- *
- * @param {L.Map} map - Leaflet map.
- * @param {Function} [skip] - Optional predicate: leaves it returns true for
- *   are left interactive.
- * @returns {Function} Restore closure re-enabling the disabled leaves.
- */
-const suspendMapInteractions = (
-  map: L.Map,
-  skip?: (leaf: L.Layer) => boolean,
-): (() => void) => {
-  const disabled: L.Layer[] = [];
-  map.eachLayer(top => {
-    walkLeaf(top, leaf => {
-      if (skip?.(leaf)) return;
-      const opts = leaf.options as L.LayerOptions & { interactive?: boolean };
-      if (opts?.interactive) disabled.push(leaf);
-    });
-  });
-  disabled.forEach(leaf => setInteractive(leaf, false));
-  return () => disabled.forEach(leaf => setInteractive(leaf, true));
-};
-
-/** Detect the geometry type of a layer tree.
- *  Ignores isLabel leaves — type represents the data geometry, never labels.
- *  @param {L.Layer} layer - Leaflet layer.
- *  @returns {string} Geometry type constant from GEOM_TYPE. */
-
-export { setInteractive, suspendMapInteractions };
+export { setInteractive };

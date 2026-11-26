@@ -1,5 +1,6 @@
-import { stubLayerClasses } from "./layerStub.fixture.js";
+import { stubLayerClasses } from "./layer.fixture.js";
 import { beforeEach, describe, expect, it } from "vitest";
+import geometrySource from "#core/layer/geometry?raw";
 import { countFeatureGeometry, getGeometryType } from "#core/layer/index.js";
 
 beforeEach(stubLayerClasses);
@@ -196,5 +197,13 @@ describe("plain Marker count-vs-icon divergence", () => {
     const group = wrap(marker);
     expect(countFeatureGeometry(group as never)).toBe(1);
     expect(getGeometryType(group as never)).toBe("point");
+  });
+});
+
+// What is worth pinning here is the other half: nothing in this module touches
+// a private field through a double assertion any more.
+describe("source pins", () => {
+  it("layer/geometry.ts: no double assertions left", () => {
+    expect(geometrySource.match(/as unknown as/g)).toBeNull();
   });
 });

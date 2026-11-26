@@ -302,7 +302,7 @@ const findLayer = (map: L.Map, id: string): L.Layer | null => {
 
 /**
  * Build a predicate matching leaves whose `options.pane` is one of `panes`.
- * Used as a `suspendMapInteractions` skip so a component can keep its own
+ * Used as a map-interaction suspension skip so a component can keep its own
  * layers interactive (e.g. edit mode's measurements) while suspending every
  * other layer. The pane list is supplied by the caller, keeping this helper
  * component-agnostic.

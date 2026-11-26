@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import geometrySource from "#core/layer/geometry?raw";
 import {
   countVisibleChildLayers,
   isGroupLayer,
   isGroupRow,
 } from "#core/layer/index.js";
-import interactionSource from "#core/layer/interaction?raw";
 import traverseSource from "#core/layer/traverse?raw";
 
 describe("core/layer traverse: isGroupLayer", () => {
@@ -224,16 +222,10 @@ describe("core/layer traverse: countVisibleChildLayers", () => {
   });
 });
 
-// What is worth pinning here is the other half: nothing in the split modules
-// touches a private field any more.
+// What is worth pinning here is the other half: nothing in this module touches
+// a private field through a double assertion any more.
 describe("source pins", () => {
   it("layer/traverse.ts: no double assertions left", () => {
     expect(traverseSource.match(/as unknown as/g)).toBeNull();
-  });
-  it("layer/geometry.ts: no double assertions left", () => {
-    expect(geometrySource.match(/as unknown as/g)).toBeNull();
-  });
-  it("layer/interaction.ts: no double assertions left", () => {
-    expect(interactionSource.match(/as unknown as/g)).toBeNull();
   });
 });
