@@ -6,6 +6,8 @@ import { vi } from "vitest";
 import { createScopedTranslator, createTranslator } from "#platform/locale.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
+import { EVENTS, type ensureEvents } from "#core/event/index.js";
+import type { LayerFilter } from "#core/layer/index.js";
 
 // Re-export the shared GeoJSON readers so sibling tests import from the
 // control's own fixture module instead of climbing to test/js.
@@ -205,4 +207,59 @@ function makeCtrl(
   };
 }
 
+
+// ── Shared filter fixtures ──────────────────────────────────────────────
+// Moved here from manager.test.ts during the mixin split: the module-level
+// filter/scan helpers the aspect suites all share.
+
+/** A valid numeric-range atom on the fixture's snapshot field. */
+export const RANGE = { kind: "atom", field: "score", op: "between", range: [10, 50] } as LayerFilter;
+/** A different range the user picks themselves. */
+export const USER_RANGE = { kind: "atom", field: "score", op: "between", range: [20, 30] } as LayerFilter;
+/** A populated snapshot so the timing guard (empty = not painted) does not swallow the seed. */
+export const snapshot = (ranges: Record<string, [number, number]> = { score: [0, 100] }) => ({ points: [{ value: ranges.score?.[0] ?? 0 }], numericFields: Object.keys(ranges), ranges }) as any;
+/** Give a manager the inputs seedDeclaredFilter needs without a LayerAPI scan. */
+export const prepare = (manager: any) => { manager.selectedLayerId = "pts"; manager.availableFields = ["score"]; manager.field = ""; manager.cachedSnapshot = snapshot(); manager.getSelectedPoints = vi.fn(() => []) as any; return manager; };
+/** A manager whose source is selected and whose snapshot is already built. */
+export const seedable = (filter: unknown = RANGE) => prepare(makeManager({ filter } as Partial<ComponentConfig>));
+/** The reload path: read the saved record and apply it to a fresh manager. */
+export const reload = (filter: unknown = RANGE) => { const manager = makeManager({ filter } as Partial<ComponentConfig>); const saved = manager.loadSavedConfig(); if (saved) manager.applySavedConfig(saved); return prepare(manager); };
+/** A user write on a source with no declaration of its own. */
+export const userWrite = (manager: any, filter: LayerFilter = USER_RANGE) => { manager.renderHexagons = vi.fn() as any; manager.setFilter(filter); return manager; };
+/** The store-backed filter value for one source (declaration or committed). */
+export const fsGet = (m: any, src: string) => m.filterStore.getFilter(m.layerId, src);
+/** Whether the source carries a filter (committed value or declaration). */
+export const fsHas = (m: any, src: string) => fsGet(m, src) !== undefined;
+/** Count of sources carrying a filter value (committed or declared). */
+export const fsSize = (m: any) => m.filterStore.sources(m.layerId).filter((s: string) => fsGet(m, s) !== undefined).length;
+/** A Marker instance the controller's extractPoints accepts. */
+export const makeMarker = (value: number) => { const marker = new (window.L.Marker as unknown as new () => Record<string, unknown>)(); marker.options = {}; marker.value = value; marker.feature = { properties: {} }; marker.getLatLng = () => ({ lat: 26 + value / 1000, lng: 119 + value / 1000 }); return marker; };
+export const SCAN_DEBOUNCE = 200;
+
+/** A real-enough layer role: the factory patches and walks its children. */
+export class FakeGroup {
+  options: Record<string, unknown> = {};
+  private children = new Set<unknown>();
+  addLayer(layer: unknown): this { this.children.add(layer); return this; }
+  removeLayer(layer: unknown): this { this.children.delete(layer); return this; }
+  clearLayers(): this { this.children.clear(); return this; }
+  hasLayer(layer: unknown): boolean { return this.children.has(layer); }
+  getLayers(): unknown[] { return [...this.children]; }
+  eachLayer(fn: (layer: unknown) => void): void { [...this.children].forEach(fn); }
+}
+/** Set up a manager with a point layer, selected, and points extracted. */
+export function setupWithPoints(m: HeatmapManager, points: Array<{ lat: number; lng: number; value: number; field?: string }>): void {
+  const layerId = "layer1"; m.selectedLayerId = layerId; m.agg = "count"; m.field = ""; m.numClasses = 6; m.method = "jenks"; m.scheme = "Reds"; m.labelShow = false;
+  vi.spyOn(m, "redrawHeatmap").mockImplementation(() => {});
+  m.map = { _container: { clientWidth: 800, clientHeight: 600 }, getZoom: () => 5, getBounds: () => ({ isValid: () => true, contains: () => true }), getContainer: () => ({ clientWidth: 800, clientHeight: 600 }) } as any;
+  m.overlay = { canvas: { style: {} }, ctx: { setTransform: () => {}, clearRect: () => {}, beginPath: () => {}, moveTo: () => {}, lineTo: () => {}, closePath: () => {}, fill: () => {}, stroke: () => {}, fillText: () => {} }, register: vi.fn(), unregister: vi.fn(), setVisible: vi.fn(), hooks: { before: [], after: [] } } as any;
+  m.pointLayers = [{ id: layerId, name: "P", layer: {}, count: points.length }];
+  const markers = points.map((p, i) => ({ _latlng: { lat: p.lat, lng: p.lng }, getLatLng: () => ({ lat: p.lat, lng: p.lng }), options: p.field ? { value: p.value } : {}, value: p.field ? undefined : p.value, feature: { properties: p.field ? { [p.field]: p.value } : {} }, _foliplus_stamp: `m${i}` } as any));
+  vi.spyOn(window.map.foliplus!.LayerAPI!, "extractPoints").mockReturnValue(markers.map(m => ({ lat: m._latlng.lat, lng: m._latlng.lng, marker: m })));
+  (globalThis.h3 as any).latLngToCell = vi.fn((lat: number, lng: number) => `${lat}:${lng}`);
+}
+/** A spy on the manager's own LAYER_FILTER_CHANGE channel. */
+export const watchFilterEvents = (m: HeatmapManager, events: ReturnType<typeof ensureEvents>) => { const spy = vi.fn(); events.on(EVENTS.LAYER_FILTER_CHANGE, spy); return spy; };
+
 export { makeConfig, makeCtrl, makeManager, makeManagerOn, installHeatmapGlobals };
+
