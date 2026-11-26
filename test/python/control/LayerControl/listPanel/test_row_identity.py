@@ -47,6 +47,13 @@ def _rules(css: str) -> list[tuple[str, str]]:
     between the previous `{`, `}` or `;` and its own `{`; declarations run to
     the matching close brace. Comments are stripped first — prose is not a
     selector.
+
+    This is a heuristic, not a parser: it assumes a selector carries no literal
+    `{`, `}` or `;`. That holds for the three sheets this guard reads (row.css,
+    menu.css, control.css — no data-URI, no custom-property value in a
+    selector). A stylesheet that ever puts one there needs a real parser; the
+    failure mode is a garbled selector, which surfaces as a confusing assertion
+    rather than a silent pass.
     """
     text = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     rules: list[tuple[str, str]] = []
@@ -78,7 +85,14 @@ def _has_class(selector: str, class_name: str) -> bool:
     """True when the selector names exactly that class.
 
     A plain substring test would match ".foliplus-row-panel" for
-    ".foliplus-row" — the row panel's own class, which is not a row identity.
+    ".foliplus-row" — the row panel's own class, which is not a row identity —
+    and ".foliplus-layer-toggle-all-extra" for ROLE_COMPOUND. The lookahead
+    rejects a class that continues with a word character or a hyphen.
+
+    No lookbehind for the same reason, and none is needed: every class name the
+    guard compares starts with a dot and the repo namespace prefix
+    (`.foliplus-`), so a "prefix-polluted" class such as `x-foliplus-row` is a
+    different string that never matches. Only trailing growth is a real hazard.
     """
     return re.search(re.escape(class_name) + r"(?![\w-])", selector) is not None
 
@@ -136,6 +150,21 @@ def test_row_level_rules_use_identity_class(path: str):
             )
 
 
+def test_has_class_rejects_a_longer_class_sharing_the_prefix():
+    """The helper both rules lean on must not match by prefix.
+
+    Every rule in this file is only as good as this predicate: a substring test
+    would silently exempt `.foliplus-row-panel` (the panel's own class) or a
+    future `.foliplus-layer-toggle-all-extra` from the invariant.
+    """
+    assert _has_class(ROW, ROW)
+    assert _has_class(f".foliplus-layer-ctrl {ROW}:focus-visible", ROW)
+    assert not _has_class(f"{ROW}-panel", ROW)
+    assert not _has_class(f".foliplus-drag{ROW[1:]}", ROW)
+    assert _has_class(f"{ROLE_COMPOUND}:hover", ROLE_COMPOUND)
+    assert not _has_class(f"{ROLE_COMPOUND}-extra", ROLE_COMPOUND)
+
+
 @pytest.mark.parametrize(
     "path",
     [
@@ -157,7 +186,7 @@ def test_role_header_is_never_relisted_beside_the_identity(path: str):
                 f"{ROLE_COMPOUND} beside it is a second identity path (and an "
                 f":is() specificity inflation for every row): {leg[:140]}"
             )
-        re_listed = [leg for leg in legs if ROLE_COMPOUND in leg]
+        re_listed = [leg for leg in legs if _has_class(leg, ROLE_COMPOUND)]
         assert not re_listed, (
             f"{path}: {ROLE_COMPOUND} is listed as an alternative to "
             f".foliplus-row in one selector list — the role header already "
