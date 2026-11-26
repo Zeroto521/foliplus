@@ -68,6 +68,27 @@ type Persisted = {
   cancel: () => void;
 };
 
+/**
+ * A set of timers with one owner: every timer has a name, and `dispose`
+ * releases the whole set. See platform/timer.
+ */
+interface Timers {
+  /** True once `dispose` ran; scheduling after it is dropped. */
+  readonly disposed: boolean;
+  /** Schedule `fn` once after `ms`; replaces a live timer of the same name. */
+  timeout(name: string, fn: () => void, ms: number): void;
+  /** Schedule `fn` every `ms`; replaces a live timer of the same name. */
+  interval(name: string, fn: () => void, ms: number): void;
+  /** Run `fn` on the next animation frame; replaces a live timer of that name. */
+  raf(name: string, fn: (time: number) => void): void;
+  /** Cancel the named timer and leave the rest live. No-op when not scheduled. */
+  clear(name: string): void;
+  /** Names of the timers still scheduled; a one-shot leaves when it fires. */
+  names(): string[];
+  /** Cancel every timer and refuse later scheduling. Idempotent. */
+  dispose(): void;
+}
+
 type PersistedOpts = {
   save: () => boolean;
   debounceMs?: number;
@@ -85,4 +106,5 @@ export type {
   Persisted,
   PersistedOpts,
   RafLoop,
+  Timers,
 };

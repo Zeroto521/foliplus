@@ -10,6 +10,8 @@ import { type FinalizeStep, finalize } from "#platform/finalize.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
 import { ICON_LOADING } from "#platform/icon.js";
 import { createLogger } from "#platform/log.js";
+import { createTimers } from "#platform/timer.js";
+import type { Timers } from "#platform/type.js";
 
 const log = createLogger("Hint");
 
@@ -44,7 +46,6 @@ const HINT_DURATION = { SHORT: 1200, MEDIUM: 2500, LONG: 4000, PERSIST: 0 };
 
 interface HintEntry {
   element: HTMLElement;
-  timer: ReturnType<typeof setTimeout> | null;
   /** The text the entry currently paints. This — together with `icon` — is the
    *  dedupe source: a caller that pushes its state every apply re-sends the
    *  same pair and must not rebuild the DOM or restart the timer. */
@@ -52,6 +53,11 @@ interface HintEntry {
   /** The icon markup the entry currently paints ("" = no icon). */
   icon: string;
 }
+
+/** The timer name an entry owns: the store key names the hint, so a leak report
+ *  reads `hint:<key>|<slot>` and the teardown can release one hint's timer
+ *  without touching the others. */
+const timerName = (storeKey: string): string => `hint:${storeKey}`;
 
 /** Icon choice for {@link HintManager.set}. Omitted = the key's registered
  *  icon; `"loading"` = the built-in spinner; another string = that registry
@@ -112,10 +118,14 @@ class HintManager {
    *  manager is constructed directly (tests, page-level use). */
   private readonly surfaceScope: HTMLElement | null;
   private readonly detachSurface: () => void;
+  /** Every auto-dismiss timer this manager owns. `destroy` releases the set in
+   *  one call instead of walking the entries and clearing each one. */
+  private readonly timers: Timers;
 
   constructor(surfaceScope: HTMLElement | null = null) {
     this.hintIcons = { ...hintIconRegistry };
     this.hintMap = new Map();
+    this.timers = createTimers();
     this.surfaceScope = surfaceScope;
     // When a covering surface activates (native fullscreen or pseudo-fullscreen,
     // see platform/fullscreen.ts), only that surface's subtree is visible — hints
@@ -211,17 +221,16 @@ class HintManager {
       text,
     );
     if (previous) {
-      if (previous.timer) clearTimeout(previous.timer);
+      this.timers.clear(timerName(storeKey));
       // Replace in place so a re-rendered slot keeps its stack position.
       if (previous.element.parentElement) previous.element.replaceWith(el);
     }
     anchorRelative(hintTarget);
-    this.hintMap.set(storeKey, { element: el, timer: null, text, icon: iconMarkup });
+    this.hintMap.set(storeKey, { element: el, text, icon: iconMarkup });
     this.repositionHints();
 
     if (duration !== 0) {
-      const entry = this.hintMap.get(storeKey)!;
-      entry.timer = setTimeout(() => this.clear(key, slot), duration);
+      this.timers.timeout(timerName(storeKey), () => this.clear(key, slot), duration);
     }
   }
 
@@ -241,12 +250,12 @@ class HintManager {
     this.repositionHints();
   }
 
-  /** Drop one entry by its store key. Guards a malformed entry (no element or
-   *  timer) so external mutation cannot make teardown throw. */
+  /** Drop one entry by its store key. Guards a malformed entry (no element) so
+   *  external mutation cannot make teardown throw. */
   private dropEntry(storeKey: string) {
     const entry = this.hintMap.get(storeKey);
     if (!entry) return;
-    if (entry.timer) clearTimeout(entry.timer);
+    this.timers.clear(timerName(storeKey));
     if (entry.element) entry.element.remove();
     this.hintMap.delete(storeKey);
   }
@@ -262,18 +271,25 @@ class HintManager {
 
   destroy() {
     // One named step per hint, so a single unremovable node cannot strand the
-    // listener below or leave this manager in the module-level active set.
+    // listener below or leave this manager in the module-level active set. The
+    // timers come out as one step: they are a single owned set, so releasing
+    // them cannot be partial and does not need a step per entry.
     const steps: FinalizeStep[] = [...this.hintMap].map(
       ([key, entry]): FinalizeStep => [
         `hint:${key}`,
         () => {
-          if (entry.timer) clearTimeout(entry.timer);
           if (entry.element) entry.element.remove();
         },
       ],
     );
     finalize(
       [
+        [
+          "timers",
+          () => {
+            this.timers.dispose();
+          },
+        ],
         ...steps,
         [
           "detach-surface",

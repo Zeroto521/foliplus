@@ -57,6 +57,7 @@
   "platform/rafLoop",
   "platform/storage",
   "platform/throttle",
+  "platform/timer",
   "platform/type",
   "ui/buttonClassName",
   "ui/canvasLabel",

@@ -1,6 +1,7 @@
 import { makeManager } from "./fixture.js";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
+import { HINT_DURATION } from "#core/overlay/index.js";
 import * as downloadMod from "#platform/download.js";
 import { canvasToBlob } from "#control/ExportControl/manager.js";
 import { ExportRenderer } from "#control/ExportControl/renderer/index.js";
@@ -668,5 +669,62 @@ describe("sessionMethods — download paths", () => {
 
     canvas.toBlob = vi.fn(cb => cb(null));
     expect(await canvasToBlob(canvas, "image/png")).toBeNull();
+  });
+});
+
+// The preview outlives the export that produced it, so its auto-dismiss is the
+// one timer the manager schedules long after the pipeline has ended. Owning it
+// on the manager (rather than a bare setTimeout) is what lets a destroyed
+// control release it instead of letting it fire into a dead instance.
+describe("sessionMethods — preview auto-dismiss timer", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    document.body
+      .querySelectorAll("img.foliplus-export-preview")
+      .forEach(el => el.remove());
+    vi.useRealTimers();
+  });
+
+  it("registers the dismissal as one named timer", () => {
+    const manager = makeManager();
+    const before = document.body.querySelectorAll("img.foliplus-export-preview").length;
+
+    manager.showPreview(new Blob(["png"], { type: "image/png" }));
+
+    expect(document.body.querySelectorAll("img.foliplus-export-preview").length).toBe(
+      before + 1,
+    );
+    expect(manager.timers.names()).toEqual(["preview"]);
+  });
+
+  it("dismisses the preview after the short hint duration", () => {
+    const manager = makeManager();
+    manager.showPreview(new Blob(["png"], { type: "image/png" }));
+    const before = document.body.querySelectorAll("img.foliplus-export-preview").length;
+
+    vi.advanceTimersByTime(HINT_DURATION.SHORT);
+
+    expect(document.body.querySelectorAll("img.foliplus-export-preview").length).toBe(
+      before - 1,
+    );
+    expect(manager.timers.names()).toEqual([]);
+  });
+
+  it("does not fire once the manager released its timers", () => {
+    const manager = makeManager();
+    manager.showPreview(new Blob(["png"], { type: "image/png" }));
+    const before = document.body.querySelectorAll("img.foliplus-export-preview").length;
+
+    // What destroy() does: the control is gone, so its pending effects are too.
+    manager.timers.dispose();
+    vi.advanceTimersByTime(HINT_DURATION.SHORT * 2);
+
+    expect(document.body.querySelectorAll("img.foliplus-export-preview").length).toBe(
+      before,
+    );
+    expect(manager.timers.names()).toEqual([]);
   });
 });
