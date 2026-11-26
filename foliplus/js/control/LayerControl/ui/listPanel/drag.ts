@@ -57,8 +57,9 @@ const neighborRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null =>
     }
     el = direction < 0 ? el.previousElementSibling : el.nextElementSibling;
   }
-  /* v8 ignore next -- the walk is bounded by a role header on both sides, so the
-     loop always stops on one; the trailing return is the type's floor. */
+  // unreachable: the walk stops on a role header in both directions, so it
+  // never runs out of siblings; the trailing return is the type's floor.
+  /* v8 ignore next */
   return null;
 };
 
@@ -103,11 +104,7 @@ const paintDragState = (ui: LayerUI, row: HTMLElement, state: string | null): vo
  *  when the gesture ends. The folder's own header row stays in the DOM, so the
  *  native drag is never cancelled. */
 const foldDraggedBlock = (ui: LayerUI, folderKey: string): void => {
-  const container = ui.uiContainer;
-  /* v8 ignore next -- the fold runs inside a live gesture, and a gesture only
-     starts from the mounted panel it then walks. */
-  if (!container) return;
-  container.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM).forEach(row => {
+  ui.uiContainer?.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM).forEach(row => {
     if (row.getAttribute(CONST.DATA.FOLDER_KEY)) return;
     const id = row.getAttribute(CONST.DATA.LAYER_ID);
     if (!id || (ui.c.folderKeyOf(id) ?? "") !== folderKey) return;
@@ -236,9 +233,9 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     foldDraggedBlock(ui, folderKey);
     // No rebuild here. The row is the drag source, and replacing it mid-gesture
     // cancels the native drag — the browser drops a source that left the DOM,
-    // which is why a folder could not be dragged at all. The block still
-    // travels as one unit: the drop commits the layout's block order, not the
-    // members' positions, so the members do not need to be folded away.
+    // which is why a folder could not be dragged at all. The members are folded
+    // through the attribute, not through a render: the source row stays, the
+    // rows around it compact, and the drop still commits block order.
     setDragState(item, CONST.DRAG_STATE.SOURCE);
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
     return;
@@ -314,13 +311,15 @@ const blockEntryOfRow = (row: HTMLElement): string | null => {
   while (prev) {
     const key = prev.getAttribute(CONST.DATA.FOLDER_KEY);
     if (key) return key;
-    /* v8 ignore next -- a member row always follows its folder header, so the
-       walk finds a key before reaching the section boundary. */
+    // unreachable: a member row always follows its folder header, so the walk
+    // finds a key before it can reach the section boundary above it.
+    /* v8 ignore next */
     if (prev.classList.contains(CONST.CLASSES.ROLE_ROW)) break;
     prev = prev.previousElementSibling as HTMLElement | null;
   }
-  /* v8 ignore next -- unreachable while a folder header precedes its member;
-     kept as the fallback for a hand-built row list. */
+  // unreachable: every member row follows a folder header, so the loop above
+  // always returns; the fallback covers a hand-built row list only.
+  /* v8 ignore next */
   return rootLayerEntry(id);
 };
 
@@ -408,9 +407,6 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         refuse("same_role_only");
         return;
       }
-      /* v8 ignore next -- every row reaching here is a layer or folder row; a
-         role header is not a .foliplus-layer-item. */
-      if (!overId) return;
       const entry = blockEntryOfRow(over);
       const overRole = ui.c.layerRegistry.get(overId)?.role;
       if (entry === draggedFolder.key) return; // its own block: no-op
