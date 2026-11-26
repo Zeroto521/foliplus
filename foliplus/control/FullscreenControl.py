@@ -19,17 +19,10 @@ class FullscreenControl(BaseControl):
 
     hide_self : bool, default True
         Whether to hide the fullscreen button itself after entering fullscreen.
-        Users can exit via the ``Esc`` key. Only the fullscreen button is
-        hidden: the bar's zoom buttons stay visible, so the map can still be
-        zoomed while fullscreen.
+        Users can exit via the ``Esc`` key.
 
     hide_others : bool, default True
         Whether to hide other map controls after entering fullscreen.
-
-    .. note::
-        The map's own Leaflet zoom control is left untouched: this control does
-        not replace, copy or remove it. While fullscreen, ``hide_others`` hides
-        it like every other control, while the bar's own zoom buttons remain.
 
     locale : str or LocaleConfig, optional
         Language code ("en", "zh") or a LocaleConfig instance.

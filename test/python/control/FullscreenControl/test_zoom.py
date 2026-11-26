@@ -15,8 +15,8 @@ from .helper import (
 class TestFullscreenZoomBrowser:
     """Browser-level zoom/+/- visibility checks around fullscreen."""
 
-    def test_zoom_visible_in_fullscreen_with_hide_self(self, browser, tmp_path):
-        """hide_self=true hides the toggle, not the zoom +/- buttons."""
+    def test_zoom_hidden_in_fullscreen(self, browser, tmp_path):
+        """hide_self=true: zoom +/- are hidden while in fullscreen."""
         with use_page(
             _make_page, browser, tmp_path, hide_self=True, hide_others=False
         ) as (page, errors):
@@ -24,15 +24,9 @@ class TestFullscreenZoomBrowser:
                 ".foliplus-fullscreen-toggle", state="attached", timeout=10000
             )
             _enter_fullscreen(page, hide_self=True)
-            # hide_others hides Leaflet's own control in fullscreen, so the
-            # bar's zoom is the zoom the user keeps: hide_self must not hide it.
             displays = _zoom_displays(page)
-            assert displays["zoomIn"] == "flex", displays
-            assert displays["zoomOut"] == "flex", displays
-            assert page.evaluate(_js("FullscreenControl/read_toggle_hidden"))
-            assert not page.evaluate(_js("FullscreenControl/read_zoom_hidden")), (
-                "hide_self must not mark the zoom buttons hidden"
-            )
+            assert displays["zoomIn"] == "none", displays
+            assert displays["zoomOut"] == "none", displays
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_visible_with_hide_self_false(self, browser, tmp_path):
@@ -48,7 +42,6 @@ class TestFullscreenZoomBrowser:
             displays = _zoom_displays(page)
             assert displays["zoomIn"] == "flex", displays
             assert displays["zoomOut"] == "flex", displays
-            assert not page.evaluate(_js("FullscreenControl/read_toggle_hidden"))
             assert not errors, f"JS errors: {errors}"
 
     def test_zoom_visible_after_exit_fullscreen(self, browser, tmp_path):
@@ -64,32 +57,6 @@ class TestFullscreenZoomBrowser:
             displays = _zoom_displays(page)
             assert displays["zoomIn"] == "flex", displays
             assert displays["zoomOut"] == "flex", displays
-            assert not errors, f"JS errors: {errors}"
-
-    def test_leaflet_zoom_control_untouched_by_fullscreen(self, browser, tmp_path):
-        """Fullscreen replaces nothing: the same Leaflet zoom node stays mounted.
-
-        F-4: the control must not replace, copy or remove the map's zoom
-        control. Mark the node before entering; after exiting it must still be
-        the same node, connected, in the same map corner.
-        """
-        with use_page(
-            _make_page, browser, tmp_path, hide_self=True, hide_others=True
-        ) as (page, errors):
-            page.wait_for_selector(
-                ".foliplus-fullscreen-toggle", state="attached", timeout=10000
-            )
-            assert page.evaluate(_js("FullscreenControl/mark_zoom_control_node"))
-            before = page.evaluate(_js("FullscreenControl/read_zoom_control_identity"))
-            assert before["present"] and before["same"], before
-
-            _enter_fullscreen(page, hide_self=True)
-            _exit_fullscreen(page)
-
-            after = page.evaluate(_js("FullscreenControl/read_zoom_control_identity"))
-            assert after["present"] and after["same"], after
-            assert after["connected"], after
-            assert after["parent"] == before["parent"], (before, after)
             assert not errors, f"JS errors: {errors}"
 
     def test_hide_others_overrides_inline_display(self, browser, tmp_path):

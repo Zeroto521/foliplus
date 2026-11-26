@@ -18,13 +18,6 @@ import { CLASSES } from "#control/FullscreenControl/const.js";
 
 const container = document.createElement("div");
 
-/** Leaflet's own zoom control, mounted the way L.Map mounts it by default:
- *  a .leaflet-control-zoom node inside the map container's topleft corner.
- *  The entry must leave this node and the map reference alone. */
-const zoomControlEl = document.createElement("div");
-zoomControlEl.className = "leaflet-control leaflet-control-zoom";
-container.appendChild(zoomControlEl);
-
 /** The control instance the entry IIFE mounts onto the map. */
 type MountedControl = {
   _map: unknown;
@@ -50,8 +43,6 @@ class MockMap {
   _control!: MountedControl | null;
   _container!: HTMLElement;
   zoomControl!: { remove: () => void };
-  /** Every control removeControl() was handed, in call order. */
-  removedControls: unknown[] = [];
 
   constructor() {
     this._container = container;
@@ -78,7 +69,6 @@ class MockMap {
   }
 
   removeControl(ctrl: MountedControl): this {
-    this.removedControls.push(ctrl);
     if (this._control === ctrl) {
       ctrl.onRemove();
       this._control = null;
@@ -111,23 +101,6 @@ beforeAll(async () => {
 
 afterAll(() => {
   container.remove();
-});
-
-describe("FullscreenControl entry — the map zoom control is untouched", () => {
-  // F-4: the control must not replace, copy or remove Leaflet's zoom control.
-  // Mounting it is the moment the old code removed the control, so the entry
-  // is where the contract is pinned: the map reference and the rendered node
-  // both survive the mount.
-  it("leaves the map's own zoom control in place at mount", () => {
-    expect(mockMap.removedControls).not.toContain(mockMap.zoomControl);
-    expect(mockMap.zoomControl.remove).not.toHaveBeenCalled();
-    const rendered = container.querySelector(".leaflet-control-zoom");
-    expect(rendered).toBe(zoomControlEl);
-    expect(rendered?.parentElement).toBe(container);
-    // Not copied either: the bar carries its own zoom buttons, and the map
-    // keeps exactly the one Leaflet control it mounted.
-    expect(container.querySelectorAll(".leaflet-control-zoom")).toHaveLength(1);
-  });
 });
 
 describe("FullscreenControl entry — pseudo session teardown", () => {

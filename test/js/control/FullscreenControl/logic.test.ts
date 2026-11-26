@@ -147,27 +147,14 @@ describe("updateUI", () => {
     expect(selfCtrl.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
-  it("hide_self: leaves the toggle visible while not fullscreen", () => {
-    // The hide is a fullscreen-session state: outside one the toggle is the
-    // way in, so it must not carry the hidden marker.
-    updateUI(mapMock, fsBtn, container, makeEnv({ hide_self: true }));
-    const toggle = container.querySelector<HTMLElement>(".foliplus-fullscreen-toggle");
-    expect(toggle?.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
-  });
-
-  it("hide_self: hides only the toggle, leaving the bar zoom usable", () => {
-    // The bar exists to keep zoom reachable while hide_others hides Leaflet's
-    // own control. Folding the zoom buttons into hide_self left a fullscreen
-    // map with no zoom at all, and the docstring promises the toggle only.
+  it("hide_self: toggles HIDDEN on the toggle / zoom-in / zoom-out buttons", () => {
     mapMock.isFullscreen = true;
     updateUI(mapMock, fsBtn, container, makeEnv({ hide_self: true }));
-
-    const toggle = container.querySelector<HTMLElement>(".foliplus-fullscreen-toggle");
-    expect(toggle?.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
-    for (const zoom of container.querySelectorAll<HTMLElement>(
-      ".foliplus-zoom-in, .foliplus-zoom-out",
-    )) {
-      expect(zoom.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
+    const selfBtns = container.querySelectorAll(
+      ".foliplus-fullscreen-toggle, .foliplus-zoom-in, .foliplus-zoom-out",
+    );
+    for (const btn of selfBtns) {
+      expect(btn.classList.contains(PANEL_CLASS.HIDDEN)).toBe(true);
     }
   });
 

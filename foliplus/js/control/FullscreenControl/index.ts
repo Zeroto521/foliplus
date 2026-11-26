@@ -17,10 +17,12 @@ const FullscreenControl = defineControl({
   icon: SVGs.ICON_MAXIMIZE,
   setup: () => ensureHint(map),
   buildDOM(this: any) {
-    // The map's own zoom control is left alone: the bar's buttons cover zoom
-    // in fullscreen (hide_others hides Leaflet's control there), and the page
-    // keeps the zoom control it configured outside it. This control never
-    // replaces, copies or removes it.
+    if (map.zoomControl) map.removeControl(map.zoomControl);
+    else {
+      const zoomEl = map.getContainer().querySelector(".leaflet-control-zoom");
+      if (zoomEl) zoomEl.remove();
+    }
+
     const outer = dom.el("div", {
       class: "leaflet-bar leaflet-control",
       id: containerId(this.config.name, this.config.position as string),

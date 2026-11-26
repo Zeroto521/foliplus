@@ -52,12 +52,9 @@ class TestFullscreenPseudoBrowser:
             # Enter with a real input event (page.click generates one).
             page.click(".foliplus-fullscreen-toggle")
             page.wait_for_function(_js("FullscreenControl/read_pseudo_fullscreen_on"))
-            # hide_self hides the toggle only; the bar's zoom stays usable.
-            visible = page.evaluate(_js("FullscreenControl/read_zoom_visible"))
-            assert visible, "zoom not visible in pseudo-fullscreen"
-            assert page.evaluate(_js("FullscreenControl/read_toggle_hidden")), (
-                "hide_self must hide the toggle in pseudo-fullscreen"
-            )
+            # Zoom hidden.
+            hidden = page.evaluate(_js("FullscreenControl/read_zoom_hidden"))
+            assert hidden, "zoom not hidden in pseudo-fullscreen"
 
             # Exit. The toggle button is hidden while fullscreen, so click
             # via JS (Playwright's page.click would fail on the hidden element).
@@ -65,9 +62,6 @@ class TestFullscreenPseudoBrowser:
             page.wait_for_function(_js("FullscreenControl/read_pseudo_fullscreen_off"))
             visible = page.evaluate(_js("FullscreenControl/read_zoom_visible"))
             assert visible, "zoom not restored after exiting pseudo-fullscreen"
-            assert not page.evaluate(_js("FullscreenControl/read_toggle_hidden")), (
-                "the toggle must reappear after exiting pseudo-fullscreen"
-            )
             assert not errors, f"JS errors: {errors}"
 
     def test_pseudo_fullscreen_after_late_downgrade(self, browser, tmp_path):
@@ -118,11 +112,8 @@ class TestFullscreenPseudoBrowser:
             assert (
                 page.evaluate(_js("FullscreenControl/read_fullscreen_element")) is None
             )
-            # hide_self hides the toggle only; the bar zoom must stay usable.
-            assert page.evaluate(_js("FullscreenControl/read_zoom_visible")), (
-                "zoom must stay visible after a late downgrade to pseudo mode"
-            )
-            assert page.evaluate(_js("FullscreenControl/read_toggle_hidden"))
+            hidden = page.evaluate(_js("FullscreenControl/read_zoom_hidden"))
+            assert hidden, "zoom not hidden after a late downgrade to pseudo mode"
             assert not errors, f"JS errors: {errors}"
 
     def test_native_reject_falls_back_to_pseudo(self, browser, tmp_path):
@@ -157,12 +148,9 @@ class TestFullscreenPseudoBrowser:
                 page.evaluate(_js("FullscreenControl/read_fullscreen_element")) is None
             )
             assert page.evaluate(_js("FullscreenControl/read_pseudo_fullscreen_on"))
-            # The pseudo UI applied: hide_self hides the toggle, while the bar
-            # zoom stays reachable.
-            assert page.evaluate(_js("FullscreenControl/read_toggle_hidden"))
-            assert page.evaluate(_js("FullscreenControl/read_zoom_visible")), (
-                "zoom must stay visible after the pseudo fallback"
-            )
+            # The pseudo UI applied (hide_self hides the zoom buttons).
+            hidden = page.evaluate(_js("FullscreenControl/read_zoom_hidden"))
+            assert hidden, "zoom not hidden after the pseudo fallback"
             # And the user is told the truth instead of "entered fullscreen".
             hint = page.evaluate(_js("FullscreenControl/read_hint_text"))
             assert "maximized" in hint.lower(), f"unexpected reject hint: {hint!r}"

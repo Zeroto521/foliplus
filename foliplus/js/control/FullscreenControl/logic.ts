@@ -52,10 +52,9 @@ const updateUI = (
   }
 
   if (config.hide_self) {
-    // Zoom stays: the bar is the only zoom left in fullscreen (hide_others hides
-    // Leaflet's own control), and hide_self is documented as the fullscreen
-    // button itself — hiding the zoom with it left a fullscreen map unzoomable.
-    const selfBtns = container.querySelectorAll(`.${CLASSES.TOGGLE}`);
+    const selfBtns = container.querySelectorAll(
+      `.${CLASSES.TOGGLE}, .${CLASSES.ZOOM_IN}, .${CLASSES.ZOOM_OUT}`,
+    );
     for (const btn of selfBtns) btn.classList.toggle(PANEL_CLASS.HIDDEN, isFull);
   }
 
