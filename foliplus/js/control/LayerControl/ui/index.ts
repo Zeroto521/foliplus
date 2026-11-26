@@ -3,11 +3,7 @@
 import * as CONST from "../const.js";
 import type { LayerController } from "../controller.js";
 import type { LayerIntentStore } from "../domain/index.js";
-import {
-  type ProjectionBatch,
-  applyProjection,
-  applyProjectionAll,
-} from "./apply.js";
+import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { hideSolidBasemap, resetSolidBasemap, showSolidBasemap } from "./color.js";
 import { FocusController, cancelFocus, focusLayer, isFocusing } from "./focus/index.js";
 import { seedAuthorVisible } from "./intent.js";

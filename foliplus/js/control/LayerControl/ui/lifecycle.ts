@@ -148,20 +148,20 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   ui.timers.timeout(
     "settle-pass",
     () => {
-    if (!ui.uiContainer?.isConnected) return;
-    const replayed = ui.initTypesAndVisibility();
-    // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
-    // are added after the control's own script, so that event has already
-    // fired by the time their registry entries exist, and a page with only a
-    // LayerControl would never have its label config applied. Idempotent.
-    ui.applyStyleLabelState();
-    // Second, deliberate settle+notify: this is the compensation round for
-    // late-bound layers (their IDs only resolve once the page's layer globals
-    // exist). The synchronous attach round above already settled and announced
-    // the registry-as-seen; keep the two rounds separate, because this one can
-    // carry extra flips the outer one could not have known about.
-    markSettled(ui);
-    notifyDeltas(ui, replayed);
+      if (!ui.uiContainer?.isConnected) return;
+      const replayed = ui.initTypesAndVisibility();
+      // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
+      // are added after the control's own script, so that event has already
+      // fired by the time their registry entries exist, and a page with only a
+      // LayerControl would never have its label config applied. Idempotent.
+      ui.applyStyleLabelState();
+      // Second, deliberate settle+notify: this is the compensation round for
+      // late-bound layers (their IDs only resolve once the page's layer globals
+      // exist). The synchronous attach round above already settled and announced
+      // the registry-as-seen; keep the two rounds separate, because this one can
+      // carry extra flips the outer one could not have known about.
+      markSettled(ui);
+      notifyDeltas(ui, replayed);
     },
     0,
   );

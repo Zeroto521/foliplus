@@ -570,9 +570,7 @@ describe("LayerUI menu", () => {
       ui.openMoreMenu(item);
       const deleteLi = deleteEntryOf(item);
       click(deleteLi);
-      expect(
-        deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING),
-      ).toBe(true);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
 
       ui.unbindEvents();
 
@@ -581,9 +579,9 @@ describe("LayerUI menu", () => {
       // back on a panel that is gone.
       expect(ui.timers.disposed).toBe(true);
       expect(ui.timers.names()).toEqual([]);
-      expect(
-        deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING),
-      ).toBe(false);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+        false,
+      );
     });
 
     it("activateDeleteItem confirms on the first call and fires on the second", () => {

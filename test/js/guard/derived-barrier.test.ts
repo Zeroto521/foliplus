@@ -39,21 +39,21 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
 }> = [
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 288,
+    line: 284,
     call: "return refreshAllCounts(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 293,
+    line: 289,
     call: "return refreshTreeConnectors(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 403,
+    line: 399,
     call: "return syncToggleAll(this, role);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
