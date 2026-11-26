@@ -564,20 +564,29 @@ class TestLayerControlRendering:
         # A checked row carries .foliplus-active — a persistent checkbox state, not a
         # cursor — and the cursor-only type-icon tint comes from the recipe.
         # The rule lives in the shared row-cell block, so its selector is the
-        # :is() pair (layer row + role header) rather than a bare class.
-        assert (
-            "\.foliplus-active:is(\.foliplus-row, "
-            ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
-            in html
+        # :is() pair (the generic row + the toggle-all header). Read it with a
+        # regex rather than a literal: the compiled form depends on the nesting
+        # context (the .foliplus-layer-ctrl prefix may sit outside the :is() or
+        # be pushed into each branch by the build's flatten), and the minifier
+        # may or may not keep the space after the comma. The regex keys on the
+        # three tokens that must all appear inside the :is() — .foliplus-active,
+        # .foliplus-row, .foliplus-layer-sep.foliplus-layer-toggle-all — in that
+        # order, followed by .foliplus-type-icon-col.
+        act_sel_re = (
+            r"\.foliplus-active:is\("
+            r"[^)]*\.foliplus-row[^)]*"
+            r"\.foliplus-layer-sep\.foliplus-layer-toggle-all"
+            r"\)\s*\.foliplus-type-icon-col"
         )
-        # Read the rule body directly from its selector: the shared row-cell
-        # block emits one rule for both row kinds, so the selector is the
-        # :is() pair and the body is the next {...} after it.
-        act_sel = (
-            "\.foliplus-active:is(\.foliplus-row, "
-            ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
+        act_match = re.search(act_sel_re, html)
+        assert act_match, (
+            "the shared active row-cell rule must cover both the generic row "
+            "and the toggle-all header"
         )
-        act_idx = html.index(act_sel)
+        # Read the rule body directly from the match: the shared row-cell block
+        # emits one rule for both row kinds, so the body is the next {...} after
+        # the selector the regex matched.
+        act_idx = act_match.start()
         act_type = html[act_idx : html.index("}", act_idx)]
         assert "color: var(--foliplus-text-primary)" in act_type, (
             "type icon on active row must be black, not accent"
