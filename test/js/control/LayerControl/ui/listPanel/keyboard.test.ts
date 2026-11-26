@@ -881,7 +881,8 @@ describe("LayerUI keyboard", () => {
     });
   });
 
-  // stopgap: 2a（树模型写入口）落地后删除——那时跨 block 移动会真正落位。
+  // Stopgap: delete once the tree write path lands (2a) — then a step that
+  // crosses a container will actually move.
   // A keyboard reorder is a z-order move; the panel projects folder blocks. A
   // step that crosses a block changes z without a row to move, so the guard
   // refuses it and the rows never disagree with the map.
@@ -970,7 +971,7 @@ describe("LayerUI keyboard", () => {
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "",
-        expect.stringContaining("reorder_same_block"),
+        expect.stringContaining("reorder_same_folder"),
         { duration: HINT_DURATION.SHORT },
       );
       // The refusal is real: the registry (and therefore z, which is priced
@@ -1006,7 +1007,7 @@ describe("LayerUI keyboard", () => {
       expect(hintSpy).toHaveBeenCalledWith(
         "LayerControl",
         "",
-        expect.stringContaining("reorder_same_block"),
+        expect.stringContaining("reorder_same_folder"),
         { duration: HINT_DURATION.SHORT },
       );
       expect(fixture.manager.layers.map(entry => entry.id)).toEqual(before);

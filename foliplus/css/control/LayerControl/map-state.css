@@ -5,10 +5,12 @@
   0%,
   100% {
     border-color: var(--foliplus-drag-line-from);
-    box-shadow: 0 0 0 0 transparent;
+    opacity: var(--foliplus-drag-line-alpha-trough);
+    box-shadow: var(--foliplus-drag-line-glow-trough);
   }
   50% {
     border-color: var(--foliplus-drag-line-to);
+    opacity: 1;
     box-shadow: var(--foliplus-drag-line-glow);
   }
 }

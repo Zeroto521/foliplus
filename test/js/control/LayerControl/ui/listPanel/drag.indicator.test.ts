@@ -187,6 +187,24 @@ describe("ui/drag indicator state", () => {
     });
   });
 
+  it("clears a previous gesture's indicator when a new drag starts", () => {
+    // The user-visible symptom this pins: a drag that ended without a dragend
+    // (an aborted native drag, or a second dragstart arriving first) used to
+    // leave the old target marked, so the list showed two gestures at once.
+    // dropstart must be the reset point, not the first dragover.
+    const { ui } = initFixture({ data: overlays(4) });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const stale = rowOf(ui, "L2");
+    pinRect(stale, 180, 36);
+    handleDragOver(ui, dragEvent(stale, { dropEffect: "" }, 184));
+    expect(targetRows(ui)).toEqual([stale]);
+
+    // A new drag with no dragend in between.
+    handleDragStart(ui, dragEvent(rowOf(ui, "L1"), { effectAllowed: "" }));
+    expect(targetRows(ui)).toHaveLength(0);
+    expect(markedRows(ui)).toHaveLength(1); // only the new carried row
+  });
+
   it("clears the hover state on dragleave and every row on dragend", () => {
     const { ui } = initFixture({ data: overlays(3) });
     handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));

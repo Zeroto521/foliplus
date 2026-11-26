@@ -398,8 +398,9 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         CONST.SEL.LAYER_ITEM,
       ) as HTMLElement | null;
       if (!over) return;
-      // Every refusal below paints the same dashed marker: silence reads as a
-      // broken drag, and a folder that refuses a target must say so.
+      // Every refusal below paints the same thing — nothing on the row. The
+      // absence of the line is the answer; the hint line names the reason, so
+      // a refused target never reads as a broken drag.
       const refuse = (key: string) => {
         paintDragState(ui, over, CONST.DRAG_STATE.REFUSE);
         ui.listPanel.lastDragOverItem = over;
@@ -409,7 +410,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       const overFolder = over.getAttribute(CONST.DATA.FOLDER_KEY);
       // A folder over a group row: the two are different kinds of block.
       if (overId && isGroupDrag(ui, overId)) {
-        refuse("drop_group_row");
+        refuse("drop_group_target");
         return;
       }
       if (overFolder) {
@@ -425,13 +426,13 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       if (!entry) {
         // A role header: it divides sections, so there is no member to land
         // between and no gap for the line to name.
-        refuse("drop_group_row");
+        refuse("drop_group_target");
         return;
       }
       if (overRole !== draggedFolder.role) {
         // A block belongs to one role: the copy names the section the drop
         // would have to cross.
-        refuse(overRole === "base" ? "drop_base_layer" : "same_role_only");
+        refuse("same_role_only");
         return;
       }
       // A member row belongs INSIDE another block: the block boundary is at its
@@ -441,7 +442,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         // A member row is inside another block: a folder cannot join a
         // folder (blocks never nest), so this row names no landing place for a
         // block drag. That is the one refusal the new rule keeps.
-        refuse("drop_group_into_folder");
+        refuse("drop_group_target");
         return;
       }
       event.preventDefault();
@@ -583,14 +584,14 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     // A group is a layer, not a container: it cannot join a folder, so a
     // member row is not a landing place for it even though the same row is a
     // legal gap for a plain layer (see the gap path below).
-    refuse("drop_group_into_folder", false);
+    refuse("drop_group_target", false);
     return;
   }
   // A row of another role is not a gap: an overlay never becomes a base layer,
   // so the drag is refused here instead of ending in a silent no-op.
   const targetRole = ui.c.layerRegistry.get(targetId)?.role;
   if (targetRole && targetRole !== draggedEntry.role) {
-    refuse(targetRole === "base" ? "drop_base_layer" : "same_role_only", true);
+    refuse("same_role_only", true);
     return;
   }
   // Another folder's member row IS a landing place: the drop adopts that

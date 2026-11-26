@@ -504,22 +504,48 @@
      land here" once the line is the only position cue there is. */
   --foliplus-drag-line: var(--foliplus-size-2);
   --foliplus-drag-line-half: calc(var(--foliplus-size-2) / 2);
-  /* The line stops short of both row edges, so it reads as an insertion slot
-     rather than a border on the row. */
-  --foliplus-drag-line-inset: var(--foliplus-size-2);
-  --foliplus-drag-line-radius: 1px;
+  /* The line spans the row's full width, exactly like the row border it
+     replaces (main shipped a border-top on the target row). An inset line
+     looked like a floating slot and left a visible gap at both ends — the eye
+     reads a gap at the end as a rendering miss, not as a design decision. The
+     radius matches the row's own corner so the ends sit flush inside it. */
+  --foliplus-drag-line-inset: 0;
+  --foliplus-drag-line-radius: var(--foliplus-radius-sm);
   --foliplus-drag-line-from: var(--foliplus-accent-primary);
   --foliplus-drag-line-to: var(--foliplus-accent-hover);
-  /* The glow is a 1px halo at half alpha, so the line's painted width stays
-     3px: a 2px line plus 1px of halo. Anything wider reads as a filled band
-     and outweighs the row it points at. */
-  --foliplus-drag-line-glow: 0 0 0 1px
-    color-mix(in srgb, var(--foliplus-accent-primary) 50%, transparent);
+  /* The breathing swing is carried by ALPHA, not by hue. Accent-primary and
+     accent-hover are two neighbouring reds: animating between them moves the
+     line by a few percent of one channel, which reads as a static line that
+     happens to be red. The trough therefore drops the whole line to half
+     alpha and the peak restores it, so the gesture has a rhythm the eye can
+     actually pick up at 60 Hz. */
+  --foliplus-drag-line-alpha-trough: 0.5;
+  /* Two glows, one per end of the pulse: at rest a 1px halo keeps the painted
+     width at 3px (a 2px line plus 1px of halo) — anything wider reads as a
+     filled band and outweighs the row it points at; at the peak the halo opens
+     to a soft 5px bloom so the line "lifts" instead of only changing colour. */
+  --foliplus-drag-line-glow-trough: 0 0 0 1px
+    color-mix(in srgb, var(--foliplus-accent-primary) 30%, transparent);
+  --foliplus-drag-line-glow: 0 0 5px 1px
+    color-mix(in srgb, var(--foliplus-accent-primary) 45%, transparent);
+  /* The row the gap belongs to takes a barely-there accent tint, so the target
+     reads as a row and not only as a floating line. It is painted as a
+     background IMAGE over whatever background-color the row already has, so a
+     checked (washed) row keeps its own fill and gains the tint instead of
+     having one replace the other. */
+  --foliplus-drag-target-wash: color-mix(
+    in srgb,
+    var(--foliplus-accent-primary) 3.5%,
+    transparent
+  );
   /* The insertion line keeps breathing while the pointer rests on it; the
      carried row pulses ONCE on pickup, so "what I am holding" and "where it
      will land" never read as the same thing. */
-  --foliplus-drag-pulse-duration: 1.6s;
-  --foliplus-drag-pulse-pickup: 1;
+  --foliplus-drag-pulse-duration: 1.15s;
+  /* An iteration COUNT, not a duration: the pickup runs exactly once and then
+     the dimmed row holds still, so "the pulse is the acknowledgement, the dim
+     is the state". Named ...-count so it cannot be read as a timing token. */
+  --foliplus-drag-pulse-pickup-count: 1;
   --foliplus-drag-pulse-target: infinite;
   /* The row across the gap is nudged, never re-laid out: transform only, so the
      list cannot reflow under the pointer. */

@@ -318,8 +318,16 @@
       outline: none;
     }
 
+    /* The left rail is the row's OWN state: this layer is checked, so it is on
+       the map. A transient gesture must not erase it — erasing it made a
+       checked row look unchecked exactly while the eye is on it, which is the
+       one moment the "is it on?" answer has to stay readable. It is therefore
+       split out of the wash below and asserted for every drag state. */
+    &.foliplus-active {
+      border-left-color: var(--foliplus-accent-primary);
+    }
     /* The two states that paint their own fill must not also take the checked
-       wash, or a join target shows an 8-10% wash instead of its 4% and a
+       wash, or a join target shows an 8-10% wash instead of its own fill and a
        refusal still looks droppable. Excluding them here — rather than
        re-asserting the fill with more specificity — keeps one source for "who
        paints this row's background". A gap (before/after) keeps the wash: the
@@ -327,7 +335,6 @@
     &.foliplus-active:where(
         :not([data-foliplus-drop="join"]):not([data-foliplus-drop="refuse"])
       ) {
-      border-left-color: var(--foliplus-accent-primary);
       background: var(--foliplus-accent-light);
     }
     /* Declared after .foliplus-active so the interaction target wins over the wash
@@ -491,12 +498,16 @@
       opacity: var(--foliplus-drag-source-opacity);
       cursor: grabbing;
       animation: foliplus-drag-pickup var(--foliplus-drag-pulse-duration) ease-in-out
-        var(--foliplus-drag-pulse-pickup);
+        var(--foliplus-drag-pulse-pickup-count);
     }
     /* Insertion above the row: one breathing accent line, inset from both ends
        so it marks a slot rather than a border. */
     &[data-foliplus-drop="before"] {
       z-index: 1;
+      background-image: linear-gradient(
+        var(--foliplus-drag-target-wash),
+        var(--foliplus-drag-target-wash)
+      );
       &::before {
         content: "";
         position: absolute;
@@ -513,6 +524,10 @@
     /* Insertion below the row: the same line, mirrored. */
     &[data-foliplus-drop="after"] {
       z-index: 1;
+      background-image: linear-gradient(
+        var(--foliplus-drag-target-wash),
+        var(--foliplus-drag-target-wash)
+      );
       &::after {
         content: "";
         position: absolute;

@@ -332,7 +332,8 @@ const CLASSES = {
   STYLE_ICON_COLOR_OPACITY_NUMBER: "foliplus-style-icon-color-opacity-number",
   STYLE_MARKER_COLOR_ROW: "foliplus-style-marker-color-row",
   STYLE_MARKER_COLOR_OPACITY_NUMBER: "foliplus-style-marker-color-opacity-number",
-  /** The icon row's trigger button (shows the current glyph or 「原始」). */
+  /** The icon row's trigger button (shows the current glyph, or the row that
+      resets it back to the author's original). */
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",
   STYLE_ICON_TRIGGER_NAME: "foliplus-style-icon-trigger-name",

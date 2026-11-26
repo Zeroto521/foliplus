@@ -133,7 +133,8 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
 
   if (event.ctrlKey || event.metaKey) {
     const id = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-    // stopgap: 2a（树模型写入口）落地后删除——那时跨 block 移动会真正落位。
+    // Stopgap: delete once the tree write path lands (2a) — then a step that
+    // crosses a container will actually move.
     //
     // A keyboard reorder is a z-order move, while the panel projects folder
     // blocks: a step that crosses into another block changes the map's z-order
@@ -150,7 +151,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     if (event.key === "ArrowUp") {
       event.preventDefault();
       if (crossesBlock(-1)) {
-        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_same_block"), {
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_same_folder"), {
           duration: HINT_DURATION.SHORT,
         });
       } else if (!ui.c.moveLayerUp(id)) {
@@ -161,7 +162,7 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
       if (crossesBlock(1)) {
-        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_same_block"), {
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_same_folder"), {
           duration: HINT_DURATION.SHORT,
         });
       } else if (!ui.c.moveLayerDown(id)) {
