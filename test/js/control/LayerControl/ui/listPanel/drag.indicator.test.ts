@@ -189,7 +189,7 @@ describe("ui/drag indicator state", () => {
     const target = rowOf(ui, "L1");
     pinRect(target, 100, 36);
     handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 130));
-    handleDragLeave(dragEvent(target));
+    handleDragLeave(ui, dragEvent(target));
     expect(targetRows(ui)).toHaveLength(0);
     // The carried row keeps its pickup marker until the gesture ends.
     expect(markedRows(ui)).toHaveLength(1);
@@ -340,8 +340,121 @@ describe("ui/drag indicator state", () => {
     // must not write, so the animation of a neighbouring gap is untouched.
     const { ui } = initFixture({ data: overlays(3) });
     const row = rowOf(ui, "L2");
-    handleDragLeave(dragEvent(row));
+    handleDragLeave(ui, dragEvent(row));
     expect(stateOf(row)).toBeNull();
+  });
+
+  it("sinks the row on the far side of the gap", () => {
+    // The gap line sits on one row, but the insertion PRESSES the row on the
+    // far side: above the gap for BEFORE, below it for AFTER. The marker names
+    // the edge that sinks, and it is derived from the state, never written on
+    // its own.
+    const { ui } = initFixture({ data: overlays(3) });
+    const pushOf = (id: string) => rowOf(ui, id).getAttribute(CONST.DRAG_PUSH_ATTR);
+    const pushedRows = () =>
+      Array.from(
+        attachedPanel(ui).querySelectorAll<HTMLElement>(`[${CONST.DRAG_PUSH_ATTR}]`),
+      );
+
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const lower = rowOf(ui, "L1");
+    pinRect(lower, 100, 36);
+    handleDragOver(ui, dragEvent(lower, { dropEffect: "" }, 130));
+    expect(stateOf(lower)).toBe(CONST.DRAG_STATE.AFTER);
+    // The gap is below L1, so L2 (below the gap) sinks at its top edge.
+    expect(pushOf("L2")).toBe(CONST.DRAG_PUSH.TOP);
+    expect(pushedRows()).toHaveLength(1);
+
+    handleDragEnd(ui);
+    document.body.innerHTML = "";
+
+    const second = initFixture({ data: overlays(3) });
+    handleDragStart(
+      second.ui,
+      dragEvent(rowOf(second.ui, "L2"), { effectAllowed: "" }),
+    );
+    const upper = rowOf(second.ui, "L1");
+    pinRect(upper, 100, 36);
+    handleDragOver(second.ui, dragEvent(upper, { dropEffect: "" }, 104));
+    expect(stateOf(upper)).toBe(CONST.DRAG_STATE.BEFORE);
+    // The gap is above L1, so L0 (above the gap) sinks at its bottom edge.
+    expect(rowOf(second.ui, "L0").getAttribute(CONST.DRAG_PUSH_ATTR)).toBe(
+      CONST.DRAG_PUSH.BOTTOM,
+    );
+  });
+
+  it("clears the sunk edge when the gap moves away", () => {
+    const { ui } = initFixture({ data: overlays(4) });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const first = rowOf(ui, "L1");
+    const second = rowOf(ui, "L2");
+    pinRect(first, 100, 36);
+    pinRect(second, 140, 36);
+
+    handleDragOver(ui, dragEvent(first, { dropEffect: "" }, 130));
+    expect(rowOf(ui, "L2").getAttribute(CONST.DRAG_PUSH_ATTR)).toBe(
+      CONST.DRAG_PUSH.TOP,
+    );
+
+    handleDragOver(ui, dragEvent(second, { dropEffect: "" }, 170));
+    // One gap at a time: the first dent is gone, the new one is painted on the
+    // row below the NEW gap.
+    expect(rowOf(ui, "L2").getAttribute(CONST.DRAG_PUSH_ATTR)).toBeNull();
+    expect(rowOf(ui, "L3").getAttribute(CONST.DRAG_PUSH_ATTR)).toBe(
+      CONST.DRAG_PUSH.TOP,
+    );
+    const marked = attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_PUSH_ATTR}]`);
+    expect(marked).toHaveLength(1);
+
+    handleDragEnd(ui);
+    expect(
+      attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_PUSH_ATTR}]`),
+    ).toHaveLength(0);
+  });
+
+  it("refuses a row of the other role instead of staying silent", () => {
+    // An overlay never becomes a base layer: the row answers with the refusal
+    // marker, because a silent no-op reads as a broken drag.
+    const { ui } = initFixture({
+      data: [...overlays(1), { id: "B0", name: "B0", role: "base" as const }],
+    });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const base = rowOf(ui, "B0");
+
+    handleDragOver(ui, dragEvent(base, { dropEffect: "" }));
+
+    expect(stateOf(base)).toBe(CONST.DRAG_STATE.REFUSE);
+    expect(ui.listPanel.lastDragOverItem).toBe(base);
+  });
+
+  it("refuses another folder's member row", () => {
+    // Joining a folder happens on its header row: a member row is inside
+    // another block, so a gap drawn there would name a position the drop never
+    // takes.
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(rowOf(ui, "b1"), { effectAllowed: "" }));
+    const foreign = rowOf(ui, "a1");
+    pinRect(foreign, 100, 36);
+
+    handleDragOver(ui, dragEvent(foreign, { dropEffect: "" }, 104));
+
+    expect(stateOf(foreign)).toBe(CONST.DRAG_STATE.REFUSE);
+  });
+
+  it("folds the dragged block's members for the gesture only", () => {
+    // The dragged block travels as one unit, so its members stop being rows
+    // while it moves: they are not drop targets and they would stretch the gap
+    // geometry. The fold is session-only — the persisted state never changes.
+    const { ui } = folderFixture(["a", "b"]);
+    const memberA = rowOf(ui, "a1");
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+
+    expect(memberA.hasAttribute(CONST.DRAG_FOLDED_ATTR)).toBe(true);
+    expect(rowOf(ui, "b1").hasAttribute(CONST.DRAG_FOLDED_ATTR)).toBe(false);
+    expect(folderRowOf(ui, "a").hasAttribute(CONST.DRAG_FOLDED_ATTR)).toBe(false);
+
+    handleDragEnd(ui);
+    expect(memberA.hasAttribute(CONST.DRAG_FOLDED_ATTR)).toBe(false);
   });
 
   it("leaves no drop state when the pointer is over the carried row", () => {

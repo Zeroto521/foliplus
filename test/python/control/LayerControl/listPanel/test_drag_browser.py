@@ -28,6 +28,8 @@ def _page(browser, tmp_path):
     folium.GeoJson(fc, name="Water", foliplus={"folder": "Water"}).add_to(m)
     folium.GeoJson(fc, name="Alpha", foliplus={}).add_to(m)
     folium.GeoJson(fc, name="Beta", foliplus={}).add_to(m)
+    folium.GeoJson(fc, name="Gamma", foliplus={}).add_to(m)
+    folium.GeoJson(fc, name="Delta", foliplus={}).add_to(m)
     LayerControl().add_to(m)
     html = m.get_root().render()
     page, errors = make_browser_page(browser, tmp_path, html, "drag_indicator")

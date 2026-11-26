@@ -250,11 +250,11 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
       }) as DOMRect;
   };
 
-  it("a folder drag over a same-role layer row with no transfer paints the beside marker", () => {
-    // A member row belongs to the folder block above it: hovering folder b's
-    // member resolves to folder b's block, which is a legal beside-placement
-    // target for a folder drag. The pointer affordance is optional, so the
-    // marker must paint without it.
+  it("a folder drag refuses another block's member row without a transfer", () => {
+    // A member row sits INSIDE another block: only the folder header is a block
+    // target, because a gap between members names a position the drop never
+    // takes. The pointer affordance is optional, so the refusal must paint
+    // without one.
     const { ui } = folderFixture(["a", "b"]);
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
     const row = rowOf(ui, "b1");
@@ -262,7 +262,7 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
 
     handleDragOver(ui, noTransfer(row, 104));
 
-    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.BEFORE);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 
@@ -327,7 +327,8 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("same_role_only"), {
       duration: expect.anything(),
     });
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(member.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
+    expect(ui.listPanel.lastDragOverItem).toBe(member);
   });
 
   it("a folder dragged into a folder's middle zone without a transfer still draws the refusal", () => {

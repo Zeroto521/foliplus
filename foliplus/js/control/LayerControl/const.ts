@@ -44,6 +44,23 @@ const DRAG_STATE = {
 } as const;
 type DragState = (typeof DRAG_STATE)[keyof typeof DRAG_STATE];
 
+/** Companion attribute for the gap's OTHER side: the row whose edge sinks,
+ *  because opening the insertion slot presses it. It carries no state of its
+ *  own — the value names which edge sinks, and the writer derives it from the
+ *  gap state, so the two can never disagree. */
+const DRAG_PUSH_ATTR = "data-foliplus-push";
+const DRAG_PUSH = {
+  /** This row sits below the gap: its top edge sinks. */
+  TOP: "top",
+  /** This row sits above the gap: its bottom edge sinks. */
+  BOTTOM: "bottom",
+} as const;
+
+/** Temporary fold of the dragged block's members for the duration of a
+ *  gesture: they are neither drop targets nor part of the gap geometry. A
+ *  session-only marker on the rows, never the persisted fold state. */
+const DRAG_FOLDED_ATTR = "data-foliplus-drag-folded";
+
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
  *  record rather than by introducing a new key. */
@@ -476,6 +493,9 @@ export {
   DATA,
   DEFAULT_LABEL,
   DRAG,
+  DRAG_FOLDED_ATTR,
+  DRAG_PUSH,
+  DRAG_PUSH_ATTR,
   DRAG_STATE,
   DRAG_STATE_ATTR,
   ENFORCE_ORDER_DEBOUNCE_MS,

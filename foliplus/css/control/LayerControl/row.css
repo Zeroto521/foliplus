@@ -491,7 +491,6 @@
        background, so the pulse sits exactly where the layer will land. */
     &[data-foliplus-drop="before"] {
       z-index: 1;
-      box-shadow: var(--foliplus-drag-gap-inset-top);
       &::before {
         content: "";
         position: absolute;
@@ -508,7 +507,6 @@
     /* Accepted gap below the row: the same line, mirrored. */
     &[data-foliplus-drop="after"] {
       z-index: 1;
-      box-shadow: var(--foliplus-drag-gap-inset-bottom);
       &::after {
         content: "";
         position: absolute;
@@ -530,11 +528,27 @@
       animation: foliplus-drag-join-pulse var(--foliplus-motion-slow) ease-in-out
         var(--foliplus-drag-pulse-count);
     }
+    /* The row on the far side of the gap: opening the slot presses it, so its
+       edge sinks. The marker is derived from the gap state by the writer and
+       never painted on its own, so a dent cannot appear without its line. */
+    &[data-foliplus-push="top"] {
+      box-shadow: var(--foliplus-drag-gap-inset-top);
+    }
+    &[data-foliplus-push="bottom"] {
+      box-shadow: var(--foliplus-drag-gap-inset-bottom);
+    }
     /* A refused drop: dashed outline, no fill — visibly "not here" instead of
-       the pulse line or full-row ring an accepted drop draws. */
+       the pulse line or full-row ring an accepted drop draws. Its own
+       desaturated colour keeps it from reading as a weaker accept. */
     &[data-foliplus-drop="refuse"] {
-      outline: var(--foliplus-drag-border-width) dashed var(--foliplus-accent-primary);
+      outline: var(--foliplus-drag-border-width) dashed var(--foliplus-drag-refuse);
       outline-offset: calc(-1 * var(--foliplus-drag-border-width));
+    }
+    /* A member row of the block being dragged: hidden for the gesture only,
+       never persisted. The block travels as one unit, so its members are not
+       rows while it moves. */
+    &[data-foliplus-drag-folded] {
+      display: none;
     }
   }
 

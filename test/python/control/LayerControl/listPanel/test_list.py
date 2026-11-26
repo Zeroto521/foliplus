@@ -598,12 +598,24 @@ class TestLayerControlRendering:
         assert "&::after {" in css
         assert "animation: foliplus-drag-pulse" in css
         assert "@keyframes foliplus-drag-join-pulse" in css
-        # The row edge next to the gap sinks, so the gap reads as a slot.
+        # The row on the FAR side of the gap sinks, so the gap reads as a slot
+        # being pushed open; the dent is a companion of the gap state, not a
+        # state of its own.
+        assert '[data-foliplus-push="top"]' in css
+        assert '[data-foliplus-push="bottom"]' in css
         assert "box-shadow: var(--foliplus-drag-gap-inset-top)" in css
         assert "box-shadow: var(--foliplus-drag-gap-inset-bottom)" in css
+        # The dragged block's members are hidden for the gesture only.
+        assert "[data-foliplus-drag-folded]" in css
+        assert "display: none" in css
         # The old edge indicator (a border on the row itself) is gone.
         assert "border-top: var(--foliplus-drag-border-width) solid" not in css
         assert "border-bottom: var(--foliplus-drag-border-width) solid" not in css
+        # A refused target is a different answer, not a weaker accept: it has
+        # its own desaturated colour instead of the accent the gap line uses.
+        assert "var(--foliplus-drag-refuse)" in css
+        tokens = read_css("foliplus/css/common/token.css")
+        assert "--foliplus-drag-refuse:" in tokens
         # The four-class vocabulary is gone, not merely unused.
         assert "foliplus-layer-drag-over-top" not in css
         assert "foliplus-layer-drag-over-bottom" not in css

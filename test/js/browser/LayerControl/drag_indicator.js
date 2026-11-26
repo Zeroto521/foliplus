@@ -2,7 +2,17 @@ arg => {
   const panel = document.querySelector(".foliplus-layer-ctrl");
   const all = [...panel.querySelectorAll(".foliplus-layer-item")];
   // Layer rows in DOM order; folder rows carry data-folder-key instead of an id.
-  const layers = all.filter(row => row.getAttribute("data-layer-id") !== null);
+  // Root rows only: a folder's member rows carry a data-layer-id too, and a
+  // root layer hovering one of them is a refusal, not a reorder gap.
+  const layers = all.filter(
+    row =>
+      row.getAttribute("data-layer-id") !== null &&
+      row.getAttribute("data-folder-key") === null &&
+      !row.closest("[class*='fold-tree']") &&
+      !row.classList.contains("foliplus-fold-tree-mid") &&
+      !row.classList.contains("foliplus-fold-tree-last") &&
+      !row.classList.contains("foliplus-layer-item-group"),
+  );
   const byFolder = key => all.find(row => row.getAttribute("data-folder-key") === key);
   const pad = name => getComputedStyle(panel).getPropertyValue(name).trim();
   const pseudo = (row, which) => {

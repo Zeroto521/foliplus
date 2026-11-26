@@ -187,13 +187,15 @@ describe("ui/drag", () => {
       handleDragOver(ui, own);
       expect(own.dataTransfer!.dropEffect).toBe("none");
       expect(ui.listPanel.lastDragOverItem).toBeNull();
-      // A folder row of the other role is not a block target either.
+      // A folder row of the other role is not a block target: it answers with
+      // the refusal marker instead of staying silent.
       const b = folderRowOf(ui, "b");
       b.setAttribute(CONST.DATA.ROLE, "base");
       const otherRole = dragEvent(b, { dropEffect: "" }, 10);
       handleDragOver(ui, otherRole);
       expect(otherRole.dataTransfer!.dropEffect).toBe("none");
-      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
+      expect(ui.listPanel.lastDragOverItem).toBe(b);
     });
 
     it("ignores a folder row that carries no role", () => {
@@ -353,8 +355,9 @@ describe("ui/drag", () => {
       const ui = makeUi({ containers: ["a"] });
       const row = rowOf(ui, "a");
       row.setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.BEFORE);
+      row.setAttribute(CONST.DRAG_PUSH_ATTR, CONST.DRAG_PUSH.TOP);
 
-      handleDragLeave(dragEvent(row));
+      handleDragLeave(ui, dragEvent(row));
 
       expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.BEFORE);
     });
@@ -543,10 +546,10 @@ describe("ui/drag", () => {
     });
 
     it("handleDragLeave ignores targets that are not layer rows", () => {
-      initFixture({ data: overlays(2) });
+      const { ui } = initFixture({ data: overlays(2) });
       const shell = document.createElement("div");
 
-      expect(() => handleDragLeave(dragEvent(shell))).not.toThrow();
+      expect(() => handleDragLeave(ui, dragEvent(shell))).not.toThrow();
       expect(shell.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
         CONST.DRAG_STATE.BEFORE,
       );
@@ -1077,6 +1080,9 @@ describe("layer drop on a folder row — hover chrome", () => {
     handleDragOver(ui, dragEvent(rowOf(ui, "G1"), {}, 0));
 
     expect(showHint).toHaveBeenCalled();
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(rowOf(ui, "G1").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.REFUSE,
+    );
+    expect(ui.listPanel.lastDragOverItem).toBe(rowOf(ui, "G1"));
   });
 });

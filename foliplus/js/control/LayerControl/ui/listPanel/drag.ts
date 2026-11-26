@@ -26,12 +26,96 @@ const setDragState = (row: HTMLElement, state: string | null): void => {
   row.setAttribute(CONST.DRAG_STATE_ATTR, state);
 };
 
-/** Clear the indicator from every row in the panel — the one clearer every
- *  teardown path shares. */
+/** Clear both indicator channels from every row in the panel — the one
+ *  clearer every teardown path shares. */
 const clearDragStateAttr = (ui: LayerUI): void => {
-  ui.uiContainer
-    ?.querySelectorAll<HTMLElement>(`[${CONST.DRAG_STATE_ATTR}]`)
+  const container = ui.uiContainer;
+  if (!container) return;
+  container
+    .querySelectorAll<HTMLElement>(`[${CONST.DRAG_STATE_ATTR}]`)
     .forEach(row => row.removeAttribute(CONST.DRAG_STATE_ATTR));
+  container
+    .querySelectorAll<HTMLElement>(`[${CONST.DRAG_PUSH_ATTR}]`)
+    .forEach(row => row.removeAttribute(CONST.DRAG_PUSH_ATTR));
+};
+
+/** The next row on one side of `row`, skipping role headers and rows the
+ *  gesture folded away — the neighbours the gap actually pushes against. */
+const neighbourRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null => {
+  let el = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+  while (el) {
+    // A role header ends the section: the gap at the edge of a role has no row
+    // on the far side, and denting the next section's first row would claim a
+    // pressure that never happens.
+    if (el.classList.contains(CONST.CLASSES.ROLE_ROW)) return null;
+    if (
+      el instanceof HTMLElement &&
+      el.classList.contains(CONST.CLASSES.LAYER_ITEM) &&
+      !el.hasAttribute(CONST.DRAG_FOLDED_ATTR)
+    ) {
+      return el;
+    }
+    el = direction < 0 ? el.previousElementSibling : el.nextElementSibling;
+  }
+  return null;
+};
+
+/** Paint one gap state plus its companion displacement marker.
+ *
+ *  The state attribute stays single-valued on the row that anchors the gap; the
+ *  marker goes on the row on the FAR side of that gap, because opening a slot
+ *  presses the neighbouring row — the dent and the line are two faces of one
+ *  indication, derived from one value, so they can never disagree. */
+const paintDragState = (ui: LayerUI, row: HTMLElement, state: string | null): void => {
+  setDragState(row, state);
+  const previous = ui.listPanel.lastPushRow;
+  if (previous) previous.removeAttribute(CONST.DRAG_PUSH_ATTR);
+  ui.listPanel.lastPushRow = null;
+  if (state !== CONST.DRAG_STATE.BEFORE && state !== CONST.DRAG_STATE.AFTER) {
+    return;
+  }
+  // BEFORE anchors on the row's top edge, so the row above the gap sinks
+  // (bottom edge); AFTER anchors on the bottom edge, so the row below sinks
+  // (top edge). The value names the edge, which is what the stylesheet paints.
+  const neighbour = neighbourRow(row, state === CONST.DRAG_STATE.BEFORE ? -1 : 1);
+  // The carried row keeps its pickup marker: denting it would read as a second
+  // state on the row that is already leaving.
+  if (
+    !neighbour ||
+    neighbour.getAttribute(CONST.DRAG_STATE_ATTR) === CONST.DRAG_STATE.SOURCE
+  ) {
+    return;
+  }
+  const edge =
+    state === CONST.DRAG_STATE.BEFORE ? CONST.DRAG_PUSH.BOTTOM : CONST.DRAG_PUSH.TOP;
+  if (neighbour.getAttribute(CONST.DRAG_PUSH_ATTR) !== edge) {
+    neighbour.setAttribute(CONST.DRAG_PUSH_ATTR, edge);
+  }
+  ui.listPanel.lastPushRow = neighbour;
+};
+
+/** Fold the dragged block's member rows for the duration of the gesture: they
+ *  are not drop targets (joining happens on the header) and they would stretch
+ *  the gap geometry past the block the pointer is really moving. A session-only
+ *  marker — the persisted fold state is untouched, and the drop rows come back
+ *  when the gesture ends. The folder's own header row stays in the DOM, so the
+ *  native drag is never cancelled. */
+const foldDraggedBlock = (ui: LayerUI, folderKey: string): void => {
+  const container = ui.uiContainer;
+  if (!container) return;
+  container.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM).forEach(row => {
+    if (row.getAttribute(CONST.DATA.FOLDER_KEY)) return;
+    const id = row.getAttribute(CONST.DATA.LAYER_ID);
+    if (!id || (ui.c.folderKeyOf(id) ?? "") !== folderKey) return;
+    row.setAttribute(CONST.DRAG_FOLDED_ATTR, "");
+  });
+};
+
+/** Undo foldDraggedBlock on every teardown path. */
+const unfoldDraggedBlock = (ui: LayerUI): void => {
+  ui.uiContainer
+    ?.querySelectorAll<HTMLElement>(`[${CONST.DRAG_FOLDED_ATTR}]`)
+    .forEach(row => row.removeAttribute(CONST.DRAG_FOLDED_ATTR));
 };
 
 /** The commit acknowledgement's duration, read from the CSS token so the
@@ -143,6 +227,9 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     const role = item.getAttribute(CONST.DATA.ROLE) ?? "";
     if (!role) return;
     ui.listPanel.dragFolder = { role, key: folderKey };
+    // The block travels as one unit, so its members stop being rows for the
+    // gesture: no gap is drawn between them and nothing can be dropped there.
+    foldDraggedBlock(ui, folderKey);
     // No rebuild here. The row is the drag source, and replacing it mid-gesture
     // cancels the native drag — the browser drops a source that left the DOM,
     // which is why a folder could not be dragged at all. The block still
@@ -283,41 +370,58 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   if (draggedFolder) {
     const row = folderDropTarget(ui, event);
     const prev = ui.listPanel.lastDragOverItem;
-    if (prev && prev !== row) setDragState(prev, null);
+    if (prev && prev !== row) paintDragState(ui, prev, null);
     if (!row) {
       ui.listPanel.lastDragOverItem = null;
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      // A folder over a group row is a refusal worth naming: the two are
-      // different kinds of block, and silence reads as a broken drag.
       const over = (event.target as HTMLElement | null)?.closest(
         CONST.SEL.LAYER_ITEM,
       ) as HTMLElement | null;
-      const overId = over?.getAttribute(CONST.DATA.LAYER_ID);
+      if (!over) return;
+      // Every refusal below paints the same dashed marker: silence reads as a
+      // broken drag, and a folder that refuses a target must say so.
+      const refuse = (key: string) => {
+        paintDragState(ui, over, CONST.DRAG_STATE.REFUSE);
+        ui.listPanel.lastDragOverItem = over;
+        showDragHint(ui, key);
+      };
+      const overId = over.getAttribute(CONST.DATA.LAYER_ID);
+      const overFolder = over.getAttribute(CONST.DATA.FOLDER_KEY);
+      // A folder over a group row: the two are different kinds of block.
       if (overId && isGroupDrag(ui, overId)) {
-        showDragHint(ui, "no_nest");
-      } else if (over?.getAttribute(CONST.DATA.FOLDER_KEY)) {
-        // A folder row of the OTHER role: blocks belong to one section.
-        showDragHint(ui, "same_role_only");
-      } else if (overId && over) {
-        // A layer row: a root layer is a block of its own, and a member row
-        // belongs to the folder block above it — either way the folder can be
-        // placed beside that block, but only inside the same role. A row of
-        // another role used to be silent.
-        const entry = blockEntryOfRow(over);
-        const overRole = ui.c.layerRegistry.get(overId)?.role;
-        if (entry === draggedFolder.key) return; // its own block: no-op
-        if (overRole !== draggedFolder.role || !entry) {
-          showDragHint(ui, "same_role_only");
-        } else {
-          event.preventDefault();
-          if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-          setDragState(
-            over,
-            dropsAfter(event, over) ? CONST.DRAG_STATE.AFTER : CONST.DRAG_STATE.BEFORE,
-          );
-          ui.listPanel.lastDragOverItem = over;
-        }
+        refuse("no_nest");
+        return;
       }
+      if (overFolder) {
+        // A folder row that reached here is the OTHER role's: blocks belong to
+        // one section. (The dragged folder's own row is a no-op below.)
+        if (overFolder === draggedFolder.key) return;
+        refuse("same_role_only");
+        return;
+      }
+      if (!overId) return; // a role header is not a block
+      const entry = blockEntryOfRow(over);
+      const overRole = ui.c.layerRegistry.get(overId)?.role;
+      if (entry === draggedFolder.key) return; // its own block: no-op
+      if (overRole !== draggedFolder.role || !entry) {
+        refuse("same_role_only");
+        return;
+      }
+      // A member row belongs INSIDE another block: the block boundary is at its
+      // header, so a gap drawn between members would name a position the drop
+      // never takes.
+      if (over.querySelector(CONST.SEL.FOLD_TREE)) {
+        refuse("same_role_only");
+        return;
+      }
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      paintDragState(
+        ui,
+        over,
+        dropsAfter(event, over) ? CONST.DRAG_STATE.AFTER : CONST.DRAG_STATE.BEFORE,
+      );
+      ui.listPanel.lastDragOverItem = over;
       return;
     }
     // A folder never nests inside another folder. The middle of the row is the
@@ -328,14 +432,15 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       // Draw the refusal: without it the middle half of the row is a strip
       // that neither lights up nor accepts, and the user cannot tell whether
       // the pointer is over a droppable zone.
-      setDragState(row, CONST.DRAG_STATE.REFUSE);
+      paintDragState(ui, row, CONST.DRAG_STATE.REFUSE);
       ui.listPanel.lastDragOverItem = row;
       showDragHint(ui, "no_nest");
       return;
     }
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
-    setDragState(
+    paintDragState(
+      ui,
       row,
       dropsAfter(event, row) ? CONST.DRAG_STATE.AFTER : CONST.DRAG_STATE.BEFORE,
     );
@@ -357,7 +462,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
   const prev = ui.listPanel.lastDragOverItem;
-  if (prev && prev !== item) setDragState(prev, null);
+  if (prev && prev !== item) paintDragState(ui, prev, null);
   // A folder row is a drop target: the layer joins that folder. A group
   // row is not — its children are its own sub-layers, so it never joins a
   // folder.
@@ -368,10 +473,10 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     // directory is name-keyed and global), which reads as a duplicate. The
     // folder-drag path already refuses a cross-role target; this is the same
     // rule for a layer drag.
-    const targetRole = item.getAttribute(CONST.DATA.ROLE) ?? "";
-    if (targetRole && targetRole !== ui.listPanel.dragEntry!.role) {
+    const rowRole = item.getAttribute(CONST.DATA.ROLE) ?? "";
+    if (rowRole && rowRole !== ui.listPanel.dragEntry!.role) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      setDragState(item, CONST.DRAG_STATE.REFUSE);
+      paintDragState(ui, item, CONST.DRAG_STATE.REFUSE);
       ui.listPanel.lastDragOverItem = item;
       showDragHint(ui, "same_role_only");
       return;
@@ -379,7 +484,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     const zone = folderDropZone(item, event.clientY);
     if (zone === "into" && isGroupDrag(ui, ui.listPanel.dragEntry!.id)) {
       if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-      setDragState(item, CONST.DRAG_STATE.REFUSE);
+      paintDragState(ui, item, CONST.DRAG_STATE.REFUSE);
       ui.listPanel.lastDragOverItem = item;
       showDragHint(ui, "no_nest");
       return;
@@ -389,7 +494,8 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     // before/after the folder block), so they are position states — never a
     // refusal. The old writer added the blocked class here as well, which is
     // the double indicator this redesign removes.
-    setDragState(
+    paintDragState(
+      ui,
       item,
       zone === "before"
         ? CONST.DRAG_STATE.BEFORE
@@ -411,44 +517,61 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   if (targetIdx < 0) return;
   ui.listPanel.lastDragOverItem = item;
 
-  // A group dropped on a folder's member row would join that folder, which
-  // a layer group cannot do. The folder row's middle zone already refuses with
-  // this sentence; a member row is the same rule reached from the inside, so it
-  // must answer the same way instead of falling through to the reorder path
-  // (which allows the hover and then silently drops the move).
+  const draggedEntry = ui.listPanel.dragEntry!;
   const targetId = item.getAttribute(CONST.DATA.LAYER_ID);
+  const draggedIsGroup = isGroupDrag(ui, draggedEntry.id);
+  const targetIsGroup = targetId ? isGroupDrag(ui, targetId) : false;
+  const refuse = (key: string, keepPointer: boolean) => {
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
+    paintDragState(ui, item, CONST.DRAG_STATE.REFUSE);
+    // A refusal is not a hover: the row shows the refusal, and the pointer is
+    // dropped where the refusal is terminal so the next move does not treat it
+    // as a target.
+    ui.listPanel.lastDragOverItem = keepPointer ? item : null;
+    showDragHint(ui, key);
+  };
+
   // A layer group never nests inside another layer group. The middle of the
   // row is the "into" gesture; the edges still reorder the group, so the
   // refusal is named rather than silently ignored.
   if (
-    targetId &&
-    isGroupDrag(ui, ui.listPanel.dragEntry!.id) &&
-    isGroupDrag(ui, targetId) &&
+    draggedIsGroup &&
+    targetIsGroup &&
     folderDropZone(item, event.clientY) === "into"
   ) {
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-    setDragState(item, CONST.DRAG_STATE.REFUSE);
-    ui.listPanel.lastDragOverItem = item;
-    showDragHint(ui, "no_nest");
+    refuse("no_nest", true);
     return;
   }
+  // A group dropped on a folder's member row would join that folder, which a
+  // layer group cannot do: a member row is the folder's middle reached from the
+  // inside, so it answers the same way instead of falling through to the
+  // reorder path (which allows the hover and then silently drops the move).
+  const targetFolderKey = targetId ? (ui.c.folderKeyOf(targetId) ?? "") : "";
+  if (draggedIsGroup && targetFolderKey) {
+    refuse("no_nest", false);
+    return;
+  }
+  // A row of another role is not a gap: an overlay never becomes a base layer,
+  // so the drag is refused here instead of ending in a silent no-op.
+  const targetRole = targetId ? ui.c.layerRegistry.get(targetId)?.role : undefined;
+  if (targetRole && targetRole !== draggedEntry.role) {
+    refuse("same_role_only", true);
+    return;
+  }
+  // Joining a folder happens on its header row, never between its children: a
+  // member row is inside a block, and a drop there would land somewhere the
+  // gap line does not show.
   if (
-    targetId &&
-    isGroupDrag(ui, ui.listPanel.dragEntry!.id) &&
-    ui.c.folderNameOf(targetId)
+    targetFolderKey &&
+    targetFolderKey !== (ui.c.folderKeyOf(draggedEntry.id) ?? "")
   ) {
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-    // A refusal is not a hover: the row still shows the refusal state, but the
-    // pointer is dropped so the next move does not treat it as a target.
-    setDragState(item, CONST.DRAG_STATE.REFUSE);
-    ui.listPanel.lastDragOverItem = null;
-    showDragHint(ui, "no_nest");
+    refuse("same_role_only", true);
     return;
   }
 
   if (!ui.c.canReorderBetween(dragged, targetIdx)) {
     if (event.dataTransfer) event.dataTransfer.dropEffect = "none";
-    setDragState(item, null);
+    paintDragState(ui, item, null);
     ui.listPanel.lastDragOverItem = null;
     showReorderBlockedHint(ui);
     return;
@@ -457,15 +580,15 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
 
   // Hovering the carried row itself is not a gap: it keeps its pickup marker
   // and paints no drop state.
-  if (targetIdx < dragged) setDragState(item, CONST.DRAG_STATE.BEFORE);
-  else if (targetIdx > dragged) setDragState(item, CONST.DRAG_STATE.AFTER);
+  if (targetIdx < dragged) paintDragState(ui, item, CONST.DRAG_STATE.BEFORE);
+  else if (targetIdx > dragged) paintDragState(ui, item, CONST.DRAG_STATE.AFTER);
 };
 
-const handleDragLeave = (event: DragEvent) => {
+const handleDragLeave = (ui: LayerUI, event: DragEvent) => {
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
-  if (item) setDragState(item, null);
+  if (item) paintDragState(ui, item, null);
 };
 
 const handleDrop = (ui: LayerUI, event: DragEvent) => {
@@ -499,7 +622,10 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
         overRow &&
         overId &&
         overRole === draggedFolder.role &&
-        !isGroupDrag(ui, overId)
+        !isGroupDrag(ui, overId) &&
+        // A member row is inside another block: its boundary is the folder
+        // header, so a drop there has no position the indicator can name.
+        !overRow.querySelector(CONST.SEL.FOLD_TREE)
       ) {
         // A member row belongs to the folder block above it; a root layer row
         // is a block of its own. `blockEntryOfRow` resolves both.
@@ -601,6 +727,13 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // so a name-keyed move would materialise a second folder under the new name.
   const targetFolder = ui.c.folderKeyOf(targetId!) ?? "";
   const sourceFolder = ui.c.folderKeyOf(draggedEntry.id) ?? "";
+  // A folder's member rows accept only their own siblings: joining a folder is
+  // done on its header, and the refusal the hover painted must not turn into a
+  // silent re-parenting on drop.
+  if (targetFolder && targetFolder !== sourceFolder) {
+    clearDragState(ui);
+    return;
+  }
   if (targetFolder !== sourceFolder && !isGroupDrag(ui, draggedEntry.id)) {
     ui.c.moveLayerToFolder(draggedEntry.id, targetFolder);
   }
@@ -646,6 +779,8 @@ const clearDragState = (ui: LayerUI): void => {
   ui.listPanel.dragEntry = null;
   ui.listPanel.dragFolder = null;
   ui.listPanel.lastDragOverItem = null;
+  ui.listPanel.lastPushRow = null;
+  unfoldDraggedBlock(ui);
   clearDragStateAttr(ui);
 };
 

@@ -495,6 +495,10 @@
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
   --foliplus-drag-border-width: var(--foliplus-border-thick);
+  /* A refused target is not a weaker accept: it is a different answer, so it
+     has its own desaturated amber. Keeping it in the accent red made a
+     refusal read as "almost accepted" at a glance. */
+  --foliplus-drag-refuse: #8a6a3b;
   /* One pulse per gesture: pickup and the gap line share the count. */
   --foliplus-drag-pulse-count: 1;
   --foliplus-drag-border-from: var(--foliplus-accent-primary);

@@ -126,6 +126,10 @@ class ListPanel {
   /** Last element the drag pointer hovered; used to move the one
    *  `data-foliplus-drop` state as the pointer moves (and to clear it). */
   lastDragOverItem: HTMLElement | null = null;
+  /** The row on the far side of the gap, carrying the displacement marker
+   *  (`data-foliplus-push`). Tracked so moving to another gap clears the
+   *  previous one — the same one-marker rule the state attribute follows. */
+  lastPushRow: HTMLElement | null = null;
   /** Cleanup for the interaction manager (keyboard nav, drag gestures) —
    *  called once on unbind. */
   interactionCleanup?: () => void;
