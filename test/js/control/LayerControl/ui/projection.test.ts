@@ -196,6 +196,17 @@ describe("currentOpacity (resolved opacity read)", () => {
     ui.focusController.focusingLayerId = "l1";
     expect(currentOpacity(ui, makeLayerInfo("l1", { opacity: 0.2 }))).toBe(1);
   });
+
+  it("reads the author-declared foliplus opacity before layerInfo.opacity", () => {
+    // The declaration is the read-time default (Reset return point); the
+    // layer's folium opacity= stays the draw value, so the declared one wins
+    // only the panel's default read, and an intent still beats both.
+    const ui = makeUI();
+    const layer = { options: { foliplus: { opacity: 0.55 } } } as any;
+    expect(currentOpacity(ui, { id: "l1", layer, opacity: 0.8 } as any)).toBe(0.55);
+    setIntent(ui, "l1", "opacity", 0.3);
+    expect(currentOpacity(ui, { id: "l1", layer, opacity: 0.8 } as any)).toBe(0.3);
+  });
 });
 
 // The author-declared range (`foliplus={"zoom_range": {...}}` → CONF

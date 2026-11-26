@@ -50,6 +50,7 @@ import * as CONST from "#control/LayerControl/const.js";
 import {
   readDeclaredIconSize,
   readDeclaredMarkerColor,
+  readDeclaredMarkerColorOpacity,
 } from "#control/LayerControl/declaredParse.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
@@ -254,8 +255,14 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
     ariaLabel: ui.T("style_marker_color"),
   }) as HTMLInputElement;
   const storedOpacity = getIntent(ui, layerId, INTENT.MARKER_COLOR_OPACITY);
+  // The row's opacity is the user intent, else the author-declared chassis
+  // alpha (the read-time default Reset returns to), else 100%.
+  const declaredOpacity = readDeclaredMarkerColorOpacity(
+    ui.c.findLayer(layerId),
+    layerId,
+  ).declared;
   const opacityGroup = numberInput({
-    value: typeof storedOpacity === "number" ? storedOpacity : 100,
+    value: typeof storedOpacity === "number" ? storedOpacity : (declaredOpacity ?? 100),
     min: 0,
     max: 100,
     step: 1,
