@@ -476,18 +476,20 @@ class TestLayerControlRendering:
         # preceding `{` belongs to the sibling &.foliplus-active rule), then count depth
         # to isolate exactly this rule's body without leaking into siblings.
         mark = ":hover:where(:not(:has(.foliplus-row-panel:hover)))"
-        # The recipe's :is() rule sits INSIDE the compound selector that opens
-        # with `.foliplus-row,` — anchor there so css.find() does not
+        # The recipe's :is() rule sits INSIDE the row-identity selector that
+        # opens with `.foliplus-row` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
-        compound = css.find(".foliplus-row,")
+        compound = css.find(".foliplus-row {")
         assert compound != -1, "Row-cursor compound selector not found"
         start = css.find(mark, compound)
         assert start != -1, "unified Row-cursor recipe selector not found"
         # :focus-visible is never a recipe trigger — Esc cancel is one class off.
         assert "is(:hover, :focus-visible, .foliplus-is-focused-row)" not in css
-        # Both row types join the parent compound selector that carries this
-        # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
-        # recipe, which checks the exact selector string).
+        # Every row kind joins the identity selector that carries this :is()
+        # rule (also asserted in test_toggle_all_hover_shares_row_cursor_
+        # recipe, which checks the exact selector string). The role header's
+        # own compound still exists for geometry only — it is never a second
+        # leg of a row-recipe selector.
         assert ".foliplus-row" in css
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
         open_brace = css.index("{", start)
@@ -564,19 +566,14 @@ class TestLayerControlRendering:
         # A checked row carries .foliplus-active — a persistent checkbox state, not a
         # cursor — and the cursor-only type-icon tint comes from the recipe.
         # The rule lives in the shared row-cell block, so its selector is the
-        # :is() pair (the generic row + the toggle-all header). Read it with a
-        # regex rather than a literal: the compiled form depends on the nesting
-        # context (the .foliplus-layer-ctrl prefix may sit outside the :is() or
-        # be pushed into each branch by the build's flatten), and the minifier
-        # may or may not keep the space after the comma. The regex keys on the
-        # three tokens that must all appear inside the :is() — .foliplus-active,
-        # .foliplus-row, .foliplus-layer-sep.foliplus-layer-toggle-all — in that
-        # order, followed by .foliplus-type-icon-col.
+        # row identity plus the active state — one compound, no enumerated row
+        # kinds beside it. Read it with a regex rather than a literal: the
+        # compiled class order follows the nesting (`.foliplus-row {` then
+        # `&.foliplus-active`), and the minifier may or may not keep a space.
         act_sel_re = (
-            r"\.foliplus-active:is\("
-            r"[^)]*\.foliplus-row[^)]*"
-            r"\.foliplus-layer-sep\.foliplus-layer-toggle-all"
-            r"\)\s*\.foliplus-type-icon-col"
+            r"(?:\.foliplus-row\.foliplus-active"
+            r"|\.foliplus-active\.foliplus-row)"
+            r"\s*\.foliplus-type-icon-col"
         )
         act_match = re.search(act_sel_re, html)
         assert act_match, (
