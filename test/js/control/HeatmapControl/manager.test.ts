@@ -51,18 +51,6 @@ describe("HeatmapManager — style delegation", () => {
     expect((opts as any).fieldOptions).toBeUndefined();
   });
 
-  it("forwards CONFIG.folder to createCanvas", () => {
-    makeManager({ folder: "数据分析" });
-    const opts = getCanvasOpts();
-    expect(opts.folder).toBe("数据分析");
-  });
-
-  it("defaults CONFIG.folder to null when absent", () => {
-    makeManager();
-    const opts = getCanvasOpts();
-    expect(opts.folder).toBeNull();
-  });
-
   it("styleProvider returns the live labelShow, color, size and format values", () => {
     const m = makeManager();
     const opts = getCanvasOpts();

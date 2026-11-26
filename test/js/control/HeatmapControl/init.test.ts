@@ -347,3 +347,46 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(renderSpy).toHaveBeenCalled();
   });
 });
+
+describe("initOverlay — the author's folder declaration reaches createCanvas", () => {
+  beforeEach(() => {
+    window.map.foliplus.LayerAPI = {
+      ...window.map.foliplus.LayerAPI,
+      createCanvas: vi.fn(() => {
+        const canvas = document.createElement("canvas");
+        return {
+          register: vi.fn(),
+          unregister: vi.fn(),
+          setVisible: vi.fn(),
+          hooks: { before: [], after: [] },
+          canvas,
+          ctx: canvas.getContext("2d"),
+        };
+      }),
+    };
+  });
+
+  function getCanvasOpts() {
+    const createCanvas = (
+      window.map.foliplus!.LayerAPI as unknown as {
+        createCanvas: ReturnType<typeof vi.fn>;
+      }
+    ).createCanvas;
+    return createCanvas.mock.calls[0][0] as {
+      folder?: string | null;
+    };
+  }
+
+  it("forwards CONFIG.folder to createCanvas", () => {
+    makeManager({ folder: "数据分析" });
+    const opts = getCanvasOpts();
+    expect(opts.folder).toBe("数据分析");
+  });
+
+  it("defaults CONFIG.folder to null when absent", () => {
+    makeManager();
+    const opts = getCanvasOpts();
+    expect(opts.folder).toBeNull();
+  });
+});
+
