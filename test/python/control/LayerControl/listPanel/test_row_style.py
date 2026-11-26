@@ -243,26 +243,16 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             before = get_folder_names()
             assert len(before) >= 2, f"expected 2+ folder rows, got {before}"
 
-            # Drag the first folder row to after the second
-            src_row = page.query_selector(".foliplus-layer-item-folder")
-            src_box = src_row.bounding_box()
-            tgt_row = page.query_selector_all(".foliplus-layer-item-folder")[1]
-            tgt_box = tgt_row.bounding_box()
-
-            src_x = src_box["x"] + src_box["width"] / 2
-            src_y = src_box["y"] + src_box["height"] / 2
-            # Drop at the bottom quarter of the target folder row: the "after"
-            # zone places the dragged folder AFTER the target (block reorder).
-            # The center is the "into" zone, which correctly refuses folder
-            # nesting — so we must drop at the edge to test sorting.
-            page.locator(".foliplus-layer-item-folder").nth(0).drag_to(
-                page.locator(".foliplus-layer-item-folder").nth(1),
-                target_position={
-                    "x": tgt_box["width"] / 2,
-                    "y": tgt_box["height"] * 0.85,
-                },
-            )
+            # Drag the first folder block to after the second one. The drag is
+            # driven from a snippet rather than Playwright's drag_to: the
+            # dragged block folds its members, so the target row moves UP
+            # between dragstart and drop and a coordinate captured before the
+            # drag would miss it. The snippet measures the target after the
+            # compact and drops at its bottom edge — the "after" zone, which is
+            # a block reorder (the centre is the "into" zone, a refusal).
+            moved = page.evaluate(_js("LayerControl/folder_drag_reorder"))
             page.wait_for_timeout(400)
+            assert moved["before"] == before, (moved, before)
 
             after = get_folder_names()
             print(f"  before={before} after={after}")
