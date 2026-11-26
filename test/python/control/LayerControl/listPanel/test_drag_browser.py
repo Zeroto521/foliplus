@@ -281,9 +281,10 @@ class TestDragIndicatorBrowser:
         assert index > 0
         header = order[index - 1]
         below = order[index + 1]
-        assert header == f"folder:{folder}" or members.get(header, {}).get(
-            "folder"
-        ) == folder, order
+        assert (
+            header == f"folder:{folder}"
+            or members.get(header, {}).get("folder") == folder
+        ), order
         assert members[below]["folder"] == folder, order
         assert after["marked"] == []
 
@@ -296,9 +297,10 @@ class TestDragIndicatorBrowser:
         reloaded = _read(page)
         assert reloaded["layout"]["members"][source_id]["folder"] == folder
         order = reloaded["order"]
-        assert order.index(source_id) == order.index(header) + 1 or order.index(
-            source_id
-        ) == order.index(header) + 2, order
+        assert (
+            order.index(source_id) == order.index(header) + 1
+            or order.index(source_id) == order.index(header) + 2
+        ), order
         assert errors == []
 
     def test_folder_drag_uses_the_same_source_rule(self, browser, tmp_path):
