@@ -5,7 +5,7 @@
   0%,
   100% {
     border-color: var(--foliplus-drag-line-from);
-    opacity: var(--foliplus-drag-line-alpha-trough);
+    opacity: var(--foliplus-drag-line-alpha-min);
     box-shadow: var(--foliplus-drag-line-glow-trough);
   }
   50% {

@@ -607,7 +607,7 @@ class TestLayerControlRendering:
             "--foliplus-drag-line-from",
             "--foliplus-drag-line-glow",
             "--foliplus-drag-line-glow-trough",
-            "--foliplus-drag-line-alpha-trough",
+            "--foliplus-drag-line-alpha-min",
             "--foliplus-drag-target-wash",
             "--foliplus-drag-pulse-duration",
             "--foliplus-drag-pulse-pickup-count",
@@ -628,12 +628,12 @@ class TestLayerControlRendering:
         # The breathing swing is carried by alpha, not by hue: accent-primary and
         # accent-hover are two neighbouring reds, so a hue-only swing at full
         # opacity read as a static line.
-        assert "--foliplus-drag-line-alpha-trough: 0.5" in tokens
+        assert "--foliplus-drag-line-alpha-min: 0.5" in tokens
         assert "--foliplus-drag-pulse-duration: 1.15s" in tokens
         assert "--foliplus-drag-pulse-pickup-count: 1" in tokens
         assert "--foliplus-drag-pulse-target: infinite" in tokens
         assert "--foliplus-drag-push-shift: 1px" in tokens
-        assert "--foliplus-drag-source-opacity: 0.6" in tokens
+        assert "--foliplus-drag-source-opacity: 0.5" in tokens
         assert "--foliplus-drag-commit" in tokens
         assert "var(--foliplus-accent-primary) 4%" in tokens
         # Retired with the dashed-box design: a refusal paints no geometry, so

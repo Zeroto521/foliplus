@@ -516,10 +516,10 @@
   /* The breathing swing is carried by ALPHA, not by hue. Accent-primary and
      accent-hover are two neighbouring reds: animating between them moves the
      line by a few percent of one channel, which reads as a static line that
-     happens to be red. The trough therefore drops the whole line to half
+     happens to be red. The low point therefore drops the whole line to half
      alpha and the peak restores it, so the gesture has a rhythm the eye can
      actually pick up at 60 Hz. */
-  --foliplus-drag-line-alpha-trough: 0.5;
+  --foliplus-drag-line-alpha-min: 0.5;
   /* Two glows, one per end of the pulse: at rest a 1px halo keeps the painted
      width at 3px (a 2px line plus 1px of halo) — anything wider reads as a
      filled band and outweighs the row it points at; at the peak the halo opens
