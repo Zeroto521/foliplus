@@ -348,6 +348,159 @@ describe("ui/list row placement", () => {
     expect(hRow.querySelector(`.${CONST.CLASSES.FOLD_TREE}`)).not.toBeNull();
   });
 
+  it("a declared folder member sits at the same panel position whether it pre-registers or registers late (late ≡ pre-registered)", () => {
+    // P3 follow-up: the folder placement branch in insertLayerItem (folderOf →
+    // folderRow → block.members rank → anchor.after) must place a late-registered
+    // member exactly where the initial render puts a pre-registered one. The
+    // invariant is the full row sequence, not just "the row exists": a member
+    // fallen to registry depth or placed at the wrong rank fails the compare.
+    const layout = {
+      seed: { order: ["A", "B", "H"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+    };
+    const rowTokens = (ui: LayerUI): string[] =>
+      Array.from(attachedPanel(ui).children).map(el => {
+        const folderKey = el.getAttribute(CONST.DATA.FOLDER_KEY);
+        if (folderKey !== null) return `folder:${folderKey}`;
+        const layerId = el.getAttribute(CONST.DATA.LAYER_ID);
+        if (layerId !== null) return `layer:${layerId}`;
+        return `row:${el.className}`;
+      });
+
+    // Case 1: the folder member is present at the initial render.
+    const pre = initFixture({
+      ...layout,
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
+        {
+          id: "H",
+          name: "Heat",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const preTokens = rowTokens(pre.ui);
+
+    // Case 2: identical layout, but H registers after the initial render.
+    const late = initFixture({
+      ...layout,
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+    late.manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+    const lateTokens = rowTokens(late.ui);
+
+    // The member is in the folder block in both, and the two sequences match.
+    expect(preTokens).toContain("folder:数据分析");
+    expect(preTokens).toContain("layer:H");
+    expect(lateTokens).toEqual(preTokens);
+  });
+
+  it("a late member declaring a brand-new folder falls through to the registry-depth anchor (folder row not on the panel)", () => {
+    // P3 coverage: when a late registration declares a folder that owns no order
+    // key and no live member, mergeDeclaredFolders seeds the member assignment
+    // and the directory entry but NOT the block order — so the folder has no
+    // row on the panel when insertLayerItem runs. folderOf returns the key, the
+    // folderRow lookup misses, and the insert falls through to the registry-depth
+    // anchor (else if !firstOfGroup / else). This is a REACHABLE branch, not a
+    // defensive dead end: it must not crash and the row must land on the panel.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A"] },
+      seedLayout: {
+        version: 2,
+        folders: [],
+        order: { overlay: [] },
+        members: {},
+      },
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析", // brand-new folder: not in order, no existing member
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    // The brand-new folder has no order key, so its row is NOT on the panel yet.
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+    expect(folderIdx).toBe(-1);
+    // The row must still land (the fallthrough anchors it at registry depth).
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    expect(hIdx).toBeGreaterThanOrEqual(0);
+    const hRow = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="H"]`,
+    )!;
+    expect(hRow).not.toBeNull();
+  });
+
+  it("a late member joins at its rank after an existing folder member (loop over prior members)", () => {
+    // P3 coverage (list.ts 731-734): when a folder already holds a member and a
+    // second member registers late, the member-position branch walks the prior
+    // members (the anchor loop) to place the new row right after the last one
+    // on the DOM. The loop body must be exercised, not skipped by a single-member
+    // folder.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A", "B", "H"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        {
+          id: "B",
+          name: "B",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    // B is already a member (its row is on the panel inside the folder block).
+    // H registers late into the same folder: the loop walks B's row as anchor.
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+    const bIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "B");
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    // H lands right after B (its rank among the folder's members), inside the block.
+    expect(folderIdx).toBeGreaterThanOrEqual(0);
+    expect(bIdx).toBe(folderIdx + 1);
+    expect(hIdx).toBe(bIdx + 1);
+  });
+
   it("renders a folder row folded when its role is folded", () => {
     // Folding a role hides the whole block, header included — the folder's own
     // fold state is untouched, so unfolding the role restores the same view.

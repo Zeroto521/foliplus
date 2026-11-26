@@ -724,6 +724,10 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
     const block = displayBlocks(ui, role).find(
       b => b.kind === "folder" && b.key === memberFolderKey,
     );
+    // The folder row came from roleBlocks, and displayBlocks is roleBlocks
+    // projected: a folder row on the panel means the block IS in the sequence
+    // with kind "folder". The fallback to [] is a defensive no-op for the
+    // invariant, not a reachable branch — the row's block always exists.
     const members = block?.kind === "folder" ? block.block.members : [];
     const memberIdx = members.findIndex(m => m.id === layerInfo.id);
     let anchor: HTMLElement = folderRow;
