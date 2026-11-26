@@ -1,5 +1,8 @@
 [
+  "control/ExportControl/icon",
+  "control/ExportControl/util",
   "control/LayerControl/declaredParse",
+  "control/MeasureControl/icon",
   "core/event/EventBus",
   "core/event/const",
   "core/event/subscription",
@@ -109,6 +112,7 @@
   "platform/rafLoop",
   "platform/storage",
   "platform/throttle",
+  "platform/timer",
   "platform/type",
   "ui/buttonClassName",
   "ui/canvasLabel",

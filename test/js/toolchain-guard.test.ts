@@ -412,6 +412,8 @@ describe("style-mode-usage guard wiring", () => {
 const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "async-liveness":
     "async continuations must not outlive the component that mounted them",
+  "browser-snippet":
+    "every browser probe is cited by a consumer and no two probes share a body",
   "config-contract-keys":
     "the CONFIG payload keeps one snake_case key spelling across Python and JS",
   "deep-relative-path":
@@ -419,7 +421,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "derived-barrier":
     "derived-state projections run only through the invalidateDerived barrier",
   "export-decoupling": "ExportControl must not reference LayerControl internals",
-  "file-header": "the canonical file header stays on every registered module",
+  "file-header":
+    "the canonical file header stays on every registered module and every script/ tool",
   "fold-arrow": "how far a row is opened is one state, not a per-arrow copy",
   "folder-name-fold-sync":
     "the folder-name fold rule is the same on the Python and JS sides",

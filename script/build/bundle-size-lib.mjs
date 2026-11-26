@@ -1,3 +1,4 @@
+// script/build/bundle-size-lib — shared measurement and exit codes, so the two size gates cannot disagree or collide
 /**
  * Shared pipeline for the two bundle-size gates (bundle-fuse.mjs and
  * bundle-size-check.mjs).

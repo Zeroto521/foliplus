@@ -1,5 +1,6 @@
 // LayerControl ui/scope.ts — teardown as one ordered, failure-isolated list.
 import { describe, expect, it, vi } from "vitest";
+import { createTimers } from "#platform/timer.js";
 import { createScope } from "#control/LayerControl/ui/scope.js";
 
 describe("createScope — the panel teardown contract", () => {
@@ -88,6 +89,31 @@ describe("createScope — the panel teardown contract", () => {
     // call must not release a second time.
     unsubscribe();
     expect(off).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases a timer owner as one step of the scope", () => {
+    // The composition the timer tool documents: the scope is the teardown
+    // runner, the timer owner is one step in it. Nothing here is a second
+    // release mechanism — the step calls the owner's own dispose.
+    vi.useFakeTimers();
+    try {
+      const timers = createTimers();
+      const repaint = vi.fn();
+      const tick = vi.fn();
+      timers.timeout("opacity:L0", repaint, 100);
+      timers.interval("poll", tick, 50);
+
+      const scope = createScope();
+      scope.step("timers", () => timers.dispose());
+      scope.dispose();
+      vi.advanceTimersByTime(500);
+
+      expect(repaint).not.toHaveBeenCalled();
+      expect(tick).not.toHaveBeenCalled();
+      expect(timers.disposed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("add() off is a no-op once dispose already ran", () => {

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/core-class-literal — no scheme-picker class literal in core, so the ui vocabulary keeps its one owner
 /**
  * Guard: no scheme-picker class literal in core production code.
  *

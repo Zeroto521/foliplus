@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/build/bundle-fuse — an absolute brotli ceiling per artifact, so bloat a baseline diff would miss still fails
 /**
  * Bundle fuse — an absolute size ceiling over each dist artifact's brotli
  * size. Where `bundle-size-check` judges growth against a captured baseline,

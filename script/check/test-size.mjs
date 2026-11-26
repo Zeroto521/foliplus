@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/test-size — test files stay under the size cap, so a module's suite cannot become a dumping ground
 /**
  * Gate: every JS test file stays at or under the 1200-line threshold.
  *
