@@ -22,6 +22,17 @@ import type { Timers } from "./type.js";
 // `scope.step("timers", () => timers.dispose())` — and a manager calls
 // `dispose()` from its own destroy. #platform/finalize stays the runner.
 //
+// Late registration runs in OPPOSITE directions here and in the scope, on
+// purpose — the asymmetry is the contract, not something to smooth over:
+//
+//   - a scope step registered after `dispose` runs AT ONCE: late teardown work
+//     must not be stranded, or a subscription taken during teardown leaks;
+//   - a timer registered after `dispose` is DROPPED: a timer is an effect on
+//     the owner's state, so running it once the owner is gone is precisely the
+//     leak this file exists to prevent.
+//
+// Delivered teardown runs; late effects do not.
+
 // One name, one live timer: scheduling a live name releases the previous timer
 // first, so a fast re-schedule cannot leave two pending callbacks behind.
 //
