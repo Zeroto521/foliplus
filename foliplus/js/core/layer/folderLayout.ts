@@ -721,6 +721,9 @@ interface FolderLayoutManager {
   layout: FolderLayout;
   /** Replace the live layout AND schedule a debounced write. */
   set(layout: FolderLayout): void;
+  /** Replace the live layout WITHOUT scheduling a write (the derived mirror of
+   *  the arrangement tree — the tree owns persistence; this view is read-only). */
+  setDerived(layout: FolderLayout): void;
   /** Flush any pending write immediately (teardown). */
   flush(): void;
   /** Drop the in-memory copy and re-read from storage (a fresh control). */
@@ -750,6 +753,9 @@ const createFolderLayoutManager = (map: MapLike): FolderLayoutManager => {
       current = layout;
       timer ??= debounce(write, 100);
       timer();
+    },
+    setDerived(layout: FolderLayout): void {
+      current = layout;
     },
     flush(): void {
       timer?.flush();

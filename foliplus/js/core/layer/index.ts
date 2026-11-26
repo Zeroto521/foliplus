@@ -90,6 +90,14 @@ export {
   hydrate,
   projectRows,
   projectZ,
+  projectLayout,
+  moveEntry,
+  moveBlock,
+  addBlock,
+  deleteBlock,
+  deleteEmptyBlocks,
+  renameBlock,
+  leafPosition,
 } from "./arrangement.js";
 export type {
   Arrangement,
@@ -98,6 +106,7 @@ export type {
   FolderNode,
   GroupNode,
   LayerNode,
+  MovePlacement,
   OrderNode,
   ResolvedTree,
 } from "./arrangement.js";

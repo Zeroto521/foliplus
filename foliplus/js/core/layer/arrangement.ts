@@ -398,6 +398,301 @@ const projectZ = (resolved: ResolvedTree): string[] => {
   return ids;
 };
 
+/** Project the tree into the v2 layout mirror: the shape the panel's
+ *  read-only projections (roleBlocks / groupByFolder / fullDisplayOrder) still
+ *  consume. The tree is the source; this is the ONLY place the mirror is
+ *  written, so nothing can diverge from the tree by construction.
+ *
+ *  An assignment is a position here: a root layer has no members entry (a
+ *  materialised root pin is "folder: ''"), a folder member is recorded under
+ *  its parent key, and the block order is the role's top-level sequence. A
+ *  group node mirrors as a folder block (the v2 model has no group kind).
+ *
+ *  @param {ResolvedTree} resolved - The resolved tree.
+ *  @returns {FolderLayout} The v2-shaped mirror, never persisted as v2.
+ */
+const projectLayout = (resolved: ResolvedTree): FolderLayout => {
+  const folders: { key: string; name: string }[] = [];
+  for (const block of Object.values(resolved.blocks)) {
+    if (block.kind === "folder") folders.push({ key: block.key, name: block.name });
+  }
+  const order: Partial<Record<LayerRole, string[]>> = {};
+  const members: Record<string, { role: LayerRole; folder: string }> = {};
+  for (const role of ROLES) {
+    order[role] = (resolved.roles[role] ?? []).map(node =>
+      node.kind === "layer" ? rootLayerEntry(node.id) : node.key,
+    );
+  }
+  for (const id of Object.keys(resolved.parentOf)) {
+    const parent = resolved.parentOf[id];
+    if (parent === null || parent === undefined) continue;
+    const role = roleOfLeaf(resolved, id);
+    if (!role) continue;
+    members[id] = { role, folder: parent };
+  }
+  return { version: 2, folders, order, members };
+};
+
+/** The role that owns a leaf id, or null when the tree does not hold it. */
+const roleOfLeaf = (resolved: ResolvedTree, id: string): LayerRole | null => {
+  for (const role of ROLES) {
+    if ((resolved.roles[role] ?? []).some(node => carries(node, id))) return role;
+  }
+  return null;
+};
+
+/** The container + index of a leaf id in a role's tree, or null when absent.
+ *  A root leaf has `container: "root"`; a folder member names its folder key.
+ */
+const leafPosition = (
+  nodes: readonly OrderNode[],
+  id: string,
+): { container: "root" | { key: string }; index: number } | null => {
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    if (node.kind === "layer") {
+      if (node.id === id) return { container: "root", index: i };
+      continue;
+    }
+    const at = node.children.findIndex(c => c.kind === "layer" && c.id === id);
+    if (at !== -1) return { container: { key: node.key }, index: at };
+  }
+  return null;
+};
+
+/** Remove the first node carrying `id` from its container; returns the new
+ *  container and whether anything moved. The node may be a root layer or a
+ *  folder member; a folder that loses its last member keeps its (empty) block.
+ */
+const detachLeaf = (nodes: OrderNode[], id: string): [OrderNode[], boolean] => {
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    if (node.kind === "layer") {
+      if (node.id === id) {
+        const out = [...nodes];
+        out.splice(i, 1);
+        return [out, true];
+      }
+      continue;
+    }
+    const [children, moved] = detachLeaf(node.children, id);
+    if (moved) {
+      const out = [...nodes];
+      out[i] = { ...node, children };
+      return [out, true];
+    }
+  }
+  return [nodes, false];
+};
+
+/** Insert a layer node into a container at `index` (clamped); append when
+ *  `index` is negative or past the end. */
+const insertLeaf = (nodes: OrderNode[], id: string, index: number): OrderNode[] => {
+  const out = [...nodes];
+  const at = index < 0 || index > out.length ? out.length : index;
+  out.splice(at, 0, { kind: "layer", id });
+  return out;
+};
+
+/** The role-root index of a top-level entry (a block key or `layer:<id>`),
+ *  or -1 when the entry is not top-level. */
+const topLevelIndex = (nodes: readonly OrderNode[], entry: string): number =>
+  nodes.findIndex(node => (node.kind === "layer" ? rootLayerEntry(node.id) === entry : node.key === entry));
+
+/** A placement target for a layer move. */
+type MovePlacement =
+  | { kind: "root"; index?: number; beforeEntry?: string | null }
+  | { kind: "folder"; key: string; index: number };
+
+/** Move a layer to a placement in its role. Pure: returns a new tree, or the
+ *  same tree when the move is a no-op (the layer already sits where the
+ *  placement puts it, or the layer is not in the tree).
+ *
+ *  - `root` placement: the layer becomes a role-root node at `index` (0..len),
+ *    or before `beforeEntry` (a block key / `layer:<id>`), or appended when
+ *    `beforeEntry` is null or names nothing.
+ *  - `folder` placement: the layer becomes a member of folder `key` at `index`
+ *    (within the folder), or appended.
+ *
+ *  A folder that loses its last member keeps its (empty) block, so the folder
+ *  row survives until the user deletes it — the v2 behaviour. The block
+ *  directory is untouched.
+ */
+const moveEntry = (
+  tree: Arrangement,
+  role: LayerRole,
+  id: string,
+  placement: MovePlacement,
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  const [detached, moved] = detachLeaf(nodes, id);
+  if (!moved) return tree;
+  const roles = { ...tree.roles, [role]: detached };
+  if (placement.kind === "root") {
+    let index = placement.index ?? detached.length;
+    if (placement.beforeEntry !== undefined) {
+      const before = placement.beforeEntry;
+      if (before === null) index = detached.length;
+      else {
+        const at = topLevelIndex(detached, before);
+        index = at === -1 ? detached.length : at;
+      }
+    }
+    const next = insertLeaf(detached, id, index);
+    if (sameNodes(next, detached)) return tree;
+    return { ...tree, roles: { ...roles, [role]: next } };
+  }
+  // Folder placement: find the folder node, insert inside it.
+  let placed: OrderNode[] | null = null;
+  const withFolder = detached.map(node => {
+    if (node.kind === "layer" || node.key !== placement.key) return node;
+    placed = insertLeaf(node.children, id, placement.index);
+    return { ...node, children: placed };
+  });
+  if (placed === null) {
+    // The folder block does not exist: create it (v2 materialises a folder on
+    // the first move into it — createFolder semantics).
+    const folderNode: OrderNode = {
+      kind: "folder",
+      key: placement.key,
+      children: [{ kind: "layer", id }],
+    };
+    const next = [...detached, folderNode];
+    const meta: BlockMeta = { kind: "folder", key: placement.key, name: placement.key };
+    const blocks = { ...tree.blocks, [placement.key]: meta };
+    return { ...tree, roles: { ...roles, [role]: next }, blocks };
+  }
+  return { ...tree, roles: { ...roles, [role]: withFolder } };
+};
+
+/** Compare two node sequences by identity (shallow: children not compared). */
+const sameNodes = (a: readonly OrderNode[], b: readonly OrderNode[]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+};
+
+/** Move a top-level block (a folder or a root layer) before/after another
+ *  top-level entry. Pure: returns the same tree on a no-op or when either
+ *  entry is not top-level. `after` selects the insertion side.
+ */
+const moveBlock = (
+  tree: Arrangement,
+  role: LayerRole,
+  key: string,
+  targetKey: string,
+  after: boolean,
+): Arrangement => {
+  const nodes = [...(tree.roles[role] ?? [])];
+  const from = nodes.findIndex(node =>
+    node.kind === "layer" ? rootLayerEntry(node.id) === key : node.key === key,
+  );
+  if (from === -1) return tree;
+  const to = nodes.findIndex(node =>
+    node.kind === "layer" ? rootLayerEntry(node.id) === targetKey : node.key === targetKey,
+  );
+  if (to === -1 || to === from) return tree;
+  const [block] = nodes.splice(from, 1);
+  let insert = to;
+  if (from < to) insert = to - 1;
+  if (after) insert += 1;
+  nodes.splice(insert, 0, block);
+  return { ...tree, roles: { ...tree.roles, [role]: nodes } };
+};
+
+/** Insert a new top-level block into a role, before `beforeEntry` (a block
+ *  key / `layer:<id>`) or at the role tail when null / not found. The block
+ *  is a folder or a group; its directory entry is NOT written here (the
+ *  caller owns the directory). Pure: returns the same tree when the block
+ *  already exists in the role. */
+const addBlock = (
+  tree: Arrangement,
+  role: LayerRole,
+  block: { kind: BlockKind; key: string; name: string },
+  beforeEntry: string | null,
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  if (nodes.some(node => node.kind !== "layer" && node.key === block.key)) return tree;
+  let index = nodes.length;
+  if (beforeEntry !== null) {
+    const at = topLevelIndex(nodes, beforeEntry);
+    if (at !== -1) index = at;
+  }
+  const node: OrderNode = { kind: block.kind, key: block.key, children: [] };
+  const next = [...nodes];
+  next.splice(index, 0, node);
+  const meta: BlockMeta = { kind: block.kind, key: block.key, name: block.name };
+  const blocks = { ...tree.blocks, [block.key]: meta };
+  return { ...tree, roles: { ...tree.roles, [role]: next }, blocks };
+};
+
+/** Delete a top-level block (folder/group) from a role. Its member layers are
+ *  PROMOTED to role root (inserted at the block's former position), never
+ *  retired — the v2 deleteFolder contract. The directory entry is removed.
+ *  Pure: returns the same tree when the block is absent. */
+const deleteBlock = (
+  tree: Arrangement,
+  role: LayerRole,
+  key: string,
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  const at = nodes.findIndex(node => node.kind !== "layer" && node.key === key);
+  if (at === -1) return tree;
+  const block = nodes[at];
+  const promoted = (block.kind === "layer" ? [] : block.children).filter(
+    (c): c is LayerNode => c.kind === "layer",
+  );
+  const next = [...nodes];
+  next.splice(at, 1);
+  next.splice(at, 0, ...promoted);
+  const blocks = { ...tree.blocks };
+  delete blocks[key];
+  return { ...tree, roles: { ...tree.roles, [role]: next }, blocks };
+};
+
+/** Remove every EMPTY folder/group block from a role. Returns the new tree and
+ *  how many blocks were removed. Pure. */
+const deleteEmptyBlocks = (
+  tree: Arrangement,
+  role: LayerRole,
+): { tree: Arrangement; count: number } => {
+  const nodes = tree.roles[role] ?? [];
+  const emptyKeys = nodes
+    .filter((node): node is FolderNode | GroupNode => node.kind !== "layer")
+    .filter(node => node.children.length === 0)
+    .map(node => node.key);
+  if (emptyKeys.length === 0) return { tree, count: 0 };
+  const next = nodes.filter(
+    node => node.kind === "layer" || node.children.length !== 0,
+  );
+  const blocks = { ...tree.blocks };
+  for (const key of emptyKeys) delete blocks[key];
+  return {
+    tree: { ...tree, roles: { ...tree.roles, [role]: next }, blocks },
+    count: emptyKeys.length,
+  };
+};
+
+/** Rename a block's display name (the directory entry; the stable key is
+ *  unchanged). Pure: returns the same tree when the block is absent. */
+const renameBlock = (
+  tree: Arrangement,
+  role: LayerRole,
+  key: string,
+  name: string,
+): Arrangement => {
+  const nodes = tree.roles[role] ?? [];
+  if (!nodes.some(node => node.kind !== "layer" && node.key === key)) return tree;
+  const meta = tree.blocks[key];
+  if (!meta) return tree;
+  return {
+    ...tree,
+    blocks: { ...tree.blocks, [key]: { ...meta, name } },
+  };
+};
+
 export {
   ARRANGEMENT_VERSION,
   ROLES,
@@ -406,10 +701,19 @@ export {
   hydrate,
   projectRows,
   projectZ,
+  projectLayout,
+  moveEntry,
+  moveBlock,
+  addBlock,
+  deleteBlock,
+  deleteEmptyBlocks,
+  renameBlock,
+  leafPosition,
 };
 export type {
   Arrangement,
   BlockKind,
+  MovePlacement,
   BlockMeta,
   FolderNode,
   GroupNode,
