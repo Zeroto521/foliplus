@@ -192,6 +192,20 @@ class LayerControl(BaseControl):
        * - ``icon_size``
          - int
          - the marker icon pixel size.
+       * - ``opacity``
+         - float
+         - the whole-layer opacity (0-1), the panel slider's reset point.
+           It is a read-time default, never a draw override: folium's
+           ``opacity=`` keyword stays the author's draw value and is read
+           first.
+       * - ``icon``
+         - dict
+         - the icon block: ``colorOpacity`` (0-100) is the glyph alpha,
+           a read-time default like the whole-layer opacity.
+       * - ``marker``
+         - dict
+         - the marker block: ``colorOpacity`` (0-100) is the chassis
+           alpha, a read-time default like the whole-layer opacity.
 
     Two layers declaring the same ``folder`` name in the same role (for
     example ``foliplus={"folder": "底图"}``) are grouped into one

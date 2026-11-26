@@ -11,8 +11,11 @@ import { STYLE_MODE } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import {
   readDeclaredBorder,
+  readDeclaredIconColorOpacity,
   readDeclaredIconSize,
   readDeclaredMarkerColor,
+  readDeclaredMarkerColorOpacity,
+  readDeclaredOpacity,
 } from "#control/LayerControl/declaredParse.js";
 
 /** A linked carrier carrying a foliplus declaration. Fresh object per test: the
@@ -426,4 +429,134 @@ describe("readDeclaredMarkerColor", () => {
     );
     expect(declared).toBe("blue");
   });
+});
+
+describe("readDeclaredOpacity", () => {
+  it("reads a declared whole-layer opacity", () => {
+    const { declared, invalid } = readDeclaredOpacity(layerWith({ opacity: 0.6 }), "L");
+    expect(declared).toBe(0.6);
+    expect(invalid).toEqual([]);
+  });
+
+  it("reads the camelCased spelling (a rendered map camelizes option keys)", () => {
+    const { declared } = readDeclaredOpacity(layerWith({ opacity: 0.35 }), "L");
+    expect(declared).toBe(0.35);
+  });
+
+  it("reads nothing on a layer with no declaration", () => {
+    const { declared, invalid } = readDeclaredOpacity(layerWith({}), "L");
+    expect(declared).toBeUndefined();
+    expect(invalid).toEqual([]);
+  });
+
+  it.each([1.5, -0.1, true, "0.6", NaN, Infinity])(
+    "reads a malformed opacity %j as not-declared and warns once",
+    raw => {
+      const warn = vi.fn();
+      const { declared, invalid } = readDeclaredOpacity(
+        layerWith({ opacity: raw }),
+        "L",
+        warn,
+      );
+      expect(declared).toBeUndefined();
+      expect(invalid).toHaveLength(1);
+      expect(invalid[0]).toMatch(/out-of-range opacity|non-finite opacity/);
+    },
+  );
+
+  it("reads 0 and 1 as valid (the closed interval)", () => {
+    expect(readDeclaredOpacity(layerWith({ opacity: 0 }), "L").declared).toBe(0);
+    expect(readDeclaredOpacity(layerWith({ opacity: 1 }), "L").declared).toBe(1);
+  });
+
+  it("is a pure no-op for a null layer (never cached)", () => {
+    expect(readDeclaredOpacity(null, "L").declared).toBeUndefined();
+  });
+});
+
+describe("readDeclaredIconColorOpacity", () => {
+  it("reads the glyph alpha off the icon block", () => {
+    const { declared, invalid } = readDeclaredIconColorOpacity(
+      layerWith({ icon: { colorOpacity: 60 } }),
+      "L",
+    );
+    expect(declared).toBe(60);
+    expect(invalid).toEqual([]);
+  });
+
+  it("reads nothing when the icon block is absent", () => {
+    const { declared, invalid } = readDeclaredIconColorOpacity(layerWith({}), "L");
+    expect(declared).toBeUndefined();
+    expect(invalid).toEqual([]);
+  });
+
+  it("reads nothing when the icon block is not a mapping", () => {
+    const { declared } = readDeclaredIconColorOpacity(layerWith({ icon: "red" }), "L");
+    expect(declared).toBeUndefined();
+  });
+
+  it("reads nothing when the colorOpacity sub-key is absent", () => {
+    const { declared } = readDeclaredIconColorOpacity(
+      layerWith({ icon: { color: "#ff0000" } }),
+      "L",
+    );
+    expect(declared).toBeUndefined();
+  });
+
+  it.each([101, -1, 60.5, true, "60"])(
+    "reads a malformed colorOpacity %j as not-declared and warns once",
+    raw => {
+      const warn = vi.fn();
+      const { declared, invalid } = readDeclaredIconColorOpacity(
+        layerWith({ icon: { colorOpacity: raw } }),
+        "L",
+        warn,
+      );
+      expect(declared).toBeUndefined();
+      expect(invalid).toHaveLength(1);
+    },
+  );
+
+  it("never caches a null layer", () => {
+    expect(readDeclaredIconColorOpacity(null, "L").declared).toBeUndefined();
+  });
+});
+
+describe("readDeclaredMarkerColorOpacity", () => {
+  it("reads the chassis alpha off the marker block", () => {
+    const { declared, invalid } = readDeclaredMarkerColorOpacity(
+      layerWith({ marker: { colorOpacity: 60 } }),
+      "L",
+    );
+    expect(declared).toBe(60);
+    expect(invalid).toEqual([]);
+  });
+
+  it("reads nothing when the marker block is absent", () => {
+    const { declared, invalid } = readDeclaredMarkerColorOpacity(layerWith({}), "L");
+    expect(declared).toBeUndefined();
+    expect(invalid).toEqual([]);
+  });
+
+  it("reads nothing when the marker block is not a mapping", () => {
+    const { declared } = readDeclaredMarkerColorOpacity(
+      layerWith({ marker: "red" }),
+      "L",
+    );
+    expect(declared).toBeUndefined();
+  });
+
+  it.each([101, -1, 60.5, true, "60"])(
+    "reads a malformed colorOpacity %j as not-declared and warns once",
+    raw => {
+      const warn = vi.fn();
+      const { declared, invalid } = readDeclaredMarkerColorOpacity(
+        layerWith({ marker: { colorOpacity: raw } }),
+        "L",
+        warn,
+      );
+      expect(declared).toBeUndefined();
+      expect(invalid).toHaveLength(1);
+    },
+  );
 });

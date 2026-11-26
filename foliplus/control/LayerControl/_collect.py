@@ -28,6 +28,11 @@ from ._layer import (
     declared_marker_color,
     declared_zoom_range,
 )
+from ._opacity import (
+    declared_icon_color_opacity,
+    declared_marker_color_opacity,
+    declared_opacity,
+)
 from ._role import layer_role
 
 if TYPE_CHECKING:
@@ -103,6 +108,13 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
         # validated. Neither emits a CONF fact; each is read per layer.
         declared_marker_color(item, item.layer_name)
         declared_icon_size(item, item.layer_name)
+        # Whole-layer opacity / icon / marker colour alpha ride the same channel
+        # as border: the JS panel reads them straight off
+        # layer.options.foliplus (via the shared declared-key reader), so
+        # Python only shape-validates and warns once at collection time.
+        declared_opacity(item, item.layer_name)
+        declared_icon_color_opacity(item, item.layer_name)
+        declared_marker_color_opacity(item, item.layer_name)
         data.append(entry)
 
     # A folder name shared by several layers is a grouping intent, not a

@@ -19,6 +19,7 @@ import {
   unusableZoomRange,
 } from "#core/leaflet/index.js";
 import { createLogger } from "#platform/log.js";
+import { readDeclaredOpacity } from "#control/LayerControl/declaredParse.js";
 
 const log = createLogger("LayerControl");
 
@@ -198,7 +199,13 @@ function currentOpacity(
   return layerInfo
     ? ui.focusController.focusingLayerId === layerInfo.id
       ? 1
-      : (getIntent(ui, layerInfo.id, INTENT.OPACITY) ?? layerInfo.opacity ?? 1)
+      : (getIntent(ui, layerInfo.id, INTENT.OPACITY) ??
+        readDeclaredOpacity(
+          layerInfo.layer ?? ui.c.findLayer?.(layerInfo.id),
+          layerInfo.id,
+        ).declared ??
+        layerInfo.opacity ??
+        1)
     : undefined;
 }
 
