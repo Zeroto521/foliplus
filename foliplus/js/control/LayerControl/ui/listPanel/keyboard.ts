@@ -133,18 +133,38 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
 
   if (event.ctrlKey || event.metaKey) {
     const id = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
+    // stopgap: 2a（树模型写入口）落地后删除——那时跨 block 移动会真正落位。
+    //
+    // A keyboard reorder is a z-order move, while the panel projects folder
+    // blocks: a step that crosses into another block changes the map's z-order
+    // without a row to move, so the panel and the map would disagree until the
+    // next render. Refusing keeps the two honest — the user is told "this step
+    // is not possible yet" instead of watching a move that the rows never show.
+    const blockOf = (layerId: string) => ui.c.folderNameOf(layerId) ?? "";
+    const crossesBlock = (direction: -1 | 1): boolean => {
+      const layers = ui.c.layers;
+      const layerIdx = layers.findIndex(entry => entry.id === id);
+      const next = layerIdx < 0 ? undefined : layers[layerIdx + direction];
+      return next !== undefined && blockOf(next.id) !== blockOf(id);
+    };
     if (event.key === "ArrowUp") {
       event.preventDefault();
-      const moved = ui.c.moveLayerUp(id);
-      if (!moved) {
+      if (crossesBlock(-1)) {
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_same_block"), {
+          duration: HINT_DURATION.SHORT,
+        });
+      } else if (!ui.c.moveLayerUp(id)) {
         ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_top"), {
           duration: HINT_DURATION.SHORT,
         });
       }
     } else if (event.key === "ArrowDown") {
       event.preventDefault();
-      const moved = ui.c.moveLayerDown(id);
-      if (!moved) {
+      if (crossesBlock(1)) {
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_same_block"), {
+          duration: HINT_DURATION.SHORT,
+        });
+      } else if (!ui.c.moveLayerDown(id)) {
         ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_bottom"), {
           duration: HINT_DURATION.SHORT,
         });

@@ -286,9 +286,10 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     expect(ui.listPanel.lastDragOverItem).toBeNull();
   });
 
-  it("a folder drag over a cross-role layer row names same_role_only", () => {
+  it("a folder drag over a base-layer row names drop_base_layer", () => {
     // A layer row of the other role is not a block target: the folder can only
-    // reorder blocks inside its own section, so the refusal is named.
+    // reorder blocks inside its own section, so the refusal is named — and a
+    // base-layer row gets the section-specific sentence, not the generic one.
     const { ui } = initFixture({
       seedLayout: {
         version: 2,
@@ -324,7 +325,7 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
 
     handleDragOver(ui, over);
 
-    expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("same_role_only"), {
+    expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("drop_base_layer"), {
       duration: expect.anything(),
     });
     expect(member.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);

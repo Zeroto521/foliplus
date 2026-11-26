@@ -494,33 +494,45 @@
 
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
-  --foliplus-drag-border-width: var(--foliplus-border-thick);
-  /* A refused target is not a weaker accept: it is a different answer, so it
-     has its own desaturated amber. Keeping it in the accent red made a
-     refusal read as "almost accepted" at a glance. */
-  --foliplus-drag-refuse: #8a6a3b;
-  /* One pulse per gesture: pickup and the gap line share the count. */
-  --foliplus-drag-pulse-count: 1;
-  --foliplus-drag-border-from: var(--foliplus-accent-primary);
-  --foliplus-drag-border-to: var(--foliplus-accent-hover);
-  --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
-    calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
-  --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
+  /* One geometric language for the whole gesture: an accent line on the edge
+     where the layer will land. There is deliberately no second shape — a
+     refused target draws nothing, because "no line" already means "it will not
+     land here" once the line is the only position cue there is. */
+  --foliplus-drag-line: var(--foliplus-size-2);
+  --foliplus-drag-line-half: calc(var(--foliplus-size-2) / 2);
+  /* The line stops short of both row edges, so it reads as an insertion slot
+     rather than a border on the row. */
+  --foliplus-drag-line-inset: var(--foliplus-size-2);
+  --foliplus-drag-line-radius: 1px;
+  --foliplus-drag-line-from: var(--foliplus-accent-primary);
+  --foliplus-drag-line-to: var(--foliplus-accent-hover);
+  /* The glow is a 1px halo at half alpha, so the line's painted width stays
+     3px: a 2px line plus 1px of halo. Anything wider reads as a filled band
+     and outweighs the row it points at. */
+  --foliplus-drag-line-glow: 0 0 0 1px
+    color-mix(in srgb, var(--foliplus-accent-primary) 50%, transparent);
+  /* The insertion line keeps breathing while the pointer rests on it; the
+     carried row pulses ONCE on pickup, so "what I am holding" and "where it
+     will land" never read as the same thing. */
+  --foliplus-drag-pulse-duration: 1.6s;
+  --foliplus-drag-pulse-pickup: 1;
+  --foliplus-drag-pulse-target: infinite;
+  /* The row across the gap is nudged, never re-laid out: transform only, so the
+     list cannot reflow under the pointer. */
+  --foliplus-drag-push-shift: 1px;
+  /* The carried row stays dimmed for the whole gesture. */
+  --foliplus-drag-source-opacity: 0.6;
+  /* A join target is a row, not a gap: both edges light and the row takes a
+     wash light enough to keep the label readable. */
+  --foliplus-drag-join-fill: color-mix(
+    in srgb,
+    var(--foliplus-accent-primary) 4%,
+    transparent
+  );
   /* How long the committed indicator holds on the row's new position before
      drag.ts clears it: the drop's acknowledgement is one short flash of the
      same single state. */
   --foliplus-drag-commit: var(--foliplus-motion-quick);
-  /* Insertion-gap indicator: the pulse line sits ON the gap between rows, so
-     the line thickness and the slot depth are one pair of tokens. */
-  --foliplus-drag-gap-line: var(--foliplus-size-2);
-  --foliplus-drag-gap-line-half: calc(var(--foliplus-size-2) / 2);
-  --foliplus-drag-gap-depth: var(--foliplus-size-2);
-  --foliplus-drag-gap-inset-top: inset 0 var(--foliplus-drag-gap-depth)
-    var(--foliplus-drag-gap-depth) calc(-1 * var(--foliplus-border-thin))
-    var(--foliplus-accent-soft-shadow);
-  --foliplus-drag-gap-inset-bottom: inset 0 calc(-1 * var(--foliplus-drag-gap-depth))
-    var(--foliplus-drag-gap-depth) calc(-1 * var(--foliplus-border-thin))
-    var(--foliplus-accent-soft-shadow);
   --foliplus-layer-item-pad-x: calc(
     var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
   );

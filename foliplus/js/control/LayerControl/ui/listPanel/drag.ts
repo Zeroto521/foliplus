@@ -215,6 +215,11 @@ const handleDragStart = (ui: LayerUI, event: DragEvent) => {
     event.preventDefault();
     return;
   }
+  // A new gesture starts from a clean list. A leftover line from an earlier
+  // drag (interrupted drop, cancelled gesture, ESC) would otherwise mark a
+  // position this drag is not heading to — and the old line's row can sit right
+  // next to the carried row, which read as "the rows around my layer are red".
+  clearDragState(ui);
   const item = (event.target as HTMLElement).closest(
     CONST.SEL.LAYER_ITEM,
   ) as HTMLElement | null;
@@ -397,7 +402,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       const overFolder = over.getAttribute(CONST.DATA.FOLDER_KEY);
       // A folder over a group row: the two are different kinds of block.
       if (overId && isGroupDrag(ui, overId)) {
-        refuse("no_nest");
+        refuse("drop_group_row");
         return;
       }
       if (overFolder) {
@@ -410,15 +415,23 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
       const entry = blockEntryOfRow(over);
       const overRole = overId ? ui.c.layerRegistry.get(overId)?.role : undefined;
       if (entry === draggedFolder.key) return; // its own block: no-op
-      if (overRole !== draggedFolder.role || !entry) {
-        refuse("same_role_only");
+      if (!entry) {
+        // A role header: it divides sections, so there is no member to land
+        // between and no gap for the line to name.
+        refuse("drop_group_row");
+        return;
+      }
+      if (overRole !== draggedFolder.role) {
+        refuse(overRole === "base" ? "drop_base_layer" : "same_role_only");
         return;
       }
       // A member row belongs INSIDE another block: the block boundary is at its
       // header, so a gap drawn between members would name a position the drop
       // never takes.
       if (over.querySelector(CONST.SEL.FOLD_TREE)) {
-        refuse("same_role_only");
+        // A member row belongs to its own folder's block: the boundary is at
+        // that block's header, so this row names no reachable gap.
+        refuse("drop_other_group_member");
         return;
       }
       event.preventDefault();
@@ -555,14 +568,14 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // reorder path (which allows the hover and then silently drops the move).
   const targetFolderKey = targetId ? (ui.c.folderKeyOf(targetId) ?? "") : "";
   if (draggedIsGroup && targetFolderKey) {
-    refuse("no_nest", false);
+    refuse("drop_other_group_member", false);
     return;
   }
   // A row of another role is not a gap: an overlay never becomes a base layer,
   // so the drag is refused here instead of ending in a silent no-op.
   const targetRole = targetId ? ui.c.layerRegistry.get(targetId)?.role : undefined;
   if (targetRole && targetRole !== draggedEntry.role) {
-    refuse("same_role_only", true);
+    refuse(targetRole === "base" ? "drop_base_layer" : "same_role_only", true);
     return;
   }
   // Joining a folder happens on its header row, never between its children: a
@@ -572,7 +585,9 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
     targetFolderKey &&
     targetFolderKey !== (ui.c.folderKeyOf(draggedEntry.id) ?? "")
   ) {
-    refuse("same_role_only", true);
+    // Another folder's member row: the row is inside a block, and the drop
+    // that would reach it is the block header's.
+    refuse("drop_other_group_member", true);
     return;
   }
 

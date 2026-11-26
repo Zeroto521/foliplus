@@ -1,37 +1,41 @@
-/* ── Drag-over pulse animation ── */
+/* The insertion line breathes while the pointer rests on it: a small glow
+   swing on the line itself, so the pulse sits exactly where the layer lands.
+   Transform/opacity/box-shadow only — never layout. */
 @keyframes foliplus-drag-pulse {
   0%,
   100% {
-    border-color: var(--foliplus-drag-border-from);
-    box-shadow: var(--foliplus-drag-shadow-from);
+    border-color: var(--foliplus-drag-line-from);
+    box-shadow: 0 0 0 0 transparent;
   }
   50% {
-    border-color: var(--foliplus-drag-border-to);
-    box-shadow: var(--foliplus-drag-shadow-to);
+    border-color: var(--foliplus-drag-line-to);
+    box-shadow: var(--foliplus-drag-line-glow);
   }
 }
-
-/* ── Drag-join pulse: the whole container row is the target ── */
-@keyframes foliplus-drag-join-pulse {
+/* The carried row pulses ONCE on pickup and then holds dimmed: the pulse is the
+   acknowledgement, the dim is the state. */
+@keyframes foliplus-drag-pickup {
+  0% {
+    opacity: 1;
+  }
+  45% {
+    opacity: calc(var(--foliplus-drag-source-opacity) - 0.15);
+  }
+  100% {
+    opacity: var(--foliplus-drag-source-opacity);
+  }
+}
+/* A join target's chevron dips once per pulse, hinting "this opens up". */
+@keyframes foliplus-drag-chevron {
   0%,
   100% {
-    box-shadow: inset 0 0 0 var(--foliplus-drag-border-width)
-      var(--foliplus-drag-border-from);
+    transform: translateY(0);
   }
   50% {
-    box-shadow: inset 0 0 0 var(--foliplus-drag-border-width)
-      var(--foliplus-drag-border-to);
+    transform: translateY(var(--foliplus-drag-push-shift));
   }
 }
 
-/* ── A′ no-basemap hatch on map container ──
-   Decoration only: fills the "no basemap selected" state so the panel's
-   empty choice is visible on the map itself. Both a light background and
-   the hatch are painted here so the state is self-contained — one
-   implementation covers light and dark container backgrounds (fullscreen
-   and non-fullscreen alike), no override needed. `background-image` is
-   what ExportControl's resolveExportBackground ignores (it only reads
-   `backgroundColor`), so the hatch never reaches an export. */
 .leaflet-container.foliplus-no-base-map {
   background-color: var(--foliplus-surface);
   background-image: repeating-conic-gradient(
