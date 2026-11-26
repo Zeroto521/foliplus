@@ -891,7 +891,7 @@ const renderToggleAllRow = (
       // the "Shared row cells" block in row.css).
       // ACTIVE is the icon wake: a group row whose members are on reads as
       // active exactly like a checked layer row.
-      class: `${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
+      class: `${CONST.CLASSES.ROW} ${CONST.CLASSES.FOLD_BTN_CTR} ${CONST.CLASSES.TOGGLE_ALL} ${CONST.CLASSES.ROLE_ROW}${isFolded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
       tabindex: "0",
       "data-role": role,
       title: ui.T(isFolded ? "unfold_tooltip" : "fold_tooltip"),
@@ -927,7 +927,7 @@ const renderFolderRow = (
       // GROUP_FOLDED means "hidden because my group is folded" and belongs to
       // the members only — putting it here hid the header itself, which is the
       // only way back to the members.
-      class: `${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
+      class: `${CONST.CLASSES.ROW} ${CONST.CLASSES.LAYER_ITEM} ${CONST.CLASSES.FOLDER_ROW}${folded ? ` ${CONST.CLASSES.FOLDED}` : ""}${vis.on > 0 ? ` ${CONST.CLASSES.ACTIVE}` : ""}`,
       tabindex: "0",
       [CONST.DATA.ROLE]: role,
       [CONST.DATA.FOLDER_KEY]: folderKey,
@@ -1083,7 +1083,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   return dom.el(
     "div",
     {
-      class: CONST.CLASSES.LAYER_ITEM,
+      class: `${CONST.CLASSES.ROW} ${CONST.CLASSES.LAYER_ITEM}`,
       draggable: "true",
       tabindex: "0",
       [CONST.DATA.LAYER_ID]: layerInfo.id,

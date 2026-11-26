@@ -386,10 +386,11 @@ class TestLayerControlRendering:
         idx = css.find(".foliplus-layer-count-funnel")
         assert idx != -1
         # The funnel rule lives in the shared row-cell block (":is(.foliplus-
-        # layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all)"), which
-        # closes at two-space indentation. Slice to that close so the scan
-        # cannot leak into the next top-level rule.
-        block = css[idx : css.index("\n  }\n", idx)]
+        # layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all)"), nested
+        # two levels deep. Slice to the funnel rule's own close (six-space
+        # indentation) so the scan cannot leak into the folded rule that
+        # follows it in the same block.
+        block = css[idx : css.index("\n      }", idx)]
         assert "color: var(--foliplus-text-primary)" in block
         assert "fill: currentColor" in block
         assert "var(--foliplus-accent-primary)" not in block
@@ -476,9 +477,9 @@ class TestLayerControlRendering:
         # to isolate exactly this rule's body without leaking into siblings.
         mark = ":hover:where(:not(:has(.foliplus-row-panel:hover)))"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
-        # with `.foliplus-layer-item,` — anchor there so css.find() does not
+        # with `.foliplus-row,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
-        compound = css.find(".foliplus-layer-item,")
+        compound = css.find(".foliplus-row,")
         assert compound != -1, "Row-cursor compound selector not found"
         start = css.find(mark, compound)
         assert start != -1, "unified Row-cursor recipe selector not found"
@@ -487,7 +488,7 @@ class TestLayerControlRendering:
         # Both row types join the parent compound selector that carries this
         # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
         # recipe, which checks the exact selector string).
-        assert ".foliplus-layer-item" in css
+        assert ".foliplus-row" in css
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
         open_brace = css.index("{", start)
         depth, body = 1, css[open_brace + 1 :]
@@ -563,20 +564,29 @@ class TestLayerControlRendering:
         # A checked row carries .foliplus-active — a persistent checkbox state, not a
         # cursor — and the cursor-only type-icon tint comes from the recipe.
         # The rule lives in the shared row-cell block, so its selector is the
-        # :is() pair (layer row + role header) rather than a bare class.
-        assert (
-            ".foliplus-active:is(.foliplus-layer-item, "
-            ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
-            in html
+        # :is() pair (the generic row + the toggle-all header). Read it with a
+        # regex rather than a literal: the compiled form depends on the nesting
+        # context (the .foliplus-layer-ctrl prefix may sit outside the :is() or
+        # be pushed into each branch by the build's flatten), and the minifier
+        # may or may not keep the space after the comma. The regex keys on the
+        # three tokens that must all appear inside the :is() — .foliplus-active,
+        # .foliplus-row, .foliplus-layer-sep.foliplus-layer-toggle-all — in that
+        # order, followed by .foliplus-type-icon-col.
+        act_sel_re = (
+            r"\.foliplus-active:is\("
+            r"[^)]*\.foliplus-row[^)]*"
+            r"\.foliplus-layer-sep\.foliplus-layer-toggle-all"
+            r"\)\s*\.foliplus-type-icon-col"
         )
-        # Read the rule body directly from its selector: the shared row-cell
-        # block emits one rule for both row kinds, so the selector is the
-        # :is() pair and the body is the next {...} after it.
-        act_sel = (
-            ".foliplus-active:is(.foliplus-layer-item, "
-            ".foliplus-layer-sep.foliplus-layer-toggle-all) .foliplus-type-icon-col"
+        act_match = re.search(act_sel_re, html)
+        assert act_match, (
+            "the shared active row-cell rule must cover both the generic row "
+            "and the toggle-all header"
         )
-        act_idx = html.index(act_sel)
+        # Read the rule body directly from the match: the shared row-cell block
+        # emits one rule for both row kinds, so the body is the next {...} after
+        # the selector the regex matched.
+        act_idx = act_match.start()
         act_type = html[act_idx : html.index("}", act_idx)]
         assert "color: var(--foliplus-text-primary)" in act_type, (
             "type icon on active row must be black, not accent"
