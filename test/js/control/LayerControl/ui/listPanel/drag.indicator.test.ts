@@ -437,6 +437,161 @@ describe("ui/drag indicator state", () => {
     ).toHaveLength(0);
   });
 
+  it("leaves the end of a section unpressed", () => {
+    // A gap after the last row of the list has no far side, so nothing sinks.
+    const { ui } = initFixture({
+      data: [
+        { id: "L0", name: "L0", role: "overlay" as const },
+        { id: "B0", name: "B0", role: "base" as const },
+      ],
+    });
+    const base = attachedPanel(ui).querySelector(
+      `[${CONST.DATA.LAYER_ID}="B0"]`,
+    ) as HTMLElement;
+    handleDragStart(ui, dragEvent(base, { effectAllowed: "" }));
+    pinRect(base, 100, 36);
+    handleDragOver(ui, dragEvent(base, { dropEffect: "" }, 130));
+    expect(
+      attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_PUSH_ATTR}]`),
+    ).toHaveLength(0);
+  });
+
+  it("places a folder above the first layer row of a section", () => {
+    // A root row that opens the section has no folder block above it: the gap
+    // lands on its top edge, and the section boundary is the block edge.
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [
+        { id: "L0", name: "L0", role: "overlay" as const },
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const first = rowOf(ui, "L0");
+    pinRect(first, 100, 36);
+    handleDragOver(ui, dragEvent(first, { dropEffect: "" }, 104));
+    expect(stateOf(first)).toBe(CONST.DRAG_STATE.BEFORE);
+  });
+
+  it("clears the gap without a transfer object", () => {
+    // A synthetic event may carry no dataTransfer: the writer still paints and
+    // the blocked branch still clears, so the indicator never depends on it.
+    const { ui } = initFixture({ data: overlays(2) });
+    vi.spyOn(ui.c, "canReorderBetween").mockReturnValue(false);
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), null));
+    const second = rowOf(ui, "L1");
+    pinRect(second, 100, 36);
+    handleDragOver(ui, dragEvent(second, null, 130));
+    expect(stateOf(second)).toBeNull();
+  });
+
+  it("gaps a layer over a folder row's edge", () => {
+    // A folder row carries no layer id; the gap is still a legal position, so
+    // the edge places the layer before/after the whole block.
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        { id: "L0", name: "L0", role: "overlay" as const },
+      ],
+    });
+    handleDragStart(ui, dragEvent(rowOf(ui, "L0"), { effectAllowed: "" }));
+    const folderRow = folderRowOf(ui, "a");
+    pinRect(folderRow, 100, 36);
+    handleDragOver(ui, dragEvent(folderRow, { dropEffect: "" }, 130));
+    expect(stateOf(folderRow)).toBe(CONST.DRAG_STATE.AFTER);
+  });
+
+  it("reorders a member beside its own sibling", () => {
+    // Siblings stay in one block, so their gap is a reorder, not a join.
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        {
+          id: "a2",
+          name: "a2",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    const sibling = rowOf(ui, "a2");
+    pinRect(sibling, 100, 36);
+    handleDragOver(ui, dragEvent(sibling, { dropEffect: "" }, 130));
+    expect(stateOf(sibling)).toBe(CONST.DRAG_STATE.AFTER);
+  });
+
+  it("moves a member out of its folder on a root row", () => {
+    // Dropping a member row on a root row is the documented way out of a
+    // folder: the folder assignment changes, not the block order.
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        { id: "L0", name: "L0", role: "overlay" as const },
+      ],
+    });
+    const move = vi.spyOn(ui.c, "moveLayerToFolder");
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    const root = rowOf(ui, "L0");
+    pinRect(root, 100, 36);
+    handleDragOver(ui, dragEvent(root, { dropEffect: "" }, 130));
+    handleDrop(ui, dragEvent(root));
+    expect(move).toHaveBeenCalledWith("a1", "");
+  });
+
+  it("commits a folder beside a layer row without a transfer", () => {
+    // A root layer row is a block of its own: dropping the folder there commits
+    // the block order, and the writer never depends on a dataTransfer object.
+    const { ui } = initFixture({
+      seedLayout: folderLayoutDoc(["a"]),
+      data: [
+        {
+          id: "a1",
+          name: "a1",
+          role: "overlay" as const,
+          folder: "a",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+        { id: "L0", name: "L0", role: "overlay" as const },
+      ],
+    });
+    const reorder = vi.spyOn(ui.c, "reorderFolder");
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), null));
+    const root = rowOf(ui, "L0");
+    pinRect(root, 100, 36);
+    handleDragOver(ui, dragEvent(root, null, 130));
+    handleDrop(ui, dragEvent(root, null));
+    expect(reorder).toHaveBeenCalled();
+  });
+
   it("sinks the row on the far side of the gap", () => {
     // The gap line sits on one row, but the insertion PRESSES the row on the
     // far side: above the gap for BEFORE, below it for AFTER. The marker names

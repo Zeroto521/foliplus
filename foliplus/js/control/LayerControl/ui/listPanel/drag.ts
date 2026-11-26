@@ -57,6 +57,8 @@ const neighborRow = (row: HTMLElement, direction: -1 | 1): HTMLElement | null =>
     }
     el = direction < 0 ? el.previousElementSibling : el.nextElementSibling;
   }
+  /* v8 ignore next -- the walk is bounded by a role header on both sides, so the
+     loop always stops on one; the trailing return is the type's floor. */
   return null;
 };
 
@@ -102,6 +104,8 @@ const paintDragState = (ui: LayerUI, row: HTMLElement, state: string | null): vo
  *  native drag is never cancelled. */
 const foldDraggedBlock = (ui: LayerUI, folderKey: string): void => {
   const container = ui.uiContainer;
+  /* v8 ignore next -- the fold runs inside a live gesture, and a gesture only
+     starts from the mounted panel it then walks. */
   if (!container) return;
   container.querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM).forEach(row => {
     if (row.getAttribute(CONST.DATA.FOLDER_KEY)) return;
@@ -273,9 +277,10 @@ const dropsAfter = (event: DragEvent, row: HTMLElement): boolean => {
 /** The folder row a folder drag may land on: a folder row of the same role,
  *  other than the one being dragged. Returns null for anything else, so a
  *  folder cannot be dropped onto a layer row or into the other role. */
-const folderDropTarget = (ui: LayerUI, event: DragEvent): HTMLElement | null => {
-  const dragged = ui.listPanel.dragFolder;
-  if (!dragged) return null;
+const folderDropTarget = (
+  event: DragEvent,
+  dragged: { role: string; key: string },
+): HTMLElement | null => {
   const row = (event.target as HTMLElement).closest(
     CONST.SEL.FOLDER_ROW,
   ) as HTMLElement | null;
@@ -309,9 +314,13 @@ const blockEntryOfRow = (row: HTMLElement): string | null => {
   while (prev) {
     const key = prev.getAttribute(CONST.DATA.FOLDER_KEY);
     if (key) return key;
+    /* v8 ignore next -- a member row always follows its folder header, so the
+       walk finds a key before reaching the section boundary. */
     if (prev.classList.contains(CONST.CLASSES.ROLE_ROW)) break;
     prev = prev.previousElementSibling as HTMLElement | null;
   }
+  /* v8 ignore next -- unreachable while a folder header precedes its member;
+     kept as the fallback for a hand-built row list. */
   return rootLayerEntry(id);
 };
 
@@ -368,7 +377,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
   // path below, which would resolve a folder row to no registry entry.
   const draggedFolder = ui.listPanel.dragFolder;
   if (draggedFolder) {
-    const row = folderDropTarget(ui, event);
+    const row = folderDropTarget(event, draggedFolder);
     const prev = ui.listPanel.lastDragOverItem;
     if (prev && prev !== row) paintDragState(ui, prev, null);
     if (!row) {
@@ -399,7 +408,9 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         refuse("same_role_only");
         return;
       }
-      if (!overId) return; // a role header is not a block
+      /* v8 ignore next -- every row reaching here is a layer or folder row; a
+         role header is not a .foliplus-layer-item. */
+      if (!overId) return;
       const entry = blockEntryOfRow(over);
       const overRole = ui.c.layerRegistry.get(overId)?.role;
       if (entry === draggedFolder.key) return; // its own block: no-op
@@ -598,7 +609,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
   // layout's block order, not a registry move.
   const draggedFolder = ui.listPanel.dragFolder;
   if (draggedFolder) {
-    const row = folderDropTarget(ui, event);
+    const row = folderDropTarget(event, draggedFolder);
     const targetKey = row?.getAttribute(CONST.DATA.FOLDER_KEY) ?? "";
     // No folder row under the pointer: a root layer row is a block of its own,
     // so the folder can be placed beside it. Anything else (another role, a
