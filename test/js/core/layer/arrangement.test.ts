@@ -1,151 +1,83 @@
-// core/layer/arrangement — the ordered-tree model and its two projections.
+
+// core/layer/arrangement — the ordered-tree model, its projections and mutations.
 //
-// Stage 1 of the single-order refactor: this suite drives the model directly
-// (no DOM, no storage, no production caller). Equivalence with today's projections is the
-// parity suite's job; here each rule is pinned on its own.
+// Stage 2: `fromV2` (the v2 migration) is gone — the persisted shape IS the
+// tree, an unknown record is dropped and rebuilt as the default. This suite
+// drives the model directly (no DOM, no storage, no production caller);
+// equivalence with the v2 read shapes is the snapshot parity suite's job.
 import { entry } from "./arrangement.fixture.js";
 import { describe, expect, it } from "vitest";
 import {
   type Arrangement,
   type ResolvedTree,
   anchorOfNode,
-  emptyFolderLayout,
-  fromV2,
+  defaultArrangement,
   hydrate,
-  mergeDeclaredFolders,
   projectRows,
   projectZ,
+  arrangementAddBlock as addBlock,
+  arrangementDeleteBlock as deleteBlock,
+  arrangementDeleteEmptyBlocks as deleteEmptyBlocks,
+  arrangementLeafPosition as leafPosition,
+  arrangementMoveBlock as moveBlock,
+  arrangementMoveEntry as moveEntry,
+  arrangementRenameBlock as renameBlock,
 } from "#core/layer/index.js";
 
 /** The rows a role projects, without the role header row. */
 const rowsOf = (resolved: ResolvedTree, role: "overlay" | "base"): string[] =>
   projectRows(resolved, role).slice(1);
 
-describe("fromV2", () => {
-  it("projects an empty layout as the registry's root layers, in anchor order", () => {
-    const entries = [entry("a", "overlay", null, 0), entry("b", "overlay", null, 1)];
-    const tree = fromV2(emptyFolderLayout(), entries);
-    expect(tree.version).toBe(3);
+/** A minimal root-only tree: every layer at its role root, in the given order. */
+const rootTree = (ids: string[], roles: "overlay"[] | ["overlay" | "base", string[]][]): Arrangement => {
+  const overlay = ids.map(id => ({ kind: "layer" as const, id }));
+  return { blocks: {}, roles: { overlay, base: [] } };
+};
+
+describe("defaultArrangement", () => {
+  it("projects every registered layer at its role root, in registry order", () => {
+    const entries = [entry("a", "overlay", null, 0), entry("b", "overlay", null, 1), entry("c", "base", null, 2)];
+    const tree = defaultArrangement(entries);
     expect(tree.blocks).toEqual({});
-    expect(tree.roles.overlay).toEqual([
-      { kind: "layer", id: "a" },
-      { kind: "layer", id: "b" },
-    ]);
-    expect(tree.roles.base).toEqual([]);
+    expect(tree.roles.overlay).toEqual([{ kind: "layer", id: "a" }, { kind: "layer", id: "b" }]);
+    expect(tree.roles.base).toEqual([{ kind: "layer", id: "c" }]);
   });
 
-  it("turns a declared folder into a block whose children keep registry order", () => {
-    const entries = [
-      entry("a", "overlay", "Roads", 0),
-      entry("b", "overlay", "roads", 1),
-      entry("c", "overlay", null, 2),
-    ];
-    const tree = fromV2(mergeDeclaredFolders(emptyFolderLayout(), entries), entries);
-    // The same normalised key merges both spellings; the first-seen name wins.
-    expect(tree.blocks.roads).toEqual({ kind: "folder", key: "roads", name: "Roads" });
-    expect(tree.roles.overlay).toEqual([
-      {
-        kind: "folder",
-        key: "roads",
-        children: [
-          { kind: "layer", id: "a" },
-          { kind: "layer", id: "b" },
-        ],
-      },
-      { kind: "layer", id: "c" },
-    ]);
-  });
-
-  it("keeps an empty listed folder as a row", () => {
-    const layout = {
-      ...emptyFolderLayout(),
-      folders: [{ key: "empty", name: "Empty" }],
-      order: { overlay: ["empty"] },
-    };
-    const tree = fromV2(layout, [entry("a", "overlay", null, 0)]);
-    expect(tree.roles.overlay).toEqual([
-      { kind: "folder", key: "empty", children: [] },
-      { kind: "layer", id: "a" },
-    ]);
-    expect(tree.blocks.empty).toEqual({ kind: "folder", key: "empty", name: "Empty" });
-  });
-
-  it("honours a frozen block order including a root layer between two folders", () => {
-    const entries = [
-      entry("a", "overlay", "one", 0),
-      entry("mid", "overlay", null, 1),
-      entry("b", "overlay", "two", 2),
-    ];
-    const layout = {
-      ...mergeDeclaredFolders(emptyFolderLayout(), entries),
-      order: { overlay: ["one", "layer:mid", "two"] },
-    };
-    const tree = fromV2(layout, entries);
-    expect(
-      tree.roles.overlay.map(node => (node.kind === "layer" ? node.id : node.key)),
-    ).toEqual(["one", "mid", "two"]);
-  });
-
-  it("ignores a root-layer order entry for a layer that now lives in a folder", () => {
+  it("ignores folder declarations (the default has no blocks)", () => {
     const entries = [entry("a", "overlay", "roads", 0)];
-    const layout = {
-      ...mergeDeclaredFolders(emptyFolderLayout(), entries),
-      order: { overlay: ["layer:a", "roads"] },
-    };
-    const tree = fromV2(layout, entries);
-    // The stale root entry projects nothing; the folder still owns the layer.
-    expect(tree.roles.overlay).toEqual([
-      { kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] },
-    ]);
-  });
-
-  it("drops a non-root layer whose folder key normalises to empty (v2 parity)", () => {
-    // The v2 projection drops it too: it is neither a root layer nor a block
-    // member. Pinned here so a future stage cannot silently change the shape.
-    const entries = [entry("a", "overlay", "   ", 0), entry("b", "overlay", null, 1)];
-    const tree = fromV2(emptyFolderLayout(), entries);
-    expect(tree.roles.overlay).toEqual([{ kind: "layer", id: "b" }]);
+    const tree = defaultArrangement(entries);
+    expect(tree.blocks).toEqual({});
+    expect(tree.roles.overlay).toEqual([{ kind: "layer", id: "a" }]);
   });
 });
 
 describe("hydrate", () => {
   it("inserts a late registration at its anchor", () => {
+    const tree = rootTree(["a", "b"]);
     const entries = [entry("a", "overlay", null, 0), entry("b", "overlay", null, 1)];
-    const tree = fromV2(emptyFolderLayout(), entries);
     const late = [...entries, entry("late", "overlay", null, 2)];
-    // The tree was built before "late" existed: it lands after b.
-    expect(rowsOf(hydrate(tree, late), "overlay")).toEqual([
-      "layer:a",
-      "layer:b",
-      "layer:late",
-    ]);
-    // A layer registered before both sorts to the head, not the tail.
-    const early = [
-      entry("early", "overlay", null, 0),
-      ...entries.map((e, i) => ({ ...e, registeredAt: i + 1 })),
-    ];
-    expect(rowsOf(hydrate(tree, early), "overlay")).toEqual([
-      "layer:early",
-      "layer:a",
-      "layer:b",
-    ]);
+    expect(rowsOf(hydrate(tree, late), "overlay")).toEqual(["layer:a", "layer:b", "layer:late"]);
+    const early = [entry("early", "overlay", null, 0), ...entries.map((e, i) => ({ ...e, registeredAt: i + 1 }))];
+    expect(rowsOf(hydrate(tree, early), "overlay")).toEqual(["layer:early", "layer:a", "layer:b"]);
   });
 
   it("drops an unregistered id from the projection and reports it as an orphan", () => {
+    const tree = rootTree(["a", "b"]);
     const entries = [entry("a", "overlay", null, 0), entry("b", "overlay", null, 1)];
-    const tree = fromV2(emptyFolderLayout(), entries);
     const resolved = hydrate(tree, [entries[0]]);
     expect(projectZ(resolved)).toEqual(["a"]);
     expect(resolved.orphans).toEqual(["b"]);
-    // The persisted tree is untouched: a re-registration returns to its slot.
     expect(rowsOf(hydrate(tree, entries), "overlay")).toEqual(["layer:a", "layer:b"]);
   });
 
   it("is idempotent and records each layer's parent block", () => {
+    const tree: Arrangement = {
+      blocks: { roads: { kind: "folder", key: "roads", name: "roads" } },
+      roles: { overlay: [{ kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] }, { kind: "layer", id: "b" }], base: [] },
+    };
     const entries = [entry("a", "overlay", "roads", 0), entry("b", "overlay", null, 1)];
-    const layout = mergeDeclaredFolders(emptyFolderLayout(), entries);
-    const resolved = hydrate(fromV2(layout, entries), entries);
-    expect(hydrate(fromV2(layout, entries), entries).roles).toEqual(resolved.roles);
+    const resolved = hydrate(tree, entries);
+    expect(hydrate(tree, entries).roles).toEqual(resolved.roles);
     expect(resolved.parentOf).toEqual({ a: "roads", b: null });
     expect(resolved.orphans).toEqual([]);
   });
@@ -153,97 +85,58 @@ describe("hydrate", () => {
 
 describe("projectRows", () => {
   it("emits the role header, block headers and leaf rows in tree order", () => {
+    const tree: Arrangement = {
+      blocks: { roads: { kind: "folder", key: "roads", name: "roads" } },
+      roles: { overlay: [{ kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] }], base: [{ kind: "layer", id: "b" }] },
+    };
     const entries = [entry("a", "overlay", "roads", 0), entry("b", "base", null, 1)];
-    const layout = mergeDeclaredFolders(emptyFolderLayout(), entries);
-    const resolved = hydrate(fromV2(layout, entries), entries);
-    expect(projectRows(resolved, "overlay")).toEqual([
-      "role:overlay",
-      "folder:overlay:roads",
-      "layer:a",
-    ]);
+    const resolved = hydrate(tree, entries);
+    expect(projectRows(resolved, "overlay")).toEqual(["role:overlay", "folder:overlay:roads", "layer:a"]);
     expect(projectRows(resolved, "base")).toEqual(["role:base", "layer:b"]);
   });
 
-  it("projects a group block and its children once groups exist", () => {
-    // Groups are expressible before the panel renders them (stage 4): the model
-    // is the same, the block kind differs.
+  it("projects a group block and its children", () => {
     const tree: Arrangement = {
-      version: 3,
       blocks: { g1: { kind: "group", key: "g1", name: "Group" } },
-      roles: {
-        overlay: [
-          { kind: "group", key: "g1", children: [{ kind: "layer", id: "a" }] },
-          { kind: "layer", id: "b" },
-        ],
-        base: [],
-      },
+      roles: { overlay: [{ kind: "group", key: "g1", children: [{ kind: "layer", id: "a" }] }, { kind: "layer", id: "b" }], base: [] },
     };
     const entries = [entry("a", "overlay", null, 0), entry("b", "overlay", null, 1)];
     const resolved = hydrate(tree, entries);
-    expect(rowsOf(resolved, "overlay")).toEqual([
-      "group:overlay:g1",
-      "layer:a",
-      "layer:b",
-    ]);
+    expect(rowsOf(resolved, "overlay")).toEqual(["group:overlay:g1", "layer:a", "layer:b"]);
     expect(resolved.parentOf).toEqual({ a: "g1", b: null });
   });
 });
 
 describe("projectZ", () => {
   it("flattens overlays before base layers, blocks expanded in order", () => {
-    const entries = [
-      entry("a", "overlay", "roads", 0),
-      entry("b", "overlay", null, 1),
-      entry("c", "base", "water", 2),
-      entry("d", "base", null, 3),
-    ];
-    const layout = mergeDeclaredFolders(emptyFolderLayout(), entries);
-    const resolved = hydrate(fromV2(layout, entries), entries);
+    const tree: Arrangement = {
+      blocks: { roads: { kind: "folder", key: "roads", name: "roads" }, water: { kind: "folder", key: "water", name: "water" } },
+      roles: {
+        overlay: [{ kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] }, { kind: "layer", id: "b" }],
+        base: [{ kind: "folder", key: "water", children: [{ kind: "layer", id: "c" }] }, { kind: "layer", id: "d" }],
+      },
+    };
+    const entries = [entry("a", "overlay", "roads", 0), entry("b", "overlay", null, 1), entry("c", "base", "water", 2), entry("d", "base", null, 3)];
+    const resolved = hydrate(tree, entries);
     expect(projectZ(resolved)).toEqual(["a", "b", "c", "d"]);
-  });
-
-  it("keeps a folder's layers contiguous in the z sequence", () => {
-    const entries = [
-      entry("a", "overlay", null, 0),
-      entry("b", "overlay", "roads", 1),
-      entry("c", "overlay", "roads", 2),
-      entry("d", "overlay", null, 3),
-    ];
-    const layout = mergeDeclaredFolders(emptyFolderLayout(), entries);
-    const resolved = hydrate(fromV2(layout, entries), entries);
-    expect(projectZ(resolved)).toEqual(["a", "b", "c", "d"]);
-    // The block sits where its first member was registered.
-    expect(rowsOf(resolved, "overlay")).toEqual([
-      "layer:a",
-      "folder:overlay:roads",
-      "layer:b",
-      "layer:c",
-      "layer:d",
-    ]);
   });
 });
 
 describe("hydrate — partial blocks and defensive anchors", () => {
   it("keeps a folder that lost one member and reports the dead id once", () => {
-    const entries = [
-      entry("a", "overlay", "roads", 0),
-      entry("b", "overlay", "roads", 1),
-    ];
-    const tree = fromV2(mergeDeclaredFolders(emptyFolderLayout(), entries), entries);
-    // "a" is gone from the registry: the block survives with "b" and the row
-    // order still leads with the folder header.
+    const entries = [entry("a", "overlay", "roads", 0), entry("b", "overlay", "roads", 1)];
+    const tree: Arrangement = {
+      blocks: { roads: { kind: "folder", key: "roads", name: "roads" } },
+      roles: { overlay: [{ kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }, { kind: "layer", id: "b" }] }], base: [] },
+    };
     const resolved = hydrate(tree, [entries[1]]);
     expect(rowsOf(resolved, "overlay")).toEqual(["folder:overlay:roads", "layer:b"]);
     expect(resolved.orphans).toEqual(["a"]);
-    // A tree that carries the same dead id twice reports it once.
     const twice: Arrangement = {
       ...tree,
       roles: {
         ...tree.roles,
-        overlay: [
-          { kind: "layer", id: "a" },
-          { kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] },
-        ],
+        overlay: [{ kind: "layer", id: "a" }, { kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] }],
       },
     };
     expect(hydrate(twice, [entries[1]]).orphans).toEqual(["a"]);
@@ -251,82 +144,95 @@ describe("hydrate — partial blocks and defensive anchors", () => {
 
   it("does not duplicate a registered layer the tree already holds in a folder", () => {
     const entries = [entry("a", "overlay", "roads", 0), entry("b", "overlay", null, 1)];
-    const tree = fromV2(mergeDeclaredFolders(emptyFolderLayout(), entries), entries);
-    // "a" is in the registry AND inside the folder: the insert pass must find it
-    // there (a nested match) instead of appending a second root row.
-    expect(rowsOf(hydrate(tree, entries), "overlay")).toEqual([
-      "folder:overlay:roads",
-      "layer:a",
-      "layer:b",
-    ]);
+    const tree: Arrangement = {
+      blocks: { roads: { kind: "folder", key: "roads", name: "roads" } },
+      roles: { overlay: [{ kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] }, { kind: "layer", id: "b" }], base: [] },
+    };
+    expect(rowsOf(hydrate(tree, entries), "overlay")).toEqual(["folder:overlay:roads", "layer:a", "layer:b"]);
   });
 
   it("anchors a block by its first member and has no anchor without one", () => {
-    const indexById = new Map([
-      ["a", 0],
-      ["b", 1],
-      ["c", 2],
-    ]);
-    // A block's anchor is its smallest member index, not its first child's.
-    expect(anchorOfNode({ kind: "folder", key: "f", children: [] }, indexById)).toBe(
-      Number.POSITIVE_INFINITY,
-    );
-    expect(
-      anchorOfNode(
-        {
-          kind: "folder",
-          key: "f",
-          children: [
-            { kind: "layer", id: "c" },
-            { kind: "layer", id: "b" },
-          ],
-        },
-        indexById,
-      ),
-    ).toBe(1);
-    // A layer the registry does not know cannot anchor anything: it sorts last
-    // rather than swallowing a late registration.
-    expect(anchorOfNode({ kind: "layer", id: "ghost" }, indexById)).toBe(
-      Number.POSITIVE_INFINITY,
-    );
-  });
-
-  it("names a listed folder that has no directory entry after its key", () => {
-    // A block-order entry can outlive its directory entry (a hand-edited or
-    // older record); the projection still needs a display name.
-    const layout = { ...emptyFolderLayout(), order: { overlay: ["ghost"] } };
-    const tree = fromV2(layout, [entry("a", "overlay", null, 0)]);
-    expect(tree.blocks.ghost).toEqual({ kind: "folder", key: "ghost", name: "ghost" });
-    expect(rowsOf(hydrate(tree, [entry("a", "overlay", null, 0)]), "overlay")).toEqual([
-      "folder:overlay:ghost",
-      "layer:a",
-    ]);
+    const indexById = new Map([["a", 0], ["b", 1], ["c", 2]]);
+    expect(anchorOfNode({ kind: "folder", key: "f", children: [] }, indexById)).toBe(Number.POSITIVE_INFINITY);
+    expect(anchorOfNode({ kind: "folder", key: "f", children: [{ kind: "layer", id: "c" }, { kind: "layer", id: "b" }] }, indexById)).toBe(1);
+    expect(anchorOfNode({ kind: "layer", id: "ghost" }, indexById)).toBe(Number.POSITIVE_INFINITY);
   });
 });
 
-describe("fromV2 — assignment resolution", () => {
-  it("reads a persisted assignment, a blank declaration and an absent one", () => {
-    const stored = entry("a", "overlay", "Roads", 0);
-    const blank = entry("b", "overlay", "", 1);
-    const absent = { ...entry("c", "overlay", null, 2), folder: undefined };
-    const layout = {
-      ...emptyFolderLayout(),
-      members: { a: { role: "overlay" as const, folder: "roads" } },
+describe("mutations", () => {
+  const twoRoot = (): Arrangement => ({
+    blocks: {},
+    roles: { overlay: [{ kind: "layer", id: "a" }, { kind: "layer", id: "b" }], base: [] },
+  });
+
+  it("moveEntry to a new folder creates the block at the role tail", () => {
+    const tree = twoRoot();
+    const next = moveEntry(tree, "overlay", "a", { kind: "folder", key: "roads", index: 0 });
+    expect(next.roles.overlay).toEqual([
+      { kind: "layer", id: "b" },
+      { kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }] },
+    ]);
+    expect(next.blocks.roads).toEqual({ kind: "folder", key: "roads", name: "roads" });
+  });
+
+  it("moveEntry to root before an entry", () => {
+    const tree = twoRoot();
+    const next = moveEntry(tree, "overlay", "b", { kind: "root", beforeEntry: "layer:a" });
+    expect(next.roles.overlay).toEqual([{ kind: "layer", id: "b" }, { kind: "layer", id: "a" }]);
+  });
+
+  it("moveEntry is a no-op when the layer is absent", () => {
+    const tree = twoRoot();
+    expect(moveEntry(tree, "overlay", "ghost", { kind: "root" })).toBe(tree);
+  });
+
+  it("moveBlock reorders two top-level blocks", () => {
+    const tree: Arrangement = {
+      blocks: { one: { kind: "folder", key: "one", name: "one" }, two: { kind: "folder", key: "two", name: "two" } },
+      roles: { overlay: [{ kind: "folder", key: "one", children: [] }, { kind: "folder", key: "two", children: [] }], base: [] },
     };
-    // a: the persisted members entry wins and names a folder;
-    // b: a blank declaration is "no folder", not a folder named "";
-    // c: no declaration at all is a root layer.
-    const resolved = hydrate(fromV2(layout, [stored, blank, absent]), [
-      stored,
-      blank,
-      absent,
-    ]);
-    expect(rowsOf(resolved, "overlay")).toEqual([
-      "folder:overlay:roads",
-      "layer:a",
-      "layer:b",
-      "layer:c",
-    ]);
-    expect(resolved.parentOf).toEqual({ a: "roads", b: null, c: null });
+    const next = moveBlock(tree, "overlay", "two", "one", false);
+    expect(next.roles.overlay.map(n => (n.kind === "layer" ? n.id : n.key))).toEqual(["two", "one"]);
+  });
+
+  it("addBlock inserts a folder before an entry", () => {
+    const tree = twoRoot();
+    const next = addBlock(tree, "overlay", { kind: "folder", key: "f", name: "F" }, "layer:b");
+    expect(next.roles.overlay.map(n => (n.kind === "layer" ? n.id : n.key))).toEqual(["a", "f", "b"]);
+  });
+
+  it("deleteBlock promotes members to root", () => {
+    const tree: Arrangement = {
+      blocks: { f: { kind: "folder", key: "f", name: "F" } },
+      roles: { overlay: [{ kind: "folder", key: "f", children: [{ kind: "layer", id: "a" }, { kind: "layer", id: "b" }] }, { kind: "layer", id: "c" }], base: [] },
+    };
+    const next = deleteBlock(tree, "overlay", "f");
+    expect(next.roles.overlay).toEqual([{ kind: "layer", id: "a" }, { kind: "layer", id: "b" }, { kind: "layer", id: "c" }]);
+    expect(next.blocks.f).toBeUndefined();
+  });
+
+  it("deleteEmptyBlocks removes empty folders only", () => {
+    const tree: Arrangement = {
+      blocks: { f: { kind: "folder", key: "f", name: "F" } },
+      roles: { overlay: [{ kind: "folder", key: "f", children: [] }, { kind: "layer", id: "a" }], base: [] },
+    };
+    const { tree: next, count } = deleteEmptyBlocks(tree, "overlay");
+    expect(count).toBe(1);
+    expect(next.roles.overlay).toEqual([{ kind: "layer", id: "a" }]);
+  });
+
+  it("renameBlock updates the display name only", () => {
+    const tree = twoRoot();
+    const next = renameBlock(tree, "overlay", "missing", "X");
+    expect(next).toBe(tree);
+  });
+
+  it("leafPosition locates a root and a folder member", () => {
+    const tree: Arrangement = {
+      blocks: { f: { kind: "folder", key: "f", name: "F" } },
+      roles: { overlay: [{ kind: "folder", key: "f", children: [{ kind: "layer", id: "a" }] }, { kind: "layer", id: "b" }], base: [] },
+    };
+    expect(leafPosition(tree.roles.overlay, "a")).toEqual({ container: { key: "f" }, index: 0 });
+    expect(leafPosition(tree.roles.overlay, "b")).toEqual({ container: "root", index: 1 });
   });
 });

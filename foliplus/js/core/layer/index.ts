@@ -83,13 +83,19 @@ export type {
   FolderLayoutManager,
 } from "./folderLayout.js";
 export {
-  ARRANGEMENT_VERSION,
   ROLES as ARRANGEMENT_ROLES,
+  addBlock as arrangementAddBlock,
   anchorOfNode,
-  fromV2,
+  defaultArrangement,
+  deleteBlock as arrangementDeleteBlock,
+  deleteEmptyBlocks as arrangementDeleteEmptyBlocks,
   hydrate,
+  leafPosition as arrangementLeafPosition,
+  moveBlock as arrangementMoveBlock,
+  moveEntry as arrangementMoveEntry,
   projectRows,
   projectZ,
+  renameBlock as arrangementRenameBlock,
 } from "./arrangement.js";
 export type {
   Arrangement,
@@ -98,6 +104,7 @@ export type {
   FolderNode,
   GroupNode,
   LayerNode,
+  MovePlacement,
   OrderNode,
   ResolvedTree,
 } from "./arrangement.js";
