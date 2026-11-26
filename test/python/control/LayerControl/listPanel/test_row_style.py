@@ -270,3 +270,156 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             assert after == ["water", "roads"], (
                 f"folder order did not change after drag: before={before} after={after}"
             )
+
+
+_ROLE = '.foliplus-layer-role[data-role="overlay"]'
+_LAYER = (
+    '.foliplus-layer-item[data-layer-type="overlay"]:not(.foliplus-layer-item-folder)'
+)
+_FOLDER = ".foliplus-layer-item-folder"
+
+
+class TestRowInteractionParityBrowser(LayerControlBrowserBase):
+    """The role header paints its interaction states exactly like a layer row.
+
+    The role header is deliberately not a .foliplus-layer-item (that class means
+    "a layer row" to the panel's own selectors and to the browser tests), so it
+    joins the Row-cursor recipe by its own selector. Its fold chevron used to
+    carry a private rule that turned accent on hover/focus and text-primary when
+    folded — the inverse of a folder row's chevron, and the transient accent is
+    the "变红" the user reported. The contract: rest / hover / keyboard focus /
+    checked paint matches a layer row, and the chevron matches a folder row
+    (accent only while folded, never on a transient hover or focus).
+    """
+
+    def _page(self, browser, tmp_path):
+        fc = load_geojson("LayerControl", "empty_feature_collection")
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        folium.GeoJson(fc, name="Roads", foliplus={"folder": "Roads"}).add_to(m)
+        folium.GeoJson(fc, name="Water", foliplus={}).add_to(m)
+        LayerControl().add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "row_interaction")
+        page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    @staticmethod
+    def _read(page, selector):
+        """Settled interaction paint of one row (the chevron colour transitions)."""
+        page.wait_for_timeout(350)
+        return page.evaluate(_js("LayerControl/read_row_interaction_style"), selector)
+
+    def test_role_row_interaction_paint_matches_layer_and_folder_rows(
+        self, browser, tmp_path
+    ):
+        with use_page(self._page, browser, tmp_path) as (page, errors):
+            page.evaluate(_js("LayerControl/open_panel"))
+            page.wait_for_selector(
+                ".foliplus-layer-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            page.wait_for_selector(_ROLE, state="attached", timeout=5000)
+            page.wait_for_timeout(400)
+
+            text_primary = self._sample_token(page, "--foliplus-text-primary")
+            accent = self._sample_token(page, "--foliplus-accent-primary")
+
+            # The role header must not carry the layer-row class: a header
+            # matching it made every leaf-row lookup resolve to the header.
+            assert (
+                page.evaluate(
+                    _js("LayerControl/row_has_class"), [_ROLE, "foliplus-layer-item"]
+                )
+                is False
+            )
+
+            # ── Rest: same explicit surface, no glow, same persistent left bar ──
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            rest_role = self._read(page, _ROLE)
+            rest_layer = self._read(page, _LAYER)
+            rest_folder = self._read(page, _FOLDER)
+            assert rest_role["background"] == rest_layer["background"]
+            assert rest_role["glow"] == rest_layer["glow"] == "none"
+            assert rest_role["leftBar"] == rest_layer["leftBar"]
+            assert rest_role["outline"] == rest_layer["outline"] == "none"
+            # Both rows are checked (their layers are on), so both carry the
+            # persistent wash and accent bar.
+            assert rest_role["active"] and rest_layer["active"]
+            # The ⋮ button is the row's accent affordance: an active row wakes
+            # it to accent on all three row kinds. A role header whose ⋮ stays
+            # text-primary here is the bug the user reported (its menu.css rule
+            # selected on .foliplus-layer-item alone and missed the header).
+            assert (
+                rest_role["moreColor"]
+                == rest_layer["moreColor"]
+                == rest_folder["moreColor"]
+                == accent
+            ), "rest: the ⋮ must wake to accent on every row kind"
+
+            # ── Hover: white surface + top/bottom glow, chevron stays neutral ──
+            page.hover(_ROLE)
+            hover_role = self._read(page, _ROLE)
+            page.hover(_LAYER)
+            hover_layer = self._read(page, _LAYER)
+            page.hover(_FOLDER)
+            hover_folder = self._read(page, _FOLDER)
+            assert hover_role["background"] == hover_layer["background"]
+            assert hover_role["glow"] == hover_layer["glow"] != "none"
+            assert hover_role["leftBar"] == hover_layer["leftBar"]
+            assert (
+                hover_role["foldColor"] == hover_folder["foldColor"] == text_primary
+            ), "hover must not tint the role chevron: a transient accent is the bug"
+            # The ⋮ stays accent on hover for all three row kinds (menu.css
+            # wakes it on :hover via .foliplus-row now, so the role header is
+            # included). A black role ⋮ beside an accent layer ⋮ is the bug.
+            assert (
+                hover_role["moreColor"]
+                == hover_layer["moreColor"]
+                == hover_folder["moreColor"]
+                == accent
+            ), "hover: the ⋮ must be accent on every row kind"
+
+            # ── Keyboard focus: same recipe, chevron still neutral ──
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            assert page.evaluate(_js("LayerControl/focus_row_keyboard"), _ROLE) is True
+            focus_role = self._read(page, _ROLE)
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            assert page.evaluate(_js("LayerControl/focus_row_keyboard"), _LAYER) is True
+            focus_layer = self._read(page, _LAYER)
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            assert (
+                page.evaluate(_js("LayerControl/focus_row_keyboard"), _FOLDER) is True
+            )
+            focus_folder = self._read(page, _FOLDER)
+            assert focus_role["focused"] and focus_layer["focused"]
+            assert focus_role["background"] == focus_layer["background"]
+            assert focus_role["glow"] == focus_layer["glow"]
+            assert focus_role["leftBar"] == focus_layer["leftBar"]
+            assert focus_role["outline"] == focus_layer["outline"] == "none"
+            assert focus_role["foldColor"] == focus_folder["foldColor"] == text_primary
+            # The ⋮ wakes to accent under the keyboard cursor on every row kind.
+            assert (
+                focus_role["moreColor"]
+                == focus_layer["moreColor"]
+                == focus_folder["moreColor"]
+                == accent
+            ), "focus: the ⋮ must be accent on every row kind"
+
+            # ── Folded: accent chevron + accent left bar, like a folder row ──
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            assert page.evaluate(_js("LayerControl/click_row_fold"), _FOLDER) is True
+            folded_folder = self._read(page, _FOLDER)
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            assert page.evaluate(_js("LayerControl/click_row_fold"), _ROLE) is True
+            folded_role = self._read(page, _ROLE)
+            assert folded_role["folded"] and folded_folder["folded"]
+            assert folded_role["foldColor"] == folded_folder["foldColor"] == accent
+            assert folded_role["leftBar"] == accent
+
+            # Hovering a folded row keeps the persistent accent — no inversion.
+            page.hover(_ROLE)
+            folded_hover_role = self._read(page, _ROLE)
+            assert folded_hover_role["foldColor"] == accent
+
+            assert not errors, f"console errors: {errors}"

@@ -251,20 +251,12 @@
   .foliplus-layer-fold-btn[aria-expanded="true"] svg {
     transform: rotate(var(--foliplus-fold-rot-expanded));
   }
-  .foliplus-layer-toggle-all.foliplus-layer-folded .foliplus-layer-fold-btn {
-    color: var(--foliplus-accent-primary);
-  }
-  .foliplus-layer-toggle-all:not(.foliplus-layer-folded):is(
-      :hover,
-      .foliplus-is-focused-row
-    )
-    .foliplus-layer-fold-btn {
-    color: var(--foliplus-accent-primary);
-  }
-  .foliplus-layer-toggle-all.foliplus-layer-folded:is(:hover, .foliplus-is-focused-row)
-    .foliplus-layer-fold-btn {
-    color: var(--foliplus-text-primary);
-  }
+  /* The fold chevron's colour is NOT a per-row-kind rule: the shared
+     row-cell block below paints it accent while the row is folded and
+     text-primary otherwise, for a folder row and a role header alike. A
+     private toggle-all rule here used to turn it accent on a transient
+     hover/focus and text-primary while folded — the inverse of a folder
+     row, and the "变红" the user reported. */
 
   /* ── Folded layer items (hidden, but DOM preserved for index alignment) ── */
   .foliplus-layer-item.foliplus-layer-group-folded {
@@ -279,7 +271,7 @@
     width: var(--foliplus-space-xl);
     height: var(--foliplus-space-xl);
   }
-  .foliplus-layer-item .drag-handle {
+  .foliplus-row .drag-handle {
     opacity: 0;
     transition: opacity var(--foliplus-transition-fast);
   }
@@ -290,8 +282,9 @@
      ONE recipe for a row that is the interaction target: mouse hover and the
      JS cursor class (.foliplus-is-focused-row). They share the recipe, so the
      white surface, glow, drag grip, type icon and more button read identically
-     whichever way the user arrives at the row. The fold (toggle-all) row joins
-     the same selector group, so it cannot drift back into its own hover style.
+     whichever way the user arrives at the row. The fold (toggle-all) row and
+     the role header join the same selector group, so neither can drift back
+     into its own hover style.
 
      :focus-visible is deliberately NOT a CSS trigger. Tab focus is sampled
      once in the container's focusin delegate (`el.matches(':focus-visible')`)
@@ -302,7 +295,10 @@
      transition: none is kept on the rows because they are destroyed and
      re-created on every list rebuild; a border-color or background transition
      would flash the already-checked rows on each rebuild. */
-  .foliplus-layer-item,
+  /* One identity class for every row kind (layer / folder / group / role):
+     a new row kind cannot silently miss the recipe the way the role header
+     did before it carried .foliplus-row. */
+  .foliplus-row,
   .foliplus-layer-sep.foliplus-layer-toggle-all {
     /* Rows always paint an explicit surface — never transparent — so a
        resting unchecked row and an interaction target cannot disagree
@@ -410,8 +406,7 @@
   /* The role row is deliberately not a .foliplus-layer-item (that class means
      "a layer row" to the panel's own selectors), so it needs its own leg:
      without it the role ⋮ menu was painted over by the next row's hover. */
-  .foliplus-layer-item:has(.foliplus-layer-more-menu.open, .foliplus-row-panel),
-  .foliplus-layer-role:has(.foliplus-layer-more-menu.open) {
+  .foliplus-row:has(.foliplus-layer-more-menu.open, .foliplus-row-panel) {
     z-index: var(--foliplus-z-index-floating);
   }
 
@@ -511,7 +506,7 @@
      a .foliplus-layer-item — that class means "a layer row" to the panel's own
      selectors and to the browser tests, and a header matching it made every
      leaf-row lookup resolve to the header. */
-  :is(.foliplus-layer-item, .foliplus-layer-sep.foliplus-layer-toggle-all) {
+  :is(.foliplus-row, .foliplus-layer-sep.foliplus-layer-toggle-all) {
     /* Identity: gray at rest, wakes to black when the row is active. Accent
        stays reserved for actions (more) and status (border), so the type icon
        reads as focus, not as a call-to-action. The hover wake lives in the
@@ -586,6 +581,17 @@
         }
       }
     }
+    /* Folded is the row's own persistent state, not a cursor: accent rail
+       and accent chevron. One rule for every row kind that can fold — a
+       folder row and a role header paint identically, and a transient
+       hover/focus never tints the chevron. */
+    &.foliplus-layer-folded {
+      border-left-color: var(--foliplus-accent-primary);
+
+      .foliplus-layer-fold-btn {
+        color: var(--foliplus-accent-primary);
+      }
+    }
   }
 
   /* ── Folder row (a group header inside a role) ── */
@@ -603,13 +609,6 @@
       margin: 0;
       font-size: var(--foliplus-font-size-md);
       font-weight: var(--foliplus-font-weight-medium);
-    }
-    &.foliplus-layer-folded {
-      border-left-color: var(--foliplus-accent-primary);
-
-      .foliplus-layer-fold-btn {
-        color: var(--foliplus-accent-primary);
-      }
     }
   }
 
@@ -709,17 +708,15 @@
   /* When the rail has a tree guide, hide the grip until hover; on hover,
      show the grip and hide the guide. A member row shows a grip on hover
      exactly like a root row (spec §3.3). */
-  .foliplus-layer-item .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
+  .foliplus-row .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
     opacity: 0;
     pointer-events: none;
   }
-  .foliplus-layer-item:hover
-    .foliplus-layer-rail:has(.foliplus-fold-tree)
-    .drag-handle {
+  .foliplus-row:hover .foliplus-layer-rail:has(.foliplus-fold-tree) .drag-handle {
     opacity: 1;
     pointer-events: auto;
   }
-  .foliplus-layer-item:is(:hover, .foliplus-is-focused-row)
+  .foliplus-row:is(:hover, .foliplus-is-focused-row)
     .foliplus-layer-rail:has(.foliplus-fold-tree)
     .foliplus-fold-tree {
     opacity: 0;

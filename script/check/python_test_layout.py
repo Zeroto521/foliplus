@@ -120,6 +120,7 @@ ASPECT_WORDS = frozenset(
         "fold",
         "hover",
         "icon",
+        "identity",
         "keyboard",
         "label",
         "layout",
