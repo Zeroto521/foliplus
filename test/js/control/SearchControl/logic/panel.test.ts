@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createTimers } from "#platform/timer.js";
 import {
   attachSearchDelIcon,
   positionPanel,
@@ -30,7 +31,7 @@ const makeFixture = (extra: Record<string, unknown> = {}) =>
   ({
     ...ctx(),
     panelWrap: null,
-    throttleTimer: null,
+    timers: createTimers(),
     selectedIdx: -1,
     currentItems: [] as unknown[],
     ctrl: {
@@ -85,7 +86,6 @@ describe("removePanel", () => {
     const ctrl: any = {
       ...ctx(),
       panelWrap: el,
-      throttleTimer: setTimeout(() => {}, 1000),
       selectedIdx: 2,
     };
 
@@ -93,7 +93,6 @@ describe("removePanel", () => {
 
     expect(document.body.contains(el)).toBe(false);
     expect(ctrl.panelWrap).toBeNull();
-    expect(ctrl.throttleTimer).toBeNull();
     expect(ctrl.selectedIdx).toBe(-1);
   });
 
@@ -101,7 +100,7 @@ describe("removePanel", () => {
     const ctrl: any = {
       ...ctx(),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
     };
     expect(() => removePanel(ctrl)).not.toThrow();
@@ -192,7 +191,12 @@ describe("renderResults", () => {
   it("removes panel when results are empty", () => {
     const el = document.createElement("div");
     document.body.appendChild(el);
-    const ctrl: any = { ...ctx(), panelWrap: el, throttleTimer: null, selectedIdx: 0 };
+    const ctrl: any = {
+      ...ctx(),
+      panelWrap: el,
+      timers: createTimers(),
+      selectedIdx: 0,
+    };
     renderResults(ctrl, []);
     expect(ctrl.panelWrap).toBeNull();
     expect(ctrl.selectedIdx).toBe(-1);
@@ -287,7 +291,7 @@ describe("renderResults", () => {
     const ctrl: any = {
       ...ctx(),
       panelWrap: el,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: 0,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),

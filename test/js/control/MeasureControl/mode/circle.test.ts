@@ -182,6 +182,33 @@ describe("CircleMode — start drawing flow", () => {
       vi.useRealTimers();
     }
   });
+
+  it("owns the finalize delay on the manager's timers, so a destroyed manager cannot add the circle late", () => {
+    vi.useFakeTimers();
+    try {
+      const manager = makeManagerMock() as any;
+      manager.currentMode = CONST.MEASURE_MODE.CIRCLE;
+      const mode = new CircleMode(manager);
+      mode.start();
+
+      const clickHandler = manager.map.on.mock.calls.find(
+        ([ev]: [unknown]) => ev === "click",
+      )?.[1];
+      clickHandler({ latlng: { lat: 31.2, lng: 121.5 } });
+      clickHandler({ latlng: { lat: 31.21, lng: 121.51 } });
+
+      // The completion is parked on FINALIZE_DELAY as the manager's timer.
+      expect(manager.timers.names()).toContain("circle-finalize");
+
+      // Destroying the control disposes the manager's timers: the finalize must
+      // not add a measurement to a map the manager no longer owns.
+      manager.timers.dispose();
+      vi.advanceTimersByTime(CONST.TIMING.FINALIZE_DELAY + 1);
+      expect(manager.store.all().length).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("CircleMode — restore wiring", () => {
