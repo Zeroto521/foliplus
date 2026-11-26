@@ -67,7 +67,7 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 441,
+    line: 443,
     call: "syncToggleAll(ui, payload.role);",
     reason:
       "LAYER_ROLE_COUNT_CHANGED subscriber: the notification the barrier itself publishes — the downstream consumer of the same round trip",
