@@ -94,10 +94,30 @@ import {
   visibleDomOf,
   walkLeaf,
   zFor,
+  defaultArrangement,
+  hydrate as arrangementHydrate,
+  isArrangementShape,
+  projectLayout as arrangementProjectLayout,
+  ARRANGEMENT_ROLES,
+  arrangementAddBlock,
+  arrangementAddLeaf,
+  arrangementApplySavedOrder,
+  arrangementDeleteBlock,
+  arrangementPlaceLeafAtSaved,
+  arrangementDeleteEmptyBlocks,
+  arrangementDropLeaf,
+  arrangementLeafPosition,
+  arrangementMoveBlock,
+  arrangementMoveEntry,
+  arrangementRenameBlock,
+  type Arrangement,
+  type MovePlacement,
+  type OrderNode,
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { loadRecord, saveRecord, scopedStorageKey } from "#platform/storage.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
@@ -452,6 +472,12 @@ class LayerController implements LayerAPI {
    *  from storage on construction; every user action goes through the
    *  manager's `set`, and reads go through `layout` / `folderOf`. */
   private folderLayout!: FolderLayoutManager;
+  /** The single order source: the arrangement tree. The v2 folder layout and
+   *  the registry array are DERIVED from it (projectLayout + projectZ), so
+   *  nothing can diverge from the tree by construction. Persisted as the
+   *  bare record (no version); an unknown record is dropped and rebuilt as
+   *  the default. */
+  arrangement!: Arrangement;
   declare label: LabelManager;
   declare domain: LayerOrchestration;
   /** Per-layer intent store — domain-owned, exposed on
@@ -579,6 +605,28 @@ class LayerController implements LayerAPI {
     // layout. The seed is in-memory only (no write); it just makes the
     // declared grouping visible before the first user action.
     this.folderLayout.seed(this.layerRegistry.layers);
+    // The single order source: read the persisted tree (or the default built
+    // from the registry's declared grouping) BEFORE the boot pass derives the
+    // v2 mirror + registry from it.
+    this.arrangement = this.readArrangement();
+    // Construction-seeded layers register through LayerInfoRegistry directly
+    // (not registerLayer), so their declared folders are reconciled here — the
+    // same addLeaf materialisation a late registerLayer performs. Idempotent.
+    for (const layerInfo of this.layerRegistry.items) {
+      const declared = layerInfo.folder
+        ? { key: normalizeFolderName(layerInfo.folder), name: layerInfo.folder }
+        : null;
+      // Registration order is the boot's order: a construction-seeded layer
+      // appends (the v2 boot never reversed the initial group), while a LATE
+      // registerLayer prepends a fresh member to the top of its role/folder.
+      this.arrangement = arrangementAddLeaf(
+        this.arrangement,
+        layerInfo.role,
+        layerInfo.id,
+        declared,
+        "bottom",
+      );
+    }
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -825,7 +873,18 @@ class LayerController implements LayerAPI {
     // above so `this.order` / `this.layerRegistry` / `this.factory` / `this.domain`
     // are all populated when these run.
     this.loadSavedOrder();
-    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
+    // The legacy saved order ranks ROOT layers; seed the tree's root-layer
+    // order from it so the tree (the single source) honours the persisted user
+    // z. Folder blocks keep their positions; unranked layers stay at the tail.
+    if (this.order.savedOrder) {
+      for (const role of ARRANGEMENT_ROLES) {
+        this.arrangement = arrangementApplySavedOrder(this.arrangement, role, this.order.savedOrder);
+      }
+    }
+    // The tree is the source: derive the layout mirror + the registry (z axis)
+    // from it. `applyTree` preserves the existing normalizeGroups->enforceOrder
+    // order, so the first z pass reads the tree-derived state, not the seed.
+    this.applyTree(this.arrangement, { persist: false });
     this.enforceOrder();
     // Before any export, flush pending debounced enforceOrder so the exported
     // image matches the panel's layer order. A layer the pass could not price
@@ -1005,6 +1064,55 @@ class LayerController implements LayerAPI {
   get folderLayoutView(): FolderLayout {
     return this.folderLayout.layout;
   }
+  /** The storage key for this map's arrangement (scoped like the v2 layout). */
+  private arrangementKey(): string {
+    return scopedStorageKey(this.map, "layer_arrangement");
+  }
+
+  /** Read the persisted tree: a bare record, or the default (every registered
+   *  layer at its role root) when none exists. An unknown shape is DROPPED and
+   *  rebuilt as the default — no version, no migrate, no error. */
+  private readArrangement(): Arrangement {
+    const raw = loadRecord<unknown>(this.arrangementKey());
+    if (isArrangementShape(raw)) return raw;
+    return defaultArrangement(this.layerRegistry.layers);
+  }
+
+  /** Persist the tree as a bare record on the debounced writer (coalesces a
+   *  move batch). */
+  private persistArrangement(tree: Arrangement): void {
+    saveRecord(this.arrangementKey(), tree);
+  }
+
+  /** The resolved tree (the single order source projected against the live
+   *  registry). The UI + the registry read projectRows/projectZ/projectBlocks
+   *  from it; the mirror is only for the legacy folder-metadata reads. */
+  resolveArrangement() {
+    return arrangementHydrate(this.arrangement, this.layerRegistry.layers);
+  }
+
+  /** Apply a tree to the derived state: the v2 layout mirror (projectLayout)
+   *  and the registry array (the z axis, via normalizeGroups). The mirror is
+   *  derived, so it is written with setDerived (never persisted as v2). */
+  private applyTree(next: Arrangement, opts: { persist: boolean }): void {
+    this.arrangement = next;
+    const resolved = arrangementHydrate(next, this.layerRegistry.layers);
+    const derived = arrangementProjectLayout(resolved);
+    this.folderLayout.setDerived(derived);
+    this.layerRegistry.normalizeGroups(resolved);
+    if (opts.persist) this.persistArrangement(next);
+  }
+
+  /** Apply a folder-structure move (reorderFolder / moveLayerToFolder /
+   *  moveLayerToRootAt): the tree is the write, the derived state follows,
+   *  and the z pricing pass runs last (mirrors commitReorder's local-commit
+   *  rule). */
+  private commitFolderMove(next: Arrangement): void {
+    this.applyTree(next, { persist: true });
+    this.enforceOrder();
+    if (this.ui) this.ui.rebuildAfterLayoutChange();
+  }
+
   /** The display name of the folder a layer currently belongs to (from the
    *  layout's member assignment), or null when the layer is at role root. */
   folderNameOf(layerId: string): string | null {
@@ -1635,12 +1743,29 @@ class LayerController implements LayerAPI {
       opts,
       Boolean(this.ui),
     );
-    // A layer registered after init can still declare a folder. Seed the layout
-    // from the registry so the row joins that folder: the seed is idempotent and
-    // never overrides an existing assignment, so a re-registration is a no-op.
-    // Without it the declaration only reached the layout at init, and a late
-    // layer's folder row fell back to the normalised key for its display name.
-    this.folderLayout?.seed(this.layerRegistry.layers);
+    // A layer registered after init can still declare a folder. Reconcile the
+    // tree so the row joins that folder (or the role root): addLeaf is
+    // idempotent — a re-registration already in the tree is a no-op, and a
+    // late layer's declared folder is materialised on first add. The derived
+    // mirror + registry follow via applyTree.
+    const declaredFolder = layerInfo.folder
+      ? { key: normalizeFolderName(layerInfo.folder), name: layerInfo.folder }
+      : null;
+    let nextTree = arrangementAddLeaf(
+      this.arrangement,
+      layerInfo.role,
+      layerInfo.id,
+      declaredFolder,
+      opts.baseInsert ?? "top",
+    );
+    // A layer the saved order ranks takes its slot among the tree's root
+    // layers (the legacy user z); an unranked layer keeps the insert.
+    if (this.order.savedOrder) {
+      nextTree = arrangementPlaceLeafAtSaved(nextTree, layerInfo.role, layerInfo.id, this.order.savedOrder);
+    }
+    if (nextTree !== this.arrangement) {
+      this.applyTree(nextTree, { persist: true });
+    }
     // The commit token reaches the factory inside `registerEntry`, at the
     // registry write point — the only place that knows the entry exists before
     // `materialize()`/pane work can throw. Nothing to forward from here.
@@ -1853,7 +1978,12 @@ class LayerController implements LayerAPI {
     const idx = this.layerRegistry.indexOf(item);
     if (idx <= 0) return;
     if (item?.role === ROLE.BASE) return;
-    this.commitReorder(id, item, () => this.layerRegistry.moveToFront(id));
+    const next = arrangementMoveEntry(this.arrangement, item.role, id, {
+      kind: "root",
+      index: 0,
+    });
+    if (next === this.arrangement) return;
+    this.commitReorder(id, item, () => this.applyTree(next, { persist: true }));
   }
 
   /**
@@ -1880,7 +2010,19 @@ class LayerController implements LayerAPI {
     // which also owns the bounds check, below.
     if (from === to) return false;
     if (!this.canReorderBetween(from, to)) return false;
-    return this.commitReorder(id, item, () => this.layerRegistry.reorder(from, to));
+    // Resolve the target's slot in the tree and move the dragged layer there.
+    const pos = arrangementLeafPosition(
+      this.arrangement.roles[item.role] ?? [],
+      targetId,
+    );
+    if (!pos) return false;
+    const placement: MovePlacement =
+      pos.container === "root"
+        ? { kind: "root", index: pos.index }
+        : { kind: "folder", key: pos.container.key, index: pos.index };
+    const next = arrangementMoveEntry(this.arrangement, item.role, id, placement);
+    if (next === this.arrangement) return false;
+    return this.commitReorder(id, item, () => this.applyTree(next, { persist: true }));
   }
 
   /** Stamp `updatedAt` to now — call after a runtime mutation that does not
@@ -2161,8 +2303,11 @@ class LayerController implements LayerAPI {
         : `${CONST.SEL.LEAF_ITEM}:not([data-layer-type="${ROLE.BASE}"])`;
     // Keep the header while the role still owns a folder key: the
     // empty-folder cleanup button must stay reachable after the last layer
-    // goes (hard constraint 1 / builder-4 ④).
-    const roleKeys = this.folderLayout.layout.order[role] ?? [];
+    // goes (hard constraint 1 / builder-4 ④). Only FOLDER keys count — a
+    // root-layer entry (`layer:<id>`) in the order mirror is not a folder.
+    const roleKeys = (this.folderLayout.layout.order[role] ?? []).filter(
+      key => !key.startsWith("layer:"),
+    );
     if (!container.querySelector(anchorSel) && roleKeys.length === 0) {
       container
         .querySelector(`.${CONST.CLASSES.TOGGLE_ALL}[data-role="${role}"]`)
@@ -2393,24 +2538,17 @@ class LayerController implements LayerAPI {
       return true;
     }
 
-    // Folder empty-freeze: if this layer is the LAST member of its folder,
-    // materialise the role's whole block order into the folder layout
-    // BEFORE the removal — at this point the folder still has its last member,
-    // so its block is part of the snapshot and the frozen order is not
-    // self-contradictory. The persisted layout then keeps the emptied folder's
-    // position (the block order stays frozen while the role has no live
-    // members) and a later new folder lands at the block tail.
-    const frozen = this.freezeEmptyFolder(layerInfo);
+    // The tree is the single order source: the emptied folder's block survives
+    // the drop by construction (dropLeaf removes only the leaf), so no freeze
+    // is owed — the block stays put for the clean button.
     const retired = this.retireEntry(id);
     if (!retired) return false;
-    if (frozen) this.folderLayout.flush();
 
-    // Drop the layer's folder assignment (the deleteLayer path): a departed
-    // layer must not leave a stale member entry behind. The emptied folder's
-    // order key survives (the freeze), so the block stays put for the clean
-    // button.
-    this.folderLayout.set(dropLayer(this.folderLayout.layout, id));
-    if (frozen) this.folderLayout.flush();
+    // Drop the layer from the tree (the deleteLayer splice — the ONLY path
+    // that removes a node; unregister keeps it as a tombstone so a re-register
+    // returns to the same slot).
+    const nextTree = arrangementDropLeaf(this.arrangement, layerInfo.role, id);
+    if (nextTree !== this.arrangement) this.applyTree(nextTree, { persist: true });
 
     // User delete commits every persistent effect before the public fan-out:
     // once the registry entry is gone a retry cannot re-run the prune, so a
@@ -2501,30 +2639,15 @@ class LayerController implements LayerAPI {
       );
       return { ok: false, reason: "too-long" };
     }
-    const layout = this.folderLayout.layout;
-    const order = layout.order[role] ?? [];
-    // A same-role order collision OR a live member of THIS role already filed
-    // under the same key is a duplicate. The name-keyed directory is NOT a
-    // duplicate for create: a different role may reuse the same key and the
-    // core createFolder reuses the shared directory entry, so only this role's
-    // order and live members make a create collide.
+    const nodes = this.arrangement.roles[role] ?? [];
     const duplicate =
-      order.includes(key) ||
-      this.layerRegistry.layers.some(
-        l => l.role === role && folderOf(layout, l) === key,
-      );
+      nodes.some(node => node.kind !== "layer" && node.key === key) ||
+      this.layerRegistry.layers.some(l => l.role === role && folderOf(this.folderLayout.layout, l) === key);
     if (duplicate) return { ok: false, reason: "duplicate" };
-    // Materialise the empty folder at the tail through the single source: the
-    // manager's set schedules the debounced write; the registry re-derives the
-    // display order from the updated layout. The role's existing blocks are
-    // seeded into the order first, so "at the tail" means after the folders the
-    // author declared (they live in `members`, not in `order`).
-    this.folderLayout.set(createFolder(layout, role, name, this.layerRegistry.layers));
-    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
-
-    if (opts?.persist !== false) {
-      this.folderLayout.flush();
-    }
+    // Materialise the empty folder at the role tail through the tree (the
+    // single order source). The block directory entry is written with it.
+    const next = arrangementAddBlock(this.arrangement, role, { kind: "folder", key, name }, null);
+    this.applyTree(next, { persist: opts?.persist !== false });
     if (this.ui) this.ui.rebuildAfterLayoutChange();
     // The key travels back: the caller opens the inline rename on the row it
     // just created, and re-deriving the key from the name would be a second
@@ -2544,18 +2667,9 @@ class LayerController implements LayerAPI {
     targetKey: string,
     after: boolean,
   ): boolean {
-    const layout = this.folderLayout.layout;
-    // Author-declared folders live in `members`, not in `order`, so a role
-    // whose folders are all author-declared has an empty order — and moveFolder
-    // refuses a move between keys it cannot find there. Freeze the current
-    // block order first, exactly as createFolder does.
-    const seeded = freezeRoleOrder(layout, role, this.layerRegistry.layers, key);
-    const next = moveFolder(seeded, role, key, targetKey, after);
-    if (next === seeded) return false;
-    this.folderLayout.set(next);
-    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
-    this.folderLayout.flush();
-    if (this.ui) this.ui.rebuildAfterLayoutChange();
+    const next = arrangementMoveBlock(this.arrangement, role, key, targetKey, after);
+    if (next === this.arrangement) return false;
+    this.commitFolderMove(next);
     return true;
   }
 
@@ -2570,39 +2684,22 @@ class LayerController implements LayerAPI {
   moveLayerToFolder(layerId: string, folderKey: string): boolean {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return false;
-    const layout = this.folderLayout.layout;
-    // Seed the block order first: an author-declared folder is not in `order`,
-    // so the move would append its key and the folder would jump to the head of
-    // the role instead of staying where it is.
-    const seeded = {
-      ...layout,
-      order: {
-        ...layout.order,
-        [layerInfo.role]: seedBlockOrder(
-          layout,
-          layerInfo.role,
-          this.layerRegistry.layers,
-        ),
-      },
-    };
-    // A folder row only exists for a key in THIS role's block order (a
-    // materialised block, an empty block, or a seeded author folder), so a key
-    // that is not there belongs to another role. Refusing here keeps a
-    // cross-role drop from materialising a same-named folder in this role —
-    // the directory is name-keyed and global, so the new block would borrow the
-    // other role's display name and read as a duplicate.
-    if (folderKey !== "" && !(seeded.order[layerInfo.role] ?? []).includes(folderKey)) {
-      return false;
+    // The folder must exist in the role's tree (a materialised block, an empty
+    // block, or a seeded author folder). A key from another role is refused —
+    // the directory is name-keyed and global, so materialising a same-named
+    // block here would read as a duplicate.
+    if (folderKey !== "") {
+      const roleNodes = this.arrangement.roles[layerInfo.role] ?? [];
+      const hasFolder = roleNodes.some(node => node.kind !== "layer" && node.key === folderKey);
+      if (!hasFolder) return false;
     }
-    const next =
+    const placement: MovePlacement =
       folderKey === ""
-        ? moveLayerToRootInLayout(seeded, layerId, layerInfo.role)
-        : moveLayerToFolderInLayout(seeded, layerId, layerInfo.role, folderKey);
-    if (next === layout) return false;
-    this.folderLayout.set(next);
-    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
-    this.folderLayout.flush();
-    if (this.ui) this.ui.rebuildAfterLayoutChange();
+        ? { kind: "root", beforeEntry: null }
+        : { kind: "folder", key: folderKey, index: Number.MAX_SAFE_INTEGER };
+    const next = arrangementMoveEntry(this.arrangement, layerInfo.role, layerId, placement);
+    if (next === this.arrangement) return false;
+    this.commitFolderMove(next);
     return true;
   }
 
@@ -2617,44 +2714,10 @@ class LayerController implements LayerAPI {
   moveLayerToRootAt(layerId: string, beforeEntry: string | null): boolean {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return false;
-    const layout = this.folderLayout.layout;
-    // Same seeding as moveLayerToFolder: the target entry has to be addressable
-    // in the order, or the insert falls back to the tail.
-    const seeded = {
-      ...layout,
-      order: {
-        ...layout.order,
-        [layerInfo.role]: seedBlockOrder(
-          layout,
-          layerInfo.role,
-          this.layerRegistry.layers,
-        ),
-      },
-    };
-    // The insert position must be an entry of THIS role's block order: a key
-    // from the other role (or a stale one) would be written into the order and
-    // never render, leaving a dirty entry in the persisted layout.
-    // The layer's OWN entry is not in the order yet (writing it is what this
-    // call does), so it is never a foreign key — the core filters it out and
-    // appends, which is the tail. Every other entry must belong to this role.
-    if (
-      beforeEntry !== null &&
-      beforeEntry !== rootLayerEntry(layerId) &&
-      !(seeded.order[layerInfo.role] ?? []).includes(beforeEntry)
-    ) {
-      return false;
-    }
-    const next = moveLayerToRootAtInLayout(
-      seeded,
-      layerId,
-      layerInfo.role,
-      beforeEntry,
-    );
-    if (next === layout) return false;
-    this.folderLayout.set(next);
-    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
-    this.folderLayout.flush();
-    if (this.ui) this.ui.rebuildAfterLayoutChange();
+    const placement: MovePlacement = { kind: "root", beforeEntry };
+    const next = arrangementMoveEntry(this.arrangement, layerInfo.role, layerId, placement);
+    if (next === this.arrangement) return false;
+    this.commitFolderMove(next);
     return true;
   }
 
@@ -2701,37 +2764,25 @@ class LayerController implements LayerAPI {
       );
       return { ok: false, reason: "too-long" };
     }
-    // A rename to the folder's own normalised name is a display-only change:
-    // it still has to rewrite the display name, so it is not a no-op.
-    const layout = this.folderLayout.layout;
-    const order = layout.order[role] ?? [];
-    const inOrder = order.includes(oldKey);
-    const inDirectory = layout.folders.some(f => f.key === oldKey);
-    const hasLive = this.layerRegistry.layers.some(l => folderOf(layout, l) === oldKey);
-    if (!inOrder && !inDirectory && !hasLive) return { ok: false, reason: "missing" };
-    // The duplicate predicate mirrors the core renameFolder's refusal set: the
-    // name-keyed directory is GLOBAL (one entry per name, shared by both roles),
-    // so a rename to a name already in the directory is refused even when the
-    // colliding folder lives in the other role. Narrowing this to order[role]
-    // would let the controller report { ok: true } while the core renameFolder
-    // silently no-ops on its own global directory check — a lying success, not a
-    // corrupt layout.
-    // A rename to the folder's OWN normalised name is a display-only change, so
-    // the folder itself must not count as the collision.
+    // The tree keeps the folder's stable key; a rename changes only the
+    // display name. The folder must exist as a block (any role) to rename.
+    const tree = this.arrangement;
+    const inDirectory = tree.blocks[oldKey] !== undefined;
+    const inRoleNodes = (tree.roles[role] ?? []).some(node => node.kind !== "layer" && node.key === oldKey);
+    if (!inDirectory && !inRoleNodes) return { ok: false, reason: "missing" };
+    // The directory is name-keyed and global (one entry per key, shared by both
+    // roles): a rename to a key already claimed by a DIFFERENT folder is a
+    // duplicate. The folder's own key is not a collision.
     const duplicate =
       newKey !== oldKey &&
-      (order.includes(newKey) ||
-        layout.folders.some(f => f.key === newKey) ||
-        this.layerRegistry.layers.some(l => folderOf(layout, l) === newKey));
+      (tree.blocks[newKey] !== undefined ||
+        (tree.roles[role] ?? []).some(node => node.kind !== "layer" && node.key === newKey));
     if (duplicate) return { ok: false, reason: "duplicate" };
-    // The rename rewrites only the display name (and the block-order key in
-    // place); every member assignment keeps its key, so the block stays put.
-    this.folderLayout.set(renameFolder(layout, role, key, newName));
-    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
-
-    if (opts?.persist !== false) {
-      this.folderLayout.flush();
-    }
+    // Rename the display name in place (trimmed); the key and every member
+    // assignment are untouched, so the block stays put.
+    const next = arrangementRenameBlock(tree, role, oldKey, newName.trim());
+    if (next === tree) return { ok: false, reason: "missing" };
+    this.applyTree(next, { persist: opts?.persist !== false });
     if (this.ui) this.ui.rebuildAfterLayoutChange();
     return { ok: true };
   }
@@ -2763,23 +2814,15 @@ class LayerController implements LayerAPI {
    * @returns true when the folder existed and was removed, false otherwise.
    */
   deleteFolder(role: LayerRole, key: string, opts?: { persist?: boolean }): boolean {
-    const layout = this.folderLayout.layout;
-    const inOrder = (layout.order[role] ?? []).includes(key);
-    const inDirectory = layout.folders.some(f => f.key === key);
-    const members = this.layerRegistry.layers.filter(
-      l => l.role === role && folderOf(layout, l) === key,
-    );
-    if (!inOrder && !inDirectory && members.length === 0) return false;
-    // The delete promotes every member to root and removes the directory /
-    // order entries; the registry re-derives the display order from the
-    // updated layout.
-    this.folderLayout.set(deleteFolder(layout, role, key));
-    this.layerRegistry.normalizeGroups(this.folderLayout.layout);
-
-    if (opts?.persist !== false) {
-      this.folderLayout.flush();
-    }
-    if (this.ui) this.ui.rebuildAfterLayoutChange();
+    const tree = this.arrangement;
+    const inBlock = tree.blocks[key] !== undefined;
+    const inRoleNodes = (tree.roles[role] ?? []).some(node => node.kind !== "layer" && node.key === key);
+    if (!inBlock && !inRoleNodes) return false;
+    // The delete promotes every member to root and removes the block; the
+    // registry re-derives the display order from the tree.
+    const next = arrangementDeleteBlock(tree, role, key);
+    if (next === tree) return false;
+    this.commitFolderMove(next);
     return true;
   }
 
@@ -2796,24 +2839,10 @@ class LayerController implements LayerAPI {
    * @returns The number of empty folder keys removed.
    */
   cleanEmptyFolders(role: LayerRole): number {
-    const layout = this.folderLayout.layout;
-    const listed = layout.order[role] ?? [];
-    // The block order also carries root-layer entries ("layer:<id>"). They are
-    // not folders, so they are never empty and must survive the cleanup — a
-    // root layer has no folder, so testing them against folderOf() would report
-    // every one of them as an empty folder and delete the user's ordering.
-    const emptyKeys = folderEntries(listed).filter(
-      k => !this.layerRegistry.layers.some(l => folderOf(layout, l) === k),
-    );
-    if (emptyKeys.length === 0) return 0;
-    const remaining = listed.filter(k => !emptyKeys.includes(k));
-    this.folderLayout.set({
-      ...layout,
-      order: { ...layout.order, [role]: remaining },
-    });
-    this.folderLayout.flush();
-    if (this.ui) this.ui.rebuildAfterLayoutChange();
-    return emptyKeys.length;
+    const result = arrangementDeleteEmptyBlocks(this.arrangement, role);
+    if (result.count === 0) return 0;
+    this.commitFolderMove(result.tree);
+    return result.count;
   }
 
   /**
@@ -3324,14 +3353,76 @@ class LayerController implements LayerAPI {
    * @returns {boolean} true if the layer was moved, false if already at top,
    *   at the base boundary, or unknown.
    */
-  moveLayerUp(id: string): boolean {
+  /** The role-root anchor of a tree node: the folder block key, or the
+   *  `layer:<id>` entry of a root layer. */
+  private anchorOf(node: { kind: string; key?: string; id?: string }): string | null {
+    return node.kind === "layer" && node.id !== undefined
+      ? rootLayerEntry(node.id)
+      : (node.key ?? null);
+  }
+
+  /** Move a registered layer one step within the TREE (the single order
+   *  source). The registry z order follows through applyTree. `up` moves the
+   *  layer before its previous sibling in the role's block order; `down` after
+   *  its next sibling. A root layer swaps with the adjacent block; a folder
+   *  member swaps with the adjacent member inside its folder. */
+  private stepLayerInTree(id: string, up: boolean): boolean {
     const item = this.layerRegistry.get(id);
     if (!item) return false;
+    const role = item.role;
+    const nodes = this.arrangement.roles[role] ?? [];
+    const pos = arrangementLeafPosition(nodes, id);
+    if (!pos) return false;
+    // Role boundary guard: the registry z order is the derived projection, so
+    // the adjacent registry index is still the right boundary signal.
     const idx = this.layerRegistry.indexOf(item);
-    if (idx <= 0) return false;
-    if (!this.canReorderBetween(idx, idx - 1)) return false;
+    if (up && idx <= 0) return false;
+    if (!up && idx >= this.layers.length - 1) return false;
+    if (!this.canReorderBetween(idx, up ? idx - 1 : idx + 1)) return false;
 
-    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx - 1));
+    let placement: MovePlacement;
+    if (pos.container === "root") {
+      // The previous/next sibling in the role-root sequence (a block or a
+      // root layer). The move inserts before that anchor.
+      const prev = nodes[pos.index - 1];
+      const next = nodes[pos.index + 1];
+      if (up) {
+        if (!prev) return false;
+        placement = { kind: "root", beforeEntry: this.anchorOf(prev) };
+      } else {
+        // Move after `next`: insert before the node that follows it, or append
+        // when `next` is the last root node.
+        const after = nodes[pos.index + 2];
+        placement = { kind: "root", beforeEntry: after ? this.anchorOf(after) : null };
+      }
+    } else {
+      const containerKey = pos.container.key;
+      const container = nodes.find(
+        n => n.kind !== "layer" && n.key === containerKey,
+      ) as (OrderNode & { children: OrderNode[] }) | undefined;
+      const children = container?.children ?? [];
+      if (up) {
+        if (pos.index <= 0) return false;
+        placement = { kind: "folder", key: containerKey, index: pos.index - 1 };
+      } else {
+        if (pos.index >= children.length - 1) return false;
+        placement = { kind: "folder", key: containerKey, index: pos.index + 2 };
+      }
+    }
+    const next = arrangementMoveEntry(this.arrangement, role, id, placement);
+    if (next === this.arrangement) return false;
+    return this.commitReorder(id, item, () => this.applyTree(next, { persist: true }));
+  }
+
+  /**
+   * Move a registered layer one position up in z-order (toward index 0).
+   * Respects role boundaries (overlay to base never crosses).
+   * @param {string} id - Layer ID previously passed to registerLayer().
+   * @returns {boolean} true if the layer was moved, false if already at top,
+   *   at the base boundary, or unknown.
+   */
+  moveLayerUp(id: string): boolean {
+    return this.stepLayerInTree(id, true);
   }
 
   /**
@@ -3342,13 +3433,7 @@ class LayerController implements LayerAPI {
    *   of its role or unknown.
    */
   moveLayerDown(id: string): boolean {
-    const item = this.layerRegistry.get(id);
-    if (!item) return false;
-    const idx = this.layerRegistry.indexOf(item);
-    if (idx < 0 || idx >= this.layers.length - 1) return false;
-    if (!this.canReorderBetween(idx, idx + 1)) return false;
-
-    return this.commitReorder(id, item, () => this.layerRegistry.reorder(idx, idx + 1));
+    return this.stepLayerInTree(id, false);
   }
 
   destroy() {
