@@ -34,7 +34,6 @@ const OVERSIZED = {
   "control/LayerControl/controller.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/ui/style/fill.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/ui/style/index.test.ts": "split pending — blocked by #1284",
-  "control/HeatmapControl/manager.test.ts": "split pending",
   "control/LayerControl/ui/style/border.test.ts": "split pending — blocked by #1284",
   "control/MeasureControl/manager.test.ts": "split pending",
   "ui/listbox.test.ts": "split pending",
