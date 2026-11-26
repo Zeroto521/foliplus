@@ -3,6 +3,7 @@ import { CLASSES, containerId } from "./const.js";
 import * as SVGs from "./icon.js";
 import {
   buildFullscreenChangeHandler,
+  releaseNativeSession,
   releasePseudo,
   toggleFullscreen,
 } from "./logic.js";
@@ -100,7 +101,10 @@ const FullscreenControl = defineControl({
     // body-level overlay's host to a container that no longer exists. Cleanups
     // run while the mounting's signal is still live, so the in-flight native
     // paths see a release, not a torn-down map.
-    this.effect(() => () => releasePseudo(map));
+    this.effect(() => () => {
+      releasePseudo(map);
+      releaseNativeSession(map);
+    });
 
     return outer;
   },
