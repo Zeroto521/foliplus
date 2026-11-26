@@ -408,7 +408,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         return;
       }
       const entry = blockEntryOfRow(over);
-      const overRole = ui.c.layerRegistry.get(overId)?.role;
+      const overRole = overId ? ui.c.layerRegistry.get(overId)?.role : undefined;
       if (entry === draggedFolder.key) return; // its own block: no-op
       if (overRole !== draggedFolder.role || !entry) {
         refuse("same_role_only");
