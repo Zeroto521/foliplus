@@ -286,6 +286,25 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     expect(ui.listPanel.lastDragOverItem).toBeNull();
   });
 
+  it("a new drag releases the session fold a folder drag left behind", () => {
+    // The fold is session-only: it must never outlive the gesture, including
+    // the path where a second dragstart arrives before the first dragend. A
+    // leftover marker would hide the previous folder's members for good, with
+    // no way to bring them back short of a reload.
+    const { ui } = folderFixture(["a", "b"]);
+    handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
+    const member = rowOf(ui, "a1");
+    expect(member.hasAttribute(CONST.DRAG_FOLDED_ATTR)).toBe(true);
+
+    // A new gesture, with no dragend between the two.
+    handleDragStart(ui, dragEvent(rowOf(ui, "b1"), { effectAllowed: "" }));
+
+    expect(member.hasAttribute(CONST.DRAG_FOLDED_ATTR)).toBe(false);
+    expect(
+      ui.uiContainer?.querySelectorAll(`[${CONST.DRAG_FOLDED_ATTR}]`),
+    ).toHaveLength(0);
+  });
+
   it("a folder drag over a base-layer row names the section rule", () => {
     // A layer row of the other role is not a block target: the folder can only
     // reorder blocks inside its own section, so the refusal is named — and a

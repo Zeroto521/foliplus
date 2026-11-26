@@ -5,11 +5,13 @@ so a jsdom class check is not enough. One geometric language runs through the
 whole gesture — an accent line on the edge where the layer will land:
 
 * source  — the carried row: dimmed for the whole gesture, one pickup pulse;
-* before/after — a breathing 2px line on the row edge the layer lands against,
-  so dragging up and dragging down over the same gap draw the same picture;
-* join    — both edges of the target row light, on a 4% wash, chevron dipping;
-* refuse  — no geometry at all: the absence of the line is the refusal, the
-  pointer turns to no-drop and the hint line says why.
+* before/after — a breathing 2px line on the row edge the layer lands against
+  plus the shipped directional glow on that row, so dragging up and dragging
+  down over the same gap draw the same picture;
+* join    — the row is the container: an accent ring with an outside glow, both
+  edge lines pulsing one ring-width inside it, chevron dipping;
+* refuse  — the same ring, no line and no fill: the row is the target but will
+  not take it, and the pointer turns to no-drop while the hint line says why.
 
 Rows are addressed by DOM position among root layer rows (layers[i]): the
 fixture's GeoJson layers render with an empty title, so ids are hashes.
