@@ -9,6 +9,7 @@ import {
   walkLeaf,
   walkTree,
 } from "#core/layer/index.js";
+import * as CONST from "#core/layer/index.js";
 
 // A minimal Leaflet-style container: eachLayer callback style.
 const group = (...children: unknown[]) => ({
@@ -307,5 +308,98 @@ describe("countChildLayers", () => {
     // this arm is the defensive floor.
     expect(countChildLayers(null as unknown as L.Layer)).toBe(0);
     expect(countChildLayers(undefined as unknown as L.Layer)).toBe(0);
+  });
+});
+
+describe("walkTree / walkLeaf", () => {
+  const group = () => {
+    const a = {};
+    const b = {};
+    return {
+      a,
+      b,
+      layer: {
+        eachLayer: (fn: (l: L.Layer) => void) => {
+          fn(a as L.Layer);
+          fn(b as L.Layer);
+        },
+      },
+    };
+  };
+
+  it("walks groups and leaves", () => {
+    const { a, b, layer } = group();
+    const visited: L.Layer[] = [];
+    walkTree(layer as never, l => visited.push(l));
+    expect(visited).toEqual([layer, a, b]);
+  });
+
+  it("walkLeaf visits only leaves", () => {
+    const { a, b, layer } = group();
+    const visited: L.Layer[] = [];
+    walkLeaf(layer as never, l => visited.push(l));
+    expect(visited).toEqual([a, b]);
+  });
+
+  it("handles a plain layer with no children", () => {
+    const plain = {};
+    const visited: L.Layer[] = [];
+    walkTree(plain as never, l => visited.push(l));
+    expect(visited).toEqual([plain]);
+  });
+
+  it("walks the _layers map when eachLayer is absent", () => {
+    const a = {};
+    const layer = { _layers: { a } };
+    const visited: L.Layer[] = [];
+    walkLeaf(layer as never, l => visited.push(l));
+    expect(visited).toEqual([a]);
+  });
+
+  it("walks only a node's own registry entries, not inherited ones", () => {
+    // Leaflet's registries are plain objects, so a registry built on a
+    // prototype would expose its keys to `for..in`. Only entries the node
+    // actually owns are children of its tree.
+    const own = { own: true };
+    const registry = Object.assign(Object.create({ inherited: {} }), { own });
+    const visited: L.Layer[] = [];
+    walkLeaf({ _layers: registry } as never, l => visited.push(l));
+    expect(visited).toEqual([own]);
+  });
+
+  it("recurses into nested _layers (fallback branch)", () => {
+    // The fallback is distinguished only by which node ends up leaf: the
+    // _layers branch recurses without calling fn, so a group that
+    // carries _layers is never itself visited. Tag the real leaf and assert
+    // on the tag — an empty {} is indistinguishable from a non-recursion.
+    const leaf = { leaf: true };
+    const outer = { _layers: { inner: { _layers: { leaf } } } };
+    const visited: L.Layer[] = [];
+    walkLeaf(outer as never, l => visited.push(l));
+    expect(visited).toEqual([leaf]);
+  });
+
+  it("respects the recursion depth limit", () => {
+    const depth = CONST.RECURSION.LAYER_DEPTH + 2;
+    // Build a chain of eachLayer groups deeper than LAYER_DEPTH.
+    let tail: L.Layer = {
+      eachLayer: (fn: (l: L.Layer) => void) => fn({} as L.Layer),
+    };
+    for (let i = 0; i < depth; i++) {
+      const next = tail;
+      tail = { eachLayer: (fn: (l: L.Layer) => void) => fn(next as L.Layer) };
+    }
+    const visited: L.Layer[] = [];
+    walkTree(tail as never, l => visited.push(l));
+    // traverse() stops once depth exceeds LAYER_DEPTH, so a correct limit
+    // visits exactly LAYER_DEPTH + 1 nodes (depths 0..LAYER_DEPTH). An
+    // absent limit visits depth + 1; one level early visits LAYER_DEPTH.
+    expect(visited.length).toBe(CONST.RECURSION.LAYER_DEPTH + 1);
+  });
+
+  it("skips a null layer", () => {
+    const visited: L.Layer[] = [];
+    walkTree(null as never, l => visited.push(l));
+    expect(visited).toEqual([]);
   });
 });
