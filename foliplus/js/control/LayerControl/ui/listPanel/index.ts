@@ -41,11 +41,13 @@ import {
   initTypesAndVisibility,
   insertLayerItem,
   markSettled,
+  realignRole,
   rebuildList,
   refreshTreeConnectors,
   renderInitialList,
   renderLayerItem,
   renderToggleAllRow,
+  rowByKey,
   syncRowOrder,
   updateLayerItemLabel,
 } from "./list.js";
@@ -134,6 +136,7 @@ class ListPanel {
 export {
   initTypesAndVisibility,
   markSettled,
+  realignRole,
   rebuildList,
   syncRowOrder,
   renderInitialList,
@@ -144,6 +147,7 @@ export {
   colorLayerName,
   initLayerItem,
   refreshTreeConnectors,
+  rowByKey,
 };
 export { ListPanel };
 export {

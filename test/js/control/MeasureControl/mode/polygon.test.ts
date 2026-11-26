@@ -201,6 +201,34 @@ describe("PolygonMode — finish saves centroid", () => {
     expect(manager.store.remove).toHaveBeenCalledWith(saved.id);
     expect(manager.store.all().length).toBe(0);
   });
+
+  it("ends the mode when a complete polygon is committed (dblclick finish)", () => {
+    // Regression (polygon finish leaves the mode active): the >=3-point finish path ran only this._cleanup()
+    // and never clearActiveMode, so after a dblclick finalization currentMode
+    // stayed POLYGON and the Escape routing (manager.ts onKeyDown) returned
+    // early without clearing the mode — leaving the measuring cursor and the
+    // high-priority Escape registered. Distance's finish path calls
+    // clearActiveMode(); polygon must match.
+    const manager = makeManagerMock();
+    const mode = new PolygonMode(manager);
+    manager.currentMode = CONST.MEASURE_MODE.POLYGON;
+    mode.start();
+
+    const clickHandler = manager.map.on.mock.calls.find(
+      ([event]: [unknown]) => event === "click",
+    )?.[1];
+    clickHandler({ latlng: { lat: 30, lng: 120 } });
+    clickHandler({ latlng: { lat: 31, lng: 121 } });
+    clickHandler({ latlng: { lat: 32, lng: 120 } });
+    const dblHandler = manager.map.on.mock.calls.find(
+      ([event]: [unknown]) => event === "dblclick",
+    )?.[1];
+    dblHandler({ latlng: { lat: 32, lng: 120 } });
+
+    expect(mode.isFinished).toBe(true);
+    // The finish path itself ends the mode (same contract as distance).
+    expect(manager.clearActiveMode).toHaveBeenCalled();
+  });
 });
 
 describe("PolygonMode — toGeoFeature", () => {

@@ -681,6 +681,87 @@ describe("ui/list folder rows (render / row structure)", () => {
     )!;
     expect(rd2Row.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
+
+  it("places a late-registered sequence in the same row order as a pre-registered one (placement equivalence)", () => {
+    // ROOT-CAUSE TEST: the initial render and a late registration must place a
+    // row by the SAME rule. Before the rowKeySequence unification, insertLayerItem
+    // anchored on the CURRENT registry neighbour while renderInitialList walked the
+    // block sequence — so a late-registered root layer landing between folder
+    // members and a late folder member landing beside root layers both drifted.
+    // Panel B owns every layer before mount (renderInitialList); panel A mounts
+    // empty and registers the SAME layers one-by-one in the SAME order. Both must
+    // paint the identical row-key sequence.
+    const seedLayout = {
+      version: 2,
+      folders: [{ key: "roads", name: "roads" }],
+      order: { overlay: ["roads"] },
+      members: {
+        rd1: { role: "overlay", folder: "roads" },
+        rd2: { role: "overlay", folder: "roads" },
+      },
+    };
+    const panelB = initFixture({
+      seedLayout,
+      data: [
+        {
+          id: "rd1",
+          name: "Roads",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "water",
+          name: "Water",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+        {
+          id: "rd2",
+          name: "Rivers",
+          role: "overlay",
+          folder: "roads",
+          layer: polygonLayer(),
+        },
+        {
+          id: "land",
+          name: "Land",
+          role: "overlay",
+          folder: "",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const panelA = initFixture({ seedLayout, data: [] });
+    // registerLayer places a new layer on TOP of the stack (the registry
+    // front), so registering in the reverse of panel B's data order yields the
+    // SAME registry order as panel B — the only variable under test is the
+    // placement rule, not the registry's member order.
+    const lateRegs: Array<{ id: string; name: string; role: "overlay" }> = [
+      { id: "land", name: "Land", role: "overlay" },
+      { id: "rd2", name: "Rivers", role: "overlay" },
+      { id: "water", name: "Water", role: "overlay" },
+      { id: "rd1", name: "Roads", role: "overlay" },
+    ];
+    for (const l of lateRegs) {
+      panelA.manager.registerLayer(l);
+    }
+
+    const rowKey = (el: Element): string => {
+      const node = el as HTMLElement;
+      const id = node.getAttribute(CONST.DATA.LAYER_ID);
+      if (id) return `layer:${id}`;
+      const folderKey = node.getAttribute(CONST.DATA.FOLDER_KEY);
+      const role = node.getAttribute(CONST.DATA.ROLE);
+      if (folderKey) return `folder:${role}:${folderKey}`;
+      if (node.classList.contains(CONST.CLASSES.TOGGLE_ALL)) return `role:${role}`;
+      return "?";
+    };
+    const seqB = Array.from(attachedPanel(panelB.ui).children).map(rowKey);
+    const seqA = Array.from(attachedPanel(panelA.ui).children).map(rowKey);
+    expect(seqA).toEqual(seqB);
+  });
 });
 
 describe("ui/list folder rows, tree connectors and role fold", () => {

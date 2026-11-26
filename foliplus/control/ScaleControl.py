@@ -30,5 +30,12 @@ class ScaleControl(BaseControl):
         show_zoom: bool = True,
         locale: str | LocaleConfig | None = None,
     ):
+        # ScaleControl deliberately exposes no position parameter. A scale bar
+        # reads correctly only along the map's bottom edge; the top corners look
+        # wrong for a measurement instrument and the bottom-right corner is
+        # occupied by Leaflet's attribution. bottomleft is therefore the only
+        # legal position, so it is pinned here as an intentional exception —
+        # unlike Measure/Locate/Fullscreen, which expose position because every
+        # corner is meaningful to them.
         super().__init__(position="bottomleft", locale=locale)
         self.show_zoom = show_zoom

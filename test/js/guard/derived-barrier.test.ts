@@ -39,35 +39,35 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
 }> = [
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 277,
+    line: 282,
     call: "return refreshAllCounts(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 282,
+    line: 287,
     call: "return refreshTreeConnectors(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 392,
+    line: 397,
     call: "return syncToggleAll(this, role);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 120,
+    line: 121,
     call: "refreshAllCounts(ui);",
     reason:
       "right after the synchronous attach sequence (replayStoredStateAll): the initial counts pass, not a structural change",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 434,
+    line: 435,
     call: "syncToggleAll(ui, payload.role);",
     reason:
       "LAYER_ROLE_COUNT_CHANGED subscriber: the notification the barrier itself publishes — the downstream consumer of the same round trip",
@@ -95,7 +95,7 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 435,
+    line: 422,
     call: "refreshTreeConnectors(ui);",
     reason:
       "syncRowOrder: the rows moved, so the ├/└ connectors may no longer match the block they sit in (the reorder path)",
