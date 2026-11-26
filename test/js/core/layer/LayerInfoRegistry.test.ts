@@ -585,7 +585,15 @@ describe("LayerInfoRegistry", () => {
         { id: "overlay1", name: "O1", role: "overlay" },
         { id: "base2", name: "B2", role: "base" },
       ] as unknown as LayerInfo[]);
-      r.normalizeGroups();
+      r.normalizeGroups({
+        blocks: {},
+        roles: {
+          overlay: [{ kind: "layer", id: "overlay1" }],
+          base: [{ kind: "layer", id: "base1" }, { kind: "layer", id: "base2" }],
+        },
+        parentOf: { overlay1: null, base1: null, base2: null },
+        orphans: [],
+      } as never);
       expect(r.at(0).id).toBe("overlay1");
       expect(r.at(1).role === "base").toBe(true);
       expect(r.at(2).role === "base").toBe(true);

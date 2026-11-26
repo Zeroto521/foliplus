@@ -29,7 +29,7 @@ const rowsOf = (resolved: ResolvedTree, role: "overlay" | "base"): string[] =>
   projectRows(resolved, role).slice(1);
 
 /** A minimal root-only tree: every layer at its role root, in the given order. */
-const rootTree = (ids: string[], roles: "overlay"[] | ["overlay" | "base", string[]][]): Arrangement => {
+const rootTree = (ids: string[], _roles?: "overlay"[] | ["overlay" | "base", string[]][]): Arrangement => {
   const overlay = ids.map(id => ({ kind: "layer" as const, id }));
   return { blocks: {}, roles: { overlay, base: [] } };
 };
@@ -43,11 +43,14 @@ describe("defaultArrangement", () => {
     expect(tree.roles.base).toEqual([{ kind: "layer", id: "c" }]);
   });
 
-  it("ignores folder declarations (the default has no blocks)", () => {
-    const entries = [entry("a", "overlay", "roads", 0)];
+  it("materialises a declared folder as a block (the seed's grouping)", () => {
+    const entries = [entry("a", "overlay", "roads", 0), entry("b", "overlay", "roads", 1), entry("c", "overlay", null, 2)];
     const tree = defaultArrangement(entries);
-    expect(tree.blocks).toEqual({});
-    expect(tree.roles.overlay).toEqual([{ kind: "layer", id: "a" }]);
+    expect(tree.blocks.roads).toEqual({ kind: "folder", key: "roads", name: "roads" });
+    expect(tree.roles.overlay).toEqual([
+      { kind: "folder", key: "roads", children: [{ kind: "layer", id: "a" }, { kind: "layer", id: "b" }] },
+      { kind: "layer", id: "c" },
+    ]);
   });
 });
 
