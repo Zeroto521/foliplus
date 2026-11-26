@@ -46,6 +46,7 @@
 - `platform/storage`: versioned object records persist through one `saveVersionedObject`/`loadVersionedObject` pair that reads the `{version, data}` envelope, a legacy flat record or a bare value and migrates or discards it, with the folder layout, filter store, layer state, heatmap config and export bounds migrated onto it ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
 
 - : the panel teardown is one ordered scope — every listener, overlay and subscription step runs even when an earlier one throws, so a broken step can no longer skip the persistence flush or strand a subscriber ([#1385](https://github.com/Zeroto521/foliplus/pull/1385))
+
 ### Removed
 
 - `Package`: the internal annotation aliases `ControlPosition`/`Fraction`/`PositiveInt`/`Zoom` are no longer importable from `foliplus` (**Breaking**) ([#787](https://github.com/Zeroto521/foliplus/pull/787))
