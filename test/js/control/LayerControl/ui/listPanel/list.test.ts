@@ -530,6 +530,57 @@ describe("ui/list row placement", () => {
     expect(hIdx).toBeGreaterThanOrEqual(0); // the row landed (role-end append)
   });
 
+  it("leaves the anchor at the folder row when a prior member's row is absent (defensive arm)", () => {
+    // P3 coverage: the member-rank loop looks up each prior member's row. A
+    // member's row can be gone while the block still lists it only in a
+    // transient (rows are removed with the member in steady state), so the
+    // lookup is a defensive guard. Contract: when it misses, the anchor stays
+    // the folder row and the member still lands inside the block — never
+    // thrown to the registry depth.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A", "B"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+      data: [
+        {
+          id: "A",
+          name: "A",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+        {
+          id: "B",
+          name: "B",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const panel = attachedPanel(ui);
+    const folderIdx = Array.from(panel.children).findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+
+    // Drop A's row (the prior member the loop would anchor on).
+    panel.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
+
+    // Re-insert B directly: the loop walks A (row gone → miss → anchor stays
+    // the folder row), so B lands right after the folder row.
+    const bInfo = manager.layerRegistry.get("B")!;
+    insertLayerItem(ui, bInfo);
+
+    const after = Array.from(panel.children);
+    const bIdx = after.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "B");
+    expect(bIdx).toBe(folderIdx + 1);
+  });
+
   it("renders a folder row folded when its role is folded", () => {
     // Folding a role hides the whole block, header included — the folder's own
     // fold state is untouched, so unfolding the role restores the same view.
