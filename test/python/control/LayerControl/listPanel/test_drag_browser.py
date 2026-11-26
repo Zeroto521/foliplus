@@ -85,7 +85,7 @@ class TestDragIndicatorBrowser:
         snapshot = _read(page)
 
         source = _only(snapshot, "source")
-        assert float(source["opacity"]) == 0.6, (
+        assert float(source["opacity"]) == 0.5, (
             f"the carried row must stay dimmed: opacity {source['opacity']}"
         )
         assert source["animationName"] == "foliplus-drag-pickup", (
@@ -191,12 +191,23 @@ class TestDragIndicatorBrowser:
         assert _alpha(target["backgroundColor"]) <= 0.05, (
             f"join wash too strong: {target['backgroundColor']}"
         )
-        # The lines are the only new ink: the row itself is not dented (that
-        # belongs to the gap, whose neighbor is pressed open).
+        # A join target is a whole ROW: it carries the shipped inset ring plus
+        # an outer glow (the "left rail + right glow" the user asked for), and
+        # the two edge lines sit INSIDE that ring so they stay visible.
+        row_shadow = target["boxShadow"]
+        assert "inset" in row_shadow and "0px 0px 0px 2px" in row_shadow, (
+            f"a join target needs the inset ring: {row_shadow}"
+        )
+        assert row_shadow.count("rgb") >= 2, (
+            f"a join target needs the outer glow beside the ring: {row_shadow}"
+        )
         assert "inset" not in target["before"]["boxShadow"]
         assert "inset" not in target["after"]["boxShadow"]
-        assert target["boxShadow"] == "none", (
-            f"a join must not also dent its own row: {target['boxShadow']}"
+        assert target["before"]["top"] == "2px", (
+            f"the top edge line must sit inside the ring: {target['before']['top']}"
+        )
+        assert target["after"]["bottom"] == "2px", (
+            f"the bottom edge line must sit inside the ring: {target['after']['bottom']}"
         )
         assert target["chevronAnimation"] == "foliplus-drag-chevron", (
             "the chevron must hint that the row opens"
@@ -218,6 +229,13 @@ class TestDragIndicatorBrowser:
         )
         assert target["outlineStyle"] == "none", (
             f"no dashed box: {target['outlineStyle']}"
+        )
+        # A refusal announces itself on the row with the same ring a join draws
+        # (the shipped build's blocked look): the ring says "this row is the
+        # target", the missing line and the hint say "and it will not take it".
+        refuse_shadow = target["boxShadow"]
+        assert "inset" in refuse_shadow and "0px 0px 0px 2px" in refuse_shadow, (
+            f"a refusal needs the inset ring: {refuse_shadow}"
         )
         assert target["cursor"] == "no-drop", (
             f"the pointer must say no: {target['cursor']}"
@@ -313,7 +331,7 @@ class TestDragIndicatorBrowser:
 
         source = _only(snapshot, "source")
         assert source["key"] == "folder:roads"
-        assert float(source["opacity"]) == 0.6
+        assert float(source["opacity"]) == 0.5
         assert source["animationName"] == "foliplus-drag-pickup"
         assert source["animationIterationCount"] == "1"
         # The block travels as one unit: its members are folded for the gesture.
