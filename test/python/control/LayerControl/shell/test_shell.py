@@ -477,7 +477,7 @@ class TestLayerControlRendering:
         # to isolate exactly this rule's body without leaking into siblings.
         mark = ":hover:where(:not(:has(.foliplus-row-panel:hover)))"
         # The recipe's :is() rule sits INSIDE the compound selector that opens
-        # with `.foliplus-layer-item,` — anchor there so css.find() does not
+        # with `.foliplus-row,` — anchor there so css.find() does not
         # match the fold-btn's own `:not(...):is(...)` rule earlier in the file.
         compound = css.find(".foliplus-row,")
         assert compound != -1, "Row-cursor compound selector not found"
@@ -488,7 +488,7 @@ class TestLayerControlRendering:
         # Both row types join the parent compound selector that carries this
         # :is() rule (also asserted in test_toggle_all_hover_shares_row_cursor_
         # recipe, which checks the exact selector string).
-        assert ".foliplus-layer-item" in css
+        assert ".foliplus-row" in css
         assert ".foliplus-layer-sep.foliplus-layer-toggle-all" in css
         open_brace = css.index("{", start)
         depth, body = 1, css[open_brace + 1 :]
