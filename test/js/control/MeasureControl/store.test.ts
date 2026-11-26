@@ -254,6 +254,34 @@ describe("MeasureStore — mutateAndPersist", () => {
   });
 });
 
+describe("MeasureStore — persistence precision compatibility", () => {
+  it("writes a loaded legacy-rounded record back verbatim (no re-rounding/rewrite)", () => {
+    // Old records stored 6-decimal rounded coordinates. New records keep
+    // full precision; a legacy value is a valid low-precision original and
+    // must round-trip unchanged — the store serializes what it holds.
+    const store = makeStore().store;
+    const legacy = { id: "m_legacy", type: "marker", lng: 121.987654, lat: 31.123457 };
+    store.hydrate([legacy]);
+    storage.saveVersioned.mockClear();
+    store.add({ id: "m_new", type: "marker", lng: 121.987654321, lat: 31.123456789 });
+
+    expect(storage.saveVersioned).toHaveBeenCalledTimes(1);
+    const [, envelope] = storage.saveVersioned.mock.calls[0];
+    expect(envelope.data[0]).toEqual({
+      id: "m_legacy",
+      type: "marker",
+      lng: 121.987654,
+      lat: 31.123457,
+    });
+    expect(envelope.data[1]).toEqual({
+      id: "m_new",
+      type: "marker",
+      lng: 121.987654321,
+      lat: 31.123456789,
+    });
+  });
+});
+
 describe("MeasureStore — clear", () => {
   it("empties the list and persists", () => {
     const store = makeStore().store;

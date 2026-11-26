@@ -285,10 +285,15 @@ class TestMoreMenuScrollBrowser:
                 f"menu clips content: width={result['menuWidth']} "
                 f"scrollWidth={result['scrollWidth']}"
             )
-            # "Confirm Delete" (armed state's label) is the widest item; it must
-            # be present and not clipped. The menu renders "Delete Layer"/"Clear
-            # Data" at rest; the armed label is "Confirm Delete".
-            assert result["confirmDeleteVisible"], "delete entry not found in menu"
+            # The delete entry is the widest item (its armed label is longer
+            # than the resting one); it must be present and not clipped. It is
+            # identified by its data-action, not its label: the label is
+            # localized, so a text match would fail in any non-English locale.
+            delete_entry = result["deleteEntry"]
+            assert delete_entry is not None, "delete entry not found in menu"
+            assert not delete_entry["clipped"], (
+                f"delete entry clipped: width={delete_entry['width']}"
+            )
         finally:
             page.close()
         assert errors == [], f"console errors: {errors}"
