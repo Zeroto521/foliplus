@@ -412,6 +412,8 @@ describe("style-mode-usage guard wiring", () => {
 const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "async-liveness":
     "async continuations must not outlive the component that mounted them",
+  "browser-snippet":
+    "every browser probe is cited by a consumer and no two probes share a body",
   "config-contract-keys":
     "the CONFIG payload keeps one snake_case key spelling across Python and JS",
   "deep-relative-path":
@@ -450,6 +452,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "the border and fill style dimensions do not form a module cycle",
   "task-number-drift":
     "internal task identifiers never leak into source, tests or comments",
+  "teardown-step-name":
+    "every semantic event derives one unique, greppable teardown step name",
   "test-path-mirror": "the test tree mirrors the production tree in both directions",
   "v8-ignore": "v8-ignore comments stay on the lines they claim",
   vocabulary:

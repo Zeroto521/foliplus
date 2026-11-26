@@ -122,6 +122,23 @@ const releasePseudo = (map: L.Map) => {
   map.isFullscreen = false;
 };
 
+/** Maps whose native fullscreen session this control is part of. The native
+ *  exit branch clears map.isFullscreen before the fullscreenchange event lands,
+ *  so the handler cannot tell "our session ended" from "somebody else's map
+ *  transitioned" by reading the map alone. Keyed per map: one bundle serves
+ *  every map on the page. */
+const nativeSessions = new WeakSet<L.Map>();
+
+/** Forget a map's native fullscreen session on control teardown. The exit
+ *  handler clears nativeSessions when the fullscreenchange event lands, but a
+ *  control removed before that event leaves a stale entry: the re-added
+ *  control's fresh handler would then misjudge a sibling's transition as this
+ *  map's own exit. Deleting an absent key is a no-op, so calling this on every
+ *  teardown is safe. */
+const releaseNativeSession = (map: L.Map) => {
+  nativeSessions.delete(map);
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // toggleFullscreen  —  enter/exit fullscreen via native API or pseudo mode
 // ══════════════════════════════════════════════════════════════════════════════
@@ -135,6 +152,9 @@ const toggleFullscreen = (
 ) => {
   const mapContainer = map.getContainer();
   if (ownsFullscreen(mapContainer)) {
+    // The .then below clears map.isFullscreen before the event lands; record
+    // the session now so the handler still recognises the exit as this map's.
+    nativeSessions.add(map);
     document
       .exitFullscreen()
       .then(() => {
@@ -166,6 +186,7 @@ const toggleFullscreen = (
       .requestFullscreen()
       .then(() => {
         map.isFullscreen = true;
+        nativeSessions.add(map);
       })
       .catch(() => {
         // A removed mounting must not fall back: the recovery below ends in
@@ -203,15 +224,35 @@ const buildFullscreenChangeHandler =
   (map: L.Map, fsBtn: HTMLElement, container: HTMLElement, env: Env) => () => {
     const mapContainer = map.getContainer();
     const active = ownsFullscreen(mapContainer);
+    const pseudo = mapContainer.classList.contains(CLASSES.PSEUDO_FULLSCREEN);
+    const native = nativeSessions.has(map);
+    // fullscreenchange is document-global: a sibling map's transition reaches
+    // this handler too. Guarding only the assignment below left the side effects
+    // unguarded — a map that was never fullscreen unhid every control
+    // (hide_others) and announced an exit it never entered. Scope first, then
+    // let the relevant path own both the state and the repaint.
+    //   active — this container owns the native session;
+    //   pseudo — a pseudo session is live here;
+    //   map.isFullscreen — this map believes it is fullscreen, which is how the
+    //     end of its own native session is recognised (the element is gone by
+    //     then, so neither active nor pseudo holds);
+    //   native — the exit branch already cleared map.isFullscreen, so the
+    //     session record is the only remaining evidence that this map is the
+    //     one that just left fullscreen.
+    if (!active && !pseudo && !map.isFullscreen && !native) return;
+    if (!active) nativeSessions.delete(map);
     // Native fullscreen outranks pseudo on the same container. A stale class
     // here would survive the native exit (that path clears native first) and
     // keep every overlay hosted in a container that is no longer a surface.
     if (active) setPseudoFullscreen(mapContainer, false);
-    // A sibling map's native transition fires this handler too. It must not
-    // clear a pseudo session that is still on this map's container.
-    map.isFullscreen =
-      active || mapContainer.classList.contains(CLASSES.PSEUDO_FULLSCREEN);
+    map.isFullscreen = active || pseudo;
     updateUI(map, fsBtn, container, env);
   };
 
-export { buildFullscreenChangeHandler, releasePseudo, toggleFullscreen, updateUI };
+export {
+  buildFullscreenChangeHandler,
+  releaseNativeSession,
+  releasePseudo,
+  toggleFullscreen,
+  updateUI,
+};

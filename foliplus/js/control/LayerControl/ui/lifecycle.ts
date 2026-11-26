@@ -75,6 +75,21 @@ import { ROLE } from "#core/layer/index.js";
 import { ensureOverlayRegistry } from "#core/overlay/index.js";
 
 /**
+ * The teardown step name for one bus event: strip the bus prefix, then flatten
+ * the remaining separators ("foliplus:layer:item-count-change" →
+ * "layer-item-count-change"). A failed unsubscribe then reports a name a reader
+ * can grep instead of a queue index.
+ *
+ * The mapping is injective only while no event name mixes a hyphenated segment
+ * with a nested one — `foliplus:foo-bar:baz` and `foliplus:foo:bar-baz` both
+ * flatten to "foo-bar-baz". test/js/guard/teardown-step-name.test.ts pins the
+ * dictionary's injectivity under this function, so such a pair cannot land
+ * silently.
+ */
+const teardownStepName = (event: string): string =>
+  event.replace(/^foliplus:/, "").replace(/:/g, "-");
+
+/**
  * Attach UI to the given container div.
  * @param {LayerUI} ui — the LayerUI shell this wires into.
  * @param {HTMLElement} containerDiv - The panel-content div.
@@ -384,9 +399,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
   ): ScopeSubscription => ({
     // The event, stripped of the bus prefix and punctuation, is the step name
     // the teardown reports a failure against: "layer-item-added", not index 7.
-    name: String(event)
-      .replace(/^foliplus:/, "")
-      .replace(/:/g, "-"),
+    name: teardownStepName(String(event)),
     off: bus.on(event, handler, "internal"),
   });
   const signalHandlers: ScopeSubscription[] = [];
@@ -710,6 +723,7 @@ export {
   attachUI,
   bindLayerEvents,
   createTeardownScope,
+  teardownStepName,
   onLayerItemCountChange,
   refreshAllCounts,
   unbindEvents,
