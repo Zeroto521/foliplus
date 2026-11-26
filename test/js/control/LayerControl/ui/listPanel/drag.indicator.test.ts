@@ -19,7 +19,11 @@ import {
   handleDrop,
 } from "#control/LayerControl/ui/listPanel/index.js";
 
-const dragEvent = (target: HTMLElement, dataTransfer = {}, clientY = 0): DragEvent =>
+const dragEvent = (
+  target: HTMLElement,
+  dataTransfer: Record<string, unknown> | null = {},
+  clientY = 0,
+): DragEvent =>
   ({
     target,
     clientY,
