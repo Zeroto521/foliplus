@@ -112,8 +112,8 @@ const FILE_WHITELIST: readonly { file: string; reason: string }[] = [
     reason: "fullscreen logic owns map event setup",
   },
   {
-    file: "foliplus/js/control/HeatmapControl/manager.ts",
-    reason: "heatmap manager owns map events",
+    file: "foliplus/js/control/HeatmapControl/lifecycle.ts",
+    reason: "heatmap lifecycle module owns map events",
   },
   {
     file: "foliplus/js/control/LayerControl/controller.ts",
