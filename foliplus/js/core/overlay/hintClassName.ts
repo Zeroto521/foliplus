@@ -1,4 +1,4 @@
-// core/overlay — hint class vocabulary.
+// core/overlay/hintClassName — hint class vocabulary.
 //
 // Both tokens are written/read inside hint.ts (a scanner-blind module), so they
 // live in a *ClassName.ts owner file that class-owner --include-core can see.

@@ -1,4 +1,4 @@
-// Geocoding (stateful singleton) for the foliplus runtime.
+// core/geocode/geocoder — Geocoding (stateful singleton) for the foliplus runtime.
 // Bidirectional global cache: address -> coordinates (forward) and
 // coordinates -> address (reverse). Cache keys are scoped by provider id and
 // CRS; the throttle queue is per-provider (each API has its own rate limit).

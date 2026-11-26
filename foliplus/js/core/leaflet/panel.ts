@@ -1,4 +1,4 @@
-// Panel UI helpers for foliplus components.
+// core/leaflet/panel — Panel UI helpers for foliplus components.
 //
 // Provides fold/expand controls, panel creation, and map sync utilities.
 // Statically imported by components; uses dom (dom.js) and cssVar

@@ -1,4 +1,4 @@
-// Shared value-classification breaks — the algorithms that split a set of
+// core/value/classify — Shared value-classification breaks: the algorithms that split a set of
 // numbers into N ordered class boundaries. Consumed today by HeatmapControl's
 // hex-classification, and by LayerControl's value-based fill once that
 // lands; the string protocol is stable so both sides stay in lockstep.

@@ -1,4 +1,4 @@
-// Shared label-field contract for the components that draw per-feature text:
+// core/label/labelField — Shared label-field contract for the components that draw per-feature text:
 // LayerControl's label labels (DOM markers) and HeatmapControl's hex
 // labels (canvas). Both answer the same two questions — which fields a layer
 // offers, and which one to fall back to when the user has not chosen — so the

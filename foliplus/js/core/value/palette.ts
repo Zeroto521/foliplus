@@ -1,4 +1,4 @@
-// Shared discrete color-scheme vocabulary — the palette names and the
+// core/value/palette — Shared discrete color-scheme vocabulary: the palette names and the
 // chroma-based scale builder consumed by both HeatmapControl's hex classes
 // and LayerControl's value-based fill. Lives next to `classify.ts` (same
 // domain: classification + color mapping) so the two consumers stay in
