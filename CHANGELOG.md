@@ -44,7 +44,6 @@
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause ([#1207](https://github.com/Zeroto521/foliplus/pull/1207))
 - `JS runtime`: the per-map hint surface is `map.foliplus.hint.set/clear/registerIcon` — an identical push no longer rebuilds the hint or restarts its timer, and a changed push replaces it in place (**Breaking** for custom JS that called `map.foliplus.showHint`/`hideHint`/`registerHintIcon`) ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
 - `platform/storage`: versioned object records persist through one `saveVersionedObject`/`loadVersionedObject` pair that reads the `{version, data}` envelope, a legacy flat record or a bare value and migrates or discards it, with the folder layout, filter store, layer state, heatmap config and export bounds migrated onto it ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
-
 - `LayerControl`: the panel teardown is one ordered scope — every listener, overlay and subscription step runs even when an earlier one throws, so a broken step can no longer skip the persistence flush or strand a subscriber ([#1385](https://github.com/Zeroto521/foliplus/pull/1385))
 
 ### Removed
