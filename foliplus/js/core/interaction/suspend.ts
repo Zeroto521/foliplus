@@ -5,8 +5,7 @@
 // restore closure re-enables exactly that set. Tiles, labels and
 // non-interactive previews are never touched, and a leaf that was already
 // non-interactive stays that way.
-import { setInteractive } from "#core/layer/hitTarget.js";
-import { walkLeaf } from "#core/layer/walkLeaf.js";
+import { setInteractive, walkLeaf } from "#core/layer/index.js";
 
 /**
  * Suspend interaction on every interactive leaf of a map and return a
