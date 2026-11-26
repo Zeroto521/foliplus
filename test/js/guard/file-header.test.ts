@@ -12,8 +12,11 @@ import { describe, expect, it } from "vitest";
 // The registry (file-header.canonical.json) lists every file that MUST carry the
 // canonical header. A new .ts file under foliplus/js/platform/ or foliplus/js/ui/
 // top level MUST be added to the registry; the completeness assertion below
-// fails when one is forgotten. core/ and control/ files are checked only when
-// registered (they are large and still converging).
+// fails when one is forgotten. core/layer/ is fully registered and mandatory too:
+// core/ headers used to be registry-optional, so four of them drifted to
+// "core/<Name>" and stayed invisible until the whole directory was registered.
+// The rest of core/ and control/ is checked only when registered (they are
+// large and still converging).
 //
 // Why a registry and not git diff: CI checks out a shallow history (fetch-depth
 // 1), so `git diff base...HEAD` cannot see which files are new. The registry is
@@ -129,6 +132,22 @@ describe("file headers follow the canonical form", () => {
         const rel = `${tier}/${name.replace(/\.ts$/, "")}`;
         if (!registry.has(rel)) missing.push(rel);
       }
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it("core/layer/ non-barrel files are all registered", () => {
+    // Added with the core/layer registration pass. Before it, core/ headers
+    // were registry-optional, so LayerInfoRegistry / PaneLedger / PaneManager /
+    // SurfaceIndex could claim "core/<Name>" indefinitely and this guard stayed
+    // green. Registering the whole directory makes that drift red.
+    const registry = new Set(readRegistry());
+    const dir = join(JS_DIR, "core/layer");
+    const missing: string[] = [];
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".ts") || name === "index.ts") continue;
+      const rel = `core/layer/${name.replace(/\.ts$/, "")}`;
+      if (!registry.has(rel)) missing.push(rel);
     }
     expect(missing).toEqual([]);
   });

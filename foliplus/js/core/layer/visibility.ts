@@ -1,4 +1,4 @@
-// core/layer/visibility - the single-source "is it visible now" aggregation.
+// core/layer/visibility — the single-source "is it visible now" aggregation.
 //
 // resolveVisibility ANDs the six independent visibility factors and names the
 // FIRST false one. It is pure over an input record: the caller (LayerAPI

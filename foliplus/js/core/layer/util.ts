@@ -1,4 +1,4 @@
-// core layer-traversal utilities — pure functions, no DOM / CONFIG.
+// core/layer/util — pure functions, no DOM / CONFIG.
 import * as CONST from "./const.js";
 import type {
   LabelAwareLayer,

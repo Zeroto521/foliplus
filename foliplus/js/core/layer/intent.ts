@@ -1,4 +1,4 @@
-// core — per-layer user intent: types + vocabulary (the intent domain).
+// core/layer/intent — per-layer user intent: types + vocabulary (the intent domain).
 //
 // Sunk from LayerControl: intent is a base-layer concept — third-party
 // layers carry user intent too, so the row store and its types live beside the

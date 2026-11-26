@@ -1,4 +1,4 @@
-// core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
+// core/layer/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { ROLE } from "./const.js";
 import {
