@@ -63,11 +63,31 @@ describe("createScope — the panel teardown contract", () => {
     const unsubscribe = scope.add("subscription", off);
 
     unsubscribe();
+    // The entry leaves the queue at once, so a dispose that follows reports one
+    // fewer pending step — the handle's contract is "detach now", not "detach at
+    // teardown".
+    expect(scope.names()).toEqual([]);
     scope.dispose();
     unsubscribe();
 
     expect(off).toHaveBeenCalledTimes(1);
     expect(scope.names()).toEqual([]);
+  });
+
+  it("a subscription registered after dispose is released at once and its handle stays a no-op", () => {
+    const off = vi.fn();
+    const scope = createScope();
+    scope.dispose();
+
+    const unsubscribe = scope.add("late-subscription", off);
+
+    // Registration after dispose runs the step immediately: a subscription must
+    // not outlive the scope it was registered with.
+    expect(off).toHaveBeenCalledTimes(1);
+    // The handle has no queue entry to drop and the step already ran; a late
+    // call must not release a second time.
+    unsubscribe();
+    expect(off).toHaveBeenCalledTimes(1);
   });
 
   it("add() off is a no-op once dispose already ran", () => {

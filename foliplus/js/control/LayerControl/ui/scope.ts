@@ -75,17 +75,21 @@ const createScope = (): PanelScope => {
     },
     add(name, off) {
       let live = true;
-      const unsubscribe = () => {
-        if (!live) return;
-        live = false;
-        const idx = steps.findIndex(entry => entry.run === wrapped);
-        if (idx !== -1) steps.splice(idx, 1);
-        off();
-      };
+      // One liveness owner: the queued step. The handle only decides whether the
+      // entry is still queued — dropping it keeps names() honest — and then runs
+      // the step, which is what actually releases the subscription. So the two
+      // ways a release can already have happened (a second handle call, or a
+      // dispose that ran the queue) converge on the same no-op, and neither
+      // path needs a second guard of its own.
       const wrapped = () => {
         if (!live) return;
         live = false;
         off();
+      };
+      const unsubscribe = () => {
+        const idx = steps.findIndex(entry => entry.run === wrapped);
+        if (idx !== -1) steps.splice(idx, 1);
+        wrapped();
       };
       scope.step(name, wrapped);
       return unsubscribe;
