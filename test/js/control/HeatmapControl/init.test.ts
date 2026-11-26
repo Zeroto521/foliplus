@@ -389,4 +389,3 @@ describe("initOverlay — the author's folder declaration reaches createCanvas",
     expect(opts.folder).toBeNull();
   });
 });
-
