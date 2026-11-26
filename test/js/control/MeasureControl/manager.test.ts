@@ -1561,6 +1561,24 @@ describe("MeasureManager — registerLabel lifecycle", () => {
     expect(opts.styleProvider().labelCollide).toBe(true);
   });
 
+  it("forwards CONFIG.folder to createLayers", () => {
+    const { map } = makeLabelManager({ folder: "工具图层" });
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as { folder?: string | null };
+    expect(opts.folder).toBe("工具图层");
+  });
+
+  it("defaults CONFIG.folder to null when absent", () => {
+    const { map } = makeLabelManager();
+    const createLayers = (
+      map.foliplus!.LayerAPI as unknown as { createLayers: ReturnType<typeof vi.fn> }
+    ).createLayers;
+    const opts = createLayers.mock.calls[0][0] as { folder?: string | null };
+    expect(opts.folder).toBeNull();
+  });
+
   it("styleDefaultsProvider returns the Python CONFIG snapshot, not live toggles", () => {
     const { manager, map } = makeLabelManager({
       label_show: true,

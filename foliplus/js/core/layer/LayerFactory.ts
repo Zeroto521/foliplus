@@ -114,6 +114,7 @@ class LayerFactory {
       filterProvider: opts.filterProvider,
       filterSetter: opts.filterSetter,
       metaProvider: opts.metaProvider,
+      folder: opts.folder,
       content: { kind: CONTENT_KIND.LAYERS, panes: opts.panes },
     });
     return {
@@ -141,6 +142,7 @@ class LayerFactory {
       filterSetter: opts.filterSetter,
       onOpacity: opts.onOpacity,
       opacityBake: opts.opacityBake,
+      folder: opts.folder,
       content: {
         kind: CONTENT_KIND.CANVAS,
         className: opts.className,
@@ -229,6 +231,9 @@ class LayerFactory {
       metaProvider: opts.metaProvider ?? null,
       onOpacity: opts.onOpacity ?? null,
       opacityBake: opts.opacityBake,
+      // The author's folder declaration flows to the registry; the controller
+      // seeds the layout from it on registration (see folderLayout.seed).
+      folder: opts.folder ?? null,
       onCommitted: (entry: LayerInfo) => {
         committedEntry = entry;
       },

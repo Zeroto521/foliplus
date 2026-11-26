@@ -705,7 +705,36 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
   frag.appendChild(item);
 
-  if (!firstOfGroup) {
+  // A folder member joins its folder block (renderInitialList's placement
+  // rule), not the role's root-layer stream: the row is a flat sibling right
+  // after the folder row, at its rank among the block's members. The
+  // registry-depth anchor below would land it beside the root layers instead,
+  // so a late-registered member declared into a folder shows fallen to root on
+  // refresh. The folder row is already on the panel whenever the folder owns
+  // an order key or a live member (the block sequence), so the member-position
+  // insert is the normal path; a folder row that is not on the panel yet falls
+  // through to the registry-depth anchor.
+  const memberFolderKey = folderOf(ui.c.folderLayoutView, layerInfo);
+  const folderRow = memberFolderKey
+    ? container.querySelector<HTMLElement>(
+        `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(memberFolderKey)}"]`,
+      )
+    : null;
+  if (folderRow) {
+    const block = displayBlocks(ui, role).find(
+      b => b.kind === "folder" && b.key === memberFolderKey,
+    );
+    const members = block && block.kind === "folder" ? block.block.members : [];
+    const memberIdx = members.findIndex(m => m.id === layerInfo.id);
+    let anchor: HTMLElement = folderRow;
+    for (let i = 0; i < memberIdx; i++) {
+      const memberRow = container.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(members[i].id)}"]`,
+      );
+      if (memberRow) anchor = memberRow;
+    }
+    anchor.after(frag);
+  } else if (!firstOfGroup) {
     // BASE inserts before the first base row (end of the base role).
     // OVERLAY inserts before the first base row; when none exists, append at
     // the end.
