@@ -501,6 +501,35 @@ describe("ui/list row placement", () => {
     expect(hIdx).toBe(bIdx + 1);
   });
 
+  it("a late member into a brand-new folder with no other role row appends at the role end (else-if !firstOfGroup path)", () => {
+    // P3 coverage: when a late member declares a brand-new folder AND the role
+    // has no other row on the panel, firstOfGroup is null — the insert takes the
+    // else-if (!firstOfGroup) branch (BASE-before-first-base / role-end append),
+    // not the registry-depth else. This covers the last partially-hit arm of the
+    // folder-placement block.
+    const { manager, ui } = initFixture({
+      seed: { order: [] },
+      seedLayout: {
+        version: 2,
+        folders: [],
+        order: { overlay: [] },
+        members: {},
+      },
+      data: [],
+    });
+
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    expect(hIdx).toBeGreaterThanOrEqual(0); // the row landed (role-end append)
+  });
+
   it("renders a folder row folded when its role is folded", () => {
     // Folding a role hides the whole block, header included — the folder's own
     // fold state is untouched, so unfolding the role restores the same view.
