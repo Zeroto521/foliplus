@@ -5,6 +5,7 @@ import { displayName } from "../listPanel/rowView.js";
 import { saveNamesState } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
+import { clearSurface, openSurface, registerSurfaceCloser } from "./openSurface.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import {
   createInlineEditInput,
@@ -35,7 +36,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
   const label = item?.querySelector("label") as HTMLLabelElement | null;
-  if (!label) return;
+  if (!item || !label) return;
 
   closeOverlays(ui);
 
@@ -43,8 +44,7 @@ const renameLayer = (ui: LayerUI, layerId: string): void => {
   // so the input opens with the name the UI already shows.
   const currentName = displayName(ui, layerId);
 
-  ui.overlayPanel.activeRenameId = layerId;
-  ui.overlayPanel.activeRenameRow = item;
+  openSurface(ui, { kind: "rename", row: item, layerId });
   // Flag the row so CSS can stretch the input across the label+count area
   // (matching the SearchControl field's full extent) while editing.
   item?.classList.add(CONST.CLASSES.RENAMING);
@@ -123,8 +123,7 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
   // behind.
   const item = ui.overlayPanel.activeRenameRow;
   const layerId = ui.overlayPanel.activeRenameId;
-  ui.overlayPanel.activeRenameRow = null;
-  ui.overlayPanel.activeRenameId = null;
+  clearSurface(ui, "rename");
   ui.overlayPanel.renameRemovedUnsub?.();
   ui.overlayPanel.renameRemovedUnsub = null;
   if (!item) return;
@@ -159,5 +158,10 @@ const finishRename = (ui: LayerUI, restoreText = true): void => {
  * 7. Auto-cancel on any subsequent map `moveend`/`zoomend` so the rect
  *    doesn't linger while the user navigates elsewhere.
  */
+
+// The state machine's close dispatch for this kind: a replacement commits the
+// in-flight edit (finishRename's default restoreText=true), matching the old
+// OVERLAY_CLEAR subscription.
+registerSurfaceCloser("rename", ui => finishRename(ui));
 
 export { renameLayer, finishRename };

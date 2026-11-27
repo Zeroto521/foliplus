@@ -31,8 +31,10 @@ import { EVENTS, publish } from "#core/event/index.js";
  * something else, not a user action, so no hint. `cancelFocus` keeps its
  * "focus cancelled" hint for the Escape path only.
  *
- * Folium's own overlays are event-driven: each subsystem subscribes to
- * OVERLAY_CLEAR in `bindLayerEvents` and closes itself when it hears the signal.
+ * Folium's surfaces are event-driven: `bindLayerEvents` subscribes OVERLAY_CLEAR
+ * to the state machine's one close entry (overlayPanel/openSurface.ts), which
+ * tears down whichever surface is open; the focus spotlight keeps its own
+ * subscription because focus is a map state, not one of those surfaces.
  * The Leaflet-native sweep (popups + hover tooltips) stays here because
  * Leaflet's own overlays are not foliplus overlays and have no subscribe-able
  * surface of their own. Tooltips get the same treatment as popups: hover-out
@@ -57,12 +59,12 @@ const closeOverlays = (ui: LayerUI): void => {
   // the focus class is on, so clear them before focus activates.
   document.querySelectorAll(".leaflet-popup").forEach(el => el.remove());
   document.querySelectorAll(".leaflet-tooltip").forEach(el => el.remove());
-  // Folium's overlay subsystems (menu, attrs, style, rename, focus) each
-  // subscribe to this event in bindLayerEvents and close themselves. The caller
-  // of closeOverlays is about to open one of them — the matching subscriber
-  // sees "I'm not open yet" and is a no-op.
-  // Settled: every overlay owner gets the close signal, then the first
-  // consumer failure surfaces — one broken panel must not leave another open.
+  // The state machine closes the one foliplus surface that may be open
+  // (overlayPanel/openSurface.ts); the focus spotlight still has its own
+  // subscription. The caller of closeOverlays is about to open a surface — the
+  // close is a no-op when nothing is open.
+  // Settled before the opener stores its state, so a subscriber that re-enters
+  // cannot observe a half-open surface.
   // origin-exempt: a close signal, not a source-announcing change — no
   // subscriber decides "should I react" from who cleared the overlays.
   publish(ui.events, EVENTS.OVERLAY_CLEAR);

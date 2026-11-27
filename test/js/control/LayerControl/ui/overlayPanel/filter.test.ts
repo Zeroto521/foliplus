@@ -145,7 +145,7 @@ describe("LayerUI filter panel", () => {
 
       // Menu state dropped (e.g. a peer overlay cleared it) — the handler
       // must still dispatch, anchoring on the clicked <li>.
-      ui.overlayPanel.activeMenu = null;
+      ui.overlayPanel.surface = null;
       const li = item.querySelector(
         `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
       ) as HTMLElement;

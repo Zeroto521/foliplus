@@ -196,7 +196,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     // minimal panel chrome so closeStylePanel finds stylePanelLayerId
-    ui.overlayPanel.stylePanelLayerId = "vec1";
+    ui.overlayPanel.surface = { kind: "style", layerId: "vec1" };
     commitBorderColor(ui, "vec1", "#333333");
     expect(leaf.setStyle).not.toHaveBeenCalled();
 

@@ -392,9 +392,10 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       listCleanup: null,
     },
     overlayPanel: {
-      activeRenameId: null,
-      activeMenu: null,
-      activeAttrsPanel: null,
+      // The single "what is open" state (overlayPanel/openSurface.ts). The real
+      // class exposes the active* / stylePanelLayerId fields as getters over
+      // it; the same getters are defined on this literal below.
+      surface: null,
       attrsOverlayUnregister: null,
       filterOverlayUnregister: null,
       styleOverlayUnregister: null,
@@ -402,7 +403,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       styleUnsubscribe: null,
       styleRefresh: null,
       styleZoomEndHandler: null,
-      stylePanelLayerId: null,
+      stylePanelEl: null,
     },
     ...extra,
   };
@@ -433,17 +434,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     ],
     ["interactionCleanup", () => lp.listCleanup, v => void (lp.listCleanup = v as any)],
     [
-      "activeRenameId",
-      () => op.activeRenameId,
-      v => void (op.activeRenameId = v as any),
-    ],
-    ["activeMenu", () => op.activeMenu, v => void (op.activeMenu = v as any)],
-    [
-      "activeAttrsPanel",
-      () => op.activeAttrsPanel,
-      v => void (op.activeAttrsPanel = v as any),
-    ],
-    [
       "attrsUnsubscribe",
       () => op.attrsUnsubscribe,
       v => void (op.attrsUnsubscribe = v as any),
@@ -459,12 +449,33 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       () => op.styleZoomEndHandler,
       v => void (op.styleZoomEndHandler = v as any),
     ],
+  ];
+  // Read-only projections of `op.surface`, mirroring the real OverlayPanel
+  // getters. Kept in one table so the mock cannot drift from the class.
+  const surfaceOf = () => op.surface as { kind: string } & Record<string, any>;
+  const derived: Array<[string, (open: any) => unknown]> = [
+    ["activeMenu", open => (open?.kind === "menu" ? open : null)],
+    ["activeAttrsPanel", open => (open?.kind === "attrs" ? open : null)],
+    [
+      "activeFilterPanel",
+      open => (open?.kind === "filter" ? (open.state ?? null) : null),
+    ],
+    [
+      "activeRenameId",
+      open => (open?.kind === "rename" ? (open.layerId ?? null) : null),
+    ],
+    ["activeRenameRow", open => (open?.kind === "rename" ? (open.row ?? null) : null)],
     [
       "stylePanelLayerId",
-      () => op.stylePanelLayerId,
-      v => void (op.stylePanelLayerId = v as any),
+      open => (open?.kind === "style" ? (open.layerId ?? null) : null),
     ],
   ];
+  for (const [name, project] of derived) {
+    Object.defineProperty(op, name, {
+      get: () => project(surfaceOf()),
+      configurable: true,
+    });
+  }
   for (const [name, getter, setter] of compatGetters) {
     Object.defineProperty(base, name, {
       get: getter,

@@ -621,7 +621,7 @@ describe("LayerUI menu", () => {
       click(deleteLi);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
 
-      ui.overlayPanel.activeMenu = null;
+      ui.overlayPanel.surface = null;
 
       expect(activateDeleteItem(ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("");
@@ -801,8 +801,9 @@ describe("LayerUI menu", () => {
         folderRow.removeAttribute(CONST.DATA.FOLDER_KEY);
         // The menu record agrees — it too carries no folderKey, which is the
         // other half of the dispatch's key lookup.
-        (ui.overlayPanel as any).activeMenu = {
-          ...((ui.overlayPanel as any).activeMenu ?? {}),
+        (ui.overlayPanel as any).surface = {
+          kind: "menu",
+          ...((ui.overlayPanel as any).surface ?? {}),
           folderKey: undefined,
         };
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });

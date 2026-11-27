@@ -148,7 +148,8 @@ describe("ui/list folder rows (render / row structure)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    (ui.overlayPanel as any).surface = {
+      kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
       role: "overlay",
@@ -242,7 +243,8 @@ describe("ui/list folder rows (render / row structure)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    (ui.overlayPanel as any).surface = {
+      kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
       role: "overlay",
@@ -450,7 +452,8 @@ describe("ui/list folder rows (render / row structure)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `[data-folder-key="roads"]`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    (ui.overlayPanel as any).surface = {
+      kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
       folderKey: "roads",
@@ -496,7 +499,8 @@ describe("ui/list folder rows (render / row structure)", () => {
     const row = ui.uiContainer!.querySelector(
       `[data-folder-key="roads"]`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    (ui.overlayPanel as any).surface = {
+      kind: "menu",
       item: row,
       menu: document.createElement("div"),
       folderKey: "roads",

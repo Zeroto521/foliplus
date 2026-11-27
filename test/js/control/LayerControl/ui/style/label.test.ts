@@ -118,7 +118,7 @@ describe("content-change label replay", () => {
     turnLabelsOn();
     const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
     // Minimal panel chrome so closeStylePanel finds stylePanelLayerId.
-    ui.overlayPanel.stylePanelLayerId = "grp1";
+    ui.overlayPanel.surface = { kind: "style", layerId: "grp1" };
 
     ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
     expect(renderLabels).not.toHaveBeenCalled();

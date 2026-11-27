@@ -53,7 +53,15 @@ function makeUI(): any {
     openStylePanel: vi.fn(),
     openAttrsPanel: vi.fn(),
     listPanel: { activeIdx: null },
-    overlayPanel: { activeMenu: null },
+    overlayPanel: {
+      // Mirrors the real OverlayPanel: the menu projection is derived from the
+      // single openSurface state, so these dispatch tests read the same path.
+      surface: null as { kind: string } | null,
+      get activeMenu() {
+        const open = this.surface as { kind: string; item?: HTMLElement } | null;
+        return open?.kind === "menu" ? open : null;
+      },
+    },
   };
 }
 
@@ -233,7 +241,8 @@ describe("LayerControl handleMoreMenuClick", () => {
     if (disabled) li.setAttribute("aria-disabled", "true");
     menu.appendChild(li);
 
-    ui.overlayPanel.activeMenu = {
+    ui.overlayPanel.surface = {
+      kind: "menu",
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
@@ -321,7 +330,8 @@ describe("LayerControl handleMoreMenuClick", () => {
     const li = document.createElement("button");
     li.dataset.action = "unknown-action";
     menu.appendChild(li);
-    ui.overlayPanel.activeMenu = {
+    ui.overlayPanel.surface = {
+      kind: "menu",
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
@@ -342,7 +352,8 @@ describe("LayerControl handleMoreMenuClick", () => {
     menu.className = "foliplus-layer-more-menu";
     const li = document.createElement("button");
     menu.appendChild(li);
-    ui.overlayPanel.activeMenu = {
+    ui.overlayPanel.surface = {
+      kind: "menu",
       item: document.createElement("div"),
       menu,
       layerId: "layer1",

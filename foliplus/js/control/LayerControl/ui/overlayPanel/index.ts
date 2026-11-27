@@ -1,13 +1,18 @@
 // LayerControl UI — OverlayPanel subsystem: floating panels, menu, rename.
 //
 // Owns the state of every surface that floats over a layer row: the ⋮ menu,
-// the attributes panel, the inline rename input, and the delegated style
-// panel. Mutual exclusion between these surfaces is handled by the
-// OVERLAY_CLEAR event bus (see teardown.ts); this subsystem just tracks
-// which surface is currently open.
+// the attributes panel, the filter panel, the delegated style panel, and the
+// inline rename input. There is exactly ONE stored answer to "what is open" —
+// `surface` (see ./openSurface.ts). Everything else on this class is either a
+// resource installed while a surface is open (subscription / registry detach /
+// repositioner / controller / live element) or a derived getter that projects
+// `surface` for readers.
 //
-// Callers all take LayerUI and reach into `ui.overlayPanel.*` directly; no
-// module receives a bare OverlayPanel.
+// Mutual exclusion lives in the state machine, not here: `openSurface(ui, next)`
+// closes the current surface before storing `next`. The OVERLAY_CLEAR bus still
+// exists (teardown.ts publishes it for the focus spotlight and external
+// observers) and now maps to a single `closeSurface(ui)` call in lifecycle.ts
+// instead of one subscriber per surface.
 import { closeAttrsPanel, openAttrsPanel } from "./attr.js";
 import { type FilterPanelState, closeFilterPanel, openFilterPanel } from "./filter.js";
 import {
@@ -16,33 +21,60 @@ import {
   closeMoreMenu,
   openMoreMenu,
 } from "./menu.js";
+import type { OpenSurface } from "./openSurface.js";
 import { finishRename, renameLayer } from "./rename.js";
 import type { PanelController } from "#core/leaflet/index.js";
 
-/** Floating-surface state. Each `active*` field tracks the currently open
- *  panel of that kind, and each `*Unsubscribe` field is the bus
- *  subscription installed while that panel is open (so unbinding clears
- *  them in lockstep). */
+type MenuSurface = Extract<OpenSurface, { kind: "menu" }>;
+type AttrsSurface = Extract<OpenSurface, { kind: "attrs" }>;
+
+/** Floating-surface state. `surface` is the single source for "which surface
+ *  is open"; the `active*` / `stylePanelLayerId` getters below are read-only
+ *  projections of it, and the resource fields are pipes installed by an open
+ *  and released by its close. */
 class OverlayPanel {
+  /** THE open surface, or null. Written only by ./openSurface.ts helpers. */
+  surface: OpenSurface | null = null;
+
+  /** Currently visible overflow menu, or null. Projection of `surface`. */
+  get activeMenu(): MenuSurface | null {
+    const open = this.surface;
+    return open?.kind === "menu" ? open : null;
+  }
+
+  /** Currently visible attributes panel, or null. Projection of `surface`. */
+  get activeAttrsPanel(): AttrsSurface | null {
+    const open = this.surface;
+    return open?.kind === "attrs" ? open : null;
+  }
+
+  /** Currently visible filter panel, or null. Projection of `surface`. */
+  get activeFilterPanel(): FilterPanelState | null {
+    const open = this.surface;
+    return open?.kind === "filter" ? open.state : null;
+  }
+
   /** Layer id whose label is currently an inline rename input, or null. A
    *  folder rename has no layer id — the row below is the shared handle. */
-  activeRenameId: string | null = null;
+  get activeRenameId(): string | null {
+    const open = this.surface;
+    return open?.kind === "rename" ? open.layerId : null;
+  }
+
   /** The row whose label is currently an inline rename input, or null. Both
    *  rename kinds (layer and folder) set it, so one teardown serves both. */
-  activeRenameRow: HTMLElement | null = null;
-  /** Unsubscribe for LAYER_REMOVED while a rename input is open (external
-   *  delete cancels the in-flight rename without committing). */
-  renameRemovedUnsub: (() => void) | null = null;
-  /** Currently visible overflow menu, or null. */
-  activeMenu: {
-    item: HTMLElement;
-    menu: HTMLElement;
-    layerId: string;
-    /** The folder key the menu was opened for (folder rows only). */
-    folderKey?: string;
-    /** The role the menu was opened for (role rows only). */
-    role?: string;
-  } | null = null;
+  get activeRenameRow(): HTMLElement | null {
+    const open = this.surface;
+    return open?.kind === "rename" ? open.row : null;
+  }
+
+  /** Layer id whose label style panel is open, or null. Projection of
+   *  `surface`; the live element and its controller are resources below. */
+  get stylePanelLayerId(): string | null {
+    const open = this.surface;
+    return open?.kind === "style" ? open.layerId : null;
+  }
+
   /** Unregister for the overflow menu's registry entry (installed while open). */
   menuOverlayUnregister: (() => void) | null = null;
   /** Release the menu's scroll/resize/row-count reposition pass (installed while open). */
@@ -55,14 +87,6 @@ class OverlayPanel {
    *  or null. Per-UI on purpose: each control confirms and cancels only its own
    *  entry, so a second map's menu cannot cancel a pending delete here. */
   pendingDelete: PendingDelete | null = null;
-  /** Currently visible attributes panel, or null. */
-  activeAttrsPanel: {
-    item: HTMLElement;
-    panel: HTMLElement;
-    layerId: string;
-  } | null = null;
-  /** Currently visible filter panel, or null. */
-  activeFilterPanel: FilterPanelState | null = null;
   /** Unregister for the attrs panel's registry entry (installed while open). */
   attrsOverlayUnregister: (() => void) | null = null;
   /** Unregister for the filter panel's registry entry (installed while open). */
@@ -76,7 +100,7 @@ class OverlayPanel {
    *  overlay panel (not captured by the registry entry) so a press predicate
    *  scopes to *this* control's drawer: a page with two maps has two drawers,
    *  and a document-wide query would scope the press to the first one in DOM
-   *  order. */
+   *  order. A resource handle, not the open/closed state (`surface.kind`). */
   stylePanelEl: HTMLElement | null = null;
   /** Unsubscribe for LAYER_ITEM_COUNT_CHANGE while attrs panel is open. */
   attrsUnsubscribe: (() => void) | null = null;
@@ -99,10 +123,11 @@ class OverlayPanel {
   styleResetSync: (() => void) | null = null;
   /** Map zoomend handler for the open style panel's zoom-range row. */
   styleZoomEndHandler: (() => void) | null = null;
-  /** Layer id whose label style panel is open, or null. */
-  stylePanelLayerId: string | null = null;
   /** Controller for the open style panel; an in-place refresh reuses it. */
   stylePanelController: PanelController | null = null;
+  /** Unsubscribe for LAYER_REMOVED while a rename input is open (external
+   *  delete cancels the in-flight rename without committing). */
+  renameRemovedUnsub: (() => void) | null = null;
 }
 
 export { OverlayPanel };
