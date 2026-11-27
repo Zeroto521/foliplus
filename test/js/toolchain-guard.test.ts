@@ -424,7 +424,7 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "derived-state projections run only through the invalidateDerived barrier",
   "export-decoupling": "ExportControl must not reference LayerControl internals",
   "file-header":
-    "the canonical file header stays on every registered module and every script/ tool",
+    "the canonical file header stays on every registered module, every script/ tool and every control/ module",
   "fold-arrow": "how far a row is opened is one state, not a per-arrow copy",
   "folder-name-fold-sync":
     "the folder-name fold rule is the same on the Python and JS sides",

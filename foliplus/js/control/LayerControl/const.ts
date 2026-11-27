@@ -1,3 +1,4 @@
+// control/LayerControl/const — CSS class names, pane ids, debounce intervals and the one persisted-state storage key the layer control reads.
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { scopedStorageKey } from "#platform/storage.js";

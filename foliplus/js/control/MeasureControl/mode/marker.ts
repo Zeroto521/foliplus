@@ -1,3 +1,4 @@
+// control/MeasureControl/mode/marker — marker mode: one geocoded location marker per click, draggable to translate.
 import * as CONST from "../const.js";
 import {
   bindNodeDrag,

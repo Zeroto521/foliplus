@@ -1,3 +1,5 @@
+// control/LayerControl/icon — SVG icon sources for the layer control's rows and buttons.
+
 /** Layer Control SVG icons. */
 const ICON_LAYERS = `
   <svg viewBox="0 0 24 24">
