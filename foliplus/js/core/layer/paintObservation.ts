@@ -12,7 +12,7 @@
 // This module is the composition point. It takes the facts its caller gathered,
 // reads the paint value once, and attaches the style snapshot's provenance - it
 // never re-derives a factor, a colour, or a source. The caller stays thin:
-// `control/LayerControl/ui/paintObservation` gathers the factors from the panel
+// `control/LayerControl/ui/paintAdapter` gathers the factors from the panel
 // and the map, and every consumer reads the same observation.
 //
 // Provenance is read off `LayerStyleSnapshot.provenance` instead of being
@@ -27,10 +27,6 @@ import { type VisibilityFactors, paintProjection } from "./visibility.js";
  *  layer can carry, the marker icon, and the whole-layer opacity. */
 type PaintChannel = "fill" | "border" | "icon" | "opacity";
 
-/** Who owns one channel's effective value - the style snapshot's verdict,
- *  re-spelled so a consumer asks the question without importing the snapshot. */
-type PaintSource = StyleProvenance;
-
 /** Everything one read answers about a layer's paint: the visibility facts that
  *  produced the verdict, the verdict itself, the effective values, and who owns
  *  each channel. `factors` is null when the caller could not gather them (no
@@ -41,10 +37,10 @@ interface PaintObservation {
   paints: boolean;
   paint: LayerPaint;
   style: LayerStyleSnapshot | null;
-  source: Record<PaintChannel, PaintSource>;
+  source: Record<PaintChannel, StyleProvenance>;
 }
 
-const NO_SOURCE: Record<PaintChannel, PaintSource> = {
+const NO_SOURCE: Record<PaintChannel, StyleProvenance> = {
   fill: "none",
   border: "none",
   icon: "none",
@@ -96,4 +92,4 @@ const observePaint = (input: {
 };
 
 export { observePaint, resolvePaintOpacity };
-export type { PaintChannel, PaintObservation, PaintSource };
+export type { PaintChannel, PaintObservation };

@@ -1,4 +1,4 @@
-// test/js/control/LayerControl/ui/paintObservation — the panel's one paint read.
+// test/js/control/LayerControl/ui/paintAdapter — the panel's one paint read.
 //
 // `observeLayerPaint` must not gather a second time: the six factors come from
 // `visibilityOf`, the values from `readLayerPaint`, and the provenance from the
@@ -9,10 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { HIDDEN, type LayerInfo, paintProjection } from "#core/layer/index.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
 import { basePaints } from "#control/LayerControl/ui/listPanel/visibility.js";
-import {
-  observeLayerPaint,
-  paintsNow,
-} from "#control/LayerControl/ui/paintObservation.js";
+import { observeLayerPaint, paintsNow } from "#control/LayerControl/ui/paintAdapter.js";
 
 /** A plain vector leaf: no fill/zoom carrier, so the read stays about the
  *  visibility facts rather than a geometry body. */

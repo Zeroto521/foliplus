@@ -1,4 +1,4 @@
-// control/LayerControl/ui/paintObservation — the LayerControl read point for one
+// control/LayerControl/ui/paintAdapter — the LayerControl read point for one
 // layer's paint.
 //
 // The core composition (`core/layer/paintObservation`) is pure and reads no panel
