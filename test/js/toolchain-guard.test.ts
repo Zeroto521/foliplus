@@ -446,6 +446,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "mock-specifier": "every vi.mock/vi.doMock specifier resolves to a real file",
   "role-words-sync": "the layer-role vocabulary is the same on the Python and JS sides",
   "selected-class-guard": "the selected-class spelling has one owner per widget",
+  "single-source-primitives":
+    "the three #1407 single-source primitives keep exactly one definition and one copy of every driftable shape in foliplus/js",
   "slider-inset": "the slider half-thumb offset is one token, not a repeated calc",
   "row-identity":
     "every row builder emits the shared .foliplus-row identity class, and role-header rows are first-class in it",
