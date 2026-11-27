@@ -1,4 +1,4 @@
-// control/MeasureControl/mode/polygon — polygon area mode: click to place nodes, close on the first node, area label at the centroid.
+// control/MeasureControl/mode/polygon — polygon area mode: click to place nodes, close on the first or last node, area label at the centroid.
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachPolygonUI } from "../ui/index.js";

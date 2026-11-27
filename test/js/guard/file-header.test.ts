@@ -268,17 +268,16 @@ describe("script/ headers follow the canonical form", () => {
 // a new control module cannot arrive as a bare import block with nothing to
 // orient a reader.
 //
-// FOREIGN_HEADER_OWNERS is a burn-down list, not an allow-list: those modules
-// are being rewritten by the LayerControl order work (#1402), which owns their
-// headers. The stale-entry assertion below fails as soon as one of them gains a
-// header, so its entry must be deleted in the PR that fixes it.
+// FOREIGN_HEADER_OWNERS is a burn-down list, not an allow-list: that module is
+// being rewritten by the LayerControl order work (#1402), which owns its header.
+// The stale-entry assertion below fails as soon as it gains a header, so the
+// entry must be deleted in the PR that fixes it.
 
 const CONTROL_DIR = resolve(JS_DIR, "control");
 
-/** Modules whose header is owned by another in-flight change (#1402). */
+/** Module whose header is owned by another in-flight change (#1402). */
 const FOREIGN_HEADER_OWNERS: Record<string, string> = {
   "control/LayerControl/controller": "#1402 (LayerControl order work)",
-  "control/LayerControl/persistence": "#1402 (LayerControl order work)",
 };
 
 /** Every non-barrel module under control/, as control/-prefixed rel paths. */

@@ -5,6 +5,7 @@
   "control/LayerControl/const",
   "control/LayerControl/declaredParse",
   "control/LayerControl/icon",
+  "control/LayerControl/persistence",
   "control/LayerControl/util",
   "control/MeasureControl/const",
   "control/MeasureControl/icon",
