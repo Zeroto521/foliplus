@@ -54,7 +54,7 @@
   "core/layer/filter",
   "core/layer/filterFeature",
   "core/layer/filterStore",
-  "core/layer/folderLayout",
+  "core/layer/folderView",
   "core/layer/folderName",
   "core/layer/geometry",
   "core/layer/hitTarget",

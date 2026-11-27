@@ -4,7 +4,7 @@
 // "layer:<id>" is resolved to a LayerInfo and rows/blocks are partitioned by role.
 // `z` is the DFS leaf flatten of a role (block does not change z semantics).
 import type { LayerRole } from "../role.js";
-import type { FolderLayout } from "../folderLayout.js";
+import type { FolderLayout } from "../folderView.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
 import {
@@ -251,7 +251,7 @@ const childrenOfView = (
   order: string[] = [],
 ): ParentView => ({ children: childrenOf(doc, parent, order) });
 
-/** Derive the folderLayout mirror (folders + block order + member assignment)
+/** Derive the folder-view mirror (FolderLayout) (folders + block order + member assignment)
  *  from the doc. The doc is the single order source; this mirror is derived
  *  (setDerived) and never persisted. Groups are excluded — the folder domain
  *  (folderOf / display / rename) operates on folders only. */

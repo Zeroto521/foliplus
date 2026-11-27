@@ -75,7 +75,7 @@ const OVERSIZED = {
   "ui/dropdown.test.ts": "split pending",
   "control/LayerControl/ui/style/fillValue.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/ui/style/styleBag.test.ts": "split pending — blocked by #1284",
-  "core/layer/folderLayout.test.ts": "split pending",
+  "core/layer/folderView.test.ts": "split pending",
 };
 
 /** Line count of a file (raw lines, matching how the cap is measured). */

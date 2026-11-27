@@ -1,7 +1,7 @@
 // test/js/control/LayerControl/controller.fixture — shared map stub and controller setup for the controller aspect suites.
 import { makeDerivedUI } from "./ui/fixture.js";
 import { vi } from "vitest";
-import { type LayerFilterFeatures, folderLayoutKey, orderKeyOf } from "#core/layer/index.js";
+import { type LayerFilterFeatures, orderKeyOf } from "#core/layer/index.js";
 import { type OrderDoc, rankBetween, rankFirst } from "#core/order/index.js";
 import { scopedStorageKey } from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -63,12 +63,12 @@ export const seedOrderDoc = (map: any, order: readonly string[]): void => {
   window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes }));
 };
 
-/** Read the persisted folder-layout document for a map (null when never written). */
+/** Read the persisted layer_order document for a map (null when never written). */
 export const readLayoutStorage = (map: any): Record<string, unknown> | null => {
   const stored = JSON.parse(
-    window.localStorage.getItem(folderLayoutKey(map)) ?? "null",
-  ) as { data?: Record<string, unknown> } | null;
-  return stored?.data ?? null;
+    window.localStorage.getItem(orderKeyOf(map)) ?? "null",
+  ) as Record<string, unknown> | null;
+  return stored;
 };
 
 export const ENFORCE_ORDER_DEBOUNCE_MS = 50;

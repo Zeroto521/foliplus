@@ -5,7 +5,7 @@
 // and the panel's own create / rename paths. One invariant, one decision point.
 //
 // Pure functions, no DOM / CONFIG / persistence dependency. The name vocabulary
-// lives here so the folder-layout manager (folderLayout) can own arrangement
+// lives here so the folder view (folderView) can own folder naming
 // without also owning the name rules.
 
 /** The longest folder name a declaration may carry, in Unicode code points.

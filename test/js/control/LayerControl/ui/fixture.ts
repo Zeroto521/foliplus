@@ -1,5 +1,5 @@
 import { afterEach, vi } from "vitest";
-import { ROLE, folderLayoutKey, orderKeyOf, normalizeFolderName } from "#core/layer/index.js";
+import { ROLE, orderKeyOf, normalizeFolderName } from "#core/layer/index.js";
 import { rankStart, rankBetween, folderDocKey } from "#core/order/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { type ComponentConfig } from "#foliplus/config-schema.js";
@@ -404,31 +404,6 @@ const initFixture = (
   document.body.appendChild(container);
   if (options.seed) {
     window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
-  }
-  if (options.seedLayout) {
-    window.localStorage.setItem(
-      folderLayoutKey({ getContainer: () => container }),
-      JSON.stringify(options.seedLayout),
-    );
-    // The tree is the single order source: a layout-mirror seed must also
-    // materialise the same block order as the tree, or the panel renders the
-    // registration order (the layout-mirror order no longer drives anything).
-    // The folder children start empty — the boot's orderAddLeaf fills them from
-    // each layer's declared folder, and an unlisted folder materialises at the
-    // role tail.
-    if (!options.seedOrderTree) {
-      window.localStorage.setItem(
-        `foliplus_layer_arrangement_${container.id}`,
-        JSON.stringify(orderFromLayout(options.seedLayout)),
-      );
-    }
-  }
-  if (options.seedOrderTree) {
-    window.localStorage.setItem(
-      `foliplus_layer_arrangement_${container.id}`,
-      JSON.stringify(options.seedOrderTree),
-
-    );
   }
   // The OLD order seeds ({blocks,roles} tree, layout mirror, or flat order)
   // translate into the NEW layer_order document so tests seed the same

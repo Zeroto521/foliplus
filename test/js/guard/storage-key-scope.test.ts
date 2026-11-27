@@ -13,19 +13,19 @@ import { describe, expect, it } from "vitest";
 
 // Per-map storage-key scope guard: every persisted record key must derive from
 // map.getContainer().id, so multi-map pages keep state separate. The single source
-// is scopedStorageKey (platform/storage.ts); folderLayoutKey / filterStoreKey and
+// is scopedStorageKey (platform/storage.ts); filterStoreKey and
 // the per-component STORAGE_KEY constants all route through it. A new key written
 // as a bare `foliplus_*` literal (no map scope) is a regression this guard rejects.
 
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus", "js");
 
-const SCOPED_CALL = /\b(?:scopedStorageKey|folderLayoutKey|filterStoreKey|orderKeyOf)\s*\(/;
+const SCOPED_CALL = /\b(?:scopedStorageKey|filterStoreKey|orderKeyOf)\s*\(/;
 // A hand-rolled `foliplus_*_${map.getContainer().id}` template is NOT scoped: it
 // re-derives the key shape by hand instead of asking the single source, so a
 // suffix/separator typo silently creates a second record. Only the
-// scopedStorageKey call (and its three named wrappers: folderLayoutKey,
-// filterStoreKey, orderKeyOf) counts.
+// scopedStorageKey call (and its two named wrappers: filterStoreKey,
+// orderKeyOf) counts.
 const IS_SCOPED_RHS = (rhs: string): boolean => SCOPED_CALL.test(rhs);
 
 /** Walk foliplus/js (skipping runtime/type) recursively. */
@@ -265,7 +265,7 @@ describe("storage keys are scoped to the map container", () => {
       writeFileSync(
         join(root, "js", "leaky", "cache.ts"),
         "// leaky/cache - scratch read-through cache.\n" +
-          'const GHOST = "foliplus_layer_layout";\n' +
+          'const GHOST = "foliplus_layer_order";\n' +
           "export const peek = (): string | null =>\n" +
           "  window.localStorage.getItem(GHOST);\n",
       );
@@ -282,7 +282,7 @@ describe("storage keys are scoped to the map container", () => {
   it("rejects a deliberate global key (synthetic RED proof)", () => {
     const chains = new Set<string>();
     const empty = new Map<string, Set<string>>();
-    expect(isScopedArg('"foliplus_layer_layout"', chains, [], empty)).toBe(false);
+    expect(isScopedArg('"foliplus_layer_order"', chains, [], empty)).toBe(false);
     expect(isScopedArg('"foliplus_filter_store"', chains, [], empty)).toBe(false);
     expect(isScopedArg('scopedStorageKey(map, "layer_state")', chains, [], empty)).toBe(
       true,

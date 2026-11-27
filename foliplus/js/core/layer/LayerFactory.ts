@@ -232,7 +232,7 @@ class LayerFactory {
       onOpacity: opts.onOpacity ?? null,
       opacityBake: opts.opacityBake,
       // The author's folder declaration flows to the registry; the controller
-      // seeds the layout from it on registration (see folderLayout.seed).
+      // seeds the order doc from it on registration (see layout/project).
       folder: opts.folder ?? null,
       onCommitted: (entry: LayerInfo) => {
         committedEntry = entry;
