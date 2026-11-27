@@ -2,12 +2,11 @@
 
 A block-shaped per-layer declaration (`foliplus={"icon": {...}}`) carries the
 sub-dimensions ONE face can set. Python reads the author's RAW dict, before
-folium renders it; folium's template camelizes every dict key at render time
-(`folium.template.tojavascript`, recursively), so the JS panel receives
-`colorOpacity` even when the author wrote `color_opacity`. A Python reader
-looking only for the camel spelling would therefore miss the author's snake
-spelling and silently treat the sub-key as undeclared - the defect this module
-closes. It is the one place that decides the legal spellings of a block
+folium renders it, so it always sees the author's snake spelling
+(`color_opacity`). The rendered namespace is version-dependent: newer folium
+camelizes the nested dict keys (`colorOpacity`), 0.15.x keeps the author's
+spelling - so a reader on either side that looks for one spelling only misses
+the other, which is the defect this module closes. It is the one place that decides the legal spellings of a block
 sub-key: both the camelCase and the snake_case spelling are accepted
 (`colorOpacity` / `color_opacity`) and every block is normalised to one
 canonical camelCase shape before any reader looks at it. The rule mirrors
@@ -34,7 +33,7 @@ from .warning import warn_foliplus
 
 #: The icon face sub-dimensions: canonical camelCase key -> accepted spellings
 #: (canonical first). A multi-word key accepts the snake_case spelling because
-#: the author writes the raw Python dict and folium camelizes it only at render.
+#: the author writes the raw Python dict (and older folium keeps it as-is).
 _ICON_BLOCK_KEYS: dict[str, tuple[str, ...]] = {
     "glyph": ("glyph",),
     "color": ("color",),

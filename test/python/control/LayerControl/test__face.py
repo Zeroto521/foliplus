@@ -94,16 +94,17 @@ def test_an_unknown_marker_sub_key_warns() -> None:
 
 
 def test_the_declaration_reaches_the_rendered_layer_options() -> None:
-    # Python reads the author's raw dict (snake spelling accepted there);
-    # folium's render template camelizes every dict key, so the panel receives
-    # the canonical camel spelling the JS reader looks for.
+    # The rendered namespace is folium-version-dependent: newer folium camelizes
+    # the nested dict keys, 0.15.x keeps the author's snake spelling. The JS
+    # reader accepts both, so what matters is that the declaration survives the
+    # render with its values intact (compare spelling-insensitively).
     layer = _geo(
         name="IconG",
         foliplus={"icon": {"glyph": "star", "color": "#00ff00", "color_opacity": 30}},
     )
     namespace = _declared_namespace(_render(layer))
-    assert namespace["icon"] == {
-        "glyph": "star",
-        "color": "#00ff00",
-        "colorOpacity": 30,
+    rendered = {
+        key.lower().replace("_", ""): value
+        for key, value in namespace["icon"].items()
     }
+    assert rendered == {"glyph": "star", "color": "#00ff00", "coloropacity": 30}

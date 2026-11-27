@@ -329,7 +329,9 @@ type BlockKeySpec = {
   readonly validate: (raw: unknown) => BlockKeyRead;
 };
 
-type BlockKeyRead = { readonly ok: true; readonly value: unknown } | { readonly ok: false; readonly invalid: string };
+type BlockKeyRead =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly invalid: string };
 
 /** The sub-keys the `icon` block recognises. One map, one vocabulary: a key not
  *  listed here is an unknown sub-key and warns (P1-2), and the spellings list is

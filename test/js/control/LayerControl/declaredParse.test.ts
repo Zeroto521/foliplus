@@ -618,7 +618,11 @@ describe("readDeclaredIcon", () => {
     [{ colorOpacity: 101 }, /colorOpacity/],
   ])("rejects a malformed sub-key %j alone", (block, pattern) => {
     const warn = vi.fn();
-    const { declared, invalid } = readDeclaredIcon(layerWith({ icon: block }), "L", warn);
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: block }),
+      "L",
+      warn,
+    );
     expect(declared).toBeUndefined();
     expect(invalid).toHaveLength(1);
     expect(invalid[0]).toMatch(pattern);
@@ -642,7 +646,11 @@ describe("readDeclaredIcon", () => {
   });
 
   it("reads nothing when the icon block is not a mapping", () => {
-    const { declared, invalid } = readDeclaredIcon(layerWith({ icon: "red" }), "L", vi.fn());
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: "red" }),
+      "L",
+      vi.fn(),
+    );
     expect(declared).toBeUndefined();
     expect(invalid).toHaveLength(1);
   });
@@ -654,9 +662,9 @@ describe("readDeclaredIcon", () => {
 
 describe("readDeclaredMarker", () => {
   it("reads the chassis alpha off the marker block (both spellings)", () => {
-    expect(readDeclaredMarker(layerWith({ marker: { colorOpacity: 40 } }), "L").declared).toEqual(
-      { colorOpacity: 40 },
-    );
+    expect(
+      readDeclaredMarker(layerWith({ marker: { colorOpacity: 40 } }), "L").declared,
+    ).toEqual({ colorOpacity: 40 });
     expect(
       readDeclaredMarker(layerWith({ marker: { color_opacity: 40 } }), "M").declared,
     ).toEqual({ colorOpacity: 40 });

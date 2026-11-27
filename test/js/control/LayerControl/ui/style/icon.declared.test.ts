@@ -138,9 +138,7 @@ describe("declared icon block — reset / derive", () => {
       icon: { color: "#ff0000", color_opacity: 50 },
     });
 
-    writeIntentKeys(ui, "overlay1", [
-      [INTENT.ICON, { kind: "glyph", value: "star" }],
-    ]);
+    writeIntentKeys(ui, "overlay1", [[INTENT.ICON, { kind: "glyph", value: "star" }]]);
     applyIconToLayer(ui, "overlay1");
     const inner = marker.options.icon.createIcon().querySelector("i") as HTMLElement;
     expect(inner.style.color).toContain("0.5");
