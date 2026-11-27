@@ -39,6 +39,7 @@ import {
   resetIconLeaves,
   resolveChassisPaint as resolveChassisPaintCore,
 } from "#core/leaflet/index.js";
+import { isHexColor } from "#platform/color.js";
 import { withUnit } from "#platform/format.js";
 import {
   bindLiveNumber,
@@ -170,10 +171,14 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (authorName) {
     // The author declares a chassis: re-derive at the author's hex (a preset
     // name maps forward through the table; a non-preset hex is used as-is).
-    const authorHex = /^#[0-9a-f]{6}$/i.test(authorName)
-      ? authorName.toLowerCase()
-      : ((MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[authorName] ??
-        MARKER_COLOR_PRESET_HEX.blue);
+    // isHexColor also admits the 3-digit form, but this branch feeds a
+    // chassis the swatch row shows as 6 digits, so keep the 6-digit shape.
+    const authorHex =
+      isHexColor(authorName) && authorName.length === 7
+        ? authorName.toLowerCase()
+        : ((MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[
+            authorName
+          ] ?? MARKER_COLOR_PRESET_HEX.blue);
     applyMarkerColorToLeaves(
       layer,
       authorHex,
@@ -275,7 +280,7 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
   row.dataset.styleDim = "markerColor";
   input.addEventListener("input", () => {
     const next = input.value;
-    if (!/^#[0-9a-f]{6}$/i.test(next)) return;
+    if (!isHexColor(next)) return;
     commitMarkerColor(ui, layerId, next);
   });
   bindLiveNumber(opacityInput, {

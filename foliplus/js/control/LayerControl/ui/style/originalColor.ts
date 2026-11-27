@@ -42,6 +42,10 @@ type Rgb = [number, number, number];
 const toRgb = (color: string): Rgb | null => {
   // The common shapes (#rgb / #rrggbb and comma rgb() / rgba()) are
   // platform/color's parseColorAlpha — its header forbids a second copy.
+  // Trade-off: that parser rounds an rgb() channel to its nearest hex pair
+  // (Math.round) where the old hand-rolled parse kept the float. Only a
+  // non-integer rgb() can see it, and only through this ranking key — the
+  // hue/lightness order is not a paint, so the rounded key is unobservable.
   const common = parseColorAlpha(color);
   if (common !== null) {
     const hex = common.hex;
