@@ -7,26 +7,37 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { LayerController } from "#control/LayerControl/controller.js";
 
-// The tree slot of a layer id within its role-root sequence. Returns the id's
-// 0-based position among the role's top-level nodes (a root layer is its own
-// node; a folder member's slot is reported as the folder node's position — the
-// member order is tracked separately by the folder's children).
+// The tree slot of a layer id within its role-root sequence. With the doc
+// as the single order source, the "tree" IS the doc: a layer's slot is its
+// position among the root-level nodes (parent null) in rank order; a folder
+// member's slot is reported as the folder node's position.
 const treeIndexOf = (manager: LayerController, id: string): number => {
-  const arr: any = (manager as any).orderTree;
-  for (const role of Object.keys(arr.roles)) {
-    const nodes: any[] = arr.roles[role] ?? [];
-    for (let i = 0; i < nodes.length; i += 1) {
-      const n = nodes[i];
-      if (n.kind === "layer" && n.id === id) return i;
-      if (n.kind === "folder" && n.children.some((c: any) => c.id === id)) return i;
-    }
+  const doc: any = (manager as any).orderDoc;
+  if (!doc) return -1;
+  const layerKey = `layer:${id}`;
+  const memberOf = (key: string): string | null => {
+    const n = doc.nodes[key];
+    return n ? (n.parent ?? null) : null;
+  };
+  // Find the root node (parent null) that carries the id, in rank order.
+  const roots = Object.entries(doc.nodes)
+    .filter(([, n]: [string, any]) => n.parent == null)
+    .sort(([, a]: [string, any], [, b]: [string, any]) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0));
+  for (let i = 0; i < roots.length; i += 1) {
+    const [key, n]: [string, any] = roots[i];
+    if (key === layerKey) return i;
+    // A folder/group carries the id if the id's nearest root parent is this key.
+    if (n.kind === "folder" && memberOf(layerKey) === key) return i;
   }
   return -1;
 };
 
 // Whether the tree still carries the id anywhere (root or a folder member).
 const treeCarries = (manager: LayerController, id: string): boolean =>
-  treeIndexOf(manager, id) !== -1;
+  treeIndexOf(manager, id) !== -1 || (() => {
+    const doc: any = (manager as any).orderDoc;
+    return doc ? doc.nodes[`layer:${id}`] !== undefined : false;
+  })();
 
 describe("LayerController tombstone contract", () => {
   let manager: LayerController;

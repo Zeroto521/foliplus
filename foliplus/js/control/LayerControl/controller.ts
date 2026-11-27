@@ -1285,6 +1285,36 @@ class LayerController implements LayerAPI {
   }
 
   saveOrder() {
+    // The tree is the single order source: persist the CURRENT registry order
+    // by re-ranking the doc's root-level blocks to match (a raw registry
+    // reorder that bypassed the doc must still survive the reload). The tree
+    // structure (folders/groups) is preserved; only root ranks move.
+    const z = this.layerRegistry.layers.map(l => layerKeyOf(l.id));
+    const zPos = new Map(z.map((k, i) => [k, i]));
+    const roots = orderChildrenOf(this.orderDoc, null);
+    const rootPos = (key: string): number => {
+      const direct = zPos.get(key);
+      if (direct !== undefined) return direct;
+      // A folder/group block ranks at its first contained layer's z position.
+      const leaves = orderChildrenOf(this.orderDoc, key);
+      let best = Number.MAX_SAFE_INTEGER;
+      for (const leaf of leaves) {
+        const p = zPos.get(leaf);
+        if (p !== undefined && p < best) best = p;
+      }
+      return best === Number.MAX_SAFE_INTEGER ? -1 : best;
+    };
+    const orderedRoots = [...roots].sort((a, b) => rootPos(a) - rootPos(b));
+    const nodes: OrderDoc["nodes"] = { ...this.orderDoc.nodes };
+    let cursor: string | null = null;
+    for (const key of orderedRoots) {
+      const node = nodes[key];
+      if (!node) continue;
+      cursor = cursor === null ? orderRankStart() : orderRankAfter(cursor);
+      nodes[key] = { ...node, rank: cursor };
+    }
+    const next: OrderDoc = { nodes };
+    this.applyDoc(next, { persist: true });
     this.order.saveOrder();
   }
 
@@ -2376,6 +2406,10 @@ class LayerController implements LayerAPI {
     this.forgetCount(id);
 
     const operation = this.beginOperation();
+    // Presence changed (registry dropped the id) but the doc node stays as a
+    // tombstone: re-derive the projection so the folder mirror/rows drop the
+    // retired member. The doc is unchanged, so persist:false + force:true.
+    this.applyDoc(this.orderDoc, { persist: false, force: true });
     // Flush before any fan-out: the registry is already updated, and a
     // throwing consumer must not leave the persisted order listing the id.
     this.persistence.flushAll();
@@ -3010,19 +3044,24 @@ class LayerController implements LayerAPI {
    * @returns true if the id was in the stored order and got removed, false
    *   otherwise (nothing to forget).
    */
+  /** Drop one id's persisted order slot (the doc node). Returns true when a
+   *  slot was actually removed. */
+  private dropOrderSlot(id: string): boolean {
+    if (!this.orderDocPersisted) return this.order.forgetSavedOrder(id);
+    const key = layerKeyOf(id);
+    if (this.orderDoc.nodes[key] === undefined) return false;
+    const nextDoc: OrderDoc = { nodes: { ...this.orderDoc.nodes } };
+    delete nextDoc.nodes[key];
+    this.applyDoc(nextDoc, { persist: true });
+    return true;
+  }
+
   forgetSavedOrder(id: string): boolean {
     // The tree is the single order source: dropping the persisted slot means
     // dropping the node, so a re-register has no stored rank and lands by the
     // caller's baseInsert (prepend for the default "top"). A fresh page has
     // only the default doc, not a saved slot — return false (nothing to forget).
-    if (!this.orderDocPersisted) return this.order.forgetSavedOrder(id);
-    const key = layerKeyOf(id);
-    const node = this.orderDoc.nodes[key];
-    if (node === undefined) return false;
-    const nextDoc: OrderDoc = { nodes: { ...this.orderDoc.nodes } };
-    delete nextDoc.nodes[key];
-    this.applyDoc(nextDoc, { persist: true });
-    return true;
+    return this.dropOrderSlot(id);
   }
 
   /**
@@ -3046,7 +3085,7 @@ class LayerController implements LayerAPI {
    *   stored for this id (nothing to erase is not an error).
    */
   dropPersistedLayerState(id: string): boolean {
-    const orderDropped = this.order.forgetSavedOrder(id);
+    const orderDropped = this.dropOrderSlot(id);
     const intentDropped = this.ui ? this.ui.dropPersistedLayerState(id) : false;
     if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
     return orderDropped || intentDropped;

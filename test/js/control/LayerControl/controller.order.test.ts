@@ -601,7 +601,8 @@ describe("LayerController", () => {
 
       expect(m.dropPersistedLayerState("H")).toBe(true);
 
-      expect((m as any).order.savedOrder).toEqual(["A", "B"]);
+      // The doc node is gone (the tree is the single order source).
+      expect((m as any).orderDoc.nodes["layer:H"]).toBeUndefined();
       m.registerLayer({ id: "H", name: "H", role: "overlay" });
       expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
     });
