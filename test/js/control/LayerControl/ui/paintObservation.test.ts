@@ -122,7 +122,7 @@ describe("against the pre-observation read", () => {
     expect(basePaints(ui, info)).toBe(paintsNow(ui, info));
   });
 
-  it("differs from basePaints on a HIDDEN face (tracked in task-155)", () => {
+  it("differs from basePaints on a HIDDEN face", () => {
     const { manager, ui, map } = initFixture({ data: dataOf() });
     map.hasLayer.mockReturnValue(true);
     const face = document.createElement("div");
@@ -130,7 +130,7 @@ describe("against the pre-observation read", () => {
     map.getPane.mockReturnValue(face);
     const info = manager.layerRegistry.get("p1")!;
     // basePaints hard-codes `container` true; the observation reads the face,
-    // so the two agree only until the face is hidden. task-155 folds them.
+    // so the two agree only until the face is hidden. A follow-up folds them into one read.
     expect(basePaints(ui, info)).toBe(true);
     expect(paintsNow(ui, info)).toBe(false);
   });
