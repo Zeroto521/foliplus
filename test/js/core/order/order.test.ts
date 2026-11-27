@@ -154,6 +154,24 @@ describe("commands", () => {
     });
     expect(deleteBlock(d, "folder:overlay:f")).toBe(d);
   });
+  it("renameBlock / deleteBlock are defensive on unknown and layer keys", () => {
+    const d = doc({
+      "layer:a": { kind: "layer", parent: null, rank: "a0" },
+    });
+    // Unknown key — no-op returns the same document.
+    expect(renameBlock(d, "folder:overlay:missing", "X")).toBe(d);
+    expect(deleteBlock(d, "folder:overlay:missing")).toBe(d);
+    // A layer key is not a block — no-op.
+    expect(renameBlock(d, "layer:a", "X")).toBe(d);
+    expect(deleteBlock(d, "layer:a")).toBe(d);
+  });
+
+  it("isOrderDoc rejects a non-folder node carrying a role", () => {
+    expect(
+      isOrderDoc(doc({ "layer:a": { kind: "layer", parent: null, rank: "a0", role: "overlay" } })),
+    ).toBe(false);
+  });
+
 
   it("resetOrder returns a clone of the defaults", () => {
     const defaults = doc({ "layer:a": { kind: "layer", parent: null, rank: "a0" } });

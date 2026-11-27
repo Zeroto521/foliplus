@@ -561,7 +561,7 @@ class LayerOrchestration {
   } {
     // The order slot is the doc node (suppressed on delete, dropped on clear)
     // — the controller owns that and reports orderDropped itself; the old
-    // savedOrder string[] prune (LayerOrder.forgetSavedOrder) is gone.
+    // savedOrder string[] prune is gone.
     const intentDropped = this.intentStore.dropRow(id);
     let nameCleared = false;
     if (opts.clearName && this.intentStore.get(id, INTENT.NAME) != null) {

@@ -722,8 +722,8 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       (b): b is Extract<ProjectedBlock, { members: LayerInfo[] }> =>
         b.kind !== "layer" && b.key === memberFolderKey,
     );
-    // Invariant: the folder row came from roleBlocks, and displayBlocks is
-    // roleBlocks projected — a folder row on the panel means the block IS in
+    // Invariant: the folder row came from the role sequence, and displayBlocks is
+    // the role sequence projected — a folder row on the panel means the block IS in
     // the sequence with kind "folder". The block therefore always exists and
     // is always a folder block; the non-null assertion pins that invariant
     // (the old ?: [] fallback was a dead branch codecov could never see run).

@@ -58,6 +58,15 @@ describe("rankBetween", () => {
     }
   });
 
+  it("inserts between ranks sharing a fractional prefix", () => {
+    // "a01" < "a011" < "a02" — the midpoint recursion walks the shared prefix.
+    const a = "a01";
+    const b = "a02";
+    const mid = rankBetween(a, b);
+    expect(lt(a, mid)).toBe(true);
+    expect(lt(mid, b)).toBe(true);
+  });
+
   it("alphabet is 62 distinct ordered symbols", () => {
     expect(ALPHABET.length).toBe(62);
     expect(new Set(ALPHABET.split("")).size).toBe(62);

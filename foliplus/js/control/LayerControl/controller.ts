@@ -195,7 +195,7 @@ const uninstallBringToFrontPatch = () => {
 //   extra     computeZIndex, moveLayerUp, moveLayerDown
 //   Internal  surfaceFor, surfaceForLayer, enforceOrder, debouncedEnforce,
 //             hasUnresolvedLayers, onLayerAdd, loadSavedOrder, saveOrder,
-//             replaySavedOrder (order domain on `this.order` / LayerOrder.ts),
+//             replaySavedOrder (order domain on `this.order`),
 //             syncAttribution, desiredAttribution, attachUI, destroy, canReorderBetween,
 //             findLayer, refreshCount, forEachLeaf,
 //             clearAllLayers

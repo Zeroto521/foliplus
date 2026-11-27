@@ -60,6 +60,15 @@ describe("leafKeysOf", () => {
     const present = (k: string) => k !== "layer:b";
     expect(leafKeysOf(d, present)).toEqual(["layer:a", "layer:c"]);
   });
+  it("walks nested folders and groups to present leaves", () => {
+    const d = doc({
+      "folder:overlay:f": { kind: "folder", parent: null, rank: "a0", name: "F", role: "overlay" },
+      "group:g": { kind: "group", parent: "folder:overlay:f", rank: "a0", name: "G" },
+      "layer:x": { kind: "layer", parent: "group:g", rank: "a0" },
+      "layer:y": { kind: "layer", parent: "folder:overlay:f", rank: "a1" },
+    });
+    expect(leafKeysOf(d, () => true)).toEqual(["layer:x", "layer:y"]);
+  });
 });
 
 describe("resolveView", () => {
