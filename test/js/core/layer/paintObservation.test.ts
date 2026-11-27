@@ -188,3 +188,26 @@ describe("resolvePaintOpacity", () => {
     ).toBe(1);
   });
 });
+
+describe("partial provenance", () => {
+  it("fills the channels a partial snapshot omits with none", () => {
+    const read = (provenance: Record<string, string>) =>
+      observePaint({
+        factors: factorsOf(),
+        layer: groupOf(arealOf({})),
+        style: snapshotOf(provenance),
+      }).source;
+    expect(read({ fill: "user" })).toEqual({
+      fill: "user",
+      border: "none",
+      icon: "none",
+      opacity: "none",
+    });
+    expect(read({})).toEqual({
+      fill: "none",
+      border: "none",
+      icon: "none",
+      opacity: "none",
+    });
+  });
+});

@@ -6,8 +6,9 @@
 // reads disagreed on (a layer off the map, and a layer at opacity 0).
 import { initFixture } from "./fixture.js";
 import { beforeEach, describe, expect, it } from "vitest";
-import { paintProjection } from "#core/layer/index.js";
+import { HIDDEN, type LayerInfo, paintProjection } from "#core/layer/index.js";
 import { setIntent } from "#control/LayerControl/ui/intent.js";
+import { basePaints } from "#control/LayerControl/ui/listPanel/visibility.js";
 import {
   observeLayerPaint,
   paintsNow,
@@ -106,5 +107,58 @@ describe("observeLayerPaint", () => {
     const observation = observeLayerPaint(ui, manager.layerRegistry.get("t1")!);
     expect(observation.style?.opacity).toBeCloseTo(0.4, 5);
     expect(observation.source.opacity).toBe("user");
+  });
+});
+
+describe("against the pre-observation read", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it("agrees with basePaints while the layer is on the map", () => {
+    const { manager, ui, map } = initFixture({ data: dataOf() });
+    map.hasLayer.mockReturnValue(true);
+    const info = manager.layerRegistry.get("p1")!;
+    expect(basePaints(ui, info)).toBe(paintsNow(ui, info));
+  });
+
+  it("differs from basePaints on a HIDDEN face (tracked in task-155)", () => {
+    const { manager, ui, map } = initFixture({ data: dataOf() });
+    map.hasLayer.mockReturnValue(true);
+    const face = document.createElement("div");
+    face.classList.add(HIDDEN);
+    map.getPane.mockReturnValue(face);
+    const info = manager.layerRegistry.get("p1")!;
+    // basePaints hard-codes `container` true; the observation reads the face,
+    // so the two agree only until the face is hidden. task-155 folds them.
+    expect(basePaints(ui, info)).toBe(true);
+    expect(paintsNow(ui, info)).toBe(false);
+  });
+
+  it("answers without a controller gather", () => {
+    const { manager, ui, map } = initFixture({ data: dataOf() });
+    map.hasLayer.mockReturnValue(true);
+    const info = manager.layerRegistry.get("p1")!;
+    const bare = ui.c as unknown as { visibilityOf?: unknown; getStyle?: unknown };
+    bare.visibilityOf = undefined;
+    bare.getStyle = undefined;
+    const observation = observeLayerPaint(ui, info);
+    expect(observation.factors).toBeNull();
+    expect(observation.paints).toBe(false);
+    expect(observation.style).toBeNull();
+    expect(paintsNow(ui, info)).toBe(false);
+  });
+
+  it("falls back to the registry layer and a null snapshot", () => {
+    const { manager, ui, map } = initFixture({ data: dataOf() });
+    map.hasLayer.mockReturnValue(true);
+    const real = ui.c as unknown as { getStyle?: (id: string) => unknown };
+    real.getStyle = () => null;
+    const observation = observeLayerPaint(ui, {
+      ...manager.layerRegistry.get("p1")!,
+      layer: null,
+    } as LayerInfo);
+    expect(observation.style).toBeNull();
+    expect(observation.factors).not.toBeNull();
   });
 });

@@ -192,7 +192,7 @@ class LayerOrchestration {
    *  still paints at full strength, so the attribution follows its stored
    *  opacity.
    */
-  private paintFactors(layerInfo: LayerInfo, layer: L.Layer | null): VisibilityFactors {
+  private paintFactors(layerInfo: LayerInfo, layer: L.Layer): VisibilityFactors {
     const intent = this.intentStore.get(layerInfo.id, INTENT.OPACITY);
     const opacity = resolvePaintOpacity({
       focused: false,
@@ -215,8 +215,7 @@ class LayerOrchestration {
    *  The same read `visibilityOf` performs; it lives here because the domain
    *  owns the map and no ui handle reaches this class.
    */
-  private containerPaints(id: string, layer: L.Layer | null): boolean {
-    if (!layer || typeof this.map.hasLayer !== "function") return false;
+  private containerPaints(id: string, layer: L.Layer): boolean {
     if (!this.map.hasLayer(layer)) return false;
     const element =
       (layer as { getContainer?: () => HTMLElement | null }).getContainer?.() ?? null;
