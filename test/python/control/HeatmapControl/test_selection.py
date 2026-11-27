@@ -353,6 +353,7 @@ class TestHeatmapControlSelectionBrowser:
                 "the persisted layer must beat the Python declaration"
             )
             assert not errors, f"JS errors: {errors}"
+
     def test_dropdown_selected_highlight_fills_the_row(self, browser, tmp_path):
         """The selected option's highlight reaches the popup's inner border edge.
 
