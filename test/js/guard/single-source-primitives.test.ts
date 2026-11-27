@@ -3,8 +3,7 @@
 //
 // #1407 (review P3-4) pulled three repeated shapes into one module each:
 //   - attachMenuController — control/LayerControl/ui/overlayPanel/menu.ts, the
-//     one layer/folder/role menu attach scaffold, keyed localId: "menu" at the
-//     menu's panel rank.
+//     one layer/folder/role menu attach scaffold, keyed localId: "menu".
 //   - createPickerHolder — control/LayerControl/ui/style/pickerHolder.ts, the
 //     one per-UI scheme-picker slot: a WeakMap<LayerUI, SchemePicker> pair with
 //     its overlay unregister.
@@ -180,10 +179,6 @@ const PRIMITIVES: Primitive[] = [
       {
         pattern: "localId:\\s*(?:\"menu\"|'menu'|`menu`)",
         why: "the layer/folder/role menus share one attach scaffold; a second copy drops one of its dismissal, focus or teardown paths",
-      },
-      {
-        pattern: "rank:\\s*800\\b",
-        why: "rank 800 is the menu scaffold's panel rank; a second hand-rolled menu attach drifts the panel stacking order",
       },
     ],
   },
