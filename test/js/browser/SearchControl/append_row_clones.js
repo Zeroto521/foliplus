@@ -1,4 +1,7 @@
-// Appends clones of the last result row so the panel crosses its max-height.
+// Test-only geometry fixture: appends clones of the last result row so the
+// panel crosses its max-height. The clones are NOT registered with the list
+// cursor (cloneNode(true) copies ids / aria-activedescendant targets), so this
+// must only ever drive layout measurement, never selection.
 count => {
   const panel = document.querySelector(".foliplus-search-result-panel");
   if (!panel) return { ok: false, reason: "no-panel" };

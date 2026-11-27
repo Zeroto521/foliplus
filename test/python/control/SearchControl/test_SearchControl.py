@@ -879,6 +879,16 @@ class TestSearchResultRowHighlightBrowser:
             # and the text line keep their x/width (no re-inset, no word-break
             # reflow), and the wash still ends on the inner border.
             assert after["row"]["left"] == pytest.approx(before["row"]["left"], abs=0.5)
+            # The content column is the judgement: it is the flex line box that
+            # a re-inset would narrow (the text span is content-sized, so short
+            # text keeps its width even when the column shrinks).
+            assert after["content"]["left"] == pytest.approx(
+                before["content"]["left"], abs=0.5
+            )
+            assert after["content"]["width"] == pytest.approx(
+                before["content"]["width"], abs=0.5
+            )
+            # And the text span itself did not re-wrap (same width as before).
             assert after["text"]["width"] == pytest.approx(
                 before["text"]["width"], abs=0.5
             )

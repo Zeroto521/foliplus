@@ -30,7 +30,10 @@
   ══════════════════════════════════════════════════════════════════════ */
 /* Stable gutter: row geometry is constant across the scrolling/fitting states.
    The consumer either subtracts the measured lane (scheme picker) or paints
-   into it (search result row). */
+   into it (search result row, SearchControl.css). The bleed into the lane
+   relies on the panel keeping overflow-x: hidden: the row is then one lane
+   wider than the scrollport, and a horizontally scrollable panel would expose
+   that as extra scroll range instead of a painted edge. */
 :is(.foliplus-scheme-picker-dropdown, .foliplus-search-result-panel) {
   scrollbar-width: var(--foliplus-scrollbar-width);
   scrollbar-gutter: var(--foliplus-scrollbar-gutter);
