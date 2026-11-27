@@ -27,26 +27,52 @@ const PY_SPEC = "foliplus/control/LayerControl/_spec.py";
 const JS_FORMAT = "foliplus/js/platform/format.ts";
 const TS_SCHEMA = "foliplus/js/config-schema.ts";
 
-/** The format words out of the Python NumberFormat Literal alias, in order. */
+/** Strip the quotes around a Python/TS string literal word. */
+const bareWord = (word: string): string => word.trim().replace(/^["']|["']$/g, "");
+
+/** The format words out of the Python NumberFormat Literal alias, in order.
+ *  Single- and double-quoted literals alike: a quote-style change is not a
+ *  vocabulary change. */
 const pythonFormats = (): string[] =>
-  extractLiteral(PY_DECL, /NumberFormat = Literal\[([^\]]+)\]/)
+  extractLiteral(PY_DECL, /NumberFormat\s*=\s*Literal\[([^\]]+)\]/)
     .split(",")
-    .map(word => word.trim().replace(/^"|"$/g, ""))
+    .map(bareWord)
     .filter(Boolean);
 
 /** The format words out of the JS NUMBER_FORMAT preset object, in order. */
 const jsFormats = (): string[] =>
   extractLiteral(JS_FORMAT, /const NUMBER_FORMAT = \{([^}]+)\} as const/)
     .split(",")
-    .map(entry => entry.trim().match(/:\s*"([^"]+)"/)?.[1] ?? "")
+    .map(entry => entry.trim().match(/:\s*["']([^"']+)["']/)?.[1] ?? "")
     .filter(Boolean);
 
 /** The format words out of the generated NumberStyle union alias, in order. */
 const schemaFormats = (): string[] =>
   extractLiteral(TS_SCHEMA, /type NumberStyle = ([^;]+);/)
     .split("|")
-    .map(word => word.trim().replace(/^"|"$/g, ""))
+    .map(bareWord)
     .filter(Boolean);
+
+/** True when name is imported from module, whatever the import style: one
+ *  line, parenthesised multi-line, reordered names, or aliased. Pinning one
+ *  exact import statement would false-fail on a legal reformat. */
+const importsName = (source: string, module: string, name: string): boolean => {
+  const fromImport = new RegExp(
+    `from\\s+${module.replace(/\./g, "\\.")}\\s+import\\s+(?:\\(([^)]*)\\)|([^\\n]*))`,
+    "g",
+  );
+  return [...source.matchAll(fromImport)].some(match =>
+    (match[1] ?? match[2] ?? "")
+      .split(",")
+      .map(part =>
+        part
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim(),
+      )
+      .includes(name),
+  );
+};
 
 describe("label number-format vocabulary stays in step across the stack", () => {
   it("carries one identical format list in the Python declaration and the JS presets", () => {
@@ -77,12 +103,18 @@ describe("label number-format vocabulary stays in step across the stack", () => 
 
   it("imports the list into LayerControl's descriptor instead of copying it", () => {
     const specSource = readSource(PY_SPEC);
-    expect(specSource).toContain("from foliplus._declaration import NUMBER_FORMATS");
-    // A re-copied literal list is the drift this guard exists to stop.
-    expect(specSource).not.toMatch(/"auto"\s*,\s*"int"\s*,\s*"comma"\s*,\s*"percent"/);
+    expect(
+      importsName(specSource, "foliplus._declaration", "NUMBER_FORMATS"),
+      "LayerControl/_spec.py must import NUMBER_FORMATS from the declaration package",
+    ).toBe(true);
+    // A re-copied literal list is the drift this guard exists to stop; the
+    // literal's quote style is the formatter's business, not the guard's.
+    expect(specSource).not.toMatch(
+      /["']auto["']\s*,\s*["']int["']\s*,\s*["']comma["']\s*,\s*["']percent["']/,
+    );
     // And label.py owns the words once: the tuple is derived, not a second list.
-    expect(readSource(PY_DECL)).toContain(
-      "NUMBER_FORMATS: tuple[str, ...] = get_args(NumberFormat)",
+    expect(readSource(PY_DECL)).toMatch(
+      /NUMBER_FORMATS\s*(?::\s*[^=\n]+)?=\s*get_args\(\s*NumberFormat\s*\)/,
     );
   });
 });

@@ -122,8 +122,10 @@ class HeatmapControl(BaseControl):
     label_size : int, default 11
         Label font size (px). Must be positive.
 
-    label_format : Literal["auto", "int", "comma", "percent"], default "auto"
-        Number format for hexagon value labels:
+    label_format : NumberFormat, default "auto"
+        Number format for hexagon value labels (``NumberFormat`` is the
+        ``Literal["auto", "int", "comma", "percent"]`` alias owned by
+        ``foliplus._declaration.label``):
 
         - ``"auto"``: locale-native compact notation (en ``10K``, zh ``1.2万``);
           zh values below 1万 render ungrouped (``6000``). Follows the plugin

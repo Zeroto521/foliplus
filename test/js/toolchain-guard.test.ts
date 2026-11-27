@@ -437,6 +437,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "the Python declaration reader and the JS color primitive judge hex shapes alike",
   "keyboard-ownership":
     "Arrow/Escape handling goes through the shared keyboard primitive",
+  "label-size-sync":
+    "the label font-size bounds are the same numbers on the Python and JS sides",
   "listener-guard":
     "raw listener registrations carry an adjacent // listener-exempt: comment",
   "marker-color-preset":
