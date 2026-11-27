@@ -1,14 +1,12 @@
-"""The opacity declaration channel: whole-layer opacity and the marker glyph /
-chassis alpha, read off the layer namespace.
+"""The whole-layer opacity declaration channel, read off the layer namespace.
 
-These three declarations are read-time defaults for the JS panel (the slider
-starts there and Reset returns to it), never draw overrides — folium's own
-``opacity=`` / ``colorOpacity`` kwargs remain the author DRAW value and are
-read first. The readers are split into ``_opacity.py``; the shared
-``foliplus_namespace`` read and the unknown-key warning family stay in
-``_layer.py``. These tests pin the structural shape gate (scalar vs block) and
-the warning an out-of-range value produces; the JS panel owns the semantic
-vocabulary.
+This declaration is a read-time default for the JS panel (the slider starts
+there and Reset returns to it), never a draw override — folium's own
+``opacity=`` kwarg remains the author DRAW value and is read first. The icon /
+marker block alpha readers live in ``_face.py`` and are tested there; the
+shared ``foliplus_namespace`` read and the unknown-key warning family stay in
+``_layer.py``. These tests pin the structural shape gate and the warning an
+out-of-range value produces; the JS panel owns the semantic vocabulary.
 """
 
 from __future__ import annotations
@@ -22,11 +20,7 @@ import pytest
 from conftest import feature_collection
 
 from foliplus import LayerControl
-from foliplus.control.LayerControl._opacity import (
-    declared_icon_color_opacity,
-    declared_marker_color_opacity,
-    declared_opacity,
-)
+from foliplus.control.LayerControl._opacity import declared_opacity
 
 
 def _render(*layers: folium.Layer) -> str:
@@ -87,48 +81,6 @@ def test_bool_opacity_is_dropped_with_a_warning() -> None:
     with pytest.warns(UserWarning, match="expected a number from 0 to 1"):
         layer = _geo(foliplus={"opacity": True})
         assert declared_opacity(layer, "Declared") is None
-
-
-def test_declared_icon_color_opacity_reads_block() -> None:
-    layer = _geo(foliplus={"icon": {"colorOpacity": 60}})
-    assert declared_icon_color_opacity(layer, "Declared") == 60
-
-
-def test_declared_marker_color_opacity_reads_block() -> None:
-    layer = _geo(foliplus={"marker": {"colorOpacity": 60}})
-    assert declared_marker_color_opacity(layer, "Declared") == 60
-
-
-def test_icon_block_when_not_a_mapping_is_none() -> None:
-    layer = _geo(foliplus={"icon": "red"})
-    assert declared_icon_color_opacity(layer, "Declared") is None
-
-
-def test_marker_block_when_not_a_mapping_is_none() -> None:
-    layer = _geo(foliplus={"marker": "red"})
-    assert declared_marker_color_opacity(layer, "Declared") is None
-
-
-def test_icon_color_opacity_out_of_range_warns() -> None:
-    with pytest.warns(UserWarning, match="expected a whole number from 0 to 100"):
-        layer = _geo(foliplus={"icon": {"colorOpacity": 101}})
-        assert declared_icon_color_opacity(layer, "Declared") is None
-
-
-def test_marker_color_opacity_out_of_range_warns() -> None:
-    with pytest.warns(UserWarning, match="expected a whole number from 0 to 100"):
-        layer = _geo(foliplus={"marker": {"colorOpacity": -1}})
-        assert declared_marker_color_opacity(layer, "Declared") is None
-
-
-def test_missing_block_subkey_is_none() -> None:
-    layer = _geo(foliplus={"icon": {}})
-    assert declared_icon_color_opacity(layer, "Declared") is None
-
-
-def test_non_icon_key_does_not_touch_opacity() -> None:
-    layer = _geo(foliplus={"icon_size": 24})
-    assert declared_icon_color_opacity(layer, "Declared") is None
 
 
 def test_collection_warns_once_per_layer() -> None:

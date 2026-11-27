@@ -200,12 +200,15 @@ class LayerControl(BaseControl):
            first.
        * - ``icon``
          - dict
-         - the icon block: ``colorOpacity`` (0-100) is the glyph alpha,
-           a read-time default like the whole-layer opacity.
+         - the icon block: ``glyph`` (FontAwesome name), ``color``
+           (glyph CSS hex) and ``colorOpacity`` (0-100 glyph alpha),
+           read-time defaults like the whole-layer opacity. The snake_case
+           spelling of a sub-key (``color_opacity``) is accepted too.
        * - ``marker``
          - dict
          - the marker block: ``colorOpacity`` (0-100) is the chassis
-           alpha, a read-time default like the whole-layer opacity.
+           alpha, a read-time default like the whole-layer opacity. An
+           unknown sub-key warns once and is ignored.
 
     Two layers declaring the same ``folder`` name in the same role (for
     example ``foliplus={"folder": "底图"}``) are grouped into one

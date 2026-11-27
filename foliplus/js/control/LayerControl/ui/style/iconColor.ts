@@ -52,6 +52,8 @@ import {
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
+  type DeclaredIconBlock,
+  readDeclaredIcon,
   readDeclaredIconColorOpacity,
   readDeclaredIconSize,
 } from "#control/LayerControl/declaredParse.js";
@@ -63,6 +65,12 @@ import {
  *  caller re-deriving it. */
 const declaredIconSizeOf = (layer: unknown): number | undefined =>
   readDeclaredIconSize(layer).declared;
+
+/** The author-declared icon face (foliplus icon block), or undefined when the
+ *  layer declares none. The block reader owns normalisation + warnings; this
+ *  module only reads the colour / alpha / glyph it carries. */
+const declaredIconOf = (layer: unknown): DeclaredIconBlock | undefined =>
+  readDeclaredIcon(layer).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain
@@ -82,6 +90,11 @@ const layerCanIconColor = (ui: LayerUI, layerId: string): boolean =>
 const authorIconColor = (ui: LayerUI, layerId: string): string | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
+  // The declared glyph colour is the read-time default the row shows and
+  // Reset returns to; the author's drawn paint is the fallback only when the
+  // block declares no colour (declaration beats the draw, intent beats both).
+  const declared = declaredIconOf(layer)?.color;
+  if (declared !== undefined) return declared;
   let found: string | null = null;
   walkLeaf(layer, leaf => {
     if (found) return;
@@ -109,11 +122,16 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
   // A missing intent is a no-op — a layer the user never touched keeps
   // exactly what the author declared.
   if (!hasColor && !hasOpacity) return;
-  // The glyph is orthogonal: a user glyph wins, else the author's own
-  // glyph name (the core falls back to the author icon's inner glyph), so a
-  // color write never forces a glyph the author never drew.
+  const declared = declaredIconOf(layer);
+  // The glyph is orthogonal: a user glyph wins, then the declared glyph (the
+  // read-time default), then the author's own glyph name (the core falls back
+  // to the author icon's inner glyph), so a color write never forces a glyph
+  // the author never drew.
   const glyph =
-    currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
+    currentGlyph(ui, layerId) ??
+    declared?.glyph ??
+    authorGlyphNameOnLayer(layer)?.name ??
+    null;
   // The color: the user's, else the author's own paint (an opacity-only
   // write must keep the author's color and only change the alpha), else
   // white — the same default the derive path uses.
@@ -123,7 +141,7 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
     layer,
     color,
     glyph,
-    hasOpacity ? opacityIntent : undefined,
+    hasOpacity ? opacityIntent : (declared?.colorOpacity ?? undefined),
     coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
     declaredIconSizeOf(layer),
   );
@@ -180,13 +198,29 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   cancelStyleDimApply(FACE.ICON_COLOR, layerId, ui);
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
-  // Re-derive with the author paint: drop both intents, then walk with the
-  // current glyph so the glyph survives the color reset. The derive parses
-  // the author's own alpha when the color is author-derived (no user
-  // opacity), so an author paint that is translucent stays translucent.
+  // Re-derive with the read-time default: drop both intents, then walk with
+  // the current glyph so the glyph survives the color reset. The declared
+  // colour / alpha is what Reset returns to; without a declaration the derive
+  // falls back to the author's own paint (parsing its alpha, so an author
+  // paint that is translucent stays translucent).
+  const declared = declaredIconOf(layer);
   const glyph =
-    currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
+    currentGlyph(ui, layerId) ??
+    declared?.glyph ??
+    authorGlyphNameOnLayer(layer)?.name ??
+    null;
   const authorColor = authorIconColor(ui, layerId);
+  if (declared !== undefined) {
+    applyIconColorToLeaves(
+      layer,
+      authorColor ?? "#ffffff",
+      glyph,
+      declared.colorOpacity,
+      coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      declaredIconSizeOf(layer),
+    );
+    return;
+  }
   if (authorColor) {
     // Re-derive with the author paint and the current glyph — color and
     // glyph never split across two writes.

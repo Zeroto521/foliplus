@@ -46,8 +46,11 @@ ICON_SIZE_KEY = "icon_size"
 OPACITY_KEY = "opacity"
 #: The per-layer icon declaration block key: the icon face's sub-dimensions
 #: (glyph, color, colorOpacity) ride one in-block mapping, the same shape
-#: fill/border use.
+#: fill/border use. folium camelizes only the top-level option keys, so an
+#: in-block key keeps the author's spelling; the block reader accepts the
+#: camelCase and the snake_case spelling and normalises to camelCase.
 ICON_KEY = "icon"
 #: The per-layer marker declaration block key: the marker face's
-#: sub-dimensions (color, colorOpacity) ride one in-block mapping.
+#: sub-dimension (colorOpacity) rides one in-block mapping. The chassis COLOUR
+#: is the top-level marker_color declaration, not a block sub-key.
 MARKER_KEY = "marker"
