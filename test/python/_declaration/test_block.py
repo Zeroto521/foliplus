@@ -39,13 +39,20 @@ class TestNormaliseBlock:
     """The one spelling rule every block-shaped declaration rides on."""
 
     def test_absent_is_none_without_a_warning(self) -> None:
-        assert _silent(lambda: normalise_block(None, keys=_KEYS, name="test", owner="Owner")) is None
+        assert (
+            _silent(
+                lambda: normalise_block(None, keys=_KEYS, name="test", owner="Owner")
+            )
+            is None
+        )
 
     def test_a_non_mapping_is_none_without_a_warning(self) -> None:
         # The namespace shape gate (foliplus_namespace) owns that warning; this
         # reader stays silent so one defect is never reported twice.
         assert (
-            _silent(lambda: normalise_block("x", keys=_KEYS, name="test", owner="Owner"))
+            _silent(
+                lambda: normalise_block("x", keys=_KEYS, name="test", owner="Owner")
+            )
             is None
         )
 

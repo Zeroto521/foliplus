@@ -35,9 +35,7 @@ from foliplus._declaration import (
 from ._layer import foliplus_namespace
 
 
-def declared_icon_block(
-    item: Layer, layer_name: str
-) -> dict[str, object] | None:
+def declared_icon_block(item: Layer, layer_name: str) -> dict[str, object] | None:
     """Normalise one layer `foliplus={"icon": {...}}` declaration block.
 
     Returns the canonical record (`glyph` / `color` / `colorOpacity`) when
@@ -60,9 +58,7 @@ def declared_icon_block(
     )
 
 
-def declared_marker_block(
-    item: Layer, layer_name: str
-) -> dict[str, object] | None:
+def declared_marker_block(item: Layer, layer_name: str) -> dict[str, object] | None:
     """Normalise one layer `foliplus={"marker": {...}}` declaration block.
 
     Returns the canonical record (`colorOpacity`) when the block is a mapping,

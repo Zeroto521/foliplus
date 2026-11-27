@@ -70,7 +70,10 @@ def test_an_undeclared_icon_block_is_none() -> None:
 
 def test_a_non_mapping_icon_block_is_none_and_warns() -> None:
     with pytest.warns(UserWarning, match="expected a mapping"):
-        assert declared_icon_block(_geo(name="IconE", foliplus={"icon": "red"}), "IconE") is None
+        assert (
+            declared_icon_block(_geo(name="IconE", foliplus={"icon": "red"}), "IconE")
+            is None
+        )
 
 
 def test_an_unknown_icon_sub_key_warns_with_the_layer_name() -> None:

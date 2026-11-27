@@ -17,6 +17,7 @@ from folium.map import Layer
 
 from foliplus._declaration import FILTER_KEY
 
+from ._face import declared_icon_block, declared_marker_block
 from ._fill_author import fill_author, map_colormaps
 from ._folder import _folder_key, warn_unclaimed_folders
 from ._layer import (
@@ -28,7 +29,6 @@ from ._layer import (
     declared_marker_color,
     declared_zoom_range,
 )
-from ._face import declared_icon_block, declared_marker_block
 from ._opacity import declared_opacity
 from ._role import layer_role
 
