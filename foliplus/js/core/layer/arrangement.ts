@@ -498,7 +498,7 @@ const moveEntry = (
     // (the id already sat at the target slot). Compare to `nodes`, not to
     // `detached`: the latter always has one fewer element, so a same-position
     // move would never be detected.
-    if (sameNodes(next, nodes)) return tree;
+    if (sameSequence(next, nodes)) return tree;
     return { ...tree, roles: { ...roles, [role]: next } };
   }
   // Folder placement: find the folder node, insert inside it.
@@ -521,6 +521,7 @@ const moveEntry = (
     const blocks = { ...tree.blocks, [placement.key]: meta };
     return { ...tree, roles: { ...roles, [role]: next }, blocks };
   }
+  if (sameSequence(withFolder, nodes)) return tree;
   return { ...tree, roles: { ...roles, [role]: withFolder } };
 };
 
@@ -638,11 +639,25 @@ const dropLeaf = (tree: Arrangement, role: LayerRole, id: string): Arrangement =
   return { ...tree, roles: { ...tree.roles, [role]: next } };
 };
 
-/** Compare two node sequences by identity (shallow: children not compared). */
-const sameNodes = (a: readonly OrderNode[], b: readonly OrderNode[]): boolean => {
+/** Compare two node sequences structurally (leaf id / block key + child
+ *  order), so a same-position move that re-inserts a FRESH leaf node is still
+ *  detected as a no-op (a shallow identity compare would never match, because
+ *  the moved id is materialised as a new `{ kind: "layer", id }` object). */
+const sameSequence = (a: readonly OrderNode[], b: readonly OrderNode[]): boolean => {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
+    const x = a[i];
+    const y = b[i];
+    if (x.kind !== y.kind) return false;
+    if (x.kind === "layer") {
+      // x and y are the same kind (checked above), so both are layers here.
+      if (x.id !== (y as LayerNode).id) return false;
+    } else {
+      // x and y are the same non-layer kind, so both are folder/group nodes.
+      const fx = x as FolderNode | GroupNode;
+      const fy = y as FolderNode | GroupNode;
+      if (fx.key !== fy.key || !sameSequence(fx.children, fy.children)) return false;
+    }
   }
   return true;
 };

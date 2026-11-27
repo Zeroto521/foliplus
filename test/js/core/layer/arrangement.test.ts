@@ -10,15 +10,21 @@ import {
   type Arrangement,
   type ResolvedTree,
   arrangementAddBlock as addBlock,
+  arrangementAddLeaf as addLeaf,
   anchorOfNode,
+  arrangementApplySavedOrder as applySavedOrder,
   arrangementRoleOfLeaf,
   defaultArrangement,
   arrangementDeleteBlock as deleteBlock,
   arrangementDeleteEmptyBlocks as deleteEmptyBlocks,
+  arrangementDropLeaf as dropLeaf,
   hydrate,
   arrangementLeafPosition as leafPosition,
   arrangementMoveBlock as moveBlock,
   arrangementMoveEntry as moveEntry,
+  arrangementPlaceLeafAtSaved as placeLeafAtSaved,
+  projectBlocks,
+  projectLayout,
   projectRows,
   projectZ,
   arrangementRenameBlock as renameBlock,
@@ -449,5 +455,270 @@ describe("mutations", () => {
       container: "root",
       index: 1,
     });
+  });
+});
+
+describe("arrangement mutations — no-op and edge invariants", () => {
+  const A = { kind: "layer" as const, id: "a" };
+  const B = { kind: "layer" as const, id: "b" };
+  const C = { kind: "layer" as const, id: "c" };
+
+  it("returns the SAME tree object for a same-position root move (no-op)", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A, B, C], base: [] } };
+    // "a" already sits at index 0 — the placement puts it back there.
+    const out = moveEntry(tree, "overlay", "a", { kind: "root", index: 0 });
+    expect(out).toBe(tree);
+  });
+
+  it("returns the SAME tree object for a same-position folder-member move (no-op)", () => {
+    const folder = { kind: "folder" as const, key: "f", children: [A, B, C] };
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [folder], base: [] } };
+    const out = moveEntry(tree, "overlay", "b", { kind: "folder", key: "f", index: 1 });
+    expect(out).toBe(tree);
+  });
+
+  it("returns the same tree when the moved id is not in the role", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A], base: [] } };
+    expect(moveEntry(tree, "overlay", "ghost", { kind: "root", index: 0 })).toBe(tree);
+  });
+
+  it("moveEntry on a role the tree does not hold returns the same tree", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A], base: [] } };
+    expect(moveEntry(tree, "base", "a", { kind: "root", index: 0 })).toBe(tree);
+  });
+
+  it("addBlock returns the same tree when the block key already exists", () => {
+    const folder = { kind: "folder" as const, key: "f", children: [] };
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [folder], base: [] } };
+    const out = addBlock(
+      tree,
+      "overlay",
+      { kind: "folder", key: "f", name: "f" },
+      null,
+    );
+    expect(out).toBe(tree);
+  });
+
+  it("addBlock inserts before a beforeEntry that exists, and at the tail when it does not", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A, B], base: [] } };
+    const before = addBlock(
+      tree,
+      "overlay",
+      { kind: "folder", key: "f", name: "f" },
+      "layer:a",
+    );
+    expect(
+      before.roles.overlay.map(n => (n.kind === "layer" ? `layer:${n.id}` : n.key)),
+    ).toEqual(["f", "layer:a", "layer:b"]);
+    const absent = addBlock(
+      tree,
+      "overlay",
+      { kind: "folder", key: "g", name: "g" },
+      "layer:ghost",
+    );
+    expect(
+      absent.roles.overlay.map(n => (n.kind === "layer" ? `layer:${n.id}` : n.key)),
+    ).toEqual(["layer:a", "layer:b", "g"]);
+  });
+
+  it("deleteBlock / renameBlock / dropLeaf return the same tree for an absent key or id", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A], base: [] } };
+    expect(deleteBlock(tree, "overlay", "ghost")).toBe(tree);
+    expect(renameBlock(tree, "overlay", "ghost", "x")).toBe(tree);
+    expect(renameBlock(tree, "overlay", "a", "x")).toBe(tree); // key not a block (it's a layer)
+    expect(dropLeaf(tree, "overlay", "ghost")).toBe(tree);
+  });
+
+  it("deleteEmptyBlocks reports 0 and returns the same tree when no empty block exists", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A], base: [] } };
+    const out = deleteEmptyBlocks(tree, "overlay");
+    expect(out.count).toBe(0);
+    expect(out.tree).toBe(tree);
+  });
+
+  it("applySavedOrder / placeLeafAtSaved return the same tree on an empty role or absent id", () => {
+    const empty: Arrangement = { blocks: {}, roles: { overlay: [], base: [] } };
+    expect(applySavedOrder(empty, "overlay", ["a"])).toBe(empty);
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A, B], base: [] } };
+    expect(placeLeafAtSaved(tree, "overlay", "ghost", ["a"])).toBe(tree);
+    expect(applySavedOrder(tree, "overlay", ["ghost"])).not.toBe(tree); // unranked layers sort last
+  });
+
+  it("moveBlock returns the same tree when the key or target is absent (or same position)", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A, B, C], base: [] } };
+    expect(moveBlock(tree, "overlay", "ghost", "layer:a", false)).toBe(tree);
+    expect(moveBlock(tree, "overlay", "layer:a", "ghost", false)).toBe(tree);
+    expect(moveBlock(tree, "overlay", "layer:a", "layer:a", false)).toBe(tree);
+  });
+
+  it("roleOfLeaf returns null when the tree lacks the role key", () => {
+    const resolved: ResolvedTree = {
+      blocks: {},
+      roles: { overlay: [A], base: [] },
+      parentOf: {},
+      orphans: [],
+    };
+    expect(arrangementRoleOfLeaf(resolved, "a")).toBe("overlay");
+    const partial = { ...resolved, roles: {} as ResolvedTree["roles"] };
+    expect(arrangementRoleOfLeaf(partial, "a")).toBeNull();
+  });
+});
+
+describe("arrangement — saved-order rank edges", () => {
+  const A = { kind: "layer" as const, id: "a" };
+  const B = { kind: "layer" as const, id: "b" };
+  const C = { kind: "layer" as const, id: "c" };
+
+  it("applySavedOrder ranks a saved layer above an unsaved one", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A, B], base: [] } };
+    const out = applySavedOrder(tree, "overlay", ["b"]);
+    expect(out.roles.overlay).toEqual([B, A]); // saved "b" ranks before unsaved "a"
+  });
+
+  it("placeLeafAtSaved moves a root layer DOWN to a later saved slot", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A, B, C], base: [] } };
+    // "a" saved after "c": a moves below b and c.
+    const out = placeLeafAtSaved(tree, "overlay", "a", ["b", "c", "a"]);
+    expect(out.roles.overlay).toEqual([B, C, A]);
+  });
+
+  it("renameBlock returns the same tree when the block meta is absent but the node exists", () => {
+    // A folder node with no blocks directory entry: the key matches a node but
+    // has no meta — the rename is a no-op.
+    const f = { kind: "folder" as const, key: "f", children: [] };
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [f], base: [] } };
+    expect(renameBlock(tree, "overlay", "f", "x")).toBe(tree);
+  });
+});
+
+describe("arrangement — absent role key and block-deletion paths", () => {
+  const A = { kind: "layer" as const, id: "a" };
+  const B = { kind: "layer" as const, id: "b" };
+
+  // Every mutation reads tree.roles[role] with a ?? [] fallback; a tree whose
+  // base key is absent (never initialised) exercises that fallback on each.
+  it("a tree missing the role key behaves like an empty role on every mutation", () => {
+    const tree: Arrangement = {
+      blocks: {},
+      roles: { overlay: [A] } as Arrangement["roles"],
+    };
+    expect(moveEntry(tree, "base", "a", { kind: "root", index: 0 })).toBe(tree);
+    // addLeaf on an absent (empty) role ADDS the leaf — the fallback is [] so
+    // the layer lands at the role tail (a new tree, not a no-op).
+    expect(addLeaf(tree, "base", "a", null).roles.base).toEqual([A]);
+    expect(applySavedOrder(tree, "base", ["a"])).toBe(tree);
+    expect(placeLeafAtSaved(tree, "base", "a", ["a"])).toBe(tree);
+    expect(dropLeaf(tree, "base", "a")).toBe(tree);
+    expect(moveBlock(tree, "base", "a", "b", false)).toBe(tree);
+    expect(
+      addBlock(tree, "base", { kind: "folder", key: "f", name: "f" }, null).roles.base,
+    ).toEqual([{ kind: "folder", key: "f", children: [] }]);
+    expect(deleteBlock(tree, "base", "f")).toBe(tree);
+    expect(deleteEmptyBlocks(tree, "base").tree).toBe(tree);
+    expect(renameBlock(tree, "base", "f", "x")).toBe(tree);
+  });
+
+  it("addLeaf returns the same tree when the id is already carried", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A], base: [] } };
+    expect(addLeaf(tree, "overlay", "a", null)).toBe(tree);
+  });
+
+  it("deleteBlock removes a folder block and promotes its layer members", () => {
+    const f = { kind: "folder" as const, key: "f", children: [A, B] };
+    const tree: Arrangement = {
+      blocks: { f: { kind: "folder", key: "f", name: "F" } },
+      roles: { overlay: [f], base: [] },
+    };
+    const out = deleteBlock(tree, "overlay", "f");
+    expect(out.roles.overlay).toEqual([A, B]); // members promoted to the role root
+    expect(out.blocks.f).toBeUndefined(); // directory entry removed
+  });
+
+  it("deleteEmptyBlocks removes an empty folder block and reports the count", () => {
+    const f = { kind: "folder" as const, key: "f", children: [] };
+    const tree: Arrangement = {
+      blocks: { f: { kind: "folder", key: "f", name: "F" } },
+      roles: { overlay: [A, f], base: [] },
+    };
+    const out = deleteEmptyBlocks(tree, "overlay");
+    expect(out.count).toBe(1);
+    expect(out.tree.roles.overlay).toEqual([A]);
+    expect(out.tree.blocks.f).toBeUndefined();
+  });
+
+  it("moveBlock moves a root layer down (insert before the removed slot)", () => {
+    const tree: Arrangement = { blocks: {}, roles: { overlay: [A, B], base: [] } };
+    // "a" to after "b": a moves below b.
+    const out = moveBlock(tree, "overlay", "layer:a", "layer:b", true);
+    expect(out.roles.overlay).toEqual([B, A]);
+  });
+});
+
+describe("projectLayout / projectBlocks — edge invariants", () => {
+  const A = { kind: "layer" as const, id: "a" };
+
+  it("projectLayout skips a non-folder block in the folder directory", () => {
+    const resolved: ResolvedTree = {
+      blocks: { g: { kind: "group", key: "g", name: "G" } },
+      roles: { overlay: [{ kind: "group", key: "g", children: [A] }], base: [] },
+      parentOf: { a: "g" },
+      orphans: [],
+    };
+    const layout = projectLayout(resolved);
+    expect(layout.folders).toEqual([]); // group is not a folder
+    expect(layout.order.overlay).toEqual(["g"]); // node.key entry, not layer:<id>
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "g" });
+  });
+
+  it("projectLayout skips a parentOf member whose leaf is not in the tree", () => {
+    const resolved: ResolvedTree = {
+      blocks: {},
+      roles: { overlay: [A], base: [] },
+      parentOf: { ghost: null },
+      orphans: [],
+    };
+    const layout = projectLayout(resolved);
+    expect(layout.members).toEqual({});
+  });
+
+  it("projectLayout maps a root member to the empty-string folder", () => {
+    const resolved: ResolvedTree = {
+      blocks: {},
+      roles: { overlay: [A], base: [] },
+      parentOf: { a: null },
+      orphans: [],
+    };
+    const layout = projectLayout(resolved);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "" });
+  });
+
+  it("projectBlocks skips a node whose id is not in the registry (orphan)", () => {
+    const resolved: ResolvedTree = {
+      blocks: {},
+      roles: { overlay: [A], base: [] },
+      parentOf: {},
+      orphans: [],
+    };
+    const out = projectBlocks(resolved, "overlay", []);
+    expect(out).toEqual([]); // "a" has no registry entry → dropped
+  });
+
+  it("projectBlocks resolves a folder member from the registry and falls back to key for the name", () => {
+    const folder = { kind: "folder" as const, key: "f", children: [A] };
+    const resolved: ResolvedTree = {
+      blocks: { f: { kind: "folder", key: "f", name: "F" } },
+      roles: { overlay: [folder], base: [] },
+      parentOf: { a: "f" },
+      orphans: [],
+    };
+    const out = projectBlocks(resolved, "overlay", [entry("a", "overlay", "f", 0)]);
+    expect(out).toEqual([
+      {
+        kind: "folder",
+        key: "f",
+        name: "F",
+        block: { members: [{ ...entry("a", "overlay", "f", 0) }] },
+      },
+    ]);
   });
 });
