@@ -139,7 +139,9 @@ const flashCommit = (ui: LayerUI, selector: string, state: string): void => {
   const row = ui.uiContainer?.querySelector<HTMLElement>(selector);
   if (!row) return;
   setDragState(row, state);
-  window.setTimeout(() => setDragState(row, null), commitMs(row));
+  // Owned by the LayerUI, so a control torn down inside the beat clears the
+  // row's marker through the teardown instead of a timer outliving the panel.
+  ui.timers.timeout("drag-commit", () => setDragState(row, null), commitMs(row));
 };
 
 /** Fold or unfold one role. Shared by the pointer (row click) and the

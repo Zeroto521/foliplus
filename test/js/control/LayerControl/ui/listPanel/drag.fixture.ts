@@ -4,6 +4,7 @@ import { vi } from "vitest";
 import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerUI } from "#control/LayerControl/ui/index.js";
+import { createTimers } from "#platform/timer.js";
 
 export const dragEvent = (
   target: HTMLElement,
@@ -72,6 +73,9 @@ export const makeUi = (
   }
   return {
     uiContainer,
+    // The real LayerUI owns a timer set; a fixture without one cannot reach
+    // the same commit-flash path the control runs.
+    timers: createTimers(),
     foldedRoles: {},
     listPanel: {
       foldedRoles: {},
