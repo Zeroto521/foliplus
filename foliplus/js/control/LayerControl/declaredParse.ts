@@ -642,4 +642,4 @@ export {
   readDeclaredMarkerColorOpacity,
   readDeclaredOpacity,
 };
-export type { DeclaredIconBlock, DeclaredMarkerBlock };
+export type { DeclaredIconBlock };
