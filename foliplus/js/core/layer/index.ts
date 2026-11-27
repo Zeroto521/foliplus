@@ -179,6 +179,36 @@ export type { LayerPaint, LeafPaint, PaintFace } from "./paint.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
+export {
+  defaultDoc,
+  folderKeyOf,
+  groupKeyOf,
+  layerKeyOf,
+} from "./layout/default.js";
+export type { LayerDeclaration } from "./layout/default.js";
+export { mergeOrderDocs } from "./layout/merge.js";
+export {
+  childrenOfView,
+  presentOf,
+  projectBlocks,
+  projectRows,
+  projectLayoutOf,
+  projectView,
+  projectZ,
+  resolveOrderView,
+  ROLE_ORDER,
+} from "./layout/project.js";
+export type {
+  OrderView,
+  ProjectedBlock,
+  RoleOf,
+} from "./layout/project.js";
+export {
+  clearOrderDoc,
+  loadOrderDoc,
+  orderKeyOf,
+  saveOrderDoc,
+} from "./layout/persist.js";
 export { LayerOrder } from "./LayerOrder.js";
 export {
   buildLayerSnapshot,

@@ -25,6 +25,11 @@ export const folderKeyOf = (name: string): string =>
 /** The doc node key for a layer id. */
 export const layerKeyOf = (id: string): string => `layer:${id}`;
 
+/** The node key of a group (container layer): a distinct namespace from the
+ *  no-prefix folder key so a folder name and a layer id can never collide.
+ *  (Decided in milestone 2; key stays stable across renames.) */
+export const groupKeyOf = (layerId: string): string => `group:${layerId}`;
+
 /** Build the default document from CONF.data declaration order. Folders are
  *  created at the position of their first member; a layer's rank encodes its
  *  declaration index, so a late registration lands at its default slot (design §5.2 ④). */
@@ -55,9 +60,9 @@ export const defaultDoc = (declarations: readonly LayerDeclaration[]): OrderDoc 
     const key = layerKeyOf(decl.id);
     if (nodes[key] !== undefined) continue;
     if (decl.folder && folderKeyOf(decl.folder) !== "") {
-      const folderKey = `folder:${folderKeyOf(decl.folder)}`;
+      const folderKey = `folder:${decl.role}:${folderKeyOf(decl.folder)}`;
       if (nodes[folderKey] === undefined) {
-        appendRoot(folderKey, { kind: "folder", parent: null, name: decl.folder });
+        appendRoot(folderKey, { kind: "folder", parent: null, name: decl.folder, role: decl.role });
       }
       appendChild(folderKey, key, { kind: "layer", parent: folderKey });
     } else {

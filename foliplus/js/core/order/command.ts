@@ -8,6 +8,7 @@ import type { OrderDoc, OrderKind } from "./doc.js";
 import { emptyOrderDoc, isOrderDoc } from "./doc.js";
 import { rankBetween, rankFirst } from "./rank.js";
 import { childrenOf } from "./resolve.js";
+import type { LayerRole } from "#core/layer/role.js";
 
 /** A rank strictly inside a gap, guarded against equal neighbours (the rank
  *  tie-break is declaration index then id, so a new node joins a tied group at
@@ -112,15 +113,20 @@ export const createBlock = (
   kind: OrderKind,
   key: string,
   name: string,
+  role?: LayerRole,
 ): OrderDoc => {
   if (kind !== "folder" && kind !== "group") return doc;
   if (doc.nodes[key] !== undefined) return doc;
+  // A folder block owns a role (its members'); a group's role derives from the
+  // container layer, so it is never stored.
+  if (kind === "folder" && role === undefined) return doc;
+  if (kind !== "folder" && role !== undefined) return doc;
   const siblings = childrenOf(doc, null);
   const prev =
     siblings.length > 0 ? doc.nodes[siblings[siblings.length - 1]].rank : null;
   const rank = siblings.length === 0 ? rankFirst() : rankInGap(prev, null);
   const next = clone(doc);
-  next.nodes[key] = { kind, parent: null, rank, name };
+  next.nodes[key] = { kind, parent: null, rank, name, ...(role ? { role } : {}) };
   return next;
 };
 

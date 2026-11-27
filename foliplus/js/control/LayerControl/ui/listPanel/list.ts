@@ -33,7 +33,7 @@ import {
   folderEntries,
   folderOf,
   groupByFolder,
-  orderProjectBlocks,
+  type ProjectedBlock,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
@@ -372,11 +372,11 @@ const syncRowOrder = (ui: LayerUI): void => {
         if (row) targets.push(row);
         // The block's members follow its header — a folder row without them
         // would leave every member row behind at the panel's tail.
-        for (const member of block.block.members) {
+        for (const member of block.members) {
           const memberRow = rows.get(member.id);
           if (memberRow) targets.push(memberRow);
         }
-      } else {
+      } else if (block.kind === "layer") {
         const row = rows.get(block.layer.id);
         if (row) targets.push(row);
       }
@@ -518,10 +518,8 @@ const hasAnyFolder = (ui: LayerUI): boolean => {
 const displayBlocks = (
   ui: LayerUI,
   role: string,
-): Array<
-  | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
-  | { kind: "layer"; layer: LayerInfo }
-> => orderProjectBlocks(ui.c.resolveOrderTree(), role as LayerRole, ui.c.layers);
+): ProjectedBlock[] =>
+  ui.c.orderView().blocks[role as LayerRole] ?? [];
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -581,14 +579,14 @@ const renderInitialList = (ui: LayerUI) => {
         // restores exactly the view the user had.
         if (roleFolded) row.classList.add(CONST.CLASSES.GROUP_FOLDED);
         frag.appendChild(row);
-        for (const member of block.block.members) {
+        for (const member of block.members) {
           const item = renderLayerItem(ui, member);
           if (roleFolded || folderFolded) {
             item.classList.add(CONST.CLASSES.GROUP_FOLDED);
           }
           frag.appendChild(item);
         }
-      } else {
+      } else if (block.kind === "layer") {
         const item = renderLayerItem(ui, block.layer);
         if (roleFolded) {
           item.classList.add(CONST.CLASSES.GROUP_FOLDED);

@@ -1,5 +1,6 @@
 import { afterEach, vi } from "vitest";
-import { ROLE, folderLayoutKey } from "#core/layer/index.js";
+import { ROLE, folderLayoutKey, orderKeyOf } from "#core/layer/index.js";
+import { rankStart, rankBetween } from "#core/order/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -312,6 +313,65 @@ const orderFromLayout = (doc: Record<string, unknown>): Record<string, unknown> 
   return { blocks, roles };
 };
 
+
+/** Translate an OLD order seed into the NEW layer_order document {nodes}.
+ *  Accepts the array-model {blocks,roles} tree (from seedOrderTree/seedLayout)
+ *  or a flat order array (from seed.order). Ranks are built sequentially so the
+ *  row order equals the seed order. A flat array is projected as overlay rows. */
+const orderDocFromSeed = (seed: unknown): Record<string, unknown> | null => {
+  const nodes: Record<string, unknown> = {};
+  let prev: string | null = null;
+  const nextRank = (): string => {
+    const r = prev === null ? rankStart() : rankBetween(prev, null);
+    prev = r;
+    return r;
+  };
+  if (seed && typeof seed === "object" && !Array.isArray(seed) && "roles" in (seed as Record<string, unknown>)) {
+    const roles = ((seed as Record<string, unknown>).roles ?? {}) as Record<string, Array<{ kind: string; key?: string; id?: string; children?: Array<{ kind: string; id?: string }> }>>;
+    const blocks = ((seed as Record<string, unknown>).blocks ?? {}) as Record<string, { kind: string; name?: string }>;
+    for (const [role, roleNodes] of Object.entries(roles)) {
+      if (!Array.isArray(roleNodes)) continue;
+      for (const node of roleNodes) {
+        if (!node) continue;
+        if (node.kind === "layer" && node.id !== undefined) {
+          nodes[`layer:${node.id}`] = { kind: "layer", parent: null, rank: nextRank() };
+        } else if (node.key !== undefined) {
+          const name = blocks[node.key]?.name ?? node.key;
+          // The OLD tree keys folders by bare name; the NEW doc namespaces them
+          // \"folder:<role>:<key>\" (role-scoped so the same name can exist in
+          // both roles). Prefix here so a seed tree does not materialise a
+          // second bare-key folder node beside the namespaced one.
+          const rawKey = String(node.key);
+          const nodeKey = rawKey.startsWith("layer:")
+            ? rawKey
+            : rawKey.startsWith("folder:")
+              ? rawKey
+              : `folder:${role}:${rawKey}`;
+          nodes[nodeKey] = { kind: node.kind === "folder" ? "folder" : "group", parent: null, rank: nextRank(), name, ...(node.kind === "folder" ? { role } : {}) };
+          const children = (node as any).children ?? [];
+          let cprev: string | null = null;
+          for (const child of children) {
+            if (child?.kind === "layer" && child.id !== undefined) {
+              const cr = cprev === null ? rankStart() : rankBetween(cprev, null);
+              nodes[`layer:${child.id}`] = { kind: "layer", parent: nodeKey, rank: cr };
+              cprev = cr;
+            }
+          }
+        }
+      }
+    }
+    return { nodes };
+  }
+  if (Array.isArray(seed)) {
+    for (const entry of seed) {
+      const key = String(entry).startsWith("layer:") ? String(entry) : `layer:${String(entry)}`;
+      nodes[key] = { kind: "layer", parent: null, rank: nextRank() };
+    }
+    return { nodes };
+  }
+  return null;
+};
+
 const initFixture = (
   options: {
     initialZoom?: number;
@@ -362,7 +422,21 @@ const initFixture = (
     window.localStorage.setItem(
       `foliplus_layer_arrangement_${container.id}`,
       JSON.stringify(options.seedOrderTree),
+
     );
+  }
+  // The OLD order seeds ({blocks,roles} tree, layout mirror, or flat order)
+  // translate into the NEW layer_order document so tests seed the same
+  // registry order the controller now derives from the doc.
+  if (options.seedOrderTree || options.seedLayout || Array.isArray((options.seed as any)?.order)) {
+    const docSeed = options.seedOrderTree
+      ? orderDocFromSeed(options.seedOrderTree)
+      : options.seedLayout
+        ? orderDocFromSeed(orderFromLayout(options.seedLayout))
+        : orderDocFromSeed((options.seed as any).order);
+    if (docSeed) {
+      window.localStorage.setItem(orderKeyOf({ getContainer: () => container }), JSON.stringify(docSeed));
+    }
   }
 
   installLeafletGlobals();
