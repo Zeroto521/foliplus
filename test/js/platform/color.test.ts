@@ -10,12 +10,42 @@ import {
 } from "#platform/color.js";
 import { stripComments } from "#script/check/scan-locale-key.mjs";
 
-/** A JS regex literal — slash-delimited, any flags — whose body is a
- *  hand-rolled hex matcher. Case-blind on purpose: `[0-9a-f]` and `[0-9A-F]`
- *  encode the same color shape, and an `i` flag changes how the literal is
- *  read, not whether it is a second copy of the shared rule. `^#` covers the
- *  anchored hex forms, `#[` an unanchored one. */
-const HANDROLLED_HEX_REGEX = /\/(?:\\.|[^/\n\\])*(?:\^#|#\[)(?:\\.|[^/\n\\])*\//;
+/** Contract boundary for the single-source hex scan.
+ *
+ *  What it sees: a plain slash-delimited regex literal whose body contains an
+ *  unescaped '#' followed within a few characters by a hex character class —
+ *  a digit range plus an 'a-f'/'A-F' range. That catches every hand-rolled
+ *  form found so far (/^#[0-9a-f]{6}$/i, /^#[0-9a-fA-F]{3}(...)?$/,
+ *  /#[0-9a-f]{3,6}/) and does not flag a CSS-id regex such as
+ *  /#[a-z][\w-]+/i, which carries both a '#' and a class but no hex range.
+ *
+ *  What it cannot see, left to review by contract:
+ *   1. a value tested after slice(1) — the '#' is gone before the test;
+ *   2. a string-built regex — new RegExp("^#[0-9a-f]{6}$");
+ *   3. a regex after '//' on the same line — stripComments cuts the line at a
+ *      '//' inside an earlier string literal (a URL), hiding the real regex;
+ *   4. an escaped \# — the scan matches the plain '#' spelling only.
+ */
+
+/** The literal bodies in the source: slash-delimited, no raw slash or newline
+ *  inside, flags ignored. new RegExp(...) and friends are not literals. */
+const regexLiterals = (src: string): string[] =>
+  [...src.matchAll(/\/(?:\\.|[^/\n\\])*\/([a-z]*)/g)].map(m => m[0]);
+
+/** A hex character class after a '#': a digit range plus an 'a-f'/'A-F'
+ *  range, in either order ([0-9a-f], [0-9A-F], [a-f0-9], [\da-f]).
+ *  Case-blind on purpose: [0-9a-f] and [0-9A-F] encode the same shape. */
+const HEX_CLASS_AFTER_HASH =
+  /^#.{0,12}\[(?:[^\]]*(?:0-9|\\d)[^\]]*(?:a-f|A-F)|[^\]]*(?:a-f|A-F)[^\]]*(?:0-9|\\d))/;
+
+/** True when a literal body is a hand-rolled hex matcher. */
+const isHandRolledHexLiteral = (body: string): boolean => {
+  for (let at = body.indexOf("#"); at >= 0; at = body.indexOf("#", at + 1)) {
+    if (body[at - 1] === "\\") continue;
+    if (HEX_CLASS_AFTER_HASH.test(body.slice(at))) return true;
+  }
+  return false;
+};
 
 describe("normalizeHexColor", () => {
   it("expands a 3-digit hex to 6 digits", () => {
@@ -96,14 +126,22 @@ describe("composeColorAlpha", () => {
 
 describe("single home for the hex color regexes", () => {
   it("recognises a hand-rolled hex regex in any case and with any flags", () => {
-    expect(HANDROLLED_HEX_REGEX.test("/^#[0-9a-fA-F]{6}$/")).toBe(true);
-    expect(HANDROLLED_HEX_REGEX.test("/^#[0-9a-f]{6}$/i")).toBe(true);
-    expect(HANDROLLED_HEX_REGEX.test("/^#([0-9a-f])([0-9a-f])([0-9a-f])$/")).toBe(true);
-    expect(HANDROLLED_HEX_REGEX.test("/#[0-9a-f]{3,6}/")).toBe(true);
-    expect(HANDROLLED_HEX_REGEX.test("const ratio = width / height;")).toBe(false);
-    expect(HANDROLLED_HEX_REGEX.test('const color = "rgba(0, 0, 0, 0.5)";')).toBe(
-      false,
-    );
+    // The four shapes that were in the tree before this guard was widened.
+    expect(isHandRolledHexLiteral("^#[0-9a-fA-F]{6}$")).toBe(true);
+    expect(isHandRolledHexLiteral("^#[0-9a-f]{6}$")).toBe(true);
+    expect(isHandRolledHexLiteral("^#([0-9a-f])([0-9a-f])([0-9a-f])$")).toBe(true);
+    expect(isHandRolledHexLiteral("#[0-9a-f]{3,6}")).toBe(true);
+    // Equivalent hex-class spellings: reversed ranges and \d.
+    expect(isHandRolledHexLiteral("^#[A-F0-9]{6}$")).toBe(true);
+    expect(isHandRolledHexLiteral("^#[\\da-f]{3}$")).toBe(true);
+  });
+
+  it("does not mistake a CSS-id regex for a hex matcher", () => {
+    expect(isHandRolledHexLiteral("#[a-z][\\w-]*")).toBe(false);
+    expect(isHandRolledHexLiteral("^#[a-z][a-z0-9_-]*$")).toBe(false);
+    expect(isHandRolledHexLiteral("#[0-9a-z]{6}")).toBe(false);
+    // Contract blind spot 4: an escaped '#' spelling is out of scope.
+    expect(isHandRolledHexLiteral("^\\#[0-9a-f]{6}$")).toBe(false);
   });
 
   it("keeps every hex regex in platform/color.ts", () => {
@@ -129,7 +167,8 @@ describe("single home for the hex color regexes", () => {
     const offenders: string[] = [];
     for (const file of files) {
       if (file.endsWith(path.join("platform", "color.ts"))) continue;
-      if (HANDROLLED_HEX_REGEX.test(stripComments(fs.readFileSync(file, "utf8")))) {
+      const src = stripComments(fs.readFileSync(file, "utf8"));
+      if (regexLiterals(src).some(isHandRolledHexLiteral)) {
         offenders.push(path.relative(root, file));
       }
     }
