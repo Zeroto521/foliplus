@@ -44,8 +44,11 @@
       display: block;
     }
   }
-  .foliplus-layer-item:hover .foliplus-layer-more-btn,
-  .foliplus-layer-item.foliplus-active .foliplus-layer-more-btn {
+  /* "Any row" means the row identity class, not .foliplus-layer-item: the role
+     header is a row too, and selecting on LAYER_ITEM here left the role ⋮
+     unpainted (black at rest instead of the accent wake a layer row gets). */
+  .foliplus-row:hover .foliplus-layer-more-btn,
+  .foliplus-row.foliplus-active .foliplus-layer-more-btn {
     color: var(--foliplus-accent-primary);
   }
 
@@ -97,6 +100,9 @@
     gap: var(--foliplus-space-md);
     width: 100%;
     padding: var(--foliplus-space-xs) var(--foliplus-space-sm);
+    /* Deliberately NOT the menu-row family height: this is a compact action
+       list (rename / delete / focus), not a list of options. Its height comes
+       from the padding above, so it stays tighter than a dropdown option. */
     margin: 0;
     border: none;
     background: none;

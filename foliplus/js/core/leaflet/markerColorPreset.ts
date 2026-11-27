@@ -1,4 +1,4 @@
-// core/leaflet — the awesome-markers preset chassis palette.
+// core/leaflet/markerColorPreset — the awesome-markers preset chassis palette.
 //
 // The 19 preset hex center-samples (PIL-decoded from the markers-soft.png
 // sprite). Two directions are needed:

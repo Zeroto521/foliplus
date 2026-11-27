@@ -1,4 +1,4 @@
-// Core geometry helpers for foliplus — geodesic measurement via turf,
+// core/geo/geodesic — core geometry helpers for foliplus: geodesic measurement via turf,
 // plus projection-adjacent helpers. `turf` and `L` are globals provided
 // by the page (Leaflet + turf via CDN).
 import type { GeoBounds, LatLngPoint, Rect } from "./type.js";

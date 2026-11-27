@@ -1,10 +1,15 @@
 import * as CONST from "./const.js";
 import { readDeclaredFilter } from "./declaredFilter.js";
+import {
+  readDeclaredIconColorOpacity,
+  readDeclaredMarkerColorOpacity,
+} from "./declaredParse.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";
 import { type ProjectionBatch, collectDeltas } from "./ui/apply.js";
 import { type LayerUI } from "./ui/index.js";
+import { INTENT, getIntent } from "./ui/intent.js";
 import {
   type CursorRef,
   cursorRef,
@@ -35,6 +40,7 @@ import {
   type FolderLayout,
   type FolderLayoutManager,
   GEOM_TYPE,
+  HIDDEN,
   type IconIntent,
   type LabelAwareLayer,
   type LayerAPI,
@@ -57,6 +63,8 @@ import {
   type StyleProvenance,
   SurfaceIndex,
   type ValueConfig,
+  type VisibilityDrift,
+  type VisibilityQuery,
   buildFilterFeatures,
   countFeatureGeometry,
   createFolder,
@@ -78,7 +86,9 @@ import {
   moveLayerToRootAt as moveLayerToRootAtInLayout,
   moveLayerToRoot as moveLayerToRootInLayout,
   normalizeFolderName,
+  paintsAtZoom,
   renameFolder,
+  resolveVisibility,
   rootLayerEntry,
   seedBlockOrder,
   visibleDomOf,
@@ -333,9 +343,13 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     if (v) return { icon: { color: v.value, colorOpacity: v.opacity } };
     if (!getDimension(DIM.ICON_COLOR)?.gate(ui, id)) return undefined;
     const authorColor = authorIconColor(ui, id);
-    // 100% is the row's default when the author declares no glyph opacity.
+    // The read-time default: the author-declared glyph alpha, else 100%.
+    const layer = ui.c.findLayer(id);
+    const declaredOpacity = layer
+      ? (readDeclaredIconColorOpacity(layer, id).declared ?? 100)
+      : 100;
     return authorColor
-      ? { icon: { color: authorColor, colorOpacity: 100 } }
+      ? { icon: { color: authorColor, colorOpacity: declaredOpacity } }
       : undefined;
   },
   [DIM.MARKER_COLOR]: (ui, id) => {
@@ -348,8 +362,13 @@ const SNAPSHOT_READERS: Readonly<Record<string, SnapshotReader>> = {
     if (!layer) return undefined;
     // The chassis the map draws: author chassis / declared marker_color /
     // the awesome-markers default — the same resolver the row and apply use.
+    // The opacity is the author-declared chassis alpha, else 100%.
+    const declaredOpacity = readDeclaredMarkerColorOpacity(layer, id).declared ?? 100;
     return {
-      icon: { markerColor: resolveChassisPaint(layer), markerColorOpacity: 100 },
+      icon: {
+        markerColor: resolveChassisPaint(layer),
+        markerColorOpacity: declaredOpacity,
+      },
     };
   },
 };
@@ -461,6 +480,23 @@ class LayerController implements LayerAPI {
    *  dataRevision; a mismatch means the feature set changed and the row
    *  must be rebuilt. */
   private readonly filterFeaturesRev = new Map<string, number>();
+  /** Count cache for the row's feature-count column: layerId -> {count,
+   *  dataVersion}. `dataVersion` is the layer's content version at the time
+   *  the count was computed; a mismatch means the content changed and the
+   *  next read recomputes. Invalidation is single-source: content changes
+   *  (feature add/remove/clear, provider data change) bump the version via
+   *  `bumpCountVersion`; style changes do not, so a style-only repaint reads
+   *  the cached count without re-walking the layer tree. */
+  private readonly countCache = new Map<
+    string,
+    { count: number | null | undefined; dataVersion: number }
+  >();
+  /** Per-layer content version for the count cache. Bumped only by content
+   *  changes (see `bumpCountVersion`), never by style changes. */
+  private readonly countDataVersion = new Map<string, number>();
+  /** Unsubscribe for the count-cache invalidation listener; null until the
+   *  constructor wires it. Cleaned on destroy. */
+  private countChangeOff: (() => void) | null = null;
   /** The icon-replay handler registered on the shared markerIcon module. A
    *  marker icon rebuild swaps the element but not the leaf; this re-applies
    *  the filter hidden class so the DOM class and the leaf-keyed hidden set
@@ -807,6 +843,16 @@ class LayerController implements LayerAPI {
       },
       "internal",
     );
+    // The count cache invalidates on LAYER_ITEM_COUNT_CHANGE — the canonical
+    // "content changed" signal. refreshCount publishes it (a double-bump
+    // is harmless); an external publisher (third-party provider) or a
+    // direct emit also invalidates, so the cache stays single-source on
+    // this event. Style changes never publish it, so they never re-walk.
+    this.countChangeOff = this.events.on(
+      EVENTS.LAYER_ITEM_COUNT_CHANGE,
+      ({ id }: { id: string }) => this.bumpCountVersion(id),
+      "internal",
+    );
     // Ensure the lightweight LayerAPI exists (consumers always have a valid
     // LayerAPI even without LayerControl), then upgrade to the full version.
     // LayerController itself implements LayerAPI, so it becomes the map's API.
@@ -1089,6 +1135,11 @@ class LayerController implements LayerAPI {
   invalidateType(id: string): void {
     const surface = this.surfaceIndex.get(id);
     const layerInfo = this.layerRegistry.get(id);
+    // Content structure changed (feature add/remove/clear): the count cache
+    // must recompute on the next read. invalidateType is the factory's
+    // content-change path, so this is the single source of count invalidation
+    // for structural changes.
+    this.bumpCountVersion(id);
     surface?.invalidate();
     if (layerInfo) layerInfo.type = null;
     // A destroyed manager must not schedule, whatever the id: check this
@@ -1126,6 +1177,30 @@ class LayerController implements LayerAPI {
     const layerInfo = this.layerRegistry.get(id);
     if (!layerInfo) return null;
     if (layerInfo.role === ROLE.BASE) return undefined;
+    // Count cache: one walk per (layer, content version). A style-only
+    // repaint calls getFeatureCount again with the same dataVersion, so the
+    // cached count is returned without re-walking the layer tree. The cache
+    // is keyed by layerId and validated against the layer's content version
+    // (`countDataVersion`), which only content changes bump.
+    const dataVersion = this.countDataVersion.get(id) ?? 0;
+    const cached = this.countCache.get(id);
+    if (cached?.dataVersion === dataVersion) return cached.count;
+    const count = this.computeFeatureCount(id, layerInfo);
+    // Cache only a real number. An undefined/null count means the layer had
+    // no meaningful count at this moment (content not loaded, no provider,
+    // not a group) — caching it would make a premature read sticky and the
+    // row would keep "no count" after the content arrives without a version
+    // bump. Those reads stay uncached and recompute on each call.
+    if (typeof count === "number") this.countCache.set(id, { count, dataVersion });
+    return count;
+  }
+
+  /** Compute a layer's feature count without the cache. Third-party provider
+   *  wins (Canvas layers need this); the fallback walks the layer tree. */
+  private computeFeatureCount(
+    id: string,
+    layerInfo: LayerInfo,
+  ): number | null | undefined {
     // 1. Third-party provider (Canvas layers must supply this).
     const provider = layerInfo.featureCountProvider;
     if (typeof provider === "function") {
@@ -1148,6 +1223,22 @@ class LayerController implements LayerAPI {
     return undefined;
   }
 
+  /** Bump a layer's content version so the count cache recomputes on the
+   *  next read. Single source of count invalidation: content changes call
+   *  this, style changes never do. */
+  private bumpCountVersion(id: string): void {
+    this.countDataVersion.set(id, (this.countDataVersion.get(id) ?? 0) + 1);
+  }
+
+  /** Drop a layer's count-cache state on unregister. Without this the two
+   *  count maps grow unboundedly in a long session that adds and removes
+   *  layers. Single point of cache removal: unregisterLayer calls this and
+   *  nothing else deletes the entries. */
+  private forgetCount(id: string): void {
+    this.countCache.delete(id);
+    this.countDataVersion.delete(id);
+  }
+
   /** Notify subscribers that a layer's feature count may have changed.
    *  Public API for third-party providers (e.g. Canvas layers whose data
    *  updates independently of LayerController) to trigger an incremental
@@ -1165,6 +1256,10 @@ class LayerController implements LayerAPI {
    *  @param {string} id - Layer id. */
   refreshCount(id: string) {
     if (this.layerRegistry.get(id)?.role === ROLE.BASE) return;
+    // Provider-driven data change: the count cache must recompute on the
+    // next read. Same single-source rule as invalidateType — content change
+    // only, never a style change.
+    this.bumpCountVersion(id);
     // Settled: one consumer throwing must not keep the other count listeners
     // (the row repaint, the fill ramp) from seeing the final geometry.
     publish(
@@ -1845,6 +1940,156 @@ class LayerController implements LayerAPI {
     return this.ui.intentVisible(id);
   }
 
+  /** Single-source answer to "is this layer visible right now?": the AND of
+   *  the four independent factors, each gathered from its own single source,
+   *  with the first false one named as the reason. Null for an unregistered id.
+   *
+   *  The four factors and their single sources:
+   *
+   *  - declared - the intent fact (user choice, else the author default), from
+   *    `intentVisible(id)`. This is the panel checkbox's fact, NOT membership.
+   *  - container - the effective container face: on the map AND not carrying
+   *    the HIDDEN class (the canvas-only carrier). This is the rendered truth.
+   *  - filter - not hidden by the layer's current feature filter, from the
+   *    shared `filterLeafSet` cache (never a second walk).
+   *  - ancestor - every ancestor group in the chain is expanded (not carrying
+   *    the FOLDED class), walked via `childrenOf`.
+   *
+   *  `visible` is true only when all four hold; `reason` names the first false
+   *  factor in the fixed order declared > container > filter > ancestor (see
+   *  core/layer/visibility.ts). A feature-level filter hides individual leaves,
+   *  so a partially filtered layer is still `visible` here - the factor is
+   *  "can any leaf show", not "are all leaves showing".
+   *
+   *  @internal - LayerControl-private; not on the public LayerAPI.
+   */
+  visibilityOf(id: string): VisibilityQuery | null {
+    if (!this.layerRegistry.has(id)) return null;
+    if (!this.ui) return null;
+    const layerInfo = this.layerRegistry.get(id);
+    if (!layerInfo) return null;
+    const layer = this.resolveLayer(layerInfo);
+
+    // declared: the intent fact (user choice or author default).
+    const declared = this.intentVisible(id);
+
+    // container: on the map AND not carrying the HIDDEN class. The face may be
+    // the layer itself or (canvas-only) its auto pane; read both.
+    let container = false;
+    if (layer && typeof this.map.hasLayer === "function") {
+      const onMap = this.map.hasLayer(layer);
+      let face: HTMLElement | null = null;
+      const el =
+        (layer as { getContainer?: () => HTMLElement | null }).getContainer?.() ?? null;
+      if (el) {
+        face = el;
+      } else {
+        const pane = this.map.getPane(`leaflet-${id}`);
+        face = pane ?? null;
+      }
+      const hidden = face ? face.classList.contains(HIDDEN) : false;
+      container = onMap && !hidden;
+    }
+
+    // filter: "can any leaf show" - a layer with every leaf hidden by its
+    // current filter is not visible. Reuses the shared cached features.
+    let filterOk = true;
+    const features = this.ensureFilterFeatures(id);
+    if (features && features.features.length > 0) {
+      const filter = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+      if (filter) {
+        const hidden = filterLeafSet(features.features, filter);
+        const anyVisible = features.features.some(f => !hidden.has(f.leaf));
+        filterOk = anyVisible;
+      }
+    }
+
+    // ancestor: every ancestor group expanded (not carrying FOLDED). A group
+    // row's own visibility gate - folded parent hides the child regardless of
+    // its own factors.
+    let ancestor = true;
+    if (layer) {
+      let node: unknown = layer;
+      const seen = new Set<unknown>();
+      while (node && !seen.has(node)) {
+        seen.add(node);
+        const el =
+          (node as { getContainer?: () => HTMLElement | null }).getContainer?.() ??
+          null;
+        if (el?.classList.contains(CONST.CLASSES.FOLDED)) {
+          ancestor = false;
+          break;
+        }
+        const parent = (node as { __parent?: unknown }).__parent;
+        node = parent;
+      }
+    }
+
+    // zoom: inside the layer's own minZoom/maxZoom (tile-layer gate; vector
+    // layers pass by construction). Reuses the shared paintsAtZoom probe.
+    const zoom = paintsAtZoom(this.map, layer ?? null);
+
+    // opacity: the resolved opacity is > 0 (a fully transparent layer paints
+    // nothing even though it is on the map). Focus forces 1.
+    const opacity =
+      this.ui.focusController.focusingLayerId === id
+        ? 1
+        : (getIntent(this.ui, id, INTENT.OPACITY) ?? layerInfo.opacity ?? 1);
+    const opacityOk = opacity > 0;
+
+    return resolveVisibility({
+      declared,
+      container,
+      zoom,
+      opacity: opacityOk,
+      filter: filterOk,
+      ancestor,
+    });
+  }
+
+  /** How far a layer's current intent has drifted from what the author declared,
+   *  read through the same single-source readers as the panel rows. Returns the
+   *  list of dimensions that differ from the declaration (an empty list = the
+   *  layer is exactly as the author declared it, so a Reset affordance is a
+   *  no-op). Null for an unregistered id.
+   *
+   *  Reads the intent store directly (not the projection): the projection
+   *  carries the same fact in its diff fields, but this accessor is the
+   *  programmatic contract a caller uses without building a row. The Reset
+   *  affordance and the style row read this to decide whether to show
+   *  "changed" vs "as declared".
+   *
+   *  @internal - LayerControl-private; not on the public LayerAPI.
+   */
+  diffDeclared(id: string): VisibilityDrift[] | null {
+    if (!this.layerRegistry.has(id)) return null;
+    if (!this.ui) return null;
+    const drift: VisibilityDrift[] = [];
+    // visible: the user's chosen hide vs the author's declared default.
+    const declaredDefault = this.ui.runtimeStore.getAuthorVisible(id) ?? true;
+    if (this.intentVisible(id) !== declaredDefault) drift.push("visible");
+    // opacity: the author seeded a value (layerInfo.opacity); the user may
+    // have moved it. Read the same resolved fact the style row uses. When the
+    // user never intervened (intent undefined) the resolved value IS the author
+    // default, so it does NOT count as drift.
+    const declaredOpacity = this.layerRegistry.get(id)?.opacity;
+    const intentOpacity = getDimension<number>(DIM.OPACITY)?.value(this.ui, id);
+    if (
+      typeof declaredOpacity === "number" &&
+      typeof intentOpacity === "number" &&
+      intentOpacity !== declaredOpacity
+    ) {
+      drift.push("opacity");
+    }
+    // filter: a user-set generic filter differs from the author's declaration.
+    const layerInfo = this.layerRegistry.get(id);
+    const declared = layerInfo ? readDeclaredFilter(layerInfo) : undefined;
+    const current = this.filterStore.getFilter(id, FILTER_SOURCE.GENERIC);
+    const owned = this.filterStore.isOwned(id, FILTER_SOURCE.GENERIC);
+    if (owned || (current !== undefined && current !== declared)) drift.push("filter");
+    return drift;
+  }
+
   /**
    * Unregister and remove a layer from the map and panel.
    *
@@ -1866,6 +2111,9 @@ class LayerController implements LayerAPI {
     // not answer for a re-registered layer with different data.
     this.filterProbe.delete(id);
     this.filterFeaturesRev.delete(id);
+    // The count cache must not answer for a re-registered layer either, and
+    // a long session of add/remove must not grow the two count maps forever.
+    this.forgetCount(id);
 
     const operation = this.beginOperation();
     // Flush before any fan-out: the registry is already updated, and a
@@ -2200,6 +2448,10 @@ class LayerController implements LayerAPI {
     // 50k layers churned through add/drop would grow these maps).
     this.filterProbe.delete(id);
     this.filterFeaturesRev.delete(id);
+    // A deleted layer's count cache is gone with it; a re-add of the same id
+    // must recompute, and a long session of add/delete must not grow the
+    // two count maps forever.
+    this.forgetCount(id);
 
     const operation = this.beginOperation();
     const announced = this.announceRetirement(retired.layerInfo, operation);
@@ -3117,6 +3369,7 @@ class LayerController implements LayerAPI {
         ],
         ["detach-layerremove", () => this.map.off("layerremove", this.onLayerRemove)],
         ["cancel-enforce", () => this.debouncedEnforce?.cancel()],
+        ["off-count-change", () => this.countChangeOff?.()],
         // Flush before destroy: the writes are debounced at 100ms, wide enough
         // for the control to be removed before the timer fires. unbindEvents
         // also flushes, but it only runs when a panel is attached.

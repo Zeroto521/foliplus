@@ -9,14 +9,18 @@ from foliplus._declaration import (
     FILL_KEY,
     FILTER_KEY,
     FOLDER_KEY,
+    ICON_KEY,
     ICON_SIZE_KEY,
     LABEL_KEY,
     MARKER_COLOR_KEY,
+    MARKER_KEY,
+    OPACITY_KEY,
     ZOOM_RANGE_KEY,
     normalise_border,
     normalise_fill,
     normalise_folder,
     normalise_icon_size,
+    normalise_label,
     normalise_layer_filter,
     normalise_marker_color,
     normalise_zoom_range,
@@ -24,11 +28,11 @@ from foliplus._declaration import (
 )
 
 #: The keys the per-layer foliplus={...} declaration namespace accepts.
-#: fill and label are consumed by the JS panel straight off
-#: layer.options.foliplus (folium forwards the unknown keyword into the
-#: layer options); zoom_range and folder are normalised here into CONFIG
-#: data[].zoom_range / data[].folder so the visibility and grouping policies
-#: read one CONF fact instead of the raw namespace.
+#: fill is consumed by the JS panel straight off layer.options.foliplus
+#: (folium forwards the unknown keyword into the layer options);
+#: zoom_range, folder and label are normalised here into CONFIG
+#: data[].zoom_range / data[].folder / data[].label so each policy reads one
+#: CONF fact instead of the raw namespace.
 FOLIPLUS_KEYS = frozenset(
     {
         FILL_KEY,
@@ -39,6 +43,9 @@ FOLIPLUS_KEYS = frozenset(
         BORDER_KEY,
         MARKER_COLOR_KEY,
         ICON_SIZE_KEY,
+        ICON_KEY,
+        MARKER_KEY,
+        OPACITY_KEY,
     }
 )
 
@@ -90,9 +97,14 @@ def foliplus_namespace(item: Layer, layer_name: str) -> dict[str, object] | None
                 f"foliplus key {key!r}; expected one of "
                 f"{sorted(FOLIPLUS_KEYS)} - ignored",
             )
-        elif key in {FILL_KEY, LABEL_KEY, FILTER_KEY, BORDER_KEY} and not isinstance(
-            value, dict
-        ):
+        elif key in {
+            FILL_KEY,
+            LABEL_KEY,
+            FILTER_KEY,
+            BORDER_KEY,
+            ICON_KEY,
+            MARKER_KEY,
+        } and not isinstance(value, dict):
             warn_foliplus(
                 f"{layer_name}:shape:{key}:{type(value).__name__}",
                 f"LayerControl: layer {layer_name!r} declares "
@@ -224,6 +236,35 @@ def declared_fill(item: Layer, layer_name: str) -> dict[str, object] | None:
         owner="LayerControl",
         subject=f"layer {layer_name!r}",
         source="foliplus['fill']",
+    )
+
+
+def declared_label(item: Layer, layer_name: str) -> dict[str, object] | None:
+    """Normalise one layer foliplus={"label": {...}}.
+
+    Returns the canonical partial label record when the declaration is usable,
+    else None: "not declared" and "declared but invalid" are the same state
+    downstream - the label config stays on its built-in default rather than
+    showing a value the author never saw validated.
+
+    Unlike fill, the label block is not read by the JS panel off
+    layer.options.foliplus: the record is the one channel, carried in CONFIG
+    data[].label so a rejected key cannot survive into the browser as an
+    unvalidated value. Mirrors declared_zoom_range: the same namespace read,
+    the same unknown-key warning family, and the same single read point that
+    owns the warning for layers; the shared reader in
+    foliplus._declaration owns the label values (format vocabulary, hex
+    shape, size bounds, key types), so the layer channel and any other reader
+    cannot drift on what an author may write.
+    """
+    namespace = foliplus_namespace(item, layer_name)
+    if namespace is None:
+        return None
+    return normalise_label(
+        namespace.get(LABEL_KEY),
+        owner="LayerControl",
+        subject=f"layer {layer_name!r}",
+        source="foliplus['label']",
     )
 
 

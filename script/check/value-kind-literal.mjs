@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/value-kind-literal — persisted value-kind literals come from VALUE_KIND, never a drifting string
 /**
  * Guard: bare VALUE_KIND literal drift over the by-value style surface.
  *

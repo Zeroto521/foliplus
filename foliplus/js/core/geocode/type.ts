@@ -1,4 +1,4 @@
-// Geocode provider layer — shared type definitions.
+// core/geocode/type — Geocode provider layer: shared type definitions.
 // Pure types only (no runtime logic); imported by the runtime geocoder and
 // by components (e.g. SearchControl) so the provider contract lives in one place.
 

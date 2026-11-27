@@ -1,4 +1,4 @@
-// core/events/EventBus — lightweight publish/subscribe event bus.
+// core/event/EventBus — lightweight publish/subscribe event bus.
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.

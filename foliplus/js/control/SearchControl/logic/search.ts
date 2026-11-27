@@ -320,12 +320,14 @@ const fetchSuggestions = (ctrl: SearchControlCtx, query: string) => {
   // runtime geocoder's queue), so suggestions never race past the rate limit.
   const since = Math.max(ctrl.lastSuggestFetch, lastRequestAt(provider.id));
   if (now - since < provider.throttleMs) {
-    if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
     // Re-read the input at fire time, not the `query` this call was handed:
     // the retry outlives the keystroke that queued it, so the user may have
     // typed on. Capturing `query` here would target a string no longer in
     // the box, and a cache hit on it would paint the wrong results.
-    ctrl.throttleTimer = setTimeout(
+    // Named, so a new keystroke replaces this retry and the control's teardown
+    // drops it instead of firing a lookup against a closed panel.
+    ctrl.timers.timeout(
+      "suggest-retry",
       () => {
         fetchSuggestions(ctrl, ctrl.inp.value.trim());
       },

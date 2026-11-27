@@ -261,7 +261,22 @@ describe("buildFullscreenChangeHandler", () => {
     expect(typeof handler).toBe("function");
   });
 
-  it("handler calls updateUI (MAXIMIZE when not fullscreen)", () => {
+  it("handler no-ops when the transition belongs to another map", () => {
+    // Nothing active on this container, no pseudo session, and this map does
+    // not believe it is fullscreen: the event is somebody else's. Running
+    // updateUI here was F-2 — it unhid controls and announced an exit.
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+    handler();
+    expect(mapMock.isFullscreen).toBe(false);
+    expect(fsBtn.innerHTML).toBe(""); // never repainted
+    expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
+  });
+
+  it("handler repaints when this map\'s own native session ends", () => {
+    // The map believed it was fullscreen and the native element is gone: its
+    // own session just ended, so this transition IS relevant and the icon
+    // must go back to MAXIMIZE.
+    mapMock.isFullscreen = true;
     const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
     handler();
     expect(mapMock.isFullscreen).toBe(false);
@@ -283,7 +298,34 @@ describe("buildFullscreenChangeHandler", () => {
     handler();
 
     expect(mapMock.isFullscreen).toBe(false);
-    expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
+    // Scoped out before updateUI: the sibling transition owns its own map.
+    expect(fsBtn.innerHTML).toBe("");
+  });
+
+  it("handler ignores a sibling transition without any side effect here", () => {
+    // State was guarded before, but updateUI still ran: hide_others then
+    // unhid every control on a map that was never fullscreen, and showHint
+    // announced an exit the user never asked for on the wrong map.
+    const mapContainer = document.createElement("div");
+    const selfCtrl = document.createElement("div");
+    selfCtrl.className = "leaflet-control";
+    selfCtrl.appendChild(container);
+    const otherCtrl = document.createElement("div");
+    otherCtrl.className = "leaflet-control";
+    mapContainer.append(selfCtrl, otherCtrl);
+    mapMock.getContainer = () => mapContainer;
+    mocks.getFullscreenEl.mockReturnValue(document.createElement("div"));
+
+    const handler = buildFullscreenChangeHandler(
+      mapMock,
+      fsBtn,
+      container,
+      makeEnv({ hide_others: true, hide_self: true }),
+    );
+    handler();
+
+    expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
+    expect(otherCtrl.classList.contains(PANEL_CLASS.HIDDEN)).toBe(false);
   });
 
   it("handler keeps a pseudo session through a sibling map's native transition", () => {
@@ -344,6 +386,35 @@ describe("toggleFullscreen — native API path", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(mapMock.isFullscreen).toBe(true);
+  });
+
+  it("keeps the exit transition relevant after the exit branch clears the flag", async () => {
+    // Enter natively, then exit through the toggle. The exit branch clears
+    // map.isFullscreen in its .then() before the fullscreenchange event lands,
+    // so a guard that only reads the map would treat this map's own exit as
+    // somebody else's transition and swallow the exit hint.
+    const handler = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mapMock.isFullscreen).toBe(true);
+
+    // The exit branch is the ownsFullscreen one: the browser says this
+    // container is fullscreen, so the toggle asks the native API to leave.
+    mocks.getFullscreenEl.mockReturnValue(container);
+    toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(mapMock.isFullscreen).toBe(false);
+    expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
+
+    mocks.getFullscreenEl.mockReturnValue(null);
+    handler();
+
+    expect(mapMock.isFullscreen).toBe(false);
+    expect(mapMock.foliplus.hint.set).toHaveBeenCalledTimes(1);
+    expect(fsBtn.innerHTML).toContain("M8 3H5"); // MAXIMIZE
   });
 
   it("returns early without calling updateUI (fullscreenchange event handles it)", async () => {
@@ -536,6 +607,45 @@ describe("toggleFullscreen — native API path", () => {
         expect.stringContaining("exit_fail"),
         { duration: expect.any(Number) },
       );
+    });
+  });
+
+  describe("nativeSessions — control teardown (P3)", () => {
+    it("a re-added control discards a sibling's native transition after teardown", async () => {
+      // P3: nativeSessions is module-level and only deleted by the handler's
+      // exit branch. A control removed before the fullscreenchange event leaves
+      // a stale entry (the handler that would clean it is unbound on removal),
+      // so the re-added control's fresh handler misjudges a sibling's native
+      // transition as this map's own exit — repainting the button and showing
+      // an exit hint for a session it was never part of. Teardown must delete
+      // the map from nativeSessions.
+      const { releaseNativeSession } =
+        await import("#control/FullscreenControl/logic.js");
+
+      // Enter natively: the enter branch records the map in nativeSessions.
+      toggleFullscreen(mapMock, fsBtn, container, makeEnv());
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mapMock.isFullscreen).toBe(true);
+
+      // Control removed mid-session (teardown). Without the release the stale
+      // entry survives the re-add and the fresh handler below misjudges a
+      // sibling's transition as this map's own.
+      releaseNativeSession(mapMock);
+      mapMock.isFullscreen = false;
+
+      // Re-added control: a fresh handler bound by the new mounting.
+      const reAdd = buildFullscreenChangeHandler(mapMock, fsBtn, container, makeEnv());
+
+      // A sibling map's native transition fires fullscreenchange for every map.
+      const sibling = document.createElement("div");
+      mocks.getFullscreenEl.mockReturnValue(sibling);
+
+      reAdd();
+
+      // The re-added control must discard it: no repaint, no exit hint.
+      expect(fsBtn.innerHTML).toBe("");
+      expect(mapMock.foliplus.hint.set).not.toHaveBeenCalled();
     });
   });
 });

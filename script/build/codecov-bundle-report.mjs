@@ -1,3 +1,4 @@
+// script/build/codecov-bundle-report — esbuild metafile to Codecov payload, so the upload keeps the official plugin's shape and units
 /**
  * esbuild metafile → Codecov Bundle Analysis `OutputPayload` (version "3").
  *

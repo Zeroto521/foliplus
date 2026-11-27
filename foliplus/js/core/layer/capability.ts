@@ -15,8 +15,10 @@
 // a Marker with no children — the `setStyle` of its own is not a real
 // carrier when the walk finds nothing to write to.
 import { isMigratableLeaf } from "./carrier.js";
+import * as CONST from "./const.js";
+import type { LayerCapabilities, LayerKind } from "./type.js";
 import { isGroupNode, someLeaf, walkLeaf } from "./walkLeaf.js";
-import { isPixelRadiusLeaf } from "#core/leafletAdapter.js";
+import { internalLayers, isPixelRadiusLeaf } from "#core/leafletAdapter.js";
 
 /** Whether any leaf in the tree owns a *pixel* radius — the honest carrier
  *  check for the size axis. The single-leaf test is `isPixelRadiusLeaf`; this
@@ -158,8 +160,13 @@ const hasMarkerColorLeaf = (node: unknown): boolean =>
   safeRead(
     () =>
       typeof (node as { setIcon?: unknown }).setIcon === "function" &&
-      typeof (node as { options?: { icon?: { options?: { markerColor?: unknown } } } })
-        .options?.icon?.options?.markerColor === "string",
+      (() => {
+        const icon = (
+          node as { options?: { icon?: { options?: Record<string, unknown> } } }
+        )?.options?.icon?.options;
+        // folium camelizes every option key at render (folium/template.py); the snake spelling is accepted for hand-built Leaflet icons and as a guard if folium ever stops camelizing. Accept both spellings.
+        return typeof (icon?.markerColor ?? icon?.marker_color) === "string";
+      })(),
   ) === true;
 
 /** Whether any leaf is a Leaflet Marker — the probe that decides whether a
@@ -286,6 +293,142 @@ const isArealStyleLeaf = (node: unknown): boolean => {
   return AREAL_GEOMETRY_TYPES.has(declaredGeometryType(n) ?? "");
 };
 
+const findLayer = (map: L.Map, id: string): L.Layer | null => {
+  if (typeof window === "undefined") return null;
+  return (internalLayers(map)?.[id] ??
+    Reflect.get(window, id) ??
+    null) as L.Layer | null;
+};
+
+/**
+ * Build a predicate matching leaves whose `options.pane` is one of `panes`.
+ * Used as a map-interaction suspension skip so a component can keep its own
+ * layers interactive (e.g. edit mode's measurements) while suspending every
+ * other layer. The pane list is supplied by the caller, keeping this helper
+ * component-agnostic.
+ */
+const isLayerInPanes = (panes: readonly string[]): ((leaf: L.Layer) => boolean) => {
+  return (leaf: L.Layer) => {
+    const opts = leaf.options as { pane?: string } | undefined;
+    return !!opts?.pane && panes.includes(opts.pane);
+  };
+};
+
+/** Whether the layer actually paints at the map's current zoom.
+ *
+ *  `GridLayer._setView` sets `_tileZoom = undefined` when the zoom falls
+ *  outside the layer's own `options.minZoom/maxZoom`, so it builds no tile —
+ *  yet `map.hasLayer()` still reports true. Consumers answering "is this
+ *  layer visible?" must fold both facts in, or they name a layer the screen
+ *  does not show. Layers without `minZoom/maxZoom` skip the range check.
+ *
+ *  Scope: Leaflet only applies the min/max zoom gate to **GridLayer**
+ *  descendants (TileLayer, WMS, ImageOverlay, etc.). `L.Path` / `L.Marker`
+ *  and other vector layers declare `maxZoom` but still render at any zoom —
+ *  using this predicate for them would produce false negatives (e.g. labels
+ *  vanishing at zoom levels where the vector layer is clearly on screen).
+ *  Callers must be in a tile-layer context.
+ */
+const paintsAtZoom = (map: L.Map, layer: L.Layer | null | undefined): boolean => {
+  if (!layer || !map.hasLayer(layer)) return false;
+  const opts = (layer.options ?? {}) as { minZoom?: number; maxZoom?: number };
+  const z = map.getZoom();
+  if (typeof opts.minZoom === "number" && z < opts.minZoom) return false;
+  if (typeof opts.maxZoom === "number" && z > opts.maxZoom) return false;
+  return true;
+};
+
+/** Honest capability profile for `kind: "cluster"`. Named so the UI and the
+ *  regression suite share one answer: cluster icons live in the shared
+ *  `markerPane` (opacity/zoomRange/bounds have no honest carrier), but the
+ *  group itself is an `L.Layer` so visibility is still map membership. */
+
+const CLUSTER_CAPABILITIES: Omit<LayerCapabilities, "label"> = {
+  fill: CONST.CAP_TIER.NONE,
+  stroke: CONST.CAP_TIER.NONE,
+  size: CONST.CAP_TIER.NONE,
+  // Icon is "none" for the same reason opacity is: cluster bubbles live in
+  // the shared `markerPane` and never enter `eachLayer`, so a per-leaf
+  // `setIcon` write would change the individual markers but not the cluster
+  // bubbles — half the layer. Do not "fix" this to "native".
+  icon: CONST.CAP_TIER.NONE,
+  iconColor: CONST.CAP_TIER.NONE,
+  markerColor: CONST.CAP_TIER.NONE,
+  opacity: CONST.CAP_TIER.NONE,
+  zoomRange: CONST.CAP_TIER.NONE,
+  visibility: CONST.CAP_TIER.NATIVE,
+  relocatable: false,
+  bounds: false,
+};
+
+/** The MarkerCluster plugin's group — **kind derivation only**. Capability
+ *  dispatch goes through `kind: "cluster"` + `CLUSTER_CAPABILITIES`, not
+ *  through this probe; callers should declare `kind: "cluster"`.
+ *
+ *  Two tells: the plugin attaches `_topClusterLevel`, and (when loaded) the
+ *  group is an `L.MarkerClusterGroup`. Why the honest tier drops opacity:
+ *  `eachLayer` reaches the individual markers, but the cluster icons live in
+ *  the shared `markerPane` and never enter `eachLayer` — a pane write would
+ *  fade the leaves and not the clusters (half the layer). */
+
+const isMarkerCluster = (layer: L.Layer): boolean => {
+  const ctor = (window.L as { MarkerClusterGroup?: unknown })?.MarkerClusterGroup;
+  if (
+    typeof ctor === "function" &&
+    layer instanceof (ctor as new (...args: never[]) => unknown)
+  ) {
+    return true;
+  }
+  return !!(layer as L.Layer & { _topClusterLevel?: unknown })._topClusterLevel;
+};
+
+/** Whether the layer is a tile-family GridLayer (TileLayer is a subclass). */
+
+const isTileFamily = (layer: L.Layer): boolean =>
+  typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer;
+
+/** Whether the layer is in the Path/Marker vector family (or a group of
+ *  them). Same probe family as capability detection — not a new duck type. */
+
+const isVectorFamily = (layer: L.Layer): boolean => {
+  if (typeof L.Path !== "undefined" && layer instanceof L.Path) return true;
+  if (typeof L.Marker !== "undefined" && layer instanceof L.Marker) return true;
+  if (typeof L.LayerGroup !== "undefined" && layer instanceof L.LayerGroup) {
+    return true;
+  }
+  return false;
+};
+
+/** Derive `kind` when the caller did not declare one.
+ *
+ *  `tile | vector` comes from the Leaflet layer family (GridLayer/TileLayer vs
+ *  Path/Marker/LayerGroup) — the same probe family as capabilities. MarkerCluster
+ *  may derive `"cluster"` so a folium plugin group still lands in the honest
+ *  capability tier; callers should declare `kind: "cluster"` explicitly. */
+
+const deriveLayerKind = (opts: {
+  kind?: LayerKind;
+  color?: string | null;
+  custom?: unknown;
+  canvas?: boolean;
+  layer?: L.Layer | null;
+}): LayerKind => {
+  if (opts.kind) return opts.kind;
+  if (opts.color != null) return CONST.KIND.SOLID;
+  if (opts.custom !== undefined) return CONST.KIND.CUSTOM;
+  if (opts.canvas && !opts.layer) return CONST.KIND.CANVAS;
+  const layer = opts.layer;
+  if (layer && isMarkerCluster(layer)) return CONST.KIND.CLUSTER;
+  if (layer && isTileFamily(layer)) return CONST.KIND.TILE;
+  if (layer && isVectorFamily(layer)) return CONST.KIND.VECTOR;
+  if (layer) return CONST.KIND.VECTOR;
+  // No layer and no explicit non-layer carrier: a pending Leaflet-layer
+  // registration (folium script-stream). NOT "custom" — that kind means an
+  // explicit no-carrier third-party payload and would hide the entry from
+  // `hasUnresolvedLayers`.
+  return CONST.KIND.VECTOR;
+};
+
 export {
   FILL_OPT_IN,
   hasFillLeaf,
@@ -297,5 +440,10 @@ export {
   hasSetStyleLeaf,
   isArealStyleLeaf,
   probeLayerCarrier,
+  CLUSTER_CAPABILITIES,
+  deriveLayerKind,
+  findLayer,
+  isLayerInPanes,
+  paintsAtZoom,
 };
 export type { LayerCarrierProbe };

@@ -1,4 +1,4 @@
-// Mounting a delete icon — create it, add it to a map or layer tree, and bind
+// core/leaflet/deliconMount — Mounting a delete icon: create it, add it to a map or layer tree, and bind
 // its click handler. Kept outside delicon.ts: the MeasureControl ui tests mock
 // that module and spy `buildDelIcon` / `attachDelClick` to enumerate the ✕ they
 // create. A same-module caller resolves those through its local bindings, so

@@ -82,6 +82,25 @@ export type {
   FolderMember,
   FolderLayoutManager,
 } from "./folderLayout.js";
+export {
+  ARRANGEMENT_VERSION,
+  ROLES as ARRANGEMENT_ROLES,
+  anchorOfNode,
+  fromV2,
+  hydrate,
+  projectRows,
+  projectZ,
+} from "./arrangement.js";
+export type {
+  Arrangement,
+  BlockKind,
+  BlockMeta,
+  FolderNode,
+  GroupNode,
+  LayerNode,
+  OrderNode,
+  ResolvedTree,
+} from "./arrangement.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -90,19 +109,15 @@ export { LayerSurface } from "./LayerSurface.js";
 export { PaneLedger } from "./PaneLedger.js";
 export { PaneManager } from "./PaneManager.js";
 export { SurfaceIndex } from "./SurfaceIndex.js";
+export { findLayer, isLayerInPanes, paintsAtZoom } from "./capability.js";
+export { getGeometryType, countFeatureGeometry } from "./geometry.js";
+export { setInteractive } from "./hitTarget.js";
 export {
-  findLayer,
-  isLayerInPanes,
-  paintsAtZoom,
-  setInteractive,
-  suspendMapInteractions,
-  getGeometryType,
-  countFeatureGeometry,
   isGroupLayer,
   isGroupRow,
   countChildLayersOf,
   countVisibleChildLayers,
-} from "./util.js";
+} from "./traverse.js";
 export {
   drawAlpha,
   getLayerAlpha,
@@ -119,6 +134,13 @@ export {
   findNode,
   countChildLayers,
 } from "./walkLeaf.js";
+export { labelProjection, paintProjection, resolveVisibility } from "./visibility.js";
+export type {
+  VisibilityDrift,
+  VisibilityFactors,
+  VisibilityQuery,
+  VisibilityReason,
+} from "./visibility.js";
 // `isArealStyleLeaf` is the fill walker's leaf predicate. The build's registry
 // scan folds any `#core/layer/<file>.js` import into this barrel, so a name
 // the barrel does not re-export fails the build loudly rather than shimming to
@@ -136,9 +158,11 @@ export {
   probeLayerCarrier,
 } from "./capability.js";
 export { readLayerPaint, readLeafPaints } from "./paint.js";
+export { observePaint, resolvePaintOpacity } from "./paintObservation.js";
+export type { PaintChannel, PaintObservation } from "./paintObservation.js";
 export type { LayerPaint, LeafPaint, PaintFace } from "./paint.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
-export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
+export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./capability.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export { LayerOrder } from "./LayerOrder.js";
 export {

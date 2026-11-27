@@ -1,4 +1,4 @@
-// authorFill — read the fill an author's source declared, per leaf.
+// core/layer/authorFill — read the fill an author's source declared, per leaf.
 //
 // The panel's `fill_author` state comes from CONF: Python computes it once at
 // render time from the GeoJson features' `__folium_color` property (geopandas

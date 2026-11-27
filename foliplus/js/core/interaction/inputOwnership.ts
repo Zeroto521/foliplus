@@ -1,4 +1,4 @@
-// core/inputOwnership — input ownership: the single rule for "does the
+// core/interaction/inputOwnership — input ownership: the single rule for "does the
 // focused control natively consume this key, so foliplus must neither act
 // nor preventDefault?"
 //

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
 import { ensureModes } from "#core/lifecycle/index.js";
+import { createTimers } from "#platform/timer.js";
 import { HISTORY, MODE, RECORD_VERSION, ZOOM } from "#control/SearchControl/const.js";
 import {
   addHistoryEntry,
@@ -583,7 +584,7 @@ describe("renderHistory", () => {
       ...ctx(),
       searchHistory,
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
@@ -917,7 +918,7 @@ describe("mode-lock guard: history entry click when a mode is held", () => {
       ...ctx(),
       mode: "coord",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       inp: { value: "" },
       marker: null,

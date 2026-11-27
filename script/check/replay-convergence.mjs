@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/replay-convergence — stored layer state replays through one entry, so no dimension replays on one path only
 /**
  * Guard: LayerControl stored-state replay path convergence (replay convergence).
  *

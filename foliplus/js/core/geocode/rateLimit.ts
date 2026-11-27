@@ -1,4 +1,4 @@
-// Shared rate-limit primitives for geocoding.
+// core/geocode/rateLimit — Shared rate-limit primitives for geocoding.
 //
 // Every request to a provider — through the geocoder's strictly-serialized
 // queue or through component paths (e.g. SearchControl's suggestions) —

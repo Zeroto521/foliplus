@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureModes } from "#core/lifecycle/index.js";
 import { Cache } from "#foliplus/platform/cache.js";
 import { dom } from "#foliplus/platform/dom.js";
+import { createTimers } from "#platform/timer.js";
 import { HISTORY } from "#control/SearchControl/const.js";
 import { bindEvents, initFromUrl } from "#control/SearchControl/interaction.js";
 
@@ -44,7 +45,7 @@ function makeCtrl(): any {
     delIcon: null,
     debouncedFetch: { cancel: vi.fn() },
     panelWrap: null,
-    throttleTimer: null,
+    timers: createTimers(),
     selectedIdx: -1,
     currentItems: [],
     cachedAddress: {},

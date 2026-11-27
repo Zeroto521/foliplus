@@ -46,6 +46,17 @@ interface SelectedPoint {
   marker: L.Marker;
 }
 
+/** The Python CONFIG style defaults snapshotted at init, so Reset restores
+ *  exactly what construction started from (never localStorage). */
+interface StyleDefaults {
+  labelShow: boolean;
+  labelColor: string;
+  labelSize: number;
+  labelFormat: NumberStyle;
+  borderWeight: number;
+  borderColor: string;
+}
+
 /** Persisted heatmap configuration (survives page reload). */
 interface SavedConfig {
   /** Shape version stamp (positive integer). Absent on records persisted
@@ -75,4 +86,5 @@ export type {
   HeatmapPointMarker,
   SavedConfig,
   SelectedPoint,
+  StyleDefaults,
 };

@@ -1,3 +1,4 @@
+// script/build/glyph — plain-width status glyphs, so CLI tables stay column-aligned in any terminal
 /**
  * Shared status markers for `script/` CLI output.
  *

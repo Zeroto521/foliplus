@@ -666,6 +666,8 @@ interface CreateLayersOpts {
   filterSetter?: ((filter: LayerFilter | undefined) => void) | null;
   /** See RegisterLayerOpts. */
   metaProvider?: (() => Record<string, string | number>) | null;
+  /** See {@link RegisterLayerOpts.folder}. */
+  folder?: string | null;
 }
 
 /** Options for `LayerAPI.createCanvas`. */
@@ -706,6 +708,8 @@ interface CreateCanvasOpts {
    *  `"redraw"` (CSS live, bake on pan/zoom) so a ≥5k slider commit does
    *  not force a full hexagon redraw. */
   opacityBake?: "commit" | "redraw";
+  /** See {@link RegisterLayerOpts.folder}. */
+  folder?: string | null;
 }
 
 /** Return type of `LayerAPI.createCanvas`. */
@@ -834,6 +838,8 @@ interface CreateSurfaceOpts {
   onOpacity?: ((opacity: number) => void) | null;
   /** See {@link RegisterLayerOpts.opacityBake}. */
   opacityBake?: "commit" | "redraw";
+  /** See {@link RegisterLayerOpts.folder}. */
+  folder?: string | null;
 }
 
 /** Content handle returned by `createSurface` — the discriminated-union branch. */
@@ -1017,6 +1023,7 @@ interface LayerAPI {
    *  consumer sees `undefined`, falling back to `true`.
    */
   intentVisible?: (id: string) => boolean;
+
   createCanvas: (opts: CreateCanvasOpts) => CreateCanvasAPI;
   createLayers: (opts: CreateLayersOpts) => CreateLayersAPI;
   extractPoints: (

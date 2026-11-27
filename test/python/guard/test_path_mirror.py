@@ -467,7 +467,9 @@ def test_m1_teeth_entry_point_module_is_exempt() -> None:
         "paint",
         "fill",
         "folder",
+        "label",
         "marker",
+        "opacity",
     }
 
 

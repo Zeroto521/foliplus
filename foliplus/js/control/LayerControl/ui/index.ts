@@ -52,6 +52,7 @@ import { OverlayPanel } from "./overlayPanel/index.js";
 import { closeMoreMenu, openMoreMenu, openRoleMenu } from "./overlayPanel/menu.js";
 import { finishRename, renameLayer } from "./overlayPanel/rename.js";
 import { intentVisibleOf } from "./projection.js";
+import type { ScopeSubscription } from "./scope.js";
 import {
   applyUserState,
   dropPersistedLayerState,
@@ -89,7 +90,8 @@ import {
   type LayerInfo,
   LayerRuntimeStore,
 } from "#core/layer/index.js";
-import type { Logger } from "#platform/type.js";
+import { createTimers } from "#platform/timer.js";
+import type { Logger, Timers } from "#platform/type.js";
 
 /** UI Controller for LayerControl.
  *  Per-panel state lives on one of three view subsystems:
@@ -98,7 +100,7 @@ import type { Logger } from "#platform/type.js";
  *  - focusController:  focus spotlight + inverse mask
  *
  *  Cross-cutting code reads state through the subsystem handle
- *  (`ui.listPanel.foldedRoles`, `ui.overlayPanel.activeMenu`, etc.);
+ *  (`ui.listPanel.foldedRoles`, `ui.overlayPanel.surface`, etc.);
  *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI implements LayerUISurface {
@@ -120,6 +122,10 @@ class LayerUI implements LayerUISurface {
    *  construction from the runtime env (`env.log`), which is the same
    *  instance the controller holds. */
   log: Logger;
+  /** The panel's timer owner: every delayed effect (settle pass, deferred
+   *  rename teardown, delete-confirm disarm, focus auto-dismiss, opacity
+   *  repaint) is named here, and one teardown step disposes the owner. */
+  readonly timers: Timers;
   /** View subsystem: row layout state (fold, cursor, drag). */
   listPanel: ListPanel;
   /** View subsystem: floating panels (menu / attrs / rename / style). */
@@ -182,7 +188,7 @@ class LayerUI implements LayerUISurface {
    *  change, content invalidation). Batched into one array so a single
    *  unbind call tears down every listener; the controller no longer drives
    *  these UI methods directly. */
-  unsubscribeLayerSignals: Array<() => void>;
+  unsubscribeLayerSignals: ScopeSubscription[];
 
   constructor(
     controller: LayerController,
@@ -208,6 +214,7 @@ class LayerUI implements LayerUISurface {
     setStyleApplyFailureReporter(failure => {
       this.c.map.foliplus?.onError?.(failure.source, failure.error);
     }, this);
+    this.timers = createTimers();
     this.listPanel = new ListPanel();
     this.overlayPanel = new OverlayPanel();
     this.focusController = new FocusController();

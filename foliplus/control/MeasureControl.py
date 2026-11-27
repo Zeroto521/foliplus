@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal
 from foliplus._config_schema import FieldSpec
 from foliplus._declaration import (
     MEASURE_TYPE_FIELD,
+    normalise_folder,
     normalise_zoom_range,
     normalize_declared_filter,
 )
@@ -120,6 +121,12 @@ class MeasureControl(BaseControl):
 
     collapse_on_outside : bool, default True
         Whether a press outside the panel collapses it.
+
+    folder : str, optional
+        Name of the LayerControl folder this control's measurement layer joins.
+        The declaration is a registration-time assignment, so a new page with
+        no persisted layout already places the layer inside the folder. A user
+        drag to another folder (persisted) wins over this declaration.
 
     zoom_range : dict, optional
         Visibility window over the map's zoom levels: a mapping with ``min``
@@ -255,10 +262,27 @@ class MeasureControl(BaseControl):
                 ),
             ),
         ] = None,
+        folder: Annotated[
+            str | None,
+            FieldSpec(
+                ts="string",
+                note=(
+                    "Declared folder name the control's measurement layer joins in "
+                    "the LayerControl panel: the layer registers with this folder "
+                    "assignment, so a new page (no persisted layout) already places "
+                    "it inside the folder. A user drag to another folder wins over "
+                    "this declaration."
+                ),
+            ),
+        ] = None,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
         self.show_bearing = show_bearing
+        # The author's folder declaration is normalised once, at construction, so
+        # CONF carries the cleaned spelling the runtime groups on (NFC + trim +
+        # internal-whitespace fold); an invalid value warns and stays None (root).
+        self.folder = normalise_folder(folder, owner="MeasureControl", source="folder")
         self.label_show = label_show
         self.label_collide = label_collide
         self.show_live_coords = show_live_coords

@@ -161,20 +161,20 @@ const authorZoomBoundsForLayer = (ui: LayerUI, layerId: string): [number, number
  *  converges to the slider's terminal position — no more waiting
  *  for pan/zoom. */
 const OPACITY_REPAINT_DEBOUNCE_MS = 60;
-const pendingRedraws = new WeakMap<LayerInfo, number>();
 const scheduleOpacityRedraw = (
+  ui: LayerUI,
   layerInfo: LayerInfo,
   mode: "debounce" | "none" = "none",
 ): void => {
   if (mode === "none") return;
-  const prev = pendingRedraws.get(layerInfo);
-  if (prev !== undefined) clearTimeout(prev);
-  pendingRedraws.set(
-    layerInfo,
-    setTimeout(() => {
-      pendingRedraws.delete(layerInfo);
-      layerInfo.onOpacity?.(getLayerAlpha(layerInfo.canvas));
-    }, OPACITY_REPAINT_DEBOUNCE_MS),
+  // The repaint is the panel's timer, named by layer: re-scheduling one layer
+  // replaces its pending paint (the primitive releases the previous timer), and
+  // the panel's teardown disposes the owner, so a removed panel cannot paint
+  // into a canvas it no longer owns.
+  ui.timers.timeout(
+    `opacity:${layerInfo.id}`,
+    () => layerInfo.onOpacity?.(getLayerAlpha(layerInfo.canvas)),
+    OPACITY_REPAINT_DEBOUNCE_MS,
   );
 };
 
@@ -318,7 +318,7 @@ const dispatchStateOp = (
         // canvas and repaints, then clears the CSS so the two never
         // compound.
         layerInfo.canvas.style.opacity = String(value);
-        scheduleOpacityRedraw(layerInfo, repaintMode);
+        scheduleOpacityRedraw(ui, layerInfo, repaintMode);
       }
       layerInfo.opacity = value;
       return false;

@@ -25,6 +25,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import { createReplayGate } from "./replay.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { styleCapability } from "./styleCapability.js";
 import { DIM } from "#core/layer/index.js";
@@ -50,6 +51,7 @@ import * as CONST from "#control/LayerControl/const.js";
 import {
   readDeclaredIconSize,
   readDeclaredMarkerColor,
+  readDeclaredMarkerColorOpacity,
 } from "#control/LayerControl/declaredParse.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
@@ -204,7 +206,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
  *  absent from it, and only a declaration needs the extra pass. Layers with a
  *  stored intent are skipped so the sweep does not apply the same chassis
  *  twice. Mirrors replayDeclaredFill / replayDeclaredBorder. */
-const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+const declaredReplayGate = createReplayGate();
 
 const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (
@@ -216,8 +218,7 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   if (declaredMarkerColorHex(layer) === null) return;
-  let painted = declaredReplayed.get(ui);
-  if (painted?.has(layerId)) return;
+  if (declaredReplayGate.has(ui, layerId)) return;
   // An author-chassis marker needs no replay (the author icon is the map
   // state); only a declared chassis with no author chassis is a read-time
   // default the paint must apply.
@@ -230,11 +231,7 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
       declaredIconSizeOf(layer),
     );
   }
-  if (!painted) {
-    painted = new Set();
-    declaredReplayed.set(ui, painted);
-  }
-  painted.add(layerId);
+  declaredReplayGate.mark(ui, layerId);
 };
 
 /** Build the marker-color row: a swatch input plus a chassis-opacity number
@@ -254,8 +251,14 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
     ariaLabel: ui.T("style_marker_color"),
   }) as HTMLInputElement;
   const storedOpacity = getIntent(ui, layerId, INTENT.MARKER_COLOR_OPACITY);
+  // The row's opacity is the user intent, else the author-declared chassis
+  // alpha (the read-time default Reset returns to), else 100%.
+  const declaredOpacity = readDeclaredMarkerColorOpacity(
+    ui.c.findLayer(layerId),
+    layerId,
+  ).declared;
   const opacityGroup = numberInput({
-    value: typeof storedOpacity === "number" ? storedOpacity : 100,
+    value: typeof storedOpacity === "number" ? storedOpacity : (declaredOpacity ?? 100),
     min: 0,
     max: 100,
     step: 1,

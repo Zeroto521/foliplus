@@ -44,6 +44,10 @@
   align-items: flex-start;
   gap: var(--foliplus-space-md);
   padding: var(--foliplus-space-md) var(--foliplus-space-lg);
+  /* Menu-row family: one clickable option line, the same 30px height as a
+     dropdown option and a scheme item (see token.css row families). */
+  min-height: var(--foliplus-menu-row-h);
+  box-sizing: border-box;
   border-left: var(--foliplus-border-thin) solid transparent;
   transition:
     background-color var(--foliplus-transition-fast),

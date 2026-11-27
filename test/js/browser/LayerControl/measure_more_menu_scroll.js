@@ -42,9 +42,19 @@
           // The longest label ("Confirm Delete") must be fully visible: the menu
           // is at least as wide as its widest item, so no horizontal clip.
           menuWidth: rect.width,
-          confirmDeleteVisible: [...menu.querySelectorAll("button")].some(
-            b => b.textContent && b.textContent.includes("Delete"),
-          ),
+          // The delete entry is identified STRUCTURALLY (its data-action),
+          // never by its label: the label is localized, so a text match would
+          // fail in any non-English locale. It is the widest item (its armed
+          // label is longer than the resting one), so it must also fit its own
+          // box without clipping.
+          deleteEntry: (() => {
+            const btn = menu.querySelector('button[data-action="delete-layer"]');
+            if (!btn) return null;
+            return {
+              clipped: btn.scrollWidth > btn.clientWidth,
+              width: btn.getBoundingClientRect().width,
+            };
+          })(),
         });
       }),
     );

@@ -9,6 +9,7 @@ import { type ControlEnv } from "#core/lifecycle/index.js";
 import type { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import type { Floating } from "#platform/floating.js";
+import type { Timers } from "#platform/type.js";
 
 /**
  * Subset of SearchControl state used by the logic functions (decouples the
@@ -28,7 +29,7 @@ interface SearchControlState extends RequestGates, OwnedLayers {
   selectedIdx: number;
   currentItems: ResultItem[];
   lastSuggestFetch: number;
-  throttleTimer: ReturnType<typeof setTimeout> | null;
+  timers: Timers;
   suggestAbortController: AbortController | null;
   debouncedFetch: Debounced;
   ctrl: HTMLElement;

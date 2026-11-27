@@ -1,3 +1,4 @@
+// control/MeasureControl/mode/marker — marker mode: one geocoded location marker per click, draggable to translate.
 import * as CONST from "../const.js";
 import {
   bindNodeDrag,
@@ -49,8 +50,8 @@ class MarkerMode extends MeasureMode {
       onDrag: (latlng: L.LatLng) => {
         delMarker.setLatLng(latlng);
         mgr.store.mutate(id, m => {
-          m.lng = Util.roundCoord(latlng.lng);
-          m.lat = Util.roundCoord(latlng.lat);
+          m.lng = latlng.lng;
+          m.lat = latlng.lat;
         });
         persist();
       },
@@ -59,8 +60,8 @@ class MarkerMode extends MeasureMode {
         persist.cancel();
         const gen = ++generation;
         mgr.store.mutate(id, m => {
-          m.lng = Util.roundCoord(latlng.lng);
-          m.lat = Util.roundCoord(latlng.lat);
+          m.lng = latlng.lng;
+          m.lat = latlng.lat;
         });
         const code = mgr.config.locale_code ?? "en";
         // onEnd is a sync callback (bindNodeDrag doesn't await it), so the
@@ -243,8 +244,8 @@ class MarkerMode extends MeasureMode {
   /** Handle marker click. */
   handleMarkerClick(event: L.LeafletMouseEvent) {
     if (this.mgr.currentMode !== this.type) return;
-    const lngNum = Util.roundCoord(event.latlng.lng);
-    const latNum = Util.roundCoord(event.latlng.lat);
+    const lngNum = event.latlng.lng;
+    const latNum = event.latlng.lat;
 
     // Save the measurement IMMEDIATELY (address resolved later) so the
     // marker survives a page reload even while geocoding is in flight.

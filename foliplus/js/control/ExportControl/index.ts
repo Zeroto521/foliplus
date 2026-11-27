@@ -48,6 +48,9 @@ const ExportControl = defineControl<ExportManager>({
     // only caller that can outlive the pipeline, so it must retire them all.
     this.manager?.abortExport();
     this.manager?.unregisterShortcuts();
+    // Last, and after the abort: the preview's auto-dismiss is the manager's own
+    // timer, and a destroyed control must not have it fire.
+    this.manager?.timers.dispose();
   },
 });
 

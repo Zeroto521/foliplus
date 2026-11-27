@@ -1,4 +1,4 @@
-// Built-in Pelias provider (Mapzen-style geocoding API).
+// core/geocode/pelias — Built-in Pelias provider (Mapzen-style geocoding API).
 import type { GeocodeProvider, SuggestItem } from "./type.js";
 import { featuresToItems } from "./util.js";
 

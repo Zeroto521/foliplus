@@ -1,11 +1,9 @@
-// ============================================================================
-// Static configuration.
+// control/ExportControl/const — static configuration: the one FORMAT record every format-dependent behaviour reads.
 //
 // All declarations are private here and re-exported together from the single
 // `export` block at the end of the file. Everything about an export format
 // (mime type, file extension, codec class, pipeline routing) reads from one
 // `FORMAT` record — add a format by adding one row there.
-// ============================================================================
 import type { ExportImageFormat } from "./type.js";
 import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { COMPONENTS } from "#core/lifecycle/index.js";

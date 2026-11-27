@@ -1,4 +1,4 @@
-// core/PaneLedger — the pane lease book.
+// core/layer/PaneLedger — the pane lease book.
 // Responsibility: "which surface owns which pane name, and did foliplus create
 // the element or adopt a pre-built one" — the ownership proof PaneManager
 // consults before any DOM or bookkeeping change. Pure data: no DOM, no

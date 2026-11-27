@@ -39,35 +39,35 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
 }> = [
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 277,
+    line: 284,
     call: "return refreshAllCounts(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 282,
+    line: 289,
     call: "return refreshTreeConnectors(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 392,
+    line: 399,
     call: "return syncToggleAll(this, role);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 120,
+    line: 137,
     call: "refreshAllCounts(ui);",
     reason:
       "right after the synchronous attach sequence (replayStoredStateAll): the initial counts pass, not a structural change",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 434,
+    line: 462,
     call: "syncToggleAll(ui, payload.role);",
     reason:
       "LAYER_ROLE_COUNT_CHANGED subscriber: the notification the barrier itself publishes — the downstream consumer of the same round trip",
@@ -102,21 +102,21 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 110,
+    line: 124,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a batch toggle (the toggled rows' intent was just rewritten)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 274,
+    line: 288,
     call: "syncToggleAll(ui, layerInfo.role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a single-row toggle",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/visibility.ts",
-    line: 378,
+    line: 496,
     call: "syncToggleAll(ui, role);",
     reason:
       "visibility toggle path: one aggregate pass reconciles the role header after a bulk tail toggle",

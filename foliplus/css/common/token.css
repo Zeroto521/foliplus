@@ -442,6 +442,10 @@
      trigger, the row height, and the two row states. Components override
      only their own geometry (strip inset, scrollbar lane), never these. */
   --foliplus-menu-gap: var(--foliplus-size-4);
+  /* The menu-row family height: one clickable option line. Members:
+     dropdown option, scheme picker item, search result. A member must not
+     declare its own height. The ⋮ action menu is NOT a member: it is a
+     compact action list, tighter than an option row by design. */
   --foliplus-menu-row-h: var(--foliplus-ctrl-size);
   --foliplus-menu-row-hover-bg: var(--foliplus-accent-light);
   --foliplus-menu-row-hover-ink: var(--foliplus-accent-primary);
@@ -505,8 +509,12 @@
   --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
     calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
   --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
+  /* Base horizontal inset of a list row. The layer row derives its own 7px
+     from this base so the two cannot drift; a component that owns a different
+     mechanism (check slot, color strip) keeps its own inset. */
+  --foliplus-row-pad-x: var(--foliplus-space-md);
   --foliplus-layer-item-pad-x: calc(
-    var(--foliplus-space-md) - var(--foliplus-size-2) + 1px
+    var(--foliplus-row-pad-x) - var(--foliplus-size-2) + 1px
   );
   /* Count track: min/max bound the compact-value column. The filter funnel
      (its own token) plus the widest compact value ("2.5K", "1.2万") must
@@ -528,7 +536,19 @@
      would be the popup-style inversion: up-when-expanded. */
   --foliplus-fold-rot-rest: 0deg;
   --foliplus-fold-rot-expanded: 90deg;
-  --foliplus-layer-row-min-height: calc(
+  /* ── Row height families ──
+     Two families, one token each; a row belongs to exactly one and a family
+     member must not declare its own height:
+     - list rows (--foliplus-row-min-height): multi-column content + controls
+       (layer rows). 35.6px = the row two 8px insets + the 14px label 1.4
+       line box.
+     - menu rows (--foliplus-menu-row-h, above): one clickable option line
+       (dropdown option, scheme item, search result, more-menu button). 30px
+       = the shared control height.
+     A form row is a control row, not a list row: it hosts 30px controls and a
+     label column, so it keeps --foliplus-toggle-size (36px) — the control
+     height plus breathing room, not the list-row rhythm. */
+  --foliplus-row-min-height: calc(
     var(--foliplus-space-md) * 2 + var(--foliplus-font-size-md) *
       var(--foliplus-line-height-hint)
   );

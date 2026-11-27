@@ -1,4 +1,4 @@
-// Map-aware geocode provider wrapper — the single place where geocoding
+// core/geocode/mapProvider — map-aware geocode provider wrapper, the single place where geocoding
 // crosses the CRS boundary.
 //
 // Providers are pure WGS84 (URL builders + normalizers, no map knowledge).

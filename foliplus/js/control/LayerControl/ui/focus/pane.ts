@@ -47,6 +47,11 @@ const hideOtherLayers = (ui: LayerUI): void => {
     // the author's zoom range and transparency are physical facts focus
     // must not override — a base outside its own min/max zoom paints
     // nothing even while focused, so it cannot be the "active basemap".
+    // `basePaints` still reads the author declaration through
+    // `resolvePaintOpacity`; the controller visibility read this module will
+    // eventually share does not carry that declared hop yet, so swapping in
+    // `paintsNow` here would treat an author-transparent base as the active
+    // basemap. Keep the declaration-aware read until both go through one path.
     if (!proj.effectiveShown || !basePaints(ui, li)) continue;
     const surface = ui.c.surfaceFor(li);
     if (!surface) continue;

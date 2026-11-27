@@ -14,10 +14,11 @@ instead of taking the page down.
 
 :::{note}
 
-The namespace is read two ways. `zoom_range` and `folder` are
-normalised on the Python side into the panel's CONF facts. `fill`,
-`label`, `filter`, `border`, `marker_color` and `icon_size` are
-consumed by the JavaScript panel straight off
+The namespace is read two ways. `zoom_range`, `folder` and `label` are
+normalised on the Python side into the panel's CONF facts
+(`data[].zoom_range`, `data[].folder` and `data[].label`). `fill`,
+`filter`, `border`, `marker_color`, `icon_size`, `opacity`,
+`icon` and `marker` are consumed by the JavaScript panel straight off
 `layer.options.foliplus`; Python validates their shape and warns once at
 collection time so a malformed declaration is reported where it was
 written, and the JavaScript side owns the runtime verdict (for example the
@@ -58,24 +59,28 @@ The attribute channel wins when present; the options channel is the fallback.
 
 The recognised keys are:
 
-| Key            | Type | Meaning                                                    |
-| -------------- | ---- | ---------------------------------------------------------- |
-| `zoom_range`   | dict | visible zoom window (see {ref}`zoom_range`).               |
-| `folder`       | str  | layer folder (role) name (see {ref}`folder`).              |
-| `fill`         | dict | value-based or solid fill (see {ref}`fill`).               |
-| `label`        | dict | text labels (see {ref}`label`).                            |
-| `filter`       | dict | value filter (see {ref}`filter`).                          |
-| `border`       | dict | border default mode / colour / weight (see {ref}`border`). |
-| `marker_color` | str  | marker chassis preset (see {ref}`marker_color`).           |
-| `icon_size`    | int  | marker icon pixel size (see {ref}`icon_size`).             |
+| Key            | Type  | Meaning                                                             |
+| -------------- | ----- | ------------------------------------------------------------------- |
+| `zoom_range`   | dict  | visible zoom window (see {ref}`zoom_range`).                        |
+| `folder`       | str   | layer folder (role) name (see {ref}`folder`).                       |
+| `fill`         | dict  | value-based or solid fill (see {ref}`fill`).                        |
+| `label`        | dict  | text labels (see {ref}`label`).                                     |
+| `filter`       | dict  | value filter (see {ref}`filter`).                                   |
+| `border`       | dict  | border default mode / colour / weight (see {ref}`border`).          |
+| `marker_color` | str   | marker chassis preset (see {ref}`marker_color`).                    |
+| `icon_size`    | int   | marker icon pixel size (see {ref}`icon_size`).                      |
+| `opacity`      | float | whole-layer opacity, the slider's reset point (see {ref}`opacity`). |
+| `icon`         | dict  | icon block: `colorOpacity` glyph alpha (see {ref}`opacity`).        |
+| `marker`       | dict  | marker block: `colorOpacity` chassis alpha (see {ref}`opacity`).    |
 
 An unknown key warns once and is ignored:
 
 ```python
 gdf.explore(foliplus={"fill_scheme": "Reds"})
 # LayerControl: layer '...' declares unknown foliplus key 'fill_scheme'
-#   ; expected one of ['border', 'fill', 'filter', 'folder', 'icon_size',
-#   'label', 'marker_color', 'zoom_range'] - ignored
+#   ; expected one of ['border', 'fill', 'filter', 'folder', 'icon',
+#   'icon_size', 'label', 'marker', 'marker_color', 'opacity', 'zoom_range']
+#   - ignored
 ```
 
 A `fill` / `label` / `filter` / `border` value that is not a mapping
@@ -131,6 +136,12 @@ created for it.
 A non-string, blank or over-long name warns once and is ignored — the layer
 stays at the role root.
 
+The layer-level declaration has a control-level sibling: HeatmapControl and
+MeasureControl accept a folder= argument (their layer registers with the
+declaration, so a new page already places it inside the folder). The same
+priority applies — a user drag to another folder (persisted) wins over the
+declaration.
+
 (folders)=
 
 ## `folders` — central folder defaults
@@ -139,10 +150,10 @@ stays at the role root.
 and whether it starts folded. It is a different channel from the per-layer
 `folder` key, and the split is deliberate:
 
-| Channel | Owns | Does not do |
-| ------- | ---- | ----------- |
-| `foliplus={"folder": ...}` on a layer | **membership** — which folder the layer's row groups into | set the folder's default folded state |
-| `LayerControl(folders=...)` | **metadata** — the folder's display name and default folded state, per role | create a folder, move a layer into one, or order folders |
+| Channel                               | Owns                                                                        | Does not do                                              |
+| ------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `foliplus={"folder": ...}` on a layer | **membership** — which folder the layer's row groups into                   | set the folder's default folded state                    |
+| `LayerControl(folders=...)`           | **metadata** — the folder's display name and default folded state, per role | create a folder, move a layer into one, or order folders |
 
 A complete example — declare the folders once, then put each layer in one:
 
@@ -151,9 +162,16 @@ import folium
 import geopandas as gpd
 from foliplus import LayerControl
 
+# 1. Membership: each layer names its own folder. These are the only
+#    declarations that put a row inside a folder. GeoPandas' explore is the
+#    repo-wide layer-adding convention: build the map first, then pass m= to
+#    every explore call to append the layer.
 m = folium.Map(location=[31.2, 121.5], zoom_start=10)
+gdf_basemap.explore(m=m, foliplus={"folder": "底图"})
+gdf_roads.explore(m=m, foliplus={"folder": "交通"})
+gdf_pois.explore(m=m, foliplus={"folder": "设施"})
 
-# 1. Central declaration: folder metadata only — name + default folded state.
+# 2. Central declaration: folder metadata only — name + default folded state.
 #    Keyed by role, because a base folder and an overlay folder may share a name.
 LayerControl(
     folders={
@@ -164,12 +182,6 @@ LayerControl(
         ],
     }
 ).add_to(m)
-
-# 2. Membership: each layer names its own folder. These are the only
-#    declarations that put a row inside a folder.
-gdf_basemap.explore(foliplus={"folder": "底图"}).add_to(m)
-gdf_roads.explore(foliplus={"folder": "交通"}).add_to(m)
-gdf_pois.explore(foliplus={"folder": "设施"}).add_to(m)
 ```
 
 **Shape**: a mapping keyed by role (`"base"` / `"overlay"`), each value a list
@@ -292,9 +304,14 @@ turns the labels on. The optional keys:
 default is off). An explicit `show: false` names a field for the panel's
 starting point while keeping the map clean. Labels from different layers never
 avoid each other — the layers are stacked, so an upper layer simply covers the
-lower one's; the style panel overrides this per layer. An invalid `format`,
-`color` or `size` degrades to its default rather than reaching the label
-renderer unresolved.
+lower one's; the style panel overrides this per layer.
+
+The block is normalised once on the Python side and the panel reads the
+normalised record from CONF (not the raw namespace). A wrong type, an unknown
+key or an unknown `format` warns once and is ignored; a `color` that is not a
+hex warns and is ignored (a valid `#rgb` is expanded to `#rrggbb`); a `size`
+outside 6-32 px warns and is clamped into that range. The rest of the block
+still applies — one bad key does not discard its valid siblings.
 
 (filter)=
 
@@ -430,6 +447,51 @@ marker keeps its built-in pixel size rather than scaling to a value the author
 never saw validated. folium's {class}`Icon` exposes no pixel-size channel, so
 this is a foliplus-only declaration the JavaScript runtime scales the marker
 icon by.
+
+(opacity)=
+
+## `opacity` — whole-layer opacity
+
+Declares the whole-layer opacity (a 0-1 float, the unit Leaflet's opacity
+options use) as the **read-time default** the panel opacity slider starts at
+and Reset returns to. It is not a draw override: folium's own `opacity=`
+keyword remains the author's draw value and is read first, so the two channels
+never fight — a layer that declares both draws the folium value but shows the
+declared one in the panel.
+
+```python
+gdf.explore(foliplus={"opacity": 0.6})
+```
+
+**Shape**: a number from 0 (fully transparent) to 1 (fully opaque). A bool, a
+non-finite value or a value outside the closed interval warns once and is
+ignored — the panel keeps its derived default rather than showing a value the
+author never saw validated.
+
+```{note}
+This is the only channel where a declared value is NOT painted: the layer is
+already drawn with the author's `opacity=`. The declaration is a UI default
+for the panel's slider.
+```
+
+## `icon` / `marker` block — glyph / chassis alpha
+
+The `icon` and `marker` declaration blocks carry one sub-key each:
+`colorOpacity`, a 0-100 integer percent — the alpha of the marker **glyph**
+(`icon`) and the marker **chassis** (`marker`) face. Like the whole-layer
+`opacity` they are read-time defaults (the row's number field starts there
+and Reset returns to it), never draw overrides: folium's `colorOpacity`
+written into the marker {class}`Icon` remains the author's draw value.
+
+```python
+gdf.explore(foliplus={"icon": {"colorOpacity": 60}})
+gdf.explore(foliplus={"marker": {"colorOpacity": 40}})
+```
+
+**Shape**: a whole number from 0 to 100. A non-mapping block, a non-integer,
+a non-finite or an out-of-range value warns once and is ignored. A `color`
+sub-key rides the same block (the glyph / chassis colour); `colorOpacity`
+only tunes the alpha.
 
 (icon_source)=
 
