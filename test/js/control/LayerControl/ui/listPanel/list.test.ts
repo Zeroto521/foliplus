@@ -18,6 +18,7 @@ import {
   renderInitialList,
   updateLayerItemLabel,
 } from "#control/LayerControl/ui/listPanel/index.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 describe("ui/list displayName", () => {
   it("resolves a registered/renamed id through the registry name", () => {
@@ -601,9 +602,9 @@ describe("ui/list row placement", () => {
     expect(folder!.classList.contains(CONST.CLASSES.FOLDED)).toBe(false);
   });
 
-  it("closes the row panels it drops with the rows", () => {
+  it("closes the open row surface it drops with the rows", () => {
     // A rebuild replaces the whole list (fold, reorder, or the list arriving).
-    // The style panel can dispose its scheme picker and unpin itself, but only
+    // The open surface can dispose its scheme picker and unpin itself, but only
     // if it is asked BEFORE the row carrying it is detached: these panels are
     // children of a row, so clearing the list with innerHTML used to leave the
     // picker and its document listeners answering a trigger that was gone.
@@ -618,26 +619,28 @@ describe("ui/list row placement", () => {
     const attrsPanel = document.createElement("div");
     attrsPanel.className = CONST.CLASSES.ATTRS_PANEL;
     row.appendChild(attrsPanel);
-    ui.overlayPanel.stylePanelLayerId = "A";
+    // One surface at a time (openSurface is the single source), so the two
+    // panel kinds are closed in two rounds against the same rebuild path.
+    openSurface(ui, { kind: "style", layerId: "A" });
     const styleUnregister = vi.fn();
     ui.overlayPanel.styleOverlayUnregister = styleUnregister;
-    ui.overlayPanel.activeAttrsPanel = {
-      item: row,
-      panel: attrsPanel,
-      layerId: "A",
-    };
-    const attrsUnregister = vi.fn();
-    ui.overlayPanel.attrsOverlayUnregister = attrsUnregister;
 
     rebuildList(ui);
 
     expect(styleUnregister).toHaveBeenCalled();
     expect(ui.overlayPanel.styleOverlayUnregister).toBeNull();
     expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
+    expect(stylePanel.isConnected).toBe(false);
+
+    openSurface(ui, { kind: "attrs", item: row, panel: attrsPanel, layerId: "A" });
+    const attrsUnregister = vi.fn();
+    ui.overlayPanel.attrsOverlayUnregister = attrsUnregister;
+
+    rebuildList(ui);
+
     expect(attrsUnregister).toHaveBeenCalled();
     expect(ui.overlayPanel.attrsOverlayUnregister).toBeNull();
     expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
-    expect(stylePanel.isConnected).toBe(false);
     expect(attrsPanel.isConnected).toBe(false);
   });
 

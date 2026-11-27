@@ -7,6 +7,7 @@ import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
+import { clearSurface, openSurface, registerSurfaceCloser } from "./openSurface.js";
 import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
 import {
@@ -170,10 +171,12 @@ const scheduleMoreMenu = (ui: LayerUI): (() => void) => {
  *
  *  Division of labour (single authority, no overlap): the PanelController
  *  owns the dismissal contract (outside press, Escape, closeFromClick,
- *  swallowPress, rank, exclusiveGroup, clearsCursorOnClose); the component
- *  fields keep the display state (item/menu/layerId) and the detach pipe
- *  (each close detaches exactly once so the next open can re-attach). A
- *  controller is rebuilt per open, so it is not a persistent handle. */
+ *  swallowPress, rank, exclusiveGroup, clearsCursorOnClose); "what is open"
+ *  lives in the one state machine (openSurface.ts), whose record carries the
+ *  display handles (item / menu / layerId / folderKey / role), and the detach
+ *  pipe is the *OverlayUnregister resource (each close detaches exactly once
+ *  so the next open can re-attach). A controller is rebuilt per open, so it is
+ *  not a persistent handle. */
 const attachMenuController = (
   ui: LayerUI,
   item: HTMLElement,
@@ -219,7 +222,7 @@ const attachMenuController = (
   // delegate was the only reason the menu needed a document listener.
   menu.addEventListener("click", event => handleMenuClick(ui, event));
 
-  ui.overlayPanel.activeMenu = { item, menu, ...extras };
+  openSurface(ui, { kind: "menu", item, menu, ...extras });
   // Anchor-teardown contract (cross-panel): an external delete/clear of the
   // anchored layer must not leave the menu (and its activeMenu / reposition /
   // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
@@ -631,22 +634,21 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
+  const open = ui.overlayPanel.activeMenu;
   ui.overlayPanel.menuRemovedUnsub?.();
   ui.overlayPanel.menuRemovedUnsub = null;
   ui.overlayPanel.menuOverlayUnregister?.();
   ui.overlayPanel.menuOverlayUnregister = null;
   ui.overlayPanel.menuReposition?.();
   ui.overlayPanel.menuReposition = null;
-  if (!ui.overlayPanel.activeMenu) return;
-  const item = ui.overlayPanel.activeMenu.item;
-  const menu = ui.overlayPanel.activeMenu.menu;
-  // Clear the pointer before removing: the removal can trigger the menu's own
+  if (!open) return;
+  // Clear the state before removing: the removal can trigger the menu's own
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
-  ui.overlayPanel.activeMenu = null;
+  clearSurface(ui, "menu");
   disconfirmDelete(ui);
-  menu.remove();
-  if (setFocus) item.focus();
+  open.menu.remove();
+  if (setFocus) open.item.focus();
 };
 
 /** Every action the overflow menu renders, keyed by its `data-action` value. */
@@ -716,7 +718,7 @@ const startFolderRename = (
   closeOverlays(ui);
   // Same row flag the layer rename sets: it is what stretches the input across
   // the label+count area, so both rename kinds render identically.
-  ui.overlayPanel.activeRenameRow = item;
+  openSurface(ui, { kind: "rename", row: item, layerId: null });
   item.classList.add(CONST.CLASSES.RENAMING);
   createInlineEditInput({
     label,
@@ -1017,6 +1019,11 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
   );
   attachRowMenu(ui, item, menu, { role });
 };
+// The state machine's close dispatch for this kind. setFocus stays true: the
+// menu returns focus to its anchor row (a cursor parked on <body> makes Escape
+// unreachable) — the same flag its OVERLAY_CLEAR subscription used.
+registerSurfaceCloser("menu", ui => closeMoreMenu(ui, true));
+
 export {
   MENU_ACTIONS,
   activateDeleteItem,

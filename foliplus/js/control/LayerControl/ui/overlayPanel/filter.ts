@@ -31,6 +31,7 @@ import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { type FilterBody, dimensionShapeKey, renderBody } from "./filterBody.js";
+import { clearSurface, openSurface, registerSurfaceCloser } from "./openSurface.js";
 import { EVENTS } from "#core/event/index.js";
 import type {
   FilterDimension,
@@ -494,12 +495,12 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
 
   // Division of labour (single authority, no overlap): the PanelController
   // owns the dismissal contract (outside press, Escape, closeFromClick,
-  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
-  // fields keep the display state (item/panel/layerId) and the detach pipe
-  // (each close detaches exactly once so the next open can re-attach) — a
-  // controller is rebuilt per open, so it is not a persistent handle. Slices
-  // 1-2 removed the inline register object (the true double bookkeeping);
-  // these fields are not a second open/closed state.
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). "What is open"
+  // lives in the one state machine (overlayPanel/openSurface.ts); the record
+  // there carries the display handles (item / panel / layerId), and the detach
+  // pipe is the *OverlayUnregister resource below (each close detaches exactly
+  // once so the next open can re-attach). A controller is rebuilt per open, so
+  // it is not a persistent handle.
   // The PanelController owns the dismissal contract: closeFromClick swallows
   // the close-button press and closes with focus restore, swallowPress keeps
   // a mousedown off the row's drag handler. The registry entry is generated
@@ -547,7 +548,7 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
   // dropdown's own window-capture claim, which runs before the registry and
   // stops the event, so one Escape closes the popup and the next one reaches
   // this layer.
-  ui.overlayPanel.activeFilterPanel = state;
+  openSurface(ui, { kind: "filter", state });
   // Same controller wiring as attr.ts: the dismissal contract and registry
   // identity live on the PanelController; attachPanel generates the entry
   // (id "layer.filter") and returns the detach the close path uses.
@@ -558,24 +559,30 @@ const openFilterPanel = (ui: LayerUI, item: HTMLElement): void => {
 
 /** Close the filter panel. `setFocus = true` returns focus to the row. */
 const closeFilterPanel = (ui: LayerUI, setFocus: boolean): void => {
+  const state = ui.overlayPanel.activeFilterPanel;
   ui.overlayPanel.filterOverlayUnregister?.();
   ui.overlayPanel.filterOverlayUnregister = null;
   if (ui.overlayPanel.filterUnsubscribe) {
     ui.overlayPanel.filterUnsubscribe();
     ui.overlayPanel.filterUnsubscribe = null;
   }
-  if (!ui.overlayPanel.activeFilterPanel) return;
-  const state = ui.overlayPanel.activeFilterPanel;
+  if (!state) return;
   const { item, panel } = state;
+  // Clear the state before the DOM goes: a slider's finish below can publish,
+  // and a subscriber that re-enters this close must see no surface.
+  clearSurface(ui, "filter");
   // A live drag has already produced a value; finish it before the DOM
   // goes, or its change event is lost with the node (style-panel recipe).
   finishSlidersIn(panel);
   if (state.view.kind === "rows") state.view.body.destroy();
   unpinRowPanel(item);
   panel.remove();
-  ui.overlayPanel.activeFilterPanel = null;
   if (setFocus) item.focus();
 };
+
+// The state machine's close dispatch for this kind. setFocus stays false:
+// being replaced by another surface is not a user dismissal.
+registerSurfaceCloser("filter", ui => closeFilterPanel(ui, false));
 
 export { closeFilterPanel, filterCapabilityOf, isFilterCapable, openFilterPanel };
 export type { FilterPanelState };

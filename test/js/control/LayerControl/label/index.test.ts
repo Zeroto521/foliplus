@@ -7,7 +7,6 @@ import { initFixture } from "../ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { LABEL_SIZE } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LabelManager } from "#control/LayerControl/label/index.js";
 import { applyProjection } from "#control/LayerControl/ui/apply.js";
@@ -429,298 +428,164 @@ describe("LabelManager — config", () => {
 });
 
 describe("LabelManager — author-declared label", () => {
-  const pageCollideOff = (fn: () => void) => {
-    const saved = (window as { CONFIG?: Record<string, unknown> }).CONFIG;
-    (window as { CONFIG?: Record<string, unknown> }).CONFIG = {
-      ...saved,
-      label_collide: false,
-    };
+  /** Run fn with the rendered CONFIG overridden. The author declaration now
+   *  rides the normalised CONF fact `data[].label` (never the raw layer
+   *  namespace), so these tests seed that fact. */
+  const withConfig = (config: Record<string, unknown>, fn: () => void) => {
+    const w = window as { CONFIG?: Record<string, unknown> };
+    const saved = w.CONFIG;
+    w.CONFIG = { ...saved, ...config };
     try {
       fn();
     } finally {
-      (window as { CONFIG?: Record<string, unknown> }).CONFIG = saved;
+      w.CONFIG = saved;
     }
   };
 
-  it("reads the declaration off the layer itself", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: { foliplus: { label: { field: "store", format: "comma" } } },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
+  /** Run fn with one layer's normalised declaration in CONF data. */
+  const withDeclared = (label: Record<string, unknown> | undefined, fn: () => void) =>
+    withConfig({ data: label ? [{ id: "l1", label }] : [] }, fn);
 
-    const cfg = mgr.getConfig("l1");
-    expect(cfg.field).toBe("store");
-    expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
-    // Only the declared keys travel up. A declared field also turns the labels
-    // on — the built-in default is off, so a field alone would show nowhere.
-    expect(cfg.collide).toBe(true);
-    expect(cfg.show).toBe(true);
+  it("reads the normalised declaration from CONF data", () => {
+    // show: true is what Python derives from a declared field; the record is
+    // the complete fact, so the reader consumes it instead of re-deriving it.
+    withDeclared({ field: "store", format: NUMBER_FORMAT.COMMA, show: true }, () => {
+      const { map } = makeMap();
+      const mgr = new LabelManager({ map, layerFind: () => null });
+
+      const cfg = mgr.getConfig("l1");
+      expect(cfg.field).toBe("store");
+      expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
+      // The page-level default still owns an undeclared collide.
+      expect(cfg.collide).toBe(true);
+      expect(cfg.show).toBe(true);
+    });
   });
 
-  it("falls back to the built-in defaults when the declaration has no label key", () => {
-    // A declaration with no `label` key declares nothing: the built-in
-    // defaults apply and nothing is logged.
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    try {
+  it("reads only the normalised CONF fact, not the raw layer namespace", () => {
+    withDeclared({ field: "store" }, () => {
       const { map } = makeMap();
       const layer = {
-        options: { foliplus: { icon: { field: "retired" } } },
+        options: { foliplus: { label: { field: "raw", format: "comma" } } },
       } as unknown as L.Layer;
       const mgr = new LabelManager({ map, layerFind: () => layer });
 
       const cfg = mgr.getConfig("l1");
-      expect(cfg.field).toBe(CONST.DEFAULT_LABEL.field);
-      expect(cfg.show).toBe(CONST.DEFAULT_LABEL.show);
-      expect(warn).not.toHaveBeenCalled();
+      // The normalised record wins; the raw namespace is no longer a second
+      // label channel (Python validates it and ships the record instead).
+      expect(cfg.field).toBe("store");
+      expect(cfg.format).toBe(CONST.DEFAULT_LABEL.format);
+    });
+  });
+
+  it("gives a layer with no CONF row no author defaults", () => {
+    // A runtime-registered/third-party layer never went through Python's
+    // normaliser, so there is no claim to read - not a second validation path,
+    // and the raw namespace is not silently trusted instead.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      withConfig({ data: [] }, () => {
+        const { map } = makeMap();
+        const layer = {
+          options: { foliplus: { label: { field: "late" } } },
+        } as unknown as L.Layer;
+        const mgr = new LabelManager({ map, layerFind: () => layer });
+
+        const cfg = mgr.getConfig("l1");
+        expect(cfg.field).toBe(CONST.DEFAULT_LABEL.field);
+        expect(cfg.show).toBe(CONST.DEFAULT_LABEL.show);
+        expect(warn).not.toHaveBeenCalled();
+      });
     } finally {
       warn.mockRestore();
     }
   });
 
-  it("descends into a container's children for a nested declaration", () => {
-    const child = {
-      options: { foliplus: { label: { field: "nested" } } },
-    } as unknown as L.Layer;
-    const { map } = makeMap();
-    const mgr = new LabelManager({
-      map,
-      layerFind: () => mkGroup([child]),
-    });
-
-    expect(mgr.getConfig("l1").field).toBe("nested");
-  });
-
-  it("does not cache a layer that cannot be resolved yet", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: { foliplus: { label: { field: "late" } } },
-    } as unknown as L.Layer;
-    let resolved = false;
-    const find = vi.fn(() => (resolved ? layer : null));
-    const mgr = new LabelManager({ map, layerFind: find });
-
-    expect(mgr.getConfig("l1").field).toBe(CONST.DEFAULT_LABEL.field);
-    resolved = true;
-    expect(mgr.getConfig("l1").field).toBe("late");
-  });
-
-  it("does not cache an empty read for a layer that declares later", () => {
-    // folium lands a layer's script after the control's own, so the load-time
-    // sweep can read a layer while it still carries no foliplus namespace.
-    // Caching that empty read would shadow the declaration that arrives a tick
-    // later — for the life of the page.
-    const { map } = makeMap();
-    const layer = { options: {} } as unknown as L.Layer & {
-      options: Record<string, unknown>;
-    };
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-
-    expect(mgr.getConfig("l1").show).toBe(CONST.DEFAULT_LABEL.show);
-
-    layer.options.foliplus = { label: { field: "store" } };
-    expect(mgr.getConfig("l1").field).toBe("store");
-    expect(mgr.getConfig("l1").show).toBe(true);
-  });
-
-  it("caches the read once the layer is resolved", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: { foliplus: { label: { field: "cached" } } },
-    } as unknown as L.Layer;
-    const find = vi.fn(() => layer);
-    const mgr = new LabelManager({ map, layerFind: find });
-
-    expect(mgr.getConfig("l1").field).toBe("cached");
-    expect(mgr.getConfig("l1").field).toBe("cached");
-    expect(find).toHaveBeenCalledTimes(1);
-  });
-
   it("keeps the page-level collide when only a field is declared", () => {
-    pageCollideOff(() => {
-      const { map } = makeMap();
-      const layer = {
-        options: { foliplus: { label: { field: "store" } } },
-      } as unknown as L.Layer;
-      const mgr = new LabelManager({ map, layerFind: () => layer });
+    withConfig(
+      { label_collide: false, data: [{ id: "l1", label: { field: "store" } }] },
+      () => {
+        const { map } = makeMap();
+        const mgr = new LabelManager({ map, layerFind: () => null });
 
-      const cfg = mgr.getConfig("l1");
-      expect(cfg.field).toBe("store");
-      // The declaration is PARTIAL: an undeclared collide must stay off, not
-      // be coerced to true. This is what coerceAnnotationFields would clobber.
-      expect(cfg.collide).toBe(false);
-    });
+        const cfg = mgr.getConfig("l1");
+        expect(cfg.field).toBe("store");
+        // The declaration is PARTIAL: an undeclared collide must stay off, not
+        // be coerced to true. This is what coerceAnnotationFields would clobber.
+        expect(cfg.collide).toBe(false);
+      },
+    );
   });
 
   it("lets the declared collide win over the page-level default", () => {
-    pageCollideOff(() => {
+    withConfig(
+      {
+        label_collide: false,
+        data: [{ id: "l1", label: { field: "store", collide: true } }],
+      },
+      () => {
+        const { map } = makeMap();
+        const mgr = new LabelManager({ map, layerFind: () => null });
+
+        expect(mgr.getConfig("l1").collide).toBe(true);
+      },
+    );
+  });
+
+  it("applies the colour and size exactly as Python normalised them", () => {
+    withDeclared({ field: "store", color: "#00ff00", size: 32 }, () => {
       const { map } = makeMap();
-      const layer = {
-        options: { foliplus: { label: { field: "store", collide: true } } },
-      } as unknown as L.Layer;
-      const mgr = new LabelManager({ map, layerFind: () => layer });
+      const mgr = new LabelManager({ map, layerFind: () => null });
 
-      expect(mgr.getConfig("l1").collide).toBe(true);
+      const cfg = mgr.getConfig("l1");
+      // #rgb was expanded and lowered by Python; the reader neither repeats
+      // that nor re-clamps a value the normaliser already bounded.
+      expect(cfg.color).toBe("#00ff00");
+      expect(cfg.size).toBe(32);
+      expect(cfg.field).toBe("store");
     });
-  });
-
-  it("drops undeclared and invalid keys", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: {
-        foliplus: {
-          label: {
-            field: "store",
-            format: "thousands",
-            collide: "yes",
-            color: "green",
-            show: true,
-          },
-        },
-      },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-
-    const cfg = mgr.getConfig("l1");
-    expect(cfg.field).toBe("store");
-    // An unknown format degrades to the default instead of being written
-    // through, and a non-boolean collide is dropped rather than coerced.
-    expect(cfg.format).toBe(CONST.DEFAULT_LABEL.format);
-    expect(cfg.collide).toBe(true);
-    // `show` is a legal declaration key now, so an explicit `true` survives;
-    // `color` is legal too, but `green` is not a hex color — it degrades to
-    // the default rather than reaching the canvas as an invalid fill.
-    expect(cfg.show).toBe(true);
-    expect(cfg.color).toBe(CONST.DEFAULT_LABEL.color);
-  });
-
-  it("applies a declared color and size, normalised and clamped", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: {
-        foliplus: {
-          label: { field: "store", color: "#0F0", size: 99 },
-        },
-      },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-
-    const cfg = mgr.getConfig("l1");
-    // #rgb expands to #rrggbb (lowercase) so a later panel edit compares equal.
-    expect(cfg.color).toBe("#00ff00");
-    // The panel's own bounds still apply: a 99px declaration is clamped, not
-    // passed through as a size the UI could never produce.
-    expect(cfg.size).toBe(LABEL_SIZE.SIZE_MAX);
-    expect(cfg.field).toBe("store");
-  });
-
-  it("drops a non-numeric size and keeps the default", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: {
-        foliplus: { label: { field: "store", size: "12" } },
-      },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-
-    expect(mgr.getConfig("l1").size).toBe(CONST.DEFAULT_LABEL.size);
-  });
-
-  it("falls back when the declared field is not a string", () => {
-    // A number is the realistic typo: an author passes a column value instead of
-    // a column name. It must not reach the label renderer as text.
-    const { map } = makeMap();
-    const layer = {
-      options: { foliplus: { label: { field: 1200, format: "comma" } } },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-
-    const cfg = mgr.getConfig("l1");
-    expect(cfg.field).toBe(CONST.DEFAULT_LABEL.field);
-    // A valid sibling still applies — the bad key drops out on its own.
-    expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
-    // Activation rides on a real field name: a field that did not survive
-    // validation must not turn the labels on.
-    expect(cfg.show).toBe(CONST.DEFAULT_LABEL.show);
   });
 
   it("keeps labels off when the author declares show: false", () => {
-    // The escape hatch: the field is named so the panel starts on a sensible
-    // value, but the author wants no labels on the map.
-    const { map } = makeMap();
-    const layer = {
-      options: {
-        foliplus: { label: { field: "store", show: false } },
-      },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
+    withDeclared({ field: "store", show: false }, () => {
+      const { map } = makeMap();
+      const mgr = new LabelManager({ map, layerFind: () => null });
 
-    const cfg = mgr.getConfig("l1");
-    expect(cfg.field).toBe("store");
-    expect(cfg.show).toBe(false);
-  });
-
-  it("reads nothing when foliplus carries no label", () => {
-    // `foliplus` is a namespace folium and third-party layers share, so a layer
-    // can carry other dimensions (`icon`, label typography) with nothing declared
-    // for this control. The declaration is absent, not empty — every key stays at
-    // the built-in default.
-    const { map } = makeMap();
-    const layer = {
-      options: { foliplus: { icon: { color: "#ff0000" } } },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-
-    expect(mgr.getConfig("l1")).toEqual(mgr.defaultConfig());
+      const cfg = mgr.getConfig("l1");
+      expect(cfg.field).toBe("store");
+      expect(cfg.show).toBe(false);
+    });
   });
 
   it("takes the user's stored choice over the declaration", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: { foliplus: { label: { field: "store", format: "comma" } } },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-    mgr.setConfig("l1", {
-      ...mgr.getConfig("l1"),
-      field: "other",
-      format: NUMBER_FORMAT.PERCENT,
+    withDeclared({ field: "store", format: NUMBER_FORMAT.COMMA }, () => {
+      const { map } = makeMap();
+      const mgr = new LabelManager({ map, layerFind: () => null });
+      mgr.setConfig("l1", {
+        ...mgr.getConfig("l1"),
+        field: "other",
+        format: NUMBER_FORMAT.PERCENT,
+      });
+
+      const cfg = mgr.getConfig("l1");
+      expect(cfg.field).toBe("other");
+      expect(cfg.format).toBe(NUMBER_FORMAT.PERCENT);
     });
-
-    const cfg = mgr.getConfig("l1");
-    expect(cfg.field).toBe("other");
-    expect(cfg.format).toBe(NUMBER_FORMAT.PERCENT);
-  });
-
-  it("tolerates keys the control does not consume", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: {
-        foliplus: {
-          icon: { color: "#ff0000" },
-          label: { field: "store" },
-        },
-      },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-
-    expect(() => mgr.getConfig("l1")).not.toThrow();
-    expect(mgr.getConfig("l1").field).toBe("store");
   });
 
   it("clearConfig deletes the entry so the declaration shows through", () => {
-    const { map } = makeMap();
-    const layer = {
-      options: { foliplus: { label: { field: "store" } } },
-    } as unknown as L.Layer;
-    const mgr = new LabelManager({ map, layerFind: () => layer });
-    mgr.setConfig("l1", { ...mgr.getConfig("l1"), field: "other" });
-    expect(mgr.getConfig("l1").field).toBe("other");
+    withDeclared({ field: "store" }, () => {
+      const { map } = makeMap();
+      const mgr = new LabelManager({ map, layerFind: () => null });
+      mgr.setConfig("l1", { ...mgr.getConfig("l1"), field: "other" });
+      expect(mgr.getConfig("l1").field).toBe("other");
 
-    mgr.clearConfig("l1");
+      mgr.clearConfig("l1");
 
-    expect(mgr.hasConfig("l1")).toBe(false);
-    expect(mgr.configEntries()).toHaveLength(0);
-    expect(mgr.getConfig("l1").field).toBe("store");
+      expect(mgr.hasConfig("l1")).toBe(false);
+      expect(mgr.configEntries()).toHaveLength(0);
+      expect(mgr.getConfig("l1").field).toBe("store");
+    });
   });
 });
 

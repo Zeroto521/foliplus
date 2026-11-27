@@ -3,6 +3,7 @@ import { ATTRS_ROW_WRAP_CHARS } from "../context.js";
 import { displayName } from "../listPanel/rowView.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
+import { clearSurface, openSurface, registerSurfaceCloser } from "./openSurface.js";
 import { EVENTS } from "#core/event/index.js";
 import { ROLE, countChildLayersOf, isGroupRow } from "#core/layer/index.js";
 import {
@@ -231,12 +232,12 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 
   // Division of labour (single authority, no overlap): the PanelController
   // owns the dismissal contract (outside press, Escape, closeFromClick,
-  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
-  // fields keep the display state (item/panel/layerId) and the detach pipe
-  // (each close detaches exactly once so the next open can re-attach) — a
-  // controller is rebuilt per open, so it is not a persistent handle. Slices
-  // 1-2 removed the inline register object (the true double bookkeeping);
-  // these fields are not a second open/closed state.
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). "What is open"
+  // lives in the one state machine (overlayPanel/openSurface.ts); the record
+  // there carries the display handles (item / panel / layerId), and the detach
+  // pipe is the *OverlayUnregister resource below (each close detaches exactly
+  // once so the next open can re-attach). A controller is rebuilt per open, so
+  // it is not a persistent handle.
   // The PanelController owns the dismissal contract: closeFromClick swallows
   // the close-button press and closes with focus restore, swallowPress keeps
   // a mousedown off the row's drag handler. The registry entry is generated
@@ -281,7 +282,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
   // own: the layer control's disableClickPropagation means bubble mousedown
   // never reaches document, and the registry's capture dispatcher is the one
   // place that answers "outside this panel".
-  ui.overlayPanel.activeAttrsPanel = { item, panel, layerId };
+  openSurface(ui, { kind: "attrs", item, panel, layerId });
   // The PanelController owns this surface's dismissal contract and registry
   // identity; attachPanel turns it into the entry (id "layer.attrs") and
   // returns the detach, kept as the thin mirror the close path uses. One
@@ -295,6 +296,7 @@ const openAttrsPanel = (ui: LayerUI, item: HTMLElement) => {
 /** Close the attributes panel. setFocus = true returns focus to the row. */
 
 const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
+  const open = ui.overlayPanel.activeAttrsPanel;
   ui.overlayPanel.attrsOverlayUnregister?.();
   ui.overlayPanel.attrsOverlayUnregister = null;
   if (ui.overlayPanel.attrsUnsubscribe) {
@@ -303,12 +305,14 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
   }
   ui.overlayPanel.attrsRemovedUnsub?.();
   ui.overlayPanel.attrsRemovedUnsub = null;
-  if (!ui.overlayPanel.activeAttrsPanel) return;
-  const item = ui.overlayPanel.activeAttrsPanel.item;
-  unpinRowPanel(item);
-  ui.overlayPanel.activeAttrsPanel.panel.remove();
-  ui.overlayPanel.activeAttrsPanel = null;
-  if (setFocus) item.focus();
+  if (!open) return;
+  // Clear the state before removing the DOM: the removal can fire a focusout
+  // that re-enters this close, and that pass must see no surface (the same
+  // ordering the menu close needs for its focusout).
+  clearSurface(ui, "attrs");
+  unpinRowPanel(open.item);
+  open.panel.remove();
+  if (setFocus) open.item.focus();
 };
 
 /**
@@ -320,5 +324,9 @@ const closeAttrsPanel = (ui: LayerUI, setFocus: boolean) => {
  * trailing space in the committed name would otherwise render as a zero-width
  * gap, so the value is trimmed on commit.
  */
+
+// The state machine's close dispatch for this kind. setFocus stays false:
+// being replaced by another surface is not a user dismissal.
+registerSurfaceCloser("attrs", ui => closeAttrsPanel(ui, false));
 
 export { openAttrsPanel, closeAttrsPanel };

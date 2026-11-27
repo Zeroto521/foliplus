@@ -14,11 +14,11 @@ instead of taking the page down.
 
 :::{note}
 
-The namespace is read two ways. `zoom_range` and `folder` are
-normalised on the Python side into the panel's CONF facts. `fill`,
-`label`, `filter`, `border`, `marker_color`, `icon_size`, `opacity`,
-`icon` and `marker` are
-consumed by the JavaScript panel straight off
+The namespace is read two ways. `zoom_range`, `folder` and `label` are
+normalised on the Python side into the panel's CONF facts
+(`data[].zoom_range`, `data[].folder` and `data[].label`). `fill`,
+`filter`, `border`, `marker_color`, `icon_size`, `opacity`,
+`icon` and `marker` are consumed by the JavaScript panel straight off
 `layer.options.foliplus`; Python validates their shape and warns once at
 collection time so a malformed declaration is reported where it was
 written, and the JavaScript side owns the runtime verdict (for example the
@@ -304,9 +304,14 @@ turns the labels on. The optional keys:
 default is off). An explicit `show: false` names a field for the panel's
 starting point while keeping the map clean. Labels from different layers never
 avoid each other — the layers are stacked, so an upper layer simply covers the
-lower one's; the style panel overrides this per layer. An invalid `format`,
-`color` or `size` degrades to its default rather than reaching the label
-renderer unresolved.
+lower one's; the style panel overrides this per layer.
+
+The block is normalised once on the Python side and the panel reads the
+normalised record from CONF (not the raw namespace). A wrong type, an unknown
+key or an unknown `format` warns once and is ignored; a `color` that is not a
+hex warns and is ignored (a valid `#rgb` is expanded to `#rrggbb`); a `size`
+outside 6-32 px warns and is clamped into that range. The rest of the block
+still applies — one bad key does not discard its valid siblings.
 
 (filter)=
 

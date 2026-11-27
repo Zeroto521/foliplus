@@ -110,6 +110,31 @@ def test_collect_layer_data_carries_the_author_paint_fact() -> None:
     assert author["stops"] == ["#ff0000", "#00ff00"], author
 
 
+def test_collect_layer_data_carries_the_normalised_label_fact() -> None:
+    layer = folium.GeoJson(
+        feature_collection(),
+        name="a",
+        foliplus={"label": {"field": "name", "color": "#0F0"}},
+    )
+    row = _row(collect_layer_data(_control_with(layer)), "a")
+    assert row["label"] == {
+        "field": "name",
+        "color": "#00ff00",
+        "show": True,
+    }, row
+
+
+def test_collect_layer_data_warns_on_an_invalid_label_and_omits_the_fact() -> None:
+    layer = folium.GeoJson(
+        feature_collection(),
+        name="a",
+        foliplus={"label": {"format": "thousands"}},
+    )
+    with pytest.warns(UserWarning, match="with a format 'thousands'"):
+        row = _row(collect_layer_data(_control_with(layer)), "a")
+    assert "label" not in row
+
+
 def test_collect_layer_data_warns_on_a_malformed_declaration() -> None:
     layer = folium.GeoJson(feature_collection(), name="a", foliplus={"border": "nope"})
     with pytest.warns(UserWarning):

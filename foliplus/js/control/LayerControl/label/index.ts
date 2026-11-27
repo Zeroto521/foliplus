@@ -26,22 +26,15 @@ import {
   resolveSelectedField,
   withinRect,
 } from "#core/label/index.js";
-import {
-  NO_FEATURE_TREE_KINDS,
-  findNode,
-  labelProjection,
-  walkLeaf,
-} from "#core/layer/index.js";
+import { NO_FEATURE_TREE_KINDS, labelProjection, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
-import type { NumberStyle } from "#foliplus/config-schema.js";
-import { normalizeHexColor } from "#platform/color.js";
+import type { LayerData, NumberStyle } from "#foliplus/config-schema.js";
 import { finalize } from "#platform/finalize.js";
-import { NUMBER_FORMAT, formatLabelNumber } from "#platform/format.js";
+import { formatLabelNumber } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import {
   type CanvasLabelStyle,
   LABEL_CLASS,
-  clampLabelSize,
   resolveCanvasLabelStyle,
   withLabelPaint,
 } from "#ui/index.js";
@@ -63,25 +56,12 @@ interface LayerLabel {
   priority: number;
 }
 
-/** The foliplus-owned slice of a layer's options — the one namespaced corner
- *  of a record Leaflet, folium and third-party layers all write into. */
-type FoliplusLayerOptions = {
-  foliplus?: FoliplusDeclaration;
-};
-
-/** A declaration an author leaves on the layer itself — `explore(foliplus=...)`
- *  in folium, serialized onto `layer.options.foliplus` by the layer's own
- *  template. Only the dimensions this control consumes are typed; everything
- *  else rides the index signature and is ignored, so a newer dimension
- *  (`icon`, label typography) degrades instead of throwing.
- *
- *  Hand-written rather than schema-generated: the value never crosses from
- *  Python, so there is no Python source for the generator to read. */
-type FoliplusDeclaration = {
-  /** The author-facing key. */
-  label?: Partial<LabelConfig>;
-  [key: string]: unknown;
-};
+/** The normalised per-layer label declaration, the CONF fact Python ships in
+ *  `data[].label`. `normalise_label` (foliplus/_declaration/label.py) owns
+ *  every value judgement — the format vocabulary, the hex shape, the size
+ *  bounds, the key types — and warns once at collection time for a key it
+ *  rejects, so the raw `foliplus` namespace is never a second label channel. */
+type DeclaredLabel = NonNullable<LayerData[number]["label"]>;
 
 // CONFIG is a free variable from the IIFE template wrapper.
 
@@ -98,56 +78,25 @@ const ANCHOR_CULL_MARGIN = 300;
  *  is part of the shared planner's candidate contract. */
 const LABEL_PRIORITY = 50;
 
-/** Whether a string is one of the declared number formats — a typo has to
- *  degrade to the default, not reach the label renderer unresolved. */
-const isDeclaredFormat = (format: string): format is NumberStyle =>
-  (Object.values(NUMBER_FORMAT) as NumberStyle[]).includes(format as NumberStyle);
-
-/** Whether a string is a hex color the label renderer can paint — the panel's
- *  color input and the built-in default are both hex, so anything else is a
- *  typo and degrades to the token default instead of reaching the canvas.
- *  `#rgb` is accepted and normalised to `#rrggbb` so a declared color and a
- *  later panel edit compare equal. */
-const isDeclaredColor = (color: string): boolean =>
-  /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color);
-
-/** The label keys an author declared for one layer — a PARTIAL record:
- *  only the keys actually declared are returned. An absent key must stay
- *  absent so the default below it survives the merge; coercing a full config
- *  (`coerceAnnotationFields`, ui/style/label.ts) would read an undeclared
- *  `collide` as `true` and shadow the page-level `label_collide` — the author
- *  named one field and the whole page's avoidance silently changed.
+/** The label keys the author declared for one layer — a PARTIAL record: only
+ *  the keys that survived Python's normaliser are present. An absent key must
+ *  stay absent so the default below it survives the merge; coercing a full
+ *  config (`coerceAnnotationFields`, ui/style/label.ts) would read an
+ *  undeclared `collide` as `true` and shadow the page-level `label_collide` —
+ *  the author named one field and the whole page's avoidance silently changed.
+ *
+ *  The record is read, not re-validated: CONF is the trust boundary here, the
+ *  same split `declaredFilter` follows. A second shape judgement in JS would
+ *  be a second source for a fact Python already normalised, and the two sides
+ *  could disagree on what an author may write. The "declaring a field turns
+ *  the labels on" rule lives in the normaliser for the same reason.
  *
  *  Keys stay SHORT here because the declaration's own `label` namespace
  *  already says label: the `label_` prefix belongs to the flat surfaces
  *  (Python kwargs, CONF, locale), where `show`/`color` would collide with
  *  other parameters. */
-const pickDeclaredAnnotation = (
-  raw: Partial<LabelConfig> | undefined,
-): Partial<LabelConfig> => {
-  if (!raw) return {};
-  const out: Partial<LabelConfig> = {};
-  if (typeof raw.field === "string") out.field = raw.field;
-  if (typeof raw.format === "string" && isDeclaredFormat(raw.format)) {
-    out.format = raw.format;
-  }
-  if (typeof raw.color === "string" && isDeclaredColor(raw.color)) {
-    out.color = normalizeHexColor(raw.color);
-  }
-  // The panel clamps the size input to the shared bounds; a declaration goes
-  // through the same clamp so a hand-written 99px cannot reach the canvas.
-  if (typeof raw.size === "number" && Number.isFinite(raw.size)) {
-    out.size = clampLabelSize(raw.size);
-  }
-  if (typeof raw.collide === "boolean") out.collide = raw.collide;
-  // Declaring a field turns the layer's labels on — the built-in default is off,
-  // so a field alone would be visible only as the panel's starting value. An
-  // explicit `show: false` is the escape hatch: name a field for the panel's
-  // starting point while keeping the map clean.
-  if (typeof raw.show === "boolean") out.show = raw.show;
-  else if (out.field !== undefined) out.show = true;
-  return out;
-};
+const readDeclaredLabel = (raw: DeclaredLabel | undefined): Partial<LabelConfig> =>
+  raw ?? {};
 
 /**
  * LabelManager owns per-layer label state, the per-layer plans and the
@@ -169,10 +118,11 @@ class LabelManager {
   /** The field each layer's labels read, resolved from its config and its
    *  fields. Dropped when the config or the layer's features change. */
   private readonly resolvedFieldCache: Map<string, string>;
-  /** Author-declared label keys per id. Cached: getConfig runs once per
-   *  layer per frame (refreshPan → layerSpec/paintStyle), and a declaration
-   *  is static for the life of the page, so the tree walk underneath runs once. */
-  private readonly authorCache: Map<string, Partial<LabelConfig>>;
+  /** The normalised author declarations, keyed by layer id. CONF is static for
+   *  the life of the rendered control, so one read at construction builds the
+   *  whole map; getConfig then runs once per layer per frame
+   *  (refreshPan → layerSpec/paintStyle). */
+  private readonly declared: Map<string, Partial<LabelConfig>>;
   /** The labels each layer wants drawn. */
   private readonly labelsByLayer = new Map<string, LayerLabel[]>();
   private readonly canvases = new Map<string, LabelCanvas>();
@@ -211,7 +161,10 @@ class LabelManager {
     this.layerFind = opts.layerFind;
     this.config = new Map();
     this.resolvedFieldCache = new Map();
-    this.authorCache = new Map();
+    this.declared = new Map();
+    for (const row of CONFIG.data ?? []) {
+      if (row.label) this.declared.set(row.id, readDeclaredLabel(row.label));
+    }
 
     // The same event contract HeatmapControl's canvas uses. A pan translates
     // every label by the same delta, so the collision decision stands — only
@@ -330,23 +283,7 @@ class LabelManager {
    *  intent, and the store's document domain is user intent. getConfig is the
    *  single read point, so no consumer has to know the declaration exists. */
   private authorAnnotation(id: string): Partial<LabelConfig> {
-    const cached = this.authorCache.get(id);
-    if (cached !== undefined) return cached;
-    const layer = this.layerFind(id);
-    if (!layer) return {}; // not linked yet — leave unknown, never cache it
-    const declared = findNode(
-      layer,
-      node => (node.options as FoliplusLayerOptions | undefined)?.foliplus,
-    );
-    // No foliplus namespace yet: the load-time sweep can read a layer before
-    // it has attached one (folium lands a layer's script after the control's),
-    // so an empty read is provisional — caching it would shadow the declaration
-    // that arrives later, for the life of the page. Only a resolved namespace
-    // is static and cacheable.
-    if (!declared) return {};
-    const out = pickDeclaredAnnotation(declared.label);
-    this.authorCache.set(id, out); // the declaration is static once resolved
-    return out;
+    return this.declared.get(id) ?? {};
   }
 
   setConfig(id: string, cfg: LabelConfig): void {
@@ -359,9 +296,7 @@ class LabelManager {
    *  writing a full default record is what lets the author's declaration show
    *  through: getConfig then reads "built-in defaults ⊕ author declaration",
    *  and collide still comes from the page-level `label_collide` default.
-   *  Distinct from `unloadLayer`, which must keep the config across a teardown.
-   *  `authorCache` is deliberately left alone — the declaration belongs to the
-   *  layer, not the user, so only `destroyLayer` drops that entry. */
+   *  Distinct from `unloadLayer`, which must keep the config across a teardown. */
   clearConfig(id: string): void {
     this.config.delete(id);
     this.resolvedFieldCache.delete(id);
@@ -614,7 +549,6 @@ class LabelManager {
   destroyLayer(id: string): void {
     this.unloadLayer(id);
     this.config.delete(id);
-    this.authorCache.delete(id);
     this.layerAlphas.delete(id);
   }
 
@@ -642,7 +576,6 @@ class LabelManager {
     this.planOrigins.clear();
     this.config.clear();
     this.resolvedFieldCache.clear();
-    this.authorCache.clear();
     this.layerAlphas.clear();
   }
 

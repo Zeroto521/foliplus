@@ -1,3 +1,4 @@
+// control/MeasureControl/mode/distance — distance mode: click to place nodes, double-click to finish, one label per segment.
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachDistanceUI } from "../ui/index.js";

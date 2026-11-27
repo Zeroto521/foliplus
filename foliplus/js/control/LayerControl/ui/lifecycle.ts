@@ -52,6 +52,7 @@ import {
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeFilterPanel } from "./overlayPanel/filter.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
+import { closeSurface } from "./overlayPanel/openSurface.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { type PanelScope, type ScopeSubscription, createScope } from "./scope.js";
 import { loadPersistedState } from "./state.js";
@@ -473,16 +474,13 @@ const bindLayerEvents = (ui: LayerUI): void => {
     subscribe(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
     }),
-    // Overlay mutual exclusion — each subsystem closes itself when it hears
-    // the signal. closeOverlays (teardown.ts) emits this; the subsystem that
-    // is about to open sees "I'm not open" and no-ops. Focus is guarded by
-    // isFocusing so the O(layers) applyProjectionAll sweep only runs when
-    // there is actually a focus to tear down.
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeFilterPanel(ui, false)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    // Overlay mutual exclusion — one surface can be open, so one call answers
+    // the signal: the state machine dispatches to the open kind's closer (each
+    // kind used to be its own OVERLAY_CLEAR subscriber here). closeOverlays
+    // (teardown.ts) emits this; focus is still a separate map state, guarded by
+    // isFocusing so the O(layers) applyProjectionAll sweep only runs when there
+    // is actually a focus to tear down.
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeSurface(ui)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => {
       if (ui.isFocusing()) dismissFocus(ui);
     }),

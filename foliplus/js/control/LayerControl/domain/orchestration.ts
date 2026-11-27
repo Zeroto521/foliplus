@@ -7,11 +7,13 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and LabelManager — both LayerControl-local.
+import { readDeclaredOpacity } from "../declaredParse.js";
 import type { LabelManager } from "../label/index.js";
 import type { LayerPersistence } from "../persistence.js";
 import type { LayerIntentStore } from "./LayerIntentStore.js";
 import { hasLabelField } from "#core/label/index.js";
 import {
+  HIDDEN,
   INTENT,
   KIND,
   type LayerFactory,
@@ -27,9 +29,12 @@ import {
   ROLE,
   type RegisterLayerOpts,
   type SurfaceIndex,
+  type VisibilityFactors,
   findLayer as findLayerUtil,
   labelPaneNameOf,
+  paintProjection,
   paintsAtZoom,
+  resolvePaintOpacity,
   topSlotZ,
   zFor,
 } from "#core/layer/index.js";
@@ -145,17 +150,18 @@ class LayerOrchestration {
     return this.layerRegistry.canReorderBetween(fromIdx, toIdx);
   }
 
-  /** Which attribution string belongs to the topmost *painting* base — `''`
+  /** Which attribution string belongs to the topmost *painting* base - ''
    *  when none paints. Pure (no Leaflet writes), so it is unit-testable
    *  without mocking the control's private table.
    *
    *  Registry order is list order, and index 0 is the visually topmost layer
-   *  (`zFor` prices `count - index`). The first checked base that is
-   *  effective shown is therefore the one whose attribution the user expects.
-   *  `paintsAtZoom` is the effective-shown gate — a layer must be on the map
-   *  (`hasLayer`) AND its zoom must be within its own `minZoom/maxZoom` range
-   *  (outside that range Leaflet's GridLayer builds no tiles, so it isn't
-   *  painting). A layer that is checked but not painting is not "being shown".
+   *  (`zFor` prices `count - index`). The first base that is *painting* is
+   *  therefore the one whose attribution the user expects. Painting is the
+   *  shared paint composition (`paintProjection` over the six factors), not a
+   *  local zoom check: a base dragged to opacity 0, or one whose HIDDEN face
+   *  is off the map, paints nothing, and its attribution leaves the table with
+   *  it - the basemap hatch already judges the same observation, so the two
+   *  can no longer disagree on screen.
    */
   desiredAttribution(): string {
     for (
@@ -167,10 +173,54 @@ class LayerOrchestration {
       if (layerInfo.role !== ROLE.BASE) continue;
       const layer = this.findLayer(layerInfo);
       if (!(layer instanceof L.TileLayer) || !layer.options.attribution) continue;
-      if (!paintsAtZoom(this.map, layer)) continue;
+      if (!paintProjection(this.paintFactors(layerInfo, layer))) continue;
       return layer.options.attribution;
     }
     return "";
+  }
+
+  /** The paint facts of one layer, gathered from the sources the domain
+   *  owns. The three factors that decide the verdict are read from the same
+   *  sources the panel reads: container from the map membership and the
+   *  HIDDEN face, zoom from the shared `paintsAtZoom` probe, and opacity
+   *  through the shared `resolvePaintOpacity` rule - so an author-declared
+   *  opacity lands here exactly as it lands in the panel. The intent-facing
+   *  factors (`declared` / `filter` / `ancestor`) are ignored by the paint
+   *  composition; they stay true because this read answers whether the layer
+   *  paints, and the domain carries no panel state to answer them with. Focus
+   *  is not read either (the domain has no focus controller): a focused base
+   *  still paints at full strength, so the attribution follows its stored
+   *  opacity.
+   */
+  private paintFactors(layerInfo: LayerInfo, layer: L.Layer): VisibilityFactors {
+    const intent = this.intentStore.get(layerInfo.id, INTENT.OPACITY);
+    const opacity = resolvePaintOpacity({
+      focused: false,
+      intent: typeof intent === "number" ? intent : undefined,
+      declared: () => readDeclaredOpacity(layer, layerInfo.id).declared,
+      authorDefault: layerInfo.opacity,
+    });
+    return {
+      declared: true,
+      container: this.containerPaints(layerInfo.id, layer),
+      zoom: paintsAtZoom(this.map, layer),
+      opacity: opacity > 0,
+      filter: true,
+      ancestor: true,
+    };
+  }
+
+  /** On the map and not carrying the HIDDEN class on the face its paint
+   *  lands in - the layer own container when it has one, else its auto pane.
+   *  The same read `visibilityOf` performs; it lives here because the domain
+   *  owns the map and no ui handle reaches this class.
+   */
+  private containerPaints(id: string, layer: L.Layer): boolean {
+    if (!this.map.hasLayer(layer)) return false;
+    const element =
+      (layer as { getContainer?: () => HTMLElement | null }).getContainer?.() ?? null;
+    const face = element ?? this.map.getPane(`leaflet-${id}`) ?? null;
+    return !(face?.classList.contains(HIDDEN) ?? false);
   }
 
   /** Syncs the attribution control to show exactly one entry: the topmost

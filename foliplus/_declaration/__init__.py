@@ -1,14 +1,15 @@
 """Normalisation for the caller-facing declarations.
 
-Three payloads reach Python, and all are *declarations* rather than values the
-runtime computes: the zoom range, the filter, and the folder. The verdict rule
+Every caller-facing payload that reaches Python is a *declaration* rather than
+a value the runtime computes: the zoom range, the filter, the folder, and the
+per-layer label block. The verdict rule
 is shared: a malformed declaration is reported once and then treated exactly
 like "not declared", never as a reason to hide data or take the page down.
 
 Each declaration family lives in its own module (key, warning, zoom_range,
-filter, paint/fill, folder, marker, opacity, face); this package re-exports the
-whole public surface, so foliplus._declaration.<name> keeps working for every
-consumer.
+filter, paint/fill, folder, label, marker, opacity, face); this package
+re-exports the whole public surface, so foliplus._declaration.<name> keeps
+working for every consumer.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from .key import (
     OPACITY_KEY,
     ZOOM_RANGE_KEY,
 )
+from .label import NUMBER_FORMATS, normalise_label
 from .marker import normalise_icon_size, normalise_marker_color
 from .opacity import normalise_color_opacity, normalise_opacity
 from .paint import (
@@ -75,6 +77,7 @@ __all__ = [
     "MARKER_COLOR_KEY",
     "MARKER_KEY",
     "MEASURE_TYPE_FIELD",
+    "NUMBER_FORMATS",
     "OPACITY_KEY",
     "PACKAGE_DIR",
     "ZOOM_RANGE_KEY",
@@ -91,6 +94,7 @@ __all__ = [
     "normalise_folder",
     "normalise_icon_face",
     "normalise_icon_size",
+    "normalise_label",
     "normalise_layer_filter",
     "normalise_marker_color",
     "normalise_marker_face",

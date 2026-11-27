@@ -795,12 +795,15 @@ describe("LayerUI focus", () => {
     // tests drive it through the public entry (no direct export).
 
     describe("hideOtherLayers marks only the active basemap", () => {
-      const registerBase = (id: string): void => {
+      const registerBase = (
+        id: string,
+        layerOptions: Record<string, unknown> = {},
+      ): void => {
         manager.registerLayer({
           id,
           name: id,
           role: "base",
-          layer: { options: {} },
+          layer: { options: layerOptions },
           paneName: `${id}Pane`,
         });
         manager.enforceOrder();
@@ -854,6 +857,28 @@ describe("LayerUI focus", () => {
         for (const pane of basePanes("base1")) {
           expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
             false,
+          );
+        }
+      });
+
+      it("skips a base the author declared transparent", () => {
+        // The author declaration is not the user's opacity intent: a base the
+        // author faded to 0 paints nothing, so focus must not exempt it as the
+        // active basemap. This is the hop the controller visibility gather
+        // does not carry yet, which is why the pane still reads basePaints.
+        registerBase("base2", { foliplus: { opacity: 0 } });
+
+        ui.focusLayer("overlay1");
+
+        for (const pane of basePanes("base2")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            false,
+          );
+        }
+        // The next base down still paints, so it is the active basemap.
+        for (const pane of basePanes("base1")) {
+          expect(pane.element.classList.contains(CONST.CLASSES.FOCUS_BASEMAP)).toBe(
+            true,
           );
         }
       });

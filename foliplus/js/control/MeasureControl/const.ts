@@ -1,3 +1,4 @@
+// control/MeasureControl/const — timing, label-anchor, pane and CSS-class constants shared by every measure mode and its UI.
 import type { ExportDataFormat } from "./type.js";
 import { DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
 import { scopedStorageKey } from "#platform/storage.js";
