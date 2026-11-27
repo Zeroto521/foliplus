@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Annotated, get_args
 
 from foliplus._config_schema import FieldSpec
+from foliplus._declaration import NUMBER_FORMATS
 
 from ._role import LayerRole
 
@@ -76,7 +77,7 @@ LAYER_DATA_FIELDS = {
                         {
                             "show": ("bool", "?"),
                             "field": ("string", "?"),
-                            "format": (("auto", "int", "comma", "percent"), "?"),
+                            "format": (NUMBER_FORMATS, "?"),
                             "color": ("string", "?"),
                             "size": ("number", "?"),
                             "collide": ("bool", "?"),

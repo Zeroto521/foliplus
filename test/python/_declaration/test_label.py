@@ -107,6 +107,27 @@ class TestNormaliseLabel:
         with pytest.warns(UserWarning, match="clamped to 6"):
             assert normalise_label({"size": 1}, owner="Owner") == {"size": 6}
 
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            (5.5, 6),  # a fraction below the min bound clamps up, not down
+            (32.5, 32),  # a fraction above the max bound clamps down
+            (12.5, 12.5),  # an in-range fraction keeps its fraction
+            (-3.5, 6),  # a negative lands on the min bound, not on 0
+            (6.4, 6.4),  # a value just above the min keeps its fraction
+        ],
+    )
+    def test_a_fractional_size_clamps_on_the_shared_bounds(
+        self, raw: float, expected: float
+    ) -> None:
+        if raw == expected:
+            assert normalise_label({"size": raw}, owner="Owner") == {"size": expected}
+        else:
+            with pytest.warns(UserWarning, match=f"clamped to {expected:g}"):
+                assert normalise_label({"size": raw}, owner="Owner") == {
+                    "size": expected
+                }
+
     def test_a_non_numeric_size_warns(self) -> None:
         with pytest.warns(UserWarning, match="with a size '12'"):
             assert normalise_label({"size": "12"}, owner="Owner") is None
@@ -115,7 +136,9 @@ class TestNormaliseLabel:
         with pytest.warns(UserWarning, match="with a size True"):
             assert normalise_label({"size": True}, owner="Owner") is None
 
-    def test_a_non_finite_size_warns(self) -> None:
+    def test_a_non_finite_size_is_rejected_before_the_clamp(self) -> None:
+        # NaN and +/-Infinity are not clamped into the bounds: there is no
+        # sensible clamp target for them, so the declaration drops the size.
         for bad in (math.nan, math.inf, -math.inf):
             with pytest.warns(UserWarning, match="with a size"):
                 assert normalise_label({"size": bad}, owner="Owner") is None
