@@ -86,7 +86,7 @@ import {
   type DisplayModeSpec,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
-import { normalizeHexColor, parseColorAlpha } from "#platform/color.js";
+import { isHexColor, normalizeHexColor, parseColorAlpha } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { withUnit } from "#platform/format.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
@@ -708,7 +708,9 @@ const resetLayerBorder = (ui: LayerUI, layerId: string): void => {
  *  will not accept is passed through untouched, so an unpaintable declaration
  *  is not silently invented into one that can be painted. */
 const displayColor = (value: string): string => {
-  if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+  // isHexColor also admits the 3-digit form; normalizeHexColor brings both
+  // shapes to the #rrggbb the color input's value is defined for.
+  if (isHexColor(value)) return normalizeHexColor(value).toLowerCase();
   const probe = document.createElement("span");
   probe.style.color = value;
   if (!probe.style.color) return value;
