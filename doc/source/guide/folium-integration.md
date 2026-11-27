@@ -22,8 +22,9 @@ m
 :::{note}
 
 foliplus declares a **hard floor** of folium `>=0.15.0`
-(`pyproject.toml`). The suite is tested against the `0.15.x` – `1.0.0`
-range. Version 1.0.0 has been verified as a compatible upgrade — the folium
+(`pyproject.toml`). The test matrix pins two folium versions — the declared
+floor `0.15.0` and the current release (`latest`; `1.0.0` today). Version
+1.0.0 has been verified as a compatible upgrade — the folium
 internal APIs foliplus relies on (the `Layer` base class,
 `MacroElement`/`Element`/`Figure` chain, `branca.element`,
 `JSCSSMixin`, the Jinja2 render path) are all unchanged, and the full

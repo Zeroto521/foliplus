@@ -23,23 +23,23 @@ Recognised parameters
 
   * ``fill``, ``border``, ``marker_color``, ``icon_size``, ``icon``,
     ``marker``, ``opacity`` -- read straight off the namespace by the JS
-    panel; Python only shape-validates and warns once (``icon`` / ``marker``
-    are the sub-dimension blocks, e.g. ``{"colorOpacity": 60}``).
+    panel; Python only shape-validates and warns once per layer and key
+    (``icon`` / ``marker`` are the sub-dimension blocks, e.g.
+    ``{"colorOpacity": 60}``).
   * ``zoom_range``, ``folder``, ``filter``, ``label`` -- normalised in
     Python into the CONF ``data[].zoom_range`` / ``data[].folder`` /
     ``data[].filter`` / ``data[].label``, so the visibility, grouping,
     filter and label policies each read one validated CONF fact instead of
     the raw namespace.
 
-  An unknown key warns once (``unknown:{key}``) and is ignored; a
-  non-mapping ``foliplus=`` value warns and is ignored too.
+  An unknown key warns once per layer and key (``unknown:{key}``) and is
+  ignored; a non-mapping ``foliplus=`` value warns and is ignored too.
 
 ``overlay=`` / ``show=``
-  ``folium.overlay`` maps one-to-one onto the row's ``role``
-  (``_role.py`` ``layer_role``; the mapping itself is documented on
-  :doc:`folium-integration`). ``folium.show`` is the row's initial
-  visibility (``_collect.py`` ``show: bool(item.show)``) -- a ``show=False``
-  layer is listed but hidden until the user toggles it.
+  ``folium.show`` is the row's initial visibility (``_collect.py``
+  ``show: bool(item.show)``) -- a ``show=False`` layer is listed but hidden
+  until the user toggles it. The ``overlay=``-to-role mapping is documented
+  once on :doc:`folium-integration`.
 
 ``Icon`` glyph / prefix
   ``folium.Icon(icon=, prefix=)`` sets the glyph. foliplus reads the
@@ -75,7 +75,7 @@ Third-party plugins, folium's native ``LayerControl`` and LayerGroup sub-layer e
 .. note::
 
    Every ``foliplus={...}`` key that is not one of ``FOLIPLUS_KEYS``
-   warns once and is ignored (``unknown:{key}``). No folium option is
-   silently dropped by foliplus -- if it is not read, it either warns or
-   is outside the panel's surface (a ``style_function``, a third-party
-   plugin).
+   warns once per layer and key and is ignored (``unknown:{key}``). No
+   folium option is silently dropped by foliplus -- if it is not read, it
+   either warns or is outside the panel's surface (a ``style_function``,
+   a third-party plugin).
