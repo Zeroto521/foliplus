@@ -27,16 +27,22 @@ import * as CONST from "#control/LayerControl/const.js";
 const renameLayer = (ui: LayerUI, layerId: string): void => {
   if (!layerId || !ui.uiContainer) return;
 
-  // Validate before tearing down: an unknown id or a row without a label would
-  // otherwise clear whatever the user had open and then fail to open anything.
+  // Validate before tearing down: an unknown id or a row that is not in the DOM
+  // would otherwise clear whatever the user had open and then fail to open
+  // anything.
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (!layerInfo) return;
 
   const item = ui.uiContainer.querySelector(
     `[${CONST.DATA.LAYER_ID}="${CSS.escape(layerId)}"]`,
   ) as HTMLElement | null;
-  const label = item?.querySelector("label") as HTMLLabelElement | null;
-  if (!item || !label) return;
+  // Rows are a render product, so a registered layer can be without one (a
+  // programmatic register, a rebuild in flight) — that is the one real branch.
+  // Every rendered row carries its <label>: the row builder creates the two
+  // together (listPanel/list.ts), so the label lookup is asserted, not
+  // re-checked (the unreachable conjunct #1407 folded away elsewhere).
+  if (!item) return;
+  const label = item.querySelector("label") as HTMLLabelElement;
 
   closeOverlays(ui);
 
