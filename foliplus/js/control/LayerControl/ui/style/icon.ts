@@ -44,7 +44,7 @@ import { dom } from "#platform/dom.js";
 import { FORM_CLASS, POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
-  type DeclaredIconBlock,
+  type DeclaredIconFace,
   readDeclaredIcon,
   readDeclaredIconSize,
 } from "#control/LayerControl/declaredParse.js";
@@ -57,11 +57,11 @@ import {
 const declaredIconSizeOf = (layer: unknown): number | undefined =>
   readDeclaredIconSize(layer).declared;
 
-/** The author-declared icon face (foliplus icon block), or undefined when the
+/** The author-declared icon face (foliplus icon face), or undefined when the
  *  layer declares none. Read off the layer so the declared glyph / colour /
  *  alpha ride every re-derivation exactly like the declared icon size does;
- *  the block reader owns normalisation + warnings, so this is the only read. */
-const declaredIconOf = (layer: unknown): DeclaredIconBlock | undefined =>
+ *  the face reader owns normalisation + warnings, so this is the only read. */
+const declaredIconOf = (layer: unknown): DeclaredIconFace | undefined =>
   readDeclaredIcon(layer).declared;
 
 /** Grid columns for the glyph picker popup. */
@@ -86,7 +86,7 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   // color and a color edit must carry the current glyph). A URL / divIcon
   // source ignores the color (an <img> cannot inherit it; the divIcon paints
   // its own), but the walk still needs the intent kind to route.
-  // The declared icon block is the read-time default for the two orthogonal
+  // The declared icon face is the read-time default for the two orthogonal
   // dimensions; the user's intents win, the declaration rides a glyph write so
   // the three never split across two constructions.
   const declared = declaredIconOf(layer);
@@ -132,7 +132,7 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   resetIconLeaves(layer);
-  // The declared icon block is the read-time default Reset returns to: when
+  // The declared icon face is the read-time default Reset returns to: when
   // the author declared a glyph / colour / alpha, re-derive on the freshly
   // restored author icons so the three never split across two writes. A user
   // icon-colour intent is orthogonal and still survives a glyph reset.
@@ -238,7 +238,7 @@ const authorGlyphName = (ui: LayerUI, layerId: string): AuthorGlyph | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
   // The declared glyph is the read-time default the row shows and Reset
-  // returns to; the author's drawn icon is only the fallback when the block
+  // returns to; the author's drawn icon is only the fallback when the face
   // declares none (the declaration beats the draw, the user intent beats both).
   const declared = declaredIconOf(layer)?.glyph;
   if (declared !== undefined) {

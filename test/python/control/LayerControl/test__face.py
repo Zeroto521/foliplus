@@ -1,8 +1,8 @@
-"""The icon / marker declaration block readers
+"""The icon / marker face declaration readers
 (foliplus.control.LayerControl._face).
 
 The shared normaliser owns the spelling rule and the per-value shape; this
-reader owns the layer channel: it reads the block off one layer's
+reader owns the layer channel: it reads the face off one layer's
 `foliplus={...}` namespace and warns once, the same single read point the
 other declared* readers use.
 """
@@ -18,8 +18,8 @@ from conftest import feature_collection
 
 from foliplus import LayerControl
 from foliplus.control.LayerControl._face import (
-    declared_icon_block,
-    declared_marker_block,
+    declared_icon,
+    declared_marker,
 )
 
 
@@ -53,25 +53,25 @@ def _geo(name: str = "Declared", **options: object) -> folium.GeoJson:
     return folium.GeoJson(feature_collection(), name=name, **options)
 
 
-def test_declared_icon_block_is_read() -> None:
+def test_declared_icon_is_read() -> None:
     layer = _geo(name="IconA", foliplus={"icon": {"glyph": "star", "color": "#FF0000"}})
-    assert declared_icon_block(layer, "IconA") == {"glyph": "star", "color": "#ff0000"}
+    assert declared_icon(layer, "IconA") == {"glyph": "star", "color": "#ff0000"}
 
 
 def test_the_snake_alpha_spelling_is_read_and_canonicalised() -> None:
     layer = _geo(name="IconB", foliplus={"icon": {"color_opacity": 60}})
-    assert declared_icon_block(layer, "IconB") == {"colorOpacity": 60}
+    assert declared_icon(layer, "IconB") == {"colorOpacity": 60}
 
 
-def test_an_undeclared_icon_block_is_none() -> None:
-    assert declared_icon_block(_geo(name="IconC"), "IconC") is None
-    assert declared_icon_block(_geo(name="IconD", foliplus={}), "IconD") is None
+def test_an_undeclared_icon_is_none() -> None:
+    assert declared_icon(_geo(name="IconC"), "IconC") is None
+    assert declared_icon(_geo(name="IconD", foliplus={}), "IconD") is None
 
 
-def test_a_non_mapping_icon_block_is_none_and_warns() -> None:
+def test_a_non_mapping_icon_is_none_and_warns() -> None:
     with pytest.warns(UserWarning, match="expected a mapping"):
         assert (
-            declared_icon_block(_geo(name="IconE", foliplus={"icon": "red"}), "IconE")
+            declared_icon(_geo(name="IconE", foliplus={"icon": "red"}), "IconE")
             is None
         )
 
@@ -79,18 +79,18 @@ def test_a_non_mapping_icon_block_is_none_and_warns() -> None:
 def test_an_unknown_icon_sub_key_warns_with_the_layer_name() -> None:
     layer = _geo(name="IconF", foliplus={"icon": {"glyph": "star", "colour": "#fff"}})
     with pytest.warns(UserWarning, match="unknown icon sub-key 'colour'"):
-        assert declared_icon_block(layer, "IconF") == {"glyph": "star"}
+        assert declared_icon(layer, "IconF") == {"glyph": "star"}
 
 
-def test_declared_marker_block_is_read() -> None:
+def test_declared_marker_is_read() -> None:
     layer = _geo(name="MarkerA", foliplus={"marker": {"colorOpacity": 40}})
-    assert declared_marker_block(layer, "MarkerA") == {"colorOpacity": 40}
+    assert declared_marker(layer, "MarkerA") == {"colorOpacity": 40}
 
 
 def test_an_unknown_marker_sub_key_warns() -> None:
     layer = _geo(name="MarkerB", foliplus={"marker": {"glyph": "star"}})
     with pytest.warns(UserWarning, match="unknown marker sub-key 'glyph'"):
-        assert declared_marker_block(layer, "MarkerB") == {}
+        assert declared_marker(layer, "MarkerB") == {}
 
 
 def test_the_declaration_reaches_the_rendered_layer_options() -> None:

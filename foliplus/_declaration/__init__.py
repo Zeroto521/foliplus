@@ -13,7 +13,7 @@ consumer.
 
 from __future__ import annotations
 
-from .face import normalise_block, normalise_icon_block, normalise_marker_block
+from .face import normalise_face_keys, normalise_icon_face, normalise_marker_face
 from .fill import normalise_fill
 from .filter import (
     FilterKind,
@@ -84,16 +84,16 @@ __all__ = [
     "foliplus_reports",
     "is_plumbing",
     "json_number",
-    "normalise_block",
     "normalise_border",
     "normalise_color_opacity",
+    "normalise_face_keys",
     "normalise_fill",
     "normalise_folder",
-    "normalise_icon_block",
+    "normalise_icon_face",
     "normalise_icon_size",
     "normalise_layer_filter",
-    "normalise_marker_block",
     "normalise_marker_color",
+    "normalise_marker_face",
     "normalise_opacity",
     "normalise_zoom_range",
     "normalize_declared_filter",

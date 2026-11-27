@@ -1,4 +1,4 @@
-// ui/style/icon.declared — the foliplus icon block as the icon dimension's
+// ui/style/icon.declared — the foliplus icon face as the icon dimension's
 // read-time default.
 //
 // The panel's icon face has two sources of truth: the user's intent and the
@@ -94,7 +94,7 @@ const flushIcon = (id: string) => flushStyleDimApply(FACE.ICON, id);
 const triggerOf = (row: HTMLElement): HTMLElement =>
   row.querySelector(`.${CONST.CLASSES.STYLE_ICON_TRIGGER}`) as HTMLElement;
 
-describe("declared icon block — panel face", () => {
+describe("declared icon face — panel face", () => {
   it("shows the declared glyph over the author's drawn glyph", () => {
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "star" };
@@ -105,7 +105,7 @@ describe("declared icon block — panel face", () => {
     expect(triggerOf(buildIconRow(ui, "overlay1")!).textContent).toContain("heart");
   });
 
-  it("keeps the author's drawn glyph when the block declares none", () => {
+  it("keeps the author's drawn glyph when the face declares none", () => {
     const author = makeAuthorIcon();
     author.options = { ...author.options, icon: "star" };
     const marker = makeMarker({ type: "school" }, author);
@@ -115,7 +115,7 @@ describe("declared icon block — panel face", () => {
   });
 });
 
-describe("declared icon block — reset / derive", () => {
+describe("declared icon face — reset / derive", () => {
   it("reset returns to the declared glyph", () => {
     const author = makeAuthorIcon();
     const marker = makeMarker({ type: "school" }, author);

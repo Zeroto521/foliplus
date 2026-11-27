@@ -1,25 +1,25 @@
-"""Face declarations: one normalisation point for a declaration block's sub-keys.
+"""Face declarations: one normalisation point for a face's declaration sub-keys.
 
-A block-shaped per-layer declaration (`foliplus={"icon": {...}}`) carries the
-sub-dimensions ONE face can set. Python reads the author's RAW dict, before
+A per-layer face declaration (`foliplus={"icon": {...}}`) carries the
+sub-dimensions ONE paint face can set. Python reads the author's RAW dict, before
 folium renders it, so it always sees the author's snake spelling
 (`color_opacity`). The rendered namespace is version-dependent: newer folium
 camelizes the nested dict keys (`colorOpacity`), 0.15.x keeps the author's
 spelling - so a reader on either side that looks for one spelling only misses
-the other, which is the defect this module closes. It is the one place that decides the legal spellings of a block
-sub-key: both the camelCase and the snake_case spelling are accepted
-(`colorOpacity` / `color_opacity`) and every block is normalised to one
-canonical camelCase shape before any reader looks at it. The rule mirrors
-`camelize` in the JS declared-key reader, which does the same translation for
-the top-level keys - the two stacks must agree on exactly one spelling, or a
-declaration that works in one is dead in the other.
+the other, which is the defect this module closes. It is the one place that
+decides the legal spellings of a face sub-key: both the camelCase and the
+snake_case spelling are accepted (`colorOpacity` / `color_opacity`) and every
+face is normalised to one canonical camelCase shape before any reader looks at
+it. The rule mirrors `camelize` in the JS declared-key reader, which does the
+same translation for the top-level keys - the two stacks must agree on exactly
+one spelling, or a declaration that works in one is dead in the other.
 
-A block that is not a mapping is read as "not declared" WITHOUT a warning here:
-the namespace shape gate (`foliplus.control.LayerControl._layer.foliplus_namespace`)
-already reports that defect once, and a second report for one mistake is noise.
-An unknown or duplicated sub-key, and an unusable value, warn once and are
-dropped alone - the rest of the block survives, so one typo never disables the
-other sub-dimensions.
+A face declaration that is not a mapping is read as "not declared" WITHOUT a
+warning here: the namespace shape gate
+(`foliplus.control.LayerControl._layer.foliplus_namespace`) already reports that
+defect once, and a second report for one mistake is noise. An unknown or
+duplicated sub-key, and an unusable value, warn once and are dropped alone - the
+rest of the face survives, so one typo never disables the other sub-dimensions.
 """
 
 from __future__ import annotations
@@ -34,15 +34,15 @@ from .warning import warn_foliplus
 #: The icon face sub-dimensions: canonical camelCase key -> accepted spellings
 #: (canonical first). A multi-word key accepts the snake_case spelling because
 #: the author writes the raw Python dict (and older folium keeps it as-is).
-_ICON_BLOCK_KEYS: dict[str, tuple[str, ...]] = {
+_ICON_FACE_KEYS: dict[str, tuple[str, ...]] = {
     "glyph": ("glyph",),
     "color": ("color",),
     "colorOpacity": ("colorOpacity", "color_opacity"),
 }
 
 #: The marker face carries the chassis alpha only; the chassis COLOUR is the
-#: top-level `marker_color` declaration, not a block sub-key.
-_MARKER_BLOCK_KEYS: dict[str, tuple[str, ...]] = {
+#: top-level `marker_color` declaration, not a face sub-key.
+_MARKER_FACE_KEYS: dict[str, tuple[str, ...]] = {
     "colorOpacity": ("colorOpacity", "color_opacity"),
 }
 
@@ -51,7 +51,7 @@ def _where(owner: str, subject: str | None) -> str:
     return f"{owner}: {subject}" if subject else owner
 
 
-def normalise_block(
+def normalise_face_keys(
     raw: object,
     *,
     keys: Mapping[str, tuple[str, ...]],
@@ -60,16 +60,16 @@ def normalise_block(
     subject: str | None = None,
     source: str | None = None,
 ) -> dict[str, object] | None:
-    """Normalise one declaration block's sub-keys to their canonical spelling.
+    """Normalise one face declaration's sub-keys to their canonical spelling.
 
-    Returns the block keyed by the canonical camelCase names, or `None` for a
-    block that is absent / not a mapping ("not declared"). Every accepted
-    spelling of a key (camel and snake) maps to the one canonical name, so a
-    reader downstream never has to ask which spelling it got.
+    Returns the face keyed by the canonical camelCase names, or `None` for a
+    face declaration that is absent / not a mapping ("not declared"). Every
+    accepted spelling of a key (camel and snake) maps to the one canonical name,
+    so a reader downstream never has to ask which spelling it got.
 
-    `keys` is the block's vocabulary: canonical key -> accepted spellings,
+    `keys` is the face's vocabulary: canonical key -> accepted spellings,
     canonical spelling first. An unknown sub-key warns once and is dropped; the
-    rest of the block survives. A key written twice (both spellings) warns and
+    rest of the face survives. A key written twice (both spellings) warns and
     the first spelling in the author's dict wins, so the reader's answer never
     depends on which spelling the author happened to write first while both are
     present in an ambiguous order.
@@ -108,7 +108,7 @@ def normalise_block(
         if canonical in seen:
             reject_key(
                 key,
-                f"as the second spelling of {canonical!r} (the block declares "
+                f"as the second spelling of {canonical!r} (the face declares "
                 "it twice); the first spelling wins",
             )
             continue
@@ -117,18 +117,18 @@ def normalise_block(
     return normalised
 
 
-def normalise_icon_block(
+def normalise_icon_face(
     raw: object,
     *,
     owner: str,
     subject: str | None = None,
     source: str | None = None,
 ) -> dict[str, object] | None:
-    """Normalise one `foliplus={"icon": {...}}` declaration block.
+    """Normalise one `foliplus={"icon": {...}}` face declaration.
 
     Returns the canonical record (`glyph`, `color`, `colorOpacity` - only the
-    keys the author declared and every one of them usable) when the block is a
-    mapping, else `None`. \"Not declared\" and \"declared but unusable\" are the
+    keys the author declared and every one of them usable) when the face is a
+    mapping, else `None`. "Not declared" and "declared but unusable" are the
     same state downstream: the panel keeps its derived icon face rather than
     showing a value the author never saw validated.
 
@@ -138,15 +138,15 @@ def normalise_icon_block(
     it probes), so an unknown glyph name survives this reader and is surfaced by
     the panel - the same split marker_color follows for its preset table.
     """
-    block = normalise_block(
+    face = normalise_face_keys(
         raw,
-        keys=_ICON_BLOCK_KEYS,
+        keys=_ICON_FACE_KEYS,
         name=ICON_KEY,
         owner=owner,
         subject=subject,
         source=source,
     )
-    if block is None:
+    if face is None:
         return None
 
     where = _where(owner, subject)
@@ -159,19 +159,19 @@ def normalise_icon_block(
         )
 
     normalised: dict[str, object] = {}
-    if "glyph" in block:
-        glyph = block["glyph"]
+    if "glyph" in face:
+        glyph = face["glyph"]
         if isinstance(glyph, str) and glyph.strip():
             normalised["glyph"] = glyph.strip()
         else:
             reject("glyph", f"as {glyph!r}; expected a non-empty string")
-    if "color" in block:
-        color = _declared_hex(block["color"], lambda reason: reject("color", reason))
+    if "color" in face:
+        color = _declared_hex(face["color"], lambda reason: reject("color", reason))
         if color is not None:
             normalised["color"] = color
-    if "colorOpacity" in block:
+    if "colorOpacity" in face:
         opacity = normalise_color_opacity(
-            block["colorOpacity"],
+            face["colorOpacity"],
             owner=owner,
             subject=subject,
             source=f"{declared}['colorOpacity']",
@@ -181,36 +181,36 @@ def normalise_icon_block(
     return normalised
 
 
-def normalise_marker_block(
+def normalise_marker_face(
     raw: object,
     *,
     owner: str,
     subject: str | None = None,
     source: str | None = None,
 ) -> dict[str, object] | None:
-    """Normalise one `foliplus={"marker": {...}}` declaration block.
+    """Normalise one `foliplus={"marker": {...}}` face declaration.
 
     The marker face carries the chassis alpha only: the chassis COLOUR is the
-    top-level `marker_color` declaration, so a block-level `color` is a
-    misspelling and warns instead of silently reading as \"not declared\".
+    top-level `marker_color` declaration, so a face-level `color` is a
+    misspelling and warns instead of silently reading as "not declared".
     """
-    block = normalise_block(
+    face = normalise_face_keys(
         raw,
-        keys=_MARKER_BLOCK_KEYS,
+        keys=_MARKER_FACE_KEYS,
         name=MARKER_KEY,
         owner=owner,
         subject=subject,
         source=source,
     )
-    if block is None:
+    if face is None:
         return None
 
     where = _where(owner, subject)
     declared = source or f"foliplus[{MARKER_KEY!r}]"
     normalised: dict[str, object] = {}
-    if "colorOpacity" in block:
+    if "colorOpacity" in face:
         opacity = normalise_color_opacity(
-            block["colorOpacity"],
+            face["colorOpacity"],
             owner=owner,
             subject=subject,
             source=f"{declared}['colorOpacity']",

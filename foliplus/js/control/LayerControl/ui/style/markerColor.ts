@@ -49,7 +49,7 @@ import {
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
-  type DeclaredIconBlock,
+  type DeclaredIconFace,
   readDeclaredIcon,
   readDeclaredIconSize,
   readDeclaredMarkerColor,
@@ -64,11 +64,11 @@ import {
 const declaredIconSizeOf = (layer: unknown): number | undefined =>
   readDeclaredIconSize(layer).declared;
 
-/** The author-declared icon face (foliplus icon block), or undefined when the
+/** The author-declared icon face (foliplus icon face), or undefined when the
  *  layer declares none. A chassis write is orthogonal to the glyph / glyph
  *  colour, but it re-derives the whole icon, so it must carry the declared
  *  defaults exactly like it carries the user's intents. */
-const declaredIconOf = (layer: unknown): DeclaredIconBlock | undefined =>
+const declaredIconOf = (layer: unknown): DeclaredIconFace | undefined =>
   readDeclaredIcon(layer).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must

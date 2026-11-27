@@ -6,9 +6,10 @@ own `opacity=` keyword remains the author DRAW value and is read first, so the
 two channels never fight - a layer that sets both draws the folium value but
 shows the declared one in the panel.
 
-The icon / marker block alpha readers live in :mod:`._face`: they normalise a
-whole block (`icon` / `marker`) through one shared spelling rule, so the block
-is read once at its own single entry point rather than per sub-key here.
+The icon / marker face declaration readers live in :mod:`._face`: they
+normalise a whole face (`icon` / `marker`) through one shared spelling rule, so
+the face is read once at its own single entry point rather than per sub-key
+here.
 
 Split out of `_layer.py` when the opacity family pushed that module past the
 300-code-line criterion (see `script/check/module_size_check.py`); the reader

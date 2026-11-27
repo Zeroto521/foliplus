@@ -52,7 +52,7 @@ import {
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
-  type DeclaredIconBlock,
+  type DeclaredIconFace,
   readDeclaredIcon,
   readDeclaredIconColorOpacity,
   readDeclaredIconSize,
@@ -66,10 +66,10 @@ import {
 const declaredIconSizeOf = (layer: unknown): number | undefined =>
   readDeclaredIconSize(layer).declared;
 
-/** The author-declared icon face (foliplus icon block), or undefined when the
- *  layer declares none. The block reader owns normalisation + warnings; this
+/** The author-declared icon face (foliplus icon face), or undefined when the
+ *  layer declares none. The face reader owns normalisation + warnings; this
  *  module only reads the colour / alpha / glyph it carries. */
-const declaredIconOf = (layer: unknown): DeclaredIconBlock | undefined =>
+const declaredIconOf = (layer: unknown): DeclaredIconFace | undefined =>
   readDeclaredIcon(layer).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
@@ -92,7 +92,7 @@ const authorIconColor = (ui: LayerUI, layerId: string): string | null => {
   if (!layer) return null;
   // The declared glyph colour is the read-time default the row shows and
   // Reset returns to; the author's drawn paint is the fallback only when the
-  // block declares no colour (declaration beats the draw, intent beats both).
+  // face declares no colour (declaration beats the draw, intent beats both).
   const declared = declaredIconOf(layer)?.color;
   if (declared !== undefined) return declared;
   let found: string | null = null;

@@ -1,4 +1,4 @@
-// ui/style/iconColor.declared — the foliplus icon block as the icon-colour
+// ui/style/iconColor.declared — the foliplus icon face as the icon-colour
 // dimension's read-time default.
 //
 // The declared glyph colour / alpha is the value the row starts at and Reset
@@ -80,7 +80,7 @@ const fixtureWithDeclared = (markers: any[], foliplus: Record<string, unknown>) 
 
 const flushIconColor = (id: string) => flushStyleDimApply(FACE.ICON_COLOR, id);
 
-describe("declared icon block — colour row", () => {
+describe("declared icon face — colour row", () => {
   it("shows the declared colour over the author's drawn one", () => {
     const author = makeAuthorIcon({ iconColor: "#3366ff" });
     const marker = makeMarker({ type: "school" }, author);
@@ -115,7 +115,7 @@ describe("declared icon block — colour row", () => {
   });
 });
 
-describe("declared icon block — colour reset / derive", () => {
+describe("declared icon face — colour reset / derive", () => {
   it("reset returns to the declared colour", () => {
     const author = makeAuthorIcon({ iconColor: "#3366ff" });
     const marker = makeMarker({ type: "school" }, author);
