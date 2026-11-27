@@ -92,11 +92,20 @@ describe("LayerUI openSurface state machine", () => {
     // No closeOverlays, no per-kind knowledge: the machine closes the attrs
     // surface because a different kind is being opened.
     ui.openAttrsPanel(row());
+    const panel = ui.overlayPanel.activeAttrsPanel!.panel;
+    expect(panel.isConnected).toBe(true);
+
     openSurface(ui, { kind: "rename", row: row(), layerId: "overlay1" });
 
     expect(ui.overlayPanel.surface?.kind).toBe("rename");
     expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
     expect(ui.overlayPanel.activeRenameId).toBe("overlay1");
+    // The state projections alone cannot prove close-before-store: they are all
+    // derived from the same record, so dropping the close call in openSurface
+    // would move the record and leave the old panel mounted while these three
+    // assertions stay green. The DOM is the witness that the close ran.
+    expect(panel.isConnected).toBe(false);
+    expect(row().querySelector(".foliplus-layer-attrs-panel")).toBeNull();
   });
 
   it("an unregistered kind cannot leave a phantom surface behind", () => {
