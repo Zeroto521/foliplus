@@ -1,11 +1,11 @@
-// core/layer/arrangement — shared fixtures for the arrangement tests.
+// core/layer/order — shared fixtures for the order-tree tests.
 //
-// The arrangement tests need the same minimal LayerInfo fake the folder-layout
+// The order-tree tests need the same minimal LayerInfo fake the folder-layout
 // suite uses (the ordering domain reads only id / role / folder), plus a
 // deterministic PRNG so a failing random sequence is reproducible from its seed.
 import type { LayerInfo, LayerRole } from "#core/layer/index.js";
 
-/** A minimal LayerInfo: the arrangement reads identity, role and declaration. */
+/** A minimal LayerInfo: the order tree reads identity, role and declaration. */
 const entry = (
   id: string,
   role: LayerRole,

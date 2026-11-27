@@ -1,13 +1,13 @@
-// core/layer/arrangement — behaviour parity with the v2 projections, snapshotted.
+// core/layer/order — behaviour parity with the layout-mirror projections, snapshotted.
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   type LayerInfo,
   type LayerRole,
-  hydrate,
-  projectRows,
-  projectZ,
+  orderHydrate,
+  orderProjectRows,
+  orderProjectZ,
 } from "#core/layer/index.js";
 
 const ROLES: readonly LayerRole[] = ["overlay", "base"];
@@ -26,7 +26,7 @@ interface Snapshot {
 }
 
 const snapshot = JSON.parse(
-  readFileSync(resolve(import.meta.dirname, "./arrangement.snapshot.json"), "utf8"),
+  readFileSync(resolve(import.meta.dirname, "./order.snapshot.json"), "utf8"),
 ) as Snapshot[];
 
 const toLayerInfo = (e: {
@@ -50,15 +50,15 @@ const toLayerInfo = (e: {
   }) as LayerInfo;
 
 describe("behaviour parity — captured snapshot", () => {
-  it("projectRows/projectZ match the v2 read-shape snapshot", () => {
+  it("orderProjectRows/orderProjectZ match the layout-mirror read-shape snapshot", () => {
     expect(snapshot.length).toBeGreaterThan(0);
     for (const snap of snapshot) {
       const entries = snap.entries.map(toLayerInfo);
-      const resolved = hydrate(snap.tree as never, entries);
+      const resolved = orderHydrate(snap.tree as never, entries);
       for (const role of ROLES) {
-        expect(projectRows(resolved, role).slice(1)).toEqual(snap.rows[role]);
+        expect(orderProjectRows(resolved, role).slice(1)).toEqual(snap.rows[role]);
       }
-      expect(projectZ(resolved)).toEqual(snap.z);
+      expect(orderProjectZ(resolved)).toEqual(snap.z);
     }
   });
 });

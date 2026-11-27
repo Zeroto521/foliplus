@@ -266,15 +266,13 @@ export const makeDerivedUI = (overrides: Record<string, unknown> = {}): LayerUI 
   }) as unknown as LayerUI;
 };
 
-/** Convert a persisted v2 folder-layout document into the ordered-tree
- *  arrangement that now drives the panel. The v2 block order (folder keys and
+/** Convert a persisted layout-mirror document into the ordered tree that
+ *  now drives the panel. The layout-mirror block order (folder keys and
  *  `layer:<id>` root-layer entries) becomes the role's node sequence; folder
  *  children are left empty for the controller boot to fill from each layer's
  *  declared folder. Only the UI fixture needs this — production persists the
- *  tree directly, and a v2 record is dropped and rebuilt as the default. */
-const v2LayoutToArrangement = (
-  doc: Record<string, unknown>,
-): Record<string, unknown> => {
+ *  tree directly, and a legacy record is dropped and rebuilt as the default. */
+const orderFromLayout = (doc: Record<string, unknown>): Record<string, unknown> => {
   const folders = Array.isArray(doc.folders)
     ? (doc.folders as Array<{ key: string }>)
     : [];
@@ -299,8 +297,9 @@ const v2LayoutToArrangement = (
       }
     }
   }
-  // A declared folder the order never listed lands at the role tail (the v2
-  // anchor rule) — overlay by default, since the v2 order may only name one.
+  // A declared folder the order never listed lands at the role tail (the
+  // anchor rule) — overlay by default, since the layout-mirror order may only
+  // name one.
   for (const f of folders) {
     if (
       !Object.values(roles).some(roleNodes =>
@@ -320,12 +319,12 @@ const initFixture = (
     data?: ConstructorParameters<typeof LayerController>[1];
     /** The persisted record, written before the manager is constructed. */
     seed?: Record<string, unknown>;
-    /** The persisted folder-layout document (v2), written under its own storage
+    /** The persisted layout-mirror document, written under its own storage
      *  key before the manager is constructed. */
     seedLayout?: Record<string, unknown>;
-    /** The persisted ARRANGEMENT (tree) document, written under its own storage
+    /** The persisted order-tree document, written under its own storage
      *  key before the manager is constructed. */
-    seedArrangement?: Record<string, unknown>;
+    seedOrderTree?: Record<string, unknown>;
     /** Runs once the UI shell exists but before attachUI — the point where a
      *  subscriber can catch the attach sweep's notify. */
     beforeAttach?: (manager: LayerController, ui: LayerUI) => void;
@@ -346,22 +345,23 @@ const initFixture = (
       folderLayoutKey({ getContainer: () => container }),
       JSON.stringify(options.seedLayout),
     );
-    // The tree is the single order source: a v2 layout seed must also
+    // The tree is the single order source: a layout-mirror seed must also
     // materialise the same block order as the tree, or the panel renders the
-    // registration order (the v2 order no longer drives anything). The folder
-    // children start empty — the boot's addLeaf fills them from each layer's
-    // declared folder, and an unlisted folder materialises at the role tail.
-    if (!options.seedArrangement) {
+    // registration order (the layout-mirror order no longer drives anything).
+    // The folder children start empty — the boot's orderAddLeaf fills them from
+    // each layer's declared folder, and an unlisted folder materialises at the
+    // role tail.
+    if (!options.seedOrderTree) {
       window.localStorage.setItem(
         `foliplus_layer_arrangement_${container.id}`,
-        JSON.stringify(v2LayoutToArrangement(options.seedLayout)),
+        JSON.stringify(orderFromLayout(options.seedLayout)),
       );
     }
   }
-  if (options.seedArrangement) {
+  if (options.seedOrderTree) {
     window.localStorage.setItem(
       `foliplus_layer_arrangement_${container.id}`,
-      JSON.stringify(options.seedArrangement),
+      JSON.stringify(options.seedOrderTree),
     );
   }
 

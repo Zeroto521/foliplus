@@ -1,8 +1,8 @@
 // test/js/control/LayerControl/controller.reorder — z-order moves, bring-to-front and enforceOrder.
 import {
   TileLayer,
-  arrangementFromRoles,
   createLayerControllerFixture,
+  orderFromRoles,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { initFixture, polygonLayer } from "./ui/fixture.js";
@@ -571,7 +571,7 @@ describe("LayerController moveLayerUp / moveLayerDown within and across folders"
 
   it("folder-up moves a member before its previous sibling", () => {
     const { manager } = initFixture({
-      seedArrangement: arrangementFromRoles({ overlay: ["F"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["F"] }),
       data: [
         { id: "A", name: "A", role: "overlay", folder: "F", layer: polygonLayer() },
         { id: "id1", name: "id", role: "overlay", folder: "F", layer: polygonLayer() },
@@ -587,7 +587,7 @@ describe("LayerController moveLayerUp / moveLayerDown within and across folders"
 
   it("folder-down moves a member after its next sibling (pos.index + 1)", () => {
     const { manager } = initFixture({
-      seedArrangement: arrangementFromRoles({ overlay: ["F"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["F"] }),
       data: [
         { id: "A", name: "A", role: "overlay", folder: "F", layer: polygonLayer() },
         { id: "id1", name: "id", role: "overlay", folder: "F", layer: polygonLayer() },
@@ -605,7 +605,7 @@ describe("LayerController moveLayerUp / moveLayerDown within and across folders"
     // r1 sits between folder F and folder G; moving it up must cross the F
     // block as a top-level anchor (root branch), not mutate inside the folder.
     const { manager } = initFixture({
-      seedArrangement: arrangementFromRoles({ overlay: ["F", "G"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["F", "G"] }),
       data: [
         { id: "fa", name: "FA", role: "overlay", folder: "F", layer: polygonLayer() },
         { id: "r1", name: "R1", role: "overlay", layer: polygonLayer() },
@@ -620,7 +620,7 @@ describe("LayerController moveLayerUp / moveLayerDown within and across folders"
 
   it("cross-folder down: a root layer moves below the following folder block via the root branch", () => {
     const { manager } = initFixture({
-      seedArrangement: arrangementFromRoles({ overlay: ["F", "G"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["F", "G"] }),
       data: [
         { id: "fa", name: "FA", role: "overlay", folder: "F", layer: polygonLayer() },
         { id: "r1", name: "R1", role: "overlay", layer: polygonLayer() },
@@ -636,7 +636,7 @@ describe("LayerController moveLayerUp / moveLayerDown within and across folders"
 
   it("folder boundaries refuse a first-member up and a last-member down without mutating the tree", () => {
     const { manager } = initFixture({
-      seedArrangement: arrangementFromRoles({ overlay: ["F"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["F"] }),
       data: [
         { id: "A", name: "A", role: "overlay", folder: "F", layer: polygonLayer() },
         { id: "id1", name: "id", role: "overlay", folder: "F", layer: polygonLayer() },

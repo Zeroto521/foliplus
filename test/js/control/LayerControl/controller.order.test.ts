@@ -109,7 +109,7 @@ describe("LayerController", () => {
 
     it("reads the record once at construction time", () => {
       // The constructor runs before LayerControl's UI has attached. Order seeds
-      // the registry's starting arrangement and removed gates the registration
+      // the registry's starting order tree and removed gates the registration
       // entry point, so both come from this one read rather than a second one
       // against a registry that has since grown.
       const spy = vi.spyOn(Storage, "loadVersionedObject");
@@ -220,7 +220,7 @@ describe("LayerController", () => {
       // explicit user reorders snapshot the live order. A boot that registers
       // the color basemap and further layers must leave the order slot
       // untouched — not even a snapshot that happens to match the registration
-      // sequence is a user arrangement.
+      // sequence is a user order.
       seedStorage({});
       const m = new LayerController(map, [
         { id: "fg", name: "FG", role: "overlay" },

@@ -1,12 +1,12 @@
 // core/LayerInfoRegistry — ordered layer data model (list + id index + read-only view).
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
-import { type ResolvedTree, projectZ } from "./arrangement.js";
 import { ROLE } from "./const.js";
 import {
   FOLDER_NAME_MAX,
   folderNameLength,
   folderNameTooLong,
 } from "./folderLayout.js";
+import { type ResolvedTree, orderProjectZ } from "./order.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 import { safeSVG } from "#core/sanitize.js";
@@ -544,12 +544,12 @@ class LayerInfoRegistry {
     this.refreshFirstBaseIdx();
   }
 
-  /** Reorder so the registry's z axis is the tree's projection (`projectZ`):
+  /** Reorder so the registry's z axis is the tree's projection (`orderProjectZ`):
    *  overlay before base, each role's folder order + members + root layers in
    *  the tree's order. The tree is the single order source — the grouping only
    *  reorders what is shown, never the registry's index axis. */
   normalizeGroups(resolved: ResolvedTree) {
-    const order = projectZ(resolved);
+    const order = orderProjectZ(resolved);
     const orderSet = new Set(order);
     const display = order
       .map(id => this.byId.get(id))

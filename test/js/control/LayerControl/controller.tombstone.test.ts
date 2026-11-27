@@ -12,7 +12,7 @@ import type { LayerController } from "#control/LayerControl/controller.js";
 // node; a folder member's slot is reported as the folder node's position — the
 // member order is tracked separately by the folder's children).
 const treeIndexOf = (manager: LayerController, id: string): number => {
-  const arr: any = (manager as any).arrangement;
+  const arr: any = (manager as any).orderTree;
   for (const role of Object.keys(arr.roles)) {
     const nodes: any[] = arr.roles[role] ?? [];
     for (let i = 0; i < nodes.length; i += 1) {

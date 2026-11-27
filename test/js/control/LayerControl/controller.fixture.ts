@@ -23,7 +23,7 @@ export const layoutFromRoles = (
   };
 };
 
-export const arrangementFromRoles = (
+export const orderFromRoles = (
   roles: Record<string, string[]>,
 ): Record<string, unknown> => {
   const keys = new Set<string>();
@@ -40,11 +40,11 @@ export const arrangementFromRoles = (
   return { blocks, roles: roleNodes };
 };
 
-export const arrangementKey = (map: any): string =>
+export const orderStorageKey = (map: any): string =>
   scopedStorageKey(map, "layer_arrangement");
 
-export const readArrangementStorage = (map: any): Record<string, unknown> | null => {
-  const raw = window.localStorage.getItem(arrangementKey(map));
+export const readOrderTreeStorage = (map: any): Record<string, unknown> | null => {
+  const raw = window.localStorage.getItem(orderStorageKey(map));
   return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
 };
 /** Read the persisted folder-layout document for a map (null when never written). */

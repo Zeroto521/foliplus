@@ -83,30 +83,28 @@ export type {
   FolderLayoutManager,
 } from "./folderLayout.js";
 export {
-  ROLES as ARRANGEMENT_ROLES,
-  addBlock as arrangementAddBlock,
-  addLeaf as arrangementAddLeaf,
-  applySavedOrder as arrangementApplySavedOrder,
+  ORDER_ROLES,
   anchorOfNode,
-  defaultArrangement,
-  deleteBlock as arrangementDeleteBlock,
-  placeLeafAtSaved as arrangementPlaceLeafAtSaved,
-  deleteEmptyBlocks as arrangementDeleteEmptyBlocks,
-  dropLeaf as arrangementDropLeaf,
-  hydrate,
-  isArrangementShape,
-  leafPosition as arrangementLeafPosition,
-  moveBlock as arrangementMoveBlock,
-  moveEntry as arrangementMoveEntry,
-  projectBlocks,
-  projectLayout,
-  projectRows,
-  projectZ,
-  renameBlock as arrangementRenameBlock,
-  roleOfLeaf as arrangementRoleOfLeaf,
-} from "./arrangement.js";
+  isOrderShape,
+  orderAddBlock,
+  orderAddLeaf,
+  orderDefaultTree,
+  orderDeleteBlock,
+  orderDeleteEmptyBlocks,
+  orderDropLeaf,
+  orderHydrate,
+  orderLeafPosition,
+  orderMoveBlock,
+  orderMoveEntry,
+  orderProjectBlocks,
+  orderProjectLayout,
+  orderProjectRows,
+  orderProjectZ,
+  orderRenameBlock,
+  orderRoleOfLeaf,
+} from "./order.js";
 export type {
-  Arrangement,
+  OrderTree,
   BlockKind,
   BlockMeta,
   FolderNode,
@@ -115,7 +113,7 @@ export type {
   MovePlacement,
   OrderNode,
   ResolvedTree,
-} from "./arrangement.js";
+} from "./order.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
