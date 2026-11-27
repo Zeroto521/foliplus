@@ -86,7 +86,7 @@ declare module "leaflet" {
   }
   interface Layer {
     _layers: Record<string, L.Layer>;
-    /** Detached Leaflet internals used by core/layer setInteractive. */
+    /** Detached Leaflet internals used by setInteractive (core/layer/hitTarget). */
     _path?: SVGElement;
     _icon?: HTMLElement;
     _container?: HTMLElement;

@@ -1,4 +1,4 @@
-// core/events/const — semantic event names.
+// core/event/const — semantic event names.
 // Components subscribe/emit via `map.foliplus.events` instead of raw Leaflet
 // map events, so unrelated map activity does not trigger work.
 // The payload shapes these names carry live in ./type.ts.

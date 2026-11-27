@@ -1,4 +1,4 @@
-// Shared field enumeration for value-based fill — the numeric property
+// core/value/field — Shared field enumeration for value-based fill: the numeric property
 // keys a layer's features expose. Lives here (next to `classify.ts` and
 // `palette.ts`) so the "By value" fill dimension and any future consumer
 // share one definition of "which fields are numeric".

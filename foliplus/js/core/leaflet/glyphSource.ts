@@ -1,3 +1,4 @@
+// core/leaflet/glyphSource — the picker's glyph vocabulary and the FontAwesome name syntax.
 import { GLYPH_CLASS } from "#ui/index.js";
 
 // core/leaflet — the picker's glyph vocabulary (relocated from

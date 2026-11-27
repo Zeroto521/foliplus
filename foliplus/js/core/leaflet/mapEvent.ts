@@ -1,4 +1,4 @@
-// Map event binding helpers — bind a list of [eventName, handler] pairs at once.
+// core/leaflet/mapEvent — Map event binding helpers: bind a list of [eventName, handler] pairs at once.
 // Imported statically by components. Replaces the repeated
 // `map.on(...)` / `map.off(...)` 4-liner blocks (e.g. MeasureControl mode.js).
 //

@@ -1,4 +1,4 @@
-// Shared layer-alpha bake for self-drawn canvases (R11).
+// core/layer/canvasAlpha — Shared layer-alpha bake for self-drawn canvases (R11).
 //
 // One convention for every canvas drawer (heatmap, label, color face,
 // future custom): multiply the *drawn* alpha by the layer's opacity slider

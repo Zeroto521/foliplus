@@ -12,8 +12,11 @@ import { describe, expect, it } from "vitest";
 // The registry (file-header.canonical.json) lists every file that MUST carry the
 // canonical header. A new .ts file under foliplus/js/platform/ or foliplus/js/ui/
 // top level MUST be added to the registry; the completeness assertion below
-// fails when one is forgotten. core/ and control/ files are checked only when
-// registered (they are large and still converging).
+// fails when one is forgotten. core/ is fully registered and mandatory too: its
+// headers used to be registry-optional, so ten of them named a path that does
+// not exist ("core/<Name>", "core/events/<Name>") and stayed invisible until the
+// whole tree was registered. control/ is still checked only when registered
+// (it is large and still converging).
 //
 // Why a registry and not git diff: CI checks out a shallow history (fetch-depth
 // 1), so `git diff base...HEAD` cannot see which files are new. The registry is
@@ -138,6 +141,28 @@ describe("file headers follow the canonical form", () => {
         if (!registry.has(rel)) missing.push(rel);
       }
     }
+    expect(missing).toEqual([]);
+  });
+
+  it("core/ non-barrel files are all registered", () => {
+    // Added with the core/ registration pass. Before it, core/ headers were
+    // registry-optional, so LayerInfoRegistry / PaneLedger / PaneManager /
+    // SurfaceIndex (and ten more) could claim a path that does not exist while
+    // this guard stayed green. Registering the whole tree makes that drift red.
+    const registry = new Set(readRegistry());
+    const missing: string[] = [];
+    const walkModules = (dir: string, prefix: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          walkModules(join(dir, entry.name), `${prefix}${entry.name}/`);
+          continue;
+        }
+        if (!entry.name.endsWith(".ts") || entry.name === "index.ts") continue;
+        const rel = `${prefix}${entry.name.replace(/\.ts$/, "")}`;
+        if (!registry.has(rel)) missing.push(rel);
+      }
+    };
+    walkModules(join(JS_DIR, "core"), "core/");
     expect(missing).toEqual([]);
   });
 

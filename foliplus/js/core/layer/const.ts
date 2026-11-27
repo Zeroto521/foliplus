@@ -1,4 +1,4 @@
-// core constants — shared by LayerInfoRegistry / PaneManager.
+// core/layer/const — shared by LayerInfoRegistry / PaneManager.
 // Pure values, no DOM / CONFIG dependency. Re-exported by LayerControl/const.
 import type { LayerKind } from "./type.js";
 

@@ -1,4 +1,4 @@
-// Geocode provider registry — resolves a provider spec (built-in id, built-in
+// core/geocode/registry — Geocode provider registry: resolves a provider spec (built-in id, built-in
 // id + overrides, or a declarative custom provider) to a concrete
 // `GeocodeProvider`. Pure lookup — no mutable global state.
 import { createNominatim } from "./nominatim.js";

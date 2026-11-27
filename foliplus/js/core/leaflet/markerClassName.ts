@@ -1,4 +1,4 @@
-// core/leaflet — marker icon class vocabulary.
+// core/leaflet/markerClassName — marker icon class vocabulary.
 //
 // The default marker icon and its chassis are both built and read inside
 // markerIcon.ts (a scanner-blind module), so the tokens live in a
