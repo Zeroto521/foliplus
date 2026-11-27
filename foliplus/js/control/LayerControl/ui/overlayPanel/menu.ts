@@ -202,16 +202,18 @@ const attachMenuController = (
   });
 
   // Tab moving focus out of the menu dismisses it — an open menu owns the
-  // keyboard cursor (ARIA menu pattern). Focus wandering within the menu, or
-  // onto the anchor row itself (jsdom falls a disabled-item click back to the
-  // row, and a real Tab can land on the row's own controls), keeps the menu
-  // open. The listener lives on the menu element, so it dies with the menu on
-  // close. Click-outside and Escape close through their own paths, and this
-  // re-closing is a no-op then (activeMenu is already gone).
+  // keyboard cursor (ARIA menu pattern). Focus wandering on the anchoring row
+  // itself keeps the menu open — jsdom falls a disabled-item click back to the
+  // row, and a real Tab can land on the row's own controls. The menu is
+  // mounted inside that row, so the row check covers the menu's own entries
+  // too; anything else (Tab out, a null relatedTarget, focus to a sibling
+  // control) dismisses. The listener lives on the menu element, so it dies
+  // with the menu on close. Click-outside and Escape close through their own
+  // paths, and this re-closing is a no-op then (activeMenu is already gone).
   menu.addEventListener("focusout", event => {
     const next = (event as FocusEvent).relatedTarget as Node | null;
-    if (next && (next === item || item.contains(next))) return;
-    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
+    if (next !== null && (next === item || item.contains(next))) return;
+    closeMoreMenu(ui, false);
   });
   // Menu item actions are dispatched locally: the old document-level click
   // delegate was the only reason the menu needed a document listener.
