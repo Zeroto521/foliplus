@@ -512,7 +512,7 @@ const hasAnyFolder = (ui: LayerUI): boolean => {
 };
 
 /** The panel's row sequence for one role: the shared block sequence, projected
- *  into the shape the renderer walks. The ORDER lives in `roleBlocks` — the
+ *  into the shape the renderer walks. The ORDER lives in the derived folder
  *  same function the stacking order uses — so a row can never paint in one
  *  place and stack in another. */
 const displayBlocks = (
@@ -541,7 +541,7 @@ const renderInitialList = (ui: LayerUI) => {
   const headerSeen = new Set<string>();
   // Folder-aware row order: for each role with a header, emit the role row,
   // then each folder block (folder row + members) and the role's root layers
-  // in the exact `roleOrder` sequence (folderLayout.ts).
+  // in the exact derived folder-layout sequence.
   const roleLabel = (role: string) =>
     role === ROLE.BASE ? "base_map_label" : "data_layer_label";
   const emitRole = (role: string) => {

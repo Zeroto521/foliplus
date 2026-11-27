@@ -38,7 +38,6 @@ import {
   type FilterRangeDimension,
   type FilterStore,
   type FolderLayout,
-  type FolderLayoutManager,
   GEOM_TYPE,
   HIDDEN,
   type IconIntent,
@@ -67,7 +66,6 @@ import {
   buildFilterFeatures,
   countFeatureGeometry,
   ensureFilterStore,
-  ensureFolderLayout,
   ensureLayerAPI,
   filterLeafSet,
   filterStep,
@@ -75,38 +73,14 @@ import {
   folderNameLength,
   folderNameTooLong,
   folderOf,
-  freezeRoleOrder,
   normalizeFolderName,
   paintsAtZoom,
   resolveVisibility,
   visibleDomOf,
   walkLeaf,
   zFor,
-} from "#core/layer/index.js";
-import {
-  type OrderDoc,
-  createBlock as orderCreateBlock,
-  folderDocKey,
-  folderBareOf,
-  folderRoleOf,
-  deleteBlock as orderDeleteBlock,
-  moveBefore as orderMoveBefore,
-  moveInto as orderMoveInto,
-  moveToIndex as orderMoveToIndex,
-  renameBlock as orderRenameBlock,
-  restore as orderRestore,
-  suppress as orderSuppress,
-  childrenOf as orderChildrenOf,
-  rankAfter as orderRankAfter,
-  rankBetween as orderRankBetween,
-  rankFirst as orderRankFirst,
-  rankStart as orderRankStart,
-} from "#core/order/index.js";
-import {
   type LayerDeclaration,
   type OrderView,
-  type ProjectedBlock,
-  clearOrderDoc,
   defaultDoc,
   folderKeyOf,
   layerKeyOf,
@@ -117,13 +91,26 @@ import {
   resolveOrderView as resolveOrderViewOf,
   saveOrderDoc,
 } from "#core/layer/index.js";
+import {
+  type OrderDoc,
+  createBlock as orderCreateBlock,
+  folderDocKey,
+  moveInto as orderMoveInto,
+  moveToIndex as orderMoveToIndex,
+  renameBlock as orderRenameBlock,
+  restore as orderRestore,
+  suppress as orderSuppress,
+  childrenOf as orderChildrenOf,
+  rankAfter as orderRankAfter,
+  rankBetween as orderRankBetween,
+  rankStart as orderRankStart,
+} from "#core/order/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
 import { createLogger } from "#platform/log.js";
-import { loadRecord, saveRecord, scopedStorageKey } from "#platform/storage.js";
 import type { Logger } from "#platform/type.js";
 import { finishSlidersIn } from "#ui/index.js";
 import { authorGlyphName } from "#control/LayerControl/ui/style/icon.js";
@@ -467,11 +454,11 @@ class LayerController implements LayerAPI {
   persistence: LayerPersistence;
   /** User-arranged order + one-way deleted-id set. Owns `savedOrder` /
 
-  /** The per-map folder layout manager: folder identity, block order and
-   *  member assignment in ONE persisted record (the single source). Seeded
-   *  from storage on construction; every user action goes through the
-   *  manager's `set`, and reads go through `layout` / `folderOf`. */
-  private folderLayout!: FolderLayoutManager;
+  /** The derived folder layout (folder identity, block order and member
+   *  assignment), projected from the order doc by projectLayoutOf. The doc is
+   *  the single source; this mirror is re-derived on every applyDoc and is
+   *  never persisted. Reads go through `folderLayoutView` / `folderOf`. */
+  private folderLayoutValue!: FolderLayout;
   /** The single order source: the order tree. The layout mirror and
    *  the registry array are DERIVED from it (projectLayout + projectZ), so
    *  nothing can diverge from the tree by construction. Persisted as the
@@ -602,13 +589,9 @@ class LayerController implements LayerAPI {
       this.map,
     );
 
-    this.folderLayout = ensureFolderLayout(this.map);
-
-    // Seed the layout from the author's declared grouping when no persisted
-    // layout exists yet: the first user action materialises it as the written
-    // layout. The seed is in-memory only (no write); it just makes the
-    // declared grouping visible before the first user action.
-    this.folderLayout.seed(this.layerRegistry.layers);
+    // The derived folder layout is projected from the order doc on boot and
+    // re-derived on every applyDoc (see applyDoc); no seed or per-map manager
+    // is needed. The default doc already materialises every declared folder.
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -1034,9 +1017,9 @@ class LayerController implements LayerAPI {
   get layers(): readonly LayerInfo[] {
     return this.layerRegistry.layers;
   }
-  /** The folder layout read view (read-only; the manager owns the writes). */
+  /** The folder layout read view (read-only; derived from the order doc). */
   get folderLayoutView(): FolderLayout {
-    return this.folderLayout.layout;
+    return this.folderLayoutValue;
   }
   /** Read the persisted doc: the saved record merged over the default built
    *  from CONF.data declaration order when it exists, else the default. An
@@ -1084,7 +1067,7 @@ class LayerController implements LayerAPI {
     const view = resolveOrderViewOf(next, present, this.layerRegistry.layers);
     this.lastView = view;
     const derived = projectLayoutOf(next, present, this.layerRegistry.layers);
-    this.folderLayout.setDerived(derived);
+    this.folderLayoutValue = derived;
     this.layerRegistry.normalizeGroups(view.z);
     if (opts.persist) this.persistOrderDoc();
   }
@@ -1213,10 +1196,10 @@ class LayerController implements LayerAPI {
   folderNameOf(layerId: string): string | null {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return null;
-    const folder = folderOf(this.folderLayout.layout, layerInfo);
+    const folder = folderOf(this.folderLayoutValue, layerInfo);
     if (!folder) return null;
     const key = normalizeFolderName(folder);
-    return this.folderLayout.layout.folders.find(f => f.key === key)?.name ?? folder;
+    return this.folderLayoutValue.folders.find(f => f.key === key)?.name ?? folder;
   }
 
   /** The stable key of the folder a layer belongs to, or null at root. Every
@@ -1225,7 +1208,7 @@ class LayerController implements LayerAPI {
   folderKeyOf(layerId: string): string | null {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return null;
-    const folder = folderOf(this.folderLayout.layout, layerInfo);
+    const folder = folderOf(this.folderLayoutValue, layerInfo);
     return folder ? normalizeFolderName(folder) : null;
   }
 
@@ -1297,7 +1280,7 @@ class LayerController implements LayerAPI {
     this.applyDoc(next, { persist: true });
   }
 
-  replaySavedOrder(id?: string) {
+  replaySavedOrder() {
     // The tree is the single order source: re-derive the registry from the
     // doc (force so an unchanged doc still re-applies the ranks a prior
     // user reorder may have drifted from).
@@ -2149,8 +2132,6 @@ class LayerController implements LayerAPI {
     const siblings = orderChildrenOf(this.orderDoc, parentKey);
     const posIndex = siblings.indexOf(targetKey);
     if (posIndex < 0) return false;
-    const src = orderChildrenOf(this.orderDoc, parentKey).indexOf(layerKeyOf(id));
-    const sameContainer = src >= 0;
     // `moveToIndex` excludes the moved key when computing the sibling list, so
     // the target's ORIGINAL slot index is the correct insertion point for a
     // drop onto the target in both directions (a forward move shifts the
@@ -2446,7 +2427,7 @@ class LayerController implements LayerAPI {
     // empty-folder cleanup button must stay reachable after the last layer
     // goes (hard constraint 1 / builder-4 ④). Only FOLDER keys count — a
     // root-layer entry (`layer:<id>`) in the order mirror is not a folder.
-    const roleKeys = (this.folderLayout.layout.order[role] ?? []).filter(
+    const roleKeys = (this.folderLayoutValue.order[role] ?? []).filter(
       key => !key.startsWith("layer:"),
     );
     if (!container.querySelector(anchorSel) && roleKeys.length === 0) {
@@ -2613,20 +2594,6 @@ class LayerController implements LayerAPI {
    *  PRE-removal registry snapshot, so the emptied folder's own block is part
    *  of the materialised order. Returns true when a freeze was written to
    *  the folder layout (the caller persists it). */
-  private freezeEmptyFolder(layerInfo: LayerInfo): boolean {
-    const folder = folderOf(this.folderLayout.layout, layerInfo);
-    if (!folder) return false;
-    const role = layerInfo.role === ROLE.BASE ? "base" : "overlay";
-    const key = folder;
-    const members = this.layerRegistry.layers.filter(
-      l => folderOf(this.folderLayout.layout, l) === key,
-    );
-    if (members.length !== 1) return false; // not the last member
-    this.folderLayout.set(
-      freezeRoleOrder(this.folderLayout.layout, role, this.layerRegistry.layers, key),
-    );
-    return true;
-  }
 
   deleteLayer(id: string): boolean {
     const layerInfo = this.layerRegistry.get(id);
@@ -2796,7 +2763,7 @@ class LayerController implements LayerAPI {
     const duplicate =
       this.orderDoc.nodes[folderKey] !== undefined ||
       this.layerRegistry.layers.some(
-        l => l.role === role && folderOf(this.folderLayout.layout, l) === key,
+        l => l.role === role && folderOf(this.folderLayoutValue, l) === key,
       );
     if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the root tail through the doc (the
@@ -2884,7 +2851,7 @@ class LayerController implements LayerAPI {
               const roleKey = folderDocKey(layerInfo.role, beforeEntry);
               if (this.orderDoc.nodes[roleKey] !== undefined) return roleKey;
               const hit = Object.entries(this.orderDoc.nodes).find(
-                ([k, n]) => n.kind === "folder" && n.role === layerInfo.role && n.name === beforeEntry,
+                ([, n]) => n.kind === "folder" && n.role === layerInfo.role && n.name === beforeEntry,
               );
               return hit ? hit[0] : beforeEntry;
             })();
@@ -2993,7 +2960,6 @@ class LayerController implements LayerAPI {
     const next = this.deleteFolderDoc(this.orderDoc, docKey);
     this.commitFolderMove(next, opts?.persist);
     return true;
-    return true;
   }
 
   /** Remove every EMPTY folder key from one role in
@@ -3010,7 +2976,7 @@ class LayerController implements LayerAPI {
    */
   cleanEmptyFolders(role: LayerRole): number {
     const docKeys = Object.keys(this.orderDoc.nodes).filter(
-      k => this.orderDoc.nodes[k].kind === "folder" && orderChildrenOf(this.orderDoc, k).length === 0,
+      k => this.orderDoc.nodes[k].kind === "folder" && this.orderDoc.nodes[k].role === role && orderChildrenOf(this.orderDoc, k).length === 0,
     );
     if (docKeys.length === 0) return 0;
     const out: OrderDoc = { nodes: { ...this.orderDoc.nodes } };
@@ -3204,7 +3170,7 @@ class LayerController implements LayerAPI {
     return {
       ...model,
       fields,
-      onField: (_field: string) => this.setLayerFilter(id, undefined),
+      onField: () => this.setLayerFilter(id, undefined),
     };
   }
 
@@ -3551,7 +3517,6 @@ class LayerController implements LayerAPI {
   private stepLayerInTree(id: string, up: boolean): boolean {
     const item = this.layerRegistry.get(id);
     if (!item) return false;
-    const role = item.role;
     const key = layerKeyOf(id);
     const node = this.orderDoc.nodes[key];
     if (node === undefined) return false;

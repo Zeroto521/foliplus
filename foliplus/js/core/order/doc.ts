@@ -8,10 +8,10 @@
 import { isNonEmptyString } from "./util.js";
 import type { LayerRole } from "#core/layer/index.js";
 
-export type OrderKind = "layer" | "folder" | "group";
+type OrderKind = "layer" | "folder" | "group";
 
 /** One node of the order document. `name` is only set on folder/group nodes. */
-export interface OrderNode {
+interface OrderNode {
   kind: OrderKind;
   /** Parent node key; null means the role root level. */
   parent: string | null;
@@ -28,27 +28,27 @@ export interface OrderNode {
 }
 
 /** The persisted layer-order document. */
-export interface OrderDoc {
+interface OrderDoc {
   nodes: Record<string, OrderNode>;
 }
 
 /** Maximum nesting depth: root -> block -> sub-block/leaf (design note: max nesting depth is 3: root → block → sub-block/leaf). */
-export const ORDER_MAX_DEPTH = 3;
+const ORDER_MAX_DEPTH = 3;
 
 const KINDS: readonly OrderKind[] = ["layer", "folder", "group"];
 
 /** An empty document (merge with defaults yields the default order). */
-export const emptyOrderDoc = (): OrderDoc => ({ nodes: {} });
+const emptyOrderDoc = (): OrderDoc => ({ nodes: {} });
 
 /** The doc key of a folder block: role-scoped so the same name can exist in
  *  both roles (the old array model was per-role; the doc keeps that by keying
  *  the role into the folder identity). */
-export const folderDocKey = (role: LayerRole, name: string): string =>
+const folderDocKey = (role: LayerRole, name: string): string =>
   `folder:${role}:${name}`;
 
 /** The role encoded in a folder doc key, or null when the key is not a folder
  *  block key (a layer key, a bare name, or a malformed folder key). */
-export const folderRoleOf = (key: string): LayerRole | null => {
+const folderRoleOf = (key: string): LayerRole | null => {
   if (!key.startsWith("folder:")) return null;
   const rest = key.slice("folder:".length);
   const sep = rest.indexOf(":");
@@ -59,7 +59,7 @@ export const folderRoleOf = (key: string): LayerRole | null => {
 
 /** The bare panel-facing name encoded in a folder doc key (\"folder:overlay:roads\"
  *  → \"roads\"). Returns the input unchanged when it is not a folder doc key. */
-export const folderBareOf = (key: string): string => {
+const folderBareOf = (key: string): string => {
   const role = folderRoleOf(key);
   if (role === null) return key;
   return key.slice("folder:".length + role.length + 1);
@@ -84,7 +84,7 @@ const isOrderNode = (value: unknown): value is OrderNode => {
 };
 
 /** Depth of a node (root children = depth 1). Returns 0 for an unknown key. */
-export const orderDepth = (doc: OrderDoc, key: string): number => {
+const orderDepth = (doc: OrderDoc, key: string): number => {
   let depth = 0;
   let cur: string | null = key;
   const seen = new Set<string>();
@@ -101,7 +101,7 @@ export const orderDepth = (doc: OrderDoc, key: string): number => {
 
 /** Strict structural predicate. False on kind/parent/cycle/depth violations; the
  *  caller drops the document wholesale and rebuilds the default. */
-export const isOrderDoc = (value: unknown): value is OrderDoc => {
+const isOrderDoc = (value: unknown): value is OrderDoc => {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   if (typeof v.nodes !== "object" || v.nodes === null) return false;
@@ -115,8 +115,9 @@ export const isOrderDoc = (value: unknown): value is OrderDoc => {
   for (const k of keys) {
     const node = nodes[k] as OrderNode;
     if (node.parent !== null && !(node.parent in nodes)) return false;
-    if (orderDepth({ nodes: nodes as Record<string, OrderNode> }, k) === 0)
+    if (orderDepth({ nodes: nodes as Record<string, OrderNode> }, k) === 0) {
       return false;
+    }
   }
   return true;
 };
@@ -124,7 +125,7 @@ export const isOrderDoc = (value: unknown): value is OrderDoc => {
 /** Repair a document: drop subtrees deeper than the depth cap (console.warn) and
  *  return it; return null when the shape is structurally invalid (kind/parent/cycle)
  *  and the caller must fall back to the default document. */
-export const sanitizeOrderDoc = (value: unknown): OrderDoc | null => {
+const sanitizeOrderDoc = (value: unknown): OrderDoc | null => {
   if (!isOrderDoc(value)) return null;
   const doc: OrderDoc = { nodes: { ...value.nodes } };
   // Drop nodes whose depth exceeds the cap (subtree drop; a parent that exceeds the cap carries its whole subtree with it).
@@ -139,4 +140,16 @@ export const sanitizeOrderDoc = (value: unknown): OrderDoc | null => {
     for (const k of drop) delete doc.nodes[k];
   }
   return doc;
+};
+
+export type { OrderKind, OrderNode, OrderDoc };
+
+export {
+  ORDER_MAX_DEPTH,
+  emptyOrderDoc,
+  folderDocKey,
+  folderBareOf,
+  orderDepth,
+  isOrderDoc,
+  sanitizeOrderDoc,
 };

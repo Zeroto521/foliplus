@@ -9,7 +9,6 @@ import {
   clearOrderDoc,
   defaultDoc,
   folderKeyOf,
-  layerKeyOf,
   loadOrderDoc,
   mergeOrderDocs,
   orderKeyOf,
@@ -151,8 +150,9 @@ describe("project", () => {
       key: "roads",
       name: "Roads",
     });
-    if (blocks[1].kind === "folder")
+    if (blocks[1].kind === "folder") {
       expect(blocks[1].members.map(i => i.id)).toEqual(["x", "y"]);
+    }
   });
 
   it("projectView returns the engine rows/leaves/blocks (same-source I2)", () => {

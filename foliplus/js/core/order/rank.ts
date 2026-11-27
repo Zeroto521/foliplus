@@ -22,26 +22,26 @@ const intIndex = new Map<string, number>();
 for (let i = 0; i < INT_DIGITS.length; i += 1) intIndex.set(INT_DIGITS[i], i);
 
 /** The first (smallest) rank. */
-export const rankStart = (): string => "a0";
+const rankStart = (): string => "a0";
 
 /** A rank strictly greater than `a` (insert after the last rank). */
-export const rankAfter = (a: string): string => generateKeyBetween(a, null);
+const rankAfter = (a: string): string => generateKeyBetween(a, null);
 
 /** The rank of the FIRST child when a parent has no children yet. */
-export const rankFirst = (): string => rankStart();
+const rankFirst = (): string => rankStart();
 
 /** A rank strictly between `a` and `b` (either may be null for an unbounded side). */
-export const rankBetween = (a: string | null, b: string | null): string =>
+const rankBetween = (a: string | null, b: string | null): string =>
   generateKeyBetween(a, b);
 
 /* ---- fractional-indexing internals (ported) ---- */
 
 const at = (map: Map<string, number>, c: string): number => map.get(c) as number;
 
-function midpoint(a: string, b: string | null): string {
+const midpoint = (a: string, b: string | null): string => {
   const zero = DIGITS[0];
-  if (b != null && a >= b) throw new Error(a + " >= " + b);
-  if (a.slice(-1) === zero || (b != null && b.slice(-1) === zero)) {
+  if (b != null && a >= b) throw new Error(`${a} >= ${b}`);
+  if (a.slice(-1) === zero || b?.slice(-1) === zero) {
     throw new Error("trailing zero");
   }
   if (b != null) {
@@ -54,42 +54,41 @@ function midpoint(a: string, b: string | null): string {
   if (digitB - digitA > 1) {
     const midDigit = Math.round(0.5 * (digitA + digitB));
     return DIGITS[midDigit];
-  } else {
-    if (b != null && b.length > 1) return b.slice(0, 1);
-    return DIGITS[digitA] + midpoint(a.slice(1), null);
   }
+  if (b != null && b.length > 1) return b.slice(0, 1);
+  return DIGITS[digitA] + midpoint(a.slice(1), null);
 }
 
-function getIntegerLength(head: string): number {
+const getIntegerLength = (head: string) => {
   const i = at(intIndex, head);
   const half = INT_DIGITS.length / 2;
   return i < half ? half - i + 1 : i - half + 2;
 }
 
-function getIntegerPart(key: string): string {
+const getIntegerPart = (key: string) => {
   const len = getIntegerLength(key[0]);
-  if (len > key.length) throw new Error("invalid order key: " + key);
+  if (len > key.length) throw new Error(`invalid order key: ${key}`);
   return key.slice(0, len);
 }
 
-function validateInteger(x: string): void {
+const validateInteger = (x: string) => {
   if (x.length !== getIntegerLength(x[0])) {
-    throw new Error("invalid integer part of order key: " + x);
+    throw new Error(`invalid integer part of order key: ${x}`);
   }
 }
 
-function isSmallestInteger(x: string): boolean {
+const isSmallestInteger = (x: string) => {
   return x === INT_DIGITS[0] + DIGITS[0].repeat(INT_DIGITS.length / 2);
 }
 
-function validateOrderKey(key: string): void {
-  if (isSmallestInteger(key)) throw new Error("invalid order key: " + key);
+const validateOrderKey = (key: string) => {
+  if (isSmallestInteger(key)) throw new Error(`invalid order key: ${key}`);
   const i = getIntegerPart(key);
   const f = key.slice(i.length);
-  if (f.slice(-1) === DIGITS[0]) throw new Error("invalid order key: " + key);
+  if (f.slice(-1) === DIGITS[0]) throw new Error(`invalid order key: ${key}`);
 }
 
-function incrementInteger(x: string): string | null {
+const incrementInteger = (x: string) => {
   validateInteger(x);
   const head = x[0];
   const zero = DIGITS[0];
@@ -112,7 +111,7 @@ function incrementInteger(x: string): string | null {
   );
 }
 
-function decrementInteger(x: string): string | null {
+const decrementInteger = (x: string) => {
   validateInteger(x);
   const head = x[0];
   const last = DIGITS[DIGITS.length - 1];
@@ -136,7 +135,7 @@ function decrementInteger(x: string): string | null {
 }
 
 /** Generate an order key strictly between `a` and `b` (either may be null). */
-function generateKeyBetween(a: string | null, b: string | null): string {
+const generateKeyBetween = (a: string | null, b: string | null) => {
   if (a != null) validateOrderKey(a);
   if (b != null) validateOrderKey(b);
   if (a != null && b != null && a > b) {
@@ -176,3 +175,10 @@ function generateKeyBetween(a: string | null, b: string | null): string {
   if (i < b) return i;
   return ia + midpoint(fa, null);
 }
+
+export {
+  rankStart,
+  rankAfter,
+  rankFirst,
+  rankBetween,
+};

@@ -1,7 +1,6 @@
 // test/js/control/LayerControl/controller.rollback — commit failures, pricing and rollback.
 import {
   createLayerControllerFixture,
-  seedStorage,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { attachedPanel, initFixture } from "./ui/fixture.js";

@@ -239,11 +239,11 @@ describe("LayerController", () => {
     expect(m.deleteLayer("overlay1")).toBe(true);
 
     const stored = readOrderTreeStorage(map)!;
-    const node = stored.nodes["layer:overlay1"] as Record<string, unknown>;
+    const node = stored.nodes["layer:overlay1"];
     // The delete marks the doc node hidden (the single retire marker), so a
     // reload never rebuilds the layer; the base layer's slot is untouched.
     expect(node?.hidden).toBe(true);
-    expect((stored.nodes["layer:base1"] as Record<string, unknown>).hidden).toBeUndefined();
+    expect(stored.nodes["layer:base1"]?.hidden).toBeUndefined();
     const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data as {
       renamedNames: Record<string, string>;
       layers: Record<string, unknown>;
@@ -383,7 +383,7 @@ describe("LayerController", () => {
     expect(() => m.registerLayer({ id: "gone", name: "G" })).not.toThrow();
     expect(m.layerRegistry.get("gone")).toBeDefined();
     const stored = readOrderTreeStorage(map)!;
-    expect((stored.nodes["layer:gone"] as Record<string, unknown>).hidden).toBeUndefined();
+    expect(stored.nodes["layer:gone"]?.hidden).toBeUndefined();
   });
 
   it("still accepts an id that is not in removed", () => {

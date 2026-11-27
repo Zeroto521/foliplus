@@ -10,7 +10,6 @@ import { initFixture, polygonLayer } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { FALLBACK_PANE_PREFIX } from "#core/layer/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 
 // ===========================================================================

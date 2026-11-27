@@ -7,16 +7,15 @@ import type { LayerRole } from "../role.js";
 import type { FolderLayout } from "../folderLayout.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
-import type { OrderDoc } from "#core/order/index.js";
-import { folderBareOf } from "#core/order/index.js";
 import {
-
   type BlockRow,
+  type OrderDoc,
   type OrderRow,
   type ParentView,
   type Present,
   type ResolvedView,
   childrenOf,
+  folderBareOf,
   resolveView,
 } from "#core/order/index.js";
 
@@ -30,14 +29,14 @@ const layerIdOf = (key: string): string | null =>
   key.startsWith("layer:") ? key.slice("layer:".length) : null;
 
 /** The role that owns a layer (its LayerInfo.role); unknown ids are not present. */
-export type RoleOf = (id: string) => LayerRole | null;
+type RoleOf = (id: string) => LayerRole | null;
 
 /** One projected block (folder/group) with its live members, or a root layer row.
  *
  *  `members` is DERIVED from the engine BlockRow.children leaf order (present-
  *  filtered, then looked up to LayerInfo) — never a separate registry sort, so
  *  rows and z stay the same source (design note: one single source). */
-export type ProjectedBlock =
+type ProjectedBlock =
   | {
       kind: "folder" | "group";
       key: string;
@@ -48,13 +47,13 @@ export type ProjectedBlock =
   | { kind: "layer"; layer: LayerInfo };
 
 /** Re-export the engine projection types so the adapter contract is one import. */
-export type { BlockRow, OrderRow, ParentView, ResolvedView };
+
 
 /** The roles in the fixed panel/z order: overlay first, then base. */
-export const ROLE_ORDER: readonly LayerRole[] = ["overlay", "base"];
+const ROLE_ORDER: readonly LayerRole[] = ["overlay", "base"];
 
 /** Build the present predicate: a layer id is present when its LayerInfo exists. */
-export const presentOf = (registry: readonly LayerInfo[]): Present => {
+const presentOf = (registry: readonly LayerInfo[]): Present => {
   const ids = new Set(registry.map(info => info.id));
   return (key: string) => {
     const id = layerIdOf(key);
@@ -65,7 +64,7 @@ export const presentOf = (registry: readonly LayerInfo[]): Present => {
 /** The typed rows for one role (panel order), in DFS order. The role header
  *  is a UI concern rendered separately; a block row appears in a role when any
  *  of its subtree leaves belongs to that role. */
-export const projectRows = (
+const projectRows = (
   doc: OrderDoc,
   present: Present,
   roleOf: RoleOf,
@@ -94,7 +93,7 @@ export const projectRows = (
 };
 
 /** The z ladder for one role: leaf ids in DFS order (overlays before base). */
-export const projectZ = (
+const projectZ = (
   doc: OrderDoc,
   present: Present,
   roleOf: RoleOf,
@@ -110,7 +109,7 @@ export const projectZ = (
 };
 
 /** The display blocks for one role (panel row sequence) with live members. */
-export const projectBlocks = (
+const projectBlocks = (
   doc: OrderDoc,
   present: Present,
   registry: readonly LayerInfo[],
@@ -133,7 +132,7 @@ export const projectBlocks = (
     if (!block) continue;
     const members = block.children
       .map(c => byId.get(layerIdOf(c) as string))
-      .filter((i): i is LayerInfo => i !== undefined && i.role === role);
+      .filter((i): i is LayerInfo => i?.role === role);
     if (members.length === 0) continue;
     out.push({
       kind: block.kind,
@@ -147,7 +146,7 @@ export const projectBlocks = (
 };
 
 /** Convenience: the engine view for one role (rows + leaves + blocks raw). */
-export const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
+const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
   resolveView(doc, present);
 
 /** The single controller-facing projection: one resolve, three derived views.
@@ -156,13 +155,13 @@ export const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
  *  with live LayerInfo `members`; `z` is the flat role ladder (overlays before
  *  base) that feeds registry.normalizeGroups. All three come from ONE resolveView
  *  call, so rows and z can never disagree (design note: one single source). */
-export interface OrderView {
+interface OrderView {
   rows: Record<LayerRole, OrderRow[]>;
   blocks: Record<LayerRole, ProjectedBlock[]>;
   z: string[];
 }
 
-export const resolveOrderView = (
+const resolveOrderView = (
   doc: OrderDoc,
   present: Present,
   registry: readonly LayerInfo[],
@@ -246,26 +245,17 @@ export const resolveOrderView = (
 };
 
 /** The ordered child keys of one parent (root when null) — engine childrenOf. */
-export const childrenOfView = (
+const childrenOfView = (
   doc: OrderDoc,
   parent: string | null,
   order: string[] = [],
 ): ParentView => ({ children: childrenOf(doc, parent, order) });
 
-/** The folder-block key of a node (folder/group) or the role-root marker "" for a
- *  root layer, derived from the doc — the folderOf/display lookup the controller
- *  still reads through the folderLayout mirror. */
-const folderOfDoc = (doc: OrderDoc, key: string): string => {
-  const node = doc.nodes[key];
-  if (node === undefined) return "";
-  return node.parent ?? "";
-};
-
 /** Derive the folderLayout mirror (folders + block order + member assignment)
  *  from the doc. The doc is the single order source; this mirror is derived
  *  (setDerived) and never persisted. Groups are excluded — the folder domain
  *  (folderOf / display / rename) operates on folders only. */
-export const projectLayoutOf = (
+const projectLayoutOf = (
   doc: OrderDoc,
   present: Present,
   registry: readonly LayerInfo[],
@@ -324,4 +314,26 @@ export const projectLayoutOf = (
     }
   }
   return { version: 2, folders, order, members };
+};
+
+export type {
+  RoleOf,
+  ProjectedBlock,
+  BlockRow,
+  OrderRow,
+  ParentView,
+  ResolvedView,
+  OrderView,
+};
+
+export {
+  ROLE_ORDER,
+  presentOf,
+  projectRows,
+  projectZ,
+  projectBlocks,
+  projectView,
+  resolveOrderView,
+  childrenOfView,
+  projectLayoutOf,
 };

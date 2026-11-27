@@ -10,7 +10,6 @@ export {
   sanitizeOrderDoc,
   ORDER_MAX_DEPTH,
   folderDocKey,
-  folderRoleOf,
   folderBareOf,
 } from "./doc.js";
 export type { OrderDoc, OrderKind, OrderNode } from "./doc.js";

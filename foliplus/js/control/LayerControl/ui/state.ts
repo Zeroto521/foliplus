@@ -169,7 +169,7 @@ const applyUserState = (ui: LayerUI, id?: string): ProjectionBatch => {
     // The order dimension is replayed on the same pass: this path runs once per
     // late registration, so without it the layer would keep the slot it was
     // inserted into rather than the position the user already arranged.
-    ui.c.replaySavedOrder(id);
+    ui.c.replaySavedOrder();
     // The round is returned, not announced here: a late registration can join
     // the map on this replay, and the caller owns the complete operation (the
     // registration entry refreshes the row and the role count first, then

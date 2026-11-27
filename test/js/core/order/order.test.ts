@@ -1,19 +1,21 @@
 // test/js/core/order/order.test.ts — document validation and the command library.
 import { describe, expect, it } from "vitest";
 import {
+  type OrderDoc,
+  childrenOf,
   createBlock,
   deleteBlock,
+  emptyOrderDoc,
+  isOrderDoc,
   moveBefore,
   moveInto,
   moveToIndex,
   renameBlock,
   resetOrder,
   restore,
+  sanitizeOrderDoc,
   suppress,
 } from "#core/order/index.js";
-import { emptyOrderDoc, isOrderDoc, sanitizeOrderDoc } from "#core/order/index.js";
-import type { OrderDoc } from "#core/order/index.js";
-import { childrenOf } from "#core/order/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 

@@ -75,8 +75,6 @@ const INTENTIONAL_NO_TEST: Record<string, string> = {
     "turf geodesic wrapper exercised through MeasureControl's unit and browser suites",
   "core/interaction/interactionManager":
     "per-map interaction registry exercised through BaseControl and the browser suite",
-  "core/layer/folderName":
-    "covered by test/js/core/layer/folderLayout.test.ts (name cap + fold are exercised there)",
   "core/layer/layout/default":
     "covered by the aggregate test/js/core/layer/layout.test.ts",
   "core/layer/layout/merge":
@@ -89,8 +87,6 @@ const INTENTIONAL_NO_TEST: Record<string, string> = {
     "covered by the aggregate test/js/core/order/order.test.ts + rank.test.ts",
   "core/order/command":
     "covered by the aggregate test/js/core/order/order.test.ts",
-  "core/order/doc":
-    "covered by the aggregate test/js/core/order/order.test.ts + resolve.test.ts",
   "core/order/util":
     "covered by the aggregate test/js/core/order/order.test.ts",
 

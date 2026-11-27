@@ -179,7 +179,7 @@ describe("LayerController", () => {
       m.layerRegistry.reorder(0, 1);
       expect(m.layers.map(l => l.id)).toEqual(["B", "A"]);
 
-      m.replaySavedOrder("A");
+      m.replaySavedOrder();
 
       expect(m.layers.map(l => l.id)).toEqual(["A", "B"]);
     });
@@ -188,7 +188,7 @@ describe("LayerController", () => {
       seedOrderDoc(map, ["A"]);
       const m = new LayerController(map, [{ id: "A", name: "A", role: "overlay" }]);
 
-      expect(() => m.replaySavedOrder("ghost")).not.toThrow();
+      expect(() => m.replaySavedOrder()).not.toThrow();
       expect(m.layers.map(l => l.id)).toEqual(["A"]);
     });
 

@@ -69,7 +69,6 @@ describe("LayerPersistence", () => {
       // LayerPersistedRecord, because the write rebuilds the record through it.
       // Add a dimension to the type and forget the parser, and this test fails
       // on the new field — the silent-loss case has no other visible symptom.
-      const ids = ["a", "b"];
       const record: LayerPersistedRecord = {
         version: RECORD_VERSION,
         foldedRoles: { OVERLAYS: true },

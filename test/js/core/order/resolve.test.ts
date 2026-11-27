@@ -1,7 +1,7 @@
 // test/js/core/order/resolve.test.ts — kind-generic projection over the order document.
 import { describe, expect, it } from "vitest";
-import type { OrderDoc } from "#core/order/index.js";
 import {
+  type OrderDoc,
   childrenOf,
   leafKeysOf,
   resolveView,

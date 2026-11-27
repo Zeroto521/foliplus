@@ -5,11 +5,10 @@
 // blocks. The adapter (core/layer/layout/project) maps node keys to LayerInfo and
 // partitions rows by role. The z ladder is a DFS leaf flatten of the whole subtree
 // — a block does not change z semantics, it is only panel grouping.
-import type { OrderDoc } from "./doc.js";
-import { ORDER_MAX_DEPTH, orderDepth } from "./doc.js";
+import { type OrderDoc, ORDER_MAX_DEPTH, orderDepth } from "./doc.js";
 
 /** A block row: a folder or group header with its subtree leaves. */
-export interface BlockRow {
+interface BlockRow {
   kind: "folder" | "group";
   key: string;
   name: string;
@@ -19,7 +18,7 @@ export interface BlockRow {
 }
 
 /** One panel row: a block header or a leaf (layer) row. */
-export interface OrderRow {
+interface OrderRow {
   kind: "block" | "layer";
   key: string;
   /** 1-based nesting depth (root children = 1). */
@@ -29,7 +28,7 @@ export interface OrderRow {
 }
 
 /** A resolved role view: rows (panel order), leaves (z ladder), blocks. */
-export interface ResolvedView {
+interface ResolvedView {
   rows: OrderRow[];
   /** Leaf ids in DFS order — the flat z ladder. */
   leaves: string[];
@@ -37,7 +36,7 @@ export interface ResolvedView {
 }
 
 /** The role-independent view of one parent (root when parent is null). */
-export interface ParentView {
+interface ParentView {
   /** Child node keys in document order (rank, tie declaration index, tie id). */
   children: string[];
 }
@@ -56,7 +55,7 @@ const byRank = (doc: OrderDoc, a: string, b: string, order: string[]): number =>
 };
 
 /** The ordered children of a parent (root children when parent is null). */
-export const childrenOf = (
+const childrenOf = (
   doc: OrderDoc,
   parent: string | null,
   order: string[] = [],
@@ -70,10 +69,10 @@ export const childrenOf = (
 };
 
 /** Whether a node key is present in the registry (present set of leaf ids). */
-export type Present = (key: string) => boolean;
+type Present = (key: string) => boolean;
 
 /** All leaf (layer) keys in the subtree rooted at `key` (DFS preorder). */
-export const subtreeLeaves = (doc: OrderDoc, key: string): string[] => {
+const subtreeLeaves = (doc: OrderDoc, key: string): string[] => {
   const node = doc.nodes[key];
   if (node === undefined) return [];
   if (node.kind === "layer") return [key];
@@ -85,7 +84,7 @@ export const subtreeLeaves = (doc: OrderDoc, key: string): string[] => {
 };
 
 /** DFS over the whole document: leaf keys in order, present leaves only. */
-export const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
+const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
   const out: string[] = [];
   const walk = (parent: string | null, depth: number): void => {
     for (const child of childrenOf(doc, parent)) {
@@ -103,7 +102,7 @@ export const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
 };
 
 /** Project the document into rows + leaves + blocks for one role partition. */
-export const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
+const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
   const rows: OrderRow[] = [];
   const leaves: string[] = [];
   const blocks: BlockRow[] = [];
@@ -132,4 +131,13 @@ export const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
   };
   walk(null, 1);
   return { rows, leaves, blocks };
+};
+
+export type { BlockRow, OrderRow, ResolvedView, ParentView, Present };
+
+export {
+  childrenOf,
+  subtreeLeaves,
+  leafKeysOf,
+  resolveView,
 };

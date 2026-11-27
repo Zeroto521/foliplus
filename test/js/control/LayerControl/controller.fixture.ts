@@ -2,7 +2,7 @@
 import { makeDerivedUI } from "./ui/fixture.js";
 import { vi } from "vitest";
 import { type LayerFilterFeatures, folderLayoutKey, orderKeyOf } from "#core/layer/index.js";
-import { rankBetween, rankFirst } from "#core/order/index.js";
+import { type OrderDoc, rankBetween, rankFirst } from "#core/order/index.js";
 import { scopedStorageKey } from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
@@ -44,9 +44,9 @@ export const orderFromRoles = (
 export const orderStorageKey = (map: any): string =>
   scopedStorageKey(map, "layer_arrangement");
 
-export const readOrderTreeStorage = (map: any): Record<string, unknown> | null => {
+export const readOrderTreeStorage = (map: any): OrderDoc | null => {
   const raw = window.localStorage.getItem(orderKeyOf(map));
-  return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+  return raw ? (JSON.parse(raw) as OrderDoc) : null;
 };
 
 /** Seed the persisted layer_order {nodes} document from a flat layer-id order
