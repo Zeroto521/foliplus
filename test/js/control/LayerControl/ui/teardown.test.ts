@@ -5,6 +5,7 @@ import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { SURFACE_KINDS } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 // focusLayer() reaches guardBlocked() through a free import rather than a
 // `map.foliplus` reference, so it has to be mocked to flip the block on.
@@ -38,14 +39,11 @@ vi.mock("#core/lifecycle/mode.js", () => ({
  */
 type Surface = "attrs" | "style" | "filter" | "menu" | "rename" | "focus";
 
-const SURFACES = Object.keys({
-  attrs: 1,
-  style: 1,
-  filter: 1,
-  menu: 1,
-  rename: 1,
-  focus: 1,
-}) as Surface[];
+// The machine's kind list is the single source for the five foliplus surfaces:
+// a new surface that nobody lists in openSurface.ts cannot silently escape these
+// pairs. Focus is the sixth competitor but not an OpenSurface kind (it is a map
+// state), so it is appended here rather than in the machine.
+const SURFACES: Surface[] = [...SURFACE_KINDS, "focus"];
 
 const NAME: Record<Surface, string> = {
   attrs: "the attributes panel",
@@ -112,18 +110,30 @@ describe("LayerUI overlay mutual exclusion", () => {
 
   for (const from of SURFACES) {
     for (const to of SURFACES) {
-      if (from === to) continue;
-      it(`opening ${NAME[to]} drops ${NAME[from]}`, () => {
-        const item = findItem(ui, "overlay1");
+      it(
+        from === to
+          ? `re-opening ${NAME[to]} replaces it instead of stacking`
+          : `opening ${NAME[to]} drops ${NAME[from]}`,
+        () => {
+          const item = findItem(ui, "overlay1");
 
-        OPEN[from](ui, item);
-        expect(IS_UP[from](ui)).toBe(true);
+          OPEN[from](ui, item);
+          expect(IS_UP[from](ui)).toBe(true);
 
-        OPEN[to](ui, item);
+          OPEN[to](ui, item);
 
-        expect(IS_UP[from](ui)).toBe(false);
-        expect(IS_UP[to](ui)).toBe(true);
-      });
+          if (from === to) {
+            // The most common path: a second open of the same kind must replace
+            // the first, not stack on it. The machine holds one record, so the
+            // surface is still up and the projection names that one kind.
+            expect(IS_UP[to](ui)).toBe(true);
+            if (to !== "focus") expect(ui.overlayPanel.surface?.kind).toBe(to);
+            return;
+          }
+          expect(IS_UP[from](ui)).toBe(false);
+          expect(IS_UP[to](ui)).toBe(true);
+        },
+      );
     }
   }
 

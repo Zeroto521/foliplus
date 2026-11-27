@@ -20,6 +20,7 @@ import {
   syncToggleAll,
   toggleAll,
 } from "#control/LayerControl/ui/listPanel/index.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 import { intentVisibleOf } from "#control/LayerControl/ui/projection.js";
 
 // ===========================================================================
@@ -1297,13 +1298,14 @@ describe("ui/list folder rows (visibility)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).surface = {
+    openSurface(ui, {
       kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
       folderKey: "roads",
-    };
+    });
     const folderCb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;
@@ -1337,12 +1339,13 @@ describe("ui/list folder rows (visibility)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).surface = {
+    openSurface(ui, {
       kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
-    };
+    });
     const folderCb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;
@@ -1460,13 +1463,14 @@ describe("ui/list folder rows (visibility)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       '[data-folder-key="roads"]',
     ) as HTMLElement;
-    (ui.overlayPanel as any).surface = {
+    openSurface(ui, {
       kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const folderCb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;

@@ -16,6 +16,7 @@ import {
   updateLayerItemLabel,
 } from "#control/LayerControl/ui/listPanel/index.js";
 import { emptyFolderKeys } from "#control/LayerControl/ui/listPanel/list.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 describe("ui/list folder rows (render / row structure)", () => {
   beforeEach(() => {
@@ -148,12 +149,13 @@ describe("ui/list folder rows (render / row structure)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).surface = {
+    openSurface(ui, {
       kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     const cb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;
@@ -243,12 +245,13 @@ describe("ui/list folder rows (render / row structure)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).surface = {
+    openSurface(ui, {
       kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     // Hide the layer first.
     const cb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW} input[type=checkbox]`,
@@ -452,13 +455,14 @@ describe("ui/list folder rows (render / row structure)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `[data-folder-key="roads"]`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).surface = {
+    openSurface(ui, {
       kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const folderCb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;
@@ -499,13 +503,14 @@ describe("ui/list folder rows (render / row structure)", () => {
     const row = ui.uiContainer!.querySelector(
       `[data-folder-key="roads"]`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).surface = {
+    openSurface(ui, {
       kind: "menu",
       item: row,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const folderCb = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW} input[type=checkbox]`,
     ) as HTMLInputElement;

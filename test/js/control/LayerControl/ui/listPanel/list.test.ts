@@ -18,6 +18,7 @@ import {
   renderInitialList,
   updateLayerItemLabel,
 } from "#control/LayerControl/ui/listPanel/index.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 describe("ui/list displayName", () => {
   it("resolves a registered/renamed id through the registry name", () => {
@@ -620,7 +621,7 @@ describe("ui/list row placement", () => {
     row.appendChild(attrsPanel);
     // One surface at a time (openSurface is the single source), so the two
     // panel kinds are closed in two rounds against the same rebuild path.
-    ui.overlayPanel.surface = { kind: "style", layerId: "A" };
+    openSurface(ui, { kind: "style", layerId: "A" });
     const styleUnregister = vi.fn();
     ui.overlayPanel.styleOverlayUnregister = styleUnregister;
 
@@ -631,12 +632,7 @@ describe("ui/list row placement", () => {
     expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
     expect(stylePanel.isConnected).toBe(false);
 
-    ui.overlayPanel.surface = {
-      kind: "attrs",
-      item: row,
-      panel: attrsPanel,
-      layerId: "A",
-    };
+    openSurface(ui, { kind: "attrs", item: row, panel: attrsPanel, layerId: "A" });
     const attrsUnregister = vi.fn();
     ui.overlayPanel.attrsOverlayUnregister = attrsUnregister;
 

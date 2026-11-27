@@ -55,6 +55,7 @@ import { createLogger } from "#platform/log.js";
 // itself only imports the core/layer barrel, so it is safe to load early.
 import { LayerIntentStore } from "#control/LayerControl/domain/LayerIntentStore.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { readSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 type Overrides = Record<string, unknown>;
 
@@ -392,10 +393,9 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       listCleanup: null,
     },
     overlayPanel: {
-      // The single "what is open" state (overlayPanel/openSurface.ts). The real
-      // class exposes the active* / stylePanelLayerId fields as getters over
-      // it; the same getters are defined on this literal below.
-      surface: null,
+      // The single "what is open" state (overlayPanel/openSurface.ts) and the
+      // active* / stylePanelLayerId projections are defined on this literal
+      // below, exactly like the real OverlayPanel.
       attrsOverlayUnregister: null,
       filterOverlayUnregister: null,
       styleOverlayUnregister: null,
@@ -416,6 +416,12 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
   // compat getters on the real LayerUI class.
   const lp = base.listPanel;
   const op = base.overlayPanel;
+  // `surface` is read-only here for the same reason it is on the real class:
+  // tests drive it through openSurface/closeSurface, never by assignment.
+  Object.defineProperty(op, "surface", {
+    get: () => readSurface(op),
+    configurable: true,
+  });
   const compatGetters: Array<[string, () => unknown, (v: unknown) => void]> = [
     ["foldedRoles", () => lp.foldedRoles, v => void (lp.foldedRoles = v as any)],
     ["checkedCount", () => lp.checkedCount, v => void (lp.checkedCount = v as any)],

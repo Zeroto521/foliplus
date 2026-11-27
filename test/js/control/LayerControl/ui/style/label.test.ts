@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, ensureEvents } from "#core/event/index.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 import { closeStylePanel } from "#control/LayerControl/ui/style/index.js";
 import {
   FACE,
@@ -118,7 +119,7 @@ describe("content-change label replay", () => {
     turnLabelsOn();
     const renderLabels = vi.spyOn(ui.c.label, "renderLabels").mockReturnValue([]);
     // Minimal panel chrome so closeStylePanel finds stylePanelLayerId.
-    ui.overlayPanel.surface = { kind: "style", layerId: "grp1" };
+    openSurface(ui, { kind: "style", layerId: "grp1" });
 
     ensureEvents(ui.c.map).emit(EVENTS.LAYER_ITEM_COUNT_CHANGE, { id: "grp1" });
     expect(renderLabels).not.toHaveBeenCalled();

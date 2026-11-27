@@ -6,6 +6,10 @@ import {
   registerInteractions,
 } from "#control/LayerControl/interaction.js";
 import { handleMenuClick } from "#control/LayerControl/ui/overlayPanel/menu.js";
+import {
+  openSurface,
+  readSurface,
+} from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 // ---- Mock the real InteractionManager. The real one creates doc-level
 // listeners + a MutationObserver that don't auto-teardown cleanly in jsdom.
@@ -54,11 +58,13 @@ function makeUI(): any {
     openAttrsPanel: vi.fn(),
     listPanel: { activeIdx: null },
     overlayPanel: {
-      // Mirrors the real OverlayPanel: the menu projection is derived from the
-      // single openSurface state, so these dispatch tests read the same path.
-      surface: null as { kind: string } | null,
+      // Mirrors the real OverlayPanel: `surface` is a read-only projection of
+      // the machine's per-panel store, and the menu projection reads it.
+      get surface() {
+        return readSurface(this) as { kind: string } | null;
+      },
       get activeMenu() {
-        const open = this.surface as { kind: string; item?: HTMLElement } | null;
+        const open = readSurface(this) as { kind: string; item?: HTMLElement } | null;
         return open?.kind === "menu" ? open : null;
       },
     },
@@ -241,12 +247,12 @@ describe("LayerControl handleMoreMenuClick", () => {
     if (disabled) li.setAttribute("aria-disabled", "true");
     menu.appendChild(li);
 
-    ui.overlayPanel.surface = {
+    openSurface(ui, {
       kind: "menu",
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
-    };
+    });
     document.body.appendChild(menu);
     return { ui, li };
   }
@@ -330,12 +336,12 @@ describe("LayerControl handleMoreMenuClick", () => {
     const li = document.createElement("button");
     li.dataset.action = "unknown-action";
     menu.appendChild(li);
-    ui.overlayPanel.surface = {
+    openSurface(ui, {
       kind: "menu",
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
-    };
+    });
     document.body.appendChild(menu);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });
@@ -352,12 +358,12 @@ describe("LayerControl handleMoreMenuClick", () => {
     menu.className = "foliplus-layer-more-menu";
     const li = document.createElement("button");
     menu.appendChild(li);
-    ui.overlayPanel.surface = {
+    openSurface(ui, {
       kind: "menu",
       item: document.createElement("div"),
       menu,
       layerId: "layer1",
-    };
+    });
     document.body.appendChild(menu);
 
     const event = new MouseEvent("click", { bubbles: true, cancelable: true });

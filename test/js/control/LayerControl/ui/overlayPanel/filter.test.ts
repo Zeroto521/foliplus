@@ -14,6 +14,7 @@ import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 import { type LayerUI } from "#control/LayerControl/ui/index.js";
+import { clearSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 describe("LayerUI filter panel", () => {
   let manager: LayerController;
@@ -145,7 +146,7 @@ describe("LayerUI filter panel", () => {
 
       // Menu state dropped (e.g. a peer overlay cleared it) — the handler
       // must still dispatch, anchoring on the clicked <li>.
-      ui.overlayPanel.surface = null;
+      clearSurface(ui, "menu");
       const li = item.querySelector(
         `[data-action="${CONST.ACTION.FILTER_LAYER}"]`,
       ) as HTMLElement;

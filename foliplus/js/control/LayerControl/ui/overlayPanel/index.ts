@@ -21,7 +21,7 @@ import {
   closeMoreMenu,
   openMoreMenu,
 } from "./menu.js";
-import type { OpenSurface } from "./openSurface.js";
+import { type OpenSurface, readSurface } from "./openSurface.js";
 import { finishRename, renameLayer } from "./rename.js";
 import type { PanelController } from "#core/leaflet/index.js";
 
@@ -33,8 +33,12 @@ type AttrsSurface = Extract<OpenSurface, { kind: "attrs" }>;
  *  projections of it, and the resource fields are pipes installed by an open
  *  and released by its close. */
 class OverlayPanel {
-  /** THE open surface, or null. Written only by ./openSurface.ts helpers. */
-  surface: OpenSurface | null = null;
+  /** THE open surface, or null. Read-only here on purpose: the write path is
+   *  ./openSurface.ts (openSurface / closeSurface / clearSurface), so a reader
+   *  cannot fork the state and a test cannot bypass the machine. */
+  get surface(): OpenSurface | null {
+    return readSurface(this);
+  }
 
   /** Currently visible overflow menu, or null. Projection of `surface`. */
   get activeMenu(): MenuSurface | null {

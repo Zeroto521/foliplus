@@ -8,16 +8,21 @@
 // subscriptions in lifecycle.ts. Adding a surface meant editing every one of
 // them, and a missed cleanup left two surfaces up at once.
 //
-// Now `ui.overlayPanel.surface` is the single stored answer. Openers call
-// `openSurface(ui, next)` (which closes whatever is open first, so every entry
-// point gets exclusivity for free); closers call `closeSurface(ui)` or, from
-// inside their own close path, `clearSurface(ui, kind)`. Readers use the
-// derived getters on `OverlayPanel` — they project `surface`, never a second
-// copy. The overflow menu's `.open` class is a render product: written when
-// the element is built, never read back as state.
+// Now the machine owns the only stored answer, in a per-panel WeakMap. Openers
+// call `openSurface(ui, next)` (which closes whatever is open first, so every
+// entry point gets exclusivity for free); closers call `closeSurface(ui)` or,
+// from inside their own close path, `clearSurface(ui, kind)`. Readers use
+// `ui.overlayPanel.surface` (a read-only getter that projects this store) or
+// the derived getters on `OverlayPanel` — never a second copy. The write path
+// is private to this module, so a reader cannot fork the state and a test
+// cannot bypass the machine by assigning a field. The overflow menu's `.open`
+// class is a render product: written when the element is built, never read back
+// as state.
 //
 // Extension point — a sixth surface needs exactly three edits:
-//   1. one member in `OpenSurface` below (its `kind` + anchoring payload),
+//   1. one member in `OpenSurface` below (its `kind` + anchoring payload) AND
+//      the matching entry in `SURFACE_KINDS` (the compiler rejects a kind that
+//      is missing from either side),
 //   2. one `registerSurfaceCloser(kind, close)` in the module that owns the
 //      surface's close function (see the bottom of menu.ts / attr.ts /
 //      filter.ts / style/index.ts / rename.ts),
@@ -52,28 +57,71 @@ type SurfaceKind = OpenSurface["kind"];
  *  and clear its state. Written once per kind by the owning module. */
 type SurfaceCloser = (ui: LayerUI) => void;
 
+/** Runtime mirror of the `OpenSurface` kind set. Both halves of the extension
+ *  point are compiler-checked: `satisfies` rejects a listed kind that is not a
+ *  union member, and `_everyKindListed` rejects a union member that is not
+ *  listed. That is what makes the closer-table test below an assertion instead
+ *  of a tautology — a new kind cannot compile until it is listed here, and the
+ *  test then fails until its owner registers a closer. */
+const SURFACE_KINDS = [
+  "attrs",
+  "filter",
+  "menu",
+  "rename",
+  "style",
+] as const satisfies readonly SurfaceKind[];
+
+type _MissingKind = Exclude<SurfaceKind, (typeof SURFACE_KINDS)[number]>;
+const _everyKindListed: _MissingKind extends never ? true : never = true;
+
 /** The dispatch table. Deliberately populated by the owners rather than
  *  imported here: a table literal would make this module import the panels
  *  that import it (a cycle through the barrel is exactly what reordered module
  *  evaluation once already). */
 const surfaceClosers = new Map<SurfaceKind, SurfaceCloser>();
 
+/** The single stored answer, one entry per OverlayPanel. A WeakMap (not a
+ *  writable field) is what makes the state read-only for everyone but this
+ *  module: `OverlayPanel.surface` projects it, and open/close/clear are the
+ *  only writes in the program. */
+const surfaces = new WeakMap<object, OpenSurface | null>();
+
+/** Read the open surface for one panel. Readers normally go through the
+ *  `OverlayPanel.surface` getter; this exists for the getter itself and for
+ *  test fixtures that mirror the class. */
+const readSurface = (panel: object): OpenSurface | null => surfaces.get(panel) ?? null;
+
+const writeSurface = (ui: LayerUI, next: OpenSurface | null): void => {
+  surfaces.set(ui.overlayPanel, next);
+};
+
 /** Register the close path for one surface kind. Called once at module load by
- *  the kind's owner. */
-const registerSurfaceCloser = (kind: SurfaceKind, close: SurfaceCloser): void => {
+ *  the kind's owner; returns the closer it replaced so a test can restore the
+ *  real one after proving the throwing path (production never unregisters). */
+const registerSurfaceCloser = (
+  kind: SurfaceKind,
+  close: SurfaceCloser,
+): SurfaceCloser | undefined => {
+  const previous = surfaceClosers.get(kind);
   surfaceClosers.set(kind, close);
+  return previous;
 };
 
 /** Close whichever surface is open. Returns whether anything was open.
  *
  *  Each closer clears the state itself (through `clearSurface`); the fallback
- *  clear covers a closer that throws or a state a test set without a close
- *  path, so the machine can never keep pointing at a surface that is gone. */
+ *  clear runs in a `finally`, so a closer that throws mid-teardown still
+ *  leaves the machine at null. Without that, `openSurface` would see the dead
+ *  surface and dispatch the same throwing closer a second time — turning one
+ *  broken panel into a wedged control that cannot open anything. */
 const closeSurface = (ui: LayerUI): boolean => {
-  const open = ui.overlayPanel.surface;
+  const open = readSurface(ui.overlayPanel);
   if (!open) return false;
-  surfaceClosers.get(open.kind)?.(ui);
-  if (ui.overlayPanel.surface === open) ui.overlayPanel.surface = null;
+  try {
+    surfaceClosers.get(open.kind)?.(ui);
+  } finally {
+    if (readSurface(ui.overlayPanel) === open) writeSurface(ui, null);
+  }
   return true;
 };
 
@@ -81,15 +129,15 @@ const closeSurface = (ui: LayerUI): boolean => {
  *  rule, in one place: no opener has to know the other kinds, and a caller
  *  that forgot `closeOverlays` still cannot leave two surfaces up. */
 const openSurface = (ui: LayerUI, next: OpenSurface): void => {
-  if (ui.overlayPanel.surface) closeSurface(ui);
-  ui.overlayPanel.surface = next;
+  if (readSurface(ui.overlayPanel)) closeSurface(ui);
+  writeSurface(ui, next);
 };
 
 /** Clear the state iff `kind` is the open one. The per-kind closers call this
  *  from inside their own teardown; a re-entrant close of a different kind is a
  *  no-op instead of a clobber. */
 const clearSurface = (ui: LayerUI, kind: SurfaceKind): void => {
-  if (ui.overlayPanel.surface?.kind === kind) ui.overlayPanel.surface = null;
+  if (readSurface(ui.overlayPanel)?.kind === kind) writeSurface(ui, null);
 };
 
 /** Every kind that has a closer registered. The guard test asserts this covers
@@ -97,10 +145,12 @@ const clearSurface = (ui: LayerUI, kind: SurfaceKind): void => {
 const surfaceCloserKinds = (): SurfaceKind[] => [...surfaceClosers.keys()];
 
 export {
+  SURFACE_KINDS,
   clearSurface,
   closeSurface,
   openSurface,
+  readSurface,
   registerSurfaceCloser,
   surfaceCloserKinds,
 };
-export type { OpenSurface, SurfaceKind };
+export type { OpenSurface };
