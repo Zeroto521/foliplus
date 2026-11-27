@@ -1,12 +1,13 @@
 """Tests for the in-block declaration sub-key normalisation
-(foliplus._declaration.block).
+(foliplus._declaration.face).
 
-A block-shaped declaration (`icon` / `marker`) carries sub-dimensions. folium
-camelizes only the top-level option keys at render time, so an in-block key
-keeps whatever spelling the author wrote; the block reader accepts both the
-camelCase and the snake_case spelling of a multi-word key and normalises every
-block to the one canonical camelCase shape. These tests pin that one-way rule
-plus the warnings for an unknown, duplicated or invalid sub-key.
+A block-shaped declaration (`icon` / `marker`) carries sub-dimensions. The
+rendered spelling is folium-version-dependent (newer folium camelizes the nested
+dict keys, 0.15.x keeps whatever spelling the author wrote), so the block reader
+accepts both the camelCase and the snake_case spelling of a multi-word key and
+normalises every block to the one canonical camelCase shape. These tests pin
+that one-way rule plus the warnings for an unknown, duplicated or invalid
+sub-key.
 """
 
 from __future__ import annotations

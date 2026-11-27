@@ -1,4 +1,4 @@
-"""One normalisation point for a block-shaped declaration's sub-keys.
+"""Face declarations: one normalisation point for a declaration block's sub-keys.
 
 A block-shaped per-layer declaration (`foliplus={"icon": {...}}`) carries the
 sub-dimensions ONE face can set. Python reads the author's RAW dict, before

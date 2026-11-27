@@ -6,14 +6,14 @@ is shared: a malformed declaration is reported once and then treated exactly
 like "not declared", never as a reason to hide data or take the page down.
 
 Each declaration family lives in its own module (key, warning, zoom_range,
-filter, paint/fill, folder, marker, opacity); this package re-exports the whole
-public surface, so foliplus._declaration.<name> keeps working for every
+filter, paint/fill, folder, marker, opacity, face); this package re-exports the
+whole public surface, so foliplus._declaration.<name> keeps working for every
 consumer.
 """
 
 from __future__ import annotations
 
-from .block import normalise_block, normalise_icon_block, normalise_marker_block
+from .face import normalise_block, normalise_icon_block, normalise_marker_block
 from .fill import normalise_fill
 from .filter import (
     FilterKind,

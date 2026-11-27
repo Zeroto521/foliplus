@@ -460,7 +460,7 @@ def test_m1_teeth_entry_point_module_is_exempt() -> None:
     """__main__ is driven through its caller, so it needs no mirror file."""
     assert "__main__" not in _private_package_inner_modules()["_config_schema"]
     assert _private_package_inner_modules()["_declaration"] == {
-        "block",
+        "face",
         "key",
         "warning",
         "zoom_range",

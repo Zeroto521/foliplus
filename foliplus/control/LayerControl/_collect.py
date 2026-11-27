@@ -110,7 +110,7 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
         # layer.options.foliplus, so Python only shape-validates and warns once
         # at collection time. The block readers own the in-block spelling rule
         # (camel and snake both accepted, unknown sub-keys warned) in
-        # foliplus._declaration.block - one normalisation point, never a
+        # foliplus._declaration.face - one normalisation point, never a
         # per-reader "did you mean" branch.
         declared_opacity(item, item.layer_name)
         declared_icon_block(item, item.layer_name)

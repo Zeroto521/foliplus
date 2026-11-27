@@ -16,7 +16,7 @@ the shape validation + one-time warning that the author's spelling is usable.
 Each reader mirrors :func:`.declared_border`: the same namespace read, the same
 unknown-key warning family, and the same single read point that owns the
 warning for layers. The shared normaliser in
-:mod:`foliplus._declaration.block` owns the in-block spelling rule (camel and
+:mod:`foliplus._declaration.face` owns the in-block spelling rule (camel and
 snake are both accepted, the result is canonical camelCase) and the per-value
 shape; the JS panel owns the semantic vocabulary (the glyph name / stylesheet).
 """
