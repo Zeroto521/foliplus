@@ -2,9 +2,9 @@
 import { attachedPanel, initFixture } from "../fixture.js";
 import { vi } from "vitest";
 import { type LayerInfo, ROLE } from "#foliplus/core/layer/index.js";
+import { createTimers } from "#platform/timer.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerUI } from "#control/LayerControl/ui/index.js";
-import { createTimers } from "#platform/timer.js";
 
 export const dragEvent = (
   target: HTMLElement,
