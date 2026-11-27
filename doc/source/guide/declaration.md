@@ -490,7 +490,7 @@ the Python `color_opacity` — and both sides normalise to `colorOpacity`
 carries the camelCase form; the snake spelling is accepted for hand-built
 namespaces). The accepted sub-keys are exactly:
 
-| Block    | Sub-key        | Type          | Meaning                          |
+| Face     | Sub-key        | Type          | Meaning                          |
 | -------- | -------------- | ------------- | -------------------------------- |
 | `icon`   | `glyph`        | str           | FontAwesome glyph name.          |
 | `icon`   | `color`        | str (`#hex`)   | Glyph colour.                    |
@@ -520,8 +520,7 @@ sub-key warns too, naming the accepted ones — so a typo never passes silently:
 ```python
 gdf.explore(foliplus={"icon": {"colour": "#ff0000"}})
 # LayerControl: layer '...' declares foliplus['icon']['colour'] as an unknown
-#   icon sub-key 'colour'; expected one of ['glyph', 'color', 'colorOpacity',
-#   'color_opacity'] - ignored
+#   icon sub-key 'colour'; expected one of ['glyph', 'color', 'colorOpacity'] - ignored
 ```
 
 A `glyph` must be a non-empty string, a `color` a `#rgb` / `#rrggbb` hex,

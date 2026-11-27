@@ -3,7 +3,7 @@
 This declaration is a read-time default for the JS panel (the slider starts
 there and Reset returns to it), never a draw override — folium's own
 ``opacity=`` kwarg remains the author DRAW value and is read first. The icon /
-marker block alpha readers live in ``_face.py`` and are tested there; the
+marker face alpha readers live in ``_face.py`` and are tested there; the
 shared ``foliplus_namespace`` read and the unknown-key warning family stay in
 ``_layer.py``. These tests pin the structural shape gate and the warning an
 out-of-range value produces; the JS panel owns the semantic vocabulary.
