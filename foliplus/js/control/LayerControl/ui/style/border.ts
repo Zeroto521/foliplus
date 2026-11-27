@@ -26,7 +26,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, hasValueField, resolvedValue, valueFields } from "./fill.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
-import { valueSchemeForUi, valueSchemes } from "./fillValue.js";
+import { convergeClassesRow, valueSchemeForUi, valueSchemes } from "./fillValue.js";
 import { buildOriginalDetail } from "./originalDetail.js";
 import {
   type PaintDimension,
@@ -76,7 +76,6 @@ import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
   CATEGORY_SCHEMES,
   CLASS_COUNT,
-  CLASS_COUNT_VALUES,
   DEFAULT_SCHEMES,
   VALUE_KIND,
   getColorScale,
@@ -98,7 +97,6 @@ import {
   bindLiveNumber,
   colorInput,
   createSchemePicker,
-  dropdownOf,
   inlineControls,
   numberInput,
 } from "#ui/index.js";
@@ -1083,20 +1081,6 @@ const borderDetailBuilder = (
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement =>
   buildPaintRow(BORDER_ADAPTER, ui, layerId);
 
-/** Drop the out-of-vocabulary class option once the user picks a 2..9 count;
- *  mirrors fill's convergeClassesRow. */
-const convergeBorderClassesRow = (select: HTMLSelectElement, classes: number): void => {
-  const extra = Array.from(select.options).find(
-    option => !CLASS_COUNT_VALUES.includes(Number(option.value)),
-  );
-  if (!extra) return;
-  extra.remove();
-  select.value = String(classes);
-  const dropdown = dropdownOf(select);
-  dropdown?.setHint("");
-  dropdown?.refresh();
-};
-
 /** Bind the value detail's three controls (field / method+classes / scheme)
  *  plus the scheme picker. Mirrors fill's bindValueDetail but writes through
  *  the border dimension and registers the border picker overlay id. */
@@ -1167,7 +1151,7 @@ const bindBorderValueDetail = (
         classes: parseInt(classesSelect.value, 10),
       });
       picker.setNumClasses(next.classes);
-      convergeBorderClassesRow(classesSelect, next.classes);
+      convergeClassesRow(classesSelect, next.classes);
     };
   }
 };

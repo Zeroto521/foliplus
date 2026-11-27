@@ -116,6 +116,7 @@ export {
   resolveFillMode,
   buildValueDetail,
   bindValueDetail,
+  convergeClassesRow,
   disposeFillRow,
   declaredFill,
   declaredFillColor,
@@ -624,7 +625,9 @@ const buildValueDetail = (
     : [field.row, classes.row, scheme.row, opacityRow];
 };
 
-/** State the committed class count on the value row.
+/** State the committed class count on the value row. Shared by the fill and
+ *  border value rows — one convergence, so neither channel can drift from the
+ *  other's out-of-range handling.
  *
  *  The write path clamps to the editable 2..9 vocabulary, so an author-declared
  *  count (12, say) stops describing the row the moment the user edits it.
