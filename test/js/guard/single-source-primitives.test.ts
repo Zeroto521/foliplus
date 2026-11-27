@@ -1,7 +1,7 @@
 // Guard: the three single-source primitives #1407 extracted keep exactly one
 // definition and one driftable shape in the production tree.
 //
-// #1407 (review P3-4) pulled three repeated shapes into one module each:
+// #1407 pulled three repeated shapes into one module each:
 //   - attachMenuController — control/LayerControl/ui/overlayPanel/menu.ts, the
 //     one layer/folder/role menu attach scaffold, keyed localId: "menu".
 //   - createPickerHolder — control/LayerControl/ui/style/pickerHolder.ts, the
