@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/popup-placement — popup coordinates are written only through the placement adapter, never per surface
 /**
  * Guard: every popup coordinate write lives in a shared placement adapter.
  *

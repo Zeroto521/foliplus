@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/args — one argv parser for every script, so flags and help cannot drift between entries
 /**
  * Zero-dependency CLI argument parser for foliplus build scripts.
  *

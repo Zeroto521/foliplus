@@ -1,4 +1,4 @@
-// script/build/import-scan.mjs — the one import scanner for shared modules.
+// script/build/import-scan — the one shared-module import scanner, so the registry and the shim plugin cannot disagree
 //
 // Two consumers read the same thing and used to each keep a private copy of
 // this code:

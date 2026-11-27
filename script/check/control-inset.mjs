@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/control-inset — one source for the control horizontal inset, so readout and select text stay aligned
 /**
  * Guard: the control horizontal inset has exactly one source.
  *

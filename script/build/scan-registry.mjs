@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/build/scan-registry — generates the shared registry, so the runtime publishes exactly what components import
 /**
  * Generate _shared-registry.ts by scanning component imports.
  *

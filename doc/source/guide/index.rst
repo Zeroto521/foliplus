@@ -10,5 +10,6 @@ Task-oriented guides for using foliplus on a map.
    folder-layout
    layer-control
    layer-style-change
+   event-bus
    paint
    folium-integration

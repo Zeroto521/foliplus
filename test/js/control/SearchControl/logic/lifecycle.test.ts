@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
 import { Cache } from "#foliplus/platform/cache.js";
+import { createTimers } from "#platform/timer.js";
 import { MODE } from "#control/SearchControl/const.js";
 import { destroyControl } from "#control/SearchControl/logic/lifecycle.js";
 import {
@@ -46,7 +47,7 @@ const makeControl = (extra: Record<string, unknown> = {}) => {
     searchHistory: [],
     panelWrap: null,
     panelFloating: null,
-    throttleTimer: null,
+    timers: createTimers(),
     selectedIdx: -1,
     currentItems: [],
     lastSuggestFetch: 0,
@@ -73,6 +74,26 @@ afterEach(() => {
 });
 
 describe("destroyControl — owned resources", () => {
+  it("drops a pending suggestion retry instead of firing it after destroy", () => {
+    vi.useFakeTimers();
+    try {
+      const ctrl = makeControl({ inp: { value: "Beij", focus: vi.fn() } });
+      // Inside the provider's throttle window: the retry is parked as a timer.
+      markRequest("nominatim", Date.now());
+      fetchSuggestions(ctrl, "Beij");
+      expect(ctrl.timers.names()).toContain("suggest-retry");
+
+      destroyControl(ctrl);
+
+      // The retry is the control's timer: teardown disposes the owner, so it
+      // cannot reopen a request against a control that is gone.
+      expect(ctrl.timers.disposed).toBe(true);
+      expect(ctrl.timers.names()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("reclaims the pin and the ✕ the control created", () => {
     const ctrl = makeControl();
     const { marker, delIcon } = ctrl;
@@ -197,14 +218,18 @@ describe("request gates — retired and superseded branches", () => {
     expect(ctrl.panelWrap).toBeNull();
   });
 
-  it("clears a pending throttle timer on destroy", () => {
+  it("releases a pending suggestion retry on destroy", () => {
     vi.useFakeTimers();
     try {
-      const ctrl = makeControl({
-        throttleTimer: setTimeout(() => undefined, 60_000),
-      });
+      const ctrl = makeControl();
+      ctrl.timers.timeout("suggest-retry", () => undefined, 60_000);
+
       destroyControl(ctrl);
-      expect(ctrl.throttleTimer).toBeNull();
+
+      // The retry is the control's timer: teardown disposes the owner, so the
+      // pending callback is cancelled rather than left for the event loop.
+      expect(ctrl.timers.disposed).toBe(true);
+      expect(ctrl.timers.names()).toEqual([]);
       expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();

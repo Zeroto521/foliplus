@@ -1,4 +1,4 @@
-// SVG sanitisation — the single gate for every HTML sink that accepts SVG
+// core/sanitize — SVG sanitisation: the single gate for every HTML sink that accepts SVG
 // strings from a caller other than this bundle's own icon tables.
 //
 // Two sinks need it: LayerControl's type-icon column (opts.iconSvg from

@@ -204,11 +204,15 @@ const focusLayer = (ui: LayerUI, layerId: string) => {
 
   // Auto-remove focus visuals after the configured duration.
   const ref = ui.focusController.focusRect;
-  setTimeout(() => {
-    if (ui.focusController.focusRect === ref) {
-      dismissFocus(ui);
-    }
-  }, CONST.FOCUS.RECT_DURATION_MS);
+  ui.timers.timeout(
+    "focus-rect",
+    () => {
+      if (ui.focusController.focusRect === ref) {
+        dismissFocus(ui);
+      }
+    },
+    CONST.FOCUS.RECT_DURATION_MS,
+  );
 
   // One-shot map move/zoom handler that auto-cancels focus when the user
   // starts navigating elsewhere — prevents the rect from lingering.
@@ -335,11 +339,15 @@ const registerAutoCancel = (ui: LayerUI, layerId: string): void => {
     // Grace period: the fitBounds/flyTo animation fires moveend/zoomend on
     // completion, which should NOT auto-cancel. Any move/zoom *after* the
     // grace window is a deliberate user action → cancel.
-    setTimeout(() => {
-      if (ui.focusController.focusingLayerId === layerId) {
-        dismissFocus(ui);
-      }
-    }, CONST.FOCUS.RECT_DURATION_MS * 0.3);
+    ui.timers.timeout(
+      "focus-grace",
+      () => {
+        if (ui.focusController.focusingLayerId === layerId) {
+          dismissFocus(ui);
+        }
+      },
+      CONST.FOCUS.RECT_DURATION_MS * 0.3,
+    );
   };
   ui.focusController.onFocusMapMove = () => handler();
   ui.c.map.on("moveend", ui.focusController.onFocusMapMove);

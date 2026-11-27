@@ -437,11 +437,11 @@ class TestPanelBrowser(LayerControlBrowserBase):
             )
 
             # Step 2: Hide the layer by unchecking checkbox
-            page.evaluate(_js("LayerControl/click_first_checkbox"))
+            page.evaluate(_js("LayerControl/click_first_layer_checkbox"))
             page.wait_for_timeout(300)
 
             # Step 3: Show the layer again
-            page.evaluate(_js("LayerControl/click_first_checkbox"))
+            page.evaluate(_js("LayerControl/click_first_layer_checkbox"))
             page.wait_for_timeout(300)
 
             # Step 4: handleChange resets the container pane; enforceOrder

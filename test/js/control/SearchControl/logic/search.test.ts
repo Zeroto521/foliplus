@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markRequest } from "#core/geocode/index.js";
 import { ensureModes } from "#core/lifecycle/index.js";
 import { Cache } from "#foliplus/platform/cache.js";
+import { createTimers } from "#platform/timer.js";
 import { AUTOCOMPLETE, MODE, ZOOM } from "#control/SearchControl/const.js";
 import {
   buildSearchUrl,
@@ -65,7 +66,7 @@ const makeFixture = (extra: Record<string, unknown> = {}) =>
     mode: MODE.ADDR,
     cachedSuggestions: new Cache<string, object>(50),
     panelWrap: null,
-    throttleTimer: null,
+    timers: createTimers(),
     selectedIdx: -1,
     lastSuggestFetch: 0,
     suggestSeq: 0,
@@ -109,7 +110,7 @@ describe("initDebouncedFetch", () => {
         debouncedFetch: null,
         cachedSuggestions: new Cache<string, object>(50),
         panelWrap: null,
-        throttleTimer: null,
+        timers: createTimers(),
         selectedIdx: -1,
         lastSuggestFetch: 0,
         suggestSeq: 0,
@@ -352,7 +353,7 @@ describe("fetchSuggestions", () => {
       ...ctx(),
       mode: "coord",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
     };
     fetchSuggestions(ctrl, "abc");
@@ -364,7 +365,7 @@ describe("fetchSuggestions", () => {
       ...ctx(),
       mode: "addr",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
     };
     fetchSuggestions(ctrl, "ab");
@@ -380,7 +381,7 @@ describe("fetchSuggestions", () => {
       mode: "addr",
       cachedSuggestions: cache,
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
@@ -401,7 +402,7 @@ describe("fetchSuggestions", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
@@ -426,7 +427,7 @@ describe("fetchSuggestions", () => {
         return c;
       })(),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
@@ -450,7 +451,7 @@ describe("fetchSuggestions", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -506,7 +507,7 @@ describe("fetchSuggestions", () => {
       mode: "addr",
       cachedSuggestions: cache,
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -531,7 +532,7 @@ describe("fetchSuggestions", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       ctrl: {
@@ -541,7 +542,7 @@ describe("fetchSuggestions", () => {
     };
     fetchSuggestions(ctrl, "abc");
     expect(globalThis.fetch).not.toHaveBeenCalled(); // deferred, not issued
-    expect(ctrl.throttleTimer).not.toBeNull();
+    expect(ctrl.timers.names()).toContain("suggest-retry");
   });
 });
 
@@ -667,7 +668,7 @@ describe("fetchSuggestions: throttle and abort", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -682,7 +683,7 @@ describe("fetchSuggestions: throttle and abort", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     // Second call — throttled, schedules a timer.
     fetchSuggestions(ctrl, "abc");
-    expect(ctrl.throttleTimer).toBeDefined();
+    expect(ctrl.timers.names()).toContain("suggest-retry");
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     // Advance time past throttle window → callback fires and re-invokes
     // fetchSuggestions. Cache hit → no second fetch.
@@ -700,7 +701,7 @@ describe("fetchSuggestions: throttle and abort", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -715,11 +716,11 @@ describe("fetchSuggestions: throttle and abort", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     // Second call — throttled, schedules a timer.
     fetchSuggestions(ctrl, "abc");
-    expect(ctrl.throttleTimer).toBeDefined();
-    const timerBefore = ctrl.throttleTimer;
-    // Third call before the timer fires — must clear the previous timer.
+    expect(ctrl.timers.names()).toContain("suggest-retry");
+    // Third call before the timer fires: one name, one live timer — the
+    // primitive releases the previous retry instead of stacking a second one.
     fetchSuggestions(ctrl, "abc");
-    expect(ctrl.throttleTimer).not.toBe(timerBefore);
+    expect(ctrl.timers.names()).toEqual(["suggest-retry"]);
   });
 
   it("aborts previous request when new query arrives", () => {
@@ -728,7 +729,7 @@ describe("fetchSuggestions: throttle and abort", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -755,7 +756,7 @@ describe("fetchSuggestions: throttle and abort", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -829,7 +830,7 @@ describe("fetchSuggestions: throttle and abort", () => {
     fetchSuggestions(ctrl, "abc");
     // Second call lands inside the throttle window and schedules a retry.
     fetchSuggestions(ctrl, "abc");
-    expect(ctrl.throttleTimer).toBeDefined();
+    expect(ctrl.timers.names()).toContain("suggest-retry");
     // The user keeps typing while the retry is pending.
     ctrl.inp.value = "defg";
     await vi.advanceTimersByTimeAsync(1000);
@@ -875,7 +876,7 @@ describe("fetchSuggestions: empty query shows history", () => {
       ...ctx(),
       mode: "coord",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       searchHistory: [
         {
@@ -906,7 +907,7 @@ describe("fetchSuggestions: empty query shows history", () => {
       ...ctx(),
       mode: "coord",
       panelWrap: el,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: 0,
       searchHistory: [],
       ctrl: {
@@ -923,7 +924,7 @@ describe("fetchSuggestions: empty query shows history", () => {
       ...ctx(),
       mode: "addr",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       searchHistory: [
         {
@@ -964,7 +965,7 @@ describe("fetchSuggestions: render behavior", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -991,7 +992,7 @@ describe("fetchSuggestions: render behavior", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: el,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -1020,7 +1021,7 @@ describe("fetchSuggestions: render behavior", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -1062,7 +1063,7 @@ describe("fetchSuggestions: render behavior", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -1105,7 +1106,7 @@ describe("fetchSuggestions: render behavior", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -1241,7 +1242,7 @@ describe("fetchSuggestions: render behavior", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: el,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -1274,7 +1275,7 @@ describe("fetchSuggestions: render behavior", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -1314,7 +1315,7 @@ describe("mode-lock guard: suggestion click when a mode is held", () => {
       mode: "addr",
       cachedSuggestions: new Cache<string, object>(50),
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       lastSuggestFetch: 0,
       suggestSeq: 0,
@@ -1358,7 +1359,7 @@ describe("fetchSuggestions — empty input renders history", () => {
       ...ctx(),
       mode: "addr",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
@@ -1389,7 +1390,7 @@ describe("fetchSuggestions — empty input renders history", () => {
       ...ctx(),
       mode: "addr",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       searchHistory: [],
     };
@@ -1402,7 +1403,7 @@ describe("fetchSuggestions — empty input renders history", () => {
       ...ctx(),
       mode: "addr",
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),
@@ -1438,7 +1439,7 @@ describe("fetchSuggestions — history does not interfere with suggestions", () 
       mode: "addr",
       cachedSuggestions: cache,
       panelWrap: null,
-      throttleTimer: null,
+      timers: createTimers(),
       selectedIdx: -1,
       ctrl: {
         getBoundingClientRect: () => ({ left: 0, bottom: 50, width: 100 }),

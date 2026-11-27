@@ -38,12 +38,7 @@ const destroyControl = (ctrl: DestroyableControl): void => {
       ["abort-suggest", () => ctrl.suggestAbortController?.abort()],
       ["release-layers", () => releaseOwnedLayers(ctrl)],
       ["flush-history", () => flushHistory(ctrl)],
-      [
-        "cancel-throttle",
-        () => {
-          if (ctrl.throttleTimer) clearTimeout(ctrl.throttleTimer);
-        },
-      ],
+      ["release-timers", () => ctrl.timers.dispose()],
       ["detach-mode-btn", () => (ctrl.modeBtn.onclick = null)],
       ["detach-clear-btn", () => (ctrl.clearBtn.onclick = null)],
     ],
@@ -52,7 +47,6 @@ const destroyControl = (ctrl: DestroyableControl): void => {
   // Resets, not steps: the state must be dropped even when a step threw.
   ctrl.marker = null;
   ctrl.delIcon = null;
-  ctrl.throttleTimer = null;
   ctrl.cachedSuggestions?.clear();
   ctrl.searchHistory = [];
 };

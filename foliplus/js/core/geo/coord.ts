@@ -1,4 +1,4 @@
-// Coordinate transformation and CRS detection for foliplus components.
+// core/geo/coord — Coordinate transformation and CRS detection for foliplus components.
 //
 // Pure functions (no module-level state) — imported statically by components
 // and by core/geocode (which lives in the shared runtime bundle, so esbuild

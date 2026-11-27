@@ -147,15 +147,19 @@ describe("HintManager", () => {
     mgr.set("b", "", "two", { duration: 1000 });
     mgr.destroy();
     expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
+    // The auto-dismiss timers are one owned set: after destroy nothing is left
+    // scheduled, so no callback can run against the torn-down manager.
+    vi.advanceTimersByTime(5000);
+    expect(document.querySelectorAll(".foliplus-hint").length).toBe(0);
     vi.useRealTimers();
   });
 
-  it("destroy is defensive against entries missing a timer or element", () => {
-    // The guards on entry.timer and entry.element must not throw when an entry
-    // is stored without either — a defensive fallback if the map is mutated
-    // externally, not a runtime crash.
+  it("destroy is defensive against entries missing an element", () => {
+    // The guard on entry.element must not throw when an entry is stored without
+    // one — a defensive fallback if the map is mutated externally, not a
+    // runtime crash.
     const mgr = new HintManager();
-    mgr.hintMap.set("ghost", { element: undefined, timer: null } as any);
+    mgr.hintMap.set("ghost", { element: undefined } as any);
     expect(() => mgr.destroy()).not.toThrow();
     expect(mgr.hintMap.size).toBe(0);
   });

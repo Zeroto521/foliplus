@@ -8,6 +8,7 @@ import type { BaseControl } from "#foliplus/BaseControl.js";
 import type { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import type { Floating } from "#platform/floating.js";
+import type { Timers } from "#platform/type.js";
 
 /** Search type: coordinate pair or address keyword. */
 type SearchType = (typeof MODE)[keyof typeof MODE];
@@ -98,7 +99,7 @@ interface SearchControl extends BaseControl {
   /** Shared list cursor — paints ARIA / active class from selectedIdx. */
   listCursor?: ListCursor | null;
   lastSuggestFetch: number;
-  throttleTimer: ReturnType<typeof setTimeout> | null;
+  timers: Timers;
   currentItems: ResultItem[];
   /** Belt: opening this panel closes the open siblings of its exclusive group.
    *  Optional so logic-level tests that call bindEvents without buildDOM (which

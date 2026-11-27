@@ -1,4 +1,4 @@
-// core/leaflet — the two NON-glyph marker-icon sources the panel may write:
+// core/leaflet/iconSource — the two NON-glyph marker-icon sources the panel may write:
 // a user URL (rendered as a native L.Icon <img>) and an authorized divIcon
 // className (rendered as a plain-text-glyph L.divIcon).
 //

@@ -1,3 +1,4 @@
+// script/build/dist-marker — dev-dist marker, so the absolute-cap tests skip only on a successful dev build
 /**
  * Dist-mode marker for the dist-dependent tests (bundle-fuse, bundle-size-check,
  * browser-probe): build:dev emits unminified output larger than the minified

@@ -1,4 +1,4 @@
-// Nominatim URL building, address formatting, and the built-in Nominatim
+// core/geocode/nominatim — Nominatim URL building, address formatting, and the built-in Nominatim
 // geocode provider. NOMINATIM / nominatimUrl / formatAddress are pure helpers
 // imported statically by components; createNominatim builds the provider
 // (URL builder + response normalizer) consumed by the registry.

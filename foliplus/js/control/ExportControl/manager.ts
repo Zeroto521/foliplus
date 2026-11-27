@@ -27,6 +27,8 @@ import { type ModeManager, ensureModes } from "#core/lifecycle/index.js";
 import type { DragSession } from "#platform/dragSession.js";
 import { createScopedTranslator } from "#platform/locale.js";
 import { type RafLoop } from "#platform/rafLoop.js";
+import { createTimers } from "#platform/timer.js";
+import type { Timers } from "#platform/type.js";
 
 /** Drag state for interactive crop box adjustment. */
 interface DragState {
@@ -70,6 +72,10 @@ class ExportManager {
    *  (ensure-style getters return the cached instance). */
   modes: ModeManager;
   events: EventBus;
+  /** Every timer this manager owns (currently the preview's auto-dismiss).
+   *  One owned set, released by `destroy` in one call, so a preview cannot be
+   *  dismissed into a control that is already gone. */
+  timers: Timers;
   dragCleanup?: () => void;
   /** The live crop gesture, or null. Owned by platform/dragSession, so the
    *  ending is the same one every other drag in the tree gets. */
@@ -196,6 +202,7 @@ class ExportManager {
     this.T = T;
     this.modes = ensureModes(this.map);
     this.events = ensureEvents(this.map);
+    this.timers = createTimers();
 
     this.cropState = null;
     this.exportCtrl = null;

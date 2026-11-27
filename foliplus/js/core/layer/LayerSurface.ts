@@ -26,7 +26,9 @@
 // No CONFIG / translator dependency: core/layer, not a component dir.
 import type { PaneManager } from "./PaneManager.js";
 import {
+  CLUSTER_CAPABILITIES,
   type LayerCarrierProbe,
+  deriveLayerKind,
   hasMarkerLeaf,
   probeLayerCarrier,
 } from "./capability.js";
@@ -38,6 +40,7 @@ import {
   PANE_NAME_PATTERN,
   PANE_ROLE,
 } from "./const.js";
+import { getGeometryType } from "./geometry.js";
 import type {
   LayerCapabilities,
   LayerKind,
@@ -47,7 +50,6 @@ import type {
   PaneSpec,
   PinnableNode,
 } from "./type.js";
-import { CLUSTER_CAPABILITIES, deriveLayerKind, getGeometryType } from "./util.js";
 import { zFor } from "./z.js";
 import { createLogger } from "#platform/log.js";
 

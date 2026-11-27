@@ -1051,4 +1051,69 @@ describe("rowNoun group branch (focusLayer hidden path)", () => {
       duration: expect.any(Number),
     });
   });
+
+  describe("focus timers and the panel's timer owner", () => {
+    it("releases the auto-dismiss timer with the panel", () => {
+      vi.useFakeTimers();
+      ui.focusLayer("overlay1");
+      expect(ui.timers.names()).toContain("focus-rect");
+
+      ui.unbindEvents();
+
+      expect(ui.timers.disposed).toBe(true);
+      expect(ui.timers.names()).toEqual([]);
+      vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
+      expect(ui.focusController.focusRect).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it("a stale auto-dismiss timer leaves the newer rect alone", () => {
+      vi.useFakeTimers();
+      try {
+        ui.focusLayer("overlay1");
+        // A later focus replaced the rect the timer captured; the timer must
+        // compare before dismissing, or it would tear down the new focus.
+        const replacement = {} as any;
+        ui.focusController.focusRect = replacement;
+
+        vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS + 1);
+
+        expect(ui.focusController.focusRect).toBe(replacement);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("the grace timer dismisses a focus the user moved away from", () => {
+      vi.useFakeTimers();
+      try {
+        ui.focusLayer("overlay1");
+        ui.focusController.onFocusMapMove?.();
+        expect(ui.timers.names()).toContain("focus-grace");
+
+        vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.3 + 1);
+
+        expect(ui.focusController.focusRect).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a grace timer for an already-replaced focus does nothing", () => {
+      vi.useFakeTimers();
+      try {
+        ui.focusLayer("overlay1");
+        ui.focusController.onFocusMapMove?.();
+        const replacement = {} as any;
+        ui.focusController.focusRect = replacement;
+        ui.focusController.focusingLayerId = "overlay2";
+
+        vi.advanceTimersByTime(CONST.FOCUS.RECT_DURATION_MS * 0.3 + 1);
+
+        expect(ui.focusController.focusRect).toBe(replacement);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
 });

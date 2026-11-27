@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/duplicate-class-def — one owner per foliplus-* class const, so two files cannot spell the same contract
 /**
  * Guard: one owner per CSS class name.
  *

@@ -1,3 +1,4 @@
+// script/build/version — git-describe banner version, so local and CI builds report the same string
 /**
  * Resolve the foliplus version for build banners.
  *

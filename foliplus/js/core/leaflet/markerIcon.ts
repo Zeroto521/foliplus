@@ -1,4 +1,4 @@
-// core/leaflet — the Leaflet-facing side of the per-layer marker icon
+// core/leaflet/markerIcon — the Leaflet-facing side of the per-layer marker icon
 // dimension (relocated from control/LayerControl/ui/style/icon.ts so the
 // Leaflet adapter lives in core and the control layer keeps only DOM/panel).
 //

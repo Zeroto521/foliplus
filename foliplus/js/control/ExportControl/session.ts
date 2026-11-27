@@ -338,7 +338,11 @@ const claimDownload = function (this: ExportManager, blob: Blob, filename: strin
 };
 
 /** Show the transient preview overlay for an encoded export artifact.
- *  Click to dismiss early, otherwise auto-dismiss after SHORT. */
+ *  Click to dismiss early, otherwise auto-dismiss after SHORT.
+ *
+ *  The auto-dismiss is a named timer on the manager's own owner, not a bare
+ *  `setTimeout`: the preview outlives the export, so a control torn down in
+ *  between used to leave the callback to run against a dead manager. */
 const showPreview = function (this: ExportManager, blob: Blob) {
   const prevImg = document.createElement("img");
   prevImg.src = URL.createObjectURL(blob);
@@ -350,7 +354,7 @@ const showPreview = function (this: ExportManager, blob: Blob) {
     URL.revokeObjectURL(prevImg.src);
   };
   prevImg.addEventListener("click", dismissPreview);
-  setTimeout(dismissPreview, HINT_DURATION.SHORT);
+  this.timers.timeout("preview", dismissPreview, HINT_DURATION.SHORT);
 };
 
 /** Release the export state: clear mode/isExporting, remove the blocker

@@ -1,4 +1,4 @@
-// Source-transform esbuild plugin.
+// script/build/source-transform-plugin — esbuild onLoad transform kept out of build.mjs, so its path guard is testable without esbuild
 //
 // Lives outside build.mjs so the path guard is unit-testable without
 // importing the build orchestrator (or esbuild, whose WASM entry trips an

@@ -131,3 +131,24 @@ class TestHeatmapControlConstructor:
     def test_zero_label_size_raises(self):
         with pytest.raises(ValueError, match="label_size must be a positive int"):
             HeatmapControl(label_size=0)
+
+    def test_declared_folder_serializes(self):
+        """A folder declaration reaches CONFIG for the JS registration path."""
+        html = render_control(HeatmapControl(folder="数据分析"))
+        assert_config_value(html, "folder", "数据分析")
+
+    def test_declared_folder_defaults_to_null(self):
+        """No declaration serializes as null (root layer), never a fake name."""
+        html = render_control(HeatmapControl())
+        assert_config_value(html, "folder", None)
+
+    def test_declared_folder_normalises_whitespace(self):
+        """A padded declaration normalises (trim + internal-whitespace fold)."""
+        html = render_control(HeatmapControl(folder="  数据分析  "))
+        assert_config_value(html, "folder", "数据分析")
+
+    def test_invalid_folder_warns_and_stays_none(self):
+        """A non-string folder warns once and stays None (root layer)."""
+        ctrl = HeatmapControl(folder=123)  # type: ignore[arg-type]
+        assert ctrl.folder is None
+        assert ctrl._build_config()["folder"] is None

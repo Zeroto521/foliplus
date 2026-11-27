@@ -71,7 +71,7 @@ type FeatureLeaf = L.Layer & { feature?: { properties?: Record<string, unknown> 
 const isFiniteNumber = (v: unknown): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
-/** A geometry leaf per `countFeatureGeometry` (core/layer/util.ts): Polygon /
+/** A geometry leaf per `countFeatureGeometry` (core/layer/geometry.ts): Polygon /
  *  Polyline / CircleMarker / Marker. A plain L.Marker without .feature still
  *  counts (it is a geometry leaf with an empty bag). */
 const isGeometryLeaf = (leaf: L.Layer): boolean =>

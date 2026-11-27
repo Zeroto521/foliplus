@@ -1,4 +1,4 @@
-// script/build/global-namespace-plugin.mjs — esbuild plugin (P5, optimized).
+// script/build/global-namespace-plugin — externalizes shared modules to the runtime global, so no component bundle inlines a second copy
 // Component bundles externalize shared-module imports to the global namespace
 // exposed by foliplus-common.min.js:
 //   - #platform/*  → window.foliplus.platform.<mod>

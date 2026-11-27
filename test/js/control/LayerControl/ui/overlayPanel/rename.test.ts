@@ -827,5 +827,29 @@ describe("LayerUI rename", () => {
     });
   });
 
+  describe("the deferred Escape teardown", () => {
+    it("does not outlive the panel's timer owner", () => {
+      const item = findItem(ui, "overlay1");
+      ui.renameLayer("overlay1");
+      const label = item.querySelector("label") as HTMLLabelElement;
+      const input = label.querySelector("input") as HTMLInputElement;
+
+      vi.useFakeTimers();
+      // Escape parks the teardown on a 0ms timer so the keydown can finish
+      // bubbling. That timer belongs to the panel, so the panel's teardown must
+      // release it instead of relying on finishRename's own isActive guard.
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      expect(ui.timers.names()).toContain("rename-deferred-teardown");
+
+      ui.unbindEvents();
+
+      expect(ui.timers.disposed).toBe(true);
+      expect(ui.timers.names()).toEqual([]);
+      vi.runAllTimers();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
+      expect(label.textContent).toBe("Polygons");
+    });
+  });
+
   // ─────────────────── keyboard on more button ───────────────────
 });

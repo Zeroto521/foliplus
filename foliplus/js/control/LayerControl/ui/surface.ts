@@ -27,7 +27,7 @@ import type { OverlayPanel } from "./overlayPanel/index.js";
 import type { ScopeSubscription } from "./scope.js";
 import { type EventBus } from "#core/event/index.js";
 import { type CreateColorAPI, type LayerRuntimeStore } from "#core/layer/index.js";
-import type { Logger } from "#platform/type.js";
+import type { Logger, Timers } from "#platform/type.js";
 
 /** What the `ui/*` modules read off the shell. See the header for the cycle
  *  this interface breaks, and `ui/index.js` for the class it mirrors. */
@@ -73,6 +73,9 @@ interface LayerUI {
   // ── controller / DOM views ──
   readonly c: LayerController;
   readonly uiContainer: HTMLElement | null;
+  /** The panel's timer owner (platform/timer): every delayed effect the panel
+   *  schedules is named here and released by one teardown step. */
+  readonly timers: Timers;
 
   // ── delegates the modules call on the shell ──
   activeLayerItem(): HTMLElement | null;

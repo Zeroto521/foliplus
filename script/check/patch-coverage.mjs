@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/check/patch-coverage — mirrors the CI patch-coverage gate locally, so a PR adding uncovered lines cannot look green
 /**
  * Local patch-coverage mirror.
  *

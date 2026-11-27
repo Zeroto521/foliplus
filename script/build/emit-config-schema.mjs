@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// script/build/emit-config-schema — config-schema.ts generated from the Python dump, so CONFIG drift becomes a typecheck error
 /**
  * Generate `foliplus/js/config-schema.ts` from the schema dump JSON.
  *

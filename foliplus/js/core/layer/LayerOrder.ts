@@ -1,4 +1,4 @@
-// core — LayerOrder: the collection-level ordering intent (user-arranged id
+// core/layer/LayerOrder — the collection-level ordering intent (user-arranged id
 // list + one-way deleted-id set).
 //
 // Sunk from `LayerControl/savedOrder.ts`: `LayerAPI.forgetSavedOrder`

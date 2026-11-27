@@ -1,3 +1,4 @@
+// script/build/build-path — single source for path aliases, so esbuild, vitest and package.json imports cannot drift apart
 /**
  * script/build/build-path.mjs — single source for path-alias resolution.
  *

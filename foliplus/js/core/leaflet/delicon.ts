@@ -1,4 +1,4 @@
-// Delete-icon marker utilities — shared by LocateControl, SearchControl and
+// core/leaflet/delicon — Delete-icon marker utilities, shared by LocateControl, SearchControl and
 // MeasureControl. A floating "✕" marker that can be shown/hidden and clicked
 // to delete.
 import { DEL_ICON_CLASS } from "./deliconClassName.js";
