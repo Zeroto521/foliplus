@@ -104,7 +104,6 @@ def test_the_declaration_reaches_the_rendered_layer_options() -> None:
     )
     namespace = _declared_namespace(_render(layer))
     rendered = {
-        key.lower().replace("_", ""): value
-        for key, value in namespace["icon"].items()
+        key.lower().replace("_", ""): value for key, value in namespace["icon"].items()
     }
     assert rendered == {"glyph": "star", "color": "#00ff00", "coloropacity": 30}
