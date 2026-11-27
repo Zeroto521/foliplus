@@ -378,6 +378,23 @@ describe("LayerUI rename", () => {
       expect(ui.overlayPanel.activeRenameId).toBeNull();
     });
 
+    it("a layer whose row is not in the DOM keeps the open surface", () => {
+      // Rows are a render product: a list rebuild detaches them before it
+      // re-renders, and a rename dispatched in that window has a registry entry
+      // but no row. The guard must abort BEFORE closeOverlays — otherwise it
+      // would tear down the surface the user has open and then open nothing.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      expect(ui.overlayPanel.surface?.kind).toBe("menu");
+
+      ui.uiContainer!.innerHTML = "";
+      ui.renameLayer("overlay1");
+
+      expect(ui.overlayPanel.surface?.kind).toBe("menu");
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
+      expect(ui.overlayPanel.activeRenameId).toBeNull();
+    });
+
     it("finishRename bails when the layer was removed from the registry mid-rename", () => {
       // Simulates a race: the user starts renaming, the layer is deleted
       // (e.g. another tab deletes it), and the commit callback fires.
