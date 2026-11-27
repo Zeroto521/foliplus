@@ -25,6 +25,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import { createReplayGate } from "./replay.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { styleCapability } from "./styleCapability.js";
 import { DIM } from "#core/layer/index.js";
@@ -205,7 +206,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
  *  absent from it, and only a declaration needs the extra pass. Layers with a
  *  stored intent are skipped so the sweep does not apply the same chassis
  *  twice. Mirrors replayDeclaredFill / replayDeclaredBorder. */
-const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+const declaredReplayGate = createReplayGate();
 
 const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (
@@ -217,8 +218,7 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   if (declaredMarkerColorHex(layer) === null) return;
-  let painted = declaredReplayed.get(ui);
-  if (painted?.has(layerId)) return;
+  if (declaredReplayGate.has(ui, layerId)) return;
   // An author-chassis marker needs no replay (the author icon is the map
   // state); only a declared chassis with no author chassis is a read-time
   // default the paint must apply.
@@ -231,11 +231,7 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
       declaredIconSizeOf(layer),
     );
   }
-  if (!painted) {
-    painted = new Set();
-    declaredReplayed.set(ui, painted);
-  }
-  painted.add(layerId);
+  declaredReplayGate.mark(ui, layerId);
 };
 
 /** Build the marker-color row: a swatch input plus a chassis-opacity number

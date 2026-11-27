@@ -26,7 +26,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { buildValueDetail, hasValueField, resolvedValue, valueFields } from "./fill.js";
 import { paintsPerFeatureFill } from "./fillAuthor.js";
-import { valueSchemeForUi, valueSchemes } from "./fillValue.js";
+import { convergeClassesRow, valueSchemeForUi, valueSchemes } from "./fillValue.js";
 import { buildOriginalDetail } from "./originalDetail.js";
 import {
   type PaintDimension,
@@ -37,6 +37,7 @@ import {
   bindPaintRow,
   buildPaintRow,
 } from "./paintDimension.js";
+import { createPickerHolder } from "./pickerHolder.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -44,7 +45,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
-import { registerFaceReplay } from "./replay.js";
+import { createReplayGate, registerFaceReplay } from "./replay.js";
 import { applyValueStroke, resolveStrokeMode } from "./strokeValue.js";
 import {
   FACE,
@@ -76,7 +77,6 @@ import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
 import {
   CATEGORY_SCHEMES,
   CLASS_COUNT,
-  CLASS_COUNT_VALUES,
   DEFAULT_SCHEMES,
   VALUE_KIND,
   getColorScale,
@@ -86,19 +86,17 @@ import {
   type DisplayModeSpec,
   resolveDisplayMode,
 } from "#foliplus/style/displayMode.js";
-import { normalizeHexColor } from "#platform/color.js";
+import { normalizeHexColor, parseColorAlpha } from "#platform/color.js";
 import { dom } from "#platform/dom.js";
 import { withUnit } from "#platform/format.js";
 import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscreen.js";
 import {
   BORDER_WEIGHT,
   PANEL_CLASS,
-  type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
   colorInput,
   createSchemePicker,
-  dropdownOf,
   inlineControls,
   numberInput,
 } from "#ui/index.js";
@@ -197,13 +195,9 @@ const BORDER_INTENT_KEYS: readonly IntentKey[] = [
   INTENT.BORDER_STYLE_MODE,
 ];
 
-/** The scheme picker owned by the open style panel's border value detail.
- *  One entry per UI (a map owns one LayerControl instance); the panel must
- *  destroy it when it closes or rebuilds the detail, or a stale picker
- *  answers the next click. Mirrors fill's per-UI picker slot. */
-const borderSchemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
-/** Unregister for the picker's overlay-registry entry (one per UI). */
-const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
+/** The border channel's per-UI scheme-picker slot (one entry per map; see
+ *  pickerHolder). */
+const borderPickerHolder = createPickerHolder();
 
 /** The border's value config — the config the stroke classifies by.
  *
@@ -724,16 +718,10 @@ const displayColor = (value: string): string => {
   // Attach for the read, remove immediately — the live document is untouched.
   document.body.append(probe);
   try {
-    const match = /^rgba?\(([^)]+)\)$/.exec(getComputedStyle(probe).color);
-    const channels = (match?.[1] ?? "")
-      .split(/[\s,/]+/)
-      .filter(Boolean)
-      .map(part => parseInt(part, 10));
-    if (channels.length < 3 || channels.some(Number.isNaN)) return value;
-    return `#${channels
-      .slice(0, 3)
-      .map(part => part.toString(16).padStart(2, "0"))
-      .join("")}`;
+    // The rgb/rgba parse belongs to platform/color — its header forbids a
+    // second copy of that regex. A value it cannot parse stays as declared,
+    // the same honest pass-through the empty-probe check above gives.
+    return parseColorAlpha(getComputedStyle(probe).color)?.hex ?? value;
   } finally {
     probe.remove();
   }
@@ -960,12 +948,9 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
 
 /** Destroy the panel's border scheme picker, if any. Idempotent; also
  *  called when a mode switch rebuilds the value detail so a stale picker
- *  cannot answer the next click. Mirrors fill's disposeFillRow. */
+ *  cannot answer the next click. */
 const disposeBorderRow = (ui: LayerUI): void => {
-  borderSchemeOverlayByUi.get(ui)?.();
-  borderSchemeOverlayByUi.delete(ui);
-  borderSchemePickerByUi.get(ui)?.destroy();
-  borderSchemePickerByUi.delete(ui);
+  borderPickerHolder.dispose(ui);
 };
 
 /** The border mode the row's select shows. The default is "original"
@@ -1089,20 +1074,6 @@ const borderDetailBuilder = (
 const buildBorderRow = (ui: LayerUI, layerId: string): HTMLElement =>
   buildPaintRow(BORDER_ADAPTER, ui, layerId);
 
-/** Drop the out-of-vocabulary class option once the user picks a 2..9 count;
- *  mirrors fill's convergeClassesRow. */
-const convergeBorderClassesRow = (select: HTMLSelectElement, classes: number): void => {
-  const extra = Array.from(select.options).find(
-    option => !CLASS_COUNT_VALUES.includes(Number(option.value)),
-  );
-  if (!extra) return;
-  extra.remove();
-  select.value = String(classes);
-  const dropdown = dropdownOf(select);
-  dropdown?.setHint("");
-  dropdown?.refresh();
-};
-
 /** Bind the value detail's three controls (field / method+classes / scheme)
  *  plus the scheme picker. Mirrors fill's bindValueDetail but writes through
  *  the border dimension and registers the border picker overlay id. */
@@ -1132,9 +1103,9 @@ const bindBorderValueDetail = (
     label: ui.T("style_fill_scheme"),
     onChange: name => writeBorderValue(ui, layerId, { scheme: name }),
   });
-  borderSchemePickerByUi.set(ui, picker);
-  borderSchemeOverlayByUi.set(
+  borderPickerHolder.set(
     ui,
+    picker,
     ensureOverlayRegistry(ui.c.map).register({
       id: OVERLAY_IDS.BORDER_PICKER_DROPDOWN,
       isOpen: () => picker.getDropdown() !== null,
@@ -1173,7 +1144,7 @@ const bindBorderValueDetail = (
         classes: parseInt(classesSelect.value, 10),
       });
       picker.setNumClasses(next.classes);
-      convergeBorderClassesRow(classesSelect, next.classes);
+      convergeClassesRow(classesSelect, next.classes);
     };
   }
 };
@@ -1389,7 +1360,8 @@ const BORDER_DIMENSION = registerDimension<{
   },
 });
 
-const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+/** One attach-sweep paint per layer — see createReplayGate. */
+const declaredReplayGate = createReplayGate();
 
 /** Replay a layer's declared follow_fill border onto the map. A declaration
  *  is a read-time default, not a stored override, so the provenance sweep in
@@ -1410,14 +1382,9 @@ const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
   // there — same honest degradation a stored value gets.
   const declared = declaredBorderMode(ui, layerId);
   if (declared === undefined) return;
-  let painted = declaredReplayed.get(ui);
-  if (painted?.has(layerId)) return;
+  if (declaredReplayGate.has(ui, layerId)) return;
   applyBorderToLayer(ui, layerId);
-  if (!painted) {
-    painted = new Set();
-    declaredReplayed.set(ui, painted);
-  }
-  painted.add(layerId);
+  declaredReplayGate.mark(ui, layerId);
 };
 
 export {
