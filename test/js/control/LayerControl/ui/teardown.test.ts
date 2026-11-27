@@ -1,9 +1,11 @@
 import { attachedPanel, findItem, initFixture } from "./fixture.js";
+import { makeOwner } from "./overlayPanel/filter.fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import type { LayerController } from "#control/LayerControl/controller.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { SURFACE_KINDS } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 // focusLayer() reaches guardBlocked() through a free import rather than a
 // `map.foliplus` reference, so it has to be mocked to flip the block on.
@@ -25,26 +27,28 @@ vi.mock("#core/lifecycle/mode.js", () => ({
 }));
 
 /**
- * The five surfaces that compete for the same spot — the two floating panels,
- * the overflow menu, the inline rename input, and the map-wide focus
- * spotlight. `ui/teardown.ts` makes them mutually exclusive; every entry must
- * clear every other one. Focus counts as an overlay even though it is a map
- * state rather than a floating panel: that asymmetry is what let the
- * attributes panel survive a focus in the first place.
+ * The six surfaces that compete for the same spot — the three floating panels
+ * (attributes / style / filter), the overflow menu, the inline rename input,
+ * and the map-wide focus spotlight. The five foliplus surfaces are the
+ * `OpenSurface` kinds of `ui/overlayPanel/openSurface.ts` (one state, so a new
+ * surface adds a member there and shows up here as a row); `ui/teardown.ts`
+ * makes them mutually exclusive with every entry point. Focus counts as an
+ * overlay even though it is a map state rather than a floating panel: that
+ * asymmetry is what let the attributes panel survive a focus in the first
+ * place.
  */
-type Surface = "attrs" | "style" | "menu" | "rename" | "focus";
+type Surface = "attrs" | "style" | "filter" | "menu" | "rename" | "focus";
 
-const SURFACES = Object.keys({
-  attrs: 1,
-  style: 1,
-  menu: 1,
-  rename: 1,
-  focus: 1,
-}) as Surface[];
+// The machine's kind list is the single source for the five foliplus surfaces:
+// a new surface that nobody lists in openSurface.ts cannot silently escape these
+// pairs. Focus is the sixth competitor but not an OpenSurface kind (it is a map
+// state), so it is appended here rather than in the machine.
+const SURFACES: Surface[] = [...SURFACE_KINDS, "focus"];
 
 const NAME: Record<Surface, string> = {
   attrs: "the attributes panel",
   style: "the style panel",
+  filter: "the filter panel",
   menu: "the overflow menu",
   rename: "the rename input",
   focus: "the focus spotlight",
@@ -54,6 +58,7 @@ const NAME: Record<Surface, string> = {
 const OPEN: Record<Surface, (ui: LayerUI, item: HTMLElement) => void> = {
   attrs: (ui, item) => ui.openAttrsPanel(item),
   style: ui => ui.openStylePanel("overlay1"),
+  filter: (ui, item) => ui.openFilterPanel(item),
   menu: (ui, item) => ui.openMoreMenu(item),
   rename: ui => ui.renameLayer("overlay1"),
   focus: ui => ui.focusLayer("overlay1"),
@@ -64,6 +69,7 @@ const IS_UP: Record<Surface, (ui: LayerUI) => boolean> = {
   attrs: ui =>
     attachedPanel(ui).querySelectorAll(`.${CONST.CLASSES.ATTRS_PANEL}`).length > 0,
   style: ui => ui.overlayPanel.stylePanelLayerId !== null,
+  filter: ui => ui.overlayPanel.activeFilterPanel !== null,
   menu: ui => ui.overlayPanel.activeMenu !== null,
   rename: ui => ui.overlayPanel.activeRenameId !== null,
   focus: ui => ui.isFocusing(),
@@ -88,6 +94,12 @@ describe("LayerUI overlay mutual exclusion", () => {
       manager.layerRegistry.get("overlay1")!,
     ) as unknown as { capabilities: Record<string, unknown> };
     surface.capabilities = { ...surface.capabilities, label: "pane" };
+    // The filter panel renders only for a row declaring the capability — the
+    // matrix needs a row that can open it like any other surface.
+    const owner = makeOwner([10, 20, 30]);
+    const entry = manager.layerRegistry.get("overlay1")!;
+    entry.filterProvider = owner.filterProvider;
+    entry.filterSetter = owner.filterSetter;
   });
 
   afterEach(() => {
@@ -98,18 +110,30 @@ describe("LayerUI overlay mutual exclusion", () => {
 
   for (const from of SURFACES) {
     for (const to of SURFACES) {
-      if (from === to) continue;
-      it(`opening ${NAME[to]} drops ${NAME[from]}`, () => {
-        const item = findItem(ui, "overlay1");
+      it(
+        from === to
+          ? `re-opening ${NAME[to]} replaces it instead of stacking`
+          : `opening ${NAME[to]} drops ${NAME[from]}`,
+        () => {
+          const item = findItem(ui, "overlay1");
 
-        OPEN[from](ui, item);
-        expect(IS_UP[from](ui)).toBe(true);
+          OPEN[from](ui, item);
+          expect(IS_UP[from](ui)).toBe(true);
 
-        OPEN[to](ui, item);
+          OPEN[to](ui, item);
 
-        expect(IS_UP[from](ui)).toBe(false);
-        expect(IS_UP[to](ui)).toBe(true);
-      });
+          if (from === to) {
+            // The most common path: a second open of the same kind must replace
+            // the first, not stack on it. The machine holds one record, so the
+            // surface is still up and the projection names that one kind.
+            expect(IS_UP[to](ui)).toBe(true);
+            if (to !== "focus") expect(ui.overlayPanel.surface?.kind).toBe(to);
+            return;
+          }
+          expect(IS_UP[from](ui)).toBe(false);
+          expect(IS_UP[to](ui)).toBe(true);
+        },
+      );
     }
   }
 

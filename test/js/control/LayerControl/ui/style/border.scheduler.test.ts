@@ -10,6 +10,7 @@ import {
   seedIntentMap,
   setIntent,
 } from "#control/LayerControl/ui/intent.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 import {
   BORDER_DIMENSION,
   bindBorderRow,
@@ -196,7 +197,7 @@ describe("border apply scheduler (drag coalesce)", () => {
     vi.stubGlobal("cancelAnimationFrame", () => {});
 
     // minimal panel chrome so closeStylePanel finds stylePanelLayerId
-    ui.overlayPanel.stylePanelLayerId = "vec1";
+    openSurface(ui, { kind: "style", layerId: "vec1" });
     commitBorderColor(ui, "vec1", "#333333");
     expect(leaf.setStyle).not.toHaveBeenCalled();
 

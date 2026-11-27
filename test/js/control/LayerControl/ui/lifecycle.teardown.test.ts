@@ -79,10 +79,9 @@ describe("LayerUI teardown — the ordered scope", () => {
       "layer-role-count-changed",
       "layer-list-rebuild",
       "layer-no-basemap-changed",
-      "layer-overlay-clear",
-      "layer-overlay-clear",
-      "layer-overlay-clear",
-      "layer-overlay-clear",
+      // Two, not one per surface: the state machine closes whichever surface is
+      // open (openSurface.ts), and the focus spotlight is still its own map
+      // state. Adding a surface adds no subscriber here.
       "layer-overlay-clear",
       "layer-overlay-clear",
     ]);
