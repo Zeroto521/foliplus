@@ -47,12 +47,15 @@ subclass with `control=True` (the default). The recognised layer families:
 
 Only classes that actually subclass {class}`folium.map.Layer` can become rows:
 the panel's collection pass keeps just those (`_collect.py`, `isinstance(item,
-Layer)`). A `folium.Marker`, `CircleMarker`, `Circle`, `Polygon`, `Polyline`
+Layer)`). A `folium.Marker`, `CircleMarker`, `Circle`, `Polygon`, `PolyLine`
 or `Rectangle` is a `MacroElement`, **not** a `Layer`, so it never gets a row of
-its own — it stays in the map's shared marker pane and the panel cannot drive
-its style. Wrap point or vector content in a `FeatureGroup` (one group row, but
-the children are still not individual rows) or use a `GeoJson` data layer to
-manage it from the panel. A plugin layer that extends `Layer` (for example
+its own and the panel cannot drive its style: a `Marker` stays in the shared
+Leaflet `markerPane`, while the vector paths (`CircleMarker`, `Circle`,
+`Polygon`, `PolyLine`, `Rectangle`) stay in the shared `overlayPane`. Wrap
+point or vector content in a `FeatureGroup` to get one group row — visibility,
+delete and focus work on it, while its Style and Filter menu entries are
+disabled (see {ref}`group_rows`) — or use a `GeoJson` data layer to manage it
+from the panel. A plugin layer that extends `Layer` (for example
 `MarkerCluster` or `HeatMap`) is collected the same way.
 
 The panel reads `layer.overlay` to decide the row's role (base vs overlay) —
