@@ -13,18 +13,27 @@ import { stripComments } from "#script/check/scan-locale-key.mjs";
 /** Contract boundary for the single-source hex scan.
  *
  *  What it sees: a plain slash-delimited regex literal whose body contains an
- *  unescaped '#' followed within a few characters by a hex character class —
- *  a digit range plus an 'a-f'/'A-F' range. That catches every hand-rolled
- *  form found so far (/^#[0-9a-f]{6}$/i, /^#[0-9a-fA-F]{3}(...)?$/,
- *  /#[0-9a-f]{3,6}/) and does not flag a CSS-id regex such as
- *  /#[a-z][\w-]+/i, which carries both a '#' and a class but no hex range.
+ *  unescaped '#' followed, within a fixed 12-character window, by an explicit
+ *  hex character class — a digit range plus an 'a-f'/'A-F' range, in either
+ *  order ([0-9a-f], [0-9A-F], [a-f0-9], [\da-f]). That catches every
+ *  hand-rolled form found so far (/^#[0-9a-f]{6}$/i,
+ *  /^#[0-9a-fA-F]{3}(...)?$/, /#[0-9a-f]{3,6}/) and does not flag a CSS-id
+ *  regex such as /#[a-z][\w-]+/i, which carries both a '#' and a class but no
+ *  hex range.
+ *
+ *  What it deliberately does not count: a loose class that merely includes
+ *  hex characters — /#[0-9a-z]{6}/ and /#\w{6}/ judge false. Only the
+ *  explicit 'a-f' range is a hex matcher; the /#[0-9a-z]{6}/ case is pinned
+ *  in the tests below.
  *
  *  What it cannot see, left to review by contract:
  *   1. a value tested after slice(1) — the '#' is gone before the test;
  *   2. a string-built regex — new RegExp("^#[0-9a-f]{6}$");
  *   3. a regex after '//' on the same line — stripComments cuts the line at a
  *      '//' inside an earlier string literal (a URL), hiding the real regex;
- *   4. an escaped \# — the scan matches the plain '#' spelling only.
+ *   4. an escaped spelling: the scan skips a '#' whose preceding character is
+ *      a backslash, so a genuine '\\#' (escaped backslash, unescaped '#') is
+ *      skipped too, and a '\x23' spelling of '#' is invisible altogether.
  */
 
 /** The literal bodies in the source: slash-delimited, no raw slash or newline
