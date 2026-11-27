@@ -5,7 +5,7 @@ Folium integration boundary
 
 This page is the parameter-level boundary contract between folium's native
 layer/control API and foliplus's panel: which folium channels the panel
-reads honestly, which ones have a documented pitfall, and which folium
+reads honestly, which ones have a documented limit, and which folium
 options the panel ignores. The layer-family overview lives on
 :doc:`folium-integration`; this page goes one level deeper, into the
 options foliplus inspects.
@@ -15,19 +15,22 @@ Recognised channels
 
 ``foliplus={...}`` declaration
   A folium layer accepts an unknown keyword and forwards it into
-  ``layer.options``. The panel reads ``layer.options["foliplus"]`` (see
-  ``foliplus/control/LayerControl/_layer.py``, ``foliplus_namespace``) and
-  validates the keys it owns against ``FOLIPLUS_KEYS``:
+  ``layer.options``; a custom or third-party layer may also carry the mapping
+  on a ``foliplus`` attribute (``layer.foliplus = {...}``), which folium's
+  ``Layer.__init__`` never consumes. Both channels are accepted
+  (``foliplus/control/LayerControl/_layer.py``, ``foliplus_namespace`` -- the
+  attribute wins when present) and the keys the panel owns are validated
+  against ``FOLIPLUS_KEYS``:
 
-  * ``fill``, ``label``, ``border``, ``filter`` -- read straight off
-    ``layer.options.foliplus`` by the JS panel (Python only shape-validates
-    and warns).
-  * ``zoom_range``, ``folder`` -- normalised here into the CONF
-    ``data[].zoom_range`` / ``data[].folder`` so the visibility and
-    grouping policies read one fact instead of the raw namespace.
-  * ``marker_color``, ``icon_size`` -- shape-validated at collection time
-    and read by the JS panel straight off the namespace (the preset/hex
-    vocabulary lives in the JS reader).
+  * ``fill``, ``border``, ``marker_color``, ``icon_size``, ``icon``,
+    ``marker``, ``opacity`` -- read straight off the namespace by the JS
+    panel; Python only shape-validates and warns once (``icon`` / ``marker``
+    are the sub-dimension blocks, e.g. ``{"colorOpacity": 60}``).
+  * ``zoom_range``, ``folder``, ``filter``, ``label`` -- normalised in
+    Python into the CONF ``data[].zoom_range`` / ``data[].folder`` /
+    ``data[].filter`` / ``data[].label``, so the visibility, grouping,
+    filter and label policies each read one validated CONF fact instead of
+    the raw namespace.
 
   An unknown key warns once (``unknown:{key}``) and is ignored; a
   non-mapping ``foliplus=`` value warns and is ignored too.
@@ -49,31 +52,31 @@ Recognised channels
 
 ``Icon`` glyph / prefix
   ``folium.Icon(icon=, prefix=)`` sets the glyph. foliplus reads the
-  author's glyph from the rendered icon (``markerIcon.ts``
-  ``authorGlyphColorOf``) and the glyph name rides in the panel as the
-  author surface.
-
-Pitfall channels
-----------------
+  author's glyph name from the rendered icon (``markerIcon.ts``
+  ``authorGlyphName``) and the author's glyph paint from
+  ``authorGlyphColorOf``, so a panel row starts from the glyph the author
+  wrote rather than substituting one.
 
 ``Icon(color=)`` / ``icon_color=`` colour
-  **Before the ``fix/folium-icon-color-compat`` fix (current ``origin/main``
-  state):** folium emits the colour as ``options.marker_color`` /
-  ``options.icon_color`` (snake_case), but the JS runtime reads the
-  camelCase ``markerColor`` / ``iconColor``. The two vocabularies never
-  met, so the colour folium wrote was a **dead value** in the browser:
-  ``L.AwesomeMarkers.icon(options)`` reads ``markerColor`` (and the panel's
-  ``authorGlyphColorOf`` reads ``iconColor``), neither of which folium
-  populates. The marker falls back to the default blue.
+  ``folium.Icon`` carries the marker chassis and glyph colours as options,
+  and folium camelizes every option key at render (``folium/template.py``),
+  so the browser receives ``markerColor`` / ``iconColor`` and the runtime
+  reads those spellings. The snake_case spelling is accepted as a fallback
+  for hand-built Leaflet icons, with camelCase winning when both are
+  present; the contract is pinned by
+  ``test/python/BaseControl/test_folium_camelize.py``. The author's
+  ``Icon(color=...)`` paints the marker chassis and outranks a
+  ``foliplus={"marker_color": ...}`` read-time default; the panel's own pick
+  outranks both.
 
-  A hex colour is the same story: folium ``1.0.0`` accepts
-  ``Icon(color="#00A6A6")`` (``is_hex`` path, ``map.py:440-446``), but the
-  value only reaches ``options.marker_color`` and is never read back.
+Channel limits
+--------------
 
-  **After** that fix lands (the icon-color compat PR, task-216, PR
-  number to be filled in on merge): foliplus reads the snake_case keys
-  too, so ``Icon(color=...)`` paints what the author wrote. This page
-  should be updated to the ``after`` wording once the PR merges.
+``foliplus={"marker_color": ...}`` hex
+  The declaration accepts the runtime's 19 chassis preset names only; a hex
+  value is rejected (warned once, read as undeclared). A hex colour belongs
+  in folium's own ``Icon(color="#00A6A6")`` (accepted from folium
+  ``1.0.0``), which also outranks the declaration.
 
 ``name=`` and the row label
   ``folium``'s ``name`` is the row's display label (``_collect.py``
@@ -92,18 +95,19 @@ listed with what happens when you use it.
   alongside foliplus's renders **two** layer toggles -- do not combine
   them. ``LayerControl`` from foliplus is the one to use.
 
-``GroupedLayerControl`` / ``WebGL Earth 3D`` / ``PolyLineDecorator`` /
-``BeautifyIcon``
+``GroupedLayerControl`` / ``WebGL Earth 3D`` / ``PolyLineDecorator`` / ``BeautifyIcon`` / ``Geoman``
   Third-party folium plugins. foliplus does not integrate any of them;
   using one does not add a row to the panel and the plugin's own control
   must manage the layer.
 
 ``folium.GeoJson`` ``style_function`` / ``highlight_function``
-  A folium ``style_function`` paints the layer outside the foliplus style
-  write path, so the panel's style rows do **not** reflect it and the
-  ``style-change`` event does **not** fire for it. Use the
-  ``foliplus={"fill": ...}`` / ``{"border": ...}`` declarations (or the
-  panel) instead.
+  A folium ``style_function`` paints the layer outside the foliplus
+  declaration channel: the per-feature metadata foliplus reads comes from
+  geopandas' ``__folium_color`` property (``_fill_author/payload.py``),
+  which a ``style_function`` layer does not have, so the panel starts from
+  the layer's single-colour surface rather than the author's per-feature
+  paint. Use the ``foliplus={"fill": ...}`` / ``{"border": ...}``
+  declarations (or the panel) instead; the layer still gets its row.
 
 LayerGroup sub-layer expansion
   A ``LayerGroup`` renders as one row; its children are **not** exposed
