@@ -36,4 +36,3 @@ const createPickerHolder = (): PickerHolder => {
 };
 
 export { createPickerHolder };
-export type { PickerHolder };

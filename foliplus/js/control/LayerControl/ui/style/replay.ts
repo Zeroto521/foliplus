@@ -64,4 +64,3 @@ const createReplayGate = (): ReplayGate => {
 };
 
 export { createReplayGate, registerFaceReplay, replayFace };
-export type { ReplayGate };
