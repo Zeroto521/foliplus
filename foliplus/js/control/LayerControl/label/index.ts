@@ -26,11 +26,7 @@ import {
   resolveSelectedField,
   withinRect,
 } from "#core/label/index.js";
-import {
-  NO_FEATURE_TREE_KINDS,
-  labelProjection,
-  walkLeaf,
-} from "#core/layer/index.js";
+import { NO_FEATURE_TREE_KINDS, labelProjection, walkLeaf } from "#core/layer/index.js";
 import { bindMapSync } from "#core/leaflet/index.js";
 import type { LayerData, NumberStyle } from "#foliplus/config-schema.js";
 import { finalize } from "#platform/finalize.js";
@@ -99,9 +95,8 @@ const LABEL_PRIORITY = 50;
  *  already says label: the `label_` prefix belongs to the flat surfaces
  *  (Python kwargs, CONF, locale), where `show`/`color` would collide with
  *  other parameters. */
-const readDeclaredLabel = (
-  raw: DeclaredLabel | undefined,
-): Partial<LabelConfig> => raw ?? {};
+const readDeclaredLabel = (raw: DeclaredLabel | undefined): Partial<LabelConfig> =>
+  raw ?? {};
 
 /**
  * LabelManager owns per-layer label state, the per-layer plans and the

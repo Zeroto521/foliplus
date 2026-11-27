@@ -443,28 +443,23 @@ describe("LabelManager — author-declared label", () => {
   };
 
   /** Run fn with one layer's normalised declaration in CONF data. */
-  const withDeclared = (
-    label: Record<string, unknown> | undefined,
-    fn: () => void,
-  ) => withConfig({ data: label ? [{ id: "l1", label }] : [] }, fn);
+  const withDeclared = (label: Record<string, unknown> | undefined, fn: () => void) =>
+    withConfig({ data: label ? [{ id: "l1", label }] : [] }, fn);
 
   it("reads the normalised declaration from CONF data", () => {
     // show: true is what Python derives from a declared field; the record is
     // the complete fact, so the reader consumes it instead of re-deriving it.
-    withDeclared(
-      { field: "store", format: NUMBER_FORMAT.COMMA, show: true },
-      () => {
-        const { map } = makeMap();
-        const mgr = new LabelManager({ map, layerFind: () => null });
+    withDeclared({ field: "store", format: NUMBER_FORMAT.COMMA, show: true }, () => {
+      const { map } = makeMap();
+      const mgr = new LabelManager({ map, layerFind: () => null });
 
-        const cfg = mgr.getConfig("l1");
-        expect(cfg.field).toBe("store");
-        expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
-        // The page-level default still owns an undeclared collide.
-        expect(cfg.collide).toBe(true);
-        expect(cfg.show).toBe(true);
-      },
-    );
+      const cfg = mgr.getConfig("l1");
+      expect(cfg.field).toBe("store");
+      expect(cfg.format).toBe(NUMBER_FORMAT.COMMA);
+      // The page-level default still owns an undeclared collide.
+      expect(cfg.collide).toBe(true);
+      expect(cfg.show).toBe(true);
+    });
   });
 
   it("reads only the normalised CONF fact, not the raw layer namespace", () => {

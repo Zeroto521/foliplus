@@ -160,7 +160,8 @@ def normalise_label(
                         f"expected {LABEL_SIZE_MIN} to {LABEL_SIZE_MAX} - "
                         f"clamped to {clamped:g}",
                     )
-                record["size"] = int(clamped) if clamped.is_integer() else clamped
+                whole = int(clamped)
+                record["size"] = whole if clamped == whole else clamped
 
     if "collide" in raw:
         if not isinstance(raw["collide"], bool):
