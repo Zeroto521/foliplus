@@ -42,6 +42,7 @@ function makeUI(): any {
   };
   return {
     uiContainer: container,
+    config: { name: "LayerControl" },
     c: { map },
     handleKeyDown: vi.fn(),
     handleOutsideMousedown: vi.fn(),
@@ -100,6 +101,13 @@ describe("LayerControl registerInteractions", () => {
         expect.objectContaining({ key: "Escape" }),
       ]),
     );
+  });
+
+  it("registers under the name on ui.config (the control's one config source)", () => {
+    const ui = makeUI();
+    ui.config = { name: "CustomControl" };
+    registerInteractions(ui);
+    expect(getRegisterSpy()).toHaveBeenCalledWith("CustomControl", expect.any(Array));
   });
 
   it("all keyboard shortcuts share the uiContainer as their container", () => {
