@@ -103,10 +103,7 @@ def normalise_label(
     # inside sorted: a malformed declaration warns, it never takes the page
     # down.
     for key in sorted((key for key in raw if key not in _LABEL_KEYS), key=repr):
-        reject(
-            f"with unknown key {key!r}; expected only "
-            f"{', '.join(_LABEL_KEYS)}"
-        )
+        reject(f"with unknown key {key!r}; expected only {', '.join(_LABEL_KEYS)}")
 
     record: dict[str, object] = {}
 
@@ -116,8 +113,7 @@ def normalise_label(
             reject(f"with a field {field!r}; expected a non-empty string")
         elif not field.strip():
             reject(
-                "with an empty or whitespace-only field; expected a "
-                "non-empty string"
+                "with an empty or whitespace-only field; expected a non-empty string"
             )
         else:
             record["field"] = field.strip()
@@ -126,8 +122,7 @@ def normalise_label(
         fmt = raw["format"]
         if not isinstance(fmt, str) or fmt not in NUMBER_FORMATS:
             reject(
-                f"with a format {fmt!r}; expected one of "
-                f"{', '.join(NUMBER_FORMATS)}"
+                f"with a format {fmt!r}; expected one of {', '.join(NUMBER_FORMATS)}"
             )
         else:
             record["format"] = fmt
@@ -135,9 +130,7 @@ def normalise_label(
     if "color" in raw:
         color = raw["color"]
         if color is None:
-            reject(
-                f"with a color {color!r}; expected a CSS hex (#rgb or #rrggbb)"
-            )
+            reject(f"with a color {color!r}; expected a CSS hex (#rgb or #rrggbb)")
         else:
             normalised_color = _declared_hex(color, reject)
             if normalised_color is not None:
@@ -167,9 +160,7 @@ def normalise_label(
                         f"expected {LABEL_SIZE_MIN} to {LABEL_SIZE_MAX} - "
                         f"clamped to {clamped:g}",
                     )
-                record["size"] = (
-                    int(clamped) if clamped.is_integer() else clamped
-                )
+                record["size"] = int(clamped) if clamped.is_integer() else clamped
 
     if "collide" in raw:
         if not isinstance(raw["collide"], bool):

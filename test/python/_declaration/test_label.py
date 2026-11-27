@@ -48,9 +48,7 @@ class TestNormaliseLabel:
         assert record == {"field": "name", "show": True}
 
     def test_an_explicit_show_false_survives_a_declared_field(self) -> None:
-        record = normalise_label(
-            {"field": "name", "show": False}, owner="Owner"
-        )
+        record = normalise_label({"field": "name", "show": False}, owner="Owner")
         assert record == {"field": "name", "show": False}
 
     def test_show_without_a_field_is_carried(self) -> None:
@@ -58,9 +56,7 @@ class TestNormaliseLabel:
 
     def test_a_non_string_field_warns_and_drops_only_that_key(self) -> None:
         with pytest.warns(UserWarning, match="with a field 1200"):
-            record = normalise_label(
-                {"field": 1200, "format": "comma"}, owner="Owner"
-            )
+            record = normalise_label({"field": 1200, "format": "comma"}, owner="Owner")
         assert record == {"format": "comma"}
 
     def test_a_blank_field_warns(self) -> None:
@@ -69,9 +65,12 @@ class TestNormaliseLabel:
 
     def test_every_declared_format_is_accepted(self) -> None:
         for fmt in NUMBER_FORMATS:
-            assert normalise_label(
-                {"field": "name", "format": fmt}, owner="Owner"
-            )["format"] == fmt
+            assert (
+                normalise_label({"field": "name", "format": fmt}, owner="Owner")[
+                    "format"
+                ]
+                == fmt
+            )
 
     def test_an_unknown_format_warns(self) -> None:
         with pytest.warns(UserWarning, match="with a format 'thousands'"):
@@ -82,14 +81,13 @@ class TestNormaliseLabel:
 
     def test_a_non_string_format_warns(self) -> None:
         with pytest.warns(UserWarning, match="with a format 3"):
-            assert normalise_label(
-                {"field": "name", "format": 3}, owner="Owner"
-            ) == {"field": "name", "show": True}
+            assert normalise_label({"field": "name", "format": 3}, owner="Owner") == {
+                "field": "name",
+                "show": True,
+            }
 
     def test_a_three_digit_hex_is_expanded_and_lowered(self) -> None:
-        assert normalise_label({"color": "#ABC"}, owner="Owner") == {
-            "color": "#aabbcc"
-        }
+        assert normalise_label({"color": "#ABC"}, owner="Owner") == {"color": "#aabbcc"}
 
     def test_a_non_hex_colour_warns(self) -> None:
         with pytest.warns(UserWarning, match="expected a CSS hex"):
@@ -128,15 +126,14 @@ class TestNormaliseLabel:
                 {"field": "name", "collide": "yes"}, owner="Owner"
             ) == {"field": "name", "show": True}
         with pytest.warns(UserWarning, match="with a show 'yes'"):
-            assert normalise_label(
-                {"field": "name", "show": "yes"}, owner="Owner"
-            ) == {"field": "name", "show": True}
+            assert normalise_label({"field": "name", "show": "yes"}, owner="Owner") == {
+                "field": "name",
+                "show": True,
+            }
 
     def test_an_unknown_key_warns_and_the_siblings_still_apply(self) -> None:
         with pytest.warns(UserWarning, match="unknown key 'fields'"):
-            record = normalise_label(
-                {"field": "name", "fields": "typo"}, owner="Owner"
-            )
+            record = normalise_label({"field": "name", "fields": "typo"}, owner="Owner")
         assert record == {"field": "name", "show": True}
 
     def test_a_block_with_nothing_usable_is_none(self) -> None:
