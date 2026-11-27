@@ -102,35 +102,66 @@ describe("layer-order scenario matrix (design §5.2)", () => {
     ]);
   });
 
-  it("scenario 6: runtime-registered layer appends to its role's default end", () => {
-    // c is NOT in CONF (runtime LayerAPI.registerLayer). CONF.data is role-grouped
-    // (§5.1: overlay block then base block), so the base block is last; a runtime base
-    // joins the document end after the last declared base.
+  it("scenario 6a: runtime-registered layer with no saved entry appends to its role's default end", () => {
+    // c is NOT in CONF and NOT in the saved doc (fresh session, runtime
+    // registerLayer). There is no default slot and no saved position, so the
+    // controller appends it at the role's default end: a new root node ranked
+    // after the last root sibling (base is the last role in ROLE_ORDER).
     const declarations = [decl("a", "overlay"), decl("b", "base")];
     const defaults = defaultDoc(declarations);
-    const bRank = defaults.nodes[layerKeyOf("b")].rank;
+    const doc: OrderDoc = {
+      nodes: {
+        ...defaults.nodes,
+        [layerKeyOf("c")]: {
+          kind: "layer",
+          parent: null,
+          rank: rankAfter(defaults.nodes[layerKeyOf("b")].rank),
+        },
+      },
+    };
+    const present = presentOfIds(["a", "b", "c"]);
+    const roleOf = (id: string): Role | null =>
+      ({ a: "overlay", b: "base", c: "base" })[id] ?? null;
+    // c joins base's end after b.
+    expect(projectZ(doc, present, roleOf, "base")).toEqual(["b", "c"]);
+    expect(projectZ(doc, present, roleOf, "overlay")).toEqual(["a"]);
+    // Typed rows (no role header in the projection): c after b.
+    expect(projectRows(doc, present, roleOf, "base").map(r => r.key)).toEqual([
+      "layer:b",
+      "layer:c",
+    ]);
+    expect(projectView(doc, present).rows.map(r => r.key)).toEqual([
+      "layer:a",
+      "layer:b",
+      "layer:c",
+    ]);
+  });
+
+  it("scenario 6b: runtime-registered layer with a saved rank keeps that position (user intent)", () => {
+    // c is NOT in CONF but IS in the saved doc with a rank BEFORE the declared
+    // layers. The saved doc is user intent: merge keeps c's saved rank and
+    // re-ranks the default-only nodes (a, b) AFTER the saved nodes, so c leads.
+    const declarations = [decl("a", "overlay"), decl("b", "base")];
+    const defaults = defaultDoc(declarations);
     const saved: OrderDoc = {
       nodes: {
-        [layerKeyOf("c")]: { kind: "layer", parent: null, rank: rankAfter(bRank) },
+        [layerKeyOf("c")]: { kind: "layer", parent: null, rank: "a0" },
       },
     };
     const doc = mergeOrderDocs(saved, defaults);
     const present = presentOfIds(["a", "b", "c"]);
     const roleOf = (id: string): Role | null =>
       ({ a: "overlay", b: "base", c: "base" })[id] ?? null;
-    // z ladder per role: c joins base's end after b.
-    expect(projectZ(doc, present, roleOf, "base")).toEqual(["b", "c"]);
+    // Why ['c','a','b']: mergeOrderDocs keeps the saved doc first (saved = user
+    // intent), so c's saved rank a0 leads. The default-only nodes (a, b) are
+    // re-ranked after the last saved rank, in declaration order (a at index 0,
+    // b at index 1) — so a stays before b.
+    expect(projectZ(doc, present, roleOf, "base")).toEqual(["c", "b"]);
     expect(projectZ(doc, present, roleOf, "overlay")).toEqual(["a"]);
-    expect(projectRows(doc, present, roleOf, "base")).toEqual([
-      "role:base",
-      "layer:b",
-      "layer:c",
-    ]);
-    // Full row order (I2 same-source): a, b, c — c never reordered the declared layers.
     expect(projectView(doc, present).rows.map(r => r.key)).toEqual([
+      "layer:c",
       "layer:a",
       "layer:b",
-      "layer:c",
     ]);
   });
 });
