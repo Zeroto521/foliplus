@@ -71,8 +71,7 @@ def test_an_undeclared_icon_is_none() -> None:
 def test_a_non_mapping_icon_is_none_and_warns() -> None:
     with pytest.warns(UserWarning, match="expected a mapping"):
         assert (
-            declared_icon(_geo(name="IconE", foliplus={"icon": "red"}), "IconE")
-            is None
+            declared_icon(_geo(name="IconE", foliplus={"icon": "red"}), "IconE") is None
         )
 
 

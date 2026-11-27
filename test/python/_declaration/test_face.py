@@ -42,7 +42,9 @@ class TestNormaliseFaceKeys:
     def test_absent_is_none_without_a_warning(self) -> None:
         assert (
             _silent(
-                lambda: normalise_face_keys(None, keys=_KEYS, name="test", owner="Owner")
+                lambda: normalise_face_keys(
+                    None, keys=_KEYS, name="test", owner="Owner"
+                )
             )
             is None
         )
