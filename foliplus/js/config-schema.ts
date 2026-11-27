@@ -37,6 +37,14 @@ type LayerData = {
   zoom_range?: { min: number; max: number };
   folder?: string | null;
   filter?: Record<string, unknown> | null;
+  label?: {
+    show?: boolean;
+    field?: string;
+    format?: "auto" | "int" | "comma" | "percent";
+    color?: string;
+    size?: number;
+    collide?: boolean;
+  };
 }[];
 type ProviderConfig = {
   id: string;
