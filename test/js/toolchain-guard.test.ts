@@ -444,6 +444,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "marker-icon-set-icon-guard":
     "marker icon writes flow only through the whitelisted setLeafIcon call site",
   "mock-specifier": "every vi.mock/vi.doMock specifier resolves to a real file",
+  "order-source":
+    "panel order, map z and panel blocks come from one layer-order document model, not three legacy representations",
   "role-words-sync": "the layer-role vocabulary is the same on the Python and JS sides",
   "selected-class-guard": "the selected-class spelling has one owner per widget",
   "slider-inset": "the slider half-thumb offset is one token, not a repeated calc",
