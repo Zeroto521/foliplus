@@ -162,7 +162,9 @@ const BANNED: Array<{ name: string; re: RegExp; surface: Surface }> = [
 // Leaflet internal field or seeding a deliberately incomplete namespace is the
 // idiomatic escape hatch, and the call sites say so in a comment. Hold the
 // count flat rather than banning it — the bar is "no new ones", which still
-// catches a future `as unknown as any`-style laundering.
+// catches a future `as unknown as any`-style laundering. The table is
+// two-way: an entry may not be exceeded, and it must still have a cast left
+// (the stale-allowance test below owns the second direction).
 const NARROW_CASTS = [
   { f: "core/mapApi.ts", n: 1 },
   { f: "control/ExportControl/index.ts", n: 1 },
@@ -170,16 +172,27 @@ const NARROW_CASTS = [
   // field-level coercion is the applier's (`applyStyleLabelState`) — the
   // cast says "reader validates". See `parseLabelConfig`.
   { f: "control/LayerControl/persistence.ts", n: 1 },
-  // The marker-color row factory: buildIconColorRow returns HTMLElement | null
-  // (the capability gate), so the dimension registry's row slot narrows with a
-  // cast — the same shape every other style row uses.
-  { f: "control/LayerControl/ui/style/iconColor.ts", n: 1 },
-  // The marker chassis row factory: buildMarkerColorRow returns
-  // HTMLElement | null (the capability gate), so the dimension registry's
-  // row slot narrows with a cast — the same shape every other style row uses.
-  { f: "control/LayerControl/ui/style/markerColor.ts", n: 1 },
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;
+
+/** The double assertions the production tree actually holds, by repo path. */
+const narrowCastHits = (): Map<string, number> =>
+  new Map(
+    files
+      .map(f => ({
+        f: rel(f),
+        n: (viewsOf(f).code.match(NARROW_CAST_RE) || []).length,
+      }))
+      .filter(x => x.n > 0)
+      .map(({ f, n }) => [f, n]),
+  );
+
+/** Allowance entries with no cast left — the direction found ⊆ allowed cannot
+ *  see. A stale entry widens the budget for a site that no longer needs it. */
+const staleAllowances = (
+  allowed: ReadonlyArray<{ f: string; n: number }>,
+  found: Map<string, number>,
+): string[] => allowed.map(({ f }) => `foliplus/js/${f}`).filter(f => !found.has(f));
 
 describe("production type-system bypasses", () => {
   it("scans a non-trivial production tree", () => {
@@ -196,22 +209,28 @@ describe("production type-system bypasses", () => {
   }
 
   it("keeps double assertions to the known narrow-cast sites", () => {
-    const hits = files
-      .map(f => ({
-        f: rel(f),
-        n: (viewsOf(f).code.match(NARROW_CAST_RE) || []).length,
-      }))
-      .filter(x => x.n > 0);
     // Each entry is the number of double assertions that site is allowed to
     // hold. A new one anywhere in the tree fails this.
     const allowed = new Map(NARROW_CASTS.map(({ f, n }) => [`foliplus/js/${f}`, n]));
-    const found = new Map(hits.map(({ f, n }) => [f, n]));
+    const found = narrowCastHits();
     const problems: string[] = [];
     for (const [f, n] of found) {
       if (!allowed.has(f)) problems.push(`${f}: ${n} (no allowance)`);
       else if (n > allowed.get(f)!) problems.push(`${f}: ${n} > ${allowed.get(f)}`);
     }
     expect(problems).toEqual([]);
+  });
+
+  it("leaves no stale narrow-cast allowance", () => {
+    // The other direction: an entry must still describe a cast that exists.
+    // Without it, a refactor that removes a cast leaves its allowance behind
+    // and the one-way check above cannot see the slack — the next cast added
+    // at that path would be silently free.
+    const stale = staleAllowances(NARROW_CASTS, narrowCastHits());
+    expect(
+      stale,
+      `stale narrow-cast allowances (no cast left — delete the entry): ${stale.join(", ")}`,
+    ).toEqual([]);
   });
 
   // CONFIG ↔ Python parity moved to test/python/test__config_schema.py — the
@@ -304,5 +323,19 @@ describe("bypass scan teeth", () => {
     expect(countOn("const x = y as unknown as Row; // as never", NARROW_CAST_RE)).toBe(
       1,
     );
+  });
+
+  it("flags a stale allowance, never a live one", () => {
+    const live = new Map([["foliplus/js/core/mapApi.ts", 1]]);
+    expect(staleAllowances([{ f: "core/mapApi.ts", n: 1 }], live)).toEqual([]);
+    expect(
+      staleAllowances(
+        [
+          { f: "core/mapApi.ts", n: 1 },
+          { f: "control/LayerControl/ui/style/iconColor.ts", n: 1 },
+        ],
+        live,
+      ),
+    ).toEqual(["foliplus/js/control/LayerControl/ui/style/iconColor.ts"]);
   });
 });
