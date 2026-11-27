@@ -120,7 +120,7 @@ class HeatmapControl(BaseControl):
         Label text color.
 
     label_size : int, default 11
-        Label font size (px). Must be positive.
+        Label font size (px), clamped to the ``foliplus._declaration.label`` bounds.
 
     label_format : NumberFormat, default "auto"
         Number format for hexagon value labels (alias in ``_declaration.label``):

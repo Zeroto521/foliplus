@@ -63,6 +63,10 @@ const importsName = (source: string, module: string, name: string): boolean => {
   );
   return [...source.matchAll(fromImport)].some(match =>
     (match[1] ?? match[2] ?? "")
+      // A one-line import may end in an inline comment (e.g. # noqa: F401).
+      // A name never contains #, so dropping the comment before splitting the
+      // list keeps the legal shape green.
+      .split("#")[0]
       .split(",")
       .map(part =>
         part
@@ -91,6 +95,13 @@ describe("label number-format vocabulary stays in step across the stack", () => 
       JSON.stringify(schemaFormats()),
       "generated NumberStyle",
     );
+  });
+
+  it("accepts an inline comment on a one-line import", () => {
+    // A legal `from x import NAME  # noqa: F401` must not look like a missing
+    // import: the comment is not part of the imported name list.
+    const source = "from foliplus._declaration import NUMBER_FORMATS  # noqa: F401\n";
+    expect(importsName(source, "foliplus._declaration", "NUMBER_FORMATS")).toBe(true);
   });
 
   it("keeps the vocabulary at the four formats the panels render", () => {
