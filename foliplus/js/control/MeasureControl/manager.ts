@@ -294,6 +294,9 @@ class MeasureManager {
           [this.T("tool_circle")]: counts[CONST.MEASURE_MODE.CIRCLE] ?? 0,
         };
       },
+      // The author's folder declaration (CONFIG.folder) reaches the registry
+      // so the controller seeds the layout from it on registration.
+      folder: typeof this.config.folder === "string" ? this.config.folder : null,
     });
     this.currentMode = null;
     this.modeInstance = null;

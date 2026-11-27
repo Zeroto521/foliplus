@@ -136,6 +136,12 @@ created for it.
 A non-string, blank or over-long name warns once and is ignored — the layer
 stays at the role root.
 
+The layer-level declaration has a control-level sibling: HeatmapControl and
+MeasureControl accept a folder= argument (their layer registers with the
+declaration, so a new page already places it inside the folder). The same
+priority applies — a user drag to another folder (persisted) wins over the
+declaration.
+
 (folders)=
 
 ## `folders` — central folder defaults
