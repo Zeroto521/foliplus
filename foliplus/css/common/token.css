@@ -488,11 +488,13 @@
 
   /* ── Shared scrollbar recipe ──
      One scrollbar language for every foliplus scrollable surface
-     (common/scrollbar.css applies them): a thin lane with a stable gutter,
-     so a list crossing its max-height does not shift its rows and a classic
-     scrollbar does not eat the width. The scheme picker's measured lane
-     (--foliplus-scheme-picker-scrollbar-width) stays separate — it is a
-     runtime measurement, not this decision. */
+     (common/scrollbar.css applies them): a thin lane, so a classic scrollbar
+     does not eat the width. The stable gutter is only for a list whose rows
+     are inset from the scrollport (the scheme picker, whose strip subtracts
+     the measured lane); a full-bleed row list reserves it with "auto" so its
+     hover / selected wash reaches the list's border. The scheme picker's
+     measured lane (--foliplus-scheme-picker-scrollbar-width) stays separate —
+     it is a runtime measurement, not this decision. */
   --foliplus-scrollbar-width: thin;
   --foliplus-scrollbar-gutter: stable;
 

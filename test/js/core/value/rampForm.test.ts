@@ -411,8 +411,18 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     const menuRule = scrollbar.slice(scrollbar.indexOf(".foliplus-layer-more-menu {"));
     expect(menuRule).toContain("scrollbar-width");
     expect(menuRule).not.toContain("scrollbar-gutter");
-    expect(scrollbarSelector).toContain(".foliplus-search-result-panel");
-    expect(scrollbarSelector).toContain(".foliplus-dropdown-list");
+    // A full-bleed row list paints its own hover / selected background and
+    // emphasis bar, so it must NOT reserve a stable lane: the row would stop a
+    // lane short of the inner right border and the highlight would end in a
+    // blank strip. Those lists keep the thin lane with an auto gutter.
+    expect(scrollbarSelector).not.toContain(".foliplus-dropdown-list");
+    expect(scrollbarSelector).not.toContain(".foliplus-search-result-panel");
+    const fullBleedRule = blockOf(
+      scrollbar,
+      ":is(.foliplus-dropdown-list, .foliplus-search-result-panel) {",
+    );
+    expect(fullBleedRule).toContain("scrollbar-width: var(--foliplus-scrollbar-width)");
+    expect(fullBleedRule).toContain("scrollbar-gutter: auto");
     // The token group is the single value source.
     const tokens = css("foliplus/css/common/token.css");
     expect(tokens).toContain("--foliplus-scrollbar-width: thin");

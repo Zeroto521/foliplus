@@ -353,3 +353,68 @@ class TestHeatmapControlSelectionBrowser:
                 "the persisted layer must beat the Python declaration"
             )
             assert not errors, f"JS errors: {errors}"
+    def test_dropdown_selected_highlight_fills_the_row(self, browser, tmp_path):
+        """The selected option's highlight reaches the popup's inner border edge.
+
+        Regression (2026-11-27): the shared scrollbar recipe reserved a stable
+        gutter lane on the dropdown list even while it fit, so the option row
+        (width: 100% of the scrollport) stopped one lane (~10px) short of the
+        list's inner right border. The row paints both the selected wash and the
+        3px emphasis bar, so the highlight ended in a blank strip on the right
+        while the left bar stayed flush. The list now keeps the thin lane with an
+        auto gutter, so the row's border box coincides with the list's content
+        box and the former gap zone is painted by the row itself.
+        """
+        with use_page(
+            _make_page, browser, tmp_path, expose_ctrl=True, num_layers=3
+        ) as (page, errors):
+            page.evaluate(_js("HeatmapControl/click_toggle_button"))
+            page.wait_for_selector(
+                ".foliplus-heatmap-ctrl.foliplus-is-expanded",
+                state="attached",
+                timeout=5000,
+            )
+            heatmap_ready(page)
+            picked = page.evaluate(_js("HeatmapControl/pick_layer"), "Points 0")
+            assert picked["ok"], picked
+            # Re-open the popup so the picked layer is the aria-selected row.
+            page.evaluate(
+                """() => {
+                    const select = document.querySelector(
+                        '.foliplus-heatmap-ctrl select[data-heatmap-layer]',
+                    );
+                    select.closest('.foliplus-form-row')
+                        .querySelector('.foliplus-dropdown-trigger')
+                        .click();
+                }"""
+            )
+            page.wait_for_selector(
+                ".foliplus-dropdown-list:visible", state="visible", timeout=5000
+            )
+            # The popup fades/slides in; measure the settled box.
+            page.wait_for_timeout(350)
+            got = page.evaluate(_js("HeatmapControl/measure_dropdown_highlight"))
+            assert got["ok"], got
+            assert got["row"]["ariaSelected"] == "true", got
+
+            # The row paints the highlight, so its border box must span the
+            # popup's whole content box: zero gap at both ends, not just left.
+            # These are semantic (paint coverage), not the gutter mechanism —
+            # any fix that makes the row full-bleed passes.
+            assert got["gapLeft"] <= 0.5, (
+                f"highlight starts {got['gapLeft']}px inside the content box"
+            )
+            assert got["gapRight"] <= 0.5, (
+                f"highlight stops {got['gapRight']}px before the content box edge "
+                "(a reserved gutter lane shows up as the row's right edge)"
+            )
+            # The row is the paint target at both ends of the content box.
+            assert got["rowIsPaintAtLeft"], got
+            assert got["rowIsPaintAtRight"], got
+            # The emphasis bar is an inset shadow drawn from the row's own left
+            # edge, so a zero left gap keeps it flush with the list's border.
+            assert "inset" in got["row"]["boxShadow"], got
+            assert got["row"]["barWidth"] > 0, got
+            # And the selected wash is actually painted, not a transparent row.
+            assert got["row"]["background"] not in ("", "rgba(0, 0, 0, 0)"), got
+            assert not errors, f"JS errors: {errors}"

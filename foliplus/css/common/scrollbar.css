@@ -15,18 +15,28 @@
   one place, and a new scrollable surface joins the list instead of drifting.
   The property VALUES are tokens, so the whole recipe reads from one group.
   ══════════════════════════════════════════════════════════════════════ */
-/* Only list-shaped scroll containers join the stable-gutter recipe. Large
-     panel bodies (panel-content, row-panel) scroll rarely and reserving a
-     gutter lane there shifts their text/geometry on every open -- a real
-     layout regression the browser parity tests catch. Those surfaces keep
-     the OS default scrollbar chrome. */
-:is(
-  .foliplus-search-result-panel,
-  .foliplus-dropdown-list,
-  .foliplus-scheme-picker-dropdown
-) {
+/* The stable gutter is for a scroll container whose ROWS are inset from the
+     scrollport. Only the scheme picker qualifies: its item strip subtracts the
+     measured lane from its inset by design, so it needs the lane in both the
+     scrolling and the fitting state. Large panel bodies (panel-content,
+     row-panel) scroll rarely and reserving a lane there shifts their
+     text/geometry on every open -- a real layout regression the browser parity
+     tests catch; they keep the OS default scrollbar chrome. */
+:is(.foliplus-scheme-picker-dropdown) {
   scrollbar-width: var(--foliplus-scrollbar-width);
   scrollbar-gutter: var(--foliplus-scrollbar-gutter);
+}
+/* Full-bleed row lists keep the thin lane but must NOT reserve it: the row
+     element itself paints the hover / selected wash and the inset emphasis bar,
+     and the row is width: 100% of the scrollport. A stable gutter reserves a
+     lane even while the list fits, so the row stops a lane short of the list's
+     inner right border and the highlight ends in a blank strip -- measured on
+     the Heatmap layer dropdown: gap 10px on the right, 0 on the left. Auto
+     reserves the lane only when a real scrollbar appears, and the scrollbar
+     itself then paints that lane. */
+:is(.foliplus-dropdown-list, .foliplus-search-result-panel) {
+  scrollbar-width: var(--foliplus-scrollbar-width);
+  scrollbar-gutter: auto;
 }
 /* The ⋮ more-menu is deliberately NOT in the stable-gutter list above: its
      item set is fixed at open time (Filter / Style / Focus / Rename /
