@@ -158,11 +158,7 @@ export {
   probeLayerCarrier,
 } from "./capability.js";
 export { readLayerPaint, readLeafPaints } from "./paint.js";
-export {
-  PAINT_CHANNELS,
-  observePaint,
-  resolvePaintOpacity,
-} from "./paintObservation.js";
+export { observePaint, resolvePaintOpacity } from "./paintObservation.js";
 export type {
   PaintChannel,
   PaintObservation,

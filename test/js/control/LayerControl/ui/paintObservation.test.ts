@@ -161,4 +161,17 @@ describe("against the pre-observation read", () => {
     expect(observation.style).toBeNull();
     expect(observation.factors).not.toBeNull();
   });
+
+  it("differs from basePaints on an author-declared opacity", () => {
+    const { manager, ui, map } = initFixture({
+      data: dataOf("p1", { foliplus: { opacity: 0 } }),
+    });
+    map.hasLayer.mockReturnValue(true);
+    const info = manager.layerRegistry.get("p1")!;
+    // basePaints reads the author declaration; the shared visibility gather
+    // does not carry that hop yet, which is why the focus pane still reads
+    // basePaints. When both reads converge this becomes an identity.
+    expect(basePaints(ui, info)).toBe(false);
+    expect(paintsNow(ui, info)).toBe(true);
+  });
 });

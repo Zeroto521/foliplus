@@ -25,9 +25,7 @@ import { type VisibilityFactors, paintProjection } from "./visibility.js";
 
 /** The channels a paint observation reports a source for: the two paint faces a
  *  layer can carry, the marker icon, and the whole-layer opacity. */
-const PAINT_CHANNELS = ["fill", "border", "icon", "opacity"] as const;
-
-type PaintChannel = (typeof PAINT_CHANNELS)[number];
+type PaintChannel = "fill" | "border" | "icon" | "opacity";
 
 /** Who owns one channel's effective value - the style snapshot's verdict,
  *  re-spelled so a consumer asks the question without importing the snapshot. */
@@ -97,5 +95,5 @@ const observePaint = (input: {
   };
 };
 
-export { PAINT_CHANNELS, observePaint, resolvePaintOpacity };
+export { observePaint, resolvePaintOpacity };
 export type { PaintChannel, PaintObservation, PaintSource };
