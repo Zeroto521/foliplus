@@ -31,7 +31,7 @@ triggerSelector => {
     itemBars,
     lane: Math.round(lane),
     scrollable: dropdown.scrollHeight > dropdown.clientHeight,
-    laneVar: style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width").trim(),
+    laneVar: style.getPropertyValue("--foliplus-scrollbar-lane").trim(),
     trigger: rect(trigger),
     dropdown: rect(dropdown),
     dropdownInlineWidth: dropdown.style.width,
@@ -51,8 +51,8 @@ triggerSelector => {
       dropdown.getBoundingClientRect().right - parseFloat(style.borderRightWidth),
     // The scrollport right edge = padding-box left + clientWidth. clientWidth
     // is the padding box minus any scrollbar gutter, so this is the right edge
-    // of the visible content area (the clip line). A classic scrollbar's
-    // gutter lies beyond it and cannot be painted by the row.
+    // of the visible content area. A classic scrollbar's gutter lies beyond it;
+    // this strip does not extend into it (the search result row does).
     scrollportRight:
       dropdown.getBoundingClientRect().left +
       parseFloat(style.borderLeftWidth) +

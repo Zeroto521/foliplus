@@ -801,6 +801,91 @@ class TestSearchControlPlacementBrowser:
             assert not errors, errors
 
 
+class TestSearchResultRowHighlightBrowser:
+    """The result row's hover/active wash reaches the panel's inner border.
+
+    The panel keeps a ``scrollbar-gutter: stable`` lane so async results never
+    re-inset when they cross the max-height (#1245). That lane is blank while the
+    panel fits, so the row paints into it: these assertions pin both halves — the
+    wash covers the content box in the fitting state, and adding rows until the
+    panel scrolls moves neither the row's left edge nor the text width (only the
+    gutter lane absorbs the scrollbar).
+    """
+
+    def _make_page(self, browser, tmp_path):
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        SearchControl().add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "row-highlight")
+        page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+        return page, errors
+
+    def _open_history(self, page, count):
+        page.evaluate(_js("SearchControl/seed_many_history"), count)
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_selector(".foliplus-search", state="attached", timeout=10000)
+        page.evaluate(_js("SearchControl/click_toggle_btn"))
+        page.wait_for_selector(
+            ".foliplus-search-result-item", state="attached", timeout=5000
+        )
+        page.wait_for_function(
+            _js("SearchControl/read_result_panel_settled"), timeout=8000
+        )
+
+    @staticmethod
+    def _measure(page):
+        return page.evaluate(_js("SearchControl/measure_result_row_highlight"))
+
+    def test_result_row_wash_fills_the_content_box(self, browser, tmp_path):
+        """Active row: 0px gap left/right, and both content-box edges hit it."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            self._open_history(page, 1)
+            selected = page.evaluate(_js("SearchControl/select_first_result_row"))
+            assert selected["ok"], selected
+            assert selected["active"], "ArrowDown did not activate a result row"
+            # Let the background-color transition settle before reading it.
+            page.wait_for_timeout(300)
+            m = self._measure(page)
+            assert m["ok"], m
+            assert not m["overflow"], m
+            # The stable gutter reserves the lane in the fitting state too, which
+            # is exactly the blank strip the row must paint over. (With overlay
+            # scrollbars the lane is 0 and the invariant is trivially met; the
+            # point is that a reserved lane never leaves a gap.)
+            assert m["gapLeft"] == pytest.approx(0, abs=0.5), m
+            assert m["gapRight"] == pytest.approx(0, abs=0.5), m
+            assert m["background"] != "rgba(0, 0, 0, 0)", m
+            # Paint box, not just geometry: both content-box edges resolve to
+            # the row (its wash), so the highlight is truly full-bleed.
+            assert m["hitAtLeftEdge"], m
+            assert m["hitAtRightEdge"], m
+
+    def test_scrolling_state_keeps_row_left_and_text_width(self, browser, tmp_path):
+        """Crossing max-height: the lane absorbs the scrollbar, text does not reflow."""
+        with use_page(self._make_page, browser, tmp_path) as (page, errors):
+            self._open_history(page, 1)
+            before = self._measure(page)
+            assert before["ok"], before
+            assert not before["overflow"], before
+            page.evaluate(_js("SearchControl/append_row_clones"), 25)
+            # Re-run placement so the panel grows to its max-height cap and
+            # starts scrolling - the state change the stable gutter absorbs.
+            page.evaluate(_js("SearchControl/dispatch_resize"))
+            page.wait_for_timeout(300)
+            after = self._measure(page)
+            assert after["ok"], after
+            assert after["overflow"], after
+            # Only the gutter lane may absorb the scrollbar: the row's left edge
+            # and the text line keep their x/width (no re-inset, no word-break
+            # reflow), and the wash still ends on the inner border.
+            assert after["row"]["left"] == pytest.approx(before["row"]["left"], abs=0.5)
+            assert after["text"]["width"] == pytest.approx(
+                before["text"]["width"], abs=0.5
+            )
+            assert after["gapLeft"] == pytest.approx(0, abs=0.5), after
+            assert after["gapRight"] == pytest.approx(0, abs=0.5), after
+
+
 class TestSearchPanelTouchBrowser:
     """A touch drag over the result panel scrolls it instead of the map."""
 

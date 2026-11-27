@@ -63,6 +63,7 @@ export { createCheckbox, setCheckboxState, triStateOf } from "./checkbox.js";
 export type { TriState } from "./checkbox.js";
 export { LABEL_CLASS } from "./labelClassName.js";
 export { ensureActiveVisible } from "./scrollIntoView.js";
+export { measureScrollbarLane, publishScrollbarLane } from "./scrollbarLane.js";
 export { STYLE_MODE_KEY } from "./styleModeKey.js";
 export type {
   CanvasLabelStyle,

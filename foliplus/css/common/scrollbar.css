@@ -3,48 +3,55 @@
 /* ══════════════════════════════════════════════════════════════════════
   Shared Scrollbar Recipe
 
-  One scrollbar language for every foliplus scrollable surface: a thin lane
-  with a stable gutter (the tokens in token.css). A stable gutter keeps the
-  lane constant between the scrolling and fitting states, so a list that
-  crosses its max-height does not re-inset its rows; a thin lane reads as a
-  control detail, not a full-width OS scrollbar.
+  Every foliplus scroll container keeps the thin lane (token.css). Whether it
+  ALSO reserves that lane with a stable gutter is a layout decision, and this
+  file is its single source. The criterion is how the surface's rows relate to
+  the lane:
 
-  This file is the single source for WHICH surfaces scroll with the foliplus
-  lane. A surface that scrolls (overflow-y: auto) declares itself here rather
-  than restating the two properties in its own file — the decision lives in
-  one place, and a new scrollable surface joins the list instead of drifting.
-  The property VALUES are tokens, so the whole recipe reads from one group.
+  | surface                          | gutter | why                                   |
+  | -------------------------------- | ------ | ------------------------------------- |
+  | .foliplus-scheme-picker-dropdown  | stable | item strip subtracts the measured    |
+  |                                  |        | lane and must not shift when scrolling |
+  | .foliplus-search-result-panel     | stable | results arrive async and word-break  |
+  |                                  |        | reflows; rows paint into the lane    |
+  |                                  |        | instead of the layout re-insetting   |
+  | .foliplus-dropdown-list           | auto   | option set fixed while open, nothing |
+  |                                  |        | to reflow; a reserved lane would     |
+  |                                  |        | leave the selected wash short        |
+  | .foliplus-layer-more-menu         | auto   | item set fixed at open; thin lane    |
+  | panel bodies (panel-content,      | OS     | reserving a lane shifts their text   |
+  | row-panel)                        |        | on every open                        |
+
+  The VALUES are tokens (token.css); the lane a stable gutter leaves is
+  published at runtime by ui/scrollbarLane as --foliplus-scrollbar-lane.
+
+  A surface that scrolls (overflow-y: auto) declares itself here rather than
+  restating the properties in its own file — a new surface joins the table.
   ══════════════════════════════════════════════════════════════════════ */
-/* The stable gutter is for a scroll container whose ROWS are inset from the
-     scrollport. Only the scheme picker qualifies: its item strip subtracts the
-     measured lane from its inset by design, so it needs the lane in both the
-     scrolling and the fitting state. Large panel bodies (panel-content,
-     row-panel) scroll rarely and reserving a lane there shifts their
-     text/geometry on every open -- a real layout regression the browser parity
-     tests catch; they keep the OS default scrollbar chrome. */
-:is(.foliplus-scheme-picker-dropdown) {
+/* Stable gutter: row geometry is constant across the scrolling/fitting states.
+   The consumer either subtracts the measured lane (scheme picker) or paints
+   into it (search result row). */
+:is(.foliplus-scheme-picker-dropdown, .foliplus-search-result-panel) {
   scrollbar-width: var(--foliplus-scrollbar-width);
   scrollbar-gutter: var(--foliplus-scrollbar-gutter);
 }
-/* Full-bleed row lists keep the thin lane but must NOT reserve it: the row
-     element itself paints the hover / selected wash and the inset emphasis bar,
-     and the row is width: 100% of the scrollport. A stable gutter reserves a
-     lane even while the list fits, so the row stops a lane short of the list's
-     inner right border and the highlight ends in a blank strip -- measured on
-     the Heatmap layer dropdown: gap 10px on the right, 0 on the left. Auto
-     reserves the lane only when a real scrollbar appears, and the scrollbar
-     itself then paints that lane. */
-:is(.foliplus-dropdown-list, .foliplus-search-result-panel) {
+/* Auto gutter: the option set is fixed while the list is open, so there is no
+   reflow to absorb. A stable gutter here reserves a lane even while the list
+   fits, and the option row (width: 100% of the scrollport, painting its own
+   selected wash and inset emphasis bar) stops a lane short of the list's inner
+   right border — the highlight ends in a blank strip. Measured on the Heatmap
+   layer dropdown: 10px gap on the right, 0 on the left. Auto reserves the lane
+   only when a real scrollbar appears, and the scrollbar paints that lane. */
+.foliplus-dropdown-list {
   scrollbar-width: var(--foliplus-scrollbar-width);
   scrollbar-gutter: auto;
 }
-/* The ⋮ more-menu is deliberately NOT in the stable-gutter list above: its
-     item set is fixed at open time (Filter / Style / Focus / Rename /
-     Attributes / Confirm Delete) and never grows or shrinks while open, so
-     there is no scrollbar appearance/disappearance to absorb and the reserved
-     gutter lane would just read as a blank column. It still gets the thin
-     lane for the (rare) case where the constrained viewport makes the menu
-     itself scroll. */
+/* The ⋮ more-menu is deliberately NOT in the stable list: its item set is
+   fixed at open time (Filter / Style / Focus / Rename / Attributes / Confirm
+   Delete) and never grows or shrinks while open, so there is no scrollbar
+   appearance/disappearance to absorb and the reserved gutter lane would just
+   read as a blank column. It still gets the thin lane for the (rare) case
+   where the constrained viewport makes the menu itself scroll. */
 .foliplus-layer-more-menu {
   scrollbar-width: var(--foliplus-scrollbar-width);
 }

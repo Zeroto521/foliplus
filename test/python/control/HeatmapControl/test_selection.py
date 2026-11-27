@@ -379,16 +379,8 @@ class TestHeatmapControlSelectionBrowser:
             picked = page.evaluate(_js("HeatmapControl/pick_layer"), "Points 0")
             assert picked["ok"], picked
             # Re-open the popup so the picked layer is the aria-selected row.
-            page.evaluate(
-                """() => {
-                    const select = document.querySelector(
-                        '.foliplus-heatmap-ctrl select[data-heatmap-layer]',
-                    );
-                    select.closest('.foliplus-form-row')
-                        .querySelector('.foliplus-dropdown-trigger')
-                        .click();
-                }"""
-            )
+            opened = page.evaluate(_js("HeatmapControl/open_layer_dropdown"))
+            assert opened["ok"], opened
             page.wait_for_selector(
                 ".foliplus-dropdown-list:visible", state="visible", timeout=5000
             )
