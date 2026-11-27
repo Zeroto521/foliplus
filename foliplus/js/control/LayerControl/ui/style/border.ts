@@ -37,6 +37,7 @@ import {
   bindPaintRow,
   buildPaintRow,
 } from "./paintDimension.js";
+import { createPickerHolder } from "./pickerHolder.js";
 import { pinStyleOnHighlight } from "./pin.js";
 import {
   getDimension,
@@ -92,7 +93,6 @@ import { fullscreenSurface, onFullscreenSurfaceChange } from "#platform/fullscre
 import {
   BORDER_WEIGHT,
   PANEL_CLASS,
-  type SchemePicker,
   bindLiveColor,
   bindLiveNumber,
   colorInput,
@@ -195,13 +195,9 @@ const BORDER_INTENT_KEYS: readonly IntentKey[] = [
   INTENT.BORDER_STYLE_MODE,
 ];
 
-/** The scheme picker owned by the open style panel's border value detail.
- *  One entry per UI (a map owns one LayerControl instance); the panel must
- *  destroy it when it closes or rebuilds the detail, or a stale picker
- *  answers the next click. Mirrors fill's per-UI picker slot. */
-const borderSchemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
-/** Unregister for the picker's overlay-registry entry (one per UI). */
-const borderSchemeOverlayByUi = new WeakMap<LayerUI, () => void>();
+/** The border channel's per-UI scheme-picker slot (one entry per map; see
+ *  pickerHolder). */
+const borderPickerHolder = createPickerHolder();
 
 /** The border's value config — the config the stroke classifies by.
  *
@@ -952,12 +948,9 @@ const buildSolidBorderDetail = (ui: LayerUI, layerId: string): HTMLElement[] => 
 
 /** Destroy the panel's border scheme picker, if any. Idempotent; also
  *  called when a mode switch rebuilds the value detail so a stale picker
- *  cannot answer the next click. Mirrors fill's disposeFillRow. */
+ *  cannot answer the next click. */
 const disposeBorderRow = (ui: LayerUI): void => {
-  borderSchemeOverlayByUi.get(ui)?.();
-  borderSchemeOverlayByUi.delete(ui);
-  borderSchemePickerByUi.get(ui)?.destroy();
-  borderSchemePickerByUi.delete(ui);
+  borderPickerHolder.dispose(ui);
 };
 
 /** The border mode the row's select shows. The default is "original"
@@ -1110,9 +1103,9 @@ const bindBorderValueDetail = (
     label: ui.T("style_fill_scheme"),
     onChange: name => writeBorderValue(ui, layerId, { scheme: name }),
   });
-  borderSchemePickerByUi.set(ui, picker);
-  borderSchemeOverlayByUi.set(
+  borderPickerHolder.set(
     ui,
+    picker,
     ensureOverlayRegistry(ui.c.map).register({
       id: OVERLAY_IDS.BORDER_PICKER_DROPDOWN,
       isOpen: () => picker.getDropdown() !== null,

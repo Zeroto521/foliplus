@@ -10,6 +10,7 @@ import {
   commitFillOpacity,
 } from "./fillOpacity.js";
 import { layerFields } from "./label.js";
+import { createPickerHolder } from "./pickerHolder.js";
 import { getDimension } from "./registry.js";
 import { FACE, walkFillLeaves } from "./styleBag.js";
 import { type ValueFaceDecl, paintByValue } from "./valuePaint.js";
@@ -43,7 +44,6 @@ import {
 } from "#platform/fullscreen.js";
 import { createLogger } from "#platform/log.js";
 import {
-  type SchemePicker,
   bindLiveNumber,
   createSchemePicker,
   dropdownOf,
@@ -158,23 +158,15 @@ const persistedValue = (value: ValueConfig): ValueConfig =>
         scheme: value.scheme,
       };
 
-/** The scheme picker owned by the open style panel. It installs
- *  document-level listeners while its listbox is open, so the panel must
- *  destroy it when it closes or rebuilds the value detail; one entry per UI
- *  because a map owns one LayerControl instance. */
-const schemePickerByUi = new WeakMap<LayerUI, SchemePicker>();
-
-/** Unregister for the picker's overlay-registry entry (one per UI). */
-const schemePickerOverlayByUi = new WeakMap<LayerUI, () => void>();
+/** The fill channel's per-UI scheme-picker slot (one entry per map; see
+ *  pickerHolder). */
+const fillPickerHolder = createPickerHolder();
 
 /** Destroy the panel's scheme picker, if any. Idempotent; also called when a
  *  mode switch rebuilds the value detail so a stale picker cannot answer the
  *  next click. */
 const disposeFillRow = (ui: LayerUI): void => {
-  schemePickerOverlayByUi.get(ui)?.();
-  schemePickerOverlayByUi.delete(ui);
-  schemePickerByUi.get(ui)?.destroy();
-  schemePickerByUi.delete(ui);
+  fillPickerHolder.dispose(ui);
 };
 
 /** Numeric field names offered by the value field picker. The label
@@ -685,9 +677,9 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     label: ui.T("style_fill_scheme"),
     onChange: name => writeFillValue(ui, layerId, { scheme: name }),
   });
-  schemePickerByUi.set(ui, picker);
-  schemePickerOverlayByUi.set(
+  fillPickerHolder.set(
     ui,
+    picker,
     ensureOverlayRegistry(ui.c.map).register({
       id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
       isOpen: () => picker.getDropdown() !== null,
