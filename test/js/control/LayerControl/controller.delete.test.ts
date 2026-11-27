@@ -313,8 +313,8 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("rd1")).toBe(true);
-    // The folder still has rd2, so there is nothing to freeze.
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    // The folder still has rd2, so its block survives by construction.
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("roads");
   });
 
   it("deleteLayer freezes a base folder's block order too", () => {

@@ -2,6 +2,7 @@
 import { makeDerivedUI } from "./ui/fixture.js";
 import { vi } from "vitest";
 import { type LayerFilterFeatures, folderLayoutKey } from "#core/layer/index.js";
+import { scopedStorageKey } from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
@@ -22,6 +23,30 @@ export const layoutFromRoles = (
   };
 };
 
+export const orderFromRoles = (
+  roles: Record<string, string[]>,
+): Record<string, unknown> => {
+  const keys = new Set<string>();
+  for (const list of Object.values(roles)) for (const k of list) keys.add(k);
+  const roleNodes: Record<string, unknown[]> = { overlay: [], base: [] };
+  for (const [role, entries] of Object.entries(roles)) {
+    roleNodes[role] = entries.map(entry => {
+      if (keys.has(entry)) return { kind: "folder", key: entry, children: [] };
+      return { kind: "layer", id: entry };
+    });
+  }
+  const blocks: Record<string, unknown> = {};
+  for (const key of keys) blocks[key] = { kind: "folder", key, name: key };
+  return { blocks, roles: roleNodes };
+};
+
+export const orderStorageKey = (map: any): string =>
+  scopedStorageKey(map, "layer_arrangement");
+
+export const readOrderTreeStorage = (map: any): Record<string, unknown> | null => {
+  const raw = window.localStorage.getItem(orderStorageKey(map));
+  return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+};
 /** Read the persisted folder-layout document for a map (null when never written). */
 export const readLayoutStorage = (map: any): Record<string, unknown> | null => {
   const stored = JSON.parse(

@@ -721,6 +721,10 @@ interface FolderLayoutManager {
   layout: FolderLayout;
   /** Replace the live layout AND schedule a debounced write. */
   set(layout: FolderLayout): void;
+  /** Replace the live layout WITHOUT scheduling a write. This is the
+   *  arrangement mirror path: the tree is the source and owns persistence;
+   *  the v2 layout is derived, so a mirror write must never touch storage. */
+  setDerived(layout: FolderLayout): void;
   /** Flush any pending write immediately (teardown). */
   flush(): void;
   /** Drop the in-memory copy and re-read from storage (a fresh control). */
@@ -750,6 +754,9 @@ const createFolderLayoutManager = (map: MapLike): FolderLayoutManager => {
       current = layout;
       timer ??= debounce(write, 100);
       timer();
+    },
+    setDerived(layout: FolderLayout): void {
+      current = layout;
     },
     flush(): void {
       timer?.flush();

@@ -1,5 +1,10 @@
 // test/js/control/LayerControl/controller.folder — folder create, rename, reorder and delete.
-import { layoutFromRoles, makeStore, readLayoutStorage } from "./controller.fixture.js";
+import {
+  makeStore,
+  orderFromRoles,
+  readLayoutStorage,
+  readOrderTreeStorage,
+} from "./controller.fixture.js";
 import { initFixture, makeDerivedUI, polygonLayer } from "./ui/fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -17,7 +22,7 @@ describe("deleteFolder", () => {
 
   it("deleting a non-empty folder keeps its layers, pins them to root, and removes the order key: one layout write", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -41,12 +46,12 @@ describe("deleteFolder", () => {
       role: "overlay",
       folder: "",
     });
-    expect(readLayoutStorage(manager.map)).not.toBeNull();
+    expect(readOrderTreeStorage(manager.map)).not.toBeNull();
   });
 
   it("deleting an empty folder removes only the key", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -54,12 +59,12 @@ describe("deleteFolder", () => {
 
     expect(ok).toBe(true);
     expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
-    expect(readLayoutStorage(manager.map)).not.toBeNull();
+    expect(readOrderTreeStorage(manager.map)).not.toBeNull();
   });
 
   it("deleting a missing folder returns false and does not write the layout", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     window.localStorage.removeItem(folderLayoutKey(manager.map));
@@ -72,7 +77,7 @@ describe("deleteFolder", () => {
 
   it("deleting a base folder keeps an overlay folder of the same name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["foo"], base: ["foo"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["foo"], base: ["foo"] }),
       data: [
         {
           id: "b1",
@@ -97,7 +102,7 @@ describe("deleteFolder", () => {
     // This deliberately uses a different folder to trigger freeze, distinguishing
     // from #911's same-name keep-alive semantics (which DOES preserve the key).
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads", "water"] }),
       data: [
         {
           id: "rd1",
@@ -129,7 +134,7 @@ describe("deleteFolder", () => {
 
   it("deleteFolder does not go through freezeEmptyFolder", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -151,7 +156,7 @@ describe("deleteFolder", () => {
 
   it("[BR-1] deleteFolder: opts.persist=false skips the layout write", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     window.localStorage.removeItem(folderLayoutKey(manager.map));
@@ -165,7 +170,7 @@ describe("deleteFolder", () => {
 
   it("[BR-2] deleteFolder: absent role key -> ?? [] empty-branch (no crash)", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({}),
+      seedOrderTree: orderFromRoles({}),
       data: [],
     });
     // No "overlay" key in sections: listed ?? [] = []. members empty. Neither
@@ -176,7 +181,7 @@ describe("deleteFolder", () => {
 
   it("[BR-3] deleteFolder: no ui -> rebuildAfterLayoutChange not called (if(this.ui) false)", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     const reindex = vi.fn();
@@ -196,7 +201,7 @@ describe("cleanEmptyFolders", () => {
 
   it("cleanEmptyFolders removes each empty key and writes the layout once", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["empty1", "empty2", "full"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["empty1", "empty2", "full"] }),
       data: [
         {
           id: "rd1",
@@ -212,13 +217,17 @@ describe("cleanEmptyFolders", () => {
     const count = manager.cleanEmptyFolders("overlay");
 
     expect(count).toBe(2);
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["full"]);
-    expect(readLayoutStorage(manager.map)).not.toBeNull();
+    expect(
+      (manager.folderLayoutView.order.overlay ?? []).filter(
+        k => !k.startsWith("layer:"),
+      ),
+    ).toEqual(["full"]);
+    expect(readOrderTreeStorage(manager.map)).not.toBeNull();
   });
 
   it("[BR-4] cleanEmptyFolders: absent role key -> ?? [] empty-branch", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({}),
+      seedOrderTree: orderFromRoles({}),
       data: [],
     });
     const count = manager.cleanEmptyFolders("overlay");
@@ -227,7 +236,7 @@ describe("cleanEmptyFolders", () => {
 
   it("[BR-5] cleanEmptyFolders: no empty keys -> return 0 (emptyKeys.length===0)", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["full"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["full"] }),
       data: [
         {
           id: "rd1",
@@ -246,7 +255,7 @@ describe("cleanEmptyFolders", () => {
 
   it("[BR-6] cleanEmptyFolders: no ui -> rebuildAfterLayoutChange not called", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["empty1"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["empty1"] }),
       data: [],
     });
     (manager as any).ui = null;
@@ -390,12 +399,12 @@ describe("createFolder", () => {
     expect(ok).toEqual({ ok: true, key: "roads" });
     expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
     expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
-    expect(readLayoutStorage(manager.map)).not.toBeNull();
+    expect(readOrderTreeStorage(manager.map)).not.toBeNull();
   });
 
   it("creates an empty folder at the tail after an existing folder", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["water"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["water"] }),
       data: [],
     });
 
@@ -433,7 +442,7 @@ describe("createFolder", () => {
 
   it("createFolder rejects a duplicate name in the same role", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -445,7 +454,7 @@ describe("createFolder", () => {
 
   it("createFolder allows the same name in a different role", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ base: ["roads"] }),
+      seedOrderTree: orderFromRoles({ base: ["roads"] }),
       data: [],
     });
 
@@ -454,13 +463,19 @@ describe("createFolder", () => {
 
     expect(okOverlay).toEqual({ ok: true, key: "roads" });
     expect(okBase).toEqual({ ok: false, reason: "duplicate" }); // base already has "roads"
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
-    expect(manager.folderLayoutView.order.base ?? []).toEqual(["roads"]);
+    expect(
+      (manager.folderLayoutView.order.overlay ?? []).filter(
+        k => !k.startsWith("layer:"),
+      ),
+    ).toEqual(["roads"]);
+    expect(
+      (manager.folderLayoutView.order.base ?? []).filter(k => !k.startsWith("layer:")),
+    ).toEqual(["roads"]);
   });
 
   it("createFolder lets a different role reuse a name held only by the other role's live member", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({}),
+      seedOrderTree: orderFromRoles({}),
       data: [
         {
           id: "rd1",
@@ -485,13 +500,13 @@ describe("createFolder", () => {
 
     manager.createFolder("overlay", "Roads");
 
-    expect(readLayoutStorage(manager.map)).not.toBeNull();
+    expect(readOrderTreeStorage(manager.map)).not.toBeNull();
     expect(reindex).toHaveBeenCalledTimes(1);
   });
 
   it("createFolder rejects a name already held by a live member not yet listed", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({}),
+      seedOrderTree: orderFromRoles({}),
       data: [
         {
           id: "rd1",
@@ -506,7 +521,8 @@ describe("createFolder", () => {
     const ok = manager.createFolder("overlay", "Roads");
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    // The declared folder is materialised in the tree, so it is present.
+    expect(manager.folderLayoutView.order.overlay ?? []).toContain("roads");
   });
 
   it("createFolder honours persist:false and tolerates a detached UI", () => {
@@ -550,7 +566,9 @@ describe("reorderFolder", () => {
         },
       ],
     });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
+    // Author-declared folders are materialised in the tree, so the derived
+    // mirror order starts at the declared folder keys.
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["alpha", "beta"]);
 
     const ok = manager.reorderFolder("overlay", "alpha", "beta", true);
 
@@ -625,7 +643,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rewrites only the display name, keeping the order key and member assignments", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads", "water"] }),
       data: [
         {
           id: "rd1",
@@ -660,7 +678,7 @@ describe("renameFolder", () => {
 
   it("renameFolder normalises the new name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -675,7 +693,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rejects a duplicate new name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads", "water"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads", "water"] }),
       data: [],
     });
 
@@ -687,7 +705,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rejects a blank new name", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -698,7 +716,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rejects an over-long new name and keeps the old one", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     const before = manager.folderLayoutView.folders;
@@ -722,7 +740,7 @@ describe("renameFolder", () => {
 
   it("renameFolder is a no-op for a missing old folder", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -733,7 +751,7 @@ describe("renameFolder", () => {
 
   it("renameFolder keeps the member assignment when the new spelling differs", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -756,7 +774,7 @@ describe("renameFolder", () => {
     // The key is the identity, so this is a display-only change, not a no-op:
     // the user asked for that spelling and the row must show it.
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
 
@@ -769,7 +787,7 @@ describe("renameFolder", () => {
 
   it("renameFolder renames an unlisted folder that has live members", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({}),
+      seedOrderTree: orderFromRoles({}),
       data: [
         {
           id: "rd1",
@@ -785,12 +803,13 @@ describe("renameFolder", () => {
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("Streets");
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
+    // The key is stable and the materialised folder stays in the order.
+    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("renameFolder rejects a new name already held by a live member in the same role", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "rd1",
@@ -817,7 +836,7 @@ describe("renameFolder", () => {
 
   it("renameFolder honours persist:false and tolerates a detached UI", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
     manager.ui = null;
@@ -835,7 +854,7 @@ describe("renameFolder", () => {
 
   it("renameFolder keeps the global duplicate predicate (P3-1): a cross-role name collision is refused", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ base: ["water"], overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ base: ["water"], overlay: ["roads"] }),
       data: [],
     });
 
@@ -850,7 +869,7 @@ describe("renameFolder", () => {
 
   it("renameFolder rejects a new name held only by a live member in the other role — P3-1 live-member branch", () => {
     const { manager } = initFixture({
-      seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+      seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [
         {
           id: "wt1",

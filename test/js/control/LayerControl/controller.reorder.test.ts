@@ -2,9 +2,10 @@
 import {
   TileLayer,
   createLayerControllerFixture,
+  orderFromRoles,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
-import { initFixture } from "./ui/fixture.js";
+import { initFixture, polygonLayer } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { FALLBACK_PANE_PREFIX } from "#core/layer/index.js";
@@ -551,5 +552,103 @@ describe("LayerController", () => {
     manager.registerLayer({ id: "fb", name: "Fb", layer });
     manager.enforceOrder();
     expect(layer.options.pane).toMatch(new RegExp(`^${FALLBACK_PANE_PREFIX}`));
+  });
+});
+
+describe("LayerController moveLayerUp / moveLayerDown within and across folders", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.CONFIG = { ...window.CONFIG, name: "LayerControl", locale_code: "en" };
+  });
+
+  // The tree is the single order source: a folder member's registry position is
+  // its rank inside the folder block. These tests pin the folder-branch index
+  // math of stepLayerInTree (up = pos.index - 1; down = pos.index + 1, because
+  // moveEntry detaches the member before inserting, so the follower sits at
+  // pos.index afterwards).
+  const visibleOrder = (manager: LayerController): string[] =>
+    manager.layers.map(l => l.id).filter(id => !id.startsWith("foliplus_"));
+
+  it("folder-up moves a member before its previous sibling", () => {
+    const { manager } = initFixture({
+      seedOrderTree: orderFromRoles({ overlay: ["F"] }),
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "id1", name: "id", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "C", name: "C", role: "overlay", folder: "F", layer: polygonLayer() },
+      ],
+    });
+    expect(visibleOrder(manager)).toEqual(["A", "id1", "B", "C"]);
+
+    expect(manager.moveLayerUp("id1")).toBe(true);
+    expect(visibleOrder(manager)).toEqual(["id1", "A", "B", "C"]);
+  });
+
+  it("folder-down moves a member after its next sibling (pos.index + 1)", () => {
+    const { manager } = initFixture({
+      seedOrderTree: orderFromRoles({ overlay: ["F"] }),
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "id1", name: "id", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "C", name: "C", role: "overlay", folder: "F", layer: polygonLayer() },
+      ],
+    });
+    expect(visibleOrder(manager)).toEqual(["A", "id1", "B", "C"]);
+
+    expect(manager.moveLayerDown("id1")).toBe(true);
+    expect(visibleOrder(manager)).toEqual(["A", "B", "id1", "C"]);
+  });
+
+  it("cross-folder up: a root layer moves above the preceding folder block via the root branch", () => {
+    // r1 sits between folder F and folder G; moving it up must cross the F
+    // block as a top-level anchor (root branch), not mutate inside the folder.
+    const { manager } = initFixture({
+      seedOrderTree: orderFromRoles({ overlay: ["F", "G"] }),
+      data: [
+        { id: "fa", name: "FA", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "r1", name: "R1", role: "overlay", layer: polygonLayer() },
+        { id: "gb", name: "GB", role: "overlay", folder: "G", layer: polygonLayer() },
+      ],
+    });
+    expect(visibleOrder(manager)).toEqual(["fa", "r1", "gb"]);
+
+    expect(manager.moveLayerUp("r1")).toBe(true);
+    expect(visibleOrder(manager)).toEqual(["r1", "fa", "gb"]);
+  });
+
+  it("cross-folder down: a root layer moves below the following folder block via the root branch", () => {
+    const { manager } = initFixture({
+      seedOrderTree: orderFromRoles({ overlay: ["F", "G"] }),
+      data: [
+        { id: "fa", name: "FA", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "r1", name: "R1", role: "overlay", layer: polygonLayer() },
+        { id: "gb", name: "GB", role: "overlay", folder: "G", layer: polygonLayer() },
+      ],
+    });
+    expect(visibleOrder(manager)).toEqual(["fa", "r1", "gb"]);
+
+    expect(manager.moveLayerDown("r1")).toBe(true);
+    // r1 is already below F; moving down places it below the G block.
+    expect(visibleOrder(manager)).toEqual(["fa", "gb", "r1"]);
+  });
+
+  it("folder boundaries refuse a first-member up and a last-member down without mutating the tree", () => {
+    const { manager } = initFixture({
+      seedOrderTree: orderFromRoles({ overlay: ["F"] }),
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "id1", name: "id", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "F", layer: polygonLayer() },
+        { id: "C", name: "C", role: "overlay", folder: "F", layer: polygonLayer() },
+      ],
+    });
+    const before = visibleOrder(manager);
+    expect(before).toEqual(["A", "id1", "B", "C"]);
+
+    expect(manager.moveLayerUp("A")).toBe(false);
+    expect(manager.moveLayerDown("C")).toBe(false);
+    expect(visibleOrder(manager)).toEqual(before);
   });
 });

@@ -33,7 +33,7 @@ import {
   folderEntries,
   folderOf,
   groupByFolder,
-  roleBlocks,
+  orderProjectBlocks,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
@@ -521,17 +521,7 @@ const displayBlocks = (
 ): Array<
   | { kind: "folder"; key: string; name: string; block: { members: LayerInfo[] } }
   | { kind: "layer"; layer: LayerInfo }
-> =>
-  roleBlocks(role as LayerRole, ui.c.layers, ui.c.folderLayoutView).map(block =>
-    block.kind === "folder"
-      ? {
-          kind: "folder" as const,
-          key: block.key,
-          name: block.displayName,
-          block: { members: block.members },
-        }
-      : { kind: "layer" as const, layer: block.info },
-  );
+> => orderProjectBlocks(ui.c.resolveOrderTree(), role as LayerRole, ui.c.layers);
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.

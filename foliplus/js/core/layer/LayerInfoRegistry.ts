@@ -4,12 +4,10 @@ import { deriveLayerKind, findLayer } from "./capability.js";
 import { ROLE } from "./const.js";
 import {
   FOLDER_NAME_MAX,
-  type FolderLayout,
-  emptyFolderLayout,
   folderNameLength,
   folderNameTooLong,
-  fullDisplayOrder,
 } from "./folderLayout.js";
+import { type ResolvedTree, orderProjectZ } from "./order.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { safeSVG } from "#core/sanitize.js";
 import { createLogger } from "#platform/log.js";
@@ -546,17 +544,17 @@ class LayerInfoRegistry {
     this.refreshFirstBaseIdx();
   }
 
-  /** Reorder so the panel's display order is the two-segment folder order:
-   *  per role, Folder blocks first (layout.order priority, then anchor) and
-   *  root layers after. The overlay role precedes the base role (the
-   *  historical overlay-before-base partition). The anchor axis is the CURRENT
-   *  items order (the user's saved arrangement, or the CONF registration order
-   *  when no order was ever saved) — `fullDisplayOrder` reads each block's
-   *  anchor as its position in `this.items` before the grouping reorders it,
-   *  so the anchor is not rewritten by the display grouping (the grouping
-   *  only reorders what is shown, never the registry's index axis). */
-  normalizeGroups(layout: FolderLayout = emptyFolderLayout()) {
-    const display = fullDisplayOrder(this.items, layout);
+  /** Reorder so the registry's z axis is the tree's projection (`orderProjectZ`):
+   *  overlay before base, each role's folder order + members + root layers in
+   *  the tree's order. The tree is the single order source — the grouping only
+   *  reorders what is shown, never the registry's index axis. */
+  normalizeGroups(resolved: ResolvedTree) {
+    const order = orderProjectZ(resolved);
+    const orderSet = new Set(order);
+    const display = order
+      .map(id => this.byId.get(id))
+      .filter((info): info is LayerInfo => info !== undefined)
+      .concat(this.items.filter(info => !orderSet.has(info.id)));
     this.items.splice(0, this.items.length, ...display);
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this.reindex();

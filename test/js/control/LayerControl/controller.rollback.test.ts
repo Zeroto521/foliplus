@@ -278,7 +278,7 @@ describe("LayerController", () => {
     expect(manager.layerRegistry.has("A")).toBe(false);
   });
 
-  it("a failing pricing pass still saves the arrangement it committed", () => {
+  it("a failing pricing pass still saves the order tree it committed", () => {
     // commitReorder's local-commit rule: the persisted order agrees with the
     // live registry whatever happens to the steps that follow the registry
     // move — a throwing pricing pass must not leave the record lagging.
