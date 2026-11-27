@@ -1,3 +1,4 @@
+// control/MeasureControl/mode/circle — circle radius mode: click the centre then the edge, then keep the radius label editable.
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachCircleUI } from "../ui/index.js";
@@ -168,10 +169,17 @@ class CircleMode extends PreviewMode {
         this.cleanup();
         this.mgr.clearActiveMode();
         isFinalizing = true;
-        setTimeout(() => {
-          finishCircle(savedCenter!, r, event.latlng);
-          isFinalizing = false;
-        }, CONST.TIMING.FINALIZE_DELAY);
+        // The completion is the manager's timer: a control torn down inside the
+        // delay disposes the owner, so the circle is never added to a map the
+        // manager no longer owns.
+        this.mgr.timers.timeout(
+          "circle-finalize",
+          () => {
+            finishCircle(savedCenter!, r, event.latlng);
+            isFinalizing = false;
+          },
+          CONST.TIMING.FINALIZE_DELAY,
+        );
       }
     };
 

@@ -24,6 +24,7 @@
 // Colors are kept verbatim — an explore layer's `missing_kwds` can put a CSS
 // keyword such as `lightgrey` among hex stops, and rewriting it to a hex we
 // guessed would paint something the author did not declare.
+import { parseColorAlpha } from "#platform/color.js";
 
 /** How many stops the bar keeps at most. A control-width bar cannot resolve
  *  more, and a 64-stop style attribute is a kilobyte of inline CSS for the
@@ -39,16 +40,33 @@ type Rgb = [number, number, number];
  *  A CSS keyword, a named color or an unknown function is not parsed: it is
  *  still a real color, only one this module cannot rank by hue. */
 const toRgb = (color: string): Rgb | null => {
+  // The common shapes (#rgb / #rrggbb and comma rgb() / rgba()) are
+  // platform/color's parseColorAlpha — its header forbids a second copy.
+  // Trade-off: that parser rounds an rgb() channel to its nearest hex pair
+  // (Math.round) where the old hand-rolled parse kept the float. Only a
+  // non-integer rgb() can see it, and only through this ranking key — the
+  // hue/lightness order is not a paint, so the rounded key is unobservable.
+  const common = parseColorAlpha(color);
+  if (common !== null) {
+    const hex = common.hex;
+    return [
+      parseInt(hex.slice(1, 3), 16),
+      parseInt(hex.slice(3, 5), 16),
+      parseInt(hex.slice(5, 7), 16),
+    ];
+  }
+  // Only the extended shapes that parser rejects reach below: #rgba /
+  // #rrggbbaa, the space/slash rgb() forms and percentage channels.
   const value = color.trim().toLowerCase();
   if (value.startsWith("#")) {
     const raw = value.slice(1);
-    if (!/^[0-9a-f]+$/.test(raw) || ![3, 4, 6, 8].includes(raw.length)) {
+    if (!/^[0-9a-f]+$/.test(raw) || ![4, 8].includes(raw.length)) {
       return null;
     }
     // Short forms repeat each digit (rgb), long forms pair them up; the
     // length check above guarantees an even split and a full set of pairs.
     const chunks =
-      raw.length <= 4
+      raw.length === 4
         ? [...raw].map(ch => ch + ch)
         : Array.from({ length: raw.length / 2 }, (_, at) =>
             raw.slice(at * 2, at * 2 + 2),

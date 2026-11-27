@@ -26,6 +26,18 @@ describe("LABEL_SIZE / clampLabelSize", () => {
     expect(clampLabelSize(1)).toBe(6);
     expect(clampLabelSize(14)).toBe(14);
   });
+
+  it("clamps fractionally and negatively at the shared bounds", () => {
+    // The same boundary table the Python declaration channel pins in
+    // test/python/_declaration/test_label.py, so both channels clamp alike.
+    expect(clampLabelSize(5.5)).toBe(6);
+    expect(clampLabelSize(32.5)).toBe(32);
+    expect(clampLabelSize(12.5)).toBe(12.5);
+    expect(clampLabelSize(-3.5)).toBe(6);
+    expect(clampLabelSize(6.4)).toBe(6.4);
+    expect(clampLabelSize(Number.POSITIVE_INFINITY)).toBe(32);
+    expect(clampLabelSize(Number.NEGATIVE_INFINITY)).toBe(6);
+  });
 });
 
 describe("colorInput / numberInput / inlineControls", () => {

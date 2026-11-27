@@ -1,4 +1,4 @@
-// Shared label-style controls — one renderer for the heatmap panel's label
+// core/label/labelControl — Shared label-style controls: one renderer for the heatmap panel's label
 // section and LayerControl's delegated style drawer. Both render the same
 // toggle + color/size + format + collide vocabulary, dispatch changes to the
 // same styleSetters, and refresh from the same styleProvider on

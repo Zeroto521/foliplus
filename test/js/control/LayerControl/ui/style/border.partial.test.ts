@@ -178,7 +178,7 @@ describe("border partial-coverage invariants (partial-coverage)", () => {
   });
 
   it("L746 a classes change with no out-of-vocabulary option converges cleanly", () => {
-    // convergeBorderClassesRow's no-extra guard: when the classes row only
+    // convergeClassesRow's no-extra guard (shared with fill): when the classes row only
     // carries in-vocabulary options (the normal 2..9 build), a change must
     // not throw and must keep the picked value.
     const leaves = [makeFeatureLeaf(1), makeFeatureLeaf(5), makeFeatureLeaf(9)];

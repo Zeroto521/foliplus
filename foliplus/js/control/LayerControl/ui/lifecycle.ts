@@ -10,7 +10,6 @@ import {
   applyProjectionAll,
   notifyDelta,
   notifyDeltas,
-  releaseOpacityRedraws,
 } from "./apply.js";
 import { inFloatingPanel, isKeyboardVisibleFocus, owningRow } from "./context.js";
 import { bindGeometryFocusMarquee } from "./focus/focusMarquee.js";
@@ -53,6 +52,7 @@ import {
 import { closeAttrsPanel } from "./overlayPanel/attr.js";
 import { closeFilterPanel } from "./overlayPanel/filter.js";
 import { closeMoreMenu } from "./overlayPanel/menu.js";
+import { closeSurface } from "./overlayPanel/openSurface.js";
 import { finishRename } from "./overlayPanel/rename.js";
 import { type PanelScope, type ScopeSubscription, createScope } from "./scope.js";
 import { loadPersistedState } from "./state.js";
@@ -144,22 +144,28 @@ const attachUI = (ui: LayerUI, containerDiv: HTMLElement): void => {
   // runtime). initTypesAndVisibility is idempotent — repeated runs are
   // cheap and converge on the final layer state.
   subscribeControlAttached(ui);
-  setTimeout(() => {
-    if (!ui.uiContainer?.isConnected) return;
-    const replayed = ui.initTypesAndVisibility();
-    // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
-    // are added after the control's own script, so that event has already
-    // fired by the time their registry entries exist, and a page with only a
-    // LayerControl would never have its label config applied. Idempotent.
-    ui.applyStyleLabelState();
-    // Second, deliberate settle+notify: this is the compensation round for
-    // late-bound layers (their IDs only resolve once the page's layer globals
-    // exist). The synchronous attach round above already settled and announced
-    // the registry-as-seen; keep the two rounds separate, because this one can
-    // carry extra flips the outer one could not have known about.
-    markSettled(ui);
-    notifyDeltas(ui, replayed);
-  }, 0);
+  // The settle pass is the panel's timer: teardown disposes the owner, so a
+  // detached panel cannot replay the init sequence into a UI it no longer owns.
+  ui.timers.timeout(
+    "settle-pass",
+    () => {
+      if (!ui.uiContainer?.isConnected) return;
+      const replayed = ui.initTypesAndVisibility();
+      // Same replay here as the CONTROL_ATTACHED handler below: folium's layers
+      // are added after the control's own script, so that event has already
+      // fired by the time their registry entries exist, and a page with only a
+      // LayerControl would never have its label config applied. Idempotent.
+      ui.applyStyleLabelState();
+      // Second, deliberate settle+notify: this is the compensation round for
+      // late-bound layers (their IDs only resolve once the page's layer globals
+      // exist). The synchronous attach round above already settled and announced
+      // the registry-as-seen; keep the two rounds separate, because this one can
+      // carry extra flips the outer one could not have known about.
+      markSettled(ui);
+      notifyDeltas(ui, replayed);
+    },
+    0,
+  );
 
   markSettled(ui);
   // The round goes out last: every row is painted, the counts agree with them
@@ -468,16 +474,13 @@ const bindLayerEvents = (ui: LayerUI): void => {
     subscribe(EVENTS.LAYER_NO_BASEMAP_CHANGED, () => {
       syncNoBasemap(ui);
     }),
-    // Overlay mutual exclusion — each subsystem closes itself when it hears
-    // the signal. closeOverlays (teardown.ts) emits this; the subsystem that
-    // is about to open sees "I'm not open" and no-ops. Focus is guarded by
-    // isFocusing so the O(layers) applyProjectionAll sweep only runs when
-    // there is actually a focus to tear down.
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeMoreMenu(ui, true)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeAttrsPanel(ui, false)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeFilterPanel(ui, false)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => closeStylePanel(ui, false)),
-    subscribe(EVENTS.OVERLAY_CLEAR, () => finishRename(ui)),
+    // Overlay mutual exclusion — one surface can be open, so one call answers
+    // the signal: the state machine dispatches to the open kind's closer (each
+    // kind used to be its own OVERLAY_CLEAR subscriber here). closeOverlays
+    // (teardown.ts) emits this; focus is still a separate map state, guarded by
+    // isFocusing so the O(layers) applyProjectionAll sweep only runs when there
+    // is actually a focus to tear down.
+    subscribe(EVENTS.OVERLAY_CLEAR, () => closeSurface(ui)),
     subscribe(EVENTS.OVERLAY_CLEAR, () => {
       if (ui.isFocusing()) dismissFocus(ui);
     }),
@@ -589,7 +592,10 @@ const createTeardownScope = (ui: LayerUI): PanelScope => {
   scope.step("clear-drag-state", () => clearDragState(ui));
   // Timers this UI scheduled (the debounced opacity repaint) must not outlive
   // the panel, even when the container is already gone.
-  scope.step("release-opacity-redraws", () => releaseOpacityRedraws(ui));
+  // Every delayed effect the panel scheduled is dropped here — not run late
+  // against a panel that is being taken apart. After this step a timer
+  // scheduled by a later step is the step's own responsibility.
+  scope.step("release-timers", () => ui.timers.dispose());
   scope.step("unsubscribe-escape", () => {
     ui.unsubscribeEscape?.();
     ui.unsubscribeEscape = null;

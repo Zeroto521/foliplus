@@ -1,3 +1,4 @@
+// control/MeasureControl/mode/base — the MeasureMode/PreviewMode base classes: per-mode registration, preview lifecycle and the shared delete/edit plumbing every concrete mode builds on.
 import * as CONST from "../const.js";
 import { buildEditOverlay } from "../edit.js";
 import type { MeasureManager } from "../manager.js";

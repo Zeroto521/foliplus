@@ -84,19 +84,15 @@ export { LayerSurface } from "./LayerSurface.js";
 export { PaneLedger } from "./PaneLedger.js";
 export { PaneManager } from "./PaneManager.js";
 export { SurfaceIndex } from "./SurfaceIndex.js";
+export { findLayer, isLayerInPanes, paintsAtZoom } from "./capability.js";
+export { getGeometryType, countFeatureGeometry } from "./geometry.js";
+export { setInteractive } from "./hitTarget.js";
 export {
-  findLayer,
-  isLayerInPanes,
-  paintsAtZoom,
-  setInteractive,
-  suspendMapInteractions,
-  getGeometryType,
-  countFeatureGeometry,
   isGroupLayer,
   isGroupRow,
   countChildLayersOf,
   countVisibleChildLayers,
-} from "./util.js";
+} from "./traverse.js";
 export {
   drawAlpha,
   getLayerAlpha,
@@ -137,9 +133,11 @@ export {
   probeLayerCarrier,
 } from "./capability.js";
 export { readLayerPaint, readLeafPaints } from "./paint.js";
+export { observePaint, resolvePaintOpacity } from "./paintObservation.js";
+export type { PaintChannel, PaintObservation } from "./paintObservation.js";
 export type { LayerPaint, LeafPaint, PaintFace } from "./paint.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
-export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./util.js";
+export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./capability.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
 export {
   defaultDoc,

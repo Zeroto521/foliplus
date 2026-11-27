@@ -8,6 +8,14 @@ import {
   normalizeHexColor,
   parseColorAlpha,
 } from "#platform/color.js";
+import { stripComments } from "#script/check/scan-locale-key.mjs";
+
+/** A JS regex literal — slash-delimited, any flags — whose body is a
+ *  hand-rolled hex matcher. Case-blind on purpose: `[0-9a-f]` and `[0-9A-F]`
+ *  encode the same color shape, and an `i` flag changes how the literal is
+ *  read, not whether it is a second copy of the shared rule. `^#` covers the
+ *  anchored hex forms, `#[` an unanchored one. */
+const HANDROLLED_HEX_REGEX = /\/(?:\\.|[^/\n\\])*(?:\^#|#\[)(?:\\.|[^/\n\\])*\//;
 
 describe("normalizeHexColor", () => {
   it("expands a 3-digit hex to 6 digits", () => {
@@ -86,8 +94,19 @@ describe("composeColorAlpha", () => {
   });
 });
 
-describe("single home for the hex/rgba regexes", () => {
-  it("keeps every hex/rgba regex in platform/color.ts", () => {
+describe("single home for the hex color regexes", () => {
+  it("recognises a hand-rolled hex regex in any case and with any flags", () => {
+    expect(HANDROLLED_HEX_REGEX.test("/^#[0-9a-fA-F]{6}$/")).toBe(true);
+    expect(HANDROLLED_HEX_REGEX.test("/^#[0-9a-f]{6}$/i")).toBe(true);
+    expect(HANDROLLED_HEX_REGEX.test("/^#([0-9a-f])([0-9a-f])([0-9a-f])$/")).toBe(true);
+    expect(HANDROLLED_HEX_REGEX.test("/#[0-9a-f]{3,6}/")).toBe(true);
+    expect(HANDROLLED_HEX_REGEX.test("const ratio = width / height;")).toBe(false);
+    expect(HANDROLLED_HEX_REGEX.test('const color = "rgba(0, 0, 0, 0.5)";')).toBe(
+      false,
+    );
+  });
+
+  it("keeps every hex regex in platform/color.ts", () => {
     const root = repoPath(".");
     const jsRoot = path.join(root, "foliplus", "js");
     const files: string[] = [];
@@ -103,22 +122,23 @@ describe("single home for the hex/rgba regexes", () => {
       }
     };
     walk(jsRoot);
+    // A hex regex literal anywhere but color.ts is a second copy of the rule
+    // the platform module owns — whatever its case or flags. Comments are
+    // stripped first so a doc line such as `#rgb` / `#rrggbb` does not read
+    // as a regex literal.
+    const offenders: string[] = [];
+    for (const file of files) {
+      if (file.endsWith(path.join("platform", "color.ts"))) continue;
+      if (HANDROLLED_HEX_REGEX.test(stripComments(fs.readFileSync(file, "utf8")))) {
+        offenders.push(path.relative(root, file));
+      }
+    }
+    expect(offenders).toEqual([]);
+    // The scan is only meaningful while color.ts still owns the hex shape.
     const colorSource = fs.readFileSync(
       path.join(jsRoot, "platform", "color.ts"),
       "utf8",
     );
-    const colorRegexCount = [/\^#\[0-9a-fA-F\]/, /rgba?\(/].filter(r =>
-      r.test(colorSource),
-    ).length;
-    const offenders: string[] = [];
-    for (const file of files) {
-      if (file.endsWith(path.join("platform", "color.ts"))) continue;
-      const src = fs.readFileSync(file, "utf8");
-      // A hex regex literal or an rgb()/rgba() regex literal anywhere but color.ts
-      const m = src.match(/\/(?:\^#\[0-9a-fA-F\]|rgba?\s*\()/);
-      if (m) offenders.push(path.relative(root, file));
-    }
-    expect(offenders).toEqual([]);
-    expect(colorRegexCount).toBeGreaterThan(0);
+    expect(colorSource).toMatch(/\^#\[/);
   });
 });

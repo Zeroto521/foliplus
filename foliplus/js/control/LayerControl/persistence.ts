@@ -1,3 +1,4 @@
+// control/LayerControl/persistence — one versioned record per map: read/parse every persisted layer dimension at load and write them behind one debounced save.
 import * as CONST from "./const.js";
 import type {
   LabelConfig,

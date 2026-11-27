@@ -42,6 +42,7 @@ import {
   parseColorAlpha,
   resetIconLeaves,
 } from "#core/leaflet/index.js";
+import { isHexColor } from "#platform/color.js";
 import { withUnit } from "#platform/format.js";
 import {
   bindLiveNumber,
@@ -260,7 +261,7 @@ const buildIconColorRow = (ui: LayerUI, layerId: string): HTMLElement | null => 
   row.dataset.styleDim = "iconColor";
   input.addEventListener("input", () => {
     const next = input.value;
-    if (!/^#[0-9a-f]{6}$/i.test(next)) return;
+    if (!isHexColor(next)) return;
     commitIconColor(ui, layerId, next);
   });
   bindLiveNumber(opacityInput, {

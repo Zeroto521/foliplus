@@ -1,4 +1,4 @@
-// core — per-layer user intent: types + vocabulary (the intent domain).
+// core/layer/intent — per-layer user intent: types + vocabulary (the intent domain).
 //
 // Sunk from LayerControl: intent is a base-layer concept — third-party
 // layers carry user intent too, so the row store and its types live beside the
@@ -12,6 +12,7 @@ import {
   isClassifyMethod,
 } from "#core/value/index.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
+import { isHexColor } from "#platform/color.js";
 
 /** One mode of the value-based fill. Two shapes, discriminated by `kind`:
  *
@@ -433,8 +434,9 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
   [INTENT.ICON]: isIconIntent,
   // A display-ready hex only: the color lands in an inline style, so any
   // non-hex would paint an invalid `color:` that the browser ignores.
-  [INTENT.ICON_COLOR]: value =>
-    typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value),
+  // isHexColor also admits the 3-digit form; the swatch row stores the
+  // 6-digit form, so the length check keeps the row's own contract.
+  [INTENT.ICON_COLOR]: value => isHexColor(value) && value.length === 7,
   // A whole-number percent only: the alpha rides an inline color, and a
   // fractional or out-of-range value would paint an alpha the number field
   // could not display back.
@@ -442,9 +444,9 @@ const LIVE: Record<IntentKey, (value: unknown) => boolean> = {
     typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100,
   // A display-ready hex only: the chassis color lands in an inline
   // background-color (mask path) or maps back to a preset class (preset path),
-  // so a non-hex would paint a color the browser ignores.
-  [INTENT.MARKER_COLOR]: value =>
-    typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value),
+  // so a non-hex would paint a color the browser ignores. isHexColor also
+  // admits the 3-digit form; the swatch row stores the 6-digit form.
+  [INTENT.MARKER_COLOR]: value => isHexColor(value) && value.length === 7,
   // A whole-number percent only: the alpha rides the chassis span's opacity,
   // and a fractional or out-of-range value would paint an alpha the number
   // field could not display back.

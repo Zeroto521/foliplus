@@ -65,6 +65,64 @@ const entry = (
     type: null,
   }) as LayerInfo;
 
+
+describe("seedFolderLayout", () => {
+  it("builds folders and members from declarations", () => {
+    const layout = seedFolderLayout([
+      entry("a", "overlay", "Roads", 0),
+      entry("b", "overlay", "roads", 1),
+      entry("c", "base", "Water", 2),
+    ]);
+    expect(layout.folders).toEqual([
+      { key: "roads", name: "Roads" },
+      { key: "water", name: "Water" },
+    ]);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "roads" });
+    expect(layout.members.b).toEqual({ role: "overlay", folder: "roads" });
+    expect(layout.members.c).toEqual({ role: "base", folder: "water" });
+    // The seed never writes an order: declarations do not force a block order.
+    expect(layout.order).toEqual({});
+  });
+
+  it("keeps the first-seen display spelling", () => {
+    const layout = seedFolderLayout([
+      entry("a", "overlay", "Roads", 0),
+      entry("b", "overlay", "ROADS", 1),
+    ]);
+    expect(layout.folders).toEqual([{ key: "roads", name: "Roads" }]);
+  });
+
+  it("seeds only layers without an existing assignment (a user pin wins)", () => {
+    // members.a is already pinned to root (folder "") by the user; the
+    // author's "Roads" declaration must not override it. b is unassigned,
+    // so the declaration seeds it.
+    const base = mergeDeclaredFolders(
+      { ...emptyFolderLayout(), members: { a: { role: "overlay", folder: "" } } },
+      [],
+    );
+    const layout = mergeDeclaredFolders(base, [
+      entry("a", "overlay", "Roads", 0),
+      entry("b", "overlay", "Roads", 1),
+    ]);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "" });
+    expect(layout.members.b).toEqual({ role: "overlay", folder: "roads" });
+    expect(layout.folders).toEqual([{ key: "roads", name: "Roads" }]);
+  });
+
+  it("a persisted folder assignment wins over the author declaration", () => {
+    // User dragged a into water earlier (persisted); the author now
+    // declares Roads for it. The persisted assignment must survive.
+    const base = mergeDeclaredFolders(
+      { ...emptyFolderLayout(), members: { a: { role: "overlay", folder: "water" } } },
+      [],
+    );
+    const layout = mergeDeclaredFolders(base, [entry("a", "overlay", "Roads", 0)]);
+    expect(layout.members.a).toEqual({ role: "overlay", folder: "water" });
+    // The declared folder is not invented for a layer that already has one.
+    expect(layout.folders).toEqual([]);
+  });
+});
+
 describe("createFolder / renameFolder / deleteFolder", () => {
   it("createFolder refuses same-role duplicates", () => {
     let layout = emptyFolderLayout();

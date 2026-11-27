@@ -7,6 +7,7 @@ import { styleCapability } from "../style/index.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { filterCapabilityOf, isFilterCapable } from "./filter.js";
+import { clearSurface, openSurface, registerSurfaceCloser } from "./openSurface.js";
 import { finishRename } from "./rename.js";
 import { EVENTS } from "#core/event/index.js";
 import {
@@ -159,6 +160,96 @@ const scheduleMoreMenu = (ui: LayerUI): (() => void) => {
     window.removeEventListener("resize", onScroll);
     unsub();
   };
+};
+
+/** The shared overflow-menu attach scaffold — one authority for the layer,
+ *  folder and role menus. It builds the dismissal controller, wires focus-out
+ *  dismissal + item click dispatch, publishes the activeMenu record, watches
+ *  the anchored layer's teardown, then registers the panel and places +
+ *  focuses it. `extras` carries the layer id the teardown watches and any
+ *  record extension (folderKey / role).
+ *
+ *  Division of labour (single authority, no overlap): the PanelController
+ *  owns the dismissal contract (outside press, Escape, closeFromClick,
+ *  swallowPress, rank, exclusiveGroup, clearsCursorOnClose); "what is open"
+ *  lives in the one state machine (openSurface.ts), whose record carries the
+ *  display handles (item / menu / layerId / folderKey / role), and the detach
+ *  pipe is the *OverlayUnregister resource (each close detaches exactly once
+ *  so the next open can re-attach). A controller is rebuilt per open, so it is
+ *  not a persistent handle. */
+const attachMenuController = (
+  ui: LayerUI,
+  item: HTMLElement,
+  menu: HTMLElement,
+  extras: { layerId: string; folderKey?: string; role?: string },
+): void => {
+  const controller: PanelController = createPanel({
+    owner: "layer",
+    localId: "menu",
+    rank: 800,
+    // The menu is a map surface: opening it closes the open sibling panels of
+    // its exclusive group, so a Heatmap/Measure/Search fold panel
+    // cannot stay open beside the menu.
+    exclusiveGroup: "map:panel",
+    clearsCursorOnClose: true,
+    dismiss: { outsidePress: "click" } satisfies Partial<Dismiss>,
+    root: () => ui.overlayPanel.activeMenu?.menu ?? null,
+    open: () => {
+      item.style.position = "relative";
+      item.appendChild(menu);
+    },
+    close: ({ restoreFocus }) => {
+      closeMoreMenu(ui, restoreFocus);
+      return true;
+    },
+  });
+
+  // Tab moving focus out of the menu dismisses it — an open menu owns the
+  // keyboard cursor (ARIA menu pattern). Focus wandering on the anchoring row
+  // itself keeps the menu open — jsdom falls a disabled-item click back to the
+  // row, and a real Tab can land on the row's own controls. The menu is
+  // mounted inside that row, so the row check covers the menu's own entries
+  // too; anything else (Tab out, a null relatedTarget, focus to a sibling
+  // control) dismisses. The listener lives on the menu element, so it dies
+  // with the menu on close. Click-outside and Escape close through their own
+  // paths, and this re-closing is a no-op then (activeMenu is already gone).
+  menu.addEventListener("focusout", event => {
+    const next = (event as FocusEvent).relatedTarget as Node | null;
+    if (next !== null && (next === item || item.contains(next))) return;
+    closeMoreMenu(ui, false);
+  });
+  // Menu item actions are dispatched locally: the old document-level click
+  // delegate was the only reason the menu needed a document listener.
+  menu.addEventListener("click", event => handleMenuClick(ui, event));
+
+  openSurface(ui, { kind: "menu", item, menu, ...extras });
+  // Anchor-teardown contract (cross-panel): an external delete/clear of the
+  // anchored layer must not leave the menu (and its activeMenu / reposition /
+  // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
+  // Naming NOTE: subscribeLayerTearDown listens to both LAYER_REMOVED and
+  // LAYER_DELETED, so the "Removed" in this name is historical. The whole
+  // *RemovedUnsub family (attrs/rename/style) shares the stale suffix; renaming
+  // the family is deferred to the naming-unification pass.
+  ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, extras.layerId, () => {
+    closeMoreMenu(ui, false);
+  });
+  // The dismissal contract and registry identity live on the controller
+  // (dismiss outsidePress is "click" for the menu — a press is a
+  // click-selection, not a drag-away).
+  ui.overlayPanel.menuOverlayUnregister = attachPanel(ui.c.map, controller);
+  controller.open();
+
+  // Position the menu against its owning row now that it is in the DOM, and
+  // keep it re-placed on scroll / resize / row expand-collapse while open.
+  placeMoreMenu(ui);
+  ui.overlayPanel.menuReposition = scheduleMoreMenu(ui);
+
+  // Focus the first menu item so Enter/Space activate it and Escape closes.
+  // The head is Filter when supported, Style otherwise — both are reversible
+  // actions, so the trigger-adjacent slot is always safe.
+  (
+    menu.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU} button`) as HTMLElement
+  ).focus();
 };
 
 const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
@@ -341,84 +432,7 @@ const openMoreMenu = (ui: LayerUI, item: HTMLElement) => {
     menu.appendChild(buildDeleteItem(ui, deleteMode));
   }
 
-  // Tab moving focus out of the menu dismisses it — an open menu owns the
-  // keyboard cursor (ARIA menu pattern). Focus wandering within the menu,
-  // or onto the anchor row itself (jsdom falls a disabled-item click back
-  // to the row, and a real Tab can land on the row's own controls), keeps
-  // the menu open. The listener lives on the menu element, so it dies with
-  // the menu on close. Click-outside and Escape close through their own
-  // paths, and this re-closing is a no-op then (activeMenu is already gone).
-  // Division of labour (single authority, no overlap): the PanelController
-  // owns the dismissal contract (outside press, Escape, closeFromClick,
-  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
-  // fields keep the display state (item/panel/layerId) and the detach pipe
-  // (each close detaches exactly once so the next open can re-attach) — a
-  // controller is rebuilt per open, so it is not a persistent handle. Slices
-  // 1-2 removed the inline register object (the true double bookkeeping);
-  // these fields are not a second open/closed state.
-  // The PanelController owns the dismissal contract (closeFromClick for the
-  // close affordance; the menu's own item clicks route through handleMenuClick,
-  // which deliberately keeps its stopPropagation — an action may tear the menu
-  // down mid-dispatch, and swallowing here keeps the click off the map). The
-  // registry entry is generated by attachPanel below.
-  const controller: PanelController = createPanel({
-    owner: "layer",
-    localId: "menu",
-    rank: 800,
-    // The menu is a map surface: opening it closes the open sibling panels of
-    // its exclusive group, so a Heatmap/Measure/Search fold panel
-    // cannot stay open beside the menu.
-    exclusiveGroup: "map:panel",
-    clearsCursorOnClose: true,
-    dismiss: { outsidePress: "click" } satisfies Partial<Dismiss>,
-    root: () => ui.overlayPanel.activeMenu?.menu ?? null,
-    open: () => {
-      item.style.position = "relative";
-      item.appendChild(menu);
-    },
-    close: ({ restoreFocus }) => {
-      closeMoreMenu(ui, restoreFocus);
-      return true;
-    },
-  });
-
-  menu.addEventListener("focusout", event => {
-    const next = (event as FocusEvent).relatedTarget as Node | null;
-    if (next && (next === item || item.contains(next))) return;
-    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
-  });
-  // Menu item actions are dispatched locally: the old document-level click
-  // delegate was the only reason the menu needed a document listener.
-  menu.addEventListener("click", event => handleMenuClick(ui, event));
-
-  ui.overlayPanel.activeMenu = { item, menu, layerId };
-  // Anchor-teardown contract (cross-panel): an external delete/clear of the
-  // anchored layer must not leave the menu (and its activeMenu / reposition /
-  // overlay-registry state) hanging — see subscribeLayerTearDown in teardown.ts.
-  // Naming NOTE: subscribeLayerTearDown listens to both LAYER_REMOVED and
-  // LAYER_DELETED, so the "Removed" in this name is historical. The whole
-  // *RemovedUnsub family (attrs/rename/style) shares the stale suffix; renaming
-  // the family is deferred to the naming-unification pass.
-  ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
-    closeMoreMenu(ui, false);
-  });
-  // Same PanelController wiring as attr/filter: the dismissal contract and
-  // registry identity live on the controller (dismiss outsidePress is
-  // "click" for the menu — a press is a click-selection, not a drag-away).
-  ui.overlayPanel.menuOverlayUnregister = attachPanel(ui.c.map, controller);
-  controller.open();
-
-  // Position the menu against its owning row now that it is in the DOM, and
-  // keep it re-placed on scroll / resize / row expand-collapse while open.
-  placeMoreMenu(ui);
-  ui.overlayPanel.menuReposition = scheduleMoreMenu(ui);
-
-  // Focus the first menu item so Enter/Space activate it and Escape closes.
-  // The head is Filter when supported, Style otherwise — both are reversible
-  // actions, so the trigger-adjacent slot is always safe.
-  (
-    menu.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU} button`) as HTMLElement
-  ).focus();
+  attachMenuController(ui, item, menu, { layerId });
 };
 
 /** Why the ⋮ menu shows a delete/clear entry for `item`. `absent` means render
@@ -552,7 +566,8 @@ const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
   label.textContent = ui.T(confirmKey);
   menuItem.classList.add(CONST.CLASSES.MENU_DELETE_PENDING);
   menuItem.setAttribute("title", ui.T(confirmKey));
-  ui.overlayPanel.pendingDeleteTimer = setTimeout(
+  ui.timers.timeout(
+    "delete-confirm",
     () => disconfirmDelete(ui),
     DELETE_CONFIRM_TIMEOUT_MS,
   );
@@ -562,9 +577,9 @@ const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
  *  called on every path that closes the menu so an abandoned attempt never
  *  leaves a pending entry behind. Scoped to the ui that opened it. */
 const disconfirmDelete = (ui: LayerUI): void => {
-  const timer = ui.overlayPanel.pendingDeleteTimer;
-  if (timer) clearTimeout(timer);
-  ui.overlayPanel.pendingDeleteTimer = undefined;
+  // Idempotent on purpose: the panel's teardown disposes the owner, so a
+  // release after that is a no-op rather than a second clear path.
+  ui.timers.clear("delete-confirm");
   const pending = ui.overlayPanel.pendingDelete;
   if (!pending) return;
   pending.label.textContent = pending.idleText;
@@ -619,22 +634,21 @@ const activateDeleteItem = (ui: LayerUI, menuItem: HTMLElement): boolean => {
 /** Close the overflow menu. setFocus = true returns focus to the layer row. */
 
 const closeMoreMenu = (ui: LayerUI, setFocus: boolean) => {
+  const open = ui.overlayPanel.activeMenu;
   ui.overlayPanel.menuRemovedUnsub?.();
   ui.overlayPanel.menuRemovedUnsub = null;
   ui.overlayPanel.menuOverlayUnregister?.();
   ui.overlayPanel.menuOverlayUnregister = null;
   ui.overlayPanel.menuReposition?.();
   ui.overlayPanel.menuReposition = null;
-  if (!ui.overlayPanel.activeMenu) return;
-  const item = ui.overlayPanel.activeMenu.item;
-  const menu = ui.overlayPanel.activeMenu.menu;
-  // Clear the pointer before removing: the removal can trigger the menu's own
+  if (!open) return;
+  // Clear the state before removing: the removal can trigger the menu's own
   // focusout, which calls closeMoreMenu again — that re-entrant pass must see
   // null, not call remove() on a detached menu (NotFoundError).
-  ui.overlayPanel.activeMenu = null;
+  clearSurface(ui, "menu");
   disconfirmDelete(ui);
-  menu.remove();
-  if (setFocus) item.focus();
+  open.menu.remove();
+  if (setFocus) open.item.focus();
 };
 
 /** Every action the overflow menu renders, keyed by its `data-action` value. */
@@ -704,7 +718,7 @@ const startFolderRename = (
   closeOverlays(ui);
   // Same row flag the layer rename sets: it is what stretches the input across
   // the label+count area, so both rename kinds render identically.
-  ui.overlayPanel.activeRenameRow = item;
+  openSurface(ui, { kind: "rename", row: item, layerId: null });
   item.classList.add(CONST.CLASSES.RENAMING);
   createInlineEditInput({
     label,
@@ -855,10 +869,9 @@ const runMenuAction = (
   if (outcome.closeMenu) ui.closeMoreMenu(outcome.restoreRowFocus);
 };
 
-/** The shared menu-attach scaffold for the folder / role menus: create the
- *  controller, wire focus-out dismissal + click dispatch, register the panel
- *  and place + focus. `extras` extends the activeMenu record (folderKey or
- *  role). Mirrors the layer menu's attach block - one authority per menu kind. */
+/** Attach a folder / role overflow menu. The scaffold is shared with the
+ *  layer menu (attachMenuController); this wrapper only resolves the row's
+ *  anchored layer id and forwards the row-kind extras. */
 const attachRowMenu = (
   ui: LayerUI,
   item: HTMLElement,
@@ -866,40 +879,7 @@ const attachRowMenu = (
   extras: { folderKey?: string; role?: string },
 ) => {
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-  const controller: PanelController = createPanel({
-    owner: "layer",
-    localId: "menu",
-    rank: 800,
-    exclusiveGroup: "map:panel",
-    clearsCursorOnClose: true,
-    dismiss: { outsidePress: "click" } satisfies Partial<Dismiss>,
-    root: () => ui.overlayPanel.activeMenu?.menu ?? null,
-    open: () => {
-      item.style.position = "relative";
-      item.appendChild(menu);
-    },
-    close: ({ restoreFocus }) => {
-      closeMoreMenu(ui, restoreFocus);
-      return true;
-    },
-  });
-  menu.addEventListener("focusout", event => {
-    const next = (event as FocusEvent).relatedTarget as Node | null;
-    if (next && (next === item || item.contains(next))) return;
-    if (!next || !menu.contains(next)) closeMoreMenu(ui, false);
-  });
-  menu.addEventListener("click", event => handleMenuClick(ui, event));
-  ui.overlayPanel.activeMenu = { item, menu, layerId, ...extras };
-  ui.overlayPanel.menuRemovedUnsub = subscribeLayerTearDown(ui, layerId, () => {
-    closeMoreMenu(ui, false);
-  });
-  ui.overlayPanel.menuOverlayUnregister = attachPanel(ui.c.map, controller);
-  controller.open();
-  placeMoreMenu(ui);
-  ui.overlayPanel.menuReposition = scheduleMoreMenu(ui);
-  (
-    menu.querySelector<HTMLElement>(`.${CONST.CLASSES.MORE_MENU} button`) as HTMLElement
-  ).focus();
+  attachMenuController(ui, item, menu, { layerId, ...extras });
 };
 
 /** Open the menu for a folder row. */
@@ -1039,6 +1019,11 @@ const openRoleMenu = (ui: LayerUI, item: HTMLElement) => {
   );
   attachRowMenu(ui, item, menu, { role });
 };
+// The state machine's close dispatch for this kind. setFocus stays true: the
+// menu returns focus to its anchor row (a cursor parked on <body> makes Escape
+// unreachable) — the same flag its OVERLAY_CLEAR subscription used.
+registerSurfaceCloser("menu", ui => closeMoreMenu(ui, true));
+
 export {
   MENU_ACTIONS,
   activateDeleteItem,

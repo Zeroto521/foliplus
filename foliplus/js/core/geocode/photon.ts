@@ -1,4 +1,4 @@
-// Built-in Photon provider (komoot's OpenStreetMap search API).
+// core/geocode/photon — Built-in Photon provider (komoot's OpenStreetMap search API).
 import type { GeocodeProvider, SuggestItem } from "./type.js";
 import { featuresToItems } from "./util.js";
 

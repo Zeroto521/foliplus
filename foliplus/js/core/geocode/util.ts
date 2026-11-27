@@ -1,4 +1,4 @@
-// Pure helpers for the geocode provider layer (URL templates + normalizers).
+// core/geocode/util — Pure helpers for the geocode provider layer (URL templates + normalizers).
 import type { SuggestItem } from "./type.js";
 
 const TEMPLATE_RE = /\{(\w+)\}/g;

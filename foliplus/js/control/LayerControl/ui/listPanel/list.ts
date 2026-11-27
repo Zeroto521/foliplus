@@ -693,7 +693,55 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   }
   frag.appendChild(item);
 
-  if (!firstOfGroup) {
+  // A folder member joins its folder block (renderInitialList's placement
+  // rule), not the role's root-layer stream: the row is a flat sibling right
+  // after the folder row, at its rank among the block's members. The
+  // registry-depth anchor below would land it beside the root layers instead,
+  // so a late-registered member declared into a folder shows fallen to root on
+  // refresh. The folder row is already on the panel whenever the folder owns
+  // an order key or a live member (the block sequence), so the member-position
+  // insert is the normal path; a folder row that is not on the panel yet falls
+  // through to the registry-depth anchor.
+  //
+  // The registry-depth anchor is NOT a fallback for a folder member: anchoring
+  // a late member on its registry neighbour (the row above in ui.c.layers)
+  // lands it before the folder header once the neighbour is a root layer — the
+  // bug #1361 fixed for the initial render, re-introduced here if the anchor
+  // were used. The member-position path above is the only correct placement
+  // for a declared folder member; the registry-depth branch runs only for a
+  // layer that is not a folder member (root layer or a brand-new folder with
+  // no row yet).
+  const memberFolderKey = folderOf(ui.c.folderLayoutView, layerInfo);
+  const folderRow = memberFolderKey
+    ? container.querySelector<HTMLElement>(
+        `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(memberFolderKey)}"]`,
+      )
+    : null;
+  if (folderRow) {
+    const block = displayBlocks(ui, role).find(
+      (b): b is Extract<ProjectedBlock, { members: LayerInfo[] }> =>
+        b.kind !== "layer" && b.key === memberFolderKey,
+    );
+    // Invariant: the folder row came from roleBlocks, and displayBlocks is
+    // roleBlocks projected — a folder row on the panel means the block IS in
+    // the sequence with kind "folder". The block therefore always exists and
+    // is always a folder block; the non-null assertion pins that invariant
+    // (the old ?: [] fallback was a dead branch codecov could never see run).
+    const members = block!.members;
+    const memberIdx = members.findIndex(m => m.id === layerInfo.id);
+    let anchor: HTMLElement = folderRow;
+    // Rows are added/removed only by insertLayerItem / retireRow, and retireRow
+    // also drops the member from the block — so every prior member's row is on
+    // the panel when this loop runs. The row lookup is a defensive check, not a
+    // reachable branch; the anchor stays the folder row only if it ever misses.
+    for (let i = 0; i < memberIdx; i++) {
+      const memberRow = container.querySelector<HTMLElement>(
+        `[${CONST.DATA.LAYER_ID}="${CSS.escape(members[i].id)}"]`,
+      );
+      if (memberRow) anchor = memberRow;
+    }
+    anchor.after(frag);
+  } else if (!firstOfGroup) {
     // BASE inserts before the first base row (end of the base role).
     // OVERLAY inserts before the first base row; when none exists, append at
     // the end.

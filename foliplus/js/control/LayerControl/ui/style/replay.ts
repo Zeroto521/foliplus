@@ -38,4 +38,29 @@ const replayFace = (ui: LayerUI, layerId: string, face: SchedulerFace): void => 
   scheduleStyleDimApply(face, layerId, () => run(layerId), { owner: ui });
 };
 
-export { registerFaceReplay, replayFace };
+/** Per-UI "this layer's declared style has already been replayed" gate. A
+ *  declared dimension paints once on attach, but the provenance sweep also
+ *  runs on folds and renames — the paint is idempotent yet an O(N) walk the
+ *  sweep must not repeat. Create one gate per dimension; the per-UI WeakMap
+ *  lets a torn-down control's set be collected. */
+type ReplayGate = {
+  has: (ui: LayerUI, layerId: string) => boolean;
+  mark: (ui: LayerUI, layerId: string) => void;
+};
+
+const createReplayGate = (): ReplayGate => {
+  const replayed = new WeakMap<LayerUI, Set<string>>();
+  return {
+    has: (ui, layerId) => replayed.get(ui)?.has(layerId) ?? false,
+    mark: (ui, layerId) => {
+      let painted = replayed.get(ui);
+      if (!painted) {
+        painted = new Set();
+        replayed.set(ui, painted);
+      }
+      painted.add(layerId);
+    },
+  };
+};
+
+export { createReplayGate, registerFaceReplay, replayFace };

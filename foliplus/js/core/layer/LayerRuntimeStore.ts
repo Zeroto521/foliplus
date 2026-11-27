@@ -1,4 +1,4 @@
-// core — per-layer derived/transient state (LayerRuntimeStore).
+// core/layer/LayerRuntimeStore — per-layer derived/transient state.
 //
 // The runtime half of the base: `LayerIntentStore` holds what the user chose,
 // `LayerRuntimeStore` holds what the map actually is — projection results,

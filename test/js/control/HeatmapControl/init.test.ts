@@ -350,6 +350,49 @@ describe("initScan — single-layer auto-select on first scan only", () => {
     expect(renderSpy).toHaveBeenCalled();
   });
 });
+
+describe("initOverlay — the author's folder declaration reaches createCanvas", () => {
+  beforeEach(() => {
+    window.map.foliplus.LayerAPI = {
+      ...window.map.foliplus.LayerAPI,
+      createCanvas: vi.fn(() => {
+        const canvas = document.createElement("canvas");
+        return {
+          register: vi.fn(),
+          unregister: vi.fn(),
+          setVisible: vi.fn(),
+          hooks: { before: [], after: [] },
+          canvas,
+          ctx: canvas.getContext("2d"),
+        };
+      }),
+    };
+  });
+
+  function getCanvasOpts() {
+    const createCanvas = (
+      window.map.foliplus!.LayerAPI as unknown as {
+        createCanvas: ReturnType<typeof vi.fn>;
+      }
+    ).createCanvas;
+    return createCanvas.mock.calls[0][0] as {
+      folder?: string | null;
+    };
+  }
+
+  it("forwards CONFIG.folder to createCanvas", () => {
+    makeManager({ folder: "数据分析" });
+    const opts = getCanvasOpts();
+    expect(opts.folder).toBe("数据分析");
+  });
+
+  it("defaults CONFIG.folder to null when absent", () => {
+    makeManager();
+    const opts = getCanvasOpts();
+    expect(opts.folder).toBeNull();
+  });
+});
+
 describe("manager.init — six-phase order and data flow", () => {
   const PHASES = [
     "initPersistence",
@@ -468,5 +511,30 @@ describe("manager.init — six-phase order and data flow", () => {
     expect(calls[0]).toBe("initPersistence");
     expect(calls[1]).toBe("initStyleDelegation");
     expect(calls[2]).toBe("initEventSubscriptions");
+  });
+});
+
+describe("initScan — the settle scan belongs to the control's timers", () => {
+  it("drops the settle scan when the timer owner is disposed", async () => {
+    vi.useFakeTimers();
+    try {
+      const { initScan } = await import("#control/HeatmapControl/ui.js");
+      const mgr = makeManager();
+      const ctrl = makeCtrl(mgr);
+
+      const cleanup = initScan(ctrl);
+
+      // The 0ms settle pass is the control's timer, not a bare setTimeout:
+      // disposing the owner drops it, so a removed control never re-enters
+      // scan() just to have its own done flag refuse the work.
+      expect(ctrl.timers.names()).toContain("settle-scan");
+      ctrl.timers.dispose();
+      expect(ctrl.timers.names()).toEqual([]);
+      vi.advanceTimersByTime(10);
+      expect(ctrl.timers.names()).toEqual([]);
+      cleanup();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

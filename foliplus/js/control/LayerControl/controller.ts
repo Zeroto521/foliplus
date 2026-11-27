@@ -1095,7 +1095,24 @@ class LayerController implements LayerAPI {
     base: "top" | "bottom",
   ): OrderDoc {
     const key = layerKeyOf(id);
-    if (doc.nodes[key] !== undefined) return doc;
+    // A late layer with a saved slot (flat seed order) registers at root; if it
+    // declares a folder, move it into that folder at the member list's end —
+    // the saved order only names the sequence, the folder is the live intent.
+    const existing = doc.nodes[key];
+    if (existing !== undefined) {
+      if (folder && folderKeyOf(folder) !== "" && existing.parent === null) {
+        const fKey = folderDocKey(role, folderKeyOf(folder));
+        if (doc.nodes[fKey] === undefined) {
+          const rootSiblings = orderChildrenOf(doc, null).filter(s => s !== key);
+          const prev = rootSiblings.length > 0 ? doc.nodes[rootSiblings[rootSiblings.length - 1]].rank : null;
+          const rank = prev === null ? orderRankStart() : orderRankAfter(prev);
+          const out: OrderDoc = { nodes: { ...doc.nodes, [fKey]: { kind: "folder", parent: null, rank, name: folder, role } } };
+          return { nodes: { ...out.nodes, [key]: { ...out.nodes[key], parent: fKey } } };
+        }
+        return { nodes: { ...doc.nodes, [key]: { ...doc.nodes[key], parent: fKey } } };
+      }
+      return doc;
+    }
     const out: OrderDoc = { nodes: { ...doc.nodes } };
     const insertLeaf = (parent: string | null, atTop: boolean): void => {
       const siblings = orderChildrenOf(doc, parent).filter(s => s !== key);
@@ -3563,9 +3580,6 @@ class LayerController implements LayerAPI {
     this.isDestroyed = true;
     finalize(
       [
-        // A debounced opacity repaint belongs to this UI: cancel it before the
-        // carriers it would touch are torn down (see scheduleOpacityRedraw).
-        ["release-opacity-redraws", () => this.ui?.releaseOpacityRedraws()],
         // Drop every style-apply frame this UI owns before the pieces it might
         // touch go away: the UI's ownership scope dies here, so no trailing
         // frame can outlive the control and no failure can be reported for a

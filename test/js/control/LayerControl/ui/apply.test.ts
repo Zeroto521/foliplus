@@ -438,6 +438,9 @@ describe("executor: coalesced redraw-branch repaint", () => {
     // The repaint is parked on the 60ms debounce. Unmounting the control must
     // cancel it: a removed panel cannot paint into a canvas it no longer owns.
     manager.destroy();
+    // The release runs through the panel's timer owner, not a bespoke table:
+    // teardown disposes the owner, and a disposed owner drops late work.
+    expect(ui.timers.disposed).toBe(true);
     vi.advanceTimersByTime(200);
     expect(onOpacity.mock.calls.length).toBe(before);
     vi.useRealTimers();

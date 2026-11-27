@@ -1,5 +1,5 @@
 // test/js/control/LayerControl/ui/style/list — display name, row placement, folder button and role header order.
-import { TileLayer, attachedPanel, initFixture } from "../fixture.js";
+import { TileLayer, attachedPanel, initFixture, polygonLayer } from "../fixture.js";
 import { makeUi, rowOf } from "./list.fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LayerInfo, ROLE, normalizeFolderName } from "#core/layer/index.js";
@@ -18,6 +18,7 @@ import {
   renderInitialList,
   updateLayerItemLabel,
 } from "#control/LayerControl/ui/listPanel/index.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 describe("ui/list displayName", () => {
   it("resolves a registered/renamed id through the registry name", () => {
@@ -302,6 +303,285 @@ describe("ui/list row placement", () => {
     expect(color!.classList.contains(CONST.CLASSES.GROUP_FOLDED)).toBe(true);
   });
 
+  it("a late registration's declared folder seeds the layout and places the row inside that folder block", () => {
+    // A third-party control (HeatmapControl/MeasureControl) registers a layer
+    // AFTER the initial render with an author-declared folder (CONFIG.folder,
+    // forwarded through createCanvas/createLayers). The declaration seeds the
+    // layout (registerLayer → folderLayout.seed), and insertLayerItem must
+    // place the row inside the folder block, not at registry depth.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A", "B", "H"] },
+      // The folder already owns an order key (it exists on the panel); H has
+      // no persisted members assignment, so the late declaration seeds it.
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+
+    // The declaration is the registration-time seed; no persisted members
+    // assignment exists, so seed() must assign it.
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    expect(folderIdx).toBeGreaterThanOrEqual(0);
+    // The member row is the flat sibling immediately after its folder row.
+    expect(hIdx).toBe(folderIdx + 1);
+    // And it paints as a member: the rail carries the tree connector.
+    const hRow = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="H"]`,
+    )!;
+    expect(hRow.querySelector(`.${CONST.CLASSES.FOLD_TREE}`)).not.toBeNull();
+  });
+
+  it("a declared folder member sits at the same panel position whether it pre-registers or registers late (late ≡ pre-registered)", () => {
+    // P3 follow-up: the folder placement branch in insertLayerItem (folderOf →
+    // folderRow → block.members rank → anchor.after) must place a late-registered
+    // member exactly where the initial render puts a pre-registered one. The
+    // invariant is the full row sequence, not just "the row exists": a member
+    // fallen to registry depth or placed at the wrong rank fails the compare.
+    const layout = {
+      seed: { order: ["A", "B", "H"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+    };
+    const rowTokens = (ui: LayerUI): string[] =>
+      Array.from(attachedPanel(ui).children).map(el => {
+        const folderKey = el.getAttribute(CONST.DATA.FOLDER_KEY);
+        if (folderKey !== null) return `folder:${folderKey}`;
+        const layerId = el.getAttribute(CONST.DATA.LAYER_ID);
+        if (layerId !== null) return `layer:${layerId}`;
+        return `row:${el.className}`;
+      });
+
+    // Case 1: the folder member is present at the initial render.
+    const pre = initFixture({
+      ...layout,
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: null, layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
+        {
+          id: "H",
+          name: "Heat",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+    const preTokens = rowTokens(pre.ui);
+
+    // Case 2: identical layout, but H registers after the initial render.
+    const late = initFixture({
+      ...layout,
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+    late.manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+    const lateTokens = rowTokens(late.ui);
+
+    // The member is in the folder block in both, and the two sequences match.
+    expect(preTokens).toContain("folder:数据分析");
+    expect(preTokens).toContain("layer:H");
+    expect(lateTokens).toEqual(preTokens);
+  });
+
+  it("a late member declaring a brand-new folder falls through to the registry-depth anchor (folder row not on the panel)", () => {
+    // P3 coverage: when a late registration declares a folder that owns no order
+    // key and no live member, mergeDeclaredFolders seeds the member assignment
+    // and the directory entry but NOT the block order — so the folder has no
+    // row on the panel when insertLayerItem runs. folderOf returns the key, the
+    // folderRow lookup misses, and the insert falls through to the registry-depth
+    // anchor (else if !firstOfGroup / else). This is a REACHABLE branch, not a
+    // defensive dead end: it must not crash and the row must land on the panel.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A"] },
+      seedLayout: {
+        version: 2,
+        folders: [],
+        order: { overlay: [] },
+        members: {},
+      },
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+      ],
+    });
+
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析", // brand-new folder: not in order, no existing member
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    // The brand-new folder has no order key, so its row is NOT on the panel yet.
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+    expect(folderIdx).toBe(-1);
+    // The row must still land (the fallthrough anchors it at registry depth).
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    expect(hIdx).toBeGreaterThanOrEqual(0);
+    const hRow = attachedPanel(ui).querySelector<HTMLElement>(
+      `[${CONST.DATA.LAYER_ID}="H"]`,
+    )!;
+    expect(hRow).not.toBeNull();
+  });
+
+  it("a late member joins at its rank after an existing folder member (loop over prior members)", () => {
+    // P3 coverage (list.ts 731-734): when a folder already holds a member and a
+    // second member registers late, the member-position branch walks the prior
+    // members (the anchor loop) to place the new row right after the last one
+    // on the DOM. The loop body must be exercised, not skipped by a single-member
+    // folder.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A", "B", "H"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+      data: [
+        { id: "A", name: "A", role: "overlay", folder: null, layer: polygonLayer() },
+        {
+          id: "B",
+          name: "B",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    // B is already a member (its row is on the panel inside the folder block).
+    // H registers late into the same folder: the loop walks B's row as anchor.
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    const folderIdx = children.findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+    const bIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "B");
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    // H lands right after B (its rank among the folder's members), inside the block.
+    expect(folderIdx).toBeGreaterThanOrEqual(0);
+    expect(bIdx).toBe(folderIdx + 1);
+    expect(hIdx).toBe(bIdx + 1);
+  });
+
+  it("a late member into a brand-new folder with no other role row appends at the role end (else-if !firstOfGroup path)", () => {
+    // P3 coverage: when a late member declares a brand-new folder AND the role
+    // has no other row on the panel, firstOfGroup is null — the insert takes the
+    // else-if (!firstOfGroup) branch (BASE-before-first-base / role-end append),
+    // not the registry-depth else. This covers the last partially-hit arm of the
+    // folder-placement block.
+    const { manager, ui } = initFixture({
+      seed: { order: [] },
+      seedLayout: {
+        version: 2,
+        folders: [],
+        order: { overlay: [] },
+        members: {},
+      },
+      data: [],
+    });
+
+    manager.registerLayer({
+      id: "H",
+      name: "Heat",
+      role: "overlay",
+      folder: "数据分析",
+    });
+
+    const children = Array.from(attachedPanel(ui).children);
+    const hIdx = children.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "H");
+    expect(hIdx).toBeGreaterThanOrEqual(0); // the row landed (role-end append)
+  });
+
+  it("leaves the anchor at the folder row when a prior member's row is absent (defensive arm)", () => {
+    // P3 coverage: the member-rank loop looks up each prior member's row. A
+    // member's row can be gone while the block still lists it only in a
+    // transient (rows are removed with the member in steady state), so the
+    // lookup is a defensive guard. Contract: when it misses, the anchor stays
+    // the folder row and the member still lands inside the block — never
+    // thrown to the registry depth.
+    const { manager, ui } = initFixture({
+      seed: { order: ["A", "B"] },
+      seedLayout: {
+        version: 2,
+        folders: [{ key: normalizeFolderName("数据分析"), name: "数据分析" }],
+        order: { overlay: [normalizeFolderName("数据分析")] },
+        members: {},
+      },
+      data: [
+        {
+          id: "A",
+          name: "A",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+        {
+          id: "B",
+          name: "B",
+          role: "overlay",
+          folder: "数据分析",
+          layer: polygonLayer(),
+        },
+      ],
+    });
+
+    const panel = attachedPanel(ui);
+    const folderIdx = Array.from(panel.children).findIndex(
+      el => el.getAttribute(CONST.DATA.FOLDER_KEY) === normalizeFolderName("数据分析"),
+    );
+
+    // Drop A's row (the prior member the loop would anchor on).
+    panel.querySelector<HTMLElement>(`[${CONST.DATA.LAYER_ID}="A"]`)!.remove();
+
+    // Re-insert B directly: the loop walks A (row gone → miss → anchor stays
+    // the folder row), so B lands right after the folder row.
+    const bInfo = manager.layerRegistry.get("B")!;
+    insertLayerItem(ui, bInfo);
+
+    const after = Array.from(panel.children);
+    const bIdx = after.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === "B");
+    expect(bIdx).toBe(folderIdx + 1);
+  });
+
   it("renders a folder row folded when its role is folded", () => {
     // Folding a role hides the whole block, header included — the folder's own
     // fold state is untouched, so unfolding the role restores the same view.
@@ -322,9 +602,9 @@ describe("ui/list row placement", () => {
     expect(folder!.classList.contains(CONST.CLASSES.FOLDED)).toBe(false);
   });
 
-  it("closes the row panels it drops with the rows", () => {
+  it("closes the open row surface it drops with the rows", () => {
     // A rebuild replaces the whole list (fold, reorder, or the list arriving).
-    // The style panel can dispose its scheme picker and unpin itself, but only
+    // The open surface can dispose its scheme picker and unpin itself, but only
     // if it is asked BEFORE the row carrying it is detached: these panels are
     // children of a row, so clearing the list with innerHTML used to leave the
     // picker and its document listeners answering a trigger that was gone.
@@ -339,26 +619,28 @@ describe("ui/list row placement", () => {
     const attrsPanel = document.createElement("div");
     attrsPanel.className = CONST.CLASSES.ATTRS_PANEL;
     row.appendChild(attrsPanel);
-    ui.overlayPanel.stylePanelLayerId = "A";
+    // One surface at a time (openSurface is the single source), so the two
+    // panel kinds are closed in two rounds against the same rebuild path.
+    openSurface(ui, { kind: "style", layerId: "A" });
     const styleUnregister = vi.fn();
     ui.overlayPanel.styleOverlayUnregister = styleUnregister;
-    ui.overlayPanel.activeAttrsPanel = {
-      item: row,
-      panel: attrsPanel,
-      layerId: "A",
-    };
-    const attrsUnregister = vi.fn();
-    ui.overlayPanel.attrsOverlayUnregister = attrsUnregister;
 
     rebuildList(ui);
 
     expect(styleUnregister).toHaveBeenCalled();
     expect(ui.overlayPanel.styleOverlayUnregister).toBeNull();
     expect(ui.overlayPanel.stylePanelLayerId).toBeNull();
+    expect(stylePanel.isConnected).toBe(false);
+
+    openSurface(ui, { kind: "attrs", item: row, panel: attrsPanel, layerId: "A" });
+    const attrsUnregister = vi.fn();
+    ui.overlayPanel.attrsOverlayUnregister = attrsUnregister;
+
+    rebuildList(ui);
+
     expect(attrsUnregister).toHaveBeenCalled();
     expect(ui.overlayPanel.attrsOverlayUnregister).toBeNull();
     expect(ui.overlayPanel.activeAttrsPanel).toBeNull();
-    expect(stylePanel.isConnected).toBe(false);
     expect(attrsPanel.isConnected).toBe(false);
   });
 

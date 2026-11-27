@@ -6,6 +6,7 @@ import { vi } from "vitest";
 import { EVENTS, type ensureEvents } from "#core/event/index.js";
 import type { LayerFilter } from "#core/layer/index.js";
 import { createScopedTranslator, createTranslator } from "#platform/locale.js";
+import { createTimers } from "#platform/timer.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
 
@@ -25,6 +26,7 @@ const makeConfig = (overrides: Partial<ComponentConfig> = {}): ComponentConfig =
   border_weight: 1.5,
   border_color: "#333333",
   field: null,
+  folder: null,
   // Locale tables normally arrive inside CONFIG from the Python bridge; provide
   // the keys the hint assertions rely on so the scoped translator resolves.
   locale_tables: {
@@ -69,6 +71,7 @@ function installHeatmapGlobals(confOverrides: Partial<ComponentConfig> = {}) {
       label_color: "#fff",
       label_size: 11,
       label_format: "auto",
+      folder: null,
     },
     confOverrides,
   );
@@ -174,6 +177,7 @@ function makeCtrl(
   (mgr.map as unknown as { foliplus?: unknown }).foliplus = window.map.foliplus;
   return {
     mgr,
+    timers: createTimers(),
     // The real control routes document-level listeners through its mounting
     // signal (BaseControl.on). The fixture has no signal, so it binds for
     // real and hands back the matching unbind — the outside-click tests

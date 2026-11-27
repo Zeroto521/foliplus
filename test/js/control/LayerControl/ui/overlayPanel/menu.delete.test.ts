@@ -10,6 +10,7 @@ import { seedIntentMap } from "#control/LayerControl/ui/intent.js";
 import { rebuildList } from "#control/LayerControl/ui/listPanel/index.js";
 import { activateDeleteItem } from "#control/LayerControl/ui/overlayPanel/index.js";
 import { handleMenuClick } from "#control/LayerControl/ui/overlayPanel/menu.js";
+import { clearSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 describe("LayerUI menu", () => {
   let manager: LayerController;
@@ -565,6 +566,25 @@ describe("LayerUI menu", () => {
       }
     });
 
+    it("teardown disarms a pending confirm and leaves no timer behind", () => {
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const deleteLi = deleteEntryOf(item);
+      click(deleteLi);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
+
+      ui.unbindEvents();
+
+      // The arm timeout is the panel's timer, not a module-level one: its
+      // teardown disposes the owner, so no later tick can walk the confirm
+      // back on a panel that is gone.
+      expect(ui.timers.disposed).toBe(true);
+      expect(ui.timers.names()).toEqual([]);
+      expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(
+        false,
+      );
+    });
+
     it("activateDeleteItem confirms on the first call and fires on the second", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);
@@ -602,7 +622,7 @@ describe("LayerUI menu", () => {
       click(deleteLi);
       expect(deleteLi.classList.contains(CONST.CLASSES.MENU_DELETE_PENDING)).toBe(true);
 
-      ui.overlayPanel.activeMenu = null;
+      clearSurface(ui, "menu");
 
       expect(activateDeleteItem(ui, deleteLi)).toBe(true);
       expect(deleteSpy).toHaveBeenCalledWith("");
@@ -772,20 +792,24 @@ describe("LayerUI menu", () => {
           layer: { options: {}, eachLayer: vi.fn() },
         } as never);
         const folderRow = openFolderRowMenu();
-        const folderLi = folderRow.querySelector(
-          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
-        ) as HTMLLIElement;
-        expect(folderLi).not.toBeNull();
+        expect(
+          folderRow.querySelector(
+            `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+          ),
+        ).not.toBeNull();
         // Without the key there is nothing to delete: the row has no identity to
         // hand the controller, so the confirm must be a no-op rather than
         // dispatching with an empty string.
-        folderRow.removeAttribute(CONST.DATA.FOLDER_KEY);
-        // The menu record agrees — it too carries no folderKey, which is the
-        // other half of the dispatch's key lookup.
-        (ui.overlayPanel as any).activeMenu = {
-          ...((ui.overlayPanel as any).activeMenu ?? {}),
-          folderKey: undefined,
-        };
+        // An empty key is still "no identity": the attribute keeps the row a
+        // folder row, but the value is blank.
+        folderRow.setAttribute(CONST.DATA.FOLDER_KEY, "");
+        // Re-open: the menu record derives folderKey from the row at open time,
+        // so the rebuilt record carries the empty key too — the other half of
+        // the dispatch's key lookup.
+        ui.openMoreMenu(folderRow);
+        const folderLi = folderRow.querySelector(
+          `button[data-action="${CONST.ACTION.DELETE_FOLDER}"]`,
+        ) as HTMLLIElement;
         const event = new MouseEvent("click", { bubbles: true, cancelable: true });
         Object.defineProperty(event, "target", { value: folderLi });
         // Arm, then confirm: the confirm is the no-op, not the arm.

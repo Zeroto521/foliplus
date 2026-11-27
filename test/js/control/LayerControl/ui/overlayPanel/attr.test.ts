@@ -750,22 +750,25 @@ describe("LayerUI attrs", () => {
       expect(focusSpy).toHaveBeenCalled();
     });
 
-    it("Escape prefers the overflow menu over an open attributes panel", () => {
+    it("a menu cannot sit on top of a panel — opening the panel replaces it", () => {
       const item = findItem(ui, "overlay1");
 
-      // The surfaces are mutually exclusive, so the menu opens first and the
-      // panel is re-attached by hand to rebuild the "menu sits on top" state
-      // the Escape precedence chain is written for.
+      // Single source (overlayPanel/openSurface.ts): there is no "menu sits on
+      // top of a panel" state for an Escape precedence chain to arbitrate. The
+      // second open tears the first surface down first.
       ui.openMoreMenu(item);
-      const panel = document.createElement("div");
-      panel.className = CONST.CLASSES.ATTRS_PANEL;
-      item.appendChild(panel);
-      ui.overlayPanel.activeAttrsPanel = { item, panel, layerId: "overlay1" };
+      const menu = ui.overlayPanel.activeMenu!.menu;
+      ui.openAttrsPanel(item);
+
+      expect(ui.overlayPanel.activeMenu).toBeNull();
+      expect(menu.isConnected).toBe(false);
+      expect(ui.overlayPanel.surface?.kind).toBe("attrs");
 
       const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
       checkbox.focus();
 
-      // Real keydown: the overlay registry owns Escape now.
+      // Real keydown: the overlay registry owns Escape now. One press closes
+      // the one surface that is open.
       checkbox.dispatchEvent(
         new KeyboardEvent("keydown", {
           bubbles: true,
@@ -774,9 +777,8 @@ describe("LayerUI attrs", () => {
         }),
       );
 
-      expect(ui.overlayPanel.activeMenu).toBeNull();
-      // One surface per keypress — the panel survives this Escape.
-      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBe(panel);
+      expect(ui.overlayPanel.surface).toBeNull();
+      expect(item.querySelector(".foliplus-layer-attrs-panel")).toBeNull();
     });
 
     it("closes the previously open panel before opening a new one", () => {

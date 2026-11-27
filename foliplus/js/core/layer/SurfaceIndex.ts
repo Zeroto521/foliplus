@@ -1,4 +1,4 @@
-// core/SurfaceIndex — the two-way surface index.
+// core/layer/SurfaceIndex — the two-way surface index.
 // Responsibility: "which surface paints layer X" answered from either end —
 // by layer id (the authoritative direction: registration / teardown / capability
 // reads) and by the live layer's `L.stamp` (attribution from a layer). The two

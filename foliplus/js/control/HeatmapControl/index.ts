@@ -10,6 +10,8 @@ import {
 } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { finalize } from "#platform/finalize.js";
+import { createTimers } from "#platform/timer.js";
+import type { Timers } from "#platform/type.js";
 
 class HeatmapControl extends defineControl({
   config: CONFIG,
@@ -33,6 +35,10 @@ class HeatmapControl extends defineControl({
   declare schemeBar: HTMLElement;
   declare schemeBarInner: HTMLElement;
   declare schemeSelectHidden: HTMLSelectElement;
+  /** The control's timer owner: the initial settle pass is named here and the
+   *  destroy sequence disposes the owner, so a removed control cannot re-enter
+   *  scan() just to have its own done flag refuse the work. */
+  timers: Timers = createTimers();
   initScanCleanup: (() => void) | null = null;
   schemePickerOverlayUnregister: (() => void) | null = null;
   schemePickerCleanup: (() => void) | null = null;
@@ -132,6 +138,7 @@ class HeatmapControl extends defineControl({
       [
         ["resolve-manager", () => void this.mgr],
         ["detach-scan", () => this.initScanCleanup?.()],
+        ["release-timers", () => this.timers.dispose()],
         // The shared scheme picker is destroyed here (permanent teardown);
         // the picker's close() only closes the dropdown for data-clear reuse.
         ["detach-scheme-picker", () => this.schemePickerCleanup?.()],

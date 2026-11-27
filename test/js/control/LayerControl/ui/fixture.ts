@@ -1,7 +1,8 @@
 import { afterEach, vi } from "vitest";
-import { ROLE, folderLayoutKey, orderKeyOf } from "#core/layer/index.js";
-import { rankStart, rankBetween } from "#core/order/index.js";
+import { ROLE, folderLayoutKey, orderKeyOf, normalizeFolderName } from "#core/layer/index.js";
+import { rankStart, rankBetween, folderDocKey } from "#core/order/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
+import { type ComponentConfig } from "#foliplus/config-schema.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
@@ -377,6 +378,9 @@ const initFixture = (
     initialZoom?: number;
     maxZoom?: number;
     data?: ConstructorParameters<typeof LayerController>[1];
+    /** The rendered CONFIG data rows — the normalised declaration facts a
+     *  manager reads at construction (label today). */
+    configData?: ComponentConfig["data"];
     /** The persisted record, written before the manager is constructed. */
     seed?: Record<string, unknown>;
     /** The persisted layout-mirror document, written under its own storage
@@ -395,6 +399,7 @@ const initFixture = (
 ): { manager: LayerController; ui: LayerUI; map: any } => {
   window.CONFIG.name = "LayerControl";
   window.CONFIG.locale_code = "en";
+  window.CONFIG.data = options.configData ?? [];
   const container = document.createElement("div");
   document.body.appendChild(container);
   if (options.seed) {
@@ -434,6 +439,48 @@ const initFixture = (
       : options.seedLayout
         ? orderDocFromSeed(orderFromLayout(options.seedLayout))
         : orderDocFromSeed((options.seed as any).order);
+    // A flat seed order names layers the layout may not hold yet (a late
+    // registration's future slot). Seed those as root nodes so a late layer
+    // registers into its saved position instead of prepending.
+    if (docSeed && options.seedLayout && Array.isArray((options.seed as any)?.order)) {
+      const flat = orderDocFromSeed((options.seed as any).order);
+      if (flat) {
+        let lastRank: string | null = null;
+        for (const k of Object.keys(docSeed.nodes)) {
+          const n = (docSeed.nodes as any)[k];
+          if (n && typeof n.rank === "string" && (lastRank === null || n.rank > lastRank)) lastRank = n.rank;
+        }
+        for (const [k, n] of Object.entries((flat.nodes as any) ?? {})) {
+          if ((docSeed.nodes as any)[k] === undefined) {
+            (docSeed.nodes as any)[k] = { ...(n as any), rank: lastRank === null ? rankStart() : rankBetween(lastRank, null) };
+            lastRank = (docSeed.nodes as any)[k].rank;
+          }
+        }
+      }
+    }
+    // A data layer's declared folder must win over a flat-order root slot:
+    // the controller trusts the doc at boot, so the doc must place the layer
+    // in its declared folder (create the folder node when the seed did not).
+    if (docSeed && Array.isArray(options.data)) {
+      const nodes = (docSeed.nodes as any) ?? {};
+      for (const layerInfo of options.data) {
+        const folder = (layerInfo as any)?.folder;
+        if (!folder || typeof folder !== "string") continue;
+        const role = (layerInfo as any)?.role ?? "overlay";
+        const fKey = folderDocKey(role, normalizeFolderName(folder));
+        const lKey = `layer:${layerInfo.id}`;
+        if (nodes[lKey] === undefined) continue;
+        if (nodes[fKey] === undefined) {
+          let lastRank: string | null = null;
+          for (const k of Object.keys(nodes)) {
+            const n = nodes[k];
+            if (n && typeof n.rank === "string" && (lastRank === null || n.rank > lastRank)) lastRank = n.rank;
+          }
+          nodes[fKey] = { kind: "folder", parent: null, role, name: folder, rank: lastRank === null ? rankStart() : rankBetween(lastRank, null) };
+        }
+        nodes[lKey] = { ...nodes[lKey], parent: fKey };
+      }
+    }
     if (docSeed) {
       window.localStorage.setItem(orderKeyOf({ getContainer: () => container }), JSON.stringify(docSeed));
     }

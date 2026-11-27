@@ -1,3 +1,4 @@
+// core/interaction/listCursor — shared keyboard cursor for foliplus lists.
 /** ListCursor — shared keyboard cursor for foliplus lists.
  *
  * Two focus models, one index:

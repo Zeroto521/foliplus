@@ -27,7 +27,7 @@ describe("LayerUI teardown — the ordered scope", () => {
     // block keeps the bind order, and the scheduler release comes last.
     const expected = [
       "clear-drag-state",
-      "release-opacity-redraws",
+      "release-timers",
       "unsubscribe-escape",
       "close-more-menu",
       "close-style-panel",
@@ -79,10 +79,9 @@ describe("LayerUI teardown — the ordered scope", () => {
       "layer-role-count-changed",
       "layer-list-rebuild",
       "layer-no-basemap-changed",
-      "layer-overlay-clear",
-      "layer-overlay-clear",
-      "layer-overlay-clear",
-      "layer-overlay-clear",
+      // Two, not one per surface: the state machine closes whichever surface is
+      // open (openSurface.ts), and the focus spotlight is still its own map
+      // state. Adding a surface adds no subscriber here.
       "layer-overlay-clear",
       "layer-overlay-clear",
     ]);
@@ -152,7 +151,7 @@ describe("LayerUI teardown — the ordered scope", () => {
     const names = createTeardownScope(ui).names();
     expect(names).toEqual([
       "clear-drag-state",
-      "release-opacity-redraws",
+      "release-timers",
       "unsubscribe-escape",
       "release-style-apply-owner",
     ]);
@@ -162,5 +161,26 @@ describe("LayerUI teardown — the ordered scope", () => {
     expect(flush).not.toHaveBeenCalled();
     expect(countOff).not.toHaveBeenCalled();
     for (const off of signalOffs) expect(off).not.toHaveBeenCalled();
+  });
+
+  it("disposes the panel's timer owner as a teardown step", () => {
+    const timers = ui.timers;
+    expect(timers.disposed).toBe(false);
+
+    ui.unbindEvents();
+
+    expect(timers.disposed).toBe(true);
+  });
+
+  it("drops a timer scheduled before teardown instead of running it late", () => {
+    vi.useFakeTimers();
+    const landed = vi.fn();
+    ui.timers.timeout("probe", landed, 50);
+
+    ui.unbindEvents();
+    vi.advanceTimersByTime(100);
+
+    expect(landed).not.toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });

@@ -1,4 +1,4 @@
-// core/layer/layout/defaults — build the default order document from declarations.
+// core/layer/layout/default — build the default order document from declarations.
 //
 // The default is a pure function of CONF.data (declaration order): each layer gets
 // a rank by its declaration index, so the default layout is independent of the JS

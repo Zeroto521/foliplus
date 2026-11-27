@@ -1,4 +1,4 @@
-// core/interaction — keyboard / input ownership / list navigation.
+// core/interaction — keyboard / input ownership / list navigation / exclusive map interaction.
 export { ensureInteraction } from "./interactionManager.js";
 export {
   OWNER_KEYS,
@@ -10,3 +10,4 @@ export {
   nativeConsumesKey,
 } from "./inputOwnership.js";
 export { ListCursor } from "./listCursor.js";
+export { suspendMapInteractions } from "./suspend.js";

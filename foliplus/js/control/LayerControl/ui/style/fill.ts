@@ -64,7 +64,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
-import { replayFace } from "./replay.js";
+import { createReplayGate, replayFace } from "./replay.js";
 import {
   FACE,
   STYLE_BAG_DEFAULTS,
@@ -672,7 +672,7 @@ const FILL_ADAPTER: PaintDimension = {
 /** One attach-sweep paint per layer: `applyUserState()` also runs on folds
  *  and renames, and a declared value fill reclassifies every leaf — an idempotent
  *  but O(N) walk the sweep should not repeat. */
-const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+const declaredReplayGate = createReplayGate();
 
 /** Attach-sweep replay for author-declared fills only.
  *
@@ -685,14 +685,9 @@ const replayDeclaredFill = (ui: LayerUI, id: string): void => {
     if (getIntent(ui, id, key) !== undefined) return;
   }
   if (declaredFill(ui, id) === undefined) return;
-  let painted = declaredReplayed.get(ui);
-  if (painted?.has(id)) return;
+  if (declaredReplayGate.has(ui, id)) return;
   applyFillToLayer(ui, id);
-  if (!painted) {
-    painted = new Set();
-    declaredReplayed.set(ui, painted);
-  }
-  painted.add(id);
+  declaredReplayGate.mark(ui, id);
 };
 
 /** Replay a layer's stored fill state (color + opacity) onto the map.

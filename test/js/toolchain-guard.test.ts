@@ -412,6 +412,8 @@ describe("style-mode-usage guard wiring", () => {
 const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "async-liveness":
     "async continuations must not outlive the component that mounted them",
+  "bare-timer":
+    "delayed work goes through the timer owner, not a bare setTimeout/setInterval/rAF",
   "browser-snippet":
     "every browser probe is cited by a consumer and no two probes share a body",
   "config-contract-keys":
@@ -422,7 +424,7 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "derived-state projections run only through the invalidateDerived barrier",
   "export-decoupling": "ExportControl must not reference LayerControl internals",
   "file-header":
-    "the canonical file header stays on every registered module and every script/ tool",
+    "the canonical file header stays on every registered module, every script/ tool and every control/ module",
   "fold-arrow": "how far a row is opened is one state, not a per-arrow copy",
   "folder-name-fold-sync":
     "the folder-name fold rule is the same on the Python and JS sides",
@@ -442,8 +444,12 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "marker-icon-set-icon-guard":
     "marker icon writes flow only through the whitelisted setLeafIcon call site",
   "mock-specifier": "every vi.mock/vi.doMock specifier resolves to a real file",
+  "number-format-sync":
+    "the label number-format vocabulary is one list across Python, the generated schema and JS",
   "role-words-sync": "the layer-role vocabulary is the same on the Python and JS sides",
   "selected-class-guard": "the selected-class spelling has one owner per widget",
+  "single-source-primitives":
+    "the three #1407 single-source primitives keep exactly one definition and one copy of every driftable shape in foliplus/js",
   "slider-inset": "the slider half-thumb offset is one token, not a repeated calc",
   "row-identity":
     "every row builder emits the shared .foliplus-row identity class, and role-header rows are first-class in it",

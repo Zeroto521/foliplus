@@ -1,4 +1,4 @@
-// core/PaneManager — physical pane hosting.
+// core/layer/PaneManager — physical pane hosting.
 // Responsibility: "who orders and who owns which pane" is LayerSurface /
 // LayerInfoRegistry; "make the pane div exist and hand back its renderer" is
 // PaneManager. No CONFIG dependency.

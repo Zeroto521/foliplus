@@ -3,6 +3,7 @@
 import { makeControlEnv } from "../fixture.js";
 import { vi } from "vitest";
 import { type ControlEnv } from "#core/lifecycle/index.js";
+import { createTimers } from "#platform/timer.js";
 import { isDragSyntheticClick } from "#control/MeasureControl/edit.js";
 import type { MeasureManager } from "#control/MeasureControl/manager.js";
 
@@ -115,6 +116,7 @@ export function makeManagerMock(): MeasureManager {
   const measurements: any[] = [];
   const env = makeEnv();
   return {
+    timers: createTimers(),
     config: env.config,
     T: env.T,
     _: env._,

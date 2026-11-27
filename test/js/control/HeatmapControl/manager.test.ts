@@ -34,6 +34,7 @@ describe("HeatmapManager — style delegation", () => {
       styleProvider?: () => Record<string, unknown>;
       styleSetters?: Record<string, (v: unknown) => void>;
       styleDefaultsProvider?: () => Record<string, unknown>;
+      folder?: string | null;
     };
   }
 
