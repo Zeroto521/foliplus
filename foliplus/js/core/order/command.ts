@@ -8,7 +8,7 @@ import type { OrderDoc, OrderKind } from "./doc.js";
 import { emptyOrderDoc, isOrderDoc } from "./doc.js";
 import { rankBetween, rankFirst } from "./rank.js";
 import { childrenOf } from "./resolve.js";
-import type { LayerRole } from "#core/layer/role.js";
+import type { LayerRole } from "#core/layer/index.js";
 
 /** A rank strictly inside a gap, guarded against equal neighbours (the rank
  *  tie-break is declaration index then id, so a new node joins a tied group at

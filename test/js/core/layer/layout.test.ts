@@ -2,30 +2,26 @@
 import { describe, expect, it } from "vitest";
 import {
   type LayerDeclaration,
-  defaultDoc,
-  folderKeyOf,
-  layerKeyOf,
-} from "#core/layer/layout/default.js";
-import { mergeOrderDocs } from "#core/layer/layout/merge.js";
-import {
-  clearOrderDoc,
-  loadOrderDoc,
-  orderKeyOf,
-  saveOrderDoc,
-} from "#core/layer/layout/persist.js";
-import {
+  type LayerInfo,
   type ProjectedBlock,
   type RoleOf,
   childrenOfView,
+  clearOrderDoc,
+  defaultDoc,
+  folderKeyOf,
+  layerKeyOf,
+  loadOrderDoc,
+  mergeOrderDocs,
+  orderKeyOf,
   presentOf,
   projectBlocks,
   projectRows,
   projectView,
   projectZ,
   resolveOrderView,
-} from "#core/layer/layout/project.js";
-import type { LayerInfo } from "#core/layer/type.js";
-import type { OrderDoc } from "#core/order/doc.js";
+  saveOrderDoc,
+} from "#core/layer/index.js";
+import type { OrderDoc } from "#core/order/index.js";
 
 const mapLike = () => ({ getContainer: () => ({ id: "map-x" }) });
 

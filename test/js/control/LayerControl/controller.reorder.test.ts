@@ -3,6 +3,7 @@ import {
   TileLayer,
   createLayerControllerFixture,
   orderFromRoles,
+  readOrderTreeStorage,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { initFixture, polygonLayer } from "./ui/fixture.js";
@@ -389,10 +390,12 @@ describe("LayerController moveLayerUp / moveLayerDown", () => {
     expect(manager.layers.map(l => l.id)).toEqual(["a", "c", "b"]);
     // Flush instead of ticking the clock: the debounces another test left on
     // it would write their own order over this test's read of storage.
-    manager.persistence.flushAll();
-    expect(JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data).toEqual(
-      expect.objectContaining({ order: ["a", "c", "b"] }),
-    );
+    const stored = readOrderTreeStorage(map)!;
+    const rootIds = Object.entries(stored.nodes as Record<string, any>)
+      .filter(([, n]) => n.parent === null && n.kind === "layer")
+      .sort((a, b) => (a[1].rank as string).localeCompare(b[1].rank as string))
+      .map(([k]) => k.replace(/^layer:/, ""));
+    expect(rootIds).toEqual(["a", "c", "b"]);
 
     vi.useRealTimers();
   });

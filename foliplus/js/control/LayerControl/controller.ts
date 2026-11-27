@@ -51,7 +51,6 @@ import {
   type LayerFilterModel,
   LayerInfoRegistry,
   type LayerKind,
-  LayerOrder,
   type LayerRole,
   type LayerStyleSnapshot,
   type LayerSurface,
@@ -467,10 +466,7 @@ class LayerController implements LayerAPI {
   declare debouncedEnforce: Debounced;
   persistence: LayerPersistence;
   /** User-arranged order + one-way deleted-id set. Owns `savedOrder` /
-   *  `removedIds` and the load / snapshot / replay / prune methods; the
-   *  controller forwards the public face and keeps the ownership call-sites
-   *  (register gate, delete mark). */
-  declare order: LayerOrder;
+
   /** The per-map folder layout manager: folder identity, block order and
    *  member assignment in ONE persisted record (the single source). Seeded
    *  from storage on construction; every user action goes through the
@@ -587,20 +583,16 @@ class LayerController implements LayerAPI {
    *   as a field, so the init phase reads it directly. */
   init(data: LayerInfo[]) {
     this.declarations = data.map(l => ({ id: l.id, role: l.role, folder: l.folder }));
-    // One read of the record at construction. `order` seeds the registry's
-    // starting order tree, and `removed` gates both entry points an id can
-    // reach the registry through — this bulk build and registerLayer later — so
-    // it has to be in memory before the registry exists. Reading it lazily at
-    // attach time would let a layer the user deleted back into the panel on the
-    // next reload.
-    const saved = this.persistence.load();
-    const removedIds = new Set(saved.removed);
+    // The single order source is read FIRST (before the registry build) so a
+    // user-deleted layer (doc node hidden:true) is excluded from the registry
+    // at construction — the old `saved.removed` set is superseded by the doc.
+    this.orderDoc = this.readOrderDoc();
     // A deleted id must leave the panel *and* the map: folium emits `addTo(map)`
     // for every layer at page load, so gating the registry alone would drop the
     // row while the map kept painting it across a reload. One pass does both.
     this.layerRegistry = new LayerInfoRegistry(
       data.filter(layerInfo => {
-        if (!removedIds.has(layerInfo.id)) return true;
+        if (!this.orderDoc.nodes[layerKeyOf(layerInfo.id)]?.hidden) return true;
         // Late-binding fallback (folium script-stream order) — same single
         // point as `findLayer` / ExportControl's `resolveLayer`.
         const layer = this.resolveLayer(layerInfo);
@@ -609,12 +601,7 @@ class LayerController implements LayerAPI {
       }),
       this.map,
     );
-    this.order = new LayerOrder({
-      registry: this.layerRegistry,
-      getPersistence: () => this.persistence,
-      savedOrder: saved.order,
-      removedIds,
-    });
+
     this.folderLayout = ensureFolderLayout(this.map);
 
     // Seed the layout from the author's declared grouping when no persisted
@@ -622,15 +609,6 @@ class LayerController implements LayerAPI {
     // layout. The seed is in-memory only (no write); it just makes the
     // declared grouping visible before the first user action.
     this.folderLayout.seed(this.layerRegistry.layers);
-    // The single order source: read the persisted tree (or the default built
-    // from the registry's declared grouping) BEFORE the boot pass derives the
-    // layout mirror + registry from it.
-    // The single order source: the persisted doc merged over the default
-    // built from CONF.data declaration order (NOT registration order). The
-    // default already contains every declared layer at its declaration slot,
-    // so a construction-seeded layer needs no add-leaf reconciliation — a LATE
-    // registerLayer is the only path that inserts into the doc (below).
-    this.orderDoc = this.readOrderDoc();
     this.pendingRegistrations = [];
     this.uiContainer = null;
 
@@ -864,7 +842,6 @@ class LayerController implements LayerAPI {
       layerRegistry: this.layerRegistry,
       panes: this.panes,
       factory: this.factory,
-      order: this.order,
       persistence: this.persistence,
       label: this.label,
       surfaceIndex: this.surfaceIndex,
@@ -1078,7 +1055,7 @@ class LayerController implements LayerAPI {
     this.orderDocPersisted = true;
   }
 
-  /** The single resolve: rows/blocks/z from one resolveView call (design §6
+  /** The single resolve: rows/blocks/z from one resolveView call (design note: rows, blocks and z come from one single resolveView call
    *  single-source). The UI + the registry read from it; the layout mirror is
    *  only for the legacy folder-metadata reads. */
   /** The panel's view of the order: the LAST derived projection (rows/blocks/z).
@@ -1281,7 +1258,10 @@ class LayerController implements LayerAPI {
 
   // Order-domain forwards (bodies live on `this.order` — see savedOrder.ts).
   loadSavedOrder() {
-    this.order.loadSavedOrder();
+    // The doc is the single order source (read at boot in readOrderDoc); the
+    // old savedOrder string[] protocol is gone. Re-apply the doc so the
+    // registry follows the persisted ranks (a no-op on an already-synced doc).
+    this.applyDoc(this.orderDoc, { persist: false, force: true });
   }
 
   saveOrder() {
@@ -1315,7 +1295,6 @@ class LayerController implements LayerAPI {
     }
     const next: OrderDoc = { nodes };
     this.applyDoc(next, { persist: true });
-    this.order.saveOrder();
   }
 
   replaySavedOrder(id?: string) {
@@ -1323,7 +1302,6 @@ class LayerController implements LayerAPI {
     // doc (force so an unchanged doc still re-applies the ranks a prior
     // user reorder may have drifted from).
     this.applyDoc(this.orderDoc, { persist: false, force: true });
-    this.order.replaySavedOrder(id);
   }
 
   /** The single replay entry for every stored dimension of one layer.
@@ -1858,12 +1836,9 @@ class LayerController implements LayerAPI {
     // would take down whatever was registering. Interim behavior: the
     // reason is logged rather than returned, until registerLayer grows a
     // RegisterResult union that names "removed".
-    if (this.order.removedIds.has(opts.id)) {
-      this.log.warn(
-        `registerLayer: refusing "${opts.id}" — the layer was deleted by the user and the deletion is persisted for this map`,
-      );
-      return null;
-    }
+    // A user-deleted layer is a hidden doc node (the reversible tombstone), not
+    // a refused id: re-registering the same id RESTORES the node (un-hides it)
+    // below, so the layer returns to its slot rather than being refused.
 
     // A layer's role is fixed for the id's whole lifetime — it picks the
     // z ladder, the attribution and basemap semantics, and which panel
@@ -1900,13 +1875,22 @@ class LayerController implements LayerAPI {
     // idempotent — a re-registration already in the doc is a no-op, and a
     // late layer's declared folder is materialised on first insert. The
     // derived mirror + registry follow via applyDoc.
-    const nextDoc = this.insertDeclaredLayer(
+    let nextDoc = this.insertDeclaredLayer(
       this.orderDoc,
       layerInfo.id,
       layerInfo.role,
       layerInfo.folder ?? null,
       opts.baseInsert ?? "top",
     );
+    // A re-registration of a user-deleted layer restores the hidden tombstone
+    // (the lead's removedIds replacement): the node stays in the tree with
+    // hidden:true, and re-registering the same id un-hides it so the layer
+    // returns to its original slot. insertDeclaredLayer is idempotent (a node
+    // already present returns unchanged), so the restore is the explicit step.
+    const regKey = layerKeyOf(layerInfo.id);
+    if (nextDoc.nodes[regKey]?.hidden) {
+      nextDoc = orderRestore(nextDoc, regKey);
+    }
     // Re-derive the registry order whenever a layer becomes present: the doc
     // may already hold its slot (a re-registration), and the view z changes
     // with presence. persist only on a real doc mutation; force re-applies
@@ -2167,7 +2151,12 @@ class LayerController implements LayerAPI {
     if (posIndex < 0) return false;
     const src = orderChildrenOf(this.orderDoc, parentKey).indexOf(layerKeyOf(id));
     const sameContainer = src >= 0;
-    const index = sameContainer && src < posIndex ? posIndex - 1 : posIndex;
+    // `moveToIndex` excludes the moved key when computing the sibling list, so
+    // the target's ORIGINAL slot index is the correct insertion point for a
+    // drop onto the target in both directions (a forward move shifts the
+    // target up by one after the detach, and the post-exclusion array has one
+    // fewer element — the original index lands the moved node exactly there).
+    const index = posIndex;
     const next = orderMoveToIndex(this.orderDoc, layerKeyOf(id), parentKey, index);
     if (next === this.orderDoc) return false;
     return this.commitReorder(id, item, () => this.applyDoc(next, { persist: true }));
@@ -2604,20 +2593,17 @@ class LayerController implements LayerAPI {
    * Delete a layer: two semantics, dispatched by layer ownership.
    *
    * Component-owned layers (Measure, Heatmap) clear their data — no id is
-   * recorded in `removed`, so the component can re-register after redraw.
-   * The event bus carries the notification; the component owns the wipe.
+   * retired, so the component can re-register after redraw. The event bus
+   * carries the notification; the component owns the wipe.
    *
-   * User-added layers are deleted for good: the id is added to `removed` so
-   * the registry refuses it again, and the three stores that key by layer
-   * id — order, the rename, the label config — are pruned. Only a user
-   * who pointed at a row and chose "delete" knows the layer is gone for
-   * good; per-dimension resets drop one provenance marker instead, which is
-   * the same guarantee at the dimension level. Deletion is one level deeper
-   * still — nothing about generic teardown can say the id is retired.
-   *
-   * Everything pruned here is scheduled on the one shared debounce, so the
-   * whole record — removed, order, names, per-layer intent — leaves
-   * in a single flush rather than in one write per dimension.
+   * User-added layers are deleted for good: the order-doc node is marked
+   * hidden (orderSuppress), so the registry refuses the id again, and the
+   * per-layer stores that key by layer id — the rename, the label config,
+   * the intent row — are pruned. Only a user who pointed at a row and chose
+   * "delete" knows the layer is gone for good; per-dimension resets drop one
+   * provenance marker instead, which is the same guarantee at the dimension
+   * level. Deletion is one level deeper still — nothing about generic
+   * teardown can say the id is retired.
    *
    * @param {string} id - The layer ID previously passed to registerLayer().
    * @returns {boolean} true if the layer existed, false otherwise.
@@ -2657,7 +2643,10 @@ class LayerController implements LayerAPI {
       // pruned. The operation collects the handler failures, so the cleanup
       // still runs even when an earlier consumer throws.
       operation.emit(EVENTS.LAYER_DELETED, { id }, { kind: "system", via: "teardown" });
-      const { orderDropped, intentDropped } = this.domain.deleteEntry(id);
+      const { intentDropped } = this.domain.deleteEntry(id);
+      // The cleared id stays registerable; drop its doc slot (the doc is the
+      // order source) so a re-add lands by baseInsert rather than a stale rank.
+      const orderDropped = this.dropOrderSlot(id);
       if (this.ui && (orderDropped || intentDropped)) this.ui.saveState();
       this.persistence.flushAll();
       operation.throwIfFailed();
@@ -2696,18 +2685,16 @@ class LayerController implements LayerAPI {
     const retired = this.retireEntry(id);
     if (!retired) return false;
 
-    // Drop the layer from the tree (the deleteLayer splice — the ONLY path
-    // that removes a node; unregister keeps it as a tombstone so a re-register
-    // returns to the same slot).
-    // Drop the layer node from the doc (the deleteLayer splice — the ONLY
-    // path that removes a node; unregister keeps it as a tombstone so a
-    // re-register returns to the same slot). The emptied folder's block
-    // survives by construction (no block is removed here), so the folder
-    // stays put for the clean button.
+    // The user delete marks the doc node hidden (the reversible tombstone) —
+    // the ONLY path that hides a layer node; unregister keeps it as a
+    // tombstone so a re-register restores the same slot. The emptied folder's
+    // block survives by construction (no block is removed here), so the folder
+    // stays put for the clean button. The hidden marker IS the deleted id
+    // record (no separate removedIds set / removed persistence).
     const key = layerKeyOf(id);
-    const nextDoc: OrderDoc = { nodes: { ...this.orderDoc.nodes } };
-    delete nextDoc.nodes[key];
-    if (nextDoc.nodes !== this.orderDoc.nodes) {
+    const nextDoc = orderSuppress(this.orderDoc, key);
+    const orderDropped = nextDoc !== this.orderDoc;
+    if (nextDoc !== this.orderDoc) {
       this.applyDoc(nextDoc, { persist: true });
     }
 
@@ -2715,8 +2702,6 @@ class LayerController implements LayerAPI {
     // once the registry entry is gone a retry cannot re-run the prune, so a
     // throwing consumer must never leave the delete half-applied. The events
     // are queued afterwards and all of them are attempted.
-    this.order.removedIds.add(id);
-    this.persistence.schedule({ removed: () => [...this.order.removedIds] });
     // retireEntry keeps the label config (a teardown is not a delete); this is
     // the delete, so forget it here — `configEntries` must stop answering for
     // a removed id.
@@ -2726,7 +2711,7 @@ class LayerController implements LayerAPI {
     // + name rider) through the domain. `saveState` / `saveNamesState` are
     // called only when something actually dropped, so a delete of an untuned
     // layer no longer rewrites the whole `layers` map.
-    const { orderDropped, intentDropped, nameCleared } = this.domain.deleteEntry(id, {
+    const { intentDropped, nameCleared } = this.domain.deleteEntry(id, {
       clearName: true,
     });
 
@@ -3035,19 +3020,18 @@ class LayerController implements LayerAPI {
   }
 
   /**
-   * Drop one id from the stored order without retiring the layer (LayerAPI
-   * contract; body on {@link LayerOrder}). Component clear paths use it so a
-   * redraw lands at the top of the stack; `deleteLayer` reuses the same prune
-   * and is the only caller that also records `removedIds`.
+   * Drop one id's order-doc node without retiring the layer (LayerAPI
+   * contract). Component clear paths use it so a redraw lands at the top of
+   * the stack; `deleteLayer` reuses the same prune after marking the node
+   * hidden (orderSuppress) — the hidden marker is what refuses a re-register.
    *
    * @param id - The layer ID whose stored position is being dropped.
-   * @returns true if the id was in the stored order and got removed, false
+   * @returns true if the id had an order-doc node and it was removed, false
    *   otherwise (nothing to forget).
    */
   /** Drop one id's persisted order slot (the doc node). Returns true when a
    *  slot was actually removed. */
   private dropOrderSlot(id: string): boolean {
-    if (!this.orderDocPersisted) return this.order.forgetSavedOrder(id);
     const key = layerKeyOf(id);
     if (this.orderDoc.nodes[key] === undefined) return false;
     const nextDoc: OrderDoc = { nodes: { ...this.orderDoc.nodes } };

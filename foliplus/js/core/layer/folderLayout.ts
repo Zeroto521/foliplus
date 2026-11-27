@@ -38,6 +38,13 @@ import {
   saveVersionedObject,
   scopedStorageKey,
 } from "#platform/storage.js";
+import {
+  FOLDER_NAME_MAX,
+  folderDisplayName,
+  folderNameLength,
+  folderNameTooLong,
+  normalizeFolderName,
+} from "./folderName.js";
 
 /** The folder dimension: a folder is scoped to one role (role). Base and
  *  overlay folders with the same name are two different folders. */
@@ -99,13 +106,6 @@ interface FolderBlock {
  *  Single-sourced from scopedStorageKey so the key shape cannot drift. */
 const folderLayoutKey = (map: MapLike): string => scopedStorageKey(map, "layer_layout");
 
-/** The longest folder name a declaration may carry, in Unicode code points.
- *  Mirrors FOLDER_NAME_MAX in Python's foliplus/_declaration/key.py: a folder
- *  name is a short label read on a list row, not a data field, and the cap
- *  must match across stacks so Python and JS cannot disagree about which
- *  names reach the panel. */
-const FOLDER_NAME_MAX = 64;
-
 /** An empty layout: no folders, no block order, no assignments. */
 const emptyFolderLayout = (): FolderLayout => ({
   version: 2,
@@ -114,22 +114,9 @@ const emptyFolderLayout = (): FolderLayout => ({
   members: {},
 });
 
-/** Identity/merge/sort key for a folder name.
- *
- *  NFC → fold internal whitespace runs to one space → trim → lowercase. The
- *  lowercasing is the JS layer #905 deliberately left to this card: Python
- *  emits the author's display spelling (NFC + trim + whitespace fold only), and
- *  the JS side folds case so `Roads` / `roads` / `  roads ` are one folder.
- *
- *  Locale-independent by construction: `toLowerCase()` uses the Unicode
- *  Default Case Conversion, not a locale table, and no `localeCompare` is
- *  used anywhere in the ordering (invariant 2). */
-const normalizeFolderName = (name: string): string =>
-  name.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
 
-/** The display spelling for a folder: trim only, no NFC / casefold. The
- *  first-seen raw spelling wins and is never normalised for display. */
-const folderDisplayName = (name: string): string => name.trim();
+
+
 
 /** Prefix that marks a ROOT-LAYER entry in a role's block order.
  *
@@ -149,25 +136,7 @@ const isRootLayerEntry = (entry: string): boolean =>
 const folderEntries = (order: readonly string[]): string[] =>
   order.filter(entry => !isRootLayerEntry(entry));
 
-/** The length a folder name is judged by, in Unicode code points.
- *
- *  Measured on the normalised name - the same NFC / whitespace-fold / trim
- *  the panel shows, so padding cannot disguise a long name, and counted in
- *  code points rather than UTF-8 bytes, so a name heavy in non-BMP
- *  characters is judged by what the author reads. Mirrors the Python
- *  reader, which measures the identical normalisation.
- */
-const folderNameLength = (name: string): number =>
-  [...name.normalize("NFC").replace(/\s+/g, " ").trim()].length;
 
-/** Whether a folder name exceeds {@link FOLDER_NAME_MAX}.
- *
- *  The single decision point for the cap, so one invariant cannot be
- *  guarded at one entry and not another: the author's declaration (Python
- *  and the JS reader) and the panel's own create / rename paths all ask
- *  this. */
-const folderNameTooLong = (name: string): boolean =>
-  folderNameLength(name) > FOLDER_NAME_MAX;
 
 /** Shape guard for a persisted layout record. A corrupt or unknown-version
  *  payload reads back as empty (see readFolderLayout) — the record is never
@@ -794,11 +763,6 @@ const ensureFolderLayout = (map: L.Map): FolderLayoutManager => {
 
 export {
   folderLayoutKey,
-  FOLDER_NAME_MAX,
-  normalizeFolderName,
-  folderDisplayName,
-  folderNameLength,
-  folderNameTooLong,
   emptyFolderLayout,
   ensureFolderLayout,
   createFolderLayoutManager,

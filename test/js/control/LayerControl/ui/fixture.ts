@@ -352,7 +352,7 @@ const orderDocFromSeed = (seed: unknown): Record<string, unknown> | null => {
           let cprev: string | null = null;
           for (const child of children) {
             if (child?.kind === "layer" && child.id !== undefined) {
-              const cr = cprev === null ? rankStart() : rankBetween(cprev, null);
+              const cr: string = cprev === null ? rankStart() : rankBetween(cprev, null);
               nodes[`layer:${child.id}`] = { kind: "layer", parent: nodeKey, rank: cr };
               cprev = cr;
             }

@@ -2,11 +2,11 @@
 //
 // The default is a pure function of CONF.data (declaration order): each layer gets
 // a rank by its declaration index, so the default layout is independent of the JS
-// bundle execution / registration order (design §5). A declared folder becomes a
+// bundle execution / registration order (design note: the default rank comes from the declaration order, not the registration order). A declared folder becomes a
 // folder node at the position of its first member; members nest under it.
 import type { LayerRole } from "../role.js";
-import type { OrderDoc, OrderNode } from "#core/order/doc.js";
-import { rankAfter, rankStart } from "#core/order/rank.js";
+import type { OrderDoc, OrderNode } from "#core/order/index.js";
+import { rankAfter, rankStart } from "#core/order/index.js";
 
 /** One layer declaration as the panel receives it (CONF.data row, folded). */
 export interface LayerDeclaration {
@@ -32,7 +32,7 @@ export const groupKeyOf = (layerId: string): string => `group:${layerId}`;
 
 /** Build the default document from CONF.data declaration order. Folders are
  *  created at the position of their first member; a layer's rank encodes its
- *  declaration index, so a late registration lands at its default slot (design §5.2 ④). */
+ *  declaration index, so a late registration lands at its default slot (design note: a late registration lands at its declared slot, not at the end). */
 export const defaultDoc = (declarations: readonly LayerDeclaration[]): OrderDoc => {
   const nodes: Record<string, OrderNode> = {};
   const rootOrder: string[] = [];

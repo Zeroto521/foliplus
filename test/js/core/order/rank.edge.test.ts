@@ -1,6 +1,6 @@
 // test/js/core/order/rank.edge.test.ts — additional rank engine edges (bounded growth).
 import { describe, expect, it } from "vitest";
-import { rankAfter, rankBetween, rankStart } from "#core/order/rank.js";
+import { rankAfter, rankBetween, rankStart } from "#core/order/index.js";
 
 describe("rank edges", () => {
   it("rankStart is the minimum and rankAfter grows", () => {

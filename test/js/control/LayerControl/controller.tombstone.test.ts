@@ -68,15 +68,18 @@ describe("LayerController tombstone contract", () => {
     expect(manager.layers.map(l => l.id)).toContain("B");
   });
 
-  it("deleteLayer truly drops the tree node (tombstone removed, not kept)", () => {
+  it("deleteLayer keeps the node but hides it (the reversible tombstone)", () => {
     manager.registerLayer({ id: "A", name: "A", layer: new window.L.TileLayer() });
     manager.registerLayer({ id: "B", name: "B", layer: new window.L.TileLayer() });
     manager.registerLayer({ id: "C", name: "C", layer: new window.L.TileLayer() });
 
     expect(manager.deleteLayer("B")).toBe(true);
     expect(manager.layerRegistry.has("B")).toBe(false);
-    // The ONLY path that removes a node: after a delete the tree no longer
-    // carries the id, so a fresh registration would take the default slot.
-    expect(treeCarries(manager, "B")).toBe(false);
+    // The node stays in the tree as the hidden marker (the reversible
+    // tombstone), so a fresh registration restores the original slot; the
+    // registry filter keeps the hidden node out of the panel until then.
+    expect(treeCarries(manager, "B")).toBe(true);
+    const doc: any = (manager as any).orderDoc;
+    expect(doc.nodes["layer:B"].hidden).toBe(true);
   });
 });

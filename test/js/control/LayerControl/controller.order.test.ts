@@ -5,6 +5,7 @@ import {
   makeStore,
   seedStorage,
   seedOrderDoc,
+  readOrderTreeStorage,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { initFixture, makeDerivedUI } from "./ui/fixture.js";
@@ -60,66 +61,60 @@ describe("LayerController", () => {
     vi.useRealTimers();
   });
 
-  it("saveOrder is debounced — rapid calls coalesce into one storage write", () => {
-    vi.useFakeTimers();
-    const spy = vi.spyOn(Storage, "saveVersionedObject");
+  it("saveOrder persists the current registry order to its own key", () => {
+    // saveOrder re-ranks the doc's root blocks from the live registry and
+    // writes the doc immediately (saveOrderDoc -> saveRecord, no debounce).
+    manager.registerLayer({ id: "a", name: "A", layer: new window.L.TileLayer() });
+    const spy = vi.spyOn(Storage, "saveRecord");
     manager.saveOrder();
-    manager.saveOrder();
-    manager.saveOrder();
-    expect(spy).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(100);
     expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][0]).toBe(orderKeyOf(map));
     spy.mockRestore();
-    vi.useRealTimers();
   });
 
   describe("loadSavedOrder", () => {
     it("restores a persisted overlay/base order", () => {
-      const spy = vi
-        .spyOn(Storage, "loadVersionedObject")
-        .mockReturnValue({ order: ["overlay1", "base1"] });
+      seedOrderDoc(map, ["overlay1", "base1"]);
       const m = new LayerController(map, [
         { id: "base1", name: "B", role: "base" },
         { id: "overlay1", name: "O", role: "overlay" },
       ]);
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
-      spy.mockRestore();
     });
 
     it("drops unknown ids from persisted order and keeps the rest", () => {
-      const spy = vi
-        .spyOn(Storage, "loadVersionedObject")
-        .mockReturnValue({ order: ["ghost", "overlay1", "gone", "base1"] });
+      // Unknown ids still land in the doc, but nothing registers them, so the
+      // layer projection is just the declared ids in their persisted ranks.
+      seedOrderDoc(map, ["ghost", "overlay1", "gone", "base1"]);
       const m = new LayerController(map, [
         { id: "base1", name: "B", role: "base" },
         { id: "overlay1", name: "O", role: "overlay" },
       ]);
       expect(m.layers.map(l => l.id)).toEqual(["overlay1", "base1"]);
-      spy.mockRestore();
     });
 
-    it("ignores non-array storage data", () => {
-      const spy = vi.spyOn(Storage, "loadVersionedObject").mockReturnValue("nope");
+    it("ignores an invalid persisted doc", () => {
+      // An unknown/incomplete shape fails isOrderDoc, loadOrderDoc returns
+      // null, and the default (declaration) order is used.
+      window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes: "nope" }));
       const m = new LayerController(map, [
         { id: "overlay1", name: "O", role: "overlay" },
       ]);
       // falls back to the initial (insertion) order
       expect(m.layers.map(l => l.id)).toEqual(["overlay1"]);
-      spy.mockRestore();
     });
 
     it("reads the record once at construction time", () => {
-      // The constructor runs before LayerControl's UI has attached. Order seeds
-      // the registry's starting order tree and removed gates the registration
-      // entry point, so both come from this one read rather than a second one
-      // against a registry that has since grown.
-      const spy = vi.spyOn(Storage, "loadVersionedObject");
+      // The constructor runs before LayerControl's UI has attached. The order
+      // doc is read from its own map-scoped key in this one read rather than a
+      // second one against a registry that has since grown.
+      const spy = vi.spyOn(Storage, "loadRecord");
       new LayerController(map, [
         { id: "base1", name: "B", role: "base" },
         { id: "overlay1", name: "O", role: "overlay" },
       ]);
       const keys = spy.mock.calls.map(c => c[0]);
-      expect(keys).toEqual([CONST.STORAGE.KEY]);
+      expect(keys).toEqual([orderKeyOf(map)]);
       spy.mockRestore();
     });
   });
@@ -260,13 +255,15 @@ describe("LayerController", () => {
       expect(m.layers.map(l => l.id)).toEqual(["fg", "foliplus_color_map", "tile"]);
 
       m.saveOrder();
-      m.persistence.flushAll();
 
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
-        .data as {
-        order: string[] | null;
-      };
-      expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
+      // The order now lives in its own key as a doc; the root layer sequence
+      // is the persisted snapshot.
+      const stored = readOrderTreeStorage(map)!;
+      const rootIds = Object.entries(stored.nodes as Record<string, any>)
+        .filter(([, n]) => n.parent === null && n.kind === "layer")
+        .sort((a, b) => (a[1].rank as string).localeCompare(b[1].rank as string))
+        .map(([k]) => k.replace(/^layer:/, ""));
+      expect(rootIds).toEqual(["fg", "foliplus_color_map", "tile"]);
     });
 
     it("keeps a dragged solid-color basemap position across a reload (user bug)", () => {
@@ -291,13 +288,13 @@ describe("LayerController", () => {
       // The drag moves the color basemap above the tile basemap.
       m.layerRegistry.reorder(2, 1);
       m.saveOrder();
-      m.persistence.flushAll();
 
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
-        .data as {
-        order: string[] | null;
-      };
-      expect(record.order).toEqual(["fg", "foliplus_color_map", "tile"]);
+      const stored = readOrderTreeStorage(map)!;
+      const rootIds = Object.entries(stored.nodes as Record<string, any>)
+        .filter(([, n]) => n.parent === null && n.kind === "layer")
+        .sort((a, b) => (a[1].rank as string).localeCompare(b[1].rank as string))
+        .map(([k]) => k.replace(/^layer:/, ""));
+      expect(rootIds).toEqual(["fg", "foliplus_color_map", "tile"]);
 
       // Reload, the way a real page does it: the color basemap is not part of
       // the author's data — LayerControl re-creates it through registerLayer
@@ -478,13 +475,15 @@ describe("LayerController", () => {
       expect(m.forgetSavedOrder("never")).toBe(false);
     });
 
-    it("returns false when savedOrder is null (fresh page)", () => {
+    it("returns false when nothing was saved (fresh page)", () => {
+      // A fresh page has only the default doc, not a saved slot: an id that was
+      // never declared has no node at all, so forget says so rather than
+      // pretending it dropped a position.
       const m = new LayerController(map, [{ id: "A", name: "A", role: "overlay" }]);
-      expect((m as any).order.savedOrder).toBeNull();
-      expect(m.forgetSavedOrder("A")).toBe(false);
+      expect(m.forgetSavedOrder("Z")).toBe(false);
     });
 
-    it("does NOT add the id to removedIds — the layer stays registerable", () => {
+    it("does NOT retire the layer — it stays registerable", () => {
       seedOrderDoc(map, ["A", "H", "B"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
@@ -494,7 +493,8 @@ describe("LayerController", () => {
       m.unregisterLayer("H");
       m.forgetSavedOrder("H");
 
-      expect((m as any).order.removedIds.has("H")).toBe(false);
+      // The doc node is dropped (not hidden), so the layer is not retired.
+      expect((m as any).orderDoc.nodes["layer:H"]).toBeUndefined();
       // And a subsequent registration actually works:
       m.registerLayer({ id: "H", name: "H", role: "overlay" });
       expect(m.layerRegistry.has("H")).toBe(true);
@@ -584,8 +584,8 @@ describe("LayerController", () => {
         A: ["visible", "opacity"],
       });
       expect(save).toHaveBeenCalledTimes(1);
-      // A clear is not a delete: the id stays registerable.
-      expect((m as any).order.removedIds.has("H")).toBe(false);
+      // A clear is not a delete: the id stays registerable (no doc node, so
+      // nothing retires it).
       m.registerLayer({ id: "H", name: "H", role: "overlay" });
       expect(m.layerRegistry.has("H")).toBe(true);
     });
@@ -608,10 +608,10 @@ describe("LayerController", () => {
     });
 
     it("returns false when nothing was stored for the id", () => {
-      // No panel and no stored order — a clear of a layer the user never
-      // touched erases nothing, and must say so rather than throwing.
+      // No panel and no doc node — a clear of a layer the user never touched
+      // erases nothing, and must say so rather than throwing.
       const m = new LayerController(map, [{ id: "H", name: "H", role: "overlay" }]);
-      expect(m.dropPersistedLayerState("H")).toBe(false);
+      expect(m.dropPersistedLayerState("Z")).toBe(false);
     });
 
     it("persists the erase so a reload cannot resurrect the old tuning", () => {

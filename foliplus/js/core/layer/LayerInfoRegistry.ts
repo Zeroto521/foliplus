@@ -5,8 +5,7 @@ import {
   FOLDER_NAME_MAX,
   folderNameLength,
   folderNameTooLong,
-} from "./folderLayout.js";
-import { type ResolvedTree, orderProjectZ } from "./order.js";
+} from "./folderName.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { deriveLayerKind, findLayer } from "./util.js";
 import { safeSVG } from "#core/sanitize.js";

@@ -43,11 +43,6 @@ export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
   folderLayoutKey,
-  FOLDER_NAME_MAX,
-  normalizeFolderName,
-  folderDisplayName,
-  folderNameLength,
-  folderNameTooLong,
   emptyFolderLayout,
   ensureFolderLayout,
   createFolderLayoutManager,
@@ -76,44 +71,19 @@ export {
   moveLayerToRoot,
   dropLayer,
 } from "./folderLayout.js";
+export {
+  FOLDER_NAME_MAX,
+  normalizeFolderName,
+  folderDisplayName,
+  folderNameLength,
+  folderNameTooLong,
+} from "./folderName.js";
 export type {
   FolderLayout,
   FolderEntry,
   FolderMember,
   FolderLayoutManager,
 } from "./folderLayout.js";
-export {
-  ORDER_ROLES,
-  anchorOfNode,
-  isOrderShape,
-  orderAddBlock,
-  orderAddLeaf,
-  orderDefaultTree,
-  orderDeleteBlock,
-  orderDeleteEmptyBlocks,
-  orderDropLeaf,
-  orderHydrate,
-  orderLeafPosition,
-  orderMoveBlock,
-  orderMoveEntry,
-  orderProjectBlocks,
-  orderProjectLayout,
-  orderProjectRows,
-  orderProjectZ,
-  orderRenameBlock,
-  orderRoleOfLeaf,
-} from "./order.js";
-export type {
-  OrderTree,
-  BlockKind,
-  BlockMeta,
-  FolderNode,
-  GroupNode,
-  LayerNode,
-  MovePlacement,
-  OrderNode,
-  ResolvedTree,
-} from "./order.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -209,7 +179,6 @@ export {
   orderKeyOf,
   saveOrderDoc,
 } from "./layout/persist.js";
-export { LayerOrder } from "./LayerOrder.js";
 export {
   buildLayerSnapshot,
   extractMarkerFields,

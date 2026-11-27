@@ -5,8 +5,8 @@
 // default order, user moves, grouping and hiding are all projections of it. There is
 // no version field and no migrator: an unknown or incomplete shape fails isOrderDoc
 // and the caller falls back to the default document.
-import { isNonEmptyString } from "#core/order/util.js";
-import type { LayerRole } from "#core/layer/role.js";
+import { isNonEmptyString } from "./util.js";
+import type { LayerRole } from "#core/layer/index.js";
 
 export type OrderKind = "layer" | "folder" | "group";
 
@@ -32,7 +32,7 @@ export interface OrderDoc {
   nodes: Record<string, OrderNode>;
 }
 
-/** Maximum nesting depth: root -> block -> sub-block/leaf (design §4.3). */
+/** Maximum nesting depth: root -> block -> sub-block/leaf (design note: max nesting depth is 3: root → block → sub-block/leaf). */
 export const ORDER_MAX_DEPTH = 3;
 
 const KINDS: readonly OrderKind[] = ["layer", "folder", "group"];
@@ -127,7 +127,7 @@ export const isOrderDoc = (value: unknown): value is OrderDoc => {
 export const sanitizeOrderDoc = (value: unknown): OrderDoc | null => {
   if (!isOrderDoc(value)) return null;
   const doc: OrderDoc = { nodes: { ...value.nodes } };
-  // Drop nodes whose depth exceeds the cap (subtree drop, design §4.3).
+  // Drop nodes whose depth exceeds the cap (subtree drop; a parent that exceeds the cap carries its whole subtree with it).
   const drop = new Set<string>();
   for (const k of Object.keys(doc.nodes)) {
     if (orderDepth(doc, k) > ORDER_MAX_DEPTH) drop.add(k);

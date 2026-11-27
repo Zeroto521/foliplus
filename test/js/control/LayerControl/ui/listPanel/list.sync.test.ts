@@ -10,7 +10,7 @@ import {
 } from "./list.fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { type LayerInfo, ROLE } from "#core/layer/index.js";
+import { type LayerInfo, ROLE, orderKeyOf } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
 import { type LayerUI } from "#control/LayerControl/ui/index.js";
@@ -25,6 +25,17 @@ import {
 // Suite-level timeout: every case here builds a panel fixture, and jsdom
 // attach sweeps stretch past the default 5s when the whole suite's workers
 // compete for the machine.
+// The order doc's root-layer sequence (parent null) in rank order, read
+// from the order's own key; the record no longer carries an order field.
+const orderDocRoots = (map: any): string[] => {
+  const raw = window.localStorage.getItem(orderKeyOf(map));
+  if (!raw) return [];
+  const doc = JSON.parse(raw) as { nodes?: Record<string, any> };
+  return Object.entries(doc.nodes ?? {})
+    .filter(([, n]) => n.parent === null && n.kind === "layer")
+    .sort((a, b) => (a[1].rank as string).localeCompare(b[1].rank as string))
+    .map(([k]) => k.replace(/^layer:/, ""));
+};
 describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -199,7 +210,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
   });
 
   it("an up-then-down round restores the order and the persisted record", () => {
-    const { manager, ui } = initFixture({ data: benchData(5, 2) });
+    const { manager, ui, map } = initFixture({ data: benchData(5, 2) });
     const orderBefore = childKeys(ui);
     const registryBefore = manager.layers.map(l => l.id);
 
@@ -212,11 +223,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
     (
       manager as unknown as { persistence: { flushAll(): void } }
     ).persistence.flushAll();
-    const stored = JSON.parse(
-      window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}",
-    ) as { data?: { order?: string[] } };
-    expect(stored.data?.order).toEqual(manager.layers.map(l => l.id));
-    expect(stored.data?.order).toEqual(registryBefore);
+    expect(orderDocRoots(map)).toEqual(manager.layers.map(l => l.id));
+    expect(orderDocRoots(map)).toEqual(registryBefore);
   });
 
   it("brings an overlay to the panel head without rebuilding the rows", () => {
@@ -740,7 +748,7 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
 
     for (const { via, act, moved, order } of cases) {
       window.localStorage.clear();
-      const { manager, ui } = initFixture({
+      const { manager, ui, map } = initFixture({
         data: Array.from({ length: 4 }, (_, i) => ({
           id: `L${i}`,
           name: `L${i}`,
@@ -774,11 +782,8 @@ describe("ui/list syncRowOrder — incremental reorder", { timeout: 30_000 }, ()
       (
         manager as unknown as { persistence: { flushAll(): void } }
       ).persistence.flushAll();
-      const stored = JSON.parse(
-        window.localStorage.getItem(CONST.STORAGE.KEY) ?? "{}",
-      ) as { data?: { order?: string[] } };
       // The persisted snapshot is the full registry, color basemap included.
-      expect(stored.data?.order, via).toEqual(manager.layers.map(l => l.id));
+      expect(orderDocRoots(map), via).toEqual(manager.layers.map(l => l.id));
     }
   });
 

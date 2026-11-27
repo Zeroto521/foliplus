@@ -14,6 +14,7 @@ export {
   folderBareOf,
 } from "./doc.js";
 export type { OrderDoc, OrderKind, OrderNode } from "./doc.js";
+export { ALPHABET } from "./alphabet.js";
 export { rankAfter, rankBetween, rankFirst, rankStart } from "./rank.js";
 export {
   childrenOf,

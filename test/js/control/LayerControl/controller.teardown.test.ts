@@ -12,7 +12,7 @@ import {
 } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { LayerRuntimeStore, ROLE, getLayerAlpha } from "#core/layer/index.js";
+import { LayerRuntimeStore, ROLE, getLayerAlpha, orderKeyOf } from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
@@ -211,7 +211,7 @@ describe("LayerController", () => {
     // The delete's persistent effects and its fan-out all landed before the
     // map error surfaced: entry gone, id pruned as deleted, CHANGE owed.
     expect(manager.layerRegistry.has("A")).toBe(false);
-    expect((manager as any).order.removedIds.has("A")).toBe(true);
+    expect(((manager as any).orderDoc.nodes["layer:A"] as any)?.hidden).toBe(true);
     expect(changes).toContain("A");
   });
 
@@ -437,23 +437,24 @@ describe("LayerController", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("destroy flushes a pending order write instead of cancelling it", () => {
-    // persistence.destroy cancels the timer, so the UI's flush in unbindEvents
-    // must run first — otherwise the last reorder in the debounce window is lost.
+  it("saveOrder persists immediately to the order key (no pending debounce)", () => {
+    // saveOrder re-ranks the root blocks and writes the order doc through
+    // saveRecord right away; there is no debounced order write left for
+    // destroy to flush, so a reorder immediately before teardown survives.
     const m = new LayerController(map, [
       { id: "a", name: "A", role: "overlay" },
       { id: "b", name: "B", role: "overlay" },
     ]);
     m.persistence = new LayerPersistence();
-    const save = vi.spyOn(Storage, "saveVersionedObject");
+    const save = vi.spyOn(Storage, "saveRecord");
     m.saveOrder();
-    save.mockClear();
-    m.destroy();
-    expect(save).toHaveBeenCalledWith(CONST.STORAGE.KEY, {
-      version: expect.any(Number),
-      data: expect.objectContaining({ order: ["a", "b"] }),
-      name: expect.any(String),
-    });
+    expect(save).toHaveBeenCalledWith(orderKeyOf(map), expect.anything(), "LayerControl");
+    const doc = save.mock.calls[0]![1] as any;
+    const rootIds = Object.entries(doc.nodes as Record<string, any>)
+      .filter(([, n]) => n.parent === null && n.kind === "layer")
+      .sort((a, b) => (a[1].rank as string).localeCompare(b[1].rank as string))
+      .map(([k]) => k.replace(/^layer:/, ""));
+    expect(rootIds).toEqual(["a", "b"]);
   });
 
   it("destroy flushes a pending intent write instead of cancelling it", () => {

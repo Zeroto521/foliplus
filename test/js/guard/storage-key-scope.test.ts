@@ -20,11 +20,12 @@ import { describe, expect, it } from "vitest";
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus", "js");
 
-const SCOPED_CALL = /\b(?:scopedStorageKey|folderLayoutKey|filterStoreKey)\s*\(/;
+const SCOPED_CALL = /\b(?:scopedStorageKey|folderLayoutKey|filterStoreKey|orderKeyOf)\s*\(/;
 // A hand-rolled `foliplus_*_${map.getContainer().id}` template is NOT scoped: it
 // re-derives the key shape by hand instead of asking the single source, so a
 // suffix/separator typo silently creates a second record. Only the
-// scopedStorageKey call (and its two named wrappers) counts.
+// scopedStorageKey call (and its three named wrappers: folderLayoutKey,
+// filterStoreKey, orderKeyOf) counts.
 const IS_SCOPED_RHS = (rhs: string): boolean => SCOPED_CALL.test(rhs);
 
 /** Walk foliplus/js (skipping runtime/type) recursively. */

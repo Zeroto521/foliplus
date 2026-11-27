@@ -8,6 +8,7 @@ import { attachedPanel, initFixture } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import * as CONST from "#control/LayerControl/const.js";
+import { orderKeyOf } from "#core/layer/index.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 
 describe("LayerController", () => {
@@ -68,31 +69,25 @@ describe("LayerController", () => {
     expect(refresh).toHaveBeenCalledWith("g3");
   });
 
-  it("does not price a pane for a canvas whose id was deleted", () => {
-    // registerLayer refuses an id the user deleted and returns before inserting
-    // it, so slotOf has nothing to look up. preRegister still mounted the pane,
-    // and it must be left unpriced rather than given a slot that does not exist
-    // — and the path must not throw, since a late component can hold that id.
-    seedStorage({ removed: ["gone"] });
+  it("re-registering a user-deleted id restores it and prices the pane", () => {
+    // The delete is a hidden doc node (the reversible tombstone), not a
+    // refused id: re-registering the same id un-hides it, re-enters the
+    // registry, and prices the pane the component pre-mounted.
+    window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes: {
+      "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+    } }));
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
     const m2 = new LayerController(map, [
       { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
-    const warn = vi.fn();
-    vi.spyOn(console, "warn").mockImplementation(warn);
     try {
       const api = m2.createCanvas({ id: "gone" });
       expect(() => api.register()).not.toThrow();
-      expect(m2.layerRegistry.get("gone")).toBeUndefined();
-      // Mounted, but carrying the mock pane's untouched default z: nothing was
-      // written by the factory.
+      expect(m2.layerRegistry.has("gone")).toBe(true);
+      expect(((m2 as any).orderDoc.nodes["layer:gone"] as any)?.hidden).toBeUndefined();
       expect(api.canvas.parentElement).toBeTruthy();
-      expect(api.canvas.parentElement?.style.zIndex).toBe("0");
       api.destroy();
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining('registerLayer: refusing "gone"'),
-      );
     } finally {
       vi.restoreAllMocks();
     }
@@ -301,7 +296,11 @@ describe("LayerController", () => {
     // though the pricing pass threw.
     expect(save).toHaveBeenCalledTimes(1);
     expect(manager.layers[0].id).toBe("B");
-    expect((manager as any).order.savedOrder?.[0]).toBe("B");
+    const docRoots = Object.entries(((manager as any).orderDoc?.nodes ?? {}) as Record<string, any>)
+      .filter(([, n]) => n.parent === null && n.kind === "layer")
+      .sort((a, b) => (a[1].rank as string).localeCompare(b[1].rank as string))
+      .map(([k]) => k.replace(/^layer:/, ""));
+    expect(docRoots[0]).toBe("B");
     // The rows follow the committed arrangement too: a stale panel was the
     // visible half of the old failure path, and the row-order signal now
     // lands before the error surfaces.

@@ -18,7 +18,6 @@ import {
   type LayerInfo,
   type LayerInfoRegistry,
   type LayerMutation,
-  type LayerOrder,
   LayerSurface,
   NATIVE_PANE_Z_OFFSET,
   PANE_ROLE,
@@ -68,7 +67,6 @@ class LayerOrchestration {
   private layerRegistry: LayerInfoRegistry;
   private panes: PaneManager;
   private factory: LayerFactory;
-  private order: LayerOrder;
   private persistence: LayerPersistence;
   private label: LabelManager;
   private surfaceIndex: SurfaceIndex;
@@ -95,7 +93,6 @@ class LayerOrchestration {
     layerRegistry: LayerInfoRegistry;
     panes: PaneManager;
     factory: LayerFactory;
-    order: LayerOrder;
     persistence: LayerPersistence;
     label: LabelManager;
     surfaceIndex: SurfaceIndex;
@@ -108,7 +105,6 @@ class LayerOrchestration {
     this.layerRegistry = deps.layerRegistry;
     this.panes = deps.panes;
     this.factory = deps.factory;
-    this.order = deps.order;
     this.persistence = deps.persistence;
     this.label = deps.label;
     this.surfaceIndex = deps.surfaceIndex;
@@ -404,8 +400,16 @@ class LayerOrchestration {
       } else {
         this.layerRegistry.insertAt(layerInfo, firstBaseIdx);
       }
-      this.order.placeAtSavedSlot(layerInfo);
-    } else this.order.insertOverlayAt(layerInfo);
+      // The doc placement (controller.insertDeclaredLayer) + applyDoc's
+      // normalizeGroups re-derives the registry order from the doc; the old
+      // savedOrder string[] placement (placeAtSavedSlot / insertOverlayAt) is
+      // superseded and does not run here.
+    } else {
+      // A fresh overlay enters at the top of the overlay block (the old
+      // insertOverlayAt prepend); the doc placement + normalizeGroups then
+      // re-ranks it by the persisted doc if the user arranged it.
+      this.layerRegistry.prepend(layerInfo);
+    }
 
     // Report the committed entry through the factory's one-shot sink HERE, at
     // the registry write point and before anything below can throw. A token
@@ -502,18 +506,19 @@ class LayerOrchestration {
     id: string,
     opts: { clearName?: boolean } = {},
   ): {
-    orderDropped: boolean;
     intentDropped: boolean;
     nameCleared: boolean;
   } {
-    const orderDropped = this.order.forgetSavedOrder(id);
+    // The order slot is the doc node (suppressed on delete, dropped on clear)
+    // — the controller owns that and reports orderDropped itself; the old
+    // savedOrder string[] prune (LayerOrder.forgetSavedOrder) is gone.
     const intentDropped = this.intentStore.dropRow(id);
     let nameCleared = false;
     if (opts.clearName && this.intentStore.get(id, INTENT.NAME) != null) {
       this.intentStore.clearValue(id, INTENT.NAME);
       nameCleared = true;
     }
-    return { orderDropped, intentDropped, nameCleared };
+    return { intentDropped, nameCleared };
   }
 }
 

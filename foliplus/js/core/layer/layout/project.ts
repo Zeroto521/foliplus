@@ -2,13 +2,13 @@
 //
 // The engine (core/order/resolve) knows only node keys; here the leaf key
 // "layer:<id>" is resolved to a LayerInfo and rows/blocks are partitioned by role.
-// `z` is the DFS leaf flatten of a role (block does not change z semantics, §6).
+// `z` is the DFS leaf flatten of a role (block does not change z semantics).
 import type { LayerRole } from "../role.js";
 import type { FolderLayout } from "../folderLayout.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
-import type { OrderDoc } from "#core/order/doc.js";
-import { folderBareOf } from "#core/order/doc.js";
+import type { OrderDoc } from "#core/order/index.js";
+import { folderBareOf } from "#core/order/index.js";
 import {
 
   type BlockRow,
@@ -18,7 +18,7 @@ import {
   type ResolvedView,
   childrenOf,
   resolveView,
-} from "#core/order/resolve.js";
+} from "#core/order/index.js";
 
 /** The panel-facing folder key: the doc key without the \"folder:\" prefix. A
  *  folder's stable identity is the doc key; the panel and drag anchors use the
@@ -36,7 +36,7 @@ export type RoleOf = (id: string) => LayerRole | null;
  *
  *  `members` is DERIVED from the engine BlockRow.children leaf order (present-
  *  filtered, then looked up to LayerInfo) — never a separate registry sort, so
- *  rows and z stay the same source (design §6 single-source). */
+ *  rows and z stay the same source (design note: one single source). */
 export type ProjectedBlock =
   | {
       kind: "folder" | "group";
@@ -155,7 +155,7 @@ export const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
  *  `rows` is typed per role (OrderRow[]); `blocks` carries BlockRow.kind/depth
  *  with live LayerInfo `members`; `z` is the flat role ladder (overlays before
  *  base) that feeds registry.normalizeGroups. All three come from ONE resolveView
- *  call, so rows and z can never disagree (design §6 single-source). */
+ *  call, so rows and z can never disagree (design note: one single source). */
 export interface OrderView {
   rows: Record<LayerRole, OrderRow[]>;
   blocks: Record<LayerRole, ProjectedBlock[]>;

@@ -56,7 +56,7 @@ export const seedOrderDoc = (map: any, order: readonly string[]): void => {
   const nodes: Record<string, unknown> = {};
   let prev: string | null = null;
   for (const id of order) {
-    const rank = prev === null ? rankFirst() : rankBetween(prev, null);
+    const rank: string = prev === null ? rankFirst() : rankBetween(prev, null);
     nodes[`layer:${id}`] = { kind: "layer", parent: null, rank };
     prev = rank;
   }
