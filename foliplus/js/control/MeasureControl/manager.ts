@@ -48,7 +48,8 @@ import {
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
-import type { Logger } from "#platform/type.js";
+import { createTimers } from "#platform/timer.js";
+import type { Logger, Timers } from "#platform/type.js";
 import { PANEL_CLASS, placeSurface } from "#ui/index.js";
 
 /** Measurement types in toolbar order with the locale key of their tool name.
@@ -118,6 +119,10 @@ class MeasureManager {
   _: (key: string) => string;
   /** Logger bound to `config.name`, created once by the manager. */
   log: Logger;
+  /** The manager's timer owner: the circle finalize delay is named here, so a
+   *  destroyed manager drops a completion that would otherwise land on a map it
+   *  no longer owns. */
+  timers: Timers = createTimers();
   /** The factory-built environment this manager was constructed with. Modules
    *  that need the full env (export serialization) read it here rather than
    *  duck-typing the manager as a ControlEnv. */
@@ -1101,6 +1106,9 @@ class MeasureManager {
   destroy() {
     finalize(
       [
+        // Drop delayed work first: a finalize delay parked by a mode must not
+        // add a measurement to a map the manager is letting go of.
+        ["release-timers", () => this.timers.dispose()],
         ["off-mode-change", () => this.offModeChange?.()],
         ["off-layer-removed", () => this.offLayerRemoved?.()],
         ["off-layer-deleted", () => this.offLayerDeleted?.()],

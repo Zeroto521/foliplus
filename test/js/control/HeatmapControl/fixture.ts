@@ -6,6 +6,7 @@ import { vi } from "vitest";
 import { EVENTS, type ensureEvents } from "#core/event/index.js";
 import type { LayerFilter } from "#core/layer/index.js";
 import { createScopedTranslator, createTranslator } from "#platform/locale.js";
+import { createTimers } from "#platform/timer.js";
 import { HeatmapManager } from "#control/HeatmapControl/manager.js";
 import type { HeatmapControlUI } from "#control/HeatmapControl/ui.js";
 
@@ -174,6 +175,7 @@ function makeCtrl(
   (mgr.map as unknown as { foliplus?: unknown }).foliplus = window.map.foliplus;
   return {
     mgr,
+    timers: createTimers(),
     // The real control routes document-level listeners through its mounting
     // signal (BaseControl.on). The fixture has no signal, so it binds for
     // real and hands back the matching unbind — the outside-click tests

@@ -39,35 +39,35 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
 }> = [
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 283,
+    line: 284,
     call: "return refreshAllCounts(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 288,
+    line: 289,
     call: "return refreshTreeConnectors(this);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/index.ts",
-    line: 398,
+    line: 399,
     call: "return syncToggleAll(this, role);",
     reason:
       "the LayerUI method body delegates to the module function (the barrier's entry point)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 137,
+    line: 136,
     call: "refreshAllCounts(ui);",
     reason:
       "right after the synchronous attach sequence (replayStoredStateAll): the initial counts pass, not a structural change",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/lifecycle.ts",
-    line: 456,
+    line: 461,
     call: "syncToggleAll(ui, payload.role);",
     reason:
       "LAYER_ROLE_COUNT_CHANGED subscriber: the notification the barrier itself publishes — the downstream consumer of the same round trip",

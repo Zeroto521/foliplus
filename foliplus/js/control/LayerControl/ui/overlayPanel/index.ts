@@ -55,8 +55,6 @@ class OverlayPanel {
    *  or null. Per-UI on purpose: each control confirms and cancels only its own
    *  entry, so a second map's menu cannot cancel a pending delete here. */
   pendingDelete: PendingDelete | null = null;
-  /** The timeout that backs the pending entry out automatically. */
-  pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined;
   /** Currently visible attributes panel, or null. */
   activeAttrsPanel: {
     item: HTMLElement;

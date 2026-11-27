@@ -470,3 +470,28 @@ describe("manager.init — six-phase order and data flow", () => {
     expect(calls[2]).toBe("initEventSubscriptions");
   });
 });
+
+describe("initScan — the settle scan belongs to the control's timers", () => {
+  it("drops the settle scan when the timer owner is disposed", async () => {
+    vi.useFakeTimers();
+    try {
+      const { initScan } = await import("#control/HeatmapControl/ui.js");
+      const mgr = makeManager();
+      const ctrl = makeCtrl(mgr);
+
+      const cleanup = initScan(ctrl);
+
+      // The 0ms settle pass is the control's timer, not a bare setTimeout:
+      // disposing the owner drops it, so a removed control never re-enters
+      // scan() just to have its own done flag refuse the work.
+      expect(ctrl.timers.names()).toContain("settle-scan");
+      ctrl.timers.dispose();
+      expect(ctrl.timers.names()).toEqual([]);
+      vi.advanceTimersByTime(10);
+      expect(ctrl.timers.names()).toEqual([]);
+      cleanup();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

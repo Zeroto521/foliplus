@@ -27,6 +27,7 @@ import {
   onFullscreenSurfaceChange,
 } from "#platform/fullscreen.js";
 import { createLogger } from "#platform/log.js";
+import type { Timers } from "#platform/type.js";
 import {
   PANEL_CLASS,
   type SchemePicker,
@@ -41,6 +42,9 @@ const log = createLogger("HeatmapControl");
 
 /** Shape of the HeatmapControl instance as consumed by UI functions. */
 interface HeatmapControlUI {
+  /** The control's timer owner; the settle pass is named here so teardown can
+   *  drop it instead of re-entering scan(). */
+  timers: Timers;
   mgr: HeatmapManager;
   /** BaseControl.on — DOM listeners bound through the control's mounting
    *  signal, so a removed control tears them down with everything else. */
@@ -701,7 +705,7 @@ const initScan = (ctrl: HeatmapControlUI): (() => void) => {
   // before this subscription (e.g. LayerControl added before Heatmap) is
   // covered by the immediate pass below; the final pass here ends the
   // initial scan. No fixed delay — the attach stack is synchronous.
-  setTimeout(() => scan(true), 0);
+  ctrl.timers.timeout("settle-scan", () => scan(true), 0);
 
   scan(false);
 

@@ -50,10 +50,6 @@ const attachSearchDelIcon = (ctrl: SearchControlCtx, latlng: L.LatLngExpression)
 };
 
 const removePanel = (ctrl: SearchControlCtx) => {
-  if (ctrl.throttleTimer) {
-    clearTimeout(ctrl.throttleTimer);
-    ctrl.throttleTimer = null;
-  }
   if (ctrl.panelFloating) {
     ctrl.panelFloating.release();
     ctrl.panelFloating = null;

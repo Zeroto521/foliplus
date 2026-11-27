@@ -19,6 +19,8 @@ import type { Debounced } from "#platform/debounce.js";
 import { createIconButton, dom } from "#platform/dom.js";
 import type { Floating } from "#platform/floating.js";
 import * as Icons from "#platform/icon.js";
+import { createTimers } from "#platform/timer.js";
+import type { Timers } from "#platform/type.js";
 import { FORM_CLASS, PANEL_CLASS, closeButton } from "#ui/index.js";
 
 class SearchControl extends defineControl({
@@ -50,7 +52,9 @@ class SearchControl extends defineControl({
   declare panelFloating: Floating | null;
   declare selectedIdx: number;
   declare lastSuggestFetch: number;
-  declare throttleTimer: ReturnType<typeof setTimeout> | null;
+  /** The control's timer owner: the throttled suggestion retry is named here
+   *  and released by the control's teardown. */
+  declare timers: Timers;
   declare suggestSeq: number;
   declare currentItems: ResultItem[];
   /** Belt: open this panel closes the open siblings of its exclusive group. */
@@ -141,7 +145,7 @@ class SearchControl extends defineControl({
     this.panelFloating = null;
     this.selectedIdx = -1;
     this.lastSuggestFetch = 0;
-    this.throttleTimer = null;
+    this.timers = createTimers();
     this.cachedSuggestions = new Cache<string, SuggestItem[]>(
       AUTOCOMPLETE.CACHE_MAX,
       AUTOCOMPLETE.CACHE_TTL_MS,

@@ -552,7 +552,8 @@ const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
   label.textContent = ui.T(confirmKey);
   menuItem.classList.add(CONST.CLASSES.MENU_DELETE_PENDING);
   menuItem.setAttribute("title", ui.T(confirmKey));
-  ui.overlayPanel.pendingDeleteTimer = setTimeout(
+  ui.timers.timeout(
+    "delete-confirm",
     () => disconfirmDelete(ui),
     DELETE_CONFIRM_TIMEOUT_MS,
   );
@@ -562,9 +563,9 @@ const confirmDelete = (ui: LayerUI, menuItem: HTMLElement): void => {
  *  called on every path that closes the menu so an abandoned attempt never
  *  leaves a pending entry behind. Scoped to the ui that opened it. */
 const disconfirmDelete = (ui: LayerUI): void => {
-  const timer = ui.overlayPanel.pendingDeleteTimer;
-  if (timer) clearTimeout(timer);
-  ui.overlayPanel.pendingDeleteTimer = undefined;
+  // Idempotent on purpose: the panel's teardown disposes the owner, so a
+  // release after that is a no-op rather than a second clear path.
+  ui.timers.clear("delete-confirm");
   const pending = ui.overlayPanel.pendingDelete;
   if (!pending) return;
   pending.label.textContent = pending.idleText;
