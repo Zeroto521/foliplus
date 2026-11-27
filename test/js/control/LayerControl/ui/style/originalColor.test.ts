@@ -94,6 +94,16 @@ describe("originalGradient", () => {
     );
   });
 
+  it("ranks a 4-digit #rgba stop by its rgb channels", () => {
+    // The extended hex form the shared parser leaves to this module: #f00f
+    // expands to #ff0000 (red) and #00f8 to #0000ff (blue), so the alpha
+    // nibbles do not move either hue and the pair orders red → blue. The
+    // colors themselves stay verbatim — the bar never rewrites an author stop.
+    expect(originalGradient(["#00f8", "#f00f"])).toBe(
+      "linear-gradient(90deg, #f00f 0.00%, #00f8 100.00%)",
+    );
+  });
+
   it("caps a long discovery-order variant at MAX_STOPS", () => {
     const stops = Array.from({ length: 30 }, (_, index) => {
       const channel = Math.round((index / 29) * 255)
