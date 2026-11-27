@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal
 
 from foliplus._config_schema import FieldSpec
 from foliplus._declaration import (
+    NumberFormat,
     normalise_folder,
     normalise_zoom_range,
     normalize_declared_filter,
@@ -16,7 +17,9 @@ from foliplus.locale import LocaleConfig
 METHOD = Literal["jenks", "quantile", "equal", "heads"]
 AGG = Literal["count", "sum", "avg", "min", "max"]
 LABEL_FORMAT = Annotated[
-    Literal["auto", "int", "comma", "percent"],
+    # The alias, not a second literal list: the generated NumberStyle union is
+    # derived from _declaration.label.NumberFormat.
+    NumberFormat,
     FieldSpec(name="NumberStyle", note="Number format for hexagon value labels."),
 ]
 

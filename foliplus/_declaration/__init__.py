@@ -39,7 +39,7 @@ from .key import (
     OPACITY_KEY,
     ZOOM_RANGE_KEY,
 )
-from .label import NUMBER_FORMATS, normalise_label
+from .label import NUMBER_FORMATS, NumberFormat, normalise_label
 from .marker import normalise_icon_size, normalise_marker_color
 from .opacity import normalise_color_opacity, normalise_opacity
 from .paint import (
@@ -81,6 +81,7 @@ __all__ = [
     "PACKAGE_DIR",
     "ZOOM_RANGE_KEY",
     "FilterKind",
+    "NumberFormat",
     "caller_stacklevel",
     "enum_atom",
     "foliplus_reports",

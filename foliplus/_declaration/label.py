@@ -28,15 +28,24 @@ from __future__ import annotations
 import math
 import numbers
 from collections.abc import Mapping
+from typing import Literal, get_args
 
 from .key import LABEL_KEY
 from .paint import _declared_hex
 from .warning import warn_foliplus
 
-#: The number formats a declared format may name. Mirrors NUMBER_FORMAT in
-#: foliplus/js/platform/format.ts, the source of the NumberStyle union the
-#: generated config schema carries - keep the two in step.
-NUMBER_FORMATS = ("auto", "int", "comma", "percent")
+#: The number formats a declared format may name: the one Python declaration of
+#: the vocabulary. HeatmapControl.LABEL_FORMAT wraps this alias, so the
+#: NumberStyle union in the generated foliplus/js/config-schema.ts is derived
+#: from this literal rather than hand-copied a fourth time; the JS presets in
+#: foliplus/js/platform/format.ts are pinned to it by
+#: test/js/guard/number-format-sync.test.ts.
+NumberFormat = Literal["auto", "int", "comma", "percent"]
+
+#: The same vocabulary as a runtime tuple, for shape descriptors that need
+#: values rather than a type (LayerData.label.format in LayerControl/_spec.py).
+#: Order is the order the format dropdown and the warning messages render.
+NUMBER_FORMATS: tuple[str, ...] = get_args(NumberFormat)
 
 #: The label font-size bounds in px. Mirrors LABEL_SIZE in
 #: foliplus/js/ui/form.ts (the style panel's number input and the shared
