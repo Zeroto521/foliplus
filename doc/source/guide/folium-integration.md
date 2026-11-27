@@ -4,9 +4,10 @@ foliplus is a *layer* of {class}`~foliplus.LayerControl` on top of folium: the
 map, the layers and the Leaflet runtime are all folium's. foliplus does not
 re-bundle Leaflet, does not ship a map, and does not re-export folium — you
 build a normal folium map and add the foliplus controls to it. This page is the
-boundary contract: which folium features the panel reads honestly, which ones
-have a documented limit, and which third-party plugins foliplus does not
-integrate.
+integration guide: the supported layer families, the folium version
+relationship, group rows and the plugin surface. The parameter-level contract —
+which folium channels the panel reads and which parameters it ignores — is on
+{doc}`folium-parameter-boundary`.
 
 ```python
 import folium
@@ -63,19 +64,20 @@ channels:
 |--------|-----------------|----------|
 | the panel's own pick (user) | any hex via the style swatch | highest |
 | the author's `Icon(color=...)` | a preset name or (folium `>=1.0.0`) a hex | middle |
-| the `foliplus={"marker_color": ...}` declaration | the 19 preset names only | lowest |
+| the `foliplus={"marker_color": ...}` declaration | a preset name or a CSS hex | lowest |
 
 So a `marker_color` declaration is a **read-time default** the panel's Reset
 returns to: the author's own `Icon(color=...)` wins over it, and a user's
-panel pick wins over both. A hex colour the author wants must go through
-folium's native `Icon(color="#00A6A6")` — `marker_color` only ever accepts
-the 19 preset names and never validates a hex.
+panel pick wins over both. A hex colour can also be declared directly:
+`marker_color` accepts the 19 preset names or a CSS hex (`#rgb` /
+`#rrggbb`), and a hex outside the preset palette paints the chassis
+directly.
 
 ```python
 # the author's own chassis (preset name or, >=1.0.0, a hex) — wins over a marker_color default
 gdf.explore(icon=folium.Icon(color="#00A6A6"))
 
-# a read-time default, the 19 preset names only — lowest priority
+# a read-time default (a preset name or a CSS hex) — lowest priority
 gdf.explore(foliplus={"marker_color": "cadetblue"})
 ```
 
