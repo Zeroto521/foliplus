@@ -15,8 +15,9 @@ import { describe, expect, it } from "vitest";
 // fails when one is forgotten. core/ is fully registered and mandatory too: its
 // headers used to be registry-optional, so ten of them named a path that does
 // not exist ("core/<Name>", "core/events/<Name>") and stayed invisible until the
-// whole tree was registered. control/ is still checked only when registered
-// (it is large and still converging).
+// whole tree was registered. control/ modules get a header-presence assertion
+// across the whole tier and the canonical path form when registered (the tier
+// is still converging to the canonical shape).
 //
 // Why a registry and not git diff: CI checks out a shallow history (fetch-depth
 // 1), so `git diff base...HEAD` cannot see which files are new. The registry is
@@ -254,5 +255,103 @@ describe("script/ headers follow the canonical form", () => {
     expect(scriptHeaderProblem("// script/check/x — \n", "script/check/x")).toMatch(
       /no description/,
     );
+  });
+});
+
+// ── control/ module headers ─────────────────────────────────────────────────
+//
+// control/ is the last tier without exact-path enforcement. Its modules already
+// carry descriptive headers in a local house style ("// LayerControl UI — ..."),
+// so the canonical path form is checked for the files the registry lists, and a
+// module is registered as it is converged. What is enforced for the whole tier
+// is header PRESENCE: every non-barrel module opens with a "// ..." comment, so
+// a new control module cannot arrive as a bare import block with nothing to
+// orient a reader.
+//
+// FOREIGN_HEADER_OWNERS is a burn-down list, not an allow-list: those modules
+// are being rewritten by the LayerControl order work (#1402), which owns their
+// headers. The stale-entry assertion below fails as soon as one of them gains a
+// header, so its entry must be deleted in the PR that fixes it.
+
+const CONTROL_DIR = resolve(JS_DIR, "control");
+
+/** Modules whose header is owned by another in-flight change (#1402). */
+const FOREIGN_HEADER_OWNERS: Record<string, string> = {
+  "control/LayerControl/controller": "#1402 (LayerControl order work)",
+  "control/LayerControl/persistence": "#1402 (LayerControl order work)",
+};
+
+/** Every non-barrel module under control/, as control/-prefixed rel paths. */
+function controlModules(): string[] {
+  const found: string[] = [];
+  const walk = (dir: string, prefix: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        walk(join(dir, entry.name), `${prefix}${entry.name}/`);
+        continue;
+      }
+      if (!entry.name.endsWith(".ts") || entry.name === "index.ts") continue;
+      found.push(prefix + entry.name.replace(/\.ts$/, ""));
+    }
+  };
+  walk(CONTROL_DIR, "control/");
+  return found.sort();
+}
+
+/** The header-presence problem with one module's text, or null. Pure over the
+ *  text so the code-first / empty / rule-line cases stay testable. */
+function controlHeaderProblem(text: string): string | null {
+  const first = (text.split(/\r?\n/)[0] ?? "").trimEnd();
+  if (!first.startsWith("//")) {
+    return `first line is not a header comment: ${JSON.stringify(first)}`;
+  }
+  const body = first.slice(2).trim();
+  if (body.length === 0) return "header comment is empty";
+  if (/^[=\-*#_]{4,}$/.test(body)) {
+    return `first line is a rule, not a header: ${JSON.stringify(first)}`;
+  }
+  return null;
+}
+
+describe("control/ module headers", () => {
+  it("every non-barrel control module opens with a header comment", () => {
+    const problems: string[] = [];
+    for (const rel of controlModules()) {
+      if (rel in FOREIGN_HEADER_OWNERS) continue;
+      const text = readFileSync(join(JS_DIR, `${rel}.ts`), "utf8");
+      const problem = controlHeaderProblem(text);
+      if (problem) problems.push(`${rel}: ${problem}`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("scans a non-vacuous tree (the walk cannot silently empty)", () => {
+    expect(controlModules().length).toBeGreaterThanOrEqual(100);
+  });
+
+  it("the foreign-owned list only names modules that still lack a header", () => {
+    const stale: string[] = [];
+    for (const rel of Object.keys(FOREIGN_HEADER_OWNERS)) {
+      const file = join(JS_DIR, `${rel}.ts`);
+      if (!isRegisteredPathAFile(file)) {
+        stale.push(`${rel}: no such module (stale entry)`);
+        continue;
+      }
+      if (controlHeaderProblem(readFileSync(file, "utf8")) === null) {
+        stale.push(`${rel}: now carries a header — drop it from FOREIGN_HEADER_OWNERS`);
+      }
+    }
+    expect(stale).toEqual([]);
+  });
+
+  it("rejects a code-first module, an empty comment and a rule-line banner", () => {
+    expect(
+      controlHeaderProblem("// control/LayerControl/ui — class shell.\n"),
+    ).toBeNull();
+    expect(controlHeaderProblem('import * as CONST from "./const.js";\n')).toMatch(
+      /not a header comment/,
+    );
+    expect(controlHeaderProblem("//\n")).toMatch(/header comment is empty/);
+    expect(controlHeaderProblem("// ============\n")).toMatch(/a rule, not a header/);
   });
 });
