@@ -22,6 +22,7 @@ import {
   projectRows,
   projectView,
   projectZ,
+  resolveOrderView,
 } from "#core/layer/layout/project.js";
 import type { LayerInfo } from "#core/layer/type.js";
 import type { OrderDoc } from "#core/order/doc.js";
@@ -52,7 +53,7 @@ describe("defaultDoc", () => {
       decl("b", "overlay", "Roads"),
       decl("c", "overlay", "Roads"),
     ]);
-    const fk = "folder:roads";
+    const fk = "folder:overlay:roads";
     expect(d.nodes[fk]).toMatchObject({ kind: "folder", parent: null, name: "Roads" });
     expect(d.nodes["layer:b"].parent).toBe(fk);
     expect(d.nodes["layer:c"].parent).toBe(fk);
@@ -134,14 +135,16 @@ describe("project", () => {
     expect(projectZ(doc, present, roleOf, "base")).toEqual(["b"]);
   });
 
-  it("projectRows keeps the role header and block rows in order", () => {
-    expect(projectRows(doc, present, roleOf, "overlay")).toEqual([
-      "role:overlay",
+  it("projectRows returns typed rows in DFS order (role header is a UI concern)", () => {
+    const rows = projectRows(doc, present, roleOf, "overlay");
+    expect(rows.map(r => r.key)).toEqual([
       "layer:a",
-      "folder:roads",
+      "folder:overlay:roads",
       "layer:x",
       "layer:y",
     ]);
+    expect(rows[0]).toMatchObject({ kind: "layer", depth: 1 });
+    expect(rows[1]).toMatchObject({ kind: "block", depth: 1, name: "Roads" });
   });
 
   it("projectBlocks returns folder blocks with live members + root layer rows", () => {
@@ -149,11 +152,11 @@ describe("project", () => {
     expect(blocks[0]).toMatchObject({ kind: "layer" });
     expect(blocks[1]).toMatchObject({
       kind: "folder",
-      key: "folder:roads",
+      key: "roads",
       name: "Roads",
     });
     if (blocks[1].kind === "folder")
-      expect(blocks[1].children.map(i => i.id)).toEqual(["x", "y"]);
+      expect(blocks[1].members.map(i => i.id)).toEqual(["x", "y"]);
   });
 
   it("projectView returns the engine rows/leaves/blocks (same-source I2)", () => {
@@ -172,9 +175,23 @@ describe("project", () => {
     expect(b?.kind).toBe("layer");
   });
 
+  it("resolveOrderView returns typed rows/blocks/z from one resolve (single source)", () => {
+    const view = resolveOrderView(doc, present, registry);
+    expect(view.z).toEqual(["a", "x", "y", "b"]);
+    expect(view.rows.overlay.map(r => r.key)).toEqual([
+      "layer:a",
+      "folder:overlay:roads",
+    ]);
+    expect(view.rows.overlay[1]).toMatchObject({ kind: "block", depth: 1 });
+    expect(view.rows.base.map(r => r.key)).toEqual(["layer:b"]);
+    const f = view.blocks.overlay.find(b => b.kind === "folder");
+    expect(f).toMatchObject({ kind: "folder", key: "roads", name: "Roads" });
+    if (f && f.kind === "folder") expect(f.members.map(i => i.id)).toEqual(["x", "y"]);
+  });
+
   it("childrenOfView returns the ordered children of a parent", () => {
-    expect(childrenOfView(doc, null).children).toContain("folder:roads");
-    expect(childrenOfView(doc, "folder:roads").children).toEqual([
+    expect(childrenOfView(doc, null).children).toContain("folder:overlay:roads");
+    expect(childrenOfView(doc, "folder:overlay:roads").children).toEqual([
       "layer:x",
       "layer:y",
     ]);
@@ -214,10 +231,10 @@ describe("persist", () => {
     const map = mapLike();
     const over: OrderDoc = {
       nodes: {
-        "folder:a": { kind: "folder", parent: null, rank: "a0", name: "A" },
-        "folder:b": { kind: "folder", parent: "folder:a", rank: "a0", name: "B" },
-        "folder:c": { kind: "folder", parent: "folder:b", rank: "a0", name: "C" },
-        "layer:x": { kind: "layer", parent: "folder:c", rank: "a0" },
+        "folder:overlay:a": { kind: "folder", parent: null, rank: "a0", name: "A", role: "overlay" },
+        "folder:overlay:b": { kind: "folder", parent: "folder:overlay:a", rank: "a0", name: "B", role: "overlay" },
+        "folder:overlay:c": { kind: "folder", parent: "folder:overlay:b", rank: "a0", name: "C", role: "overlay" },
+        "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
       },
     };
     window.localStorage.setItem(orderKeyOf(map), JSON.stringify(over));

@@ -6,6 +6,7 @@
 // no version field and no migrator: an unknown or incomplete shape fails isOrderDoc
 // and the caller falls back to the default document.
 import { isNonEmptyString } from "#core/order/util.js";
+import type { LayerRole } from "#core/layer/role.js";
 
 export type OrderKind = "layer" | "folder" | "group";
 
@@ -20,6 +21,10 @@ export interface OrderNode {
   name?: string;
   /** User-hidden (suppressed) layer marker; reversible. */
   hidden?: true;
+  /** The role a folder block belongs to. Required on folder nodes (an empty
+   *  folder must still render in a role segment and do role-aware duplicate
+   *  checks); forbidden on layer/group nodes, whose role is the registry's. */
+  role?: LayerRole;
 }
 
 /** The persisted layer-order document. */
@@ -35,6 +40,31 @@ const KINDS: readonly OrderKind[] = ["layer", "folder", "group"];
 /** An empty document (merge with defaults yields the default order). */
 export const emptyOrderDoc = (): OrderDoc => ({ nodes: {} });
 
+/** The doc key of a folder block: role-scoped so the same name can exist in
+ *  both roles (the old array model was per-role; the doc keeps that by keying
+ *  the role into the folder identity). */
+export const folderDocKey = (role: LayerRole, name: string): string =>
+  `folder:${role}:${name}`;
+
+/** The role encoded in a folder doc key, or null when the key is not a folder
+ *  block key (a layer key, a bare name, or a malformed folder key). */
+export const folderRoleOf = (key: string): LayerRole | null => {
+  if (!key.startsWith("folder:")) return null;
+  const rest = key.slice("folder:".length);
+  const sep = rest.indexOf(":");
+  if (sep < 0) return null;
+  const role = rest.slice(0, sep);
+  return role === "overlay" || role === "base" ? role : null;
+};
+
+/** The bare panel-facing name encoded in a folder doc key (\"folder:overlay:roads\"
+ *  → \"roads\"). Returns the input unchanged when it is not a folder doc key. */
+export const folderBareOf = (key: string): string => {
+  const role = folderRoleOf(key);
+  if (role === null) return key;
+  return key.slice("folder:".length + role.length + 1);
+};
+
 /** True when `value` is a syntactically valid node. */
 const isOrderNode = (value: unknown): value is OrderNode => {
   if (typeof value !== "object" || value === null) return false;
@@ -44,6 +74,12 @@ const isOrderNode = (value: unknown): value is OrderNode => {
   if (typeof v.rank !== "string" || v.rank.length === 0) return false;
   if (v.name !== undefined && typeof v.name !== "string") return false;
   if (v.hidden !== undefined && v.hidden !== true) return false;
+  const ROLE_VALUES: readonly string[] = ["overlay", "base"];
+  if (v.kind === "folder") {
+    if (typeof v.role !== "string" || !ROLE_VALUES.includes(v.role)) return false;
+  } else if (v.role !== undefined) {
+    return false;
+  }
   return true;
 };
 

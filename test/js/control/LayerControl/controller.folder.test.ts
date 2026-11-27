@@ -852,7 +852,7 @@ describe("renameFolder", () => {
     expect(window.localStorage.getItem(folderLayoutKey(manager.map))).toBeNull();
   });
 
-  it("renameFolder keeps the global duplicate predicate (P3-1): a cross-role name collision is refused", () => {
+  it("renameFolder allows a cross-role name collision (role-scoped keys)", () => {
     const { manager } = initFixture({
       seedOrderTree: orderFromRoles({ base: ["water"], overlay: ["roads"] }),
       data: [],
@@ -860,14 +860,13 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "roads", "Water");
 
-    // P3-1 conclusion: the duplicate predicate stays GLOBAL across roles (a
-    // name-keyed directory cannot hold two entries with the same name under
-    // different keys), so a cross-role collision is a refused duplicate, not a
-    // silently-allowed rename that would corrupt the directory.
-    expect(ok).toEqual({ ok: false, reason: "duplicate" });
+    // The doc keys a folder per role (folder:<role>:<name>), so the same name
+    // can live in both roles: a rename in overlay does not collide with the
+    // base folder of the same name.
+    expect(ok).toEqual({ ok: true });
   });
 
-  it("renameFolder rejects a new name held only by a live member in the other role — P3-1 live-member branch", () => {
+  it("renameFolder ignores a live member in the other role (role-scoped keys)", () => {
     const { manager } = initFixture({
       seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [
@@ -883,9 +882,8 @@ describe("renameFolder", () => {
 
     const ok = manager.renameFolder("overlay", "roads", "Water");
 
-    // The duplicate predicate is global, so a live member of the OTHER role
-    // makes the new name a duplicate even when the name-keyed directory has
-    // no such entry — the directory branch alone would miss this.
-    expect(ok).toEqual({ ok: false, reason: "duplicate" });
+    // A base live member of that name is a different role's folder, so it is
+    // not a duplicate for the overlay rename.
+    expect(ok).toEqual({ ok: true });
   });
 });

@@ -4,12 +4,13 @@ import {
   createLayerControllerFixture,
   makeStore,
   seedStorage,
+  seedOrderDoc,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { initFixture, makeDerivedUI } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { ROLE } from "#core/layer/index.js";
+import { ROLE, orderKeyOf } from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
@@ -133,7 +134,7 @@ describe("LayerController", () => {
   // is meant to read back.
   describe("saved-order replay", () => {
     it("places a late registration at its persisted position", () => {
-      seedStorage({ order: ["B", "H", "A"] });
+      seedOrderDoc(map, ["B", "H", "A"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "B", name: "B", role: "overlay" },
@@ -148,7 +149,7 @@ describe("LayerController", () => {
       // Nothing below H is registered, so the placement falls back to the end
       // of the group. That end must actually be the end — the layer is the
       // rightmost of the layers that exist, not the topmost.
-      seedStorage({ order: ["B", "A", "H"] });
+      seedOrderDoc(map, ["B", "A", "H"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "B", name: "B", role: "overlay" },
@@ -163,7 +164,7 @@ describe("LayerController", () => {
       // G sits between X and Y in the stored order but is not registered, so it
       // cannot be located. The walk keeps going past the gap instead of stopping
       // there and leaving X where prepend put it.
-      seedStorage({ order: ["X", "G", "Y"] });
+      seedOrderDoc(map, ["X", "G", "Y"]);
       const m = new LayerController(map, [{ id: "Y", name: "Y", role: "overlay" }]);
 
       m.registerLayer({ id: "X", name: "X", role: "overlay" });
@@ -175,7 +176,7 @@ describe("LayerController", () => {
       // The drag moved A under B without a flush landing yet. A is now below its
       // own saved neighbor, which is the case where the target index is not the
       // neighbor's shifted-down index.
-      seedStorage({ order: ["A", "B"] });
+      seedOrderDoc(map, ["A", "B"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "B", name: "B", role: "overlay" },
@@ -189,7 +190,7 @@ describe("LayerController", () => {
     });
 
     it("leaves the registry alone for an id that is not registered", () => {
-      seedStorage({ order: ["A"] });
+      seedOrderDoc(map, ["A"]);
       const m = new LayerController(map, [{ id: "A", name: "A", role: "overlay" }]);
 
       expect(() => m.replaySavedOrder("ghost")).not.toThrow();
@@ -200,7 +201,7 @@ describe("LayerController", () => {
       // D arrived this session, so the record has no rank for it. The sweep
       // sorts the ranked ids by rank and leaves the unranked ones in their own
       // relative order at the bottom.
-      seedStorage({ order: ["D"] });
+      seedOrderDoc(map, ["D"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "B", name: "B", role: "overlay" },
@@ -246,7 +247,7 @@ describe("LayerController", () => {
       // ordinary layer with zero privileges, so its slot lands on disk like
       // any other layer's — a late registration that is not on the map yet
       // does not: the snapshot is what was on screen.
-      seedStorage({ order: ["fg", "tile"] });
+      seedOrderDoc(map, ["fg", "tile"]);
       const m = new LayerController(map, [
         { id: "fg", name: "FG", role: "overlay" },
         { id: "tile", name: "Tile", role: "base" },
@@ -324,7 +325,7 @@ describe("LayerController", () => {
       // group-local: a base layer with no registered saved neighbor below it
       // lands at the end of the base block (the registry end), not at the end
       // of the overlay block — the overlay-before-base invariant holds.
-      seedStorage({ order: ["fg", "baseA", "baseB"] });
+      seedOrderDoc(map, ["fg", "baseA", "baseB"]);
       const m = new LayerController(map, [{ id: "fg", name: "FG", role: "overlay" }]);
       m.registerLayer({ id: "baseA", name: "A", role: "base" });
 
@@ -422,10 +423,10 @@ describe("LayerController", () => {
   // with deleteLayer: forgetSavedOrder filters savedOrder only; it must never
   // touch removedIds, otherwise a cleared layer could not be re-registered.
   describe("forgetSavedOrder", () => {
-    it("drops the id from savedOrder and persists the change", () => {
+    it("drops the id from the order doc and persists the change", () => {
       // Component clears always unregister the layer before calling this —
-      // saveOrder would otherwise re-insert an id that is still live.
-      seedStorage({ order: ["A", "H", "B", "C"] });
+      // the doc would otherwise re-insert an id that is still live.
+      seedOrderDoc(map, ["A", "H", "B", "C"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "H", name: "H", role: "overlay" },
@@ -435,11 +436,18 @@ describe("LayerController", () => {
       m.unregisterLayer("H");
 
       expect(m.forgetSavedOrder("H")).toBe(true);
-      expect((m as any).order.savedOrder).toEqual(["A", "B", "C"]);
+      // The tree is the single order source: the node is gone, the neighbours
+      // keep their ranks.
+      expect((m as any).orderDoc.nodes["layer:H"]).toBeUndefined();
+      expect(Object.keys((m as any).orderDoc.nodes)).toEqual([
+        "layer:A",
+        "layer:B",
+        "layer:C",
+      ]);
     });
 
     it("persists the pruned order so a reload does not resurrect the old slot", () => {
-      seedStorage({ order: ["A", "H", "B"] });
+      seedOrderDoc(map, ["A", "H", "B"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "H", name: "H", role: "overlay" },
@@ -449,15 +457,20 @@ describe("LayerController", () => {
       m.forgetSavedOrder("H");
       m.persistence.flushAll();
 
-      const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!)
-        .data as {
-        order: string[] | null;
-      };
-      expect(record.order).toEqual(["A", "B"]);
+      // The layer_order document no longer ranks H, so a reload builds the
+      // default from the remaining declarations and H is not resurrected.
+      const doc = JSON.parse(
+        window.localStorage.getItem(
+          orderKeyOf(map),
+        )!,
+      ) as { nodes: Record<string, unknown> };
+      expect(doc.nodes["layer:H"]).toBeUndefined();
+      expect(doc.nodes["layer:A"]).toBeDefined();
+      expect(doc.nodes["layer:B"]).toBeDefined();
     });
 
     it("returns false for an id that is not in savedOrder", () => {
-      seedStorage({ order: ["A", "B"] });
+      seedOrderDoc(map, ["A", "B"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "B", name: "B", role: "overlay" },
@@ -472,7 +485,7 @@ describe("LayerController", () => {
     });
 
     it("does NOT add the id to removedIds — the layer stays registerable", () => {
-      seedStorage({ order: ["A", "H", "B"] });
+      seedOrderDoc(map, ["A", "H", "B"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "H", name: "H", role: "overlay" },
@@ -491,7 +504,7 @@ describe("LayerController", () => {
       // Without forgetSavedOrder the re-registration would land back at index 1
       // (below A). With it, insertOverlayAt's prepend branch wins because the
       // id has no stored rank anymore.
-      seedStorage({ order: ["A", "H", "B"] });
+      seedOrderDoc(map, ["A", "H", "B"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "H", name: "H", role: "overlay" },
@@ -508,7 +521,7 @@ describe("LayerController", () => {
       // A clear must not disturb the layers around it: forget only removes the
       // one id and leaves the rest in their saved positions, which replay on
       // the next construction.
-      seedStorage({ order: ["A", "H", "B", "C"] });
+      seedOrderDoc(map, ["A", "H", "B", "C"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "H", name: "H", role: "overlay" },
@@ -578,7 +591,7 @@ describe("LayerController", () => {
     });
 
     it("drops the stored order slot too, so a redraw lands at the top", () => {
-      seedStorage({ order: ["A", "H", "B"] });
+      seedOrderDoc(map, ["A", "H", "B"]);
       const m = new LayerController(map, [
         { id: "A", name: "A", role: "overlay" },
         { id: "H", name: "H", role: "overlay" },
@@ -588,7 +601,8 @@ describe("LayerController", () => {
 
       expect(m.dropPersistedLayerState("H")).toBe(true);
 
-      expect((m as any).order.savedOrder).toEqual(["A", "B"]);
+      // The doc node is gone (the tree is the single order source).
+      expect((m as any).orderDoc.nodes["layer:H"]).toBeUndefined();
       m.registerLayer({ id: "H", name: "H", role: "overlay" });
       expect(m.layers.map(l => l.id)).toEqual(["H", "A", "B"]);
     });

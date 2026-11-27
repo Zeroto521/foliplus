@@ -544,14 +544,14 @@ class LayerInfoRegistry {
     this.refreshFirstBaseIdx();
   }
 
-  /** Reorder so the registry's z axis is the tree's projection (`orderProjectZ`):
-   *  overlay before base, each role's folder order + members + root layers in
-   *  the tree's order. The tree is the single order source — the grouping only
-   *  reorders what is shown, never the registry's index axis. */
-  normalizeGroups(resolved: ResolvedTree) {
-    const order = orderProjectZ(resolved);
-    const orderSet = new Set(order);
-    const display = order
+  /** Reorder so the registry's z axis is the flat role ladder (`z`, overlays
+   *  before bases): each role's folder order + members + root layers in the
+   *  doc's leaf order. The doc is the single order source — the grouping only
+   *  reorders what is shown, never the registry's index axis. Ids absent from
+   *  `z` (a dormant/tombstone layer) stay at the tail in their current order. */
+  normalizeGroups(z: string[]) {
+    const orderSet = new Set(z);
+    const display = z
       .map(id => this.byId.get(id))
       .filter((info): info is LayerInfo => info !== undefined)
       .concat(this.items.filter(info => !orderSet.has(info.id)));
