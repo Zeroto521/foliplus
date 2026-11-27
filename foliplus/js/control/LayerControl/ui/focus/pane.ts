@@ -1,6 +1,6 @@
 // Focus-layer pane bookkeeping: hide every other visible layer while a focus
 // is live, lift the focused layer above its peers, and undo both on dismiss.
-import { basePaints } from "../listPanel/visibility.js";
+import { paintsNow } from "../paintObservation.js";
 import { projectLayer } from "../projection.js";
 import type { LayerUI } from "../surface.js";
 import {
@@ -47,7 +47,7 @@ const hideOtherLayers = (ui: LayerUI): void => {
     // the author's zoom range and transparency are physical facts focus
     // must not override — a base outside its own min/max zoom paints
     // nothing even while focused, so it cannot be the "active basemap".
-    if (!proj.effectiveShown || !basePaints(ui, li)) continue;
+    if (!proj.effectiveShown || !paintsNow(ui, li)) continue;
     const surface = ui.c.surfaceFor(li);
     if (!surface) continue;
     for (const pane of surface.panes) {

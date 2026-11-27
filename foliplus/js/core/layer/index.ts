@@ -158,6 +158,16 @@ export {
   probeLayerCarrier,
 } from "./capability.js";
 export { readLayerPaint, readLeafPaints } from "./paint.js";
+export {
+  PAINT_CHANNELS,
+  observePaint,
+  resolvePaintOpacity,
+} from "./paintObservation.js";
+export type {
+  PaintChannel,
+  PaintObservation,
+  PaintSource,
+} from "./paintObservation.js";
 export type { LayerPaint, LeafPaint, PaintFace } from "./paint.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./capability.js";

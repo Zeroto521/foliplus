@@ -50,6 +50,7 @@
   "core/layer/hitTarget",
   "core/layer/intent",
   "core/layer/paint",
+  "core/layer/paintObservation",
   "core/layer/role",
   "core/layer/snapshot",
   "core/layer/traverse",

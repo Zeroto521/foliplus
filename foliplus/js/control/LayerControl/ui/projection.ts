@@ -11,7 +11,7 @@
 import type { Projection } from "../type.js";
 import { INTENT, getIntent } from "./intent.js";
 import type { LayerUI } from "./surface.js";
-import type { AuthorZoomRange } from "#core/layer/index.js";
+import { type AuthorZoomRange, resolvePaintOpacity } from "#core/layer/index.js";
 import {
   intersectsMapZoom,
   isZoomRange,
@@ -196,17 +196,18 @@ function currentOpacity(
   ui: LayerUI,
   layerInfo: LayerInfo | undefined,
 ): number | undefined {
-  return layerInfo
-    ? ui.focusController.focusingLayerId === layerInfo.id
-      ? 1
-      : (getIntent(ui, layerInfo.id, INTENT.OPACITY) ??
-        readDeclaredOpacity(
-          layerInfo.layer ?? ui.c.findLayer?.(layerInfo.id),
-          layerInfo.id,
-        ).declared ??
-        layerInfo.opacity ??
-        1)
-    : undefined;
+  if (!layerInfo) return undefined;
+  const focused = ui.focusController.focusingLayerId === layerInfo.id;
+  return resolvePaintOpacity({
+    focused,
+    intent: getIntent(ui, layerInfo.id, INTENT.OPACITY),
+    declared: () =>
+      readDeclaredOpacity(
+        layerInfo.layer ?? ui.c.findLayer?.(layerInfo.id),
+        layerInfo.id,
+      ).declared,
+    authorDefault: layerInfo.opacity,
+  });
 }
 
 /** Build one layer's projection from the persisted intent and the current
