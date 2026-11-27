@@ -7,11 +7,19 @@ import {
   applyProjectionAll,
   notifyDeltas,
 } from "../apply.js";
+import { getIntent } from "../intent.js";
 import { currentOpacity, intentVisibleOf } from "../projection.js";
 import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell, countTooltip, writeRoleCount } from "./rowView.js";
-import { ROLE, folderOf, paintProjection, paintsAtZoom } from "#core/layer/index.js";
+import {
+  type FolderLayout,
+  INTENT,
+  ROLE,
+  folderOf,
+  paintProjection,
+  paintsAtZoom,
+} from "#core/layer/index.js";
 import { setCheckboxState, triStateOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -317,42 +325,146 @@ const applyVisibility = (ui: LayerUI, id: string, visible: boolean): boolean => 
   return true;
 };
 
-/** One role's visibility aggregates: the role total plus a per-folder map.
- *  Produced once per reconcile point and threaded down to every consumer
- *  (role header, folder rows) so a single click
- *  never recomputes the same table. */
+/** One role's visibility aggregates: the role total plus a per-folder map. */
 type RoleAggregates = {
   total: number;
   on: number;
   folders: Map<string, { total: number; on: number }>;
 };
 
-/** One role's visibility aggregates in a single pass: the role total plus a
- *  per-folder map. Every group row of the role — the header and each folder
- *  header — reads this one table, so a click repaints F rows for O(L) work
- *  instead of F scans of L layers. The folder row's checkbox and count come
- *  from the same entry, so a role count and a folder count can never disagree
- *  about a member. */
-const roleAggregates = (ui: LayerUI, role: string): RoleAggregates => {
-  const layout = ui.c.folderLayoutView;
-  const folders = new Map<string, { total: number; on: number }>();
-  let total = 0;
-  let on = 0;
-  for (const info of ui.c.layerRegistry.items) {
-    if (info.role !== role) continue;
-    total += 1;
-    const visible = intentVisibleOf(ui, info.id);
-    if (visible) on += 1;
-    const key = folderOf(layout, info);
-    if (!key) continue;
-    const agg = folders.get(key) ?? { total: 0, on: 0 };
-    agg.total += 1;
-    if (visible) agg.on += 1;
-    folders.set(key, agg);
-  }
-  return { total, on, folders };
+/** The panel state one role table is derived from, captured when it was
+ *  built. `layout` compares by IDENTITY: `FolderLayoutManager.layout` is
+ *  replaced — never mutated — by every folder write, so an identity match
+ *  proves no membership moved. `visibility` hashes every layer's resolved
+ *  visibility input — the explicit intent when there is one, the author
+ *  default otherwise — because both stores mutate in place and carry no
+ *  revision of their own. `folded` is the panel's fold opinion. The `epoch`
+ *  is the task window the cache lives in (see `aggregateCaches`). */
+type AggregateStamp = {
+  epoch: number;
+  layout: FolderLayout | undefined;
+  visibility: number;
+  folded: string;
 };
 
+type AggregateCache = {
+  stamp: AggregateStamp;
+  tables: Map<string, RoleAggregates>;
+};
+
+/** One table cache per LayerUI, keyed weakly so its lifetime IS the UI's:
+ *  two LayerControls on one page never share a count, and a torn-down control
+ *  leaves no entry behind. The module owns the weak map, not a table. */
+const aggregateCaches = new WeakMap<LayerUI, AggregateCache>();
+
+/** Monotonic cache window. A build schedules one bump on the next microtask,
+ *  i.e. after the current synchronous render pass, so a stamp recorded during
+ *  the pass stops matching once the task ends. Backstop for a mutation the
+ *  stamps cannot see; the stamps are what keep a same-task edit honest. */
+let aggregateEpoch = 0;
+
+const emptyAggregates = (): RoleAggregates => ({ total: 0, on: 0, folders: new Map() });
+
+/** Hash the visibility INPUT of every layer, not the resolved table: the
+ *  explicit intent when one exists, the author-declared default otherwise.
+ *  Both halves have to be read because `intentVisibleOf` prefers the first and
+ *  falls back to the second — the init pass re-seeds an author default after
+ *  the first table of the attach sweep was already built, and a cache that
+ *  watched only the intent store would serve that pre-seed count. The value
+ *  and the provenance marker travel together (every writer sets both), so the
+ *  value axis is the one to hash; a style-only intent is not read at all.
+ *  One cheap pass: two map reads per layer, no layout lookup and no Map
+ *  building, which is the work the cache exists to skip. */
+const visibilityHash = (ui: LayerUI): number => {
+  let hash = 0;
+  for (const info of ui.c.layerRegistry.items) {
+    const intent = getIntent(ui, info.id, INTENT.VISIBLE);
+    const visible =
+      intent !== undefined
+        ? intent
+        : (ui.runtimeStore?.getAuthorVisible(info.id) ?? true);
+    for (let i = 0; i < info.id.length; i++) {
+      hash = (Math.imul(hash, 31) + info.id.charCodeAt(i)) | 0;
+    }
+    hash = (Math.imul(hash, 31) + (visible ? 1 : 0)) | 0;
+  }
+  return hash;
+};
+
+/** The panel's fold opinion records, as a signature. Folding does not change
+ *  today's numbers, but it is part of the state the table is read against: a
+ *  fold repaints every group row of the role, and a table reused across that
+ *  repaint would be the first thing to go stale when the counts grow a
+ *  fold-dependent facet. Cost is O(roles + folders the user touched). */
+const foldSignature = (ui: LayerUI): string =>
+  [ui.listPanel?.foldedRoles, ui.listPanel?.foldedFolders]
+    .map(record =>
+      Object.keys(record ?? {})
+        .sort()
+        .map(key => `${key}=${record?.[key] ? "1" : "0"}`)
+        .join(","),
+    )
+    .join("/");
+
+const stampOf = (ui: LayerUI): AggregateStamp => ({
+  epoch: aggregateEpoch,
+  layout: ui.c.folderLayoutView,
+  visibility: visibilityHash(ui),
+  folded: foldSignature(ui),
+});
+
+const sameStamp = (a: AggregateStamp, b: AggregateStamp): boolean =>
+  a.epoch === b.epoch &&
+  a.layout === b.layout &&
+  a.visibility === b.visibility &&
+  a.folded === b.folded;
+
+/** Build every role's table in ONE pass over the registry: the role total
+ *  plus a per-folder map. Every group row of a role — the header and each
+ *  folder header — reads the same entry, so a click repaints F rows for O(L)
+ *  work instead of F scans of L layers, and a role count and a folder count
+ *  can never disagree about a member. */
+const buildRoleTables = (ui: LayerUI): Map<string, RoleAggregates> => {
+  const layout = ui.c.folderLayoutView;
+  const tables = new Map<string, RoleAggregates>();
+  for (const info of ui.c.layerRegistry.items) {
+    let table = tables.get(info.role);
+    if (!table) {
+      table = { total: 0, on: 0, folders: new Map() };
+      tables.set(info.role, table);
+    }
+    table.total += 1;
+    const visible = intentVisibleOf(ui, info.id);
+    if (visible) table.on += 1;
+    const key = folderOf(layout, info);
+    if (!key) continue;
+    const agg = table.folders.get(key) ?? { total: 0, on: 0 };
+    agg.total += 1;
+    if (visible) agg.on += 1;
+    table.folders.set(key, agg);
+  }
+  return tables;
+};
+
+/** One role's visibility aggregates, derived from the cached table when the
+ *  panel state that produced it still matches. Invalidation is the stamp
+ *  comparison: a folder move or rename (layout identity), any change to a
+ *  layer's visibility input — user intent or author default — (the hash), a
+ *  fold opinion change (the fold signature), and at most one rebuild per
+ *  synchronous task (the epoch). Semantics are unchanged: the same fold over
+ *  the same registry with the same `intentVisibleOf` / `folderOf` reads. */
+const roleAggregates = (ui: LayerUI, role: string): RoleAggregates => {
+  const stamp = stampOf(ui);
+  let cache = aggregateCaches.get(ui);
+  if (!cache || !sameStamp(cache.stamp, stamp)) {
+    cache = { stamp, tables: buildRoleTables(ui) };
+    aggregateCaches.set(ui, cache);
+    queueMicrotask(() => {
+      aggregateEpoch += 1;
+    });
+  }
+  return cache.tables.get(role) ?? emptyAggregates();
+};
 /** Set every live member of one folder visible/hidden. The same incremental
  *  path as toggleAll — one intent write per layer (persist=false), one
  *  projection apply, one row repaint — then one save and a reconcile of the
