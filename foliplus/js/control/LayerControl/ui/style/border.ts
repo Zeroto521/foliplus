@@ -45,7 +45,7 @@ import {
   resetIntentKeys,
   writeIntentKeys,
 } from "./registry.js";
-import { registerFaceReplay } from "./replay.js";
+import { createReplayGate, registerFaceReplay } from "./replay.js";
 import { applyValueStroke, resolveStrokeMode } from "./strokeValue.js";
 import {
   FACE,
@@ -1360,7 +1360,8 @@ const BORDER_DIMENSION = registerDimension<{
   },
 });
 
-const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+/** One attach-sweep paint per layer — see createReplayGate. */
+const declaredReplayGate = createReplayGate();
 
 /** Replay a layer's declared follow_fill border onto the map. A declaration
  *  is a read-time default, not a stored override, so the provenance sweep in
@@ -1381,14 +1382,9 @@ const replayDeclaredBorder = (ui: LayerUI, layerId: string): void => {
   // there — same honest degradation a stored value gets.
   const declared = declaredBorderMode(ui, layerId);
   if (declared === undefined) return;
-  let painted = declaredReplayed.get(ui);
-  if (painted?.has(layerId)) return;
+  if (declaredReplayGate.has(ui, layerId)) return;
   applyBorderToLayer(ui, layerId);
-  if (!painted) {
-    painted = new Set();
-    declaredReplayed.set(ui, painted);
-  }
-  painted.add(layerId);
+  declaredReplayGate.mark(ui, layerId);
 };
 
 export {
