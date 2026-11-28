@@ -51,11 +51,11 @@ describe("checkSize", () => {
     const bad = checkSize(
       [
         {
-          file: "/abs/repo/test/js/core/layer/folderLayout.test.ts",
+          file: "/abs/repo/test/js/core/layer/folderView.test.ts",
           lines: LIMIT + 1,
         },
       ],
-      { "core/layer/folderLayout.test.ts": "split pending" },
+      { "core/layer/folderView.test.ts": "split pending" },
     );
     expect(bad).toEqual([]);
   });

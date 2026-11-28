@@ -42,65 +42,21 @@ export {
 export { LayerFactory } from "./LayerFactory.js";
 export { LayerInfoRegistry } from "./LayerInfoRegistry.js";
 export {
-  folderLayoutKey,
+  folderEntries,
+  folderKeysOfRole,
+  folderOf,
+  groupByFolder,
+  nextFolderDefaultName,
+  rootLayerEntry,
+} from "./folderView.js";
+export {
   FOLDER_NAME_MAX,
   normalizeFolderName,
   folderDisplayName,
   folderNameLength,
   folderNameTooLong,
-  emptyFolderLayout,
-  ensureFolderLayout,
-  createFolderLayoutManager,
-  readFolderLayout,
-  writeFolderLayout,
-  isFolderLayout,
-  mergeDeclaredFolders,
-  folderOf,
-  folderDisplayNameOf,
-  folderKeysOfRole,
-  nextFolderDefaultName,
-  folderEntries,
-  groupByFolder,
-  roleBlocks,
-  roleOrder,
-  fullDisplayOrder,
-  freezeRoleOrder,
-  moveLayerToRootAt,
-  rootLayerEntry,
-  seedBlockOrder,
-  createFolder,
-  renameFolder,
-  deleteFolder,
-  moveFolder,
-  moveLayerToFolder,
-  moveLayerToRoot,
-  dropLayer,
-} from "./folderLayout.js";
-export type {
-  FolderLayout,
-  FolderEntry,
-  FolderMember,
-  FolderLayoutManager,
-} from "./folderLayout.js";
-export {
-  ARRANGEMENT_VERSION,
-  ROLES as ARRANGEMENT_ROLES,
-  anchorOfNode,
-  fromV2,
-  hydrate,
-  projectRows,
-  projectZ,
-} from "./arrangement.js";
-export type {
-  Arrangement,
-  BlockKind,
-  BlockMeta,
-  FolderNode,
-  GroupNode,
-  LayerNode,
-  OrderNode,
-  ResolvedTree,
-} from "./arrangement.js";
+} from "./folderName.js";
+export type { FolderView, FolderEntry, FolderMember } from "./folderView.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -164,7 +120,28 @@ export type { LayerPaint, LeafPaint, PaintFace } from "./paint.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./capability.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
-export { LayerOrder } from "./LayerOrder.js";
+export { defaultDoc, folderKeyOf, groupKeyOf, layerKeyOf } from "./layout/default.js";
+export type { LayerDeclaration } from "./layout/default.js";
+export { mergeOrderDocs } from "./layout/merge.js";
+export {
+  childrenOfView,
+  presentOf,
+  projectBlocks,
+  projectRows,
+  projectFolderViewOf,
+  projectView,
+  projectZ,
+  resolveOrderView,
+  ROLE_ORDER,
+} from "./layout/project.js";
+export type { OrderView, ProjectedEntry, RoleOf } from "./layout/project.js";
+export {
+  clearOrderDoc,
+  loadOrderDoc,
+  orderKeyOf,
+  saveOrderDoc,
+} from "./layout/persist.js";
+export * from "./order/index.js";
 export {
   buildLayerSnapshot,
   extractMarkerFields,

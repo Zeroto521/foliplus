@@ -307,7 +307,7 @@ describe("ui/list row placement", () => {
     // A third-party control (HeatmapControl/MeasureControl) registers a layer
     // AFTER the initial render with an author-declared folder (CONFIG.folder,
     // forwarded through createCanvas/createLayers). The declaration seeds the
-    // layout (registerLayer → folderLayout.seed), and insertLayerItem must
+    // layout (registerLayer → folderView.seed), and insertLayerItem must
     // place the row inside the folder block, not at registry depth.
     const { manager, ui } = initFixture({
       seed: { order: ["A", "B", "H"] },
@@ -377,7 +377,7 @@ describe("ui/list row placement", () => {
     const pre = initFixture({
       ...layout,
       data: [
-        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "A", name: "A", role: "overlay", folder: null, layer: polygonLayer() },
         { id: "B", name: "B", role: "overlay", folder: "", layer: polygonLayer() },
         {
           id: "H",
@@ -470,7 +470,7 @@ describe("ui/list row placement", () => {
         members: {},
       },
       data: [
-        { id: "A", name: "A", role: "overlay", folder: "", layer: polygonLayer() },
+        { id: "A", name: "A", role: "overlay", folder: null, layer: polygonLayer() },
         {
           id: "B",
           name: "B",

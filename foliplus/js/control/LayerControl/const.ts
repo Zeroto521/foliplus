@@ -381,6 +381,9 @@ const DATA = {
   FOLDER_KEY: "data-folder-key",
   /** The folder's display name (folder rows only). */
   FOLDER_NAME: "data-folder-name",
+  /** The order-document node key of a row (layer, folder, or group); the
+   *  keyboard reorder reads this so a folder row steps its whole block. */
+  ORDER_KEY: "data-order-key",
 };
 
 /** Overflow-menu action values (data-action). */

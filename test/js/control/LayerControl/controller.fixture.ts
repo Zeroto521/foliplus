@@ -1,7 +1,14 @@
 // test/js/control/LayerControl/controller.fixture — shared map stub and controller setup for the controller aspect suites.
 import { makeDerivedUI } from "./ui/fixture.js";
 import { vi } from "vitest";
-import { type LayerFilterFeatures, folderLayoutKey } from "#core/layer/index.js";
+import {
+  type LayerFilterFeatures,
+  type OrderDoc,
+  orderKeyOf,
+  rankBetween,
+  rankFirst,
+} from "#core/layer/index.js";
+import { scopedStorageKey } from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 import { LayerIntentStore } from "#control/LayerControl/domain/index.js";
@@ -22,12 +29,51 @@ export const layoutFromRoles = (
   };
 };
 
-/** Read the persisted folder-layout document for a map (null when never written). */
+export const orderFromRoles = (
+  roles: Record<string, string[]>,
+): Record<string, unknown> => {
+  const keys = new Set<string>();
+  for (const list of Object.values(roles)) for (const k of list) keys.add(k);
+  const roleNodes: Record<string, unknown[]> = { overlay: [], base: [] };
+  for (const [role, entries] of Object.entries(roles)) {
+    roleNodes[role] = entries.map(entry => {
+      if (keys.has(entry)) return { kind: "folder", key: entry, children: [] };
+      return { kind: "layer", id: entry };
+    });
+  }
+  const blocks: Record<string, unknown> = {};
+  for (const key of keys) blocks[key] = { kind: "folder", key, name: key };
+  return { blocks, roles: roleNodes };
+};
+
+export const orderStorageKey = (map: any): string =>
+  scopedStorageKey(map, "layer_arrangement");
+
+export const readOrderTreeStorage = (map: any): OrderDoc | null => {
+  const raw = window.localStorage.getItem(orderKeyOf(map));
+  return raw ? (JSON.parse(raw) as OrderDoc) : null;
+};
+
+/** Seed the persisted layer_order {nodes} document from a flat layer-id order
+ *  (the new persistence protocol). Each id becomes a root layer node with a
+ *  sequential rank. */
+export const seedOrderDoc = (map: any, order: readonly string[]): void => {
+  const nodes: Record<string, unknown> = {};
+  let prev: string | null = null;
+  for (const id of order) {
+    const rank: string = prev === null ? rankFirst() : rankBetween(prev, null);
+    nodes[`layer:${id}`] = { kind: "layer", parent: null, rank };
+    prev = rank;
+  }
+  window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes }));
+};
+
+/** Read the persisted layer_order document for a map (null when never written). */
 export const readLayoutStorage = (map: any): Record<string, unknown> | null => {
   const stored = JSON.parse(
-    window.localStorage.getItem(folderLayoutKey(map)) ?? "null",
-  ) as { data?: Record<string, unknown> } | null;
-  return stored?.data ?? null;
+    window.localStorage.getItem(orderKeyOf(map)) ?? "null",
+  ) as Record<string, unknown> | null;
+  return stored;
 };
 
 export const ENFORCE_ORDER_DEBOUNCE_MS = 50;

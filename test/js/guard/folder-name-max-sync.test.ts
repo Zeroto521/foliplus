@@ -1,6 +1,6 @@
 // script/check/folder-name-max-sync — the folder-name bound twin guard.
 //
-// foliplus/_declaration/key.py and foliplus/js/core/layer/folderLayout.ts each carry
+// foliplus/_declaration/key.py and foliplus/js/core/layer/folderName.ts each carry
 // FOLDER_NAME_MAX as a hand-written number. The Python bound rejects an
 // over-long folder name at declaration time; the JS bound prices row layout and
 // truncation. If one side changed the number and the other stayed, a folder name
@@ -13,7 +13,7 @@ import { assertCrossLangLiteral, extractLiteral } from "./crossLangLiteral.js";
 import { describe, expect, it } from "vitest";
 
 const PY_DECL = "foliplus/_declaration/key.py";
-const JS_LAYOUT = "foliplus/js/core/layer/folderLayout.ts";
+const JS_LAYOUT = "foliplus/js/core/layer/folderName.ts";
 
 /** Pull FOLDER_NAME_MAX out of the Python assignment. */
 const pyFolderNameMax = (): string =>

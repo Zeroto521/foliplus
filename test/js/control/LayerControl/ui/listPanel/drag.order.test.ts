@@ -95,7 +95,7 @@ describe("block-order gap drop", () => {
     handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
 
     // The bottom third of the last folder: nothing follows, so the position
-    // is the tail (blockEntryAfter answers null).
+    // is the tail (entryAfter answers null).
     handleDrop(ui, dragEvent(row, {}, 134));
 
     expect(move).toHaveBeenCalledWith("a1", null);
@@ -627,7 +627,7 @@ describe("drag — block resolution at the role edges", () => {
     expect(memberRow.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
 
     handleDrop(ui, dragEvent(memberRow, { dropEffect: "" }, 130));
-    expect(ui.c.folderLayoutView.order.overlay).toEqual(["b", "a"]);
+    expect(ui.c.folderView.order.overlay).toEqual(["b", "a"]);
   });
 
   it("places a layer after a folder block that precedes a root layer", () => {

@@ -422,6 +422,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "every control narrows CONFIG to its own generated Config<Name> schema",
   "deep-relative-path":
     "no test file reaches outside its own subtree with three or more ../ segments",
+  "order-vocabulary":
+    "the order-domain kind/key-prefix vocabulary is single-sourced in order/kind.ts + const.ts ROLE, not spelled as bare layer/folder/group/overlay/base literals",
   "derived-barrier":
     "derived-state projections run only through the invalidateDerived barrier",
   "export-decoupling": "ExportControl must not reference LayerControl internals",
@@ -450,6 +452,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "mock-specifier": "every vi.mock/vi.doMock specifier resolves to a real file",
   "number-format-sync":
     "the label number-format vocabulary is one list across Python, the generated schema and JS",
+  "order-source":
+    "the layer_order document is the single source of panel order / map z / panel blocks; legacy order representations and registry reorder mutations are gone",
   "role-words-sync": "the layer-role vocabulary is the same on the Python and JS sides",
   "selected-class-guard": "the selected-class spelling has one owner per widget",
   "single-source-primitives":

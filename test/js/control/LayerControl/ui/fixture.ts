@@ -1,5 +1,12 @@
 import { afterEach, vi } from "vitest";
-import { ROLE, folderLayoutKey } from "#core/layer/index.js";
+import {
+  ROLE,
+  folderDocKey,
+  normalizeFolderName,
+  orderKeyOf,
+  rankBetween,
+  rankStart,
+} from "#core/layer/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { type ComponentConfig } from "#foliplus/config-schema.js";
 import { createLogger } from "#platform/log.js";
@@ -267,6 +274,135 @@ export const makeDerivedUI = (overrides: Record<string, unknown> = {}): LayerUI 
   }) as unknown as LayerUI;
 };
 
+/** Convert a persisted layout-mirror document into the ordered tree that
+ *  now drives the panel. The layout-mirror block order (folder keys and
+ *  `layer:<id>` root-layer entries) becomes the role's node sequence; folder
+ *  children are left empty for the controller boot to fill from each layer's
+ *  declared folder. Only the UI fixture needs this — production persists the
+ *  tree directly, and a legacy record is dropped and rebuilt as the default. */
+const orderFromLayout = (doc: Record<string, unknown>): Record<string, unknown> => {
+  const folders = Array.isArray(doc.folders)
+    ? (doc.folders as Array<{ key: string }>)
+    : [];
+  const folderKeys = new Set(folders.map(f => f.key));
+  const order = (doc.order ?? {}) as Record<string, unknown[]>;
+  const blocks: Record<string, unknown> = {};
+  for (const f of folders) blocks[f.key] = { kind: "folder", key: f.key, name: f.key };
+  const roles: Record<string, unknown[]> = { overlay: [], base: [] };
+  for (const [role, entries] of Object.entries(order)) {
+    if (!roles[role]) roles[role] = [];
+    for (const entry of entries) {
+      const entryKey = String(entry);
+      if (entryKey.startsWith("layer:")) {
+        roles[role].push({ kind: "layer", id: entryKey.slice("layer:".length) });
+      } else if (folderKeys.has(entryKey)) {
+        if (!blocks[entryKey]) {
+          blocks[entryKey] = { kind: "folder", key: entryKey, name: entryKey };
+        }
+        roles[role].push({ kind: "folder", key: entryKey, children: [] });
+      } else {
+        roles[role].push({ kind: "layer", id: entryKey });
+      }
+    }
+  }
+  // A declared folder the order never listed lands at the role tail (the
+  // anchor rule) — overlay by default, since the layout-mirror order may only
+  // name one.
+  for (const f of folders) {
+    if (
+      !Object.values(roles).some(roleNodes =>
+        roleNodes.some(n => (n as any).key === f.key),
+      )
+    ) {
+      roles.overlay.push({ kind: "folder", key: f.key, children: [] });
+    }
+  }
+  return { blocks, roles };
+};
+
+/** Translate an OLD order seed into the NEW layer_order document {nodes}.
+ *  Accepts the array-model {blocks,roles} tree (from seedOrderTree/seedLayout)
+ *  or a flat order array (from seed.order). Ranks are built sequentially so the
+ *  row order equals the seed order. A flat array is projected as overlay rows. */
+const orderDocFromSeed = (seed: unknown): Record<string, unknown> | null => {
+  const nodes: Record<string, unknown> = {};
+  let prev: string | null = null;
+  const nextRank = (): string => {
+    const r = prev === null ? rankStart() : rankBetween(prev, null);
+    prev = r;
+    return r;
+  };
+  if (
+    seed &&
+    typeof seed === "object" &&
+    !Array.isArray(seed) &&
+    "roles" in (seed as Record<string, unknown>)
+  ) {
+    const roles = ((seed as Record<string, unknown>).roles ?? {}) as Record<
+      string,
+      Array<{
+        kind: string;
+        key?: string;
+        id?: string;
+        children?: Array<{ kind: string; id?: string }>;
+      }>
+    >;
+    const blocks = ((seed as Record<string, unknown>).blocks ?? {}) as Record<
+      string,
+      { kind: string; name?: string }
+    >;
+    for (const [role, roleNodes] of Object.entries(roles)) {
+      if (!Array.isArray(roleNodes)) continue;
+      for (const node of roleNodes) {
+        if (!node) continue;
+        if (node.kind === "layer" && node.id !== undefined) {
+          nodes[`layer:${node.id}`] = { kind: "layer", parent: null, rank: nextRank() };
+        } else if (node.key !== undefined) {
+          const name = blocks[node.key]?.name ?? node.key;
+          // The OLD tree keys folders by bare name; the NEW doc namespaces them
+          // \"folder:<role>:<key>\" (role-scoped so the same name can exist in
+          // both roles). Prefix here so a seed tree does not materialise a
+          // second bare-key folder node beside the namespaced one.
+          const rawKey = String(node.key);
+          const nodeKey = rawKey.startsWith("layer:")
+            ? rawKey
+            : rawKey.startsWith("folder:")
+              ? rawKey
+              : `folder:${role}:${rawKey}`;
+          nodes[nodeKey] = {
+            kind: node.kind === "folder" ? "folder" : "group",
+            parent: null,
+            rank: nextRank(),
+            name,
+            ...(node.kind === "folder" ? { role } : {}),
+          };
+          const children = (node as any).children ?? [];
+          let cprev: string | null = null;
+          for (const child of children) {
+            if (child?.kind === "layer" && child.id !== undefined) {
+              const cr: string =
+                cprev === null ? rankStart() : rankBetween(cprev, null);
+              nodes[`layer:${child.id}`] = { kind: "layer", parent: nodeKey, rank: cr };
+              cprev = cr;
+            }
+          }
+        }
+      }
+    }
+    return { nodes };
+  }
+  if (Array.isArray(seed)) {
+    for (const entry of seed) {
+      const key = String(entry).startsWith("layer:")
+        ? String(entry)
+        : `layer:${String(entry)}`;
+      nodes[key] = { kind: "layer", parent: null, rank: nextRank() };
+    }
+    return { nodes };
+  }
+  return null;
+};
+
 const initFixture = (
   options: {
     initialZoom?: number;
@@ -277,9 +413,12 @@ const initFixture = (
     configData?: ComponentConfig["data"];
     /** The persisted record, written before the manager is constructed. */
     seed?: Record<string, unknown>;
-    /** The persisted folder-layout document (v2), written under its own storage
+    /** The persisted layout-mirror document, written under its own storage
      *  key before the manager is constructed. */
     seedLayout?: Record<string, unknown>;
+    /** The persisted order-tree document, written under its own storage
+     *  key before the manager is constructed. */
+    seedOrderTree?: Record<string, unknown>;
     /** Runs once the UI shell exists but before attachUI — the point where a
      *  subscriber can catch the attach sweep's notify. */
     beforeAttach?: (manager: LayerController, ui: LayerUI) => void;
@@ -296,11 +435,132 @@ const initFixture = (
   if (options.seed) {
     window.localStorage.setItem(CONST.STORAGE.KEY, JSON.stringify(options.seed));
   }
-  if (options.seedLayout) {
-    window.localStorage.setItem(
-      folderLayoutKey({ getContainer: () => container }),
-      JSON.stringify(options.seedLayout),
-    );
+  // The OLD order seeds ({blocks,roles} tree, layout mirror, or flat order)
+  // translate into the NEW layer_order document so tests seed the same
+  // registry order the controller now derives from the doc.
+  if (
+    options.seedOrderTree ||
+    options.seedLayout ||
+    Array.isArray((options.seed as any)?.order)
+  ) {
+    const docSeed: {
+      nodes: Record<
+        string,
+        {
+          rank?: string;
+          parent?: string | null;
+          kind?: string;
+          role?: string;
+          name?: string;
+        }
+      >;
+    } | null = options.seedOrderTree
+      ? (orderDocFromSeed(options.seedOrderTree) as {
+          nodes: Record<
+            string,
+            {
+              rank?: string;
+              parent?: string | null;
+              kind?: string;
+              role?: string;
+              name?: string;
+            }
+          >;
+        } | null)
+      : options.seedLayout
+        ? (orderDocFromSeed(orderFromLayout(options.seedLayout)) as {
+            nodes: Record<
+              string,
+              {
+                rank?: string;
+                parent?: string | null;
+                kind?: string;
+                role?: string;
+                name?: string;
+              }
+            >;
+          } | null)
+        : (orderDocFromSeed((options.seed as any).order) as {
+            nodes: Record<
+              string,
+              {
+                rank?: string;
+                parent?: string | null;
+                kind?: string;
+                role?: string;
+                name?: string;
+              }
+            >;
+          } | null);
+    // A flat seed order names layers the layout may not hold yet (a late
+    // registration's future slot). Seed those as root nodes so a late layer
+    // registers into its saved position instead of prepending.
+    if (docSeed && options.seedLayout && Array.isArray((options.seed as any)?.order)) {
+      const flat = orderDocFromSeed((options.seed as any).order);
+      if (flat) {
+        let lastRank: string | null = null;
+        for (const k of Object.keys(docSeed.nodes)) {
+          const n = (docSeed.nodes as any)[k];
+          if (
+            n &&
+            typeof n.rank === "string" &&
+            (lastRank === null || n.rank > lastRank)
+          ) {
+            lastRank = n.rank;
+          }
+        }
+        for (const [k, n] of Object.entries((flat.nodes as any) ?? {})) {
+          if ((docSeed.nodes as any)[k] === undefined) {
+            (docSeed.nodes as any)[k] = {
+              ...(n as any),
+              rank: lastRank === null ? rankStart() : rankBetween(lastRank, null),
+            };
+            lastRank = (docSeed.nodes as any)[k].rank;
+          }
+        }
+      }
+    }
+    // A data layer's declared folder must win over a flat-order root slot:
+    // the controller trusts the doc at boot, so the doc must place the layer
+    // in its declared folder (create the folder node when the seed did not).
+    if (docSeed && Array.isArray(options.data)) {
+      const nodes = (docSeed.nodes as any) ?? {};
+      for (const layerInfo of options.data) {
+        const folder = (layerInfo as any)?.folder;
+        if (!folder || typeof folder !== "string") continue;
+        const role = (layerInfo as any)?.role ?? "overlay";
+        const fKey = folderDocKey(role, normalizeFolderName(folder));
+        const lKey = `layer:${layerInfo.id}`;
+        if (nodes[lKey] === undefined) continue;
+        if (nodes[fKey] === undefined) {
+          let lastRank: string | null = null;
+          for (const k of Object.keys(nodes)) {
+            const n = nodes[k];
+            if (
+              n &&
+              typeof n.rank === "string" &&
+              (lastRank === null || n.rank > lastRank)
+            ) {
+              lastRank = n.rank;
+            }
+          }
+          nodes[fKey] = {
+            kind: "folder",
+            parent: null,
+            role,
+            name: folder,
+            rank: lastRank === null ? rankStart() : rankBetween(lastRank, null),
+          };
+        }
+        nodes[lKey] = { ...nodes[lKey], parent: fKey };
+      }
+    }
+    if (docSeed) {
+      window.localStorage.setItem(
+        orderKeyOf({ getContainer: () => container }),
+        JSON.stringify(docSeed),
+      );
+    }
   }
 
   installLeafletGlobals();

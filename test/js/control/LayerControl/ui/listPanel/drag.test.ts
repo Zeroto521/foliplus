@@ -51,7 +51,7 @@ describe("ui/drag", () => {
       const target = folderRowOf(ui, "b");
       // jsdom rects are all zero, so any positive clientY is the bottom half.
       handleDrop(ui, dragEvent(target, {}, 10));
-      expect(ui.c.folderLayoutView.order.overlay).toEqual(["b", "a"]);
+      expect(ui.c.folderView.order.overlay).toEqual(["b", "a"]);
       expect(ui.listPanel.dragFolder).toBeNull();
     });
 
@@ -66,13 +66,13 @@ describe("ui/drag", () => {
     it("refuses a drop onto a layer row or the other role", () => {
       const { ui } = folderFixture(["a", "b"]);
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
-      const before = [...(ui.c.folderLayoutView.order.overlay ?? [])];
+      const before = [...(ui.c.folderView.order.overlay ?? [])];
       // A layer row is not a block target.
       const layerRow = attachedPanel(ui).querySelector(
         `[${CONST.DATA.LAYER_ID}="b1"]`,
       ) as HTMLElement;
       handleDrop(ui, dragEvent(layerRow));
-      expect(ui.c.folderLayoutView.order.overlay).toEqual(before);
+      expect(ui.c.folderView.order.overlay).toEqual(before);
     });
 
     it("drops a folder before a root layer row (P1 #1289 regression)", () => {
@@ -103,7 +103,7 @@ describe("ui/drag", () => {
       handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
       // Pointer on the top edge of root2's row: the folder lands BEFORE it.
       handleDrop(ui, dragEvent(row, {}, 102));
-      expect(manager.folderLayoutView.order.overlay).toEqual([
+      expect(manager.folderView.order.overlay).toEqual([
         "layer:root1",
         "a",
         "layer:root2",
@@ -562,7 +562,7 @@ describe("ui/drag", () => {
       // "before" the pointer), which the registry order follows.
       expect(before).toEqual(["L0", "L1", "L2"]);
       expect(orderOf(manager)).toEqual(["L0", "L2", "L1"]);
-      expect(manager.folderLayoutView.order.overlay ?? []).toContain("layer:L1");
+      expect(manager.folderView.order.overlay ?? []).toContain("layer:L1");
       expect(ui.listPanel.dragEntry).toBeNull();
     });
 
@@ -665,7 +665,7 @@ describe("ui/drag", () => {
       handleDragStart(ui, dragEvent(rowOf(ui, "R1")));
       handleDrop(ui, dragEvent(row, {}, 102));
 
-      expect(manager.folderLayoutView.order.overlay).toEqual(["a", "layer:R1", "b"]);
+      expect(manager.folderView.order.overlay).toEqual(["a", "layer:R1", "b"]);
       expect(manager.folderNameOf("R1")).toBeNull();
     });
 
@@ -678,7 +678,7 @@ describe("ui/drag", () => {
       handleDragStart(ui, dragEvent(rowOf(ui, "R1")));
       handleDrop(ui, dragEvent(row, {}, 134));
 
-      expect(manager.folderLayoutView.order.overlay).toEqual(["a", "b", "layer:R1"]);
+      expect(manager.folderView.order.overlay).toEqual(["a", "b", "layer:R1"]);
     });
 
     it("takes the layer into the folder when the pointer is in the middle", () => {

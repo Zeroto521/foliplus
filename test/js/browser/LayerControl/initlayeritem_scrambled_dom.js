@@ -21,7 +21,12 @@
   // order. reorder must go through the method — the registry's view is
   // read-only, so an array assignment would not move the id index either.
   const regIdx = id => m.layers.findIndex(l => l.id === id);
-  m.layerRegistry.reorder(regIdx("beta"), regIdx("alpha"));
+  {
+    const arr = m.layerRegistry.layers.slice();
+    const [mv] = arr.splice(regIdx("beta"), 1);
+    arr.splice(regIdx("alpha"), 0, mv);
+    m.layerRegistry.replace(arr);
+  }
 
   const domOrder = [...ui.uiContainer.querySelectorAll(".foliplus-layer-item")].map(
     e => e.dataset.layerId,

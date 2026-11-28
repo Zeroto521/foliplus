@@ -8,6 +8,8 @@
 // in isolation.
 //
 // The priority chain is the role analog of the folder design:
+
+import { ROLE } from "#core/layer/index.js";
 //   built-in (expanded) < author default (this module) < user override
 // (the persisted foldedRoles Record). A user's manual FOLD or EXPAND always
 // wins and then stops the author default from affecting that role; Reset
@@ -43,7 +45,7 @@ const authorDefaultRoleFolds = (
   // Only the two declared sections are roles; the Python normaliser drops
   // anything else, and this derivation mirrors that (a stray key in a
   // hand-built CONF must not become a fold state).
-  for (const role of ["overlay", "base"] as const) {
+  for (const role of [ROLE.OVERLAY, ROLE.BASE] as const) {
     const entry = roles[role];
     if (!entry || typeof entry.folded !== "boolean") continue;
     out[role] = entry.folded;

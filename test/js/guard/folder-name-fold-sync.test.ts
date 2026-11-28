@@ -1,7 +1,7 @@
 // script/check/folder-name-fold-sync — the folder-name fold-rule twin guard.
 //
 // foliplus/control/LayerControl/_folder.py (_folder_key) and
-// foliplus/js/core/layer/folderLayout.ts (normalizeFolderName) each hand-write
+// foliplus/js/core/layer/folderName.ts (normalizeFolderName) each hand-write
 // the same identity fold: NFC -> whitespace runs to one space -> trim ->
 // ASCII-case fold. Python keys the central folders config on it; JS keys the
 // panel (identity, dedupe, collision) on it. The two are intentionally the same
@@ -22,7 +22,7 @@ import { readSource } from "./crossLangLiteral.js";
 import { describe, expect, it } from "vitest";
 
 const PY_FOLDER = "foliplus/control/LayerControl/_folder.py";
-const JS_LAYOUT = "foliplus/js/core/layer/folderLayout.ts";
+const JS_LAYOUT = "foliplus/js/core/layer/folderName.ts";
 
 // --- step extraction -------------------------------------------------------
 // Each side spells its fold as one expression. We locate the four steps by

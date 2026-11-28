@@ -365,14 +365,6 @@ describe("LayerInfoRegistry", () => {
       expect(registry.firstBaseIdx).toBe(-1);
     });
 
-    it("refuses a reorder across the overlay/base boundary", () => {
-      expect(() => registry.reorder(0, 2)).toThrow(/boundary/);
-      // Same-side moves stay legal.
-      expect(() => registry.reorder(0, 1)).not.toThrow();
-      expect(registry.layers[0].id).toBe("overlay2");
-      expect(registry.layers[1].id).toBe("overlay1");
-    });
-
     it("refuses to bring a base layer to the front", () => {
       expect(() => registry.moveToFront("base1")).toThrow(/base/);
       // The overlay block is still movable.
@@ -516,29 +508,6 @@ describe("LayerInfoRegistry", () => {
     });
   });
 
-  describe("reorder", () => {
-    it("moves an element within its role block", () => {
-      registry.reorder(0, 1);
-      expect(registry.at(0).id).toBe("overlay2");
-      expect(registry.at(1).id).toBe("overlay1");
-      expect(registry.at(2).id).toBe("base1");
-    });
-
-    it("refuses non-integer and out-of-range positions", () => {
-      const cases: Array<[number, number]> = [
-        [0, 3],
-        [-1, 0],
-        [0.5, 1],
-        [0, Number.NaN],
-      ];
-      for (const [from, to] of cases) {
-        expect(() => registry.reorder(from, to)).toThrow(/reorder/);
-      }
-      // Refused before the splice: the arrangement is untouched.
-      expect(registry.layers.map(l => l.id)).toEqual(["overlay1", "overlay2", "base1"]);
-    });
-  });
-
   describe("indexOfId", () => {
     it("tracks every structural mutation and returns -1 for an unknown id", () => {
       expect(registry.indexOfId("overlay2")).toBe(1);
@@ -550,7 +519,12 @@ describe("LayerInfoRegistry", () => {
       registry.insertAt(registry.createLayerInfo({ id: "middle" }), 2);
       expect(registry.indexOfId("middle")).toBe(2);
 
-      registry.reorder(0, 1);
+      {
+        const arr = registry.layers.slice();
+        const [mv] = arr.splice(0, 1);
+        arr.splice(1, 0, mv);
+        registry.replace(arr);
+      }
       expect(registry.indexOfId("front")).toBe(1);
 
       registry.remove("middle");
@@ -585,7 +559,7 @@ describe("LayerInfoRegistry", () => {
         { id: "overlay1", name: "O1", role: "overlay" },
         { id: "base2", name: "B2", role: "base" },
       ] as unknown as LayerInfo[]);
-      r.normalizeGroups();
+      r.normalizeGroups(["overlay1", "base1", "base2"]);
       expect(r.at(0).id).toBe("overlay1");
       expect(r.at(1).role === "base").toBe(true);
       expect(r.at(2).role === "base").toBe(true);

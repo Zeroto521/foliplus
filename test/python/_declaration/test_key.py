@@ -14,12 +14,12 @@ def test_the_js_reader_uses_the_same_cap() -> None:
     """The JS reader caps a folder name with its own copy of the constant.
 
     Both stacks decide which names reach the panel, so the value is read from
-    the committed ``folderLayout.ts`` instead of being asserted against a
+    the committed ``folderName.ts`` instead of being asserted against a
     literal that would survive a change to either side.
     """
     source = (
-        Path(__file__).resolve().parents[3] / "foliplus/js/core/layer/folderLayout.ts"
+        Path(__file__).resolve().parents[3] / "foliplus/js/core/layer/folderName.ts"
     ).read_text(encoding="utf-8")
     match = _JS_FOLDER_NAME_MAX_RE.search(source)
-    assert match is not None, "FOLDER_NAME_MAX missing from folderLayout.ts"
+    assert match is not None, "FOLDER_NAME_MAX missing from folderName.ts"
     assert int(match[1]) == _declaration.FOLDER_NAME_MAX

@@ -193,7 +193,7 @@ describe("ui/list coverage gaps (#1282)", () => {
     };
     const ui = {
       c: {
-        folderLayoutView: layout,
+        folderView: layout,
         layers: [],
         layerRegistry: { get: () => undefined },
       },

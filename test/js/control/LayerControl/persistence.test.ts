@@ -10,8 +10,6 @@ const makePersistence = () => new LayerPersistence();
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
-  order: null,
-  removed: [],
   foldedRoles: {},
   foldedFolders: {},
   renamedNames: {},
@@ -53,15 +51,12 @@ describe("LayerPersistence", () => {
     it("loads every dimension from one record", () => {
       seedStorage({
         version: RECORD_VERSION,
-        order: ["a", "b"],
         foldedRoles: { OVERLAYS: true },
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load()).toEqual({
         version: RECORD_VERSION,
-        order: ["a", "b"],
-        removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
         renamedNames: { a: "A2" },
@@ -74,11 +69,8 @@ describe("LayerPersistence", () => {
       // LayerPersistedRecord, because the write rebuilds the record through it.
       // Add a dimension to the type and forget the parser, and this test fails
       // on the new field — the silent-loss case has no other visible symptom.
-      const ids = ["a", "b"];
       const record: LayerPersistedRecord = {
         version: RECORD_VERSION,
-        order: ids,
-        removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
         renamedNames: { a: "A2" },
@@ -119,21 +111,19 @@ describe("LayerPersistence", () => {
       // stamps the current version.
       seedStorage({
         version: 3,
-        order: ["a"],
         foldedGroups: ["OVERLAYS"],
         renamedNames: { a: "A2" },
       });
 
       const rec = makePersistence().load();
       expect(rec.version).toBe(RECORD_VERSION);
-      expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
       expect(rec.foldedRoles).toEqual({});
 
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a"] });
+      p.schedule({ renamedNames: () => ({ a: "A2" }) });
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
       expect(lastRecord(save).version).toBe(RECORD_VERSION);
@@ -149,14 +139,12 @@ describe("LayerPersistence", () => {
       // survives, and the next write stamps the current version.
       seedStorage({
         version: 5,
-        order: ["a"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
       });
 
       const rec = makePersistence().load();
       expect(rec.version).toBe(RECORD_VERSION);
-      expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
       expect(rec.foldedRoles).toEqual({});
     });
@@ -197,7 +185,6 @@ describe("LayerPersistence", () => {
       // field survives, and the next write stamps v5.
       seedStorage({
         version: 4,
-        order: ["a"],
         renamedNames: { a: "A2" },
         layers: {
           a: { overrides: [], annotation: { show: true, field: "name" } },
@@ -206,14 +193,13 @@ describe("LayerPersistence", () => {
 
       const rec = makePersistence().load();
       expect(rec.version).toBe(RECORD_VERSION);
-      expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
       expect(rec.layers).toEqual({});
 
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a"] });
+      p.schedule({ renamedNames: () => ({ a: "A2" }) });
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
       const written = lastRecord(save);
@@ -232,14 +218,12 @@ describe("LayerPersistence", () => {
       // survives. The next write stamps v6.
       seedStorage({
         version: 5,
-        order: ["a"],
         renamedNames: { a: "A2" },
         foldedRoles: ["overlay"],
         layers: {},
       });
       const rec = makePersistence().load();
       expect(rec.version).toBe(RECORD_VERSION);
-      expect(rec.order).toEqual(["a"]);
       expect(rec.renamedNames).toEqual({ a: "A2" });
       expect(rec.foldedRoles).toEqual({});
       expect(rec.foldedFolders).toEqual({});
@@ -248,7 +232,6 @@ describe("LayerPersistence", () => {
     it("reads a foldedFolders map as per-folder opinions", () => {
       seedStorage({
         version: RECORD_VERSION,
-        order: [],
         renamedNames: {},
         foldedRoles: {},
         foldedFolders: { "overlay::roads": false, "overlay::water": true },
@@ -261,38 +244,6 @@ describe("LayerPersistence", () => {
         "overlay::roads": false,
         "overlay::water": true,
       });
-    });
-
-    it("prunes a deleted id from the label segment on read", () => {
-      // Deletion is not migration: the write side drops the ids it records
-      // as removed, and the read side does the same — so a record written
-      // before either prune still loads without resurrecting the config.
-      seedStorage({
-        removed: ["gone"],
-        layers: {
-          gone: { overrides: [], label: { show: true } },
-          kept: { overrides: [], label: { show: false } },
-        },
-      });
-
-      const rec = makePersistence().load();
-      expect(rec.layers).toEqual({
-        kept: { overrides: [], label: { show: false } },
-      });
-    });
-
-    it("keeps ids that are not registered yet", () => {
-      // load() runs from LayerUI.attachUI, which lands before HeatmapControl and
-      // MeasureControl register in their own constructor. Pruning against the
-      // registry here would drop their order position and label config on the
-      // very first attach, so the record comes back whole: the order is replayed
-      // when the id registers (LayerController.replaySavedOrder) and only
-      // deleteLayer prunes an id that is actually gone.
-      seedStorage({
-        order: ["a", "ghost", "b", "gone"],
-      });
-
-      expect(makePersistence().load().order).toEqual(["a", "ghost", "b", "gone"]);
     });
 
     it("keeps intent and renames for ids that are not registered yet", () => {
@@ -324,14 +275,6 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load()).toEqual(emptyRecord());
     });
 
-    it("drops order when it holds a non-string entry", () => {
-      // A non-string entry fails the check and discards the whole dimension:
-      // keeping a partial order would silently re-order the layers the user
-      // arranged, so failing to the declared order is safer.
-      seedStorage({ order: ["a", 123, "b", null] });
-      expect(makePersistence().load().order).toEqual(null);
-    });
-
     it("drops non-string values from names and non-boolean role opinions from fold state", () => {
       seedStorage({
         renamedNames: { a: "A2", b: 123, c: null },
@@ -341,20 +284,6 @@ describe("LayerPersistence", () => {
 
       expect(p.load().renamedNames).toEqual({ a: "A2" });
       expect(p.load().foldedRoles).toEqual({ OVERLAYS: true });
-    });
-
-    it("keeps removed ids in the order they were deleted", () => {
-      // One-way bookkeeping: nothing ever prunes this list, so the ids come
-      // back exactly as stored and the registration entry point refuses each.
-      seedStorage({ removed: ["a", "c", "b"] });
-      expect(makePersistence().load().removed).toEqual(["a", "c", "b"]);
-    });
-
-    it("drops removed when it holds a non-string entry", () => {
-      // Same tolerance as order: a bad entry fails the check and discards the
-      // whole dimension, so a corrupted value cannot read back as a deletion.
-      seedStorage({ removed: ["a", 7, null] });
-      expect(makePersistence().load().removed).toEqual([]);
     });
 
     it("drops label configs that are not plain objects", () => {
@@ -651,7 +580,19 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a"] });
+      p.schedule({
+        layers: () => ({
+          a: {
+            fillValue: {
+              field: "  price  ",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillValue"],
+          },
+        }),
+      });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
@@ -864,15 +805,12 @@ describe("LayerPersistence", () => {
       // to RECORD_VERSION so the next write stamps the record up to date
       // without any migration step.
       seedStorage({
-        order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       expect(makePersistence().load()).toEqual({
         version: RECORD_VERSION,
-        order: ["a", "b"],
-        removed: [],
         // Legacy array foldedRoles is dropped as {} (v6 shape change, no compat read).
         foldedRoles: {},
         foldedFolders: {},
@@ -888,7 +826,6 @@ describe("LayerPersistence", () => {
       for (const version of [undefined, "2020-01-01", 42, null]) {
         seedStorage({
           version,
-          order: ["a", "b"],
           foldedRoles: ["OVERLAYS"],
           renamedNames: { a: "A2" },
           layers: { a: { visible: false, overrides: ["visible"] } },
@@ -896,7 +833,6 @@ describe("LayerPersistence", () => {
         expect(makePersistence().load().version).toBe(RECORD_VERSION);
       }
       seedStorage({
-        order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -911,7 +847,7 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a", "b"] });
+      p.schedule({ layers: () => ({ a: { visible: false, overrides: ["visible"] } }) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
@@ -928,20 +864,17 @@ describe("LayerPersistence", () => {
       const save = spySave();
       seedStorage({
         version: 0,
-        order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A2" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
       const p = makePersistence();
-      p.schedule({ order: () => ["b", "a"] });
+      p.schedule({ renamedNames: () => ({ a: "A2" }) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
-        order: ["b", "a"],
-        removed: [],
         // Legacy array foldedRoles reads as {} and stays {} through the write.
         foldedRoles: {},
         foldedFolders: {},
@@ -1498,17 +1431,17 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a", "b"] });
-      p.schedule({ order: () => ["b", "a"] });
-      p.schedule({ order: () => ["b", "a", "c"] });
+      p.schedule({ renamedNames: () => ({ a: "A" }) });
+      p.schedule({ renamedNames: () => ({ a: "B" }) });
+      p.schedule({ renamedNames: () => ({ a: "C" }) });
       expect(save).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      // The last getter wins -- it reads the live order, not the order at the
+      // The last getter wins -- it reads the live names, not the names at the
       // first call of the batch.
       expect(save).toHaveBeenCalledTimes(1);
-      expect(lastRecord(save).order).toEqual(["b", "a", "c"]);
+      expect(lastRecord(save).renamedNames).toEqual({ a: "C" });
       save.mockRestore();
       vi.useRealTimers();
     });
@@ -1517,7 +1450,6 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a", "b"] });
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
       });
@@ -1526,14 +1458,12 @@ describe("LayerPersistence", () => {
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
-      // Four schedules, one write: there is a single timer for the whole
+      // Three schedules, one write: there is a single timer for the whole
       // record, so no dimension needs its own debounce bookkeeping. The
       // legacy `annotations` segment no longer exists.
       expect(save).toHaveBeenCalledTimes(1);
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
-        order: ["a", "b"],
-        removed: [],
         foldedRoles: { OVERLAYS: true },
         foldedFolders: {},
         renamedNames: { a: "A" },
@@ -1545,10 +1475,9 @@ describe("LayerPersistence", () => {
 
     it("leaves a dimension alone when it is not scheduled", () => {
       // One record means one write must not be able to reset a dimension the
-      // caller never touched -- a reorder used to live in its own key, so this
-      // is what keeps it that way.
+      // caller never touched -- a rename must not be able to reset a stored
+      // layer config the caller never read.
       seedStorage({
-        order: ["a", "b"],
         foldedRoles: ["OVERLAYS"],
         renamedNames: { a: "A" },
         layers: { a: { visible: false, overrides: ["visible"] } },
@@ -1556,50 +1485,18 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["b", "a"] });
+      p.schedule({ renamedNames: () => ({ a: "B" }) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
-        order: ["b", "a"],
-        removed: [],
         // Legacy array foldedRoles reads as {} and the write leaves it alone.
         foldedRoles: {},
         foldedFolders: {},
-        renamedNames: { a: "A" },
+        renamedNames: { a: "B" },
         layers: { a: { visible: false, overrides: ["visible"] } },
       });
-      save.mockRestore();
-      vi.useRealTimers();
-    });
-
-    it("writes the removed ids on the shared timer", () => {
-      // `removed` joins the record as one more dimension on the same single
-      // debounce, so a deletion never needs its own writer to land.
-      vi.useFakeTimers();
-      const save = spySave();
-      const p = makePersistence();
-      p.schedule({ removed: () => ["a", "b"] });
-
-      vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
-
-      expect(lastRecord(save).removed).toEqual(["a", "b"]);
-      save.mockRestore();
-      vi.useRealTimers();
-    });
-
-    it("carries removed through a write that never schedules it", () => {
-      // The list is one-way: an unrelated save must not be able to drop a
-      // deletion, or the layer would come back on the next reload.
-      seedStorage({ removed: ["a"] });
-      vi.useFakeTimers();
-      const save = spySave();
-      const p = makePersistence();
-      p.schedule({ order: () => ["x"] });
-      p.flushAll();
-
-      expect(lastRecord(save).removed).toEqual(["a"]);
       save.mockRestore();
       vi.useRealTimers();
     });
@@ -1623,7 +1520,7 @@ describe("LayerPersistence", () => {
 
     it("leaves a short-hex color on disk expanded after a write that never touches layers", () => {
       // `schedule` re-reads what storage holds and merges only the dimensions
-      // the caller scheduled, so a write that touches only the order still
+      // the caller scheduled, so a write that touches only the names still
       // round-trips the layer record. The record is parsed on the way in,
       // which is where short hex becomes long hex — so a write that never
       // touches layers still re-stamps disk with the normalized colors. This
@@ -1642,7 +1539,7 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a"] });
+      p.schedule({ renamedNames: () => ({}) });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
@@ -1670,7 +1567,6 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a", "b"] });
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
       });
@@ -1679,8 +1575,6 @@ describe("LayerPersistence", () => {
       expect(save).toHaveBeenCalledTimes(1);
       expect(lastRecord(save)).toEqual({
         version: RECORD_VERSION,
-        order: ["a", "b"],
-        removed: [],
         foldedRoles: {},
         foldedFolders: {},
         renamedNames: {},
@@ -1721,7 +1615,6 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ order: () => ["a", "b"] });
       p.schedule({
         layers: () => ({ a: { visible: false, overrides: ["visible"] } }),
       });

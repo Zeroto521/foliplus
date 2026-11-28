@@ -4,6 +4,7 @@
 // so they don't need to import each other.
 import { owningRow } from "../context.js";
 import type { LayerUI } from "../surface.js";
+import { ORDER_KIND } from "#core/layer/index.js";
 import { ListCursor } from "#core/interaction/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 
@@ -31,8 +32,8 @@ const syncListCursor = (ui: LayerUI): void => {
  *  would let a same-named header steal the re-home (the header sits ahead
  *  of the rows in every findIndex). */
 type CursorRef =
-  | { kind: "layer"; id: string }
-  | { kind: "folder"; role: string; key: string }
+  | { kind: typeof ORDER_KIND.LAYER; id: string }
+  | { kind: typeof ORDER_KIND.FOLDER; role: string; key: string }
   | { kind: "role"; role: string }
   | null;
 
@@ -41,7 +42,7 @@ type CursorRef =
  *  row. */
 const refOf = (el: HTMLElement): CursorRef => {
   const id = el.getAttribute(CONST.DATA.LAYER_ID);
-  if (id) return { kind: "layer", id };
+  if (id) return { kind: ORDER_KIND.LAYER, id };
   const role = el.getAttribute("data-role");
   if (!role) return null;
   // A folder row carries data-role too (it belongs to a role), so it needs its
@@ -49,17 +50,17 @@ const refOf = (el: HTMLElement): CursorRef => {
   // the first element with that data-role — and clicking a folder row moved
   // the cursor onto the role row.
   const key = el.getAttribute(CONST.DATA.FOLDER_KEY);
-  return key ? { kind: "folder", role, key } : { kind: "role", role };
+  return key ? { kind: ORDER_KIND.FOLDER, role, key } : { kind: "role", role };
 };
 
 /** The one row lookup both re-home paths share (the rebuild-grade restore
  *  and the incremental reconcile): kind-keyed, so a layer named "overlay"
  *  never resolves to the overlay role header and back. */
 const rowByRef = (items: HTMLElement[], ref: Exclude<CursorRef, null>): number => {
-  if (ref.kind === "layer") {
+  if (ref.kind === ORDER_KIND.LAYER) {
     return items.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === ref.id);
   }
-  if (ref.kind === "folder") {
+  if (ref.kind === ORDER_KIND.FOLDER) {
     return items.findIndex(
       el =>
         el.getAttribute(CONST.DATA.FOLDER_KEY) === ref.key &&

@@ -54,6 +54,12 @@ const NON_MIRRORED_TEST: Record<string, string> = {
   "toolchain-guard":
     "build/tooling configuration guard (eslint scoping, script coverage), no single module",
   tsconfig: "test TypeScript config guard, no single module",
+  "core/layer/layout":
+    "aggregate test of the core/layer/layout subpackage (default/merge/persist/project), which has no single module file",
+  "core/layer/order/order":
+    "aggregate test of the core/layer/order engine (doc/command/resolve/rank), which has no single module file",
+  "core/layer/layout/scenarios":
+    "aggregate design scenario matrix for the layer-order engine, which has no single module file",
   "control/LayerControl/label/labelReplay-perf":
     "wall-clock gate for the label replay (control/LayerControl/label/index.ts renderLabels); the -perf suffix marks it a timing gate, not a mirror of a labelReplay-perf module",
 };
@@ -71,8 +77,21 @@ const INTENTIONAL_NO_TEST: Record<string, string> = {
     "turf geodesic wrapper exercised through MeasureControl's unit and browser suites",
   "core/interaction/interactionManager":
     "per-map interaction registry exercised through BaseControl and the browser suite",
-  "core/layer/LayerOrder":
-    "ordering helper exercised through the LayerControl list and perf suites",
+  "core/layer/layout/default":
+    "covered by the aggregate test/js/core/layer/layout.test.ts",
+  "core/layer/layout/merge":
+    "covered by the aggregate test/js/core/layer/layout.test.ts",
+  "core/layer/layout/persist":
+    "covered by the aggregate test/js/core/layer/layout.test.ts",
+  "core/layer/layout/project":
+    "covered by the aggregate test/js/core/layer/layout.test.ts",
+  "core/layer/order/kind":
+    "order-kind/key-prefix constants pinned by the order-vocabulary guard + the order engine tests",
+  "core/layer/order/command":
+    "covered by the aggregate test/js/core/layer/order/order.test.ts",
+  "core/layer/order/util":
+    "covered by the aggregate test/js/core/layer/order/order.test.ts",
+
   "core/leaflet/markerColorPreset":
     "preset data table pinned by test/js/script/check/marker-color-preset.test.ts",
   "core/lifecycle/component":

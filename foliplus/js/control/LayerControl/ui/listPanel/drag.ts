@@ -1,7 +1,7 @@
 // LayerControl UI — HTML5 drag reorder + role fold.
 import { saveFoldState } from "../state.js";
 import type { LayerUI } from "../surface.js";
-import { displayBlocks, rebuildList } from "./list.js";
+import { displayEntries, rebuildList } from "./list.js";
 import { type LayerRole, isGroupRow, rootLayerEntry } from "#core/layer/index.js";
 import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -166,7 +166,7 @@ const isGroupDrag = (ui: LayerUI, layerId: string): boolean =>
 
 /** The block-order entry a row belongs to: a folder row's key, a root layer
  *  row's `layer:<id>`, or — for a member row — the folder block above it. */
-const blockEntryOfRow = (row: HTMLElement): string | null => {
+const entryOfRow = (row: HTMLElement): string | null => {
   const folderKey = row.getAttribute(CONST.DATA.FOLDER_KEY);
   if (folderKey) return folderKey;
   const id = row.getAttribute(CONST.DATA.LAYER_ID);
@@ -190,16 +190,20 @@ const blockEntryOfRow = (row: HTMLElement): string | null => {
 /** The block-order entry that follows `entry` in the role's block order, or
  *  null when it is the last block. Used to place a layer AFTER a folder block:
  *  inserting before the next block is the same position. */
-const blockEntryAfter = (ui: LayerUI, role: string, entry: string): string | null => {
-  const blocks = displayBlocks(ui, role);
+const entryAfter = (ui: LayerUI, role: string, entry: string): string | null => {
+  const blocks = displayEntries(ui, role);
   const idx = blocks.findIndex(block =>
     block.kind === "folder"
       ? block.key === entry
-      : rootLayerEntry(block.layer.id) === entry,
+      : block.kind === "layer" && rootLayerEntry(block.layer.id) === entry,
   );
   if (idx < 0 || idx + 1 >= blocks.length) return null;
   const next = blocks[idx + 1];
-  return next.kind === "folder" ? next.key : rootLayerEntry(next.layer.id);
+  return next.kind === "folder"
+    ? next.key
+    : next.kind === "layer"
+      ? rootLayerEntry(next.layer.id)
+      : null;
 };
 
 /** Which third of a folder row the pointer is over. The middle takes the layer
@@ -230,7 +234,7 @@ const blockEntryBefore = (ui: LayerUI, clientY: number): string | null => {
   for (const row of rows) {
     const rect = row.getBoundingClientRect();
     if (rect.height === 0) continue;
-    if (rect.top + rect.height / 2 > clientY) return blockEntryOfRow(row);
+    if (rect.top + rect.height / 2 > clientY) return entryOfRow(row);
   }
   return null;
 };
@@ -267,7 +271,7 @@ const handleDragOver = (ui: LayerUI, event: DragEvent) => {
         // belongs to the folder block above it — either way the folder can be
         // placed beside that block, but only inside the same role. A row of
         // another role used to be silent.
-        const entry = blockEntryOfRow(over);
+        const entry = entryOfRow(over);
         const overRole = ui.c.layerRegistry.get(overId)?.role;
         if (entry === draggedFolder.key) return; // its own block: no-op
         if (overRole !== draggedFolder.role || !entry) {
@@ -503,8 +507,8 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
         !isGroupDrag(ui, overId)
       ) {
         // A member row belongs to the folder block above it; a root layer row
-        // is a block of its own. `blockEntryOfRow` resolves both.
-        const entry = blockEntryOfRow(overRow);
+        // is a block of its own. `entryOfRow` resolves both.
+        const entry = entryOfRow(overRow);
         if (entry && entry !== draggedFolder.key) {
           ui.c.reorderFolder(
             draggedFolder.role as LayerRole,
@@ -540,7 +544,7 @@ const handleDrop = (ui: LayerUI, event: DragEvent) => {
         ui.c.moveLayerToRootAt(draggedEntry.id, folderKey);
       } else {
         const role = target.getAttribute(CONST.DATA.ROLE) ?? "";
-        ui.c.moveLayerToRootAt(draggedEntry.id, blockEntryAfter(ui, role, folderKey));
+        ui.c.moveLayerToRootAt(draggedEntry.id, entryAfter(ui, role, folderKey));
       }
     } finally {
       clearDragState(ui);

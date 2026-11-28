@@ -1,11 +1,10 @@
 // Row lookup: handleDrop must resolve the drop target by data-layer-id, not by
 // its DOM position.
 //
-// Reorder the registry so beta sits at a registry index different from its DOM
-// position, then drag alpha onto beta. By id, beta is past alpha — a real
-// forward move. By DOM position beta reads as alpha's own index, which
-// handleDrop treats as a self-drop and aborts, leaving the registry behind the
-// panel.
+// Swap alpha's and beta's ROWS in the DOM (registry stays doc-derived), then
+// drag alpha onto beta. By id, beta is a real target. By DOM position, beta's
+// row now sits at alpha's own index, which handleDrop would read as a self-drop
+// and abort, leaving the registry behind the panel.
 () => {
   const m = window.__layerCtrl.mgr;
   if (!m || !m.ui) throw new Error("__layerCtrl / manager ui missing");
@@ -25,28 +24,30 @@
   const regIdx = id => m.layers.findIndex(l => l.id === id);
   const domIds = () => dataRows().map(e => e.dataset.layerId);
 
-  // Move beta ahead of alpha in the registry only; the rows keep their DOM
-  // order. reorder goes through the method — the registry's view is read-only.
-  m.layerRegistry.reorder(regIdx("beta"), regIdx("alpha"));
+  const alphaRow = rowById("alpha");
+  const betaRow = rowById("beta");
+  if (!alphaRow || !betaRow) throw new Error("alpha/beta rows missing");
+  // Swap the two rows' DOM positions only; the registry keeps its doc order.
+  // One insert moves alpha ahead of beta, yielding [.., alpha, beta, ..].
+  const parent = alphaRow.parentNode;
+  parent.insertBefore(alphaRow, betaRow);
 
   const beforeRegistry = m.layers.map(l => l.id);
   const domOrder = domIds();
-  const betaIdx = regIdx("beta");
-  // The precondition that makes a positional lookup wrong: the row sitting at
-  // beta's registry index is a different layer, and beta's own DOM position is
-  // alpha's registry index — so a DOM-position read reports a self-drop.
-  if (domOrder[betaIdx] === "beta" || domOrder.indexOf("beta") !== regIdx("alpha")) {
+  // The precondition that makes a positional lookup wrong: beta's row now sits
+  // at alpha's registry index, so a DOM-position read reports a self-drop.
+  if (domOrder[regIdx("alpha")] !== "beta" || domOrder[regIdx("beta")] !== "alpha") {
     throw new Error(
-      `no usable registry/DOM divergence (dom ${JSON.stringify(domOrder)}, registry ${JSON.stringify(beforeRegistry)})`,
+      `no usable DOM/registry divergence (dom ${JSON.stringify(domOrder)}, registry ${JSON.stringify(beforeRegistry)})`,
     );
   }
 
-  // Drag alpha (registry idx of alpha) onto beta. The session is armed with
-  // the registry entry itself — the drop re-resolves its position, so the
-  // scrambled DOM cannot re-point the move at a neighbor.
+  // Drag alpha onto beta's row. The session is armed with the registry entry
+  // itself — the drop re-resolves its position, so the swapped DOM cannot
+  // re-point the move at a neighbor.
   ui.listPanel.dragEntry = m.layers[regIdx("alpha")];
   ui.onDrop({
-    target: rowById("beta"),
+    target: betaRow,
     preventDefault: () => {},
     dataTransfer: { effectAllowed: "", dropEffect: "" },
   });

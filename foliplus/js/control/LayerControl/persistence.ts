@@ -26,11 +26,9 @@ import { BORDER_WEIGHT } from "#ui/index.js";
 
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that
- *  only knows the layer order cannot wipe the fold, rename, and label state it
+ *  owns one dimension cannot wipe the fold, rename, and label state it
  *  never touched. */
 type LiveState = {
-  order?: () => string[];
-  removed?: () => string[];
   foldedRoles?: () => Record<string, boolean>;
   /** User-folded folder identities (`role::name`). */
   foldedFolders?: () => Record<string, boolean>;
@@ -89,8 +87,6 @@ const RECORD_VERSION = 6;
 
 const emptyRecord = (): LayerPersistedRecord => ({
   version: RECORD_VERSION,
-  order: null,
-  removed: [],
   foldedRoles: {},
   foldedFolders: {},
   renamedNames: {},
@@ -355,12 +351,6 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
   if (typeof data.version === "number" && data.version === RECORD_VERSION) {
     record.version = data.version;
   }
-  if (Array.isArray(data.order) && data.order.every(id => typeof id === "string")) {
-    record.order = data.order as string[];
-  }
-  if (Array.isArray(data.removed) && data.removed.every(id => typeof id === "string")) {
-    record.removed = data.removed as string[];
-  }
   // foldedRoles is now a Record<role, boolean> (v7+). A legacy array
   // (v5 and earlier) is deliberately dropped — read as {} — so a stale
   // record cannot mis-shape the fold state; the next write re-stamps v7.
@@ -388,7 +378,6 @@ const parseRecord = (raw: unknown): LayerPersistedRecord => {
     if (typeof name === "string") record.renamedNames[id] = name;
   }
   for (const [id, rawState] of Object.entries(asObject(data.layers) ?? {})) {
-    if (record.removed.includes(id)) continue;
     const state = parseLayerState(rawState);
     if (state) record.layers[id] = state;
   }
@@ -408,17 +397,12 @@ const mergeFields = (
   record: LayerPersistedRecord,
   fields: LiveState,
 ): LayerPersistedRecord => {
-  const removed = fields.removed ? fields.removed() : record.removed;
-  const dropRemoved = <T>(entries: Record<string, T>): Record<string, T> =>
-    Object.fromEntries(Object.entries(entries).filter(([id]) => !removed.includes(id)));
   return {
     version: RECORD_VERSION,
-    order: fields.order ? fields.order() : record.order,
-    removed,
     foldedRoles: fields.foldedRoles ? fields.foldedRoles() : record.foldedRoles,
     foldedFolders: fields.foldedFolders ? fields.foldedFolders() : record.foldedFolders,
     renamedNames: fields.renamedNames ? fields.renamedNames() : record.renamedNames,
-    layers: dropRemoved(fields.layers ? fields.layers() : record.layers),
+    layers: fields.layers ? fields.layers() : record.layers,
   };
 };
 

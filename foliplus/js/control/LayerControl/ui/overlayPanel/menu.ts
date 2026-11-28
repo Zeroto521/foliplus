@@ -680,12 +680,12 @@ const menuLayerId = (ui: LayerUI): string => ui.overlayPanel.activeMenu?.layerId
  *  typecheck until its branch exists here. */
 /** The role's folder keys, read from the layout (the owner of the arithmetic). */
 const roleFolderKeys = (ui: LayerUI, role: string): string[] =>
-  folderKeysOfRole(ui.c.folderLayoutView, role as LayerRole);
+  folderKeysOfRole(ui.c.folderView, role as LayerRole);
 
 /** The default name for a new folder, from the layout's own collision check. */
 const nextFolderDefaultName = (ui: LayerUI, role: string): string =>
   nextFolderDefaultNameInLayout(
-    ui.c.folderLayoutView,
+    ui.c.folderView,
     role as LayerRole,
     ui.T("new_folder_default_name"),
   );

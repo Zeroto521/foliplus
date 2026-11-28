@@ -38,16 +38,6 @@ export type {
  *  the next write — no migration, no data loss on read. */
 type LayerPersistedRecord = {
   version: number;
-  /** Layer ids in the panel's order, or null when the user never reordered. */
-  order: string[] | null;
-  /** Layer ids the user deleted, in the order they were deleted.
-   *
-   *  One-way: nothing removes an entry and `deleteLayer` is the only writer.
-   *  It is read at the registration entry point alone (`LayerController
-   *  .registerLayer`) so a deleted id can never re-enter the registry;
-   *  nothing downstream consults it, because a deleted id is simply never
-   *  registered and so never reaches them. */
-  removed: string[];
   /** Per-role user fold opinion. Key = role ("base" | "overlay"), value =
    *  true (fold) or false (explicit expand). Absent key = no user opinion,
    *  so the role follows the author default then the built-in expanded

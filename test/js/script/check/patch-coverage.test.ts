@@ -1162,7 +1162,9 @@ describe("main CLI error paths", () => {
           "--coverage=coverage/coverage-final.json",
         ]),
       );
-      expect(code).toBe(0);
+      // A partial (untaken-branch) line counts as not fully hit, so the
+      // patch now fails — matching codecov's hit/(hit+miss+partial) metric.
+      expect(code).toBe(1);
       const out = log.mock.calls.map(a => a.join(" ")).join("\n");
       expect(out).toContain("branch partial");
     } finally {

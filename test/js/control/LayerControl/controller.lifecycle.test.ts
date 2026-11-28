@@ -554,7 +554,9 @@ describe("LayerController", () => {
       // a retry no longer finds an entry, so the delete cannot silently
       // degrade into a re-registerable unregister.
       expect(manager.layerRegistry.has("overlay1")).toBe(false);
-      expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
+      expect(((manager as any).orderDoc.nodes["layer:overlay1"] as any)?.hidden).toBe(
+        true,
+      );
       expect(removed).toEqual(["overlay1"]);
       expect(manager.deleteLayer("overlay1")).toBe(false);
     });

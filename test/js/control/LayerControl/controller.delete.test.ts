@@ -2,13 +2,15 @@
 import {
   createLayerControllerFixture,
   makeStore,
+  readOrderTreeStorage,
+  seedOrderDoc,
   seedStorage,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { TEST_ENV, makeDerivedUI } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { LayerRuntimeStore, ROLE } from "#core/layer/index.js";
+import { LayerRuntimeStore, ROLE, orderKeyOf } from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
@@ -197,8 +199,8 @@ describe("LayerController", () => {
     // needs care — saveOrder re-inserts any stored id that is not registered
     // yet, so the id has to leave the stored order itself or it comes straight
     // back as a pending position.
+    seedOrderDoc(map, ["overlay1", "base1"]);
     seedStorage({
-      order: ["overlay1", "base1"],
       renamedNames: { overlay1: "Renamed", base1: "Base" },
       layers: { overlay1: { opacity: 0.4, overrides: ["opacity"] } },
     });
@@ -236,28 +238,27 @@ describe("LayerController", () => {
 
     expect(m.deleteLayer("overlay1")).toBe(true);
 
+    const stored = readOrderTreeStorage(map)!;
+    const node = stored.nodes["layer:overlay1"];
+    // The delete marks the doc node hidden (the single retire marker), so a
+    // reload never rebuilds the layer; the base layer's slot is untouched.
+    expect(node?.hidden).toBe(true);
+    expect(stored.nodes["layer:base1"]?.hidden).toBeUndefined();
     const record = JSON.parse(window.localStorage.getItem(CONST.STORAGE.KEY)!).data as {
-      order: string[] | null;
-      removed: string[];
       renamedNames: Record<string, string>;
       layers: Record<string, unknown>;
     };
-    expect(record.order).toEqual(["base1"]);
-    expect(record.removed).toEqual(["overlay1"]);
     expect(record.renamedNames).toEqual({ base1: "Base" });
     expect(record.layers).toEqual({});
   });
 
-  it("deleteLayer writes removed in the same flush as the other dimensions", () => {
-    // One shared timer, one record: removed must not become a seventh writer
-    // that can land on a different tick than the order / names it prunes.
+  it("deleteLayer persists the retire marker on the order doc", () => {
+    // The retire marker is a hidden flag on the doc node, written to the
+    // order's own key immediately (saveOrderDoc -> saveRecord, no debounce).
+    // There is no separate removed list to land on a different tick.
     vi.useFakeTimers();
-    const save = vi
-      .spyOn(Storage, "saveVersionedObject")
-      .mockImplementation(() => true);
-    // A stored order exists (the user arranged it); the delete prunes the id
-    // from it on the same flush as removed.
-    seedStorage({ order: ["overlay1", "base1"] });
+    const save = vi.spyOn(Storage, "saveRecord").mockImplementation(() => true);
+    seedOrderDoc(map, ["overlay1", "base1"]);
     const m = new LayerController(map, [
       { id: "overlay1", name: "O", role: "overlay", layer: { options: {} } },
       { id: "base1", name: "B", role: "base", layer: { options: {} } },
@@ -266,14 +267,13 @@ describe("LayerController", () => {
 
     m.deleteLayer("overlay1");
 
-    expect(save).toHaveBeenCalledTimes(1);
-    const written = (
-      save.mock.calls[0]![1] as {
-        data: { removed: string[]; order: string[] | null };
-      }
-    ).data;
-    expect(written.removed).toEqual(["overlay1"]);
-    expect(written.order).toEqual(["base1"]);
+    expect(save).toHaveBeenCalledWith(
+      orderKeyOf(map),
+      expect.anything(),
+      "LayerControl",
+    );
+    const doc = save.mock.calls.find(c => c[0] === orderKeyOf(map))?.[1] as any;
+    expect(doc.nodes["layer:overlay1"].hidden).toBe(true);
     save.mockRestore();
     vi.useRealTimers();
   });
@@ -293,7 +293,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("rd1")).toBe(true);
-    expect(manager.folderLayoutView.order.overlay).toContain("roads");
+    expect(manager.folderView.order.overlay).toContain("roads");
   });
 
   it("deleteLayer does not freeze a folder that still has a member", () => {
@@ -313,8 +313,8 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("rd1")).toBe(true);
-    // The folder still has rd2, so there is nothing to freeze.
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    // The folder still has rd2, so its block survives by construction.
+    expect(manager.folderView.order.overlay ?? []).toContain("roads");
   });
 
   it("deleteLayer freezes a base folder's block order too", () => {
@@ -328,7 +328,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("b1")).toBe(true);
-    expect(manager.folderLayoutView.order.base).toContain("roads");
+    expect(manager.folderView.order.base).toContain("roads");
   });
 
   it("never builds a layer the user deleted", () => {
@@ -336,7 +336,15 @@ describe("LayerController", () => {
     // runtime, so the discovery path has to be gated as well: gating
     // registerLayer alone would still put a deleted layer back into the panel
     // on the next reload.
-    seedStorage({ removed: ["gone"] });
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+          "layer:kept": { kind: "layer", parent: null, rank: "a1" },
+        },
+      }),
+    );
     const m = new LayerController(map, [
       { id: "gone", name: "G", role: "overlay", layer: { options: {} } },
       { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
@@ -351,7 +359,15 @@ describe("LayerController", () => {
     // page load, so a reload re-adds a deleted layer exactly as before the
     // delete. Without the eviction the panel shows it gone and the map keeps
     // drawing it — the user's delete did nothing.
-    seedStorage({ removed: ["gone"] });
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+          "layer:kept": { kind: "layer", parent: null, rank: "a1" },
+        },
+      }),
+    );
     const gone = { options: {} };
     map._layers["gone"] = gone;
     map.hasLayer = vi.fn(l => l === gone);
@@ -366,31 +382,40 @@ describe("LayerController", () => {
     expect(removeLayer).toHaveBeenCalledWith(gone);
   });
 
-  it("refuses to re-register a deleted id, without throwing", () => {
-    // A deletion is one-way, so the id must be refused at the registration
-    // entry point rather than allowed back in. Refusal returns null and logs —
-    // an exception would take down whatever was registering (a rebuild loop,
-    // a late Heatmap/Measure component) instead of just dropping the layer.
-    seedStorage({ removed: ["gone"] });
+  it("re-registering a user-deleted id restores it, without throwing", () => {
+    // The delete is a hidden doc node (the reversible tombstone), not a
+    // refused id: re-registering the same id un-hides the node and returns
+    // the layer to its original slot. An exception would take down whatever
+    // was registering (a rebuild loop, a late Heatmap/Measure component).
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+        },
+      }),
+    );
     const m = new LayerController(map, [
       { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
-    const warn = vi.fn();
-    vi.spyOn(console, "warn").mockImplementation(warn);
 
-    expect(m.registerLayer({ id: "gone", name: "G" })).toBeNull();
-    expect(m.layerRegistry.get("gone")).toBeUndefined();
     expect(() => m.registerLayer({ id: "gone", name: "G" })).not.toThrow();
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('registerLayer: refusing "gone"'),
-    );
-    vi.restoreAllMocks();
+    expect(m.layerRegistry.get("gone")).toBeDefined();
+    const stored = readOrderTreeStorage(map)!;
+    expect(stored.nodes["layer:gone"]?.hidden).toBeUndefined();
   });
 
   it("still accepts an id that is not in removed", () => {
     // The guard is keyed on the deleted list only: an unrelated stored id must
     // not start getting refused.
-    seedStorage({ removed: ["gone"] });
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+        },
+      }),
+    );
     const m = new LayerController(map, [
       { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
@@ -421,7 +446,9 @@ describe("LayerController", () => {
       );
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
-      expect((manager as any).order.removedIds.has("measure1")).toBe(false);
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:measure1"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("prunes the component's stored state too, so a redraw starts clean", () => {
@@ -462,7 +489,9 @@ describe("LayerController", () => {
       // A sibling keeps its tuning: this is a clear, not a sweep.
       expect(getIntent(manager.ui!, "overlay1", "visible")).toBe(false);
       expect(getIntent(manager.ui!, "overlay1", "opacity")).toBe(0.4);
-      expect((manager as any).order.removedIds.has("measure1")).toBe(false);
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:measure1"] as any)?.hidden,
+      ).toBeUndefined();
       expect(save).toHaveBeenCalledTimes(1);
     });
 
@@ -472,7 +501,9 @@ describe("LayerController", () => {
       expect(manager.deleteLayer("overlay1")).toBe(true);
 
       expect(manager.layerRegistry.has("overlay1")).toBe(false);
-      expect((manager as any).order.removedIds.has("overlay1")).toBe(true);
+      expect((readOrderTreeStorage(map)?.nodes["layer:overlay1"] as any)?.hidden).toBe(
+        true,
+      );
     });
 
     it("returns false when the entry is already gone", () => {
@@ -480,7 +511,9 @@ describe("LayerController", () => {
       manager.unregisterLayer("overlay1");
 
       expect(manager.deleteLayer("overlay1")).toBe(false);
-      expect((manager as any).order.removedIds.has("overlay1")).toBe(false);
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:overlay1"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
@@ -542,7 +575,9 @@ describe("LayerController", () => {
         kind: "system",
         via: "teardown",
       });
-      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("clears the color basemap without a panel attached", () => {
@@ -558,7 +593,9 @@ describe("LayerController", () => {
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
       expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
-      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("returns false when the color basemap cannot be unregistered", () => {
@@ -572,7 +609,9 @@ describe("LayerController", () => {
       manager.layerRegistry.remove(CONST.SOLID_BASEMAP_ID);
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
-      expect((manager as any).order.removedIds.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {

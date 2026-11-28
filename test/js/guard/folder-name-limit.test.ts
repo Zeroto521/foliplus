@@ -1,4 +1,4 @@
-// Cross-stack guard: the JS FOLDER_NAME_MAX (core/layer/folderLayout.ts) and
+// Cross-stack guard: the JS FOLDER_NAME_MAX (core/layer/folderView.ts) and
 // the Python upper bound (foliplus/_declaration/key.py, read by normalise_folder)
 // are two independent literals. If either side changes alone, Python accepts a
 // folder name the JS reader rejects (or the reverse) and the user sees

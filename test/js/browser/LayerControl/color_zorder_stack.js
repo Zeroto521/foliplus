@@ -32,12 +32,22 @@
     if (!colorLi) return { error: "color layer not registered" };
     const colorIdx = m.layerRegistry.indexOf(colorLi);
     if (spec.action === "above") {
-      m.layerRegistry.reorder(colorIdx, 0);
+      {
+        const arr = m.layerRegistry.layers.slice();
+        const [mv] = arr.splice(colorIdx, 1);
+        arr.splice(0, 0, mv);
+        m.layerRegistry.replace(arr);
+      }
     } else {
       // Move to the last index among base layers.
       const baseCount = m.layers.filter(l => l.role === "base").length;
       const lastBaseIdx = m.layerRegistry.indexOf(m.layers[baseCount - 1]);
-      m.layerRegistry.reorder(colorIdx, lastBaseIdx);
+      {
+        const arr = m.layerRegistry.layers.slice();
+        const [mv] = arr.splice(colorIdx, 1);
+        arr.splice(lastBaseIdx, 0, mv);
+        m.layerRegistry.replace(arr);
+      }
     }
     m.enforceOrder();
   }

@@ -54,7 +54,7 @@ const focusDisabledText = (
 const focusDisabledReason = (ui: LayerUI, item: HTMLElement): FocusDisabledReason => {
   const box = item.querySelector('input[type="checkbox"]') as HTMLInputElement | null;
   if (box !== null && !box.checked) return "hidden";
-  if (item.dataset.layerType === ROLE.BASE) return "base";
+  if (item.dataset.layerType === ROLE.BASE) return ROLE.BASE;
   const layerId = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
   const layerInfo = ui.c.layerRegistry.get(layerId);
   if (layerInfo && ui.c.surfaceFor(layerInfo).capabilities.bounds === false) {

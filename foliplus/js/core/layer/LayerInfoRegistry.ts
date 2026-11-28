@@ -2,14 +2,7 @@
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { deriveLayerKind, findLayer } from "./capability.js";
 import { ROLE } from "./const.js";
-import {
-  FOLDER_NAME_MAX,
-  type FolderLayout,
-  emptyFolderLayout,
-  folderNameLength,
-  folderNameTooLong,
-  fullDisplayOrder,
-} from "./folderLayout.js";
+import { FOLDER_NAME_MAX, folderNameLength, folderNameTooLong } from "./folderName.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { safeSVG } from "#core/sanitize.js";
 import { createLogger } from "#platform/log.js";
@@ -18,7 +11,7 @@ import { createLogger } from "#platform/log.js";
 const log = createLogger("LayerInfoRegistry");
 
 /** Reject a position the array mutators cannot honour. `max` is inclusive:
- *  `insertAt` may append at `items.length`, `reorder` may not. Without this
+ *  `insertAt` may append at `items.length`. Without this
  *  the splice coerces (`"1"`, `2.5`, `NaN`) or writes past the end, and the
  *  ordering backstop would be the thing corrupting the order. */
 const assertIndex = (method: string, idx: number, max: number): void => {
@@ -121,7 +114,7 @@ const carrierFor = (
  *
  * **Internal (Manager only, not for external use):**
  *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
- *   `moveToFront` / `reorder` / `replace` / `clear` / `normalizeGroups`
+ *   `moveToFront` / `replace` / `clear` / `normalizeGroups`
  *   `canReorderBetween` / `refreshFirstBaseIdx`
  *   `items` / `byId` / `view` / `layers`
  *
@@ -509,28 +502,6 @@ class LayerInfoRegistry {
     return layerInfo;
   }
 
-  /** Swap order of two positions (drag-and-drop). Both positions must sit
-   *  on the same side of the overlay/base boundary — the public reorder
-   *  entries gate with `canReorderBetween`, and this is the backstop that
-   *  keeps the partition invariant when a caller forgets. */
-  reorder(fromIdx: number, toIdx: number) {
-    assertIndex("reorder(fromIdx)", fromIdx, this.items.length - 1);
-    assertIndex("reorder(toIdx)", toIdx, this.items.length - 1);
-    const firstBase = this._firstBaseIdx;
-    const side = (i: number): number => (firstBase !== -1 && i >= firstBase ? 1 : 0);
-    if (side(fromIdx) !== side(toIdx)) {
-      throw new Error(
-        log.msg(
-          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary (firstBaseIdx=${firstBase})`,
-        ),
-      );
-    }
-    const [moved] = this.items.splice(fromIdx, 1);
-    this.items.splice(toIdx, 0, moved);
-    this.reindex();
-    this.refreshFirstBaseIdx();
-  }
-
   /** Rebuild both list and index from a new ordered array. */
   replace(newList: LayerInfo[]) {
     this.items.splice(0, this.items.length, ...newList);
@@ -546,17 +517,17 @@ class LayerInfoRegistry {
     this.refreshFirstBaseIdx();
   }
 
-  /** Reorder so the panel's display order is the two-segment folder order:
-   *  per role, Folder blocks first (layout.order priority, then anchor) and
-   *  root layers after. The overlay role precedes the base role (the
-   *  historical overlay-before-base partition). The anchor axis is the CURRENT
-   *  items order (the user's saved arrangement, or the CONF registration order
-   *  when no order was ever saved) — `fullDisplayOrder` reads each block's
-   *  anchor as its position in `this.items` before the grouping reorders it,
-   *  so the anchor is not rewritten by the display grouping (the grouping
-   *  only reorders what is shown, never the registry's index axis). */
-  normalizeGroups(layout: FolderLayout = emptyFolderLayout()) {
-    const display = fullDisplayOrder(this.items, layout);
+  /** Reorder so the registry's z axis is the flat role ladder (`z`, overlays
+   *  before bases): each role's folder order + members + root layers in the
+   *  doc's leaf order. The doc is the single order source — the grouping only
+   *  reorders what is shown, never the registry's index axis. Ids absent from
+   *  `z` (a dormant/tombstone layer) stay at the tail in their current order. */
+  normalizeGroups(z: string[]) {
+    const orderSet = new Set(z);
+    const display = z
+      .map(id => this.byId.get(id))
+      .filter((info): info is LayerInfo => info !== undefined)
+      .concat(this.items.filter(info => !orderSet.has(info.id)));
     this.items.splice(0, this.items.length, ...display);
     this.byId = new Map(this.items.map(l => [l.id, l]));
     this.reindex();
