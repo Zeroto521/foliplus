@@ -225,10 +225,8 @@ step.
 :::{note}
 
 The container row disables its own Style and Filter entries: those apply to
-individual layers, and the group is only a container. Once child layers are
-registered as `LayerInfo` entries, each child row's ⋮ menu offers Style and
-Filter on its own — a probe-only capability face that does not consume a pane.
-This lands with the child-layer registration work.
+individual layers, and the group is only a container. Style and Filter for a child
+layer are reached from that child's own row.
 
 :::
 
@@ -280,11 +278,13 @@ child. The **另一组** container row inherits nothing from it, and the child b
 not reported as a mistake.
 
 The example builds its layers by hand only because it must show a container, and so
-that it runs as written. A real page starts with `m = folium.Map(...)` and adds
-ordinary layers through `explore`; only a container row needs a hand-built
-`FeatureGroup`:
+that it runs as written. With several layers on one map, start with
+`m = folium.Map(...)` and add each of them with `explore(m=m, ...)`; with a single
+layer, `gdf.explore(foliplus=...)` builds its own map. Only a container row needs
+a hand-built `FeatureGroup`:
 
 ```python
+# gdf_stations: your existing GeoDataFrame
 m = folium.Map(location=[31.2, 121.5], zoom_start=10)
 gdf_stations.explore(m=m, foliplus={"label": {"field": "name"}})  # ordinary layer
 folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"}).add_to(
