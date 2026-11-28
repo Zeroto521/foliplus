@@ -28,11 +28,67 @@ import path from "node:path";
 /** A single foliplus class token, exactly. */
 const TOKEN_RE = /^foliplus-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** Strip block + line comments, preserving newlines so line numbers survive. */
-const stripComments = src =>
-  src
-    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\r\n]/g, " "))
-    .replace(/\/\/[^\r\n]*/g, m => m.replace(/[^\r\n]/g, " "));
+/**
+ * Strip block + line comments, preserving newlines so line numbers survive.
+ *
+ * String-aware: a `//` or `/*` inside a string literal (a URL, a regex-ish
+ * value, a data URI) is content, not a comment — blanking it would corrupt the
+ * string and could hide a class token that follows it on the same line. Only a
+ * comment outside a string is replaced (by spaces, so the source length and
+ * every line number stay identical).
+ */
+const stripComments = src => {
+  let out = "";
+  let i = 0;
+  let inString = null; // '"' or "'"
+  while (i < src.length) {
+    const ch = src[i];
+    if (inString) {
+      out += ch;
+      if (ch === "\\") {
+        out += src[i + 1] ?? "";
+        i += 2;
+        continue;
+      }
+      if (ch === inString) inString = null;
+      i += 1;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inString = ch;
+      out += ch;
+      i += 1;
+      continue;
+    }
+    if (ch === "/" && src[i + 1] === "/") {
+      while (i < src.length && src[i] !== "\n") {
+        out += " ";
+        i += 1;
+      }
+      continue;
+    }
+    if (ch === "/" && src[i + 1] === "*") {
+      out += " ";
+      i += 1;
+      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) {
+        out += src[i] === "\n" || src[i] === "\r" ? src[i] : " ";
+        i += 1;
+      }
+      if (i < src.length) {
+        out += " ";
+        i += 1;
+      }
+      if (i < src.length) {
+        out += " ";
+        i += 1;
+      }
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+};
 
 /** Recursively collect source files under `dir`, skipping `skipDirs`. */
 const collectSources = (

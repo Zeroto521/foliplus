@@ -16,6 +16,8 @@ lib/
 lib64/
 !script/check/lib/
 !script/check/lib/**
+!test/js/script/check/lib/
+!test/js/script/check/lib/**
 parts/
 sdist/
 var/
