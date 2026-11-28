@@ -6,6 +6,7 @@ import { type RequestGates } from "./request.js";
 import { COORD_BOUNDS } from "#core/geo/index.js";
 import type { SuggestItem } from "#core/geocode/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
+import type { ConfigSearch } from "#foliplus/config-schema.js";
 import type { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import type { Floating } from "#platform/floating.js";
@@ -38,7 +39,7 @@ interface SearchControlState extends RequestGates, OwnedLayers {
 /** Full context for logic functions — the control's runtime state plus the
  *  ControlEnv the factory carries (config / T / _ / log). Reuses the canonical
  *  ControlEnv rather than redefining the same shape. */
-type SearchControlCtx = SearchControlState & ControlEnv;
+type SearchControlCtx = SearchControlState & ControlEnv<ConfigSearch>;
 
 /**
  * Parse raw coordinate input into a validated longitude/latitude pair.

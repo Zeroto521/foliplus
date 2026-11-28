@@ -36,7 +36,7 @@ import {
   type ClassifyMethod,
   SCHEME_FALLBACK_COLOR,
 } from "#core/value/index.js";
-import type { NumberStyle } from "#foliplus/config-schema.js";
+import type { ConfigHeatmap, NumberStyle } from "#foliplus/config-schema.js";
 import { normalizeHexColor } from "#platform/color.js";
 import type { Debounced } from "#platform/debounce.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
@@ -56,6 +56,9 @@ interface PointLayerInfo {
 type HeatmapManagerEnv = {
   readonly T: (key: string) => string;
   readonly log: Logger;
+  /** The control's narrowed CONFIG. Optional so unit tests can build a manager
+   *  without one (they fall back to the IIFE global, as before). */
+  readonly config?: ConfigHeatmap;
 };
 
 const NO_OP_ENV: HeatmapManagerEnv = {
@@ -70,6 +73,8 @@ class HeatmapManager {
   T: (key: string) => string;
   /** Internal: read by the mixin modules in this directory. */
   readonly log: Logger;
+  /** The component's CONFIG, narrowed to its schema once by the entry. */
+  readonly config: ConfigHeatmap;
   /** Per-map event bus — bound once in the constructor (ensure-style getters
    *  return the cached instance, so hold it like the logger does). */
   declare events: EventBus;
@@ -337,7 +342,7 @@ class HeatmapManager {
   publishCount(operation?: SettledOperation): void {
     return canvasMethods.publishCount(this, operation);
   }
-  resetState(config: ComponentConfig): void {
+  resetState(config: Partial<ConfigHeatmap>): void {
     return stateMethods.resetState(this, config);
   }
   loadSavedConfig(): SavedConfig | null {
@@ -378,12 +383,15 @@ class HeatmapManager {
     this.map = mapInstance;
     this.T = env.T;
     this.log = env.log;
+    // Boundary cast: a manager built without an env (unit tests) keeps reading
+    // the IIFE global; the entry hands the narrowed config in explicitly.
+    this.config = env.config ?? (CONFIG as ConfigHeatmap);
     this.layerId = generateId(CONST.ID, opts?.id);
 
     // State management
     this.selectedLayerId = null;
     this.pointLayers = [];
-    this.agg = CONFIG.agg ?? CONST.AGG.COUNT;
+    this.agg = this.config.agg ?? CONST.AGG.COUNT;
     this.field = "";
     this.availableFields = [];
     this.effectiveFieldCache = null;
@@ -391,29 +399,33 @@ class HeatmapManager {
     // consumes the hasScanned guard when a persisted record exists, so the
     // user's earlier choice (or the filter row's Clear) always wins over these.
     this.declaredLayer =
-      typeof CONFIG.layer === "string" && CONFIG.layer ? CONFIG.layer : null;
+      typeof this.config.layer === "string" && this.config.layer
+        ? this.config.layer
+        : null;
     this.declaredField =
-      typeof CONFIG.field === "string" && CONFIG.field ? CONFIG.field : null;
+      typeof this.config.field === "string" && this.config.field
+        ? this.config.field
+        : null;
     // Declared filter: a starting condition, never user intent. Parsed here so
     // the seed can report an unreadable payload once instead of per rebuild.
-    const rawDeclaredFilter: unknown = CONFIG.filter;
+    const rawDeclaredFilter: unknown = this.config.filter;
     this.declaredFilter = parsePersistedFilter(rawDeclaredFilter);
     this.declaredFilterInvalid = rawDeclaredFilter != null && !this.declaredFilter;
     this.declarationWarned = new Set();
-    this.scheme = CONFIG.color_scheme ?? "Reds";
-    this.method = resolveClassifyMethod(CONFIG.method);
-    this.numClasses = CONFIG.num_classes ?? CLASS_COUNT.DEFAULT;
-    this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
-    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
+    this.scheme = this.config.color_scheme ?? "Reds";
+    this.method = resolveClassifyMethod(this.config.method);
+    this.numClasses = this.config.num_classes ?? CLASS_COUNT.DEFAULT;
+    this.borderColor = this.config.border_color ?? SCHEME_FALLBACK_COLOR;
+    this.borderWeight = this.config.border_weight ?? BORDER_WEIGHT.DEFAULT;
     // Python default is True; only an explicit false turns labels off — same
     // `!== false` rule MeasureControl uses for label_show / label_collide.
-    this.labelShow = CONFIG.label_show !== false;
+    this.labelShow = this.config.label_show !== false;
     // Color inputs require #rrggbb — normalize the short #fff Python default.
     this.labelColor = normalizeHexColor(
-      CONFIG.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+      this.config.label_color ?? CONST.LABEL.COLOR_DEFAULT,
     );
-    this.labelSize = clampLabelSize(CONFIG.label_size ?? CONST.LABEL.SIZE_DEFAULT);
-    this.labelFormat = (CONFIG.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
+    this.labelSize = clampLabelSize(this.config.label_size ?? CONST.LABEL.SIZE_DEFAULT);
+    this.labelFormat = (this.config.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
     this.valueFallbackWarned = false;
     this.sourceMeta = {};
   }
