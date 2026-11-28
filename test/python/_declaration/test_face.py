@@ -293,9 +293,7 @@ class TestNormaliseMarkerFace:
         assert out == {}
 
     def test_an_out_of_range_marker_alpha_is_rejected(self) -> None:
-        with pytest.warns(
-            UserWarning, match="expected a whole number from 0 to 100"
-        ):
+        with pytest.warns(UserWarning, match="expected a whole number from 0 to 100"):
             out = normalise_marker_face(
                 {"colorOpacity": 101}, owner="LayerControl", subject="layer Mark101"
             )
