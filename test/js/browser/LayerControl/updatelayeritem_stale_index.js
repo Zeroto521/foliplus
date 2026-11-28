@@ -19,7 +19,12 @@
   const regIdx = id => m.layers.findIndex(l => l.id === id);
   // Move beta ahead of alpha in the registry only; the rows keep their DOM
   // order. reorder goes through the method — the registry's view is read-only.
-  m.layerRegistry.reorder(regIdx("beta"), regIdx("alpha"));
+  {
+    const arr = m.layerRegistry.layers.slice();
+    const [mv] = arr.splice(regIdx("beta"), 1);
+    arr.splice(regIdx("alpha"), 0, mv);
+    m.layerRegistry.replace(arr);
+  }
 
   const domOrder = [...ui.uiContainer.querySelectorAll(".foliplus-layer-item")].map(
     e => e.dataset.layerId,

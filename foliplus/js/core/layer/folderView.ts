@@ -14,9 +14,9 @@
 // The identity key = (role, normalize(name)); normalize = NFC → whitespace fold
 // → trim → casefold (locale-independent). displayName = first-seen original
 // (trim only) — never used for merge / sort / store.
+import { FOLDER_NAME_MAX, normalizeFolderName } from "./folderName.js";
 import type { LayerRole } from "./role.js";
 import type { LayerInfo } from "./type.js";
-import { FOLDER_NAME_MAX, normalizeFolderName } from "./folderName.js";
 
 /** One folder identity entry: stable key + the display name a rename rewrites
  *  (rename never touches the key — see the order command). */

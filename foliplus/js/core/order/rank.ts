@@ -57,36 +57,36 @@ const midpoint = (a: string, b: string | null): string => {
   }
   if (b != null && b.length > 1) return b.slice(0, 1);
   return DIGITS[digitA] + midpoint(a.slice(1), null);
-}
+};
 
 const getIntegerLength = (head: string) => {
   const i = at(intIndex, head);
   const half = INT_DIGITS.length / 2;
   return i < half ? half - i + 1 : i - half + 2;
-}
+};
 
 const getIntegerPart = (key: string) => {
   const len = getIntegerLength(key[0]);
   if (len > key.length) throw new Error(`invalid order key: ${key}`);
   return key.slice(0, len);
-}
+};
 
 const validateInteger = (x: string) => {
   if (x.length !== getIntegerLength(x[0])) {
     throw new Error(`invalid integer part of order key: ${x}`);
   }
-}
+};
 
 const isSmallestInteger = (x: string) => {
   return x === INT_DIGITS[0] + DIGITS[0].repeat(INT_DIGITS.length / 2);
-}
+};
 
 const validateOrderKey = (key: string) => {
   if (isSmallestInteger(key)) throw new Error(`invalid order key: ${key}`);
   const i = getIntegerPart(key);
   const f = key.slice(i.length);
   if (f.slice(-1) === DIGITS[0]) throw new Error(`invalid order key: ${key}`);
-}
+};
 
 const incrementInteger = (x: string) => {
   validateInteger(x);
@@ -109,7 +109,7 @@ const incrementInteger = (x: string) => {
     h +
     (lengthDelta > 0 ? trailing + zero : lengthDelta < 0 ? trailing.slice(1) : trailing)
   );
-}
+};
 
 const decrementInteger = (x: string) => {
   validateInteger(x);
@@ -132,7 +132,7 @@ const decrementInteger = (x: string) => {
     h +
     (lengthDelta > 0 ? trailing + last : lengthDelta < 0 ? trailing.slice(1) : trailing)
   );
-}
+};
 
 /** Generate an order key strictly between `a` and `b` (either may be null). */
 const generateKeyBetween = (a: string | null, b: string | null) => {
@@ -174,11 +174,6 @@ const generateKeyBetween = (a: string | null, b: string | null) => {
   if (i == null) throw new Error("cannot increment any more");
   if (i < b) return i;
   return ia + midpoint(fa, null);
-}
-
-export {
-  rankStart,
-  rankAfter,
-  rankFirst,
-  rankBetween,
 };
+
+export { rankStart, rankAfter, rankFirst, rankBetween };

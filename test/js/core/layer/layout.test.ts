@@ -227,9 +227,27 @@ describe("persist", () => {
     const map = mapLike();
     const over: OrderDoc = {
       nodes: {
-        "folder:overlay:a": { kind: "folder", parent: null, rank: "a0", name: "A", role: "overlay" },
-        "folder:overlay:b": { kind: "folder", parent: "folder:overlay:a", rank: "a0", name: "B", role: "overlay" },
-        "folder:overlay:c": { kind: "folder", parent: "folder:overlay:b", rank: "a0", name: "C", role: "overlay" },
+        "folder:overlay:a": {
+          kind: "folder",
+          parent: null,
+          rank: "a0",
+          name: "A",
+          role: "overlay",
+        },
+        "folder:overlay:b": {
+          kind: "folder",
+          parent: "folder:overlay:a",
+          rank: "a0",
+          name: "B",
+          role: "overlay",
+        },
+        "folder:overlay:c": {
+          kind: "folder",
+          parent: "folder:overlay:b",
+          rank: "a0",
+          name: "C",
+          role: "overlay",
+        },
         "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
       },
     };

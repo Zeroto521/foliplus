@@ -3,8 +3,8 @@
 // The engine (core/order/resolve) knows only node keys; here the leaf key
 // "layer:<id>" is resolved to a LayerInfo and rows/blocks are partitioned by role.
 // `z` is the DFS leaf flatten of a role (block does not change z semantics).
-import type { LayerRole } from "../role.js";
 import type { FolderLayout } from "../folderView.js";
+import type { LayerRole } from "../role.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
 import {
@@ -47,7 +47,6 @@ type ProjectedBlock =
   | { kind: "layer"; layer: LayerInfo };
 
 /** Re-export the engine projection types so the adapter contract is one import. */
-
 
 /** The roles in the fixed panel/z order: overlay first, then base. */
 const ROLE_ORDER: readonly LayerRole[] = ["overlay", "base"];
@@ -204,7 +203,10 @@ const resolveOrderView = (
     const byRole = new Map<LayerRole, LayerInfo[]>();
     for (const m of members) {
       let list = byRole.get(m.role);
-      if (!list) { list = []; byRole.set(m.role, list); }
+      if (!list) {
+        list = [];
+        byRole.set(m.role, list);
+      }
       list.push(m);
     }
     for (const role of ROLE_ORDER) {

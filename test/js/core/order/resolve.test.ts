@@ -30,7 +30,13 @@ describe("childrenOf", () => {
 
   it("groups by parent", () => {
     const d = doc({
-      "folder:overlay:f": { kind: "folder", parent: null, rank: "a0", name: "F", role: "overlay" },
+      "folder:overlay:f": {
+        kind: "folder",
+        parent: null,
+        rank: "a0",
+        name: "F",
+        role: "overlay",
+      },
       "layer:a": { kind: "layer", parent: "folder:overlay:f", rank: "a0" },
       "layer:b": { kind: "layer", parent: null, rank: "a1" },
     });
@@ -41,7 +47,13 @@ describe("childrenOf", () => {
 describe("subtreeLeaves", () => {
   it("collects nested leaves in DFS order (no nesting drop)", () => {
     const d = doc({
-      "folder:overlay:f": { kind: "folder", parent: null, rank: "a0", name: "F", role: "overlay" },
+      "folder:overlay:f": {
+        kind: "folder",
+        parent: null,
+        rank: "a0",
+        name: "F",
+        role: "overlay",
+      },
       "group:g": { kind: "group", parent: "folder:overlay:f", rank: "a0", name: "G" },
       "layer:x": { kind: "layer", parent: "group:g", rank: "a0" },
       "layer:y": { kind: "layer", parent: "folder:overlay:f", rank: "a1" },
@@ -62,7 +74,13 @@ describe("leafKeysOf", () => {
   });
   it("walks nested folders and groups to present leaves", () => {
     const d = doc({
-      "folder:overlay:f": { kind: "folder", parent: null, rank: "a0", name: "F", role: "overlay" },
+      "folder:overlay:f": {
+        kind: "folder",
+        parent: null,
+        rank: "a0",
+        name: "F",
+        role: "overlay",
+      },
       "group:g": { kind: "group", parent: "folder:overlay:f", rank: "a0", name: "G" },
       "layer:x": { kind: "layer", parent: "group:g", rank: "a0" },
       "layer:y": { kind: "layer", parent: "folder:overlay:f", rank: "a1" },
@@ -75,7 +93,13 @@ describe("resolveView", () => {
   it("projects rows, leaves and blocks kind-generically", () => {
     const d = doc({
       "layer:a": { kind: "layer", parent: null, rank: "a0" },
-      "folder:overlay:f": { kind: "folder", parent: null, rank: "a1", name: "F", role: "overlay" },
+      "folder:overlay:f": {
+        kind: "folder",
+        parent: null,
+        rank: "a1",
+        name: "F",
+        role: "overlay",
+      },
       "group:g": { kind: "group", parent: "folder:overlay:f", rank: "a0", name: "G" },
       "layer:x": { kind: "layer", parent: "group:g", rank: "a0" },
       "layer:y": { kind: "layer", parent: "folder:overlay:f", rank: "a1" },
@@ -102,13 +126,35 @@ describe("resolveView", () => {
 
   it("drops a subtree deeper than the depth cap from rows/leaves", () => {
     const d = doc({
-      "folder:overlay:a": { kind: "folder", parent: null, rank: "a0", name: "A", role: "overlay" },
-      "folder:overlay:b": { kind: "folder", parent: "folder:overlay:a", rank: "a0", name: "B", role: "overlay" },
-      "folder:overlay:c": { kind: "folder", parent: "folder:overlay:b", rank: "a0", name: "C", role: "overlay" },
+      "folder:overlay:a": {
+        kind: "folder",
+        parent: null,
+        rank: "a0",
+        name: "A",
+        role: "overlay",
+      },
+      "folder:overlay:b": {
+        kind: "folder",
+        parent: "folder:overlay:a",
+        rank: "a0",
+        name: "B",
+        role: "overlay",
+      },
+      "folder:overlay:c": {
+        kind: "folder",
+        parent: "folder:overlay:b",
+        rank: "a0",
+        name: "C",
+        role: "overlay",
+      },
       "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
     });
     const v = resolveView(d, () => true);
     expect(v.leaves).toEqual([]);
-    expect(v.rows.map(r => r.key)).toEqual(["folder:overlay:a", "folder:overlay:b", "folder:overlay:c"]);
+    expect(v.rows.map(r => r.key)).toEqual([
+      "folder:overlay:a",
+      "folder:overlay:b",
+      "folder:overlay:c",
+    ]);
   });
 });

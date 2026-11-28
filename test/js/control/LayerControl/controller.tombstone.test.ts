@@ -22,7 +22,9 @@ const treeIndexOf = (manager: LayerController, id: string): number => {
   // Find the root node (parent null) that carries the id, in rank order.
   const roots = Object.entries(doc.nodes)
     .filter(([, n]: [string, any]) => n.parent == null)
-    .sort(([, a]: [string, any], [, b]: [string, any]) => (a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0));
+    .sort(([, a]: [string, any], [, b]: [string, any]) =>
+      a.rank < b.rank ? -1 : a.rank > b.rank ? 1 : 0,
+    );
   for (let i = 0; i < roots.length; i += 1) {
     const [key, n]: [string, any] = roots[i];
     if (key === layerKey) return i;
@@ -34,7 +36,8 @@ const treeIndexOf = (manager: LayerController, id: string): number => {
 
 // Whether the tree still carries the id anywhere (root or a folder member).
 const treeCarries = (manager: LayerController, id: string): boolean =>
-  treeIndexOf(manager, id) !== -1 || (() => {
+  treeIndexOf(manager, id) !== -1 ||
+  (() => {
     const doc: any = (manager as any).orderDoc;
     return doc ? doc.nodes[`layer:${id}`] !== undefined : false;
   })();

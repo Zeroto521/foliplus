@@ -199,7 +199,11 @@ const blockEntryAfter = (ui: LayerUI, role: string, entry: string): string | nul
   );
   if (idx < 0 || idx + 1 >= blocks.length) return null;
   const next = blocks[idx + 1];
-  return next.kind === "folder" ? next.key : next.kind === "layer" ? rootLayerEntry(next.layer.id) : null;
+  return next.kind === "folder"
+    ? next.key
+    : next.kind === "layer"
+      ? rootLayerEntry(next.layer.id)
+      : null;
 };
 
 /** Which third of a folder row the pointer is over. The middle takes the layer

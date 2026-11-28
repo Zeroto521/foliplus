@@ -3,9 +3,9 @@ import {
   ENFORCE_ORDER_DEBOUNCE_MS,
   createLayerControllerFixture,
   makeStore,
-  seedStorage,
-  seedOrderDoc,
   readOrderTreeStorage,
+  seedOrderDoc,
+  seedStorage,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { initFixture, makeDerivedUI } from "./ui/fixture.js";
@@ -176,7 +176,12 @@ describe("LayerController", () => {
         { id: "A", name: "A", role: "overlay" },
         { id: "B", name: "B", role: "overlay" },
       ]);
-      m.layerRegistry.reorder(0, 1);
+      {
+        const arr = m.layerRegistry.layers.slice();
+        const [mv] = arr.splice(0, 1);
+        arr.splice(1, 0, mv);
+        m.layerRegistry.replace(arr);
+      }
       expect(m.layers.map(l => l.id)).toEqual(["B", "A"]);
 
       m.replaySavedOrder();
@@ -203,7 +208,12 @@ describe("LayerController", () => {
         { id: "C", name: "C", role: "overlay" },
         { id: "D", name: "D", role: "overlay" },
       ]);
-      m.layerRegistry.reorder(0, 2);
+      {
+        const arr = m.layerRegistry.layers.slice();
+        const [mv] = arr.splice(0, 1);
+        arr.splice(2, 0, mv);
+        m.layerRegistry.replace(arr);
+      }
       expect(m.layers.map(l => l.id)).toEqual(["A", "B", "D", "C"]);
 
       m.replaySavedOrder();
@@ -286,7 +296,12 @@ describe("LayerController", () => {
       expect(m.layers.map(l => l.id)).toEqual(["fg", "tile", "foliplus_color_map"]);
 
       // The drag moves the color basemap above the tile basemap.
-      m.layerRegistry.reorder(2, 1);
+      {
+        const arr = m.layerRegistry.layers.slice();
+        const [mv] = arr.splice(2, 1);
+        arr.splice(1, 0, mv);
+        m.layerRegistry.replace(arr);
+      }
       m.saveOrder();
 
       const stored = readOrderTreeStorage(map)!;
@@ -456,11 +471,9 @@ describe("LayerController", () => {
 
       // The layer_order document no longer ranks H, so a reload builds the
       // default from the remaining declarations and H is not resurrected.
-      const doc = JSON.parse(
-        window.localStorage.getItem(
-          orderKeyOf(map),
-        )!,
-      ) as { nodes: Record<string, unknown> };
+      const doc = JSON.parse(window.localStorage.getItem(orderKeyOf(map))!) as {
+        nodes: Record<string, unknown>;
+      };
       expect(doc.nodes["layer:H"]).toBeUndefined();
       expect(doc.nodes["layer:A"]).toBeDefined();
       expect(doc.nodes["layer:B"]).toBeDefined();

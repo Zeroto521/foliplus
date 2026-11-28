@@ -85,10 +85,8 @@ const INTENTIONAL_NO_TEST: Record<string, string> = {
     "covered by the aggregate test/js/core/layer/layout.test.ts",
   "core/order/alphabet":
     "covered by the aggregate test/js/core/order/order.test.ts + rank.test.ts",
-  "core/order/command":
-    "covered by the aggregate test/js/core/order/order.test.ts",
-  "core/order/util":
-    "covered by the aggregate test/js/core/order/order.test.ts",
+  "core/order/command": "covered by the aggregate test/js/core/order/order.test.ts",
+  "core/order/util": "covered by the aggregate test/js/core/order/order.test.ts",
 
   "core/leaflet/markerColorPreset":
     "preset data table pinned by test/js/script/check/marker-color-preset.test.ts",

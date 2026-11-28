@@ -5,7 +5,7 @@
 // blocks. The adapter (core/layer/layout/project) maps node keys to LayerInfo and
 // partitions rows by role. The z ladder is a DFS leaf flatten of the whole subtree
 // — a block does not change z semantics, it is only panel grouping.
-import { type OrderDoc, ORDER_MAX_DEPTH, orderDepth } from "./doc.js";
+import { ORDER_MAX_DEPTH, type OrderDoc, orderDepth } from "./doc.js";
 
 /** A block row: a folder or group header with its subtree leaves. */
 interface BlockRow {
@@ -135,9 +135,4 @@ const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
 
 export type { BlockRow, OrderRow, ResolvedView, ParentView, Present };
 
-export {
-  childrenOf,
-  subtreeLeaves,
-  leafKeysOf,
-  resolveView,
-};
+export { childrenOf, subtreeLeaves, leafKeysOf, resolveView };

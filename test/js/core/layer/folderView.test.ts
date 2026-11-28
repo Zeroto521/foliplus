@@ -87,18 +87,32 @@ describe("pure folder helpers (kept from the order-helper era)", () => {
         { key: "new folder 4", name: "new folder 4" },
         { key: "new folder 5", name: "new folder 5" },
       ],
-      order: { overlay: ["new folder", "new folder 2", "new folder 3", "new folder 4", "new folder 5"] },
+      order: {
+        overlay: [
+          "new folder",
+          "new folder 2",
+          "new folder 3",
+          "new folder 4",
+          "new folder 5",
+        ],
+      },
     });
     expect(nextFolderDefaultName(l, "overlay", "new folder")).toBe("new folder 6");
   });
 
   it("nextFolderDefaultName picks the first free candidate when the base is taken", () => {
-    const l = layout({ folders: [{ key: "new folder", name: "new folder" }], order: { overlay: ["new folder"] } });
+    const l = layout({
+      folders: [{ key: "new folder", name: "new folder" }],
+      order: { overlay: ["new folder"] },
+    });
     expect(nextFolderDefaultName(l, "overlay", "new folder")).toBe("new folder 2");
   });
 
   it("nextFolderDefaultName returns the base untouched when it is not taken", () => {
-    const l = layout({ folders: [{ key: "other", name: "Other" }], order: { overlay: ["other"] } });
+    const l = layout({
+      folders: [{ key: "other", name: "Other" }],
+      order: { overlay: ["other"] },
+    });
     expect(nextFolderDefaultName(l, "overlay", "new folder")).toBe("new folder");
   });
 
@@ -109,7 +123,10 @@ describe("pure folder helpers (kept from the order-helper era)", () => {
 
   it("nextFolderDefaultName truncates the stem so the suffix still fits the cap", () => {
     const base = "a".repeat(64);
-    const l = layout({ folders: [{ key: base, name: base }], order: { overlay: [base] } });
+    const l = layout({
+      folders: [{ key: base, name: base }],
+      order: { overlay: [base] },
+    });
     const next = nextFolderDefaultName(l, "overlay", base);
     expect(next).not.toBe(base);
     expect(next.endsWith(" 2")).toBe(true);
@@ -138,7 +155,10 @@ describe("folderKeysOfRole", () => {
   it("excludes root pins and other roles", () => {
     const l = layout({
       order: { overlay: ["roads"] },
-      members: { a: { role: "overlay", folder: "" }, b: { role: "base", folder: "water" } },
+      members: {
+        a: { role: "overlay", folder: "" },
+        b: { role: "base", folder: "water" },
+      },
     });
     expect(folderKeysOfRole(l, "overlay")).toEqual(["roads"]);
   });
@@ -155,7 +175,11 @@ describe("groupByFolder", () => {
       },
     });
     const blocks = groupByFolder(
-      [entry("a", "overlay", "Roads", 0), entry("b", "overlay", "Roads", 1), entry("c", "overlay", "Water", 2)],
+      [
+        entry("a", "overlay", "Roads", 0),
+        entry("b", "overlay", "Roads", 1),
+        entry("c", "overlay", "Water", 2),
+      ],
       "overlay",
       l,
     );

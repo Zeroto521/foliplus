@@ -44,6 +44,7 @@ import {
   type LabelAwareLayer,
   type LayerAPI,
   type LayerCapabilities,
+  type LayerDeclaration,
   LayerFactory,
   type LayerFilter,
   type LayerFilterFeatures,
@@ -53,6 +54,7 @@ import {
   type LayerRole,
   type LayerStyleSnapshot,
   type LayerSurface,
+  type OrderView,
   PaneManager,
   RECURSION,
   ROLE,
@@ -65,48 +67,46 @@ import {
   type VisibilityQuery,
   buildFilterFeatures,
   countFeatureGeometry,
+  defaultDoc,
   ensureFilterStore,
   ensureLayerAPI,
   filterLeafSet,
   filterStep,
   findLayer,
+  folderKeyOf,
   folderNameLength,
   folderNameTooLong,
   folderOf,
-  normalizeFolderName,
-  paintsAtZoom,
-  resolveVisibility,
-  visibleDomOf,
-  walkLeaf,
-  zFor,
-  type LayerDeclaration,
-  type OrderView,
-  defaultDoc,
-  folderKeyOf,
   layerKeyOf,
   loadOrderDoc,
   mergeOrderDocs,
+  normalizeFolderName,
+  paintsAtZoom,
   presentOf,
   projectLayoutOf,
   resolveOrderView as resolveOrderViewOf,
+  resolveVisibility,
   saveOrderDoc,
+  visibleDomOf,
+  walkLeaf,
+  zFor,
 } from "#core/layer/index.js";
+import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
+import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import {
   type OrderDoc,
-  createBlock as orderCreateBlock,
   folderDocKey,
+  childrenOf as orderChildrenOf,
+  createBlock as orderCreateBlock,
   moveInto as orderMoveInto,
   moveToIndex as orderMoveToIndex,
-  renameBlock as orderRenameBlock,
-  restore as orderRestore,
-  suppress as orderSuppress,
-  childrenOf as orderChildrenOf,
   rankAfter as orderRankAfter,
   rankBetween as orderRankBetween,
   rankStart as orderRankStart,
+  renameBlock as orderRenameBlock,
+  restore as orderRestore,
+  suppress as orderSuppress,
 } from "#core/order/index.js";
-import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
-import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";
@@ -1104,10 +1104,20 @@ class LayerController implements LayerAPI {
         const fKey = folderDocKey(role, folderKeyOf(folder));
         if (doc.nodes[fKey] === undefined) {
           const rootSiblings = orderChildrenOf(doc, null).filter(s => s !== key);
-          const prev = rootSiblings.length > 0 ? doc.nodes[rootSiblings[rootSiblings.length - 1]].rank : null;
+          const prev =
+            rootSiblings.length > 0
+              ? doc.nodes[rootSiblings[rootSiblings.length - 1]].rank
+              : null;
           const rank = prev === null ? orderRankStart() : orderRankAfter(prev);
-          const out: OrderDoc = { nodes: { ...doc.nodes, [fKey]: { kind: "folder", parent: null, rank, name: folder, role } } };
-          return { nodes: { ...out.nodes, [key]: { ...out.nodes[key], parent: fKey } } };
+          const out: OrderDoc = {
+            nodes: {
+              ...doc.nodes,
+              [fKey]: { kind: "folder", parent: null, rank, name: folder, role },
+            },
+          };
+          return {
+            nodes: { ...out.nodes, [key]: { ...out.nodes[key], parent: fKey } },
+          };
         }
         return { nodes: { ...doc.nodes, [key]: { ...doc.nodes[key], parent: fKey } } };
       }
@@ -1116,16 +1126,30 @@ class LayerController implements LayerAPI {
     const out: OrderDoc = { nodes: { ...doc.nodes } };
     const insertLeaf = (parent: string | null, atTop: boolean): void => {
       const siblings = orderChildrenOf(doc, parent).filter(s => s !== key);
-      const prev = atTop ? null : siblings.length > 0 ? doc.nodes[siblings[siblings.length - 1]].rank : null;
-      const nextR = atTop ? siblings.length > 0 ? doc.nodes[siblings[0]].rank : null : null;
-      const rank = prev === null && nextR === null ? orderRankStart() : orderRankBetween(prev, nextR);
+      const prev = atTop
+        ? null
+        : siblings.length > 0
+          ? doc.nodes[siblings[siblings.length - 1]].rank
+          : null;
+      const nextR = atTop
+        ? siblings.length > 0
+          ? doc.nodes[siblings[0]].rank
+          : null
+        : null;
+      const rank =
+        prev === null && nextR === null
+          ? orderRankStart()
+          : orderRankBetween(prev, nextR);
       out.nodes[key] = { kind: "layer", parent, rank };
     };
     if (folder && folderKeyOf(folder) !== "") {
       const fKey = folderDocKey(role, folderKeyOf(folder));
       if (out.nodes[fKey] === undefined) {
         const rootSiblings = orderChildrenOf(doc, null);
-        const prev = rootSiblings.length > 0 ? doc.nodes[rootSiblings[rootSiblings.length - 1]].rank : null;
+        const prev =
+          rootSiblings.length > 0
+            ? doc.nodes[rootSiblings[rootSiblings.length - 1]].rank
+            : null;
         const rank = prev === null ? orderRankStart() : orderRankAfter(prev);
         out.nodes[fKey] = { kind: "folder", parent: null, rank, name: folder, role };
       }
@@ -1155,8 +1179,18 @@ class LayerController implements LayerAPI {
     const siblings = orderChildrenOf(doc, null).filter(s => s !== key);
     const tIdx = siblings.indexOf(targetKey);
     if (tIdx < 0) return doc;
-    const prev = after ? (tIdx + 1 < siblings.length ? doc.nodes[siblings[tIdx + 1]].rank : null) : (tIdx > 0 ? doc.nodes[siblings[tIdx - 1]].rank : null);
-    const nextR = after ? target.rank : (tIdx + 1 < siblings.length ? doc.nodes[siblings[tIdx + 1]].rank : null);
+    const prev = after
+      ? tIdx + 1 < siblings.length
+        ? doc.nodes[siblings[tIdx + 1]].rank
+        : null
+      : tIdx > 0
+        ? doc.nodes[siblings[tIdx - 1]].rank
+        : null;
+    const nextR = after
+      ? target.rank
+      : tIdx + 1 < siblings.length
+        ? doc.nodes[siblings[tIdx + 1]].rank
+        : null;
     const rank = orderRankBetween(prev, nextR);
     const out: OrderDoc = { nodes: { ...doc.nodes } };
     out.nodes[key] = { ...node, rank };
@@ -1186,16 +1220,16 @@ class LayerController implements LayerAPI {
 
   /** Delete a folder block: promote every member to root (in the folder's slot)
    *  and remove the block. Members keep their relative order. */
-  private deleteFolderDoc(
-    doc: OrderDoc,
-    key: string,
-  ): OrderDoc {
+  private deleteFolderDoc(doc: OrderDoc, key: string): OrderDoc {
     const node = doc.nodes[key];
     if (node === undefined) return doc;
     const siblings = orderChildrenOf(doc, null);
     const fIdx = siblings.indexOf(key);
     const prevRoot = fIdx > 0 ? doc.nodes[siblings[fIdx - 1]].rank : null;
-    const nextRoot = fIdx >= 0 && fIdx + 1 < siblings.length ? doc.nodes[siblings[fIdx + 1]].rank : null;
+    const nextRoot =
+      fIdx >= 0 && fIdx + 1 < siblings.length
+        ? doc.nodes[siblings[fIdx + 1]].rank
+        : null;
     const members = orderChildrenOf(doc, key);
     const out: OrderDoc = { nodes: { ...doc.nodes } };
     delete out.nodes[key];
@@ -2808,12 +2842,14 @@ class LayerController implements LayerAPI {
   ): boolean {
     // The drag passes panel-facing keys (bare folder names); the doc is
     // role-namespaced. Resolve both sides to doc keys.
-    const docKey = key.startsWith("layer:") || key.startsWith("folder:")
-      ? key
-      : folderDocKey(role, key);
-    const docTarget = targetKey.startsWith("layer:") || targetKey.startsWith("folder:")
-      ? targetKey
-      : folderDocKey(role, targetKey);
+    const docKey =
+      key.startsWith("layer:") || key.startsWith("folder:")
+        ? key
+        : folderDocKey(role, key);
+    const docTarget =
+      targetKey.startsWith("layer:") || targetKey.startsWith("folder:")
+        ? targetKey
+        : folderDocKey(role, targetKey);
     const next = this.moveBlockDoc(this.orderDoc, docKey, docTarget, after);
     if (next === this.orderDoc) return false;
     this.commitFolderMove(next);
@@ -2837,12 +2873,22 @@ class LayerController implements LayerAPI {
     // here would read as a duplicate.
     const layerKey = layerKeyOf(layerId);
     if (folderKey !== "") {
-      if (this.orderDoc.nodes[folderDocKey(layerInfo.role, folderKey)] === undefined) return false;
+      if (this.orderDoc.nodes[folderDocKey(layerInfo.role, folderKey)] === undefined)
+        return false;
     }
     const next =
       folderKey === ""
-        ? orderMoveToIndex(this.orderDoc, layerKey, null, orderChildrenOf(this.orderDoc, null).length)
-        : orderMoveInto(this.orderDoc, layerKey, folderDocKey(layerInfo.role, folderKey));
+        ? orderMoveToIndex(
+            this.orderDoc,
+            layerKey,
+            null,
+            orderChildrenOf(this.orderDoc, null).length,
+          )
+        : orderMoveInto(
+            this.orderDoc,
+            layerKey,
+            folderDocKey(layerInfo.role, folderKey),
+          );
     if (next === this.orderDoc) return false;
     this.commitFolderMove(next);
     return true;
@@ -2868,12 +2914,22 @@ class LayerController implements LayerAPI {
               const roleKey = folderDocKey(layerInfo.role, beforeEntry);
               if (this.orderDoc.nodes[roleKey] !== undefined) return roleKey;
               const hit = Object.entries(this.orderDoc.nodes).find(
-                ([, n]) => n.kind === "folder" && n.role === layerInfo.role && n.name === beforeEntry,
+                ([, n]) =>
+                  n.kind === "folder" &&
+                  n.role === layerInfo.role &&
+                  n.name === beforeEntry,
               );
               return hit ? hit[0] : beforeEntry;
             })();
-    const siblings = orderChildrenOf(this.orderDoc, null).filter(s => s !== layerKeyOf(layerId));
-    const index = entryKey === null ? siblings.length : (siblings.indexOf(entryKey) >= 0 ? siblings.indexOf(entryKey) : siblings.length);
+    const siblings = orderChildrenOf(this.orderDoc, null).filter(
+      s => s !== layerKeyOf(layerId),
+    );
+    const index =
+      entryKey === null
+        ? siblings.length
+        : siblings.indexOf(entryKey) >= 0
+          ? siblings.indexOf(entryKey)
+          : siblings.length;
     const next = orderMoveToIndex(this.orderDoc, layerKeyOf(layerId), null, index);
     if (next === this.orderDoc) return false;
     this.commitFolderMove(next);
@@ -2993,7 +3049,10 @@ class LayerController implements LayerAPI {
    */
   cleanEmptyFolders(role: LayerRole): number {
     const docKeys = Object.keys(this.orderDoc.nodes).filter(
-      k => this.orderDoc.nodes[k].kind === "folder" && this.orderDoc.nodes[k].role === role && orderChildrenOf(this.orderDoc, k).length === 0,
+      k =>
+        this.orderDoc.nodes[k].kind === "folder" &&
+        this.orderDoc.nodes[k].role === role &&
+        orderChildrenOf(this.orderDoc, k).length === 0,
     );
     if (docKeys.length === 0) return 0;
     const out: OrderDoc = { nodes: { ...this.orderDoc.nodes } };

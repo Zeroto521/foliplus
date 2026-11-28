@@ -12,7 +12,12 @@ import {
 } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import { LayerRuntimeStore, ROLE, getLayerAlpha, orderKeyOf } from "#core/layer/index.js";
+import {
+  LayerRuntimeStore,
+  ROLE,
+  getLayerAlpha,
+  orderKeyOf,
+} from "#core/layer/index.js";
 import * as Storage from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
@@ -448,7 +453,11 @@ describe("LayerController", () => {
     m.persistence = new LayerPersistence();
     const save = vi.spyOn(Storage, "saveRecord");
     m.saveOrder();
-    expect(save).toHaveBeenCalledWith(orderKeyOf(map), expect.anything(), "LayerControl");
+    expect(save).toHaveBeenCalledWith(
+      orderKeyOf(map),
+      expect.anything(),
+      "LayerControl",
+    );
     const doc = save.mock.calls[0]![1] as any;
     const rootIds = Object.entries(doc.nodes as Record<string, any>)
       .filter(([, n]) => n.parent === null && n.kind === "layer")

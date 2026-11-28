@@ -47,7 +47,12 @@
     const to = m.layerRegistry.get(tileIds[0]);
     const fromIdx = m.layerRegistry.indexOf(from);
     const toIdx = m.layerRegistry.indexOf(to);
-    m.layerRegistry.reorder(fromIdx, toIdx);
+    {
+      const arr = m.layerRegistry.layers.slice();
+      const [mv] = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, mv);
+      m.layerRegistry.replace(arr);
+    }
     m.enforceOrder();
     return { ok: true, ...read() };
   }

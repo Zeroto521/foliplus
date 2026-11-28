@@ -56,11 +56,7 @@ export {
   folderNameLength,
   folderNameTooLong,
 } from "./folderName.js";
-export type {
-  FolderLayout,
-  FolderEntry,
-  FolderMember,
-} from "./folderView.js";
+export type { FolderLayout, FolderEntry, FolderMember } from "./folderView.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -124,12 +120,7 @@ export type { LayerPaint, LeafPaint, PaintFace } from "./paint.js";
 export { ensureLayerAPI, requireLayerAPI } from "./api.js";
 export { CLUSTER_CAPABILITIES, deriveLayerKind } from "./capability.js";
 export { LayerRuntimeStore } from "./LayerRuntimeStore.js";
-export {
-  defaultDoc,
-  folderKeyOf,
-  groupKeyOf,
-  layerKeyOf,
-} from "./layout/default.js";
+export { defaultDoc, folderKeyOf, groupKeyOf, layerKeyOf } from "./layout/default.js";
 export type { LayerDeclaration } from "./layout/default.js";
 export { mergeOrderDocs } from "./layout/merge.js";
 export {
@@ -143,11 +134,7 @@ export {
   resolveOrderView,
   ROLE_ORDER,
 } from "./layout/project.js";
-export type {
-  OrderView,
-  ProjectedBlock,
-  RoleOf,
-} from "./layout/project.js";
+export type { OrderView, ProjectedBlock, RoleOf } from "./layout/project.js";
 export {
   clearOrderDoc,
   loadOrderDoc,

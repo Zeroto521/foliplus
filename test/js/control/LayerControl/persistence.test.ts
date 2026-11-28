@@ -246,7 +246,6 @@ describe("LayerPersistence", () => {
       });
     });
 
-
     it("keeps intent and renames for ids that are not registered yet", () => {
       // attachUI lands before HeatmapControl and MeasureControl register in
       // their own constructor, so filtering here dropped their entries and the
@@ -276,7 +275,6 @@ describe("LayerPersistence", () => {
       expect(makePersistence().load()).toEqual(emptyRecord());
     });
 
-
     it("drops non-string values from names and non-boolean role opinions from fold state", () => {
       seedStorage({
         renamedNames: { a: "A2", b: 123, c: null },
@@ -287,7 +285,6 @@ describe("LayerPersistence", () => {
       expect(p.load().renamedNames).toEqual({ a: "A2" });
       expect(p.load().foldedRoles).toEqual({ OVERLAYS: true });
     });
-
 
     it("drops label configs that are not plain objects", () => {
       // Arrays pass the typeof object check, so they are excluded explicitly --
@@ -583,7 +580,19 @@ describe("LayerPersistence", () => {
       vi.useFakeTimers();
       const save = spySave();
       const p = makePersistence();
-      p.schedule({ layers: () => ({ a: { fillValue: { field: "  price  ", method: "equal", classes: 3, scheme: "Reds" }, overrides: ["fillValue"] } }) });
+      p.schedule({
+        layers: () => ({
+          a: {
+            fillValue: {
+              field: "  price  ",
+              method: "equal",
+              classes: 3,
+              scheme: "Reds",
+            },
+            overrides: ["fillValue"],
+          },
+        }),
+      });
 
       vi.advanceTimersByTime(CONST.SAVE_DEBOUNCE_MS + 50);
 
@@ -1491,7 +1500,6 @@ describe("LayerPersistence", () => {
       save.mockRestore();
       vi.useRealTimers();
     });
-
 
     it("writes the whole record to the single key", () => {
       vi.useFakeTimers();

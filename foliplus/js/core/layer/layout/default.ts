@@ -4,8 +4,14 @@
 // a rank by its declaration index, so the default layout is independent of the JS
 // bundle execution / registration order (design note: the default rank comes from the declaration order, not the registration order). A declared folder becomes a
 // folder node at the position of its first member; members nest under it.
+import { normalizeFolderName } from "../folderName.js";
 import type { LayerRole } from "../role.js";
-import { type OrderDoc, type OrderNode, rankAfter, rankStart } from "#core/order/index.js";
+import {
+  type OrderDoc,
+  type OrderNode,
+  rankAfter,
+  rankStart,
+} from "#core/order/index.js";
 
 /** One layer declaration as the panel receives it (CONF.data row, folded). */
 interface LayerDeclaration {
@@ -15,11 +21,11 @@ interface LayerDeclaration {
   folder?: string | null;
 }
 
-/** The identity key for a folder: NFC + whitespace fold + casefold. This is the
- *  same normalization the retired folderLayout used (folder key = normalize(name));
- *  it lives here because the key is a document-model fact, not a UI one. */
-const folderKeyOf = (name: string): string =>
-  name.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+/** The identity key for a folder: the folder-name normalization (NFC + whitespace
+ *  fold + casefold, see {@link normalizeFolderName}). The key is a document-model
+ *  fact, not a UI one, so it reuses the single source rather than folding a second
+ *  copy of the normalization pipeline. */
+const folderKeyOf = (name: string): string => normalizeFolderName(name);
 
 /** The doc node key for a layer id. */
 const layerKeyOf = (id: string): string => `layer:${id}`;
@@ -61,7 +67,12 @@ const defaultDoc = (declarations: readonly LayerDeclaration[]): OrderDoc => {
     if (decl.folder && folderKeyOf(decl.folder) !== "") {
       const folderKey = `folder:${decl.role}:${folderKeyOf(decl.folder)}`;
       if (nodes[folderKey] === undefined) {
-        appendRoot(folderKey, { kind: "folder", parent: null, name: decl.folder, role: decl.role });
+        appendRoot(folderKey, {
+          kind: "folder",
+          parent: null,
+          name: decl.folder,
+          role: decl.role,
+        });
       }
       appendChild(folderKey, key, { kind: "layer", parent: folderKey });
     } else {
@@ -73,9 +84,4 @@ const defaultDoc = (declarations: readonly LayerDeclaration[]): OrderDoc => {
 
 export type { LayerDeclaration };
 
-export {
-  folderKeyOf,
-  layerKeyOf,
-  groupKeyOf,
-  defaultDoc,
-};
+export { folderKeyOf, layerKeyOf, groupKeyOf, defaultDoc };

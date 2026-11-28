@@ -6,8 +6,8 @@ import {
 import { attachedPanel, initFixture } from "./ui/fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
-import * as CONST from "#control/LayerControl/const.js";
 import { orderKeyOf } from "#core/layer/index.js";
+import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
 
 describe("LayerController", () => {
@@ -72,9 +72,14 @@ describe("LayerController", () => {
     // The delete is a hidden doc node (the reversible tombstone), not a
     // refused id: re-registering the same id un-hides it, re-enters the
     // registry, and prices the pane the component pre-mounted.
-    window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes: {
-      "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
-    } }));
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+        },
+      }),
+    );
     window.L.DomUtil = { getPosition: vi.fn(() => ({ x: 0, y: 0 })) };
     map.getPanes = vi.fn(() => ({ mapPane: document.createElement("div") }));
     const m2 = new LayerController(map, [
@@ -295,7 +300,9 @@ describe("LayerController", () => {
     // though the pricing pass threw.
     expect(save).toHaveBeenCalledTimes(1);
     expect(manager.layers[0].id).toBe("B");
-    const docRoots = Object.entries(((manager as any).orderDoc?.nodes ?? {}) as Record<string, any>)
+    const docRoots = Object.entries(
+      ((manager as any).orderDoc?.nodes ?? {}) as Record<string, any>,
+    )
       .filter(([, n]) => n.parent === null && n.kind === "layer")
       .sort((a, b) => (a[1].rank as string).localeCompare(b[1].rank as string))
       .map(([k]) => k.replace(/^layer:/, ""));

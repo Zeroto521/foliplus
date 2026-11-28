@@ -1,6 +1,6 @@
 import { afterEach, vi } from "vitest";
-import { ROLE, orderKeyOf, normalizeFolderName } from "#core/layer/index.js";
-import { rankStart, rankBetween, folderDocKey } from "#core/order/index.js";
+import { ROLE, normalizeFolderName, orderKeyOf } from "#core/layer/index.js";
+import { folderDocKey, rankBetween, rankStart } from "#core/order/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { type ComponentConfig } from "#foliplus/config-schema.js";
 import { createLogger } from "#platform/log.js";
@@ -314,7 +314,6 @@ const orderFromLayout = (doc: Record<string, unknown>): Record<string, unknown> 
   return { blocks, roles };
 };
 
-
 /** Translate an OLD order seed into the NEW layer_order document {nodes}.
  *  Accepts the array-model {blocks,roles} tree (from seedOrderTree/seedLayout)
  *  or a flat order array (from seed.order). Ranks are built sequentially so the
@@ -327,9 +326,25 @@ const orderDocFromSeed = (seed: unknown): Record<string, unknown> | null => {
     prev = r;
     return r;
   };
-  if (seed && typeof seed === "object" && !Array.isArray(seed) && "roles" in (seed as Record<string, unknown>)) {
-    const roles = ((seed as Record<string, unknown>).roles ?? {}) as Record<string, Array<{ kind: string; key?: string; id?: string; children?: Array<{ kind: string; id?: string }> }>>;
-    const blocks = ((seed as Record<string, unknown>).blocks ?? {}) as Record<string, { kind: string; name?: string }>;
+  if (
+    seed &&
+    typeof seed === "object" &&
+    !Array.isArray(seed) &&
+    "roles" in (seed as Record<string, unknown>)
+  ) {
+    const roles = ((seed as Record<string, unknown>).roles ?? {}) as Record<
+      string,
+      Array<{
+        kind: string;
+        key?: string;
+        id?: string;
+        children?: Array<{ kind: string; id?: string }>;
+      }>
+    >;
+    const blocks = ((seed as Record<string, unknown>).blocks ?? {}) as Record<
+      string,
+      { kind: string; name?: string }
+    >;
     for (const [role, roleNodes] of Object.entries(roles)) {
       if (!Array.isArray(roleNodes)) continue;
       for (const node of roleNodes) {
@@ -348,12 +363,19 @@ const orderDocFromSeed = (seed: unknown): Record<string, unknown> | null => {
             : rawKey.startsWith("folder:")
               ? rawKey
               : `folder:${role}:${rawKey}`;
-          nodes[nodeKey] = { kind: node.kind === "folder" ? "folder" : "group", parent: null, rank: nextRank(), name, ...(node.kind === "folder" ? { role } : {}) };
+          nodes[nodeKey] = {
+            kind: node.kind === "folder" ? "folder" : "group",
+            parent: null,
+            rank: nextRank(),
+            name,
+            ...(node.kind === "folder" ? { role } : {}),
+          };
           const children = (node as any).children ?? [];
           let cprev: string | null = null;
           for (const child of children) {
             if (child?.kind === "layer" && child.id !== undefined) {
-              const cr: string = cprev === null ? rankStart() : rankBetween(cprev, null);
+              const cr: string =
+                cprev === null ? rankStart() : rankBetween(cprev, null);
               nodes[`layer:${child.id}`] = { kind: "layer", parent: nodeKey, rank: cr };
               cprev = cr;
             }
@@ -365,7 +387,9 @@ const orderDocFromSeed = (seed: unknown): Record<string, unknown> | null => {
   }
   if (Array.isArray(seed)) {
     for (const entry of seed) {
-      const key = String(entry).startsWith("layer:") ? String(entry) : `layer:${String(entry)}`;
+      const key = String(entry).startsWith("layer:")
+        ? String(entry)
+        : `layer:${String(entry)}`;
       nodes[key] = { kind: "layer", parent: null, rank: nextRank() };
     }
     return { nodes };
@@ -408,12 +432,60 @@ const initFixture = (
   // The OLD order seeds ({blocks,roles} tree, layout mirror, or flat order)
   // translate into the NEW layer_order document so tests seed the same
   // registry order the controller now derives from the doc.
-  if (options.seedOrderTree || options.seedLayout || Array.isArray((options.seed as any)?.order)) {
-    const docSeed = options.seedOrderTree
-      ? orderDocFromSeed(options.seedOrderTree)
+  if (
+    options.seedOrderTree ||
+    options.seedLayout ||
+    Array.isArray((options.seed as any)?.order)
+  ) {
+    const docSeed: {
+      nodes: Record<
+        string,
+        {
+          rank?: string;
+          parent?: string | null;
+          kind?: string;
+          role?: string;
+          name?: string;
+        }
+      >;
+    } | null = options.seedOrderTree
+      ? (orderDocFromSeed(options.seedOrderTree) as {
+          nodes: Record<
+            string,
+            {
+              rank?: string;
+              parent?: string | null;
+              kind?: string;
+              role?: string;
+              name?: string;
+            }
+          >;
+        } | null)
       : options.seedLayout
-        ? orderDocFromSeed(orderFromLayout(options.seedLayout))
-        : orderDocFromSeed((options.seed as any).order);
+        ? (orderDocFromSeed(orderFromLayout(options.seedLayout)) as {
+            nodes: Record<
+              string,
+              {
+                rank?: string;
+                parent?: string | null;
+                kind?: string;
+                role?: string;
+                name?: string;
+              }
+            >;
+          } | null)
+        : (orderDocFromSeed((options.seed as any).order) as {
+            nodes: Record<
+              string,
+              {
+                rank?: string;
+                parent?: string | null;
+                kind?: string;
+                role?: string;
+                name?: string;
+              }
+            >;
+          } | null);
     // A flat seed order names layers the layout may not hold yet (a late
     // registration's future slot). Seed those as root nodes so a late layer
     // registers into its saved position instead of prepending.
@@ -423,11 +495,19 @@ const initFixture = (
         let lastRank: string | null = null;
         for (const k of Object.keys(docSeed.nodes)) {
           const n = (docSeed.nodes as any)[k];
-          if (n && typeof n.rank === "string" && (lastRank === null || n.rank > lastRank)) lastRank = n.rank;
+          if (
+            n &&
+            typeof n.rank === "string" &&
+            (lastRank === null || n.rank > lastRank)
+          )
+            lastRank = n.rank;
         }
         for (const [k, n] of Object.entries((flat.nodes as any) ?? {})) {
           if ((docSeed.nodes as any)[k] === undefined) {
-            (docSeed.nodes as any)[k] = { ...(n as any), rank: lastRank === null ? rankStart() : rankBetween(lastRank, null) };
+            (docSeed.nodes as any)[k] = {
+              ...(n as any),
+              rank: lastRank === null ? rankStart() : rankBetween(lastRank, null),
+            };
             lastRank = (docSeed.nodes as any)[k].rank;
           }
         }
@@ -449,15 +529,29 @@ const initFixture = (
           let lastRank: string | null = null;
           for (const k of Object.keys(nodes)) {
             const n = nodes[k];
-            if (n && typeof n.rank === "string" && (lastRank === null || n.rank > lastRank)) lastRank = n.rank;
+            if (
+              n &&
+              typeof n.rank === "string" &&
+              (lastRank === null || n.rank > lastRank)
+            )
+              lastRank = n.rank;
           }
-          nodes[fKey] = { kind: "folder", parent: null, role, name: folder, rank: lastRank === null ? rankStart() : rankBetween(lastRank, null) };
+          nodes[fKey] = {
+            kind: "folder",
+            parent: null,
+            role,
+            name: folder,
+            rank: lastRank === null ? rankStart() : rankBetween(lastRank, null),
+          };
         }
         nodes[lKey] = { ...nodes[lKey], parent: fKey };
       }
     }
     if (docSeed) {
-      window.localStorage.setItem(orderKeyOf({ getContainer: () => container }), JSON.stringify(docSeed));
+      window.localStorage.setItem(
+        orderKeyOf({ getContainer: () => container }),
+        JSON.stringify(docSeed),
+      );
     }
   }
 

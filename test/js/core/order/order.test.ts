@@ -25,8 +25,19 @@ describe("isOrderDoc", () => {
       isOrderDoc(
         doc({
           "layer:a": { kind: "layer", parent: null, rank: "a0" },
-          "folder:overlay:f": { kind: "folder", parent: null, rank: "a1", name: "F", role: "overlay" },
-          "layer:x": { kind: "layer", parent: "folder:overlay:f", rank: "a0", hidden: true },
+          "folder:overlay:f": {
+            kind: "folder",
+            parent: null,
+            rank: "a1",
+            name: "F",
+            role: "overlay",
+          },
+          "layer:x": {
+            kind: "layer",
+            parent: "folder:overlay:f",
+            rank: "a0",
+            hidden: true,
+          },
         }),
       ),
     ).toBe(true);
@@ -56,8 +67,20 @@ describe("isOrderDoc", () => {
     expect(
       isOrderDoc(
         doc({
-          "folder:overlay:a": { kind: "folder", parent: "folder:overlay:b", rank: "a0", name: "A", role: "overlay" },
-          "folder:overlay:b": { kind: "folder", parent: "folder:overlay:a", rank: "a0", name: "B", role: "overlay" },
+          "folder:overlay:a": {
+            kind: "folder",
+            parent: "folder:overlay:b",
+            rank: "a0",
+            name: "A",
+            role: "overlay",
+          },
+          "folder:overlay:b": {
+            kind: "folder",
+            parent: "folder:overlay:a",
+            rank: "a0",
+            name: "B",
+            role: "overlay",
+          },
         }),
       ),
     ).toBe(false);
@@ -67,9 +90,27 @@ describe("isOrderDoc", () => {
     expect(
       isOrderDoc(
         doc({
-          "folder:overlay:a": { kind: "folder", parent: null, rank: "a0", name: "A", role: "overlay" },
-          "folder:overlay:b": { kind: "folder", parent: "folder:overlay:a", rank: "a0", name: "B", role: "overlay" },
-          "folder:overlay:c": { kind: "folder", parent: "folder:overlay:b", rank: "a0", name: "C", role: "overlay" },
+          "folder:overlay:a": {
+            kind: "folder",
+            parent: null,
+            rank: "a0",
+            name: "A",
+            role: "overlay",
+          },
+          "folder:overlay:b": {
+            kind: "folder",
+            parent: "folder:overlay:a",
+            rank: "a0",
+            name: "B",
+            role: "overlay",
+          },
+          "folder:overlay:c": {
+            kind: "folder",
+            parent: "folder:overlay:b",
+            rank: "a0",
+            name: "C",
+            role: "overlay",
+          },
           "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
         }),
       ),
@@ -79,9 +120,27 @@ describe("isOrderDoc", () => {
   it("sanitize drops over-depth subtrees (depth 3 allowed, 4 dropped)", () => {
     const s = sanitizeOrderDoc(
       doc({
-        "folder:overlay:a": { kind: "folder", parent: null, rank: "a0", name: "A", role: "overlay" },
-        "folder:overlay:b": { kind: "folder", parent: "folder:overlay:a", rank: "a0", name: "B", role: "overlay" },
-        "folder:overlay:c": { kind: "folder", parent: "folder:overlay:b", rank: "a0", name: "C", role: "overlay" },
+        "folder:overlay:a": {
+          kind: "folder",
+          parent: null,
+          rank: "a0",
+          name: "A",
+          role: "overlay",
+        },
+        "folder:overlay:b": {
+          kind: "folder",
+          parent: "folder:overlay:a",
+          rank: "a0",
+          name: "B",
+          role: "overlay",
+        },
+        "folder:overlay:c": {
+          kind: "folder",
+          parent: "folder:overlay:b",
+          rank: "a0",
+          name: "C",
+          role: "overlay",
+        },
         "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
       }),
     );
@@ -113,13 +172,23 @@ describe("commands", () => {
 
   it("moveInto places at an index inside a container", () => {
     let d = doc({
-      "folder:overlay:f": { kind: "folder", parent: null, rank: "a0", name: "F", role: "overlay" },
+      "folder:overlay:f": {
+        kind: "folder",
+        parent: null,
+        rank: "a0",
+        name: "F",
+        role: "overlay",
+      },
       "layer:a": { kind: "layer", parent: "folder:overlay:f", rank: "a0" },
       "layer:b": { kind: "layer", parent: "folder:overlay:f", rank: "a1" },
       "layer:c": { kind: "layer", parent: null, rank: "a2" },
     });
     d = moveInto(d, "layer:c", "folder:overlay:f", 1);
-    expect(childrenOf(d, "folder:overlay:f")).toEqual(["layer:a", "layer:c", "layer:b"]);
+    expect(childrenOf(d, "folder:overlay:f")).toEqual([
+      "layer:a",
+      "layer:c",
+      "layer:b",
+    ]);
     expect(d.nodes["layer:c"].parent).toBe("folder:overlay:f");
   });
 
@@ -149,7 +218,13 @@ describe("commands", () => {
 
   it("deleteBlock refuses a non-empty block", () => {
     const d = doc({
-      "folder:overlay:f": { kind: "folder", parent: null, rank: "a0", name: "F", role: "overlay" },
+      "folder:overlay:f": {
+        kind: "folder",
+        parent: null,
+        rank: "a0",
+        name: "F",
+        role: "overlay",
+      },
       "layer:a": { kind: "layer", parent: "folder:overlay:f", rank: "a0" },
     });
     expect(deleteBlock(d, "folder:overlay:f")).toBe(d);
@@ -168,10 +243,13 @@ describe("commands", () => {
 
   it("isOrderDoc rejects a non-folder node carrying a role", () => {
     expect(
-      isOrderDoc(doc({ "layer:a": { kind: "layer", parent: null, rank: "a0", role: "overlay" } })),
+      isOrderDoc(
+        doc({
+          "layer:a": { kind: "layer", parent: null, rank: "a0", role: "overlay" },
+        }),
+      ),
     ).toBe(false);
   });
-
 
   it("resetOrder returns a clone of the defaults", () => {
     const defaults = doc({ "layer:a": { kind: "layer", parent: null, rank: "a0" } });

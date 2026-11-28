@@ -6,16 +6,16 @@
 // its role and stays in place after its last member is suppressed, and a member
 // can be dragged back in. The doc node (not a block-order helper) is the source.
 import { describe, expect, it } from "vitest";
+import { layerKeyOf } from "#core/layer/index.js";
 import {
   createBlock,
   emptyOrderDoc,
   folderDocKey,
   moveInto,
+  rankFirst,
   restore,
   suppress,
-  rankFirst,
 } from "#core/order/index.js";
-import { layerKeyOf } from "#core/layer/index.js";
 
 const folderKey = folderDocKey("overlay", "roads");
 

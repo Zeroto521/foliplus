@@ -2,11 +2,7 @@
 // Pure data, no DOM / CONFIG dependency. The LayerController orchestrates mutations.
 import { deriveLayerKind, findLayer } from "./capability.js";
 import { ROLE } from "./const.js";
-import {
-  FOLDER_NAME_MAX,
-  folderNameLength,
-  folderNameTooLong,
-} from "./folderName.js";
+import { FOLDER_NAME_MAX, folderNameLength, folderNameTooLong } from "./folderName.js";
 import type { LayerInfo, LayerKind, RegisterLayerOpts } from "./type.js";
 import { safeSVG } from "#core/sanitize.js";
 import { createLogger } from "#platform/log.js";
@@ -15,7 +11,7 @@ import { createLogger } from "#platform/log.js";
 const log = createLogger("LayerInfoRegistry");
 
 /** Reject a position the array mutators cannot honour. `max` is inclusive:
- *  `insertAt` may append at `items.length`, `reorder` may not. Without this
+ *  `insertAt` may append at `items.length`. Without this
  *  the splice coerces (`"1"`, `2.5`, `NaN`) or writes past the end, and the
  *  ordering backstop would be the thing corrupting the order. */
 const assertIndex = (method: string, idx: number, max: number): void => {
@@ -118,7 +114,7 @@ const carrierFor = (
  *
  * **Internal (Manager only, not for external use):**
  *   `createLayerInfo` / `upsert` / `prepend` / `insertAt` / `remove`
- *   `moveToFront` / `reorder` / `replace` / `clear` / `normalizeGroups`
+ *   `moveToFront` / `replace` / `clear` / `normalizeGroups`
  *   `canReorderBetween` / `refreshFirstBaseIdx`
  *   `items` / `byId` / `view` / `layers`
  *
@@ -504,28 +500,6 @@ class LayerInfoRegistry {
     this.items.unshift(layerInfo);
     this.reindex();
     return layerInfo;
-  }
-
-  /** Swap order of two positions (drag-and-drop). Both positions must sit
-   *  on the same side of the overlay/base boundary — the public reorder
-   *  entries gate with `canReorderBetween`, and this is the backstop that
-   *  keeps the partition invariant when a caller forgets. */
-  reorder(fromIdx: number, toIdx: number) {
-    assertIndex("reorder(fromIdx)", fromIdx, this.items.length - 1);
-    assertIndex("reorder(toIdx)", toIdx, this.items.length - 1);
-    const firstBase = this._firstBaseIdx;
-    const side = (i: number): number => (firstBase !== -1 && i >= firstBase ? 1 : 0);
-    if (side(fromIdx) !== side(toIdx)) {
-      throw new Error(
-        log.msg(
-          `reorder(${fromIdx} → ${toIdx}): cannot cross the overlay/base boundary (firstBaseIdx=${firstBase})`,
-        ),
-      );
-    }
-    const [moved] = this.items.splice(fromIdx, 1);
-    this.items.splice(toIdx, 0, moved);
-    this.reindex();
-    this.refreshFirstBaseIdx();
   }
 
   /** Rebuild both list and index from a new ordered array. */

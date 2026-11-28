@@ -267,7 +267,11 @@ describe("LayerController", () => {
 
     m.deleteLayer("overlay1");
 
-    expect(save).toHaveBeenCalledWith(orderKeyOf(map), expect.anything(), "LayerControl");
+    expect(save).toHaveBeenCalledWith(
+      orderKeyOf(map),
+      expect.anything(),
+      "LayerControl",
+    );
     const doc = save.mock.calls.find(c => c[0] === orderKeyOf(map))?.[1] as any;
     expect(doc.nodes["layer:overlay1"].hidden).toBe(true);
     save.mockRestore();
@@ -332,10 +336,15 @@ describe("LayerController", () => {
     // runtime, so the discovery path has to be gated as well: gating
     // registerLayer alone would still put a deleted layer back into the panel
     // on the next reload.
-    window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes: {
-      "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
-      "layer:kept": { kind: "layer", parent: null, rank: "a1" },
-    } }));
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+          "layer:kept": { kind: "layer", parent: null, rank: "a1" },
+        },
+      }),
+    );
     const m = new LayerController(map, [
       { id: "gone", name: "G", role: "overlay", layer: { options: {} } },
       { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
@@ -350,10 +359,15 @@ describe("LayerController", () => {
     // page load, so a reload re-adds a deleted layer exactly as before the
     // delete. Without the eviction the panel shows it gone and the map keeps
     // drawing it — the user's delete did nothing.
-    window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes: {
-      "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
-      "layer:kept": { kind: "layer", parent: null, rank: "a1" },
-    } }));
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+          "layer:kept": { kind: "layer", parent: null, rank: "a1" },
+        },
+      }),
+    );
     const gone = { options: {} };
     map._layers["gone"] = gone;
     map.hasLayer = vi.fn(l => l === gone);
@@ -373,9 +387,14 @@ describe("LayerController", () => {
     // refused id: re-registering the same id un-hides the node and returns
     // the layer to its original slot. An exception would take down whatever
     // was registering (a rebuild loop, a late Heatmap/Measure component).
-    window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes: {
-      "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
-    } }));
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+        },
+      }),
+    );
     const m = new LayerController(map, [
       { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
@@ -389,9 +408,14 @@ describe("LayerController", () => {
   it("still accepts an id that is not in removed", () => {
     // The guard is keyed on the deleted list only: an unrelated stored id must
     // not start getting refused.
-    window.localStorage.setItem(orderKeyOf(map), JSON.stringify({ nodes: {
-      "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
-    } }));
+    window.localStorage.setItem(
+      orderKeyOf(map),
+      JSON.stringify({
+        nodes: {
+          "layer:gone": { kind: "layer", parent: null, rank: "a0", hidden: true },
+        },
+      }),
+    );
     const m = new LayerController(map, [
       { id: "kept", name: "K", role: "overlay", layer: { options: {} } },
     ]);
@@ -422,7 +446,9 @@ describe("LayerController", () => {
       );
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);
-      expect((readOrderTreeStorage(map)?.nodes["layer:measure1"] as any)?.hidden).toBeUndefined();
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:measure1"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("prunes the component's stored state too, so a redraw starts clean", () => {
@@ -463,7 +489,9 @@ describe("LayerController", () => {
       // A sibling keeps its tuning: this is a clear, not a sweep.
       expect(getIntent(manager.ui!, "overlay1", "visible")).toBe(false);
       expect(getIntent(manager.ui!, "overlay1", "opacity")).toBe(0.4);
-      expect((readOrderTreeStorage(map)?.nodes["layer:measure1"] as any)?.hidden).toBeUndefined();
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:measure1"] as any)?.hidden,
+      ).toBeUndefined();
       expect(save).toHaveBeenCalledTimes(1);
     });
 
@@ -473,7 +501,9 @@ describe("LayerController", () => {
       expect(manager.deleteLayer("overlay1")).toBe(true);
 
       expect(manager.layerRegistry.has("overlay1")).toBe(false);
-      expect((readOrderTreeStorage(map)?.nodes["layer:overlay1"] as any)?.hidden).toBe(true);
+      expect((readOrderTreeStorage(map)?.nodes["layer:overlay1"] as any)?.hidden).toBe(
+        true,
+      );
     });
 
     it("returns false when the entry is already gone", () => {
@@ -481,7 +511,9 @@ describe("LayerController", () => {
       manager.unregisterLayer("overlay1");
 
       expect(manager.deleteLayer("overlay1")).toBe(false);
-      expect((readOrderTreeStorage(map)?.nodes["layer:overlay1"] as any)?.hidden).toBeUndefined();
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:overlay1"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("syncs toggle-all and no-basemap state after deleting a base layer", () => {
@@ -543,7 +575,9 @@ describe("LayerController", () => {
         kind: "system",
         via: "teardown",
       });
-      expect((readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden).toBeUndefined();
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("clears the color basemap without a panel attached", () => {
@@ -559,7 +593,9 @@ describe("LayerController", () => {
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(true);
 
       expect(manager.layerRegistry.has(CONST.SOLID_BASEMAP_ID)).toBe(false);
-      expect((readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden).toBeUndefined();
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("returns false when the color basemap cannot be unregistered", () => {
@@ -573,7 +609,9 @@ describe("LayerController", () => {
       manager.layerRegistry.remove(CONST.SOLID_BASEMAP_ID);
 
       expect(manager.deleteLayer(CONST.SOLID_BASEMAP_ID)).toBe(false);
-      expect((readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden).toBeUndefined();
+      expect(
+        (readOrderTreeStorage(map)?.nodes["layer:color"] as any)?.hidden,
+      ).toBeUndefined();
     });
 
     it("removes the overlay toggle-all row when the last overlay layer is deleted", () => {

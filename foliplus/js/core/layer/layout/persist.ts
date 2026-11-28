@@ -2,10 +2,15 @@
 //
 // The key is map-scoped (same helper as layer_state) and the record has NO version
 // field and NO migrator: an unknown/incomplete shape fails isOrderDoc and the caller
-// falls back to defaultDoc() (design note: an unknown/incomplete shape is discarded, not migrated). Old keys (layer_layout / layer_arrangement /
-// layer_state.order|removed) are not read, migrated or deleted here.
+// falls back to defaultDoc() (design note: an unknown/incomplete shape is discarded, not migrated). The pre-order-doc records (the v2 folder-layout key,
+// the old arrangement key and the layer_state order/removed fields) are not read, migrated or deleted here.
 import { type OrderDoc, isOrderDoc, sanitizeOrderDoc } from "#core/order/index.js";
-import { loadRecord, removeRecord, saveRecord, scopedStorageKey } from "#platform/storage.js";
+import {
+  loadRecord,
+  removeRecord,
+  saveRecord,
+  scopedStorageKey,
+} from "#platform/storage.js";
 
 type MapLike = { getContainer: () => { id: string } };
 
@@ -29,9 +34,4 @@ const saveOrderDoc = (map: MapLike, doc: OrderDoc): boolean =>
 const clearOrderDoc = (map: MapLike): boolean =>
   removeRecord(orderKeyOf(map), "LayerControl");
 
-export {
-  orderKeyOf,
-  loadOrderDoc,
-  saveOrderDoc,
-  clearOrderDoc,
-};
+export { orderKeyOf, loadOrderDoc, saveOrderDoc, clearOrderDoc };

@@ -29,11 +29,11 @@ import {
 } from "./visibility.js";
 import {
   type LayerRole,
+  type ProjectedBlock,
   ROLE,
   folderEntries,
   folderOf,
   groupByFolder,
-  type ProjectedBlock,
 } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
@@ -515,10 +515,7 @@ const hasAnyFolder = (ui: LayerUI): boolean => {
  *  into the shape the renderer walks. The ORDER lives in the derived folder
  *  same function the stacking order uses — so a row can never paint in one
  *  place and stack in another. */
-const displayBlocks = (
-  ui: LayerUI,
-  role: string,
-): ProjectedBlock[] =>
+const displayBlocks = (ui: LayerUI, role: string): ProjectedBlock[] =>
   ui.c.orderView().blocks[role as LayerRole] ?? [];
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
