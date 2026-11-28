@@ -17,10 +17,10 @@
 //     filter sub-key tables are exempt.
 //
 // Tree guard, not a script module: registered under GUARD_TREE_SUBJECTS.
+import { readSource } from "./crossLangLiteral.js";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readSource } from "./crossLangLiteral.js";
 
 const REPO_ROOT = process.cwd();
 
@@ -132,9 +132,7 @@ describe("declared-key vocabulary stays in step across Python and JS", () => {
   it("carries the same declaration-key set on both sides", () => {
     const js = [...jsDeclaredKeys()].sort();
     const py = [...pyDeclaredKeys()].sort();
-    expect(js, "JS DECLARED_KEY set").toEqual(
-      [...TOP_LEVEL_KEYS].sort(),
-    );
+    expect(js, "JS DECLARED_KEY set").toEqual([...TOP_LEVEL_KEYS].sort());
     expect(py, "Python *_KEY set").toEqual(js);
   });
 
@@ -152,7 +150,11 @@ describe("declared-key vocabulary stays in step across Python and JS", () => {
           for (const key of [...TOP_LEVEL_KEYS, ...ROLE_WORDS]) {
             if (!new RegExp(`"${key}"`).test(line)) continue;
             // Sub-key exemption for opacity inside the fill declaration modules.
-            if (key === "opacity" && (OPACITY_SUBKEY_FILES as readonly string[]).includes(rel)) continue;
+            if (
+              key === "opacity" &&
+              (OPACITY_SUBKEY_FILES as readonly string[]).includes(rel)
+            )
+              continue;
             if (isDefinitionSite(line, key)) continue;
             if (isTypeAnnotationLiteral(line, key)) continue;
             hits.push(`${rel}:${lineNo}: bare "${key}"`);

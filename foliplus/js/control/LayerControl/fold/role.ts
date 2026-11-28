@@ -18,8 +18,8 @@
 // false (explicit expand) entry is what lets a user expand an author-folded
 // role and keep it expanded across a reload — the Set model could not record
 // that, which is the whole reason for the v7 shape change.
-import type { RoleDefaults } from "#foliplus/config-schema.js";
 import { ROLE } from "#core/layer/index.js";
+import type { RoleDefaults } from "#foliplus/config-schema.js";
 
 /** Derive the author's default folded role map from the CONF payload.
  *

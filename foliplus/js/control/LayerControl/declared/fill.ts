@@ -243,7 +243,10 @@ const parseFillDeclaration = (
   };
   if (raw === null || raw === undefined) return EMPTY;
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    rejectKey(DECLARED_KEY.FILL, `a non-object fill declaration ${JSON.stringify(raw)}`);
+    rejectKey(
+      DECLARED_KEY.FILL,
+      `a non-object fill declaration ${JSON.stringify(raw)}`,
+    );
     return { invalid };
   }
   const data = raw as Record<string, unknown>;

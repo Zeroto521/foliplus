@@ -14,8 +14,8 @@
 // owns only the parses and the thin readers that dispatch on them. Public API
 // names are unchanged (readDeclaredBorder / readDeclaredOpacity) — callers
 // import them through ./index.
-import { parseValueDeclaration } from "./fill.js";
 import { DECLARED_KEY } from "./declared-key.js";
+import { parseValueDeclaration } from "./fill.js";
 import { type RejectFn, readDeclaredKey } from "./key.js";
 import { trimDeclaredString } from "./trim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
@@ -107,7 +107,10 @@ const parseBorder = (
   };
   if (raw === null || raw === undefined) return EMPTY;
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    rejectKey(DECLARED_KEY.BORDER, `a non-object border declaration ${JSON.stringify(raw)}`);
+    rejectKey(
+      DECLARED_KEY.BORDER,
+      `a non-object border declaration ${JSON.stringify(raw)}`,
+    );
     return { invalid };
   }
   const data = raw as Record<string, unknown>;

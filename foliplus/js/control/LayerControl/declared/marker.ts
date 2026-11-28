@@ -5,8 +5,8 @@
 // warn-once); this module owns the two parses and their readers. The face
 // channel (icon / marker sub-key maps) lives in ./face, the border and opacity
 // scalars in ./parse.
-import { readDeclaredKey } from "./key.js";
 import { DECLARED_KEY } from "./declared-key.js";
+import { readDeclaredKey } from "./key.js";
 import { trimDeclaredString } from "./trim.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";

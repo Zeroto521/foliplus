@@ -17,7 +17,7 @@
 // the role fold uses: an explicit EXPAND over an author default fold has to be
 // distinguishable from "never touched", or an author-folded folder can never
 // be opened by hand.
-import { normalizeFolderName, ROLE } from "#core/layer/index.js";
+import { ROLE, normalizeFolderName } from "#core/layer/index.js";
 import type { FolderDefaults } from "#foliplus/config-schema.js";
 
 /** The key separator between the role and the normalized folder name. The

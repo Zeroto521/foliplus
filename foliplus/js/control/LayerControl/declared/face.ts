@@ -12,8 +12,8 @@
 // module owns the face parses and their readers. Public API names are unchanged
 // (readDeclaredIcon / readDeclaredMarker / readDeclaredIconColorOpacity /
 // readDeclaredMarkerColorOpacity).
-import { type RejectFn, readDeclaredKey } from "./key.js";
 import { DECLARED_KEY } from "./declared-key.js";
+import { type RejectFn, readDeclaredKey } from "./key.js";
 import { trimDeclaredString } from "./trim.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
 
