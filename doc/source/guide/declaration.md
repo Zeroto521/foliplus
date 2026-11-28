@@ -70,8 +70,8 @@ The recognised keys are:
 | `marker_color` | str   | marker chassis preset (see {ref}`marker_color`).                    |
 | `icon_size`    | int   | marker icon pixel size (see {ref}`icon_size`).                      |
 | `opacity`      | float | whole-layer opacity, the slider's reset point (see {ref}`opacity`). |
-| `icon`         | dict  | icon block: `colorOpacity` glyph alpha (see {ref}`opacity`).        |
-| `marker`       | dict  | marker block: `colorOpacity` chassis alpha (see {ref}`opacity`).    |
+| `icon`         | dict  | icon face: `glyph` / `color` / glyph alpha (see {ref}`icon_face`). |
+| `marker`       | dict  | marker face: chassis alpha (see {ref}`icon_face`).                  |
 
 An unknown key warns once and is ignored:
 
@@ -83,8 +83,8 @@ gdf.explore(foliplus={"fill_scheme": "Reds"})
 #   - ignored
 ```
 
-A `fill` / `label` / `filter` / `border` value that is not a mapping
-also warns once and is ignored.
+A `fill` / `label` / `filter` / `border` / `icon` / `marker` value that is
+not a mapping also warns once and is ignored.
 
 (zoom_range)=
 
@@ -469,38 +469,76 @@ ignored — the panel keeps its derived default rather than showing a value the
 author never saw validated.
 
 ```{note}
-This is the only channel where a declared value is NOT painted: the layer is
-already drawn with the author's `opacity=`. The declaration is a UI default
-for the panel's slider.
+Like the `icon` / `marker` face declarations below, this is a channel where a
+declared value is NOT painted: the layer is already drawn with the author's `opacity=`.
+The declaration is a UI default for the panel's slider.
 ```
 
-## `icon` / `marker` block — glyph / chassis alpha
+(icon_face)=
 
-The `icon` and `marker` declaration blocks carry one sub-key each:
-`colorOpacity`, a 0-100 integer percent — the alpha of the marker **glyph**
-(`icon`) and the marker **chassis** (`marker`) face. Like the whole-layer
-`opacity` they are read-time defaults (the row's number field starts there
-and Reset returns to it), never draw overrides: folium's `colorOpacity`
-written into the marker {class}`Icon` remains the author's draw value.
+## `icon` / `marker` face — glyph, colour and alpha
+
+The `icon` face declaration sets the marker **icon face** as read-time defaults:
+`glyph` (a FontAwesome name), `color` (a CSS hex for the glyph) and
+`colorOpacity` (a 0-100 integer percent, the glyph alpha). The `marker` face
+declaration carries the **chassis** alpha only (`colorOpacity`); the chassis
+colour is the `marker_color` key's business.
+
+Both spellings of the multi-word sub-key are accepted — `colorOpacity` and
+the Python `color_opacity` — and both sides normalise to `colorOpacity`
+(folium camelizes every option key at render time, so a rendered map only ever
+carries the camelCase form; the snake spelling is accepted for hand-built
+namespaces). The accepted sub-keys are exactly:
+
+| Face     | Sub-key        | Type          | Meaning                          |
+| -------- | -------------- | ------------- | -------------------------------- |
+| `icon`   | `glyph`        | str           | FontAwesome glyph name.          |
+| `icon`   | `color`        | str (`#hex`)   | Glyph colour.                    |
+| `icon`   | `colorOpacity` | int 0-100     | Glyph alpha.                     |
+| `marker` | `colorOpacity` | int 0-100     | Marker chassis alpha.            |
 
 ```python
-gdf.explore(foliplus={"icon": {"colorOpacity": 60}})
-gdf.explore(foliplus={"marker": {"colorOpacity": 40}})
+gdf.explore(
+    foliplus={
+        "icon": {"glyph": "star", "color": "#ff0000", "color_opacity": 60},
+        "marker": {"color_opacity": 40},
+    }
+)
 ```
 
-**Shape**: a whole number from 0 to 100. A non-mapping block, a non-integer,
-a non-finite or an out-of-range value warns once and is ignored. A `color`
-sub-key rides the same block (the glyph / chassis colour); `colorOpacity`
-only tunes the alpha.
+Like the whole-layer `opacity` these are **read-time defaults** (the row
+starts there and Reset returns to it), never draw overrides: the glyph and
+colour drawn on the map are what the author's {class}`folium.Icon` paints
+until the user writes one — a declared value is not re-painted on attach. A
+user's panel pick always wins over the declaration; a declaration beats the
+author's drawn value in the panel row and reset chain.
+
+**Shape**: a malformed sub-key warns once and is **dropped alone** (its valid
+siblings survive); a non-mapping face warns once and is ignored. An unknown
+sub-key warns too, naming the accepted ones — so a typo never passes silently:
+
+```python
+gdf.explore(foliplus={"icon": {"colour": "#ff0000"}})
+# LayerControl: layer '...' declares foliplus['icon']['colour'] as an unknown
+#   icon sub-key 'colour'; expected one of ['glyph', 'color', 'colorOpacity'] - ignored
+```
+
+A `glyph` must be a non-empty string, a `color` a `#rgb` / `#rrggbb` hex,
+and a `colorOpacity` a whole number from 0 to 100; a value of the wrong shape
+warns once, is dropped, and leaves the rest of the face in effect.
 
 (icon_source)=
 
 ## Icon source (glyph / URL / divIcon shape)
 
-The marker **icon source** is declared on the marker's own
-{class}`folium.Icon` (or a Leaflet {class}`L.divIcon`), not in the
-`foliplus={...}` namespace. The panel reads it as the layer's "author icon"
-and offers three sources:
+The marker **icon source** — the shape drawn on the map — is declared on the
+marker's own {class}`folium.Icon` (or a Leaflet {class}`L.divIcon`). The
+panel reads it as the layer's "author icon" and offers three sources:
+
+The glyph, its colour and its alpha can ALSO be declared as read-time
+**panel defaults** in the `foliplus` namespace ({ref}`icon_face`); the
+drawn source above stays the look on the map until the user writes a panel
+value, and Reset returns to the declared default when one exists.
 
 ### Glyph
 

@@ -11,12 +11,12 @@ return points), never as draw overrides:
   draws the folium value but shows the declared one in the panel).
 * ``icon.colorOpacity`` / ``marker.colorOpacity`` - the marker glyph / chassis
   alpha (0-100 integer percent, the panel unit). These ride the ``icon`` /
-  ``marker`` declaration blocks, the same in-block shape #1307 fill/border
-  use: a block carries the sub-dimensions one face can set.
+  ``marker`` face declarations, the same in-face shape #1307 fill/border use:
+  a face declaration carries the sub-dimensions one paint face can set.
 
-Python validates the STRUCTURAL shape only (scalar vs block, the declared
-number's range); the JS reader owns the semantic vocabulary (a preset name, a
-hex) - the same split fill and border follow.
+Python validates the STRUCTURAL shape only (scalar vs face declaration, the
+declared number's range); the JS reader owns the semantic vocabulary (a preset
+name, a hex) - the same split fill and border follow.
 """
 
 from __future__ import annotations
