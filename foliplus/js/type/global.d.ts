@@ -140,6 +140,12 @@ declare global {
     isInitialized: boolean;
     /** Build version (`git describe`), set once by the shared runtime. */
     version: string;
+    /** Optional bootstrap-time diagnostic hook, same signature as the per-map
+     *  `map.foliplus.onError`. The shared runtime executes in the page `<head>`
+     *  before any map exists, so this global hook is the only one reachable
+     *  there; a page mixing foliplus builds reports through it with event
+     *  "runtime". */
+    onError?: (event: string, error: unknown) => void;
     /** Hint module: per-map manager factory + shared icon registry. */
     hint: Record<string, unknown>;
     /** Leaflet `BaseControl` base class shared by every component. */

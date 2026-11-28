@@ -1,15 +1,6 @@
 """foliplus — pragmatic Folium map plugins for spatial data workflows."""
 
-from importlib.metadata import PackageNotFoundError, version
-
-try:
-    from ._version import __version__
-except ImportError:
-    try:
-        __version__ = version("foliplus")
-    except PackageNotFoundError:
-        __version__ = "unknown"
-
+from ._package import version as __version__
 from .BaseControl import BaseControl
 from .control.ExportControl import ExportControl
 from .control.FullscreenControl import FullscreenControl

@@ -65,6 +65,7 @@ from .export import (
     collect_tags,
     derived_control_schemas,
     field_dict_list,
+    schema_fingerprint,
     schema_to_json,
 )
 from .resolve import resolve_tag
@@ -118,6 +119,7 @@ __all__ = [
     "is_nullable",
     "render_ts_type",
     "resolve_tag",
+    "schema_fingerprint",
     "schema_to_json",
     "validate_shape",
     "verify_tags",

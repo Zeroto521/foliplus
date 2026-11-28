@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from .derive import derive_schema
@@ -116,3 +118,21 @@ def schema_to_json() -> str:
         collect_named_types(SHARED, *(s for _, s in control_schemas)),
     )
     return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=False) + "\n"
+
+
+@cache
+def schema_fingerprint() -> str:
+    """Stable short fingerprint of the whole CONFIG schema dump.
+
+    SHA-256 over :func:`schema_to_json` (already deterministic and sorted),
+    truncated to 12 hex characters so it is readable in a rendered page and
+    small enough to ship in every ``CONFIG``.
+
+    This is the value ``BaseControl._config_block`` writes as
+    ``CONFIG.__schema``: two pages built from different schema generations can
+    be told apart at a glance, which is what distinguishes "the panel ignores
+    this option" from "the panel was built against a different contract". The
+    fingerprint is of the *dump*, so bumping ``payload["version"]`` or adding
+    a ``FieldSpec`` attribute changes it — both are schema changes by design.
+    """
+    return hashlib.sha256(schema_to_json().encode("utf-8")).hexdigest()[:12]

@@ -42,7 +42,8 @@ from ._asset import (
     src_dir,
 )
 from ._cdn_loader import load_cdn
-from ._config_schema import config_fields, derive_schema
+from ._config_schema import config_fields, derive_schema, schema_fingerprint
+from ._package import version as _foliplus_version
 from ._typing import ControlPosition
 from ._validate import validate
 from .locale import LocaleConfig, _load_component_tables, _load_tables, resolve_locale
@@ -162,6 +163,11 @@ class BaseControl(JSCSSMixin, MacroElement):
           :meth:`LocaleConfig.from_json`; built-in component tables are injected
           once per map in ``window.foliplus._COMPONENT_TABLES``).
         * ``locale_code`` — the resolved language code (``"en"``, ``"zh"``, ...).
+        * ``__schema`` / ``__version`` — the diagnostic envelope: a short
+          fingerprint of the CONFIG schema contract (see
+          :func:`foliplus._config_schema.export.schema_fingerprint`) and the
+          package version that emitted the block. Not part of the typed
+          snake_case CONFIG surface; nothing in the JS components reads them.
 
         Returns ``"{}"`` when the config is empty, otherwise a JSON string safe for
         inline ``<script>`` injection.
@@ -182,6 +188,15 @@ class BaseControl(JSCSSMixin, MacroElement):
         custom = strings and strings != builtins.get(code, {})
         config["locale_tables"] = {code: strings} if custom else {}
         config["locale_code"] = code
+        config["__schema"] = schema_fingerprint()
+        config["__version"] = _foliplus_version
+        # Diagnostic envelope: which CONFIG contract and which Python package
+        # emitted this block. The dunder names keep them out of the snake_case
+        # CONFIG contract on purpose — no component reads them; they exist so a
+        # rendered page (and a mixed-version bug report) can name the schema
+        # generation and the emitting version without guessing. `__schema` is
+        # the short SHA-256 of the schema dump, stable for one contract and
+        # changed by any FieldSpec/version bump.
         # config always contains at least name/position — never empty.
         return _safe_json(config)
 
