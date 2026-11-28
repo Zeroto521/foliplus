@@ -12,7 +12,7 @@ const registerInteractions = (ui: LayerUI): (() => void) => {
   const container = ui.uiContainer;
   if (!container) return () => undefined;
   const interaction = ensureInteraction(ui.c.map);
-  return interaction.register(CONFIG.name, [
+  return interaction.register(ui.config.name, [
     { key: "ArrowUp", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "ArrowDown", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },
     { key: "ArrowLeft", container, handler: e => ui.handleKeyDown(e as KeyboardEvent) },

@@ -13,6 +13,11 @@
 // live in ./label.ts, ./opacity.ts, ./zoomRange.ts, ./delegated.ts;
 // frame-level helpers (reset footer, rail positioning) live in ./frame.ts.
 import { NO_DELTA, type ProjectionDelta, notifyDelta } from "../apply.js";
+import {
+  clearSurface,
+  openSurface,
+  registerSurfaceCloser,
+} from "../overlayPanel/openSurface.js";
 import type { LayerUI } from "../surface.js";
 import { closeOverlays, subscribeLayerTearDown } from "../teardown.js";
 import { disposeBorderRow, resetLayerBorder } from "./border.js";
@@ -437,12 +442,12 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
   ui.overlayPanel.stylePanelEl = panel;
   // Division of labour (single authority, no overlap): the PanelController
   // owns the dismissal contract (outside press, Escape, closeFromClick,
-  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). The component
-  // fields keep the display state (item/panel/layerId) and the detach pipe
-  // (each close detaches exactly once so the next open can re-attach) — a
-  // controller is rebuilt per open, so it is not a persistent handle. Slices
-  // 1-2 removed the inline register object (the true double bookkeeping);
-  // these fields are not a second open/closed state.
+  // swallowPress, rank, exclusiveGroup, clearsCursorOnClose). "What is open"
+  // lives in the one state machine (overlayPanel/openSurface.ts); the record
+  // there carries the display handles (item / panel / layerId), and the detach
+  // pipe is the *OverlayUnregister resource below (each close detaches exactly
+  // once so the next open can re-attach). A controller is rebuilt per open, so
+  // it is not a persistent handle.
   const controller: PanelController = createPanel({
     owner: "layer",
     localId: "style",
@@ -465,7 +470,7 @@ const openStylePanel = (ui: LayerUI, layerId: string): void => {
 
   bindStylePanel(ui, layerId, panel, controller);
 
-  ui.overlayPanel.stylePanelLayerId = layerId;
+  openSurface(ui, { kind: "style", layerId });
   // Same PanelController wiring: the dismissal contract and registry identity
   // live on the controller (dismiss outsidePress "mousedown"); attachPanel
   // generates the entry (id "layer.style") and returns the detach.
@@ -535,8 +540,9 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // before the panel disappears: closing is a commit boundary, not a cancel
   // (reset cancels explicitly). One hook covers every face, scoped to this UI
   // so another map's same-id frame is never flushed or dropped.
-  if (ui.overlayPanel.stylePanelLayerId) {
-    flushStyleDimApplies(ui.overlayPanel.stylePanelLayerId, ui);
+  const openLayerId = ui.overlayPanel.stylePanelLayerId;
+  if (openLayerId) {
+    flushStyleDimApplies(openLayerId, ui);
   }
   ui.overlayPanel.styleOverlayUnregister?.();
   ui.overlayPanel.styleOverlayUnregister = null;
@@ -549,6 +555,10 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   ui.overlayPanel.styleRefresh = null;
   ui.overlayPanel.styleResetSync = null;
   ui.overlayPanel.styleZoomEndHandler = null;
+  // Clear the surface before the DOM work: a rebuild calls this close even when
+  // the panel was already detached, and a detached panel is still a closed
+  // surface.
+  clearSurface(ui, "style");
   // Flushing the panel's live slider sessions can announce, and a subscriber
   // that destroys the manager mid-notify has already nulled the container.
   // Skip the lookup rather than deref null; the DOM is gone either way.
@@ -556,10 +566,7 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   const panel = container?.querySelector(
     `.${CONST.CLASSES.STYLE_PANEL}`,
   ) as HTMLElement | null;
-  if (!panel) {
-    ui.overlayPanel.stylePanelLayerId = null;
-    return;
-  }
+  if (!panel) return;
   const item = panel.closest(CONST.SEL.LAYER_ITEM) as HTMLElement | null;
   // The ramp detail's scheme picker owns document-level listeners while its
   // listbox is open; the panel is being removed, so destroy it first or the
@@ -573,11 +580,14 @@ const closeStylePanel = (ui: LayerUI, setFocus: boolean): void => {
   // value, and removing the panel (and with it the pointer capture) would drop
   // the change event. Only a session that actually moved emits.
   finishSlidersIn(panel);
-  ui.overlayPanel.stylePanelLayerId = null;
   unpinRowPanel(item);
   panel.remove();
   if (setFocus) item?.focus();
 };
+
+// The state machine's close dispatch for this kind. setFocus stays false:
+// being replaced by another surface is not a user dismissal.
+registerSurfaceCloser("style", ui => closeStylePanel(ui, false));
 
 export { closeStylePanel, openStylePanel, refreshStylePanel };
 

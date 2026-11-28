@@ -100,7 +100,7 @@ import type { Logger, Timers } from "#platform/type.js";
  *  - focusController:  focus spotlight + inverse mask
  *
  *  Cross-cutting code reads state through the subsystem handle
- *  (`ui.listPanel.foldedRoles`, `ui.overlayPanel.activeMenu`, etc.);
+ *  (`ui.listPanel.foldedRoles`, `ui.overlayPanel.surface`, etc.);
  *  each subsystem owns the field and there is no compat layer.
  */
 class LayerUI implements LayerUISurface {

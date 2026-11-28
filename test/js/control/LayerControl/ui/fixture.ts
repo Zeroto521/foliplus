@@ -2,6 +2,7 @@ import { afterEach, vi } from "vitest";
 import { ROLE, folderLayoutKey, orderKeyOf } from "#core/layer/index.js";
 import { rankStart, rankBetween } from "#core/order/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
+import { type ComponentConfig } from "#foliplus/config-schema.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";
@@ -377,6 +378,9 @@ const initFixture = (
     initialZoom?: number;
     maxZoom?: number;
     data?: ConstructorParameters<typeof LayerController>[1];
+    /** The rendered CONFIG data rows — the normalised declaration facts a
+     *  manager reads at construction (label today). */
+    configData?: ComponentConfig["data"];
     /** The persisted record, written before the manager is constructed. */
     seed?: Record<string, unknown>;
     /** The persisted layout-mirror document, written under its own storage
@@ -395,6 +399,7 @@ const initFixture = (
 ): { manager: LayerController; ui: LayerUI; map: any } => {
   window.CONFIG.name = "LayerControl";
   window.CONFIG.locale_code = "en";
+  window.CONFIG.data = options.configData ?? [];
   const container = document.createElement("div");
   document.body.appendChild(container);
   if (options.seed) {

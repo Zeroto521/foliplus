@@ -8,6 +8,7 @@ import { folderFoldKey } from "#control/LayerControl/declaredFolder.js";
 import { handleMoreClick } from "#control/LayerControl/interaction.js";
 import { isFolderFolded } from "#control/LayerControl/ui/listPanel/drag.js";
 import { runMenuAction } from "#control/LayerControl/ui/overlayPanel/menu.js";
+import { openSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 describe("ui/list folder rows (menu)", () => {
   beforeEach(() => {
@@ -53,11 +54,13 @@ describe("ui/list folder rows (menu)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
     runMenuAction(ui, mi);
@@ -101,11 +104,13 @@ describe("ui/list folder rows (menu)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.COLLAPSE_ALL);
     runMenuAction(ui, mi);
@@ -115,11 +120,13 @@ describe("ui/list folder rows (menu)", () => {
     const roleRow2 = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: roleRow2,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     const mi2 = document.createElement("button");
     mi2.setAttribute("data-action", CONST.ACTION.EXPAND_ALL);
     runMenuAction(ui, mi2);
@@ -202,12 +209,14 @@ describe("ui/list folder rows (menu)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
     runMenuAction(ui, mi);
@@ -296,12 +305,14 @@ describe("ui/list folder rows (menu)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
     runMenuAction(ui, mi);
@@ -325,12 +336,14 @@ describe("ui/list folder rows (menu)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
     runMenuAction(ui, mi);
@@ -361,12 +374,14 @@ describe("ui/list folder rows (menu)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.FOLDER_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
     runMenuAction(ui, mi);
@@ -393,22 +408,26 @@ describe("ui/list folder rows (menu)", () => {
         },
       ],
     });
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: document.createElement("div"),
       menu: document.createElement("div"),
+      layerId: "",
       role: "",
-    };
+    });
     for (const action of [CONST.ACTION.EXPAND_ALL, CONST.ACTION.COLLAPSE_ALL]) {
       const mi = document.createElement("button");
       mi.setAttribute("data-action", action);
       expect(() => runMenuAction(ui, mi)).not.toThrow();
     }
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: document.createElement("div"),
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: undefined,
       role: "overlay",
-    };
+    });
     for (const action of [CONST.ACTION.RENAME_FOLDER]) {
       const mi = document.createElement("button");
       mi.setAttribute("data-action", action);
@@ -430,10 +449,12 @@ describe("ui/list folder rows (menu)", () => {
       ],
     });
     const item = document.createElement("div");
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item,
       menu: document.createElement("div"),
-    };
+      layerId: "",
+    });
     for (const action of [
       CONST.ACTION.NEW_FOLDER,
       CONST.ACTION.EXPAND_ALL,
@@ -463,11 +484,13 @@ describe("ui/list folder rows (menu)", () => {
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
     const create = () => {
-      (ui.overlayPanel as any).activeMenu = {
+      openSurface(ui, {
+        kind: "menu",
         item: roleRow,
         menu: document.createElement("div"),
+        layerId: "",
         role: "overlay",
-      };
+      });
       const mi = document.createElement("button");
       mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
       runMenuAction(ui, mi);
@@ -530,11 +553,13 @@ describe("ui/list folder rows (menu)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.COLLAPSE_ALL);
     expect(() => runMenuAction(ui, mi)).not.toThrow();
@@ -557,12 +582,14 @@ describe("ui/list folder rows (menu)", () => {
     stub.setAttribute(CONST.DATA.FOLDER_KEY, "missing");
     stub.setAttribute(CONST.DATA.ROLE, "overlay");
     stub.setAttribute(CONST.DATA.FOLDER_NAME, "Missing");
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: stub,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "missing",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
     expect(() => runMenuAction(ui, mi)).not.toThrow();
@@ -584,12 +611,14 @@ describe("ui/list folder rows (menu)", () => {
     const folderRow = ui.uiContainer!.querySelector(
       `[data-folder-key="roads"]`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: folderRow,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
     runMenuAction(ui, mi);
@@ -661,11 +690,13 @@ describe("ui/list folder rows (menu)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.NEW_FOLDER);
     // "New Folder" already exists in the order → createFolder returns a
@@ -789,11 +820,13 @@ describe("ui/list folder rows (menu)", () => {
     const stub = document.createElement("div");
     stub.setAttribute(CONST.DATA.ROLE, "overlay");
     stub.setAttribute(CONST.DATA.FOLDER_NAME, "Roads");
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: stub,
       menu: document.createElement("div"),
+      layerId: "",
       folderKey: "roads",
-    };
+    });
     const mi = document.createElement("button");
     mi.setAttribute("data-action", CONST.ACTION.RENAME_FOLDER);
     runMenuAction(ui, mi);
@@ -818,11 +851,13 @@ describe("ui/list folder rows (menu)", () => {
     const roleRow = ui.uiContainer!.querySelector(
       `.${CONST.CLASSES.ROLE_ROW}`,
     ) as HTMLElement;
-    (ui.overlayPanel as any).activeMenu = {
+    openSurface(ui, {
+      kind: "menu",
       item: roleRow,
       menu: document.createElement("div"),
+      layerId: "",
       role: "overlay",
-    };
+    });
     // A refused create (duplicate / blank / too-long) makes startNewFolder return
     // before opening the inline rename: no input, no throw.
     ui.c.createFolder = () => ({ ok: false, reason: "duplicate" });

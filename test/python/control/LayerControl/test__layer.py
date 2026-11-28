@@ -2,11 +2,11 @@
 
 A layer declares its own defaults rather than the control: the dict is a folium
 passthrough onto layer.options, and each key is read by whichever side owns it.
-``zoom_range`` is normalised by Python into CONF so the visibility policy reads
-one fact; ``label`` stays a JS-side namespace that the label manager reads
-off the layer. These tests assert the shipped payload, the layer channel that
-carries it, and the warnings a misspelled or malformed declaration produces; the
-policy itself is covered by the JS projection tests.
+``zoom_range``, ``folder`` and ``label`` are normalised by Python into CONF so each
+policy reads one fact; the remaining keys stay a JS-side namespace the panel
+reads off the layer. These tests assert the shipped payload, the layer channel
+that carries it, and the warnings a misspelled or malformed declaration
+produces; the policy itself is covered by the JS projection tests.
 
 That documented channel is also what pins the supported floor — folium only
 forwards those kwargs onto a layer's options from 0.15 on.
@@ -31,6 +31,7 @@ from foliplus.control.LayerControl._layer import (
     declared_filter,
     declared_folder,
     declared_icon_size,
+    declared_label,
     declared_marker_color,
     declared_zoom_range,
     foliplus_namespace,
@@ -272,6 +273,37 @@ def test_label_key_reaches_the_layer_options() -> None:
     assert options.get("foliplus") == {"label": {"field": "name"}}
 
     data = ctrl._extra_config()["data"]  # type: ignore[attr-defined]
+    entry = next(row for row in data if row["name"] == "declared")
+    # Label is normalised into CONF like zoom_range/folder; the raw namespace
+    # above stays on the layer options for folium, but it is not the read
+    # channel anymore.
+    assert entry["label"] == {"field": "name", "show": True}
+
+
+def test_declared_label_returns_the_normalised_record():
+    layer = _geo(foliplus={"label": {"field": "name"}})
+    assert declared_label(layer, "Declared") == {"field": "name", "show": True}
+
+
+def test_declared_label_is_normalised_into_conf():
+    with pytest.warns(UserWarning, match="clamped to 32"):
+        html = _render(
+            _geo(foliplus={"label": {"field": "name", "color": "#0F0", "size": 99}})
+        )
+    entry = _conf(html)["data"][0]
+    assert entry["label"] == {
+        "field": "name",
+        "color": "#00ff00",
+        "size": 32,
+        "show": True,
+    }
+
+
+def test_an_invalid_label_key_warns_and_leaves_no_conf_key():
+    with pytest.warns(UserWarning, match="with a field 1200"):
+        html = _render(_geo(foliplus={"label": {"field": 1200}}))
+    entry = _conf(html)["data"][0]
+    assert "label" not in entry
 
 
 # --- Folder declaration (D1) -------------------------------------------------

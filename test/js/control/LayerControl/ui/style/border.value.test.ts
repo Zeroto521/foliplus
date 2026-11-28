@@ -195,7 +195,7 @@ describe("value-stroke row and dimension wiring (fix #2 coverage)", () => {
   // Drive the exported row surface (buildBorderRow/bindBorderRow) plus the
   // registered BORDER_DIMENSION — the only public doors to the module-private
   // value-detail helpers (borderValueForUi, borderSeedField, writeBorderMode,
-  // writeBorderValue, bindBorderValueDetail, convergeBorderClassesRow).
+  // writeBorderValue, bindBorderValueDetail, convergeClassesRow).
   const openBorderRow = (
     manager: LayerController,
     ui: LayerUI,

@@ -9,6 +9,7 @@
 // It never writes and never touches the DOM.
 import { isArealStyleLeaf } from "./capability.js";
 import { walkLeaf } from "./walkLeaf.js";
+import { normalizeHexColor } from "#platform/color.js";
 
 /** folium's per-feature color property. */
 const FOLIUM_COLOR_PROP = "__folium_color";
@@ -18,10 +19,9 @@ const normalizeFillColor = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const raw = value.trim().toLowerCase();
   if (raw === "") return null;
-  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(raw);
-  return short
-    ? `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`
-    : raw;
+  // normalizeHexColor expands a 3-digit hex and passes every other shape
+  // through — the same one-paint rule the rest of the color pipeline uses.
+  return normalizeHexColor(raw);
 };
 
 /** leaf → author color, or null when the feature carried no color. */

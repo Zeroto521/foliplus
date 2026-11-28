@@ -460,6 +460,19 @@ describe("LayerUI menu", () => {
       elsewhere.remove();
     });
 
+    it("a layer menu focusout into the menu keeps it open", () => {
+      // Focus moving from the menu onto one of its own entries is not a
+      // dismissal: the menu owns the keyboard cursor while it is open.
+      const item = findItem(ui, "overlay1");
+      ui.openMoreMenu(item);
+      const menu = item.querySelector(".foliplus-layer-more-menu") as HTMLElement;
+      const entry = menu.querySelector("button") as HTMLElement;
+      menu.dispatchEvent(
+        new FocusEvent("focusout", { bubbles: true, relatedTarget: entry }),
+      );
+      expect(ui.overlayPanel.activeMenu).not.toBeNull();
+    });
+
     it("a layer menu focusout with a null relatedTarget closes it", () => {
       const item = findItem(ui, "overlay1");
       ui.openMoreMenu(item);

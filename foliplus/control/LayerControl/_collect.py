@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 from branca.element import Element
 from folium.map import Layer
 
-from foliplus._declaration import FILTER_KEY
+from foliplus._declaration import FILTER_KEY, LABEL_KEY
 
 from ._fill_author import fill_author, map_colormaps
 from ._folder import _folder_key, warn_unclaimed_folders
@@ -25,6 +25,7 @@ from ._layer import (
     declared_filter,
     declared_folder,
     declared_icon_size,
+    declared_label,
     declared_marker_color,
     declared_zoom_range,
 )
@@ -43,7 +44,7 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
     """Walk the control and the parent map, one ``data`` entry per layer.
 
     The union is deduplicated by ``get_name()``; the declarations contribute
-    their optional facts (``fill_author`` / ``zoom_range`` / ``folder`` / filter)
+    their optional facts (``fill_author`` / ``zoom_range`` / ``folder`` / filter / label)
     and shape warnings happen here, once per rendered control.
     """
     data: list[dict[str, object]] = []
@@ -88,8 +89,15 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
         filter_decl = declared_filter(item, item.layer_name)
         if filter_decl is not None:
             entry[FILTER_KEY] = filter_decl
+        # The label block is the one declaration the JavaScript panel does not
+        # re-read off layer.options.foliplus: the normalised record is the
+        # single channel (CONF data[].label), so a key the normaliser rejected
+        # cannot reach the browser as an unvalidated label default.
+        label_decl = declared_label(item, item.layer_name)
+        if label_decl is not None:
+            entry[LABEL_KEY] = label_decl
         # A border declaration is read by the JS panel straight off
-        # layer.options.foliplus (same channel as fill/label). Python's
+        # layer.options.foliplus (same channel as fill). Python's
         # only job here is the shape validation + one-time warning: a
         # malformed border warns at collection time instead of silently
         # painting a mode the author never saw validated.

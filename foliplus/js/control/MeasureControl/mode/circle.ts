@@ -1,3 +1,4 @@
+// control/MeasureControl/mode/circle — circle radius mode: click the centre then the edge, then keep the radius label editable.
 import * as CONST from "../const.js";
 import type { MeasureManager } from "../manager.js";
 import { attachCircleUI } from "../ui/index.js";

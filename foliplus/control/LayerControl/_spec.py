@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Annotated, get_args
 
 from foliplus._config_schema import FieldSpec
+from foliplus._declaration import NUMBER_FORMATS
 
 from ._role import LayerRole
 
@@ -66,6 +67,23 @@ LAYER_DATA_FIELDS = {
                     # Optional: the author-declared filter, normalised to the
                     # shared filter AST by _declaration.filter.
                     "filter": (("object_unknown", "null"), "?"),
+                    # Optional: the author-declared label block, normalised
+                    # from foliplus={"label": ...} by _declaration.label.
+                    # The JS label manager reads this record as the middle
+                    # layer of its defaults -> declaration -> user merge; a
+                    # key the normaliser rejected is absent here instead of
+                    # shipping raw to be silently dropped again.
+                    "label": (
+                        {
+                            "show": ("bool", "?"),
+                            "field": ("string", "?"),
+                            "format": (NUMBER_FORMATS, "?"),
+                            "color": ("string", "?"),
+                            "size": ("number", "?"),
+                            "collide": ("bool", "?"),
+                        },
+                        "?",
+                    ),
                 }
             ],
         ),

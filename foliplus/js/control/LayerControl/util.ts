@@ -1,6 +1,6 @@
-/** Utility functions for LayerControl (UI-specific).
- *  Layer traversal/detection logic lives in core/layer; this module only
- *  keeps UI concerns (SVG icons). */
+// control/LayerControl/util — UI-only icon helpers: geometry type → SVG icon.
+// Layer traversal/detection logic lives in core/layer; this module only keeps
+// UI concerns (SVG icons).
 import * as SVGs from "./icon.js";
 import { GEOM_TYPE } from "#core/layer/index.js";
 

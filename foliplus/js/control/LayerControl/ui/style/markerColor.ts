@@ -25,6 +25,7 @@ import { INTENT, type IntentKey, getIntent } from "../intent.js";
 import type { LayerUI } from "../surface.js";
 import { currentGlyph } from "./icon.js";
 import { registerDimension, resetIntentKeys, writeIntentKeys } from "./registry.js";
+import { createReplayGate } from "./replay.js";
 import { FACE, cancelStyleDimApply, scheduleStyleDimApply } from "./styleBag.js";
 import { styleCapability } from "./styleCapability.js";
 import { DIM } from "#core/layer/index.js";
@@ -38,6 +39,7 @@ import {
   resetIconLeaves,
   resolveChassisPaint as resolveChassisPaintCore,
 } from "#core/leaflet/index.js";
+import { isHexColor } from "#platform/color.js";
 import { withUnit } from "#platform/format.js";
 import {
   bindLiveNumber,
@@ -169,10 +171,14 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (authorName) {
     // The author declares a chassis: re-derive at the author's hex (a preset
     // name maps forward through the table; a non-preset hex is used as-is).
-    const authorHex = /^#[0-9a-f]{6}$/i.test(authorName)
-      ? authorName.toLowerCase()
-      : ((MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[authorName] ??
-        MARKER_COLOR_PRESET_HEX.blue);
+    // isHexColor also admits the 3-digit form, but this branch feeds a
+    // chassis the swatch row shows as 6 digits, so keep the 6-digit shape.
+    const authorHex =
+      isHexColor(authorName) && authorName.length === 7
+        ? authorName.toLowerCase()
+        : ((MARKER_COLOR_PRESET_HEX as Record<string, string | undefined>)[
+            authorName
+          ] ?? MARKER_COLOR_PRESET_HEX.blue);
     applyMarkerColorToLeaves(
       layer,
       authorHex,
@@ -205,7 +211,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
  *  absent from it, and only a declaration needs the extra pass. Layers with a
  *  stored intent are skipped so the sweep does not apply the same chassis
  *  twice. Mirrors replayDeclaredFill / replayDeclaredBorder. */
-const declaredReplayed = new WeakMap<LayerUI, Set<string>>();
+const declaredReplayGate = createReplayGate();
 
 const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (
@@ -217,8 +223,7 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   if (declaredMarkerColorHex(layer) === null) return;
-  let painted = declaredReplayed.get(ui);
-  if (painted?.has(layerId)) return;
+  if (declaredReplayGate.has(ui, layerId)) return;
   // An author-chassis marker needs no replay (the author icon is the map
   // state); only a declared chassis with no author chassis is a read-time
   // default the paint must apply.
@@ -231,11 +236,7 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
       declaredIconSizeOf(layer),
     );
   }
-  if (!painted) {
-    painted = new Set();
-    declaredReplayed.set(ui, painted);
-  }
-  painted.add(layerId);
+  declaredReplayGate.mark(ui, layerId);
 };
 
 /** Build the marker-color row: a swatch input plus a chassis-opacity number
@@ -279,7 +280,7 @@ const buildMarkerColorRow = (ui: LayerUI, layerId: string): HTMLElement | null =
   row.dataset.styleDim = "markerColor";
   input.addEventListener("input", () => {
     const next = input.value;
-    if (!/^#[0-9a-f]{6}$/i.test(next)) return;
+    if (!isHexColor(next)) return;
     commitMarkerColor(ui, layerId, next);
   });
   bindLiveNumber(opacityInput, {

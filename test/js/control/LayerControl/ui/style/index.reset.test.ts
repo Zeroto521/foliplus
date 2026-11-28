@@ -3,6 +3,7 @@ import { findItem, initFixture } from "../fixture.js";
 import { keepBubble, restoreBubble } from "./index.fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ensureModes } from "#core/lifecycle/index.js";
+import { type ComponentConfig } from "#foliplus/config-schema.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
 import { sliderOf } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
@@ -21,9 +22,14 @@ describe("LayerUI style panel", () => {
 
   let map: any;
 
-  beforeEach(() => {
+  // The declaration channel is CONFIG.data, read when the LabelManager is
+  // constructed, so a test that declares a label rebuilds the fixture with the
+  // rendered rows instead of mutating the layer after the fact.
+  const setup = (
+    configData?: NonNullable<Parameters<typeof initFixture>[0]>["configData"],
+  ) => {
     restoreBubble();
-    ({ manager, ui, map } = initFixture());
+    ({ manager, ui, map } = initFixture({ configData }));
     ui.listPanel.foldedRoles = {};
     seedIntentMap(ui, "visible", {});
     window.localStorage.removeItem(CONST.STORAGE.KEY);
@@ -41,6 +47,18 @@ describe("LayerUI style panel", () => {
       capabilities: Record<string, unknown>;
     };
     surface.capabilities = { ...surface.capabilities, label: "pane" };
+  };
+
+  /** One rendered row carrying a normalised label fact — the shape Python
+   *  emits into CONFIG.data. */
+  const declaredRow = (
+    label: NonNullable<ComponentConfig["data"]>[number]["label"],
+  ): NonNullable<Parameters<typeof initFixture>[0]>["configData"] => [
+    { id: "overlay1", name: "Polygons", role: "overlay", show: true, label },
+  ];
+
+  beforeEach(() => {
+    setup();
   });
 
   afterEach(() => {
@@ -296,12 +314,11 @@ describe("LayerUI style panel", () => {
   });
 
   it("reset drops the entry, so the author's declaration shows through", () => {
-    // A declaration lives on the layer's own options (folium's
-    // `explore(foliplus=...)`), not in CONFIG. Writing the defaults back on
-    // Reset would shadow the author's field, and persisting that shadow would
-    // keep it for good.
-    const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { label: { field: "declared" } };
+    // A declaration is normalised by Python into CONFIG.data (folium's
+    // `explore(foliplus=...)`); it is not layer state. Writing the defaults
+    // back on Reset would shadow the author's field, and persisting that
+    // shadow would keep it for good.
+    setup(declaredRow({ field: "declared", show: true }));
     const item = findItem(ui, "overlay1");
     ui.openStylePanel("overlay1");
     manager.label.setConfig("overlay1", {
@@ -339,8 +356,7 @@ describe("LayerUI style panel", () => {
     // The load-time half of the declaration: getConfig's `show` alone draws
     // nothing, because the canvas is only built by renderLabels. This sweep is
     // what puts a declared field on the map at all.
-    const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { label: { field: "count" } };
+    setup(declaredRow({ field: "count", show: true }));
 
     const render = vi.spyOn(manager.label, "renderLabels").mockImplementation(() => []);
     ui.applyStyleLabelState();
@@ -349,10 +365,7 @@ describe("LayerUI style panel", () => {
   });
 
   it("leaves labels off when the declaration says show: false", () => {
-    const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = {
-      label: { field: "count", show: false },
-    };
+    setup(declaredRow({ field: "count", show: false }));
 
     const render = vi.spyOn(manager.label, "renderLabels").mockImplementation(() => []);
     ui.applyStyleLabelState();
@@ -363,8 +376,7 @@ describe("LayerUI style panel", () => {
   it("does not re-render a layer the user has configured for themselves", () => {
     // The live config wins over the declaration, so the sweep must not redraw a
     // layer the user has already tuned.
-    const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { label: { field: "count" } };
+    setup(declaredRow({ field: "count", show: true }));
     manager.label.setConfig("overlay1", {
       show: true,
       field: "name",
@@ -381,8 +393,7 @@ describe("LayerUI style panel", () => {
     // A declaration is an author's promise about the panel's starting point, not a
     // reason to paint. Building a canvas over an empty field list would leave a
     // blank layer with the toggle reading on.
-    const li = manager.layerRegistry.get("overlay1")!;
-    (li.layer as any).options.foliplus = { label: { field: "count" } };
+    setup(declaredRow({ field: "count", show: true }));
     ui.runtimeStore.deleteFields("overlay1");
     expect(layerHasLabelFields(ui, "overlay1")).toBe(false);
 

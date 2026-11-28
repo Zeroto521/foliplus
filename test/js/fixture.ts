@@ -55,6 +55,7 @@ import { createLogger } from "#platform/log.js";
 // itself only imports the core/layer barrel, so it is safe to load early.
 import { LayerIntentStore } from "#control/LayerControl/domain/LayerIntentStore.js";
 import type { LayerUI } from "#control/LayerControl/ui/index.js";
+import { readSurface } from "#control/LayerControl/ui/overlayPanel/openSurface.js";
 
 type Overrides = Record<string, unknown>;
 
@@ -392,9 +393,9 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       listCleanup: null,
     },
     overlayPanel: {
-      activeRenameId: null,
-      activeMenu: null,
-      activeAttrsPanel: null,
+      // The single "what is open" state (overlayPanel/openSurface.ts) and the
+      // active* / stylePanelLayerId projections are defined on this literal
+      // below, exactly like the real OverlayPanel.
       attrsOverlayUnregister: null,
       filterOverlayUnregister: null,
       styleOverlayUnregister: null,
@@ -402,7 +403,7 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       styleUnsubscribe: null,
       styleRefresh: null,
       styleZoomEndHandler: null,
-      stylePanelLayerId: null,
+      stylePanelEl: null,
     },
     ...extra,
   };
@@ -415,6 +416,12 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
   // compat getters on the real LayerUI class.
   const lp = base.listPanel;
   const op = base.overlayPanel;
+  // `surface` is read-only here for the same reason it is on the real class:
+  // tests drive it through openSurface/closeSurface, never by assignment.
+  Object.defineProperty(op, "surface", {
+    get: () => readSurface(op),
+    configurable: true,
+  });
   const compatGetters: Array<[string, () => unknown, (v: unknown) => void]> = [
     ["foldedRoles", () => lp.foldedRoles, v => void (lp.foldedRoles = v as any)],
     ["checkedCount", () => lp.checkedCount, v => void (lp.checkedCount = v as any)],
@@ -433,17 +440,6 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
     ],
     ["interactionCleanup", () => lp.listCleanup, v => void (lp.listCleanup = v as any)],
     [
-      "activeRenameId",
-      () => op.activeRenameId,
-      v => void (op.activeRenameId = v as any),
-    ],
-    ["activeMenu", () => op.activeMenu, v => void (op.activeMenu = v as any)],
-    [
-      "activeAttrsPanel",
-      () => op.activeAttrsPanel,
-      v => void (op.activeAttrsPanel = v as any),
-    ],
-    [
       "attrsUnsubscribe",
       () => op.attrsUnsubscribe,
       v => void (op.attrsUnsubscribe = v as any),
@@ -459,12 +455,33 @@ export function makeLayerUIMock(extra: Overrides = {}): LayerUI {
       () => op.styleZoomEndHandler,
       v => void (op.styleZoomEndHandler = v as any),
     ],
+  ];
+  // Read-only projections of `op.surface`, mirroring the real OverlayPanel
+  // getters. Kept in one table so the mock cannot drift from the class.
+  const surfaceOf = () => op.surface as { kind: string } & Record<string, any>;
+  const derived: Array<[string, (open: any) => unknown]> = [
+    ["activeMenu", open => (open?.kind === "menu" ? open : null)],
+    ["activeAttrsPanel", open => (open?.kind === "attrs" ? open : null)],
+    [
+      "activeFilterPanel",
+      open => (open?.kind === "filter" ? (open.state ?? null) : null),
+    ],
+    [
+      "activeRenameId",
+      open => (open?.kind === "rename" ? (open.layerId ?? null) : null),
+    ],
+    ["activeRenameRow", open => (open?.kind === "rename" ? (open.row ?? null) : null)],
     [
       "stylePanelLayerId",
-      () => op.stylePanelLayerId,
-      v => void (op.stylePanelLayerId = v as any),
+      open => (open?.kind === "style" ? (open.layerId ?? null) : null),
     ],
   ];
+  for (const [name, project] of derived) {
+    Object.defineProperty(op, name, {
+      get: () => project(surfaceOf()),
+      configurable: true,
+    });
+  }
   for (const [name, getter, setter] of compatGetters) {
     Object.defineProperty(base, name, {
       get: getter,
