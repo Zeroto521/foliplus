@@ -160,3 +160,33 @@ describe("readDeclared* has one public door", () => {
     ]);
   });
 });
+
+describe("namespace/dynamic/ImportType also guarded", () => {
+  it("namespace import of a deep declared module is a violation", () => {
+    expect(importProblems(
+      `${ROOT}/ui/style/icon.ts`,
+      'import * as ns from "#control/LayerControl/declared/face.js";\nvoid ns.readDeclaredIcon;',
+    )).toHaveLength(1);
+  });
+
+  it("dynamic import of a deep declared module is a violation", () => {
+    expect(importProblems(
+      `${ROOT}/ui/style/icon.ts`,
+      'const m = await import("#control/LayerControl/declared/face.js");\nvoid m.readDeclaredIcon;',
+    )).toHaveLength(1);
+  });
+
+  it("ImportType of a deep declared module is a violation", () => {
+    expect(importProblems(
+      `${ROOT}/ui/style/icon.ts`,
+      'type T = import("#control/LayerControl/declared/face.js").readDeclaredIcon;\nexport type { T };',
+    )).toHaveLength(1);
+  });
+
+  it("namespace import through the barrel is fine", () => {
+    expect(importProblems(
+      `${ROOT}/ui/style/icon.ts`,
+      'import * as ns from "#control/LayerControl/declared/index.js";\nvoid ns.readDeclaredIcon;',
+    )).toEqual([]);
+  });
+});
