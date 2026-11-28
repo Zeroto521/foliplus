@@ -99,6 +99,14 @@ const findOverlayContractViolations = (root = process.cwd()) => {
     const rel = path.relative(root, file).split(path.sep).join("/");
     if (DECLARE_FILES.has(rel)) continue;
     const content = fs.readFileSync(file, "utf8");
+    // Cheap raw-text prefilter before the AST: all three rules need either the
+    // `createDropdown` callee or an `overlay ?` token in the source, so a file
+    // without either cannot hold a violation. Without this the guard parses all
+    // 318 production modules, which is why it could exceed even its own 60 s
+    // budget under coverage on a loaded host (only 10 files pass the filter).
+    if (!content.includes("createDropdown") && !/overlay\s*\?/.test(content)) {
+      continue;
+    }
     const sf = ts.createSourceFile(
       rel,
       content,
