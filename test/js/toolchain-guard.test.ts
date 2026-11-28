@@ -420,6 +420,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "the CONFIG payload keeps one snake_case key spelling across Python and JS",
   "config-narrowing":
     "every control narrows CONFIG to its own generated Config<Name> schema",
+  "declared-key-sync":
+    "the declared-key vocabulary is one set across Python key.py and JS declared/keys.ts, and no bare declaration-key literal reaches a reader",
   "deep-relative-path":
     "no test file reaches outside its own subtree with three or more ../ segments",
   "derived-barrier":
