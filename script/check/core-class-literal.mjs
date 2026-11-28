@@ -19,9 +19,9 @@
  *   Without `--check` the script prints its inventory and always exits 0.
  *   With `--check` it exits 1 when any literal is found.
  */
+import { collectSources, stripComments } from "./lib/source-scan.mjs";
 import fs from "node:fs";
 import path from "node:path";
-import { collectSources, stripComments } from "./lib/source-scan.mjs";
 
 /** Production source root, relative to the repo root. Tests are out of scope:
  *  the parity contract is enforced by the source itself reading the vocabulary,

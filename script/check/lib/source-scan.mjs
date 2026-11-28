@@ -37,7 +37,11 @@ const stripComments = src =>
 /** Recursively collect source files under `dir`, skipping `skipDirs`. */
 const collectSources = (
   dir,
-  { suffixes = [".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"], skipDirs = new Set(), out = [] } = {},
+  {
+    suffixes = [".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"],
+    skipDirs = new Set(),
+    out = [],
+  } = {},
 ) => {
   let entries;
   try {

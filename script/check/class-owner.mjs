@@ -42,9 +42,9 @@
  * always exits 0. With --check it exits 1 on any duplicate owner or any
  * non-owner bare literal.
  */
+import { collectSources, stripComments } from "./lib/source-scan.mjs";
 import fs from "node:fs";
 import path from "node:path";
-import { collectSources, stripComments } from "./lib/source-scan.mjs";
 
 /** Production source root, relative to the repo root. */
 const JS_ROOT_REL = path.join("foliplus", "js");

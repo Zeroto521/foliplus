@@ -47,9 +47,9 @@
  * absent from the list, or a *new* site for a listed name, fails `--check`.
  * The list is now empty; `EXEMPTIONS` below is the only allowed repeat.
  */
+import { collectSources, parseClassDefs } from "./lib/source-scan.mjs";
 import fs from "node:fs";
 import path from "node:path";
-import { collectSources, parseClassDefs } from "./lib/source-scan.mjs";
 
 /** Production source root, relative to the repo root. Tests are out of scope:
  *  a test may spell a class name to assert on the DOM it builds. */

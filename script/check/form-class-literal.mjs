@@ -33,10 +33,10 @@
  * script/check/lib/source-scan.mjs, so this guard and its siblings read the
  * source identically.
  */
+import { collectSources, stripComments } from "./lib/source-scan.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { collectSources, stripComments } from "./lib/source-scan.mjs";
 
 /** The two shared form-input tokens that belong to FORM_CLASS. */
 const FORM_CLASS_TOKENS = new Set(["foliplus-input-skin", "foliplus-form-select"]);
@@ -75,7 +75,9 @@ const hasBareToken = (line, token) => {
  * @returns [{file, line, text}] — file is repo-relative.
  */
 const findBareFormClassLiterals = (root = process.cwd()) => {
-  const targets = collectSources(path.join(root, "foliplus", "js"), { skipDirs: SKIP_DIR });
+  const targets = collectSources(path.join(root, "foliplus", "js"), {
+    skipDirs: SKIP_DIR,
+  });
   const hits = [];
   for (const file of targets) {
     const rel = path.relative(root, file).split(path.sep).join("/");
@@ -98,7 +100,7 @@ const main = (root = process.cwd()) => {
   const hits = findBareFormClassLiterals(root);
   for (const h of hits) {
     console.log(
-      `${h.file}:${h.line}: bare class literal "\${h.text}\" \u2014 use FORM_CLASS`
+      `${h.file}:${h.line}: bare class literal "\${h.text}\" \u2014 use FORM_CLASS`,
     );
   }
   return hits.length === 0 ? 0 : 1;
