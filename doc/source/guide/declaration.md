@@ -414,11 +414,12 @@ presets (or a valid hex) is the JavaScript reader's verdict — an unknown prese
 name or a malformed hex warns once and degrades to the derived default (the
 panel's built-in blue), never an unvalidated colour.
 
-A hex is distinct from the folium `Icon(color='#00A6A6')` kwarg: that paints
-the author's icon directly, while `marker_color` is the `foliplus={}`
-declaration read-time default a panel pick and Reset return to. When both are
-present the author's painted colour wins (the declaration is the lower-priority
-default).
+A hex is distinct from the folium `Icon(color='#00A6A6')` kwarg (folium
+`>=1.0.0`; earlier releases only accept the preset names and warn on a hex):
+that kwarg paints the author's icon directly, while `marker_color` is the
+`foliplus={}` declaration read-time default a panel pick and Reset return to.
+When both are present the author's painted colour wins (the declaration is the
+lower-priority default).
 
 :::{note}
 

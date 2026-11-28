@@ -14,7 +14,9 @@ import folium
 from foliplus import LayerControl
 
 m = folium.Map(location=[31.23, 121.47], zoom_start=10)
-folium.Marker([31.23, 121.47], name="Point").add_to(m)
+points = folium.FeatureGroup(name="Points")
+folium.Marker([31.23, 121.47]).add_to(points)
+points.add_to(m)
 LayerControl().add_to(m)
 m
 ```
@@ -37,17 +39,27 @@ non-browser Python suite passes under 1.0.0.
 The panel lists any folium layer whose class is a {class}`folium.map.Layer`
 subclass with `control=True` (the default). The recognised layer families:
 
-| folium layer | Panel row | Notes |
+| folium class | Panel row | Notes |
 |--------------|-----------|-------|
 | `Map` | — (the map itself is never a row) | the host surface, not a layer |
-| `TileLayer` | one row | the base tile layer |
+| `TileLayer` / `WmsTileLayer` | one row | the tile layers |
 | `FeatureGroup` | one **group row** | see {ref}`group_rows` |
 | `LayerGroup` (folium `>=1.0.0`) | one **group row** | see {ref}`group_rows` |
 | `GeoJson` | one data row | see {ref}`geojson_boundaries` |
-| `Marker` | one row | icon source read from the {class}`folium.Icon` |
-| `CircleMarker` | one row | |
-| `Polygon` / `Polyline` / `Rectangle` | one row | |
 | `ImageOverlay` | one row | pane-scoped like a vector layer |
+
+Only classes that actually subclass {class}`folium.map.Layer` can become rows:
+the panel's collection pass keeps just those (`_collect.py`, `isinstance(item,
+Layer)`). A `folium.Marker`, `CircleMarker`, `Circle`, `Polygon`, `PolyLine`
+or `Rectangle` is a `MacroElement`, **not** a `Layer`, so it never gets a row of
+its own and the panel cannot drive its style: a `Marker` stays in the shared
+Leaflet `markerPane`, while the vector paths (`CircleMarker`, `Circle`,
+`Polygon`, `PolyLine`, `Rectangle`) stay in the shared `overlayPane`. Wrap
+point or vector content in a `FeatureGroup` to get one group row — visibility,
+delete and focus work on it, while its Style and Filter menu entries are
+disabled (see {ref}`group_rows`) — or use a `GeoJson` data layer to manage it
+from the panel. A plugin layer that extends `Layer` (for example
+`MarkerCluster` or `HeatMap`) is collected the same way.
 
 The panel reads `layer.overlay` to decide the row's role (base vs overlay) —
 folium's own grouping flag, mapped one-to-one onto foliplus's `role` (`_role.py`,
