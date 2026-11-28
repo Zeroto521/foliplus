@@ -137,12 +137,12 @@ def test_collect_layer_data_warns_on_an_invalid_label_and_omits_the_fact() -> No
     assert "label" not in row
 
 
-def test_collect_layer_data_carries_the_container_own_label_fact() -> None:
-    # A container row reads the declaration written on the container itself: the
-    # group is the row, so its own label block is the row's label fact.
+def test_collect_layer_data_carries_the_container_own_declared_facts() -> None:
+    # A container row reads the declarations written on the container itself: the
+    # group is the row, so its own label and folder blocks are the row's facts.
     group = folium.FeatureGroup(
         name="grp",
-        foliplus={"label": {"field": "name", "color": "#0F0"}},
+        foliplus={"label": {"field": "name", "color": "#0F0"}, "folder": "Ops"},
     )
     folium.GeoJson(feature_collection(), name="child").add_to(group)
     row = _row(collect_layer_data(_control_with(group)), "grp")
@@ -151,6 +151,7 @@ def test_collect_layer_data_carries_the_container_own_label_fact() -> None:
         "color": "#00ff00",
         "show": True,
     }, row
+    assert row["folder"] == "Ops", row
 
 
 def test_collect_layer_data_does_not_hoist_a_child_declaration_onto_the_container() -> (
