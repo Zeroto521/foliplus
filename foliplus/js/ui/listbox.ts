@@ -103,10 +103,10 @@ type ListboxDismiss = {
   id: string;
   /** Escape + press rank: higher = closer to the top. */
   rank: number;
-  /** Which press phase dismisses the open list. Defaults to the row-panel
-   *  phase (capture mousedown, so a target's own click cannot hide an outside
-   *  press); a picker keeps the click bubble so the press that lands on another
-   *  control still runs that control's own click handler first. */
+  /** Which press event dismisses the open list. The registry evaluates every
+   *  outside press on the capture phase, so a control's own stopPropagation
+   *  cannot hide it; the choice below is only which event (mousedown vs click)
+   *  counts — the row panels default to mousedown, the picker to click. */
   dismissOn?: "mousedown" | "click";
 };
 
