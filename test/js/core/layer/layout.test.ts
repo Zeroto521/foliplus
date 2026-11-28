@@ -258,3 +258,71 @@ describe("persist", () => {
     window.localStorage.removeItem(orderKeyOf(map));
   });
 });
+
+describe("projection edges", () => {
+  const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
+  const info = (id: string, role: "overlay" | "base"): LayerInfo =>
+    ({
+      id,
+      name: id,
+      layer: null,
+      kind: "tile",
+      carrier: {},
+      role,
+    }) as unknown as LayerInfo;
+
+  it("resolveOrderView skips unknown ids and keeps empty folders in their role", () => {
+    const d = doc({
+      "layer:p1": { kind: "layer", parent: null, rank: "a0" },
+      "folder:overlay:vacant": {
+        kind: "folder",
+        parent: null,
+        rank: "a1",
+        name: "Vacant",
+        role: "overlay",
+      },
+      "layer:gone": { kind: "layer", parent: "folder:overlay:vacant", rank: "a0" },
+      "layer:q1": { kind: "layer", parent: null, rank: "a2" },
+    });
+    const reg = [info("p1", "overlay"), info("q1", "base")];
+    const view = resolveOrderView(d, presentOf(reg), reg);
+    expect(view.rows.overlay.some(r => r.kind === "block")).toBe(true);
+    expect(view.rows.base.some(r => r.key === "layer:gone")).toBe(false);
+    expect(view.rows.overlay.some(r => r.key === "layer:p1")).toBe(true);
+    expect(view.rows.base.some(r => r.key === "layer:q1")).toBe(true);
+  });
+
+  it("projectRows drops a block with no member of the role", () => {
+    const d = doc({
+      "folder:overlay:v": {
+        kind: "folder",
+        parent: null,
+        rank: "a0",
+        name: "V",
+        role: "overlay",
+      },
+      "layer:gone": { kind: "layer", parent: "folder:overlay:v", rank: "a0" },
+    });
+    const reg = [info("p1", "overlay")];
+    const roleOf = (id: string) => reg.find(i => i.id === id)?.role ?? null;
+    const rows = projectRows(d, presentOf(reg), roleOf, "base");
+    expect(rows).toEqual([]);
+  });
+
+  it("projectBlocks omits a block with no members", () => {
+    const d = doc({
+      "layer:p1": { kind: "layer", parent: null, rank: "a0" },
+    });
+    const reg = [info("p1", "overlay")];
+    const blocks = projectBlocks(d, presentOf(reg), reg, "overlay");
+    expect(blocks.some(b => b.kind === "layer")).toBe(true);
+  });
+
+  it("defaultDoc skips a duplicate layer id", () => {
+    const d = defaultDoc([
+      { id: "a", role: "overlay", folder: null },
+      { id: "a", role: "overlay", folder: null },
+    ]);
+    expect(Object.keys(d.nodes).filter(k => k === "layer:a").length).toBe(1);
+  });
+});

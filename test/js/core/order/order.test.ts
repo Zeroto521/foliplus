@@ -258,3 +258,109 @@ describe("commands", () => {
     expect(r).not.toBe(defaults);
   });
 });
+
+describe("command edge cases", () => {
+  const base = (): OrderDoc =>
+    doc({
+      "layer:a": { kind: "layer", parent: null, rank: "a0" },
+      "layer:b": { kind: "layer", parent: null, rank: "a1" },
+      "folder:overlay:f": {
+        kind: "folder",
+        parent: null,
+        rank: "a2",
+        name: "F",
+        role: "overlay",
+      },
+    });
+
+  it("suppress ignores a non-layer key", () => {
+    const d = base();
+    expect(suppress(d, "folder:overlay:f")).toBe(d);
+  });
+
+  it("restore ignores a non-layer key", () => {
+    const d = base();
+    expect(restore(d, "folder:overlay:f")).toBe(d);
+  });
+
+  it("restore clears the hidden marker on a hidden layer", () => {
+    const d = doc({
+      "layer:a": { kind: "layer", parent: null, rank: "a0", hidden: true },
+    });
+    const out = restore(d, "layer:a");
+    expect(out.nodes["layer:a"].hidden).toBeUndefined();
+  });
+
+  it("moveBefore ignores a non-layer source", () => {
+    const d = base();
+    expect(moveBefore(d, "folder:overlay:f", "layer:b")).toBe(d);
+  });
+
+  it("moveBefore moves across parents", () => {
+    const d = doc({
+      "layer:a": { kind: "layer", parent: null, rank: "a0" },
+      "layer:b": { kind: "layer", parent: "layer:a", rank: "a1" },
+    });
+    const out = moveBefore(d, "layer:b", "layer:a");
+    expect(out.nodes["layer:b"].parent).toBeNull();
+  });
+
+  it("moveBefore to a non-first sibling computes a rank inside the gap", () => {
+    const d = base();
+    const out = moveBefore(d, "layer:b", "folder:overlay:f");
+    const r = out.nodes["layer:b"].rank;
+    expect(r > d.nodes["layer:a"].rank && r < d.nodes["folder:overlay:f"].rank).toBe(
+      true,
+    );
+  });
+
+  it("moveBefore handles equal-rank neighbours without renumbering", () => {
+    const d = doc({
+      "layer:a": { kind: "layer", parent: null, rank: "a0" },
+      "layer:b": { kind: "layer", parent: null, rank: "a0" },
+      "layer:c": { kind: "layer", parent: null, rank: "a1" },
+    });
+    const out = moveBefore(d, "layer:c", "layer:b");
+    expect(out.nodes["layer:c"].rank).toBe("a0");
+  });
+
+  it("moveInto ignores a layer container", () => {
+    const d = base();
+    expect(moveInto(d, "layer:b", "layer:a")).toBe(d);
+  });
+
+  it("moveToIndex ignores a non-layer source", () => {
+    const d = base();
+    expect(moveToIndex(d, "folder:overlay:f", null, 0)).toBe(d);
+  });
+
+  it("moveToIndex ignores an undefined container", () => {
+    const d = base();
+    expect(moveToIndex(d, "layer:b", "layer:nope", 0)).toBe(d);
+  });
+
+  it("createBlock ignores a layer kind", () => {
+    const d = base();
+    expect(createBlock(d, "layer", "layer:x", "X")).toBe(d);
+  });
+
+  it("createBlock ignores an existing key", () => {
+    const d = base();
+    expect(createBlock(d, "folder", "folder:overlay:f", "F", "overlay")).toBe(d);
+  });
+
+  it("createBlock ignores a folder without a role", () => {
+    const d = base();
+    expect(createBlock(d, "folder", "folder:overlay:g", "G")).toBe(d);
+  });
+
+  it("createBlock ignores a group carrying a role", () => {
+    const d = base();
+    expect(createBlock(d, "group", "group:g", "G", "overlay")).toBe(d);
+  });
+
+  it("resetOrder falls back to empty for an invalid default", () => {
+    const out = resetOrder({ nodes: {} } as unknown as OrderDoc);
+    expect(out.nodes).toEqual({});
+  });
+});

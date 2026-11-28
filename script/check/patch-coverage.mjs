@@ -353,6 +353,7 @@ const reportFile = (f, side) => {
 const computePatch = (diffAdded, covByRel) => {
   let covered = 0;
   let uncovered = 0;
+  let partial = 0;
   const files = [];
   const missing = [];
   for (const [rel, lines] of diffAdded) {
@@ -363,11 +364,17 @@ const computePatch = (diffAdded, covByRel) => {
     }
     let cov = 0;
     let uncov = 0;
+    let part = 0;
     const missLines = [];
+    const partialLines = [];
     for (const l of lines) {
       const st = entry.lines.get(l);
-      if (st === "covered") {
+      const isPartial = entry.partials.some(p => p.line === l);
+      if (st === "covered" && !isPartial) {
         cov++;
+      } else if (st === "covered" && isPartial) {
+        part++;
+        partialLines.push(l);
       } else if (st === "uncovered") {
         uncov++;
         missLines.push(l);
@@ -378,18 +385,24 @@ const computePatch = (diffAdded, covByRel) => {
       file: rel,
       covered: cov,
       uncovered: uncov,
+      partial: part,
+      partialLines,
       missing: missLines,
       partials,
     });
     covered += cov;
     uncovered += uncov;
+    partial += part;
     if (missLines.length) {
       missing.push({ file: rel, lines: missLines });
     }
   }
-  const total = covered + uncovered;
+  // codecov's patch metric counts a partial (untaken-branch) line as not fully
+  // hit: hit / (hit + miss + partial). The mirror previously treated partials
+  // as covered, disagreeing with the CI gate (#1402).
+  const total = covered + uncovered + partial;
   const pct = total === 0 ? 1 : covered / total;
-  return { files, covered, uncovered, total, pct, missing };
+  return { files, covered, uncovered, partial, total, pct, missing };
 };
 
 const parseArgs = argv => {
@@ -580,7 +593,7 @@ const main = (opts = parseArgs(process.argv.slice(2))) => {
     for (const side of failed) {
       const res = side === "JS" ? jsRes : pyRes;
       console.log(
-        `[patch-coverage] ${side} FAIL: ${res.uncovered} added ${res.uncovered === 1 ? "line" : "lines"} not covered; below ${target}%`,
+        `[patch-coverage] ${side} FAIL: ${res.uncovered} added ${res.uncovered === 1 ? "line" : "lines"} not covered${res.partial ? ` plus ${res.partial} partial ${res.partial === 1 ? "line" : "lines"}` : ""}; below ${target}%`,
       );
     }
     console.log(`[patch-coverage] FAIL: ${failed.join(" and ")} below ${target}%`);

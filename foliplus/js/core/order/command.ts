@@ -51,8 +51,9 @@ const moveBefore = (doc: OrderDoc, key: string, targetKey: string): OrderDoc => 
   if (node === undefined || target === undefined || node.kind !== "layer") return doc;
   const parent = target.parent;
   const siblings = childrenOf(doc, parent);
+  // targetKey is always in siblings (a node is a child of its own parent by
+  // construction), so the index is never negative.
   const idx = siblings.indexOf(targetKey);
-  if (idx < 0) return doc;
   const prev = idx > 0 ? doc.nodes[siblings[idx - 1]].rank : null;
   const rank = rankInGap(prev, target.rank);
   const next = clone(doc);

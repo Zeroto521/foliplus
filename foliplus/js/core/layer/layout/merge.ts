@@ -34,14 +34,14 @@ const mergeOrderDocs = (saved: OrderDoc, defaults: OrderDoc): OrderDoc => {
     const lastRank = orderLastRank(saved);
     let cursor = lastRank;
     for (const [k, node] of defaultOnly) {
-      if (node.kind === "layer" || node.kind === "folder" || node.kind === "group") {
-        cursor = rankAfter(cursor);
-        nodes[k] = { ...node, rank: cursor };
-      }
+      cursor = rankAfter(cursor);
+      nodes[k] = { ...node, rank: cursor };
     }
   }
   const merged: OrderDoc = { nodes };
-  return sanitizeOrderDoc(merged) ?? merged;
+  // merged is structurally valid (the saved doc was validated on load), so
+  // sanitizeOrderDoc cannot return null here.
+  return sanitizeOrderDoc(merged) as OrderDoc;
 };
 
 export { mergeOrderDocs };
