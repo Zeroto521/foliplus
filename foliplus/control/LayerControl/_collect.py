@@ -16,7 +16,13 @@ import folium.map
 from branca.element import Element
 from folium.map import FeatureGroup, Layer
 
-from foliplus._declaration import FILTER_KEY, LABEL_KEY, warn_foliplus
+from foliplus._declaration import (
+    FILTER_KEY,
+    FOLDER_KEY,
+    LABEL_KEY,
+    ZOOM_RANGE_KEY,
+    warn_foliplus,
+)
 
 from ._face import declared_icon, declared_marker
 from ._fill_author import fill_author, map_colormaps
@@ -167,7 +173,7 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
             entry["fill_author"] = author
         zoom_range = declared_zoom_range(item, item.layer_name)
         if zoom_range is not None:
-            entry["zoom_range"] = zoom_range
+            entry[ZOOM_RANGE_KEY] = zoom_range
         folder = declared_folder(item, item.layer_name)
         if folder is not None:
             if item in containers:
@@ -175,7 +181,7 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
             elif item in nested:
                 _warn_nested_folder(item, folder, "a layer inside a container")
             else:
-                entry["folder"] = folder
+                entry[FOLDER_KEY] = folder
                 claimed_folders.add((layer_role(item), _folder_key(folder)))
         filter_decl = declared_filter(item, item.layer_name)
         if filter_decl is not None:

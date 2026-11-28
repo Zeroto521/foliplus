@@ -229,7 +229,7 @@ def normalise_layer_filter(
         return None
 
     where = f"{owner}: {subject}" if subject else owner
-    declared = source or "foliplus['filter']"
+    declared = source or f"foliplus[{FILTER_KEY!r}]"
 
     def reject(message: str, reason: str) -> None:
         note = f"{owner}:{subject or '-'}:filter:{reason}"
