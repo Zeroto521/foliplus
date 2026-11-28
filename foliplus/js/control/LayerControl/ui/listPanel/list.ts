@@ -30,7 +30,7 @@ import {
 import {
   type LayerRole,
   NODE_KEY_PREFIX,
-  type ProjectedBlock,
+  type ProjectedEntry,
   ROLE,
   folderEntries,
   folderOf,
@@ -369,7 +369,7 @@ const syncRowOrder = (ui: LayerUI): void => {
       }
       return;
     }
-    for (const block of displayBlocks(ui, role)) {
+    for (const block of displayEntries(ui, role)) {
       if (block.kind === "folder") {
         const row = folderRows.get(block.key);
         if (row) targets.push(row);
@@ -518,8 +518,8 @@ const hasAnyFolder = (ui: LayerUI): boolean => {
  *  into the shape the renderer walks. The ORDER lives in the derived folder
  *  same function the stacking order uses — so a row can never paint in one
  *  place and stack in another. */
-const displayBlocks = (ui: LayerUI, role: string): ProjectedBlock[] =>
-  ui.c.orderView().blocks[role as LayerRole] ?? [];
+const displayEntries = (ui: LayerUI, role: string): ProjectedEntry[] =>
+  ui.c.orderView().entries[role as LayerRole] ?? [];
 const renderInitialList = (ui: LayerUI) => {
   // Take the container once: nothing below notifies, so this local stays the
   // live panel for the whole pass.
@@ -557,7 +557,7 @@ const renderInitialList = (ui: LayerUI) => {
       ui.listPanel.authorDefaultFoldedRoles,
       role,
     );
-    for (const block of displayBlocks(ui, role)) {
+    for (const block of displayEntries(ui, role)) {
       if (block.kind === "folder") {
         const row = renderFolderRow(
           ui,
@@ -718,11 +718,11 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       )
     : null;
   if (folderRow) {
-    const block = displayBlocks(ui, role).find(
-      (b): b is Extract<ProjectedBlock, { members: LayerInfo[] }> =>
+    const block = displayEntries(ui, role).find(
+      (b): b is Extract<ProjectedEntry, { members: LayerInfo[] }> =>
         b.kind !== "layer" && b.key === memberFolderKey,
     );
-    // Invariant: the folder row came from the role sequence, and displayBlocks is
+    // Invariant: the folder row came from the role sequence, and displayEntries is
     // the role sequence projected — a folder row on the panel means the block IS in
     // the sequence with kind "folder". The block therefore always exists and
     // is always a folder block; the non-null assertion pins that invariant
@@ -1179,7 +1179,7 @@ const initLayerItem = (ui: LayerUI, layerInfo: LayerInfo): boolean => {
  */
 
 export {
-  displayBlocks,
+  displayEntries,
   emptyFolderKeys,
   initTypesAndVisibility,
   markSettled,

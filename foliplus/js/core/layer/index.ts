@@ -134,7 +134,7 @@ export {
   resolveOrderView,
   ROLE_ORDER,
 } from "./layout/project.js";
-export type { OrderView, ProjectedBlock, RoleOf } from "./layout/project.js";
+export type { OrderView, ProjectedEntry, RoleOf } from "./layout/project.js";
 export {
   clearOrderDoc,
   loadOrderDoc,

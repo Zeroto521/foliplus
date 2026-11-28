@@ -5,13 +5,13 @@ import {
   type OrderDoc,
   childrenOf,
   createBranch,
-  deleteBlock,
+  deleteEmptyBranch,
   emptyOrderDoc,
   isOrderDoc,
   moveBefore,
   moveInto,
   moveToIndex,
-  renameBlock,
+  renameBranch,
   resetOrder,
   restore,
   sanitizeOrderDoc,
@@ -290,7 +290,7 @@ describe("commands", () => {
     expect(stepNode(d, "layer:nope", -1)).toBe(d);
   });
 
-  it("createBranch / renameBlock / deleteBlock manage folder blocks", () => {
+  it("createBranch / renameBranch / deleteEmptyBranch manage folder branches", () => {
     let d = emptyOrderDoc();
     d = createBranch(d, "folder", "folder:overlay:new", "New", "overlay");
     expect(d.nodes["folder:overlay:new"]).toMatchObject({
@@ -298,13 +298,13 @@ describe("commands", () => {
       name: "New",
       parent: null,
     });
-    d = renameBlock(d, "folder:overlay:new", "Renamed");
+    d = renameBranch(d, "folder:overlay:new", "Renamed");
     expect(d.nodes["folder:overlay:new"].name).toBe("Renamed");
-    d = deleteBlock(d, "folder:overlay:new");
+    d = deleteEmptyBranch(d, "folder:overlay:new");
     expect(d.nodes["folder:overlay:new"]).toBeUndefined();
   });
 
-  it("deleteBlock refuses a non-empty block", () => {
+  it("deleteEmptyBranch refuses a non-empty branch", () => {
     const d = doc({
       "folder:overlay:f": {
         kind: ORDER_KIND.FOLDER,
@@ -315,18 +315,18 @@ describe("commands", () => {
       },
       "layer:a": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:f", rank: "a0" },
     });
-    expect(deleteBlock(d, "folder:overlay:f")).toBe(d);
+    expect(deleteEmptyBranch(d, "folder:overlay:f")).toBe(d);
   });
-  it("renameBlock / deleteBlock are defensive on unknown and layer keys", () => {
+  it("renameBranch / deleteEmptyBranch are defensive on unknown and layer keys", () => {
     const d = doc({
       "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
     });
     // Unknown key — no-op returns the same document.
-    expect(renameBlock(d, "folder:overlay:missing", "X")).toBe(d);
-    expect(deleteBlock(d, "folder:overlay:missing")).toBe(d);
+    expect(renameBranch(d, "folder:overlay:missing", "X")).toBe(d);
+    expect(deleteEmptyBranch(d, "folder:overlay:missing")).toBe(d);
     // A layer key is not a block — no-op.
-    expect(renameBlock(d, "layer:a", "X")).toBe(d);
-    expect(deleteBlock(d, "layer:a")).toBe(d);
+    expect(renameBranch(d, "layer:a", "X")).toBe(d);
+    expect(deleteEmptyBranch(d, "layer:a")).toBe(d);
   });
 
   it("isOrderDoc rejects a non-folder node carrying a role", () => {

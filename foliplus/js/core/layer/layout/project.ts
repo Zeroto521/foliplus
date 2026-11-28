@@ -1,7 +1,7 @@
 // core/layer/layout/project — adapt the generic resolution to the panel/registry.
 //
 // The engine (core/layer/order/resolve) knows only node keys; here the leaf key
-// "layer:<id>" is resolved to a LayerInfo and rows/blocks are partitioned by role.
+// "layer:<id>" is resolved to a LayerInfo and rows/entries are partitioned by role.
 // `z` is the DFS leaf flatten of a role (block does not change z semantics).
 import { ROLE } from "../const.js";
 import type { FolderView } from "../folderView.js";
@@ -42,7 +42,7 @@ type RoleOf = (id: string) => LayerRole | null;
  *  `members` is DERIVED from the engine BranchRow.children leaf order (present-
  *  filtered, then looked up to LayerInfo) — never a separate registry sort, so
  *  rows and z stay the same source (design note: one single source). */
-type ProjectedBlock =
+type ProjectedEntry =
   | {
       kind: Exclude<OrderKind, typeof ORDER_KIND.LAYER>;
       key: string;
@@ -113,17 +113,17 @@ const projectZ = (
     .map(key => layerIdOf(key) as string);
 };
 
-/** The display blocks for one role (panel row sequence) with live members. */
+/** The display entries for one role (panel row sequence) with live members. */
 const projectBlocks = (
   doc: OrderDoc,
   present: Present,
   registry: readonly LayerInfo[],
   role: LayerRole,
-): ProjectedBlock[] => {
+): ProjectedEntry[] => {
   const byId = new Map(registry.map(info => [info.id, info]));
   const roleOf: RoleOf = id => byId.get(id)?.role ?? null;
   const v = resolveView(doc, present);
-  const out: ProjectedBlock[] = [];
+  const out: ProjectedEntry[] = [];
   for (const r of v.rows) {
     if (r.kind === ORDER_KIND.LAYER) {
       const id = layerIdOf(r.key);
@@ -156,13 +156,13 @@ const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
 
 /** The single controller-facing projection: one resolve, three derived views.
  *
- *  `rows` is typed per role (OrderRow[]); `blocks` carries BranchRow.kind/depth
+ *  `rows` is typed per role (OrderRow[]); `entries` carries BranchRow.kind/depth
  *  with live LayerInfo `members`; `z` is the flat role ladder (overlays before
  *  base) that feeds registry.normalizeGroups. All three come from ONE resolveView
  *  call, so rows and z can never disagree (design note: one single source). */
 interface OrderView {
   rows: Record<LayerRole, OrderRow[]>;
-  blocks: Record<LayerRole, ProjectedBlock[]>;
+  entries: Record<LayerRole, ProjectedEntry[]>;
   z: string[];
 }
 
@@ -175,7 +175,7 @@ const resolveOrderView = (
   const roleOf: RoleOf = id => byId.get(id)?.role ?? null;
   const v = resolveView(doc, present);
   const rows: Record<LayerRole, OrderRow[]> = { overlay: [], base: [] };
-  const blocks: Record<LayerRole, ProjectedBlock[]> = { overlay: [], base: [] };
+  const entries: Record<LayerRole, ProjectedEntry[]> = { overlay: [], base: [] };
   const z: string[] = [];
   const leafRole = new Map<string, LayerRole>();
   for (const r of v.rows) {
@@ -198,7 +198,7 @@ const resolveOrderView = (
       if (parent !== null && parent !== undefined) continue;
       rows[role].push(r);
       const info = byId.get(layerIdOf(r.key) as string);
-      if (info) blocks[role].push({ kind: ORDER_KIND.LAYER, layer: info });
+      if (info) entries[role].push({ kind: ORDER_KIND.LAYER, layer: info });
       continue;
     }
     const branch = v.branches.find(b => b.key === r.key);
@@ -219,7 +219,7 @@ const resolveOrderView = (
       const m = byRole.get(role);
       if (!m || m.length === 0) continue;
       rows[role].push(r);
-      blocks[role].push({
+      entries[role].push({
         kind: branch.kind,
         key: panelFolderKey(branch.key),
         name: branch.name,
@@ -228,13 +228,13 @@ const resolveOrderView = (
       });
     }
     // An empty folder keeps its creation role and still renders in that role's
-    // segment (the clean-up row is the only handle on it). Group blocks always
+    // segment (the clean-up row is the only handle on it). Group entries always
     // have a member (the container layer), so this path is folder-only.
     if (members.length === 0) {
       const folderRole = doc.nodes[r.key]?.role;
       if (folderRole === undefined) continue;
       rows[folderRole].push(r);
-      blocks[folderRole].push({
+      entries[folderRole].push({
         kind: branch.kind,
         key: panelFolderKey(branch.key),
         name: branch.name,
@@ -249,7 +249,7 @@ const resolveOrderView = (
       if (id !== null && roleOf(id) === role) z.push(id);
     }
   }
-  return { rows, blocks, z };
+  return { rows, entries, z };
 };
 
 /** The ordered child keys of one parent (root when null) — engine childrenOf. */
@@ -328,7 +328,7 @@ const projectFolderViewOf = (
 
 export type {
   RoleOf,
-  ProjectedBlock,
+  ProjectedEntry,
   BranchRow,
   OrderRow,
   ParentView,

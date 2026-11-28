@@ -95,7 +95,7 @@ describe("block-order gap drop", () => {
     handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
 
     // The bottom third of the last folder: nothing follows, so the position
-    // is the tail (blockEntryAfter answers null).
+    // is the tail (entryAfter answers null).
     handleDrop(ui, dragEvent(row, {}, 134));
 
     expect(move).toHaveBeenCalledWith("a1", null);

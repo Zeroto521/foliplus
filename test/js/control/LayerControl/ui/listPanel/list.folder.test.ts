@@ -190,7 +190,7 @@ describe("ui/list folder rows (render / row structure)", () => {
   });
 
   it("orders two unlisted folders by their member anchor", () => {
-    // Two folders that are NOT in layout.order land in the displayBlocks
+    // Two folders that are NOT in layout.order land in the displayEntries
     // `rest` bucket and are sorted by anchor (list.ts:481 comparator).
     const { ui } = initFixture({
       seedLayout: {

@@ -5,7 +5,7 @@ import {
   type LayerInfo,
   ORDER_KIND,
   type OrderDoc,
-  type ProjectedBlock,
+  type ProjectedEntry,
   type RoleOf,
   childrenOfView,
   clearOrderDoc,
@@ -170,7 +170,7 @@ describe("project", () => {
     expect(v.branches.length).toBeGreaterThan(0);
     const roleOf2: RoleOf = roleOf;
     expect(roleOf2("a")).toBe("overlay");
-    const b: ProjectedBlock | undefined = projectBlocks(
+    const b: ProjectedEntry | undefined = projectBlocks(
       doc,
       present,
       registry,
@@ -188,7 +188,7 @@ describe("project", () => {
     ]);
     expect(view.rows.overlay[1]).toMatchObject({ kind: ORDER_KIND.FOLDER, depth: 1 });
     expect(view.rows.base.map(r => r.key)).toEqual(["layer:b"]);
-    const f = view.blocks.overlay.find(b => b.kind === "folder");
+    const f = view.entries.overlay.find(b => b.kind === "folder");
     expect(f).toMatchObject({ kind: ORDER_KIND.FOLDER, key: "roads", name: "Roads" });
     if (f && f.kind === "folder") expect(f.members.map(i => i.id)).toEqual(["x", "y"]);
   });

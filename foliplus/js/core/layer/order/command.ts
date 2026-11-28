@@ -161,8 +161,10 @@ const createBranch = (
   return next;
 };
 
-/** Rename a folder/group block (key stays stable). */
-const renameBlock = (doc: OrderDoc, key: string, name: string): OrderDoc => {
+/** Rename a folder/group branch (key stays stable). PRESERVES members — only the
+ *  branch node's name changes. DIFFERS from deleteEmptyBranch: rename keeps the
+ *  subtree intact. */
+const renameBranch = (doc: OrderDoc, key: string, name: string): OrderDoc => {
   const node = doc.nodes[key];
   if (
     node === undefined ||
@@ -175,8 +177,10 @@ const renameBlock = (doc: OrderDoc, key: string, name: string): OrderDoc => {
   return next;
 };
 
-/** Delete an empty folder/group block. Blocks with members must be emptied first. */
-const deleteBlock = (doc: OrderDoc, key: string): OrderDoc => {
+/** Delete an EMPTY folder/group branch: returns the doc unchanged if any member
+ *  still exists (callers must empty it first). DIFFERS from deleteBranch, which
+ *  PROMOTES every member to root before removing the branch. */
+const deleteEmptyBranch = (doc: OrderDoc, key: string): OrderDoc => {
   const node = doc.nodes[key];
   if (
     node === undefined ||
@@ -318,8 +322,8 @@ export {
   moveToIndex,
   stepNode,
   createBranch,
-  renameBlock,
-  deleteBlock,
+  renameBranch,
+  deleteEmptyBranch,
   resetOrder,
   moveBranch,
   deleteBranch,

@@ -25,7 +25,7 @@ export type {
 } from "./resolve.js";
 export {
   createBranch,
-  deleteBlock,
+  deleteEmptyBranch,
   deleteBranch,
   dropNode,
   moveBefore,
@@ -33,7 +33,7 @@ export {
   moveInto,
   moveToIndex,
   pruneEmptyFolders,
-  renameBlock,
+  renameBranch,
   rerankRoots,
   resetOrder,
   restore,

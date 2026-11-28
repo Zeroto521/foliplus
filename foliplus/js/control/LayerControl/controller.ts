@@ -96,7 +96,7 @@ import {
   rankAfter as orderRankAfter,
   rankBetween as orderRankBetween,
   rankStart as orderRankStart,
-  renameBlock as orderRenameBlock,
+  renameBranch as orderRenameBranch,
   rerankRoots as orderRerankRoots,
   restore as orderRestore,
   stepNode as orderStepNode,
@@ -2889,7 +2889,7 @@ class LayerController implements LayerAPI {
     if (duplicate) return { ok: false, reason: "duplicate" };
     // A rename updates only the display name: the folder key is stable under
     // rename (the row's identity and every member's parent reference hold).
-    const next = orderRenameBlock(this.orderDoc, oldDocKey, newName.trim());
+    const next = orderRenameBranch(this.orderDoc, oldDocKey, newName.trim());
     this.applyDoc(next, { persist: opts?.persist !== false });
     if (this.ui) this.ui.rebuildAfterLayoutChange();
     return { ok: true };
