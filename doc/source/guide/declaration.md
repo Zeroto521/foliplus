@@ -253,9 +253,7 @@ container row neither inherits it nor reports it as a mistake:
 ```python
 grp = folium.FeatureGroup(name="观测站")
 # Binds to the 站点 row, not to the 观测站 group row.
-folium.GeoJson(
-    stations, name="站点", foliplus={"label": {"field": "name"}}
-).add_to(grp)
+folium.GeoJson(stations, name="站点", foliplus={"label": {"field": "name"}}).add_to(grp)
 ```
 
 **Behaviour**:

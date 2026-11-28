@@ -136,6 +136,7 @@ def test_collect_layer_data_warns_on_an_invalid_label_and_omits_the_fact() -> No
         row = _row(collect_layer_data(_control_with(layer)), "a")
     assert "label" not in row
 
+
 def test_collect_layer_data_carries_the_container_own_label_fact() -> None:
     # A container row reads the declaration written on the container itself: the
     # group is the row, so its own label block is the row's label fact.
@@ -152,7 +153,9 @@ def test_collect_layer_data_carries_the_container_own_label_fact() -> None:
     }, row
 
 
-def test_collect_layer_data_does_not_hoist_a_child_declaration_onto_the_container() -> None:
+def test_collect_layer_data_does_not_hoist_a_child_declaration_onto_the_container() -> (
+    None
+):
     # A declaration belongs to the layer that carries it: a child layer's label
     # block is neither inherited by the container row nor reported as an error.
     group = folium.FeatureGroup(name="grp")
