@@ -17,6 +17,7 @@ from textwrap import dedent
 from jinja2 import Template
 from jinja2.utils import htmlsafe_json_dumps
 
+from ._config_schema import schema_fingerprint
 from .locale import _load_component_tables, _load_tables
 
 src_dir = Path(__file__).parent
@@ -92,6 +93,7 @@ def _build_shared_header() -> str:
         "window.foliplus = window.foliplus || {};\n"
         f"window.foliplus._TABLES = {_safe_json(_load_tables('common.*.json'))};\n"
         f"window.foliplus._COMPONENT_TABLES = {_safe_json(_load_component_tables())};\n"
+        f"window.foliplus.schema_fingerprint = {_safe_json(schema_fingerprint())};\n"
         "</script>"
     )
 

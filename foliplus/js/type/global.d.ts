@@ -145,6 +145,18 @@ declare global {
     isInitialized: boolean;
     /** Build version (`git describe`), set once by the shared runtime. */
     version: string;
+    /** Page-level diagnostic: the CONFIG contract fingerprint (a short SHA-256
+     *  of the schema dump), written into this page's shared header by the
+     *  Python package that rendered it. Not a CONF field — no component reads it;
+     *  a page mixing two runtime builds can name the contract each was built
+     *  against. */
+    schema_fingerprint?: string;
+    /** Page-level diagnostic: the CONFIG contract fingerprint (a short SHA-256
+     *  of the schema dump), written into this page's shared header by the
+     *  Python package that rendered it. Not a CONF field — no component reads it;
+     *  a page mixing two runtime builds can name the contract each was built
+     *  against. */
+    schema_fingerprint?: string;
     /** Optional bootstrap-time diagnostic hook, same signature as the per-map
      *  `map.foliplus.onError`. The shared runtime executes in the page `<head>`
      *  before any map exists, so this global hook is the only one reachable

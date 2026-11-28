@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import importlib
 import json
-import re
 
 import folium
 import pytest
@@ -22,9 +21,7 @@ from foliplus import (
     FullscreenControl,
     LayerControl,
     SearchControl,
-    __version__,
 )
-from foliplus._config_schema import schema_fingerprint
 
 
 class TestBaseControlConstructor:
@@ -145,22 +142,9 @@ class TestBaseControlConstructor:
         _ = ctrl._config_block
         assert "locale_tables" not in ctrl._config
         assert "locale_code" not in ctrl._config
-        assert "__schema" not in ctrl._config
-        assert "__version" not in ctrl._config
-
-    def test_config_block_carries_schema_fingerprint_and_version(self):
-        """CONFIG.__schema names the schema generation; __version the emitter."""
-        config = json.loads(BaseControl()._config_block)
-        assert config["__schema"] == schema_fingerprint()
-        assert re.fullmatch(r"[0-9a-f]{12}", config["__schema"])
-        assert config["__version"] == __version__
-
-    def test_config_block_fingerprint_is_stable_across_builds(self):
-        """One contract hash, not a per-render random value."""
-        first = json.loads(SearchControl()._config_block)
-        second = json.loads(SearchControl()._config_block)
-        assert first["__schema"] == second["__schema"] == schema_fingerprint()
-        assert first["__version"] == second["__version"]
+        assert not any(k.startswith("__") for k in ctrl._config), (
+            "the diagnostic envelope is page-level, not a CONF field"
+        )
 
     def test_config_fields_are_serialized_in_config(self):
         assert_config_block(

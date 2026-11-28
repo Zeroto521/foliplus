@@ -258,7 +258,7 @@ class TestConfigFixtureParity:
 
 
 class TestSchemaFingerprint:
-    """The short schema fingerprint shipped as ``CONFIG.__schema``."""
+    """The short schema fingerprint shipped in the page's shared header."""
 
     def test_is_short_sha256_of_the_dump(self) -> None:
         expected = hashlib.sha256(schema_to_json().encode("utf-8")).hexdigest()[:12]
