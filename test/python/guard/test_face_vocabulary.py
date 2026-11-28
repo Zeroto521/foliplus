@@ -178,9 +178,7 @@ def js_face_tables(
                 continue
             reference = re.match(r"(\w+): (\w+)\.(\w+),$", chunk)
             if reference is not None:
-                refs[reference.group(1)] = (
-                    f"{reference.group(2)}.{reference.group(3)}"
-                )
+                refs[reference.group(1)] = f"{reference.group(2)}.{reference.group(3)}"
         for canonical, target in refs.items():
             table_name, referenced = target.split(".", 1)
             source_table = tables.get(table_name)
