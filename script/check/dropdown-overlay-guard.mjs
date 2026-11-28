@@ -130,9 +130,10 @@ const hasOverlayProperty = obj =>
 /**
  * Find overlay-contract violations in the production source tree.
  * @param root repo root; production is scanned under `<root>/foliplus/js`.
- * @param {{ parsed?: number }} [stats] optional collector; `stats.parsed` is
- *   how many modules actually reached the TypeScript parser (the gate's real
- *   cost — the tests pin it structurally instead of timing the wall clock).
+ * @param {{ parsed: number }} [stats] optional collector; the caller owns
+ *   initialisation (`{ parsed: 0 }`) and `stats.parsed` counts how many modules
+ *   actually reached the TypeScript parser (the gate's real cost — the tests pin
+ *   it structurally instead of timing the wall clock).
  * @returns [{file, line, text, context}]
  */
 const findOverlayContractViolations = (root = process.cwd(), stats = undefined) => {
@@ -150,7 +151,7 @@ const findOverlayContractViolations = (root = process.cwd(), stats = undefined) 
     if (!canHoldViolation(content)) {
       continue;
     }
-    if (stats) stats.parsed = (stats.parsed ?? 0) + 1;
+    if (stats) stats.parsed += 1;
     const sf = ts.createSourceFile(
       rel,
       content,
