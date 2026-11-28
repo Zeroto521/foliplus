@@ -24,6 +24,7 @@
 // readDeclaredMarkerColor) — callers are untouched except for the import path.
 import { parseValueDeclaration } from "./declaredFill.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
+import { trimDeclaredString } from "./declaredTrim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
@@ -193,8 +194,13 @@ const parseBorder = (
 
   let declaredColor: string | undefined;
   if (data.color !== undefined) {
-    if (isHexColor(data.color)) {
-      declaredColor = normalizeHexColor(data.color).toLowerCase();
+    // Python's _declared_hex trims the author's string with the shared
+    // declared-string set before its hex regex; trim here with the SAME
+    // function or a padded border colour is accepted by one stack only.
+    const color =
+      typeof data.color === "string" ? trimDeclaredString(data.color) : data.color;
+    if (isHexColor(color)) {
+      declaredColor = normalizeHexColor(color).toLowerCase();
     } else {
       rejectKey(
         "color",
@@ -278,13 +284,16 @@ const parseMarkerColor = (
 ): { declared?: DeclaredMarkerColor; invalid: string[] } => {
   const invalid: string[] = [];
   if (raw === undefined || raw === null) return { invalid };
-  if (typeof raw !== "string" || !raw.trim()) {
+  // marker_color accepts preset names and CSS hex, so Python's normaliser
+  // strips it before deciding; route the trim through the shared function so a
+  // BOM / CJK space is not accepted on one stack only.
+  if (typeof raw !== "string" || !trimDeclaredString(raw)) {
     const message = `a non-string marker_color ${JSON.stringify(raw)}`;
     reject("shape", message);
     invalid.push(message);
     return { invalid };
   }
-  const name = raw.trim();
+  const name = trimDeclaredString(raw);
   if (name in MARKER_COLOR_PRESET_HEX) return { declared: name, invalid };
   if (isHexColor(name)) {
     return { declared: normalizeHexColor(name).toLowerCase(), invalid };
@@ -332,33 +341,6 @@ type FaceKeySpec = {
 type FaceKeyRead =
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly invalid: string };
-
-/** The whitespace a declared string value is trimmed of, as explicit code
- *  points. This is the UNION of the two hosts' whitespace sets, not either
- *  host's default: Python's str.isspace() includes U+001C-U+001F / U+0085 that
- *  JavaScript keeps, JavaScript's WhiteSpace/LineTerminator set includes U+FEFF
- *  (a BOM pasted from a CSV) that Python keeps, and an author pasting from rich
- *  text or CJK input brings U+2000-U+200A, U+2028/U+2029, U+202F, U+205F or
- *  U+3000. KEEP IN STEP with DECLARED_TRIM_CODEPOINTS in
- *  foliplus/_declaration/paint.py - the cross-stack guard
- *  (test/python/guard/test_face_vocabulary.py) compares both literals and
- *  asserts the colour path never uses a host trim. */
-const DECLARED_TRIM_CODEPOINTS: readonly number[] = [
-  0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x85, 0xa0, 0x1680,
-  0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,
-  0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
-];
-const DECLARED_TRIM_CLASS = DECLARED_TRIM_CODEPOINTS.map(
-  codepoint => `\\u{${codepoint.toString(16)}}`,
-).join("");
-const DECLARED_TRIM_RE = new RegExp(
-  `^[${DECLARED_TRIM_CLASS}]+|[${DECLARED_TRIM_CLASS}]+$`,
-  "gu",
-);
-
-/** Trim a declared string value of the shared whitespace set only. */
-const trimDeclaredString = (value: string): string =>
-  value.replace(DECLARED_TRIM_RE, "");
 
 /** The sub-keys the `icon` face recognises. One map, one vocabulary: a key not
  *  listed here is an unknown sub-key and warns (P1-2), and the spellings list is

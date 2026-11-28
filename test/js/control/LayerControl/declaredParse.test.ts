@@ -35,6 +35,20 @@ describe("readDeclaredBorder", () => {
     expect(read.declared).toBe(STYLE_MODE.FOLLOW_FILL);
   });
 
+  it("trims a padded border colour with the shared declared-string trim", () => {
+    // Python's _declared_hex trims before its hex regex; the JS reader must
+    // accept the same spellings (host whitespace, BOM, CJK space) or the
+    // declaration is accepted on one stack only.
+    for (const color of [" #f00 ", "\ufeff#f00", "\u2003#f00", "#f00\u3000"]) {
+      const read = readDeclaredBorder(
+        layerWith({ border: { mode: "solid", color } }),
+        "overlay1",
+      );
+      expect(read.invalid, color).toEqual([]);
+      expect(read.declaredColor, color).toBe("#ff0000");
+    }
+  });
+
   it("reads nothing on a layer with no declaration (byte-identical default)", () => {
     const read = readDeclaredBorder(layerWith({}), "overlay1");
     expect(read.invalid).toEqual([]);
@@ -343,6 +357,20 @@ describe("readDeclaredMarkerColor", () => {
     );
     expect(declared).toBe("darkred");
     expect(invalid).toEqual([]);
+  });
+
+  it("trims a padded preset and a padded hex with the shared trim", () => {
+    expect(
+      readDeclaredMarkerColor(layerWith({ marker_color: " darkred " }), "L").declared,
+    ).toBe("darkred");
+    for (const value of [" #f00 ", "\ufeff#f00", "\u2003#f00"]) {
+      const { declared, invalid } = readDeclaredMarkerColor(
+        layerWith({ marker_color: value }),
+        "L",
+      );
+      expect(invalid, value).toEqual([]);
+      expect(declared, value).toBe("#ff0000");
+    }
   });
 
   it("resolves every preset in the runtime table", () => {

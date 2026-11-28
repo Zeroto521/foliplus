@@ -46,6 +46,7 @@
 // of re-implementing it.
 import * as CONST from "./const.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
+import { trimDeclaredString } from "./declaredTrim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import {
   CLASS_COUNT,
@@ -302,7 +303,11 @@ const parseFillDeclaration = (
 
   let color: string | undefined;
   if (data.color !== undefined) {
-    if (isHexColor(data.color)) color = normalizeHexColor(data.color).toLowerCase();
+    // Same shared trim as Python's _declared_hex: a padded fill colour is one
+    // declaration on both stacks, never a JS-only rejection.
+    const fillColor =
+      typeof data.color === "string" ? trimDeclaredString(data.color) : data.color;
+    if (isHexColor(fillColor)) color = normalizeHexColor(fillColor).toLowerCase();
     else {
       rejectKey(
         "color",

@@ -37,7 +37,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 PYTHON_FACE = ROOT / "foliplus" / "_declaration" / "face.py"
 PYTHON_PAINT = ROOT / "foliplus" / "_declaration" / "paint.py"
+PYTHON_MARKER = ROOT / "foliplus" / "_declaration" / "marker.py"
 JS_PARSE = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declaredParse.ts"
+JS_FILL = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declaredFill.ts"
+JS_TRIM = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declaredTrim.ts"
 
 _TABLE_NAMES = ("_ICON_FACE_KEYS", "_MARKER_FACE_KEYS")
 _JS_TABLE_NAMES = ("ICON_FACE_KEYS", "MARKER_FACE_KEYS")
@@ -88,8 +91,23 @@ def _python_paint_source(source: str | None = None) -> str:
     return _normalise_newlines(text)
 
 
+def _python_marker_source(source: str | None = None) -> str:
+    text = source if source is not None else PYTHON_MARKER.read_text(encoding="utf-8")
+    return _normalise_newlines(text)
+
+
 def _js_source(source: str | None = None) -> str:
     text = source if source is not None else JS_PARSE.read_text(encoding="utf-8")
+    return _normalise_newlines(text)
+
+
+def _js_fill_source(source: str | None = None) -> str:
+    text = source if source is not None else JS_FILL.read_text(encoding="utf-8")
+    return _normalise_newlines(text)
+
+
+def _js_trim_source(source: str | None = None) -> str:
+    text = source if source is not None else JS_TRIM.read_text(encoding="utf-8")
     return _normalise_newlines(text)
 
 
@@ -182,8 +200,8 @@ def python_trim_codepoints(source: str | None = None) -> tuple[int, ...]:
 
 
 def js_trim_codepoints(source: str | None = None) -> tuple[int, ...]:
-    """The explicit whitespace set the JS face reader trims."""
-    text = _js_source(source)
+    """The explicit whitespace set the JS declared-string reader trims."""
+    text = _js_trim_source(source)
     match = re.search(
         r"const DECLARED_TRIM_CODEPOINTS: readonly number\[\] = \[(.*?)\];",
         text,
@@ -214,11 +232,40 @@ def host_strip_calls(source: str) -> list[str]:
     return found
 
 
-def host_trim_in_js_face(text: str) -> list[str]:
-    """No-argument .trim() calls inside the JS icon-face table (the colour path)."""
-    match = re.search(r"const ICON_FACE_KEYS:.*?\n\};", text, re.S)
-    assert match is not None, "ICON_FACE_KEYS table not found"
-    return [line.strip() for line in match.group(0).splitlines() if ".trim()" in line]
+def host_trim_in_js(text: str) -> list[str]:
+    """No-argument .trim() calls in the JS declaration readers (any channel).
+
+    A hex reader must route through trimDeclaredString; a bare trim() is the
+    host default that disagrees with Python on U+001C-U+001F / U+0085 / U+FEFF.
+    `trimDeclaredString` itself lives in declaredTrim.ts and is exempt."""
+    return [
+        line.strip()
+        for line in text.splitlines()
+        if ".trim()" in line and not line.lstrip().startswith("//")
+    ]
+
+
+def hex_read_uses_shared_trim(source: str, value: str) -> bool:
+    """True when the reader of `value` trims with the shared function first."""
+    return f"trimDeclaredString({value})" in source
+
+
+def untrimmed_hex_reads(source: str) -> list[str]:
+    """Hex reads whose validated value was not produced by the shared trim.
+
+    A bare `isHexColor(x)` is a one-stack decision unless `x` was trimmed by
+    trimDeclaredString first; this looks a few lines back from every hex read.
+    Non-hex string channels (field names, folder names) are out of scope: their
+    whitespace is semantic, not decorative."""
+    lines = source.splitlines()
+    problems: list[str] = []
+    for index, line in enumerate(lines):
+        if "isHexColor(" not in line:
+            continue
+        window = "\n".join(lines[max(0, index - 6) : index + 1])
+        if "trimDeclaredString(" not in window:
+            problems.append(f"line {index + 1}: {line.strip()}")
+    return problems
 
 
 def test_the_two_stacks_share_one_face_vocabulary() -> None:
@@ -282,12 +329,32 @@ def test_the_colour_path_has_no_host_strip() -> None:
     silently accepted spellings outside the shared set on Python alone."""
     paint_text = _python_paint_source()
     face_text = _python_face_source()
+    marker_text = _python_marker_source()
     assert host_strip_calls(paint_text) == []
     assert host_strip_calls(face_text) == []
+    assert host_strip_calls(marker_text) == []
     assert "trim_declared_string(raw)" in paint_text
     assert "trim_declared_string(glyph)" in face_text
+    assert "trim_declared_string(raw)" in marker_text
     assert "trimDeclaredString(raw)" in _js_source()
-    assert host_trim_in_js_face(_js_source()) == []
+    assert host_trim_in_js(_js_source()) == []
+
+
+def test_every_hex_reader_trims_with_the_shared_function() -> None:
+    """Python now trims every colour before its hex regex (_declared_hex); the
+    JS readers of border / fill / marker_color / icon colour must trim with the
+    SAME function, or a padded colour is accepted on one stack only."""
+    declared_text = _js_source()
+    fill_text = _js_fill_source()
+    trim_text = _js_trim_source()
+    assert "export { trimDeclaredString }" in trim_text
+    assert hex_read_uses_shared_trim(declared_text, "data.color")  # border
+    assert hex_read_uses_shared_trim(fill_text, "data.color")  # fill
+    assert hex_read_uses_shared_trim(declared_text, "raw")  # face + marker_color
+    # Every hex read in every declaration reader routes through the shared
+    # trim first; a bare isHexColor(x) is a one-stack decision.
+    assert untrimmed_hex_reads(declared_text) == []
+    assert untrimmed_hex_reads(fill_text) == []
 
 
 def test_the_vocabulary_parser_has_teeth() -> None:
@@ -312,8 +379,8 @@ def test_the_python_trim_parser_has_teeth() -> None:
 
 def test_the_js_trim_parser_has_teeth() -> None:
     original = js_trim_codepoints()
-    mutated = _js_source().replace("0x2003,", "0x2004,", 1)
-    assert mutated != _js_source(), "the teeth mutation did not apply"
+    mutated = _js_trim_source().replace("0x2003,", "0x2004,", 1)
+    assert mutated != _js_trim_source(), "the teeth mutation did not apply"
     assert js_trim_codepoints(mutated) != original
 
 
@@ -327,5 +394,20 @@ def test_the_host_strip_scan_has_teeth() -> None:
         "color = raw.strip()",
         1,
     )
+    assert mutated != source, "the teeth mutation did not apply"
+    assert host_strip_calls(mutated) != []
+def test_the_hex_reader_trim_scan_has_teeth() -> None:
+    """Removing the shared trim from a JS hex reader must turn this guard red."""
+    fill_text = _js_fill_source()
+    assert untrimmed_hex_reads(fill_text) == []
+    mutated = fill_text.replace("trimDeclaredString(data.color)", "data.color", 1)
+    assert mutated != fill_text, "the teeth mutation did not apply"
+    assert untrimmed_hex_reads(mutated) != []
+
+
+def test_the_marker_host_strip_scan_has_teeth() -> None:
+    source = _python_marker_source()
+    assert host_strip_calls(source) == []
+    mutated = source.replace("trim_declared_string(raw)", "raw.strip()", 1)
     assert mutated != source, "the teeth mutation did not apply"
     assert host_strip_calls(mutated) != []
