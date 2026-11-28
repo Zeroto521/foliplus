@@ -367,7 +367,10 @@ class CircleMode extends PreviewMode {
   }
 
   /** GeoJSON feature for a circle — properties carry id, radius and center. */
-  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(
+    env: Pick<ControlEnv, "log" | "_">,
+    data: MeasureData,
+  ): GeoJSON.Feature {
     const center = data.center;
     const r = data.radius ?? 0;
     if (!center || r <= 0) {

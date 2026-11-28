@@ -9,12 +9,13 @@ import {
   createPanelControl,
 } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
+import type { ConfigHeatmap } from "#foliplus/config-schema.js";
 import { finalize } from "#platform/finalize.js";
 import { createTimers } from "#platform/timer.js";
 import type { Timers } from "#platform/type.js";
 
-class HeatmapControl extends defineControl({
-  config: CONFIG,
+class HeatmapControl extends defineControl<unknown, ConfigHeatmap>({
+  config: CONFIG as ConfigHeatmap,
   icon: SVGs.ICON_HEXAGON,
   setup: () => ensureLayerAPI(map),
 }) {
@@ -55,7 +56,11 @@ class HeatmapControl extends defineControl({
 
   get mgr(): HeatmapManager {
     if (!this.manager) {
-      const mgr = new HeatmapManager(map, { T: this.T, log: this.log });
+      const mgr = new HeatmapManager(map, {
+        T: this.T,
+        log: this.log,
+        config: this.config,
+      });
       // Store before init: a throw leaves the partial manager reachable for
       // destroy(). It is reused, not retried; destroy() nulls it for a re-add.
       this.manager = mgr;

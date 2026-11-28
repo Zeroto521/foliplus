@@ -40,16 +40,19 @@ import { createScopedTranslator, createTranslator } from "#platform/locale.js";
 import { createLogger } from "#platform/log.js";
 import type { Logger } from "#platform/type.js";
 
-/** The spec handed to {@link defineControl}. */
-type DefineControlSpec<M = unknown> = {
+/** The spec handed to {@link defineControl}. `C` is the component's CONFIG
+ *  type: an entry narrows the flat global once (`CONFIG as Config<Name>`) and
+ *  every `env.config` / `this.config` read in the component is checked against
+ *  that schema instead of the flat escape-hatch type. */
+type DefineControlSpec<M = unknown, C extends ConfigCommon = ComponentConfig> = {
   /** The component's CONFIG (the IIFE free variable). Drives env + class name. */
-  config: ComponentConfig;
+  config: C;
   /** Hint icon SVG. Omitted for ScaleControl (no toggle icon). */
   icon?: string;
   /** One-time bootstrap: ensureLayerAPI / requireLayerAPI / ensureHint / ... */
-  setup?: (env: ControlEnv) => void;
+  setup?: (env: ControlEnv<C>) => void;
   /** Lazy manager factory. Omit when the control keeps state on the instance. */
-  createManager?: (env: ControlEnv) => M;
+  createManager?: (env: ControlEnv<C>) => M;
   /** Build the control DOM. Called by BaseControl.onAdd. */
   buildDOM?: (this: any) => HTMLElement;
   /** Component teardown; runs before the factory nulls `this.manager`. */
@@ -59,26 +62,32 @@ type DefineControlSpec<M = unknown> = {
 };
 
 /** The constructable class returned by {@link defineControl}. */
-type ControlClass = new (options?: L.ControlOptions) => BaseControl & {
-  config: ComponentConfig;
+type ControlClass<C extends ConfigCommon = ComponentConfig> = new (
+  options?: L.ControlOptions,
+) => BaseControl & {
+  config: C;
   T: (key: string) => string;
   _: (key: string) => string;
   log: Logger;
 };
 
 /** Build the shared control shell and return it as a constructable class. */
-const defineControl = <M = unknown>(spec: DefineControlSpec<M>): ControlClass => {
+const defineControl = <M = unknown, C extends ConfigCommon = ComponentConfig>(
+  spec: DefineControlSpec<M, C>,
+): ControlClass<C> => {
   const { config, icon, setup, createManager, buildDOM, destroy, methods } = spec;
 
   createControlEnv(config, icon);
+  // Locale utilities take the structural LocaleConfig (name/locale_tables/
+  // locale_code), which a generated Config<Name> satisfies without a cast.
   const T = createScopedTranslator(config);
   const _ = createTranslator(config);
   const log = createLogger(config.name);
-  const env: ControlEnv = { config, T, _, log };
+  const env: ControlEnv<C> = { config, T, _, log };
   setup?.(env);
 
   class Control extends BaseControl {
-    readonly config: ComponentConfig = config;
+    readonly config: C = config;
     readonly T: (key: string) => string = T;
     readonly _: (key: string) => string = _;
     readonly log: Logger = log;

@@ -3,7 +3,6 @@
 import * as CONST from "./const.js";
 import { area, bearing, distance, midpoint, vertexMean } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
-import { type ControlEnv } from "#core/lifecycle/index.js";
 import { cssVar } from "#platform/cssvar.js";
 import { buildPopupEl } from "#platform/dom.js";
 import { NUMBER_FORMAT, formatLatLng, formatNumber } from "#platform/format.js";
@@ -25,7 +24,7 @@ const formatDistance = (meters: number): string =>
 
 /** Format a segment label: "45° | 1.2 km", or just "1.2 km" when show_bearing is off. */
 const formatSegmentLabel = (
-  env: ControlEnv,
+  env: { config: { show_bearing?: boolean } },
   a: { lng: number; lat: number },
   b: { lng: number; lat: number },
   meters: number,
@@ -62,7 +61,7 @@ const setLabelText = (marker: L.Layer, text: string) => {
 /** Build the popup body for a marker location. Returns an element, so a
  *  reverse-geocoded address can only ever reach the DOM as a TextNode. */
 const buildPopup = (
-  env: ControlEnv,
+  env: { T: (key: string) => string },
   lng: number,
   lat: number,
   addr: string | null = null,

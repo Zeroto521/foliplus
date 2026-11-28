@@ -5,6 +5,7 @@ import type { MeasureManager } from "../manager.js";
 import * as Util from "../util.js";
 import { mountDelIcon, toggleDelIcon } from "#core/leaflet/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
+import type { ConfigMeasure } from "#foliplus/config-schema.js";
 import type { Logger } from "#platform/type.js";
 
 class MeasureMode {
@@ -19,7 +20,7 @@ class MeasureMode {
    * locale table has it, otherwise the English NAME_LABEL fallback.
    * Shared by CSV export (getNameForType) and GeoJSON properties.name.
    */
-  static getNameLabel(env: ControlEnv): string {
+  static getNameLabel(env: Pick<ControlEnv, "_">): string {
     const label = env._(this.NAME_LABEL_KEY);
     return label === this.NAME_LABEL_KEY ? this.NAME_LABEL : label;
   }
@@ -30,7 +31,7 @@ class MeasureMode {
   _cleanup: (() => void) | null;
   /** Config, translators and logger are the manager's — one translation table
    *  per control instance, not per mode. */
-  config: ComponentConfig;
+  config: ConfigMeasure;
   /** Scoped translator (prepending config.name). */
   T: (key: string) => string;
   /** Plain translator (no prefix) — NAME_LABEL_KEY identity comparison
@@ -90,7 +91,10 @@ class MeasureMode {
 
   /** Convert a persisted measurement to a GeoJSON Feature.
    *  Subclasses override this to return their specific geometry type. */
-  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(
+    env: Pick<ControlEnv, "log" | "_">,
+    data: MeasureData,
+  ): GeoJSON.Feature {
     void data;
     throw new Error(env.log.msg(`toGeoFeature not implemented for ${this.TYPE}`));
   }

@@ -21,6 +21,7 @@ import {
   isClassifyMethod,
   safeColorScale,
 } from "#core/value/index.js";
+import type { ConfigHeatmap } from "#foliplus/config-schema.js";
 import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,
@@ -57,7 +58,7 @@ interface HeatmapControlUI {
   ) => () => void;
   /** Component config — carried on the state object instead of a module-level
    *  free variable, so every UI function is unit-testable with its own CONFIG. */
-  config: ComponentConfig;
+  config: ConfigHeatmap;
   /** Translator bound to `config`, created once by the control / test fixture. */
   T: (key: string) => string;
   /** Unscoped translator (raw keys, e.g. the shared "foliplus.*" vocabulary). */
