@@ -74,6 +74,63 @@ jobs:
       - run: npm run lint
         if: needs.classify.outputs.code == 'true'
 
+      # ── pre-commit-only repo gates ──
+      # These gate scripts live in .pre-commit-config.yaml and used to run only
+      # through pre-commit.ci, which is not a required status check: a red gate
+      # there did not block a merge. Run the same scripts directly on the
+      # tracked files here (no pre-commit env reinstall), one step per signal.
+      # Not duplicated because they already run in a required job:
+      #   test-size        — npm run lint above (script/check/test-size.mjs)
+      #                      and the vitest suite in the js job
+      #   config-key-style — make config-schema-verify in the python job
+      #                      (regenerate + byte-compare + dump key check)
+      #   changelog-order  — the changelog job (check mode covers ordering)
+      - uses: actions/setup-python@v7
+        if: needs.classify.outputs.code == 'true'
+        with:
+          python-version: "3.15"
+
+      # docstring_check imports docutils; codespell is pinned to the hook's rev.
+      - name: Install gate dependencies
+        if: needs.classify.outputs.code == 'true'
+        run: python -m pip install --disable-pip-version-check codespell==2.4.3 docutils
+
+      - name: style-check
+        if: needs.classify.outputs.code == 'true'
+        run: |
+          git ls-files -z 'foliplus/js/*.ts' 'foliplus/css/*.css' 'foliplus/*.py' \
+            'script/*.mjs' 'script/*.cjs' 'script/*.js' 'script/*.py' \
+            'config/*.mjs' 'eslint.config.js' \
+            | xargs -0 -n 100 -r python script/check/style_check.py
+
+      - name: dead-barrel-export
+        if: needs.classify.outputs.code == 'true'
+        run: python script/check/dead_barrel_export.py
+
+      - name: module-size-check
+        if: needs.classify.outputs.code == 'true'
+        run: python script/check/module_size_check.py
+
+      - name: python-test-layout
+        if: needs.classify.outputs.code == 'true'
+        run: python script/check/python_test_layout.py
+
+      - name: bare-reload
+        if: needs.classify.outputs.code == 'true'
+        run: python script/check/bare_reload.py
+
+      - name: mojibake-check
+        if: needs.classify.outputs.code == 'true'
+        run: git grep -I -l -z -e '' | xargs -0 -n 100 -r python script/check/mojibake_check.py
+
+      - name: docstring-check
+        if: needs.classify.outputs.code == 'true'
+        run: python script/check/docstring_check.py
+
+      - name: codespell
+        if: needs.classify.outputs.code == 'true'
+        run: git grep -I -l -z -e '' | xargs -0 -n 200 -r codespell
+
   typecheck:
     name: typecheck
     needs: classify
