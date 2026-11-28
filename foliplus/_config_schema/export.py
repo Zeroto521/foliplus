@@ -134,5 +134,9 @@ def schema_fingerprint() -> str:
     this option" from "the panel was built against a different contract". The
     fingerprint is of the *dump*, so bumping ``payload["version"]`` or adding
     a ``FieldSpec`` attribute changes it — both are schema changes by design.
+
+    Cached for the process lifetime: the schema table is immutable after import,
+    so a test that (hypothetically) mutates it must call ``cache_clear()`` —
+    production never needs to.
     """
     return hashlib.sha256(schema_to_json().encode("utf-8")).hexdigest()[:12]
