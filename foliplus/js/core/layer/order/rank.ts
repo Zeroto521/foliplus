@@ -43,6 +43,8 @@ const midpoint = (a: string, b: string | null): string => {
   const zero = DIGITS[0];
   if (b != null && a >= b) throw new Error(`${a} >= ${b}`);
   if (a.slice(-1) === zero || b?.slice(-1) === zero) {
+    // unreachable: a trailing-zero rank is rejected upstream by validateOrderKey
+    /* v8 ignore next */
     throw new Error("trailing zero");
   }
   if (b != null) {
@@ -74,6 +76,8 @@ const getIntegerPart = (key: string) => {
 
 const validateInteger = (x: string) => {
   if (x.length !== getIntegerLength(x[0])) {
+    // unreachable: the integer-part length always matches its head by construction
+    /* v8 ignore next */
     throw new Error(`invalid integer part of order key: ${x}`);
   }
 };

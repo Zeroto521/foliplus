@@ -33,12 +33,10 @@ interface OrderDoc {
   nodes: Record<string, OrderNode>;
 }
 
-
 /** Maximum nesting depth: root -> container -> leaf (render contract: a role
  *  contains layers, or one container of layers; the panel cannot render a
  *  third level, so a deeper doc is clamped on load). */
 const ORDER_MAX_DEPTH = 2;
-
 
 const KINDS: readonly OrderKind[] = [
   ORDER_KIND.LAYER,
@@ -141,20 +139,6 @@ const deepestLegalAncestor = (doc: OrderDoc, key: string): string => {
   return cur as string;
 };
 
-/** The subtree leaves (kind LAYER) under `key`, in DFS order. */
-const subtreeLeafKeys = (doc: OrderDoc, key: string): string[] => {
-  const out: string[] = [];
-  const walk = (k: string): void => {
-    for (const [ck, cn] of Object.entries(doc.nodes)) {
-      if (cn.parent !== k) continue;
-      if (cn.kind === ORDER_KIND.LAYER) out.push(ck);
-      else walk(ck);
-    }
-  };
-  walk(key);
-  return out;
-};
-
 /** The rank after the last child of `parent` (rankFirst when it has none). */
 const rankAfterLast = (doc: OrderDoc, parent: string): string => {
   let last: string | null = null;
@@ -185,14 +169,15 @@ const sanitizeOrderDoc = (value: unknown): OrderDoc | null => {
       const legalParent = deepestLegalAncestor(doc, k);
       if (node.kind === ORDER_KIND.LAYER) {
         // A leaf past the cap: reparent to the deepest legal container.
-        doc.nodes[k] = { ...node, parent: legalParent, rank: rankAfterLast(doc, legalParent) };
+        doc.nodes[k] = {
+          ...node,
+          parent: legalParent,
+          rank: rankAfterLast(doc, legalParent),
+        };
       } else {
-        // A container past the cap: promote its subtree leaves, then drop it.
-        for (const leaf of subtreeLeafKeys(doc, k)) {
-          const ln = doc.nodes[leaf];
-          if (ln === undefined) continue;
-          doc.nodes[leaf] = { ...ln, parent: legalParent, rank: rankAfterLast(doc, legalParent) };
-        }
+        // A container past the cap: its leaves were already promoted when they
+        // were processed (they are always deeper than the container, so the
+        // depth-sorted loop reaches them first); the container is now empty.
         delete doc.nodes[k];
       }
     }

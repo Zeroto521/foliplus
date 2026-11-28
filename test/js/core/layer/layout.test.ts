@@ -14,6 +14,7 @@ import {
   orderKeyOf,
   presentOf,
   projectBlocks,
+  projectFolderViewOf,
   projectRows,
   projectView,
   projectZ,
@@ -341,5 +342,37 @@ describe("projection edges", () => {
       { id: "a", role: "overlay", folder: null },
     ]);
     expect(Object.keys(d.nodes).filter(k => k === "layer:a").length).toBe(1);
+  });
+
+  it("projectRows skips a root layer absent from the registry", () => {
+    const d = doc({
+      "layer:ghost": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:p1": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
+    });
+    const reg = [info("p1", "overlay")];
+    const roleOf = (id: string) => reg.find(i => i.id === id)?.role ?? null;
+    const rows = projectRows(d, presentOf(reg), roleOf, "overlay");
+    expect(rows.some(r => r.key === "layer:ghost")).toBe(false);
+    expect(rows.some(r => r.key === "layer:p1")).toBe(true);
+  });
+  it("projectFolderViewOf omits group containers (folders only)", () => {
+    const d = doc({
+      "folder:overlay:f": {
+        kind: ORDER_KIND.FOLDER,
+        parent: null,
+        rank: "a0",
+        name: "F",
+        role: "overlay",
+      },
+      "group:overlay:g": {
+        kind: ORDER_KIND.GROUP,
+        parent: null,
+        rank: "a1",
+        name: "G",
+        role: "overlay",
+      },
+    });
+    const view = projectFolderViewOf(d, presentOf([]), []);
+    expect(view.folders.map(f => f.name)).toEqual(["F"]);
   });
 });
