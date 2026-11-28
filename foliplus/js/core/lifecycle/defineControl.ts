@@ -78,12 +78,10 @@ const defineControl = <M = unknown, C extends ConfigCommon = ComponentConfig>(
   const { config, icon, setup, createManager, buildDOM, destroy, methods } = spec;
 
   createControlEnv(config, icon);
-  // The translators/locale utilities still take the flat contract (they read
-  // name/locale_tables/locale_code); a generated Config<Name> carries those
-  // but not the flat index signature, so widen once at this boundary.
-  const flatConfig = config as unknown as ComponentConfig;
-  const T = createScopedTranslator(flatConfig);
-  const _ = createTranslator(flatConfig);
+  // Locale utilities take the structural LocaleConfig (name/locale_tables/
+  // locale_code), which a generated Config<Name> satisfies without a cast.
+  const T = createScopedTranslator(config);
+  const _ = createTranslator(config);
   const log = createLogger(config.name);
   const env: ControlEnv<C> = { config, T, _, log };
   setup?.(env);

@@ -21,11 +21,11 @@ const CONTROL_ROOT = resolve(REPO_ROOT, "foliplus/js/control");
  *  removes the entry. LayerControl is last: #1402 rewrites its placement code
  *  first, so narrowing it here would collide with that branch. */
 const NOT_YET_NARROWED: Record<string, string> = {
-  ExportControl: "task-203 batch 2",
-  FullscreenControl: "task-203 batch 2",
+  ExportControl: "batch 2 follow-up",
+  FullscreenControl: "batch 2 follow-up",
   LayerControl: "#1402 rewrites its placement code first",
-  LocateControl: "task-203 batch 2",
-  ScaleControl: "task-203 batch 2",
+  LocateControl: "batch 2 follow-up",
+  ScaleControl: "batch 2 follow-up",
 };
 
 const controlDirs = (): string[] =>
