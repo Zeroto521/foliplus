@@ -12,8 +12,8 @@
 // teeth are visible without a second fixture tree.
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { describe, expect, it } from "vitest";
 import ts from "typescript";
+import { describe, expect, it } from "vitest";
 
 const ROOT = "foliplus/js/control/LayerControl";
 const DECLARED = `${ROOT}/declared`;
@@ -93,8 +93,7 @@ const collectImports = (
 
 /** Back-compat name for the probes and the one production call site that reads
  *  the import list off a source. */
-const namedImports = (source: string): ImportRead[] =>
-  collectImports(source).reads;
+const namedImports = (source: string): ImportRead[] => collectImports(source).reads;
 
 /** Every exported name in one source (inline export const/function/type + export blocks). */
 const exportedNames = (source: string): string[] => {
@@ -139,9 +138,7 @@ const importProblems = (file: string, source: string): string[] => {
     if (specifier.endsWith(BARREL_SUFFIX)) continue;
     flagged.add(specifier);
     if (inDeclared && specifier.startsWith("./")) {
-      problems.push(
-        `${file}: namespace import inside declared/ via ${specifier}`,
-      );
+      problems.push(`${file}: namespace import inside declared/ via ${specifier}`);
     } else {
       problems.push(
         `${file}: namespace import from ${specifier} (only */declared/index.js exposes them)`,
@@ -230,30 +227,38 @@ describe("readDeclared* has one public door", () => {
 
 describe("namespace/dynamic/ImportType also guarded", () => {
   it("namespace import of a deep declared module is a violation", () => {
-    expect(importProblems(
-      `${ROOT}/ui/style/icon.ts`,
-      'import * as ns from "#control/LayerControl/declared/face.js";\nvoid ns.readDeclaredIcon;',
-    )).toHaveLength(1);
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'import * as ns from "#control/LayerControl/declared/face.js";\nvoid ns.readDeclaredIcon;',
+      ),
+    ).toHaveLength(1);
   });
 
   it("dynamic import of a deep declared module is a violation", () => {
-    expect(importProblems(
-      `${ROOT}/ui/style/icon.ts`,
-      'const m = await import("#control/LayerControl/declared/face.js");\nvoid m.readDeclaredIcon;',
-    )).toHaveLength(1);
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'const m = await import("#control/LayerControl/declared/face.js");\nvoid m.readDeclaredIcon;',
+      ),
+    ).toHaveLength(1);
   });
 
   it("ImportType of a deep declared module is a violation", () => {
-    expect(importProblems(
-      `${ROOT}/ui/style/icon.ts`,
-      'type T = import("#control/LayerControl/declared/face.js").readDeclaredIcon;\nexport type { T };',
-    )).toHaveLength(1);
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'type T = import("#control/LayerControl/declared/face.js").readDeclaredIcon;\nexport type { T };',
+      ),
+    ).toHaveLength(1);
   });
 
   it("namespace import through the barrel is fine", () => {
-    expect(importProblems(
-      `${ROOT}/ui/style/icon.ts`,
-      'import * as ns from "#control/LayerControl/declared/index.js";\nvoid ns.readDeclaredIcon;',
-    )).toEqual([]);
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'import * as ns from "#control/LayerControl/declared/index.js";\nvoid ns.readDeclaredIcon;',
+      ),
+    ).toEqual([]);
   });
 });
