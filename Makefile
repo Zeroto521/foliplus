@@ -1,5 +1,5 @@
 .PHONY : help
-.PHONY: lint html info env
+.PHONY: lint lint-py lint-js html info env
 .PHONY: dist build-js build-js-dev build-python
 .PHONY: test test-browser test-python test-python-fast test-js config-schema-verify
 .PHONY: bundle-size-check
@@ -7,7 +7,7 @@
 
 help:
 	@echo "'clean'        - remove all build/cache artifacts"
-	@echo "'lint'         - run pre-commit hooks"
+	@echo "'lint'         - local aggregate of the CI quality gates: pre-commit (py) + prettier/eslint/tsc (js)"
 	@echo "'html'         - build HTML docs in doc/_build/html"
 	@echo "'info'         - show environment info"
 	@echo "'env'          - bootstrap per-worktree .venv with uv"
@@ -54,8 +54,25 @@ clean-bundle-treemap:
 
 clean: clean-build clean-pyc clean-cov clean-html clean-bundle-treemap
 
-lint:
+# Local aggregate of the required CI quality gates (format / lint /
+# typecheck in .github/workflows/test.yaml, plus the pre-commit hooks CI only
+# reaches through pre-commit.ci). One command, same verdicts as CI:
+#   lint-py — pre-commit run -a: ruff, ruff-format, mypy, codespell and the ten
+#             repo-local guards (style_check, dead_barrel_export,
+#             module_size_check, python_test_layout, config_key_style,
+#             docstring_check, mojibake_check, bare_reload, changelog_order,
+#             test_size). They are already hooks, so one run covers them.
+#   lint-js — prettier, eslint (with the ten script/check .mjs gates) and tsc,
+#             in CI's job order; the cheapest signal fails first.
+lint: lint-py lint-js
+
+lint-py:
 	pre-commit run -a -v
+
+lint-js:
+	npm run format:check
+	npm run lint
+	npm run typecheck
 
 dist: build-js build-python
 
