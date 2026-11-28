@@ -279,6 +279,11 @@ groups the **观测站** group row, while the `label` block belongs to the **站
 child. The **另一组** container row inherits nothing from it, and the child block is
 not reported as a mistake.
 
+The example builds its layers by hand only because it must show a container: if your
+data is a GeoDataFrame, ordinary layers use the usual
+`gdf.explore(m=m, foliplus={...})` — `explore` does not construct a container
+layer, so a `FeatureGroup` is the way to demonstrate a container row at all.
+
 **Behaviour**:
 
 - A container row's facts come from the container's own block — its `folder`,
