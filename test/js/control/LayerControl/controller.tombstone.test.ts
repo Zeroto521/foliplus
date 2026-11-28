@@ -2,10 +2,11 @@
 // deleteLayer truly removes the node (the two-sided tombstone contract).
 import {
   createLayerControllerFixture,
+  readOrderTreeStorage,
   teardownLayerControllerFixture,
 } from "./controller.fixture.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { LayerController } from "#control/LayerControl/controller.js";
+import { LayerController } from "#control/LayerControl/controller.js";
 
 // The tree slot of a layer id within its role-root sequence. With the doc
 // as the single order source, the "tree" IS the doc: a layer's slot is its
@@ -84,5 +85,33 @@ describe("LayerController tombstone contract", () => {
     expect(treeCarries(manager, "B")).toBe(true);
     const doc: any = (manager as any).orderDoc;
     expect(doc.nodes["layer:B"].hidden).toBe(true);
+  });
+
+  it("persists the hidden tombstone so a reload keeps the node hidden, not resurrected", () => {
+    manager.registerLayer({ id: "A", name: "A", layer: new window.L.TileLayer() });
+    manager.registerLayer({ id: "B", name: "B", layer: new window.L.TileLayer() });
+    manager.registerLayer({ id: "C", name: "C", layer: new window.L.TileLayer() });
+
+    expect(manager.deleteLayer("B")).toBe(true);
+    // The persisted order record carries the hidden marker, so a reload
+    // sees a hidden node rather than an absent one (the boundary the
+    // reversible tombstone depends on).
+    const stored = readOrderTreeStorage(manager.map as any);
+    expect(stored).not.toBeNull();
+    expect(stored!.nodes["layer:B"].hidden).toBe(true);
+    expect(stored!.nodes["layer:A"]).toBeDefined();
+    expect(stored!.nodes["layer:C"]).toBeDefined();
+
+    // A fresh controller reading that storage keeps B out of the panel —
+    // the hidden node does not resurface until the id is re-registered.
+    const reloaded = new LayerController(manager.map as any, [
+      { id: "A", name: "A", role: "overlay" },
+      { id: "C", name: "C", role: "overlay" },
+    ]);
+    // B is not resurrected into the panel: only A and C are present.
+    expect(reloaded.layers.map(l => l.id)).not.toContain("B");
+    const reloadedDoc: any = (reloaded as any).orderDoc;
+    expect(reloadedDoc.nodes["layer:B"].hidden).toBe(true);
+    reloaded.destroy();
   });
 });

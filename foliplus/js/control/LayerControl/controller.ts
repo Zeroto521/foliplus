@@ -452,18 +452,11 @@ class LayerController implements LayerAPI {
   declare ui: LayerUI | null;
   declare debouncedEnforce: Debounced;
   persistence: LayerPersistence;
-  /** User-arranged order + one-way deleted-id set. Owns `savedOrder` /
-
   /** The derived folder layout (folder identity, block order and member
    *  assignment), projected from the order doc by projectLayoutOf. The doc is
    *  the single source; this mirror is re-derived on every applyDoc and is
    *  never persisted. Reads go through `folderLayoutView` / `folderOf`. */
   private folderLayoutValue!: FolderLayout;
-  /** The single order source: the order tree. The layout mirror and
-   *  the registry array are DERIVED from it (projectLayout + projectZ), so
-   *  nothing can diverge from the tree by construction. Persisted as the
-   *  bare record (no version); an unknown record is dropped and rebuilt as
-   *  the default. */
   /** The single order source: the order document. The layout mirror and
    *  the registry array are DERIVED from it (projectLayoutOf + resolveOrderView),
    *  so nothing can diverge from the doc by construction. Persisted as the
@@ -1197,27 +1190,6 @@ class LayerController implements LayerAPI {
     return out;
   }
 
-  /** Rename a folder block (rekey the node AND every member under it — the key
-   *  IS the identity). Members keep their ranks; the folder node keeps its rank.
-   *  A no-op when the folder does not exist. */
-  private renameFolderDoc(
-    doc: OrderDoc,
-    oldKey: string,
-    newKey: string,
-    name: string,
-  ): OrderDoc {
-    const node = doc.nodes[oldKey];
-    if (node === undefined) return doc;
-    const out: OrderDoc = { nodes: { ...doc.nodes } };
-    delete out.nodes[oldKey];
-    out.nodes[newKey] = { ...node, name };
-    for (const k of Object.keys(out.nodes)) {
-      const n = out.nodes[k];
-      if (n.parent === oldKey) out.nodes[k] = { ...n, parent: newKey };
-    }
-    return out;
-  }
-
   /** Delete a folder block: promote every member to root (in the folder's slot)
    *  and remove the block. Members keep their relative order. */
   private deleteFolderDoc(doc: OrderDoc, key: string): OrderDoc {
@@ -1290,7 +1262,8 @@ class LayerController implements LayerAPI {
     return this.domain.hasUnresolvedLayers();
   }
 
-  // Order-domain forwards (bodies live on `this.order` — see savedOrder.ts).
+  // Order-domain forward: re-apply the persisted order document so the
+  // registry follows the persisted ranks.
   loadSavedOrder() {
     // The doc is the single order source (read at boot in readOrderDoc); the
     // old savedOrder string[] protocol is gone. Re-apply the doc so the
@@ -1916,11 +1889,11 @@ class LayerController implements LayerAPI {
       layerInfo.folder ?? null,
       opts.baseInsert ?? "top",
     );
-    // A re-registration of a user-deleted layer restores the hidden tombstone
-    // (the lead's removedIds replacement): the node stays in the tree with
-    // hidden:true, and re-registering the same id un-hides it so the layer
-    // returns to its original slot. insertDeclaredLayer is idempotent (a node
-    // already present returns unchanged), so the restore is the explicit step.
+    // A re-registration of a user-deleted layer restores the hidden tombstone:
+    // the node stays in the tree with hidden:true, and re-registering the same
+    // id un-hides it so the layer returns to its original slot.
+    // insertDeclaredLayer is idempotent (a node already present returns
+    // unchanged), so the restore is the explicit step.
     const regKey = layerKeyOf(layerInfo.id);
     if (nextDoc.nodes[regKey]?.hidden) {
       nextDoc = orderRestore(nextDoc, regKey);
@@ -2873,8 +2846,9 @@ class LayerController implements LayerAPI {
     // here would read as a duplicate.
     const layerKey = layerKeyOf(layerId);
     if (folderKey !== "") {
-      if (this.orderDoc.nodes[folderDocKey(layerInfo.role, folderKey)] === undefined)
+      if (this.orderDoc.nodes[folderDocKey(layerInfo.role, folderKey)] === undefined) {
         return false;
+      }
     }
     const next =
       folderKey === ""

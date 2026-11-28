@@ -392,6 +392,24 @@ describe("LayerController", () => {
       expect(filterSpy).toHaveBeenNthCalledWith(2, "overlay1");
     });
 
+    it("applyDoc is a no-op on the same doc reference (early return skips persist)", () => {
+      // The doc is the single source; re-applying the SAME reference is a
+      // command that changed nothing. The early return must skip the whole
+      // apply — no re-derive, no persist — so a no-op command cannot write
+      // storage or perturb the derived state.
+      const persistSpy = vi
+        .spyOn(manager as unknown as { persistOrderDoc(): void }, "persistOrderDoc")
+        .mockImplementation(() => {});
+      const beforeView = manager.lastView;
+      (
+        manager as unknown as {
+          applyDoc(next: unknown, opts: { persist: boolean }): void;
+        }
+      ).applyDoc(manager.orderDoc, { persist: true });
+      expect(persistSpy).not.toHaveBeenCalled();
+      expect(manager.lastView).toBe(beforeView);
+    });
+
     it("tolerates a missing ui (pre-attach) and still replays the filter", () => {
       manager.ui = undefined as any;
       const filterSpy = vi

@@ -282,10 +282,10 @@ const projectLayoutOf = (
     members[id] = { role: info.role, folder: bare(node?.parent ?? "") };
   }
   // A block row belongs to the role(s) of its live members; an empty folder
-  // carries no role (a folder's role is its members'). Layer rows join the
-  // role of their layer. Only rows in the single root walk are emitted, in
-  // the row order — a role's block sequence is the projection of the same
-  // document the panel reads.
+  // keeps its creation role (see below). Layer rows join the role of their
+  // layer. Only rows in the single root walk are emitted, in the row order —
+  // a role's block sequence is the projection of the same document the panel
+  // reads.
   const blockRoles = new Map<string, LayerRole[]>();
   for (const b of v.blocks) {
     const roles = new Set<LayerRole>();

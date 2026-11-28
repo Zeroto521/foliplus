@@ -26,7 +26,7 @@ import { BORDER_WEIGHT } from "#ui/index.js";
 
 /** The live sources a write reads. Supply only the dimensions you own -- a
  *  dimension you omit is left exactly as it stands in storage, so a caller that
- *  only knows the layer order cannot wipe the fold, rename, and label state it
+ *  owns one dimension cannot wipe the fold, rename, and label state it
  *  never touched. */
 type LiveState = {
   foldedRoles?: () => Record<string, boolean>;

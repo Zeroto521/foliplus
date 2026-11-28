@@ -499,8 +499,9 @@ const initFixture = (
             n &&
             typeof n.rank === "string" &&
             (lastRank === null || n.rank > lastRank)
-          )
+          ) {
             lastRank = n.rank;
+          }
         }
         for (const [k, n] of Object.entries((flat.nodes as any) ?? {})) {
           if ((docSeed.nodes as any)[k] === undefined) {
@@ -533,8 +534,9 @@ const initFixture = (
               n &&
               typeof n.rank === "string" &&
               (lastRank === null || n.rank > lastRank)
-            )
+            ) {
               lastRank = n.rank;
+            }
           }
           nodes[fKey] = {
             kind: "folder",
