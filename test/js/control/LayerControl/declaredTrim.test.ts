@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import { resolve } from "path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -16,21 +16,34 @@ import { describe, expect, it } from "vitest";
 // The rule is structural, so this guard parses the sources with the TypeScript
 // compiler API instead of a text window. The AST distinguishes a real
 // CallExpression from a comment, a string/template/regex literal, and resolves
-// shadowed scopes by construction - the three false results a previous
-// line-window heuristic produced (a comment green-washing an untrimmed read, a
-// legal multi-statement trim reported red, and a regex literal hiding a read)
-// cannot happen here. The review probes for those cases are tests below.
+// shadowed scopes by construction - the false results a previous line-window
+// heuristic produced (a comment green-washing an untrimmed read, a legal
+// multi-statement trim reported red, a regex literal hiding a read) cannot
+// happen here. The review probes for those cases are tests below.
+//
+// Discovery, not a hardcoded list: every declared*.ts module in this directory
+// that calls isHexColor is checked, so a new reader is covered without editing
+// this file. A pin below names today\u2019s readers - if it fails, a new reader
+// appeared and a human should look at it (and at the fill host-trim exemption).
+//
+// Known limitation (accepted, not exploitable): the scope search looks at the
+// declarations of the nearest scope that binds the name, ignoring declaration
+// POSITION. Only hoisted var or invalid TypeScript (a use before its const/let
+// declaration) can reach a later declaration, so real code is unaffected.
 //
 // Module-local guard (not a repo-wide invariant), so it is deliberately not
 // registered in test/js/toolchain-guard.test.ts.
 
-const READERS = [
-  "foliplus/js/control/LayerControl/declaredParse.ts",
-  "foliplus/js/control/LayerControl/declaredFill.ts",
-];
-const TRIM_MODULE = "foliplus/js/control/LayerControl/declaredTrim.ts";
+const DECLARED_DIR = "foliplus/js/control/LayerControl";
+const TRIM_MODULE = `${DECLARED_DIR}/declaredTrim.ts`;
 const TRIM_FN = "trimDeclaredString";
 const HEX_FN = "isHexColor";
+
+//: The readers that exist today. New entries are picked up by discovery; this
+//: pin only forces a human to look at a newly appearing reader.
+const EXPECTED_HEX_READERS = ["declaredFill.ts", "declaredParse.ts"];
+
+const filePath = (name: string): string => `${DECLARED_DIR}/${name}`;
 
 const read = (relativePath: string): string =>
   readFileSync(resolve(".", relativePath), "utf8");
@@ -90,26 +103,47 @@ const declarationsInScope = (
 };
 
 /**
+ * Whether `identifier` resolves to a value produced by the shared trim,
+ * following ONE alias hop: `const a = trimDeclaredString(raw); const b = a;`.
+ * The one-hop limit is deliberate - it removes the false red the review found
+ * while keeping the resolution chain short enough to reason about; a second hop
+ * is a violation and the message names the binding.
+ */
+const resolveIdentifier = (
+  identifier: ts.Identifier,
+  hopsLeft: number,
+): "ok" | "bad" | "unbound" => {
+  let scope: ts.Node | undefined = identifier.parent;
+  while (scope !== undefined) {
+    const declarations = declarationsInScope(scope, identifier.text);
+    if (declarations.length > 0) {
+      const initializer = declarations[declarations.length - 1].initializer;
+      if (initializer === undefined) return "bad";
+      if (containsTrimCall(initializer)) return "ok";
+      if (hopsLeft > 0 && ts.isIdentifier(initializer)) {
+        return resolveIdentifier(initializer, hopsLeft - 1);
+      }
+      return "bad";
+    }
+    scope = scope.parent;
+  }
+  return "unbound";
+};
+
+/**
  * Why the isHexColor argument is not bound to the shared trim, or null when it
- * is: inline trimDeclaredString(...) or a const/let initialiser that calls it
- * in the nearest scope that declares the identifier.
+ * is: inline trimDeclaredString(...) or an identifier whose nearest binding (or
+ * one alias hop from it) calls the shared trim.
  */
 const unboundedArgument = (call: ts.CallExpression): string | null => {
   const argument = call.arguments[0];
   if (argument === undefined) return "isHexColor() has no argument";
   if (isCallTo(argument, TRIM_FN)) return null;
   if (ts.isIdentifier(argument)) {
-    let scope: ts.Node | undefined = argument.parent;
-    while (scope !== undefined) {
-      const declarations = declarationsInScope(scope, argument.text);
-      if (declarations.length > 0) {
-        const initializer = declarations[declarations.length - 1].initializer;
-        if (initializer !== undefined && containsTrimCall(initializer)) return null;
-        return `"${argument.text}" is bound to a value that never calls ${TRIM_FN}`;
-      }
-      scope = scope.parent;
-    }
-    return `"${argument.text}" has no visible binding`;
+    const resolved = resolveIdentifier(argument, 1);
+    if (resolved === "ok") return null;
+    if (resolved === "unbound") return `"${argument.text}" has no visible binding`;
+    return `"${argument.text}" is bound to a value that never calls ${TRIM_FN}`;
   }
   return `the argument is not ${TRIM_FN}(...) or an identifier bound from it`;
 };
@@ -137,6 +171,13 @@ const hexReadProblems = (
   return { reads, problems };
 };
 
+/** Every declared*.ts module in this directory that reads a CSS hex. */
+const discoverHexReaders = (): string[] =>
+  readdirSync(resolve(".", DECLARED_DIR))
+    .filter(name => /^declared.*\.ts$/.test(name))
+    .filter(name => hexReadProblems(filePath(name), read(filePath(name))).reads > 0)
+    .sort();
+
 /** Bare .trim() calls (no argument), which use the host default. */
 const hostTrimCalls = (fileName: string, source: string): ts.CallExpression[] => {
   const sourceFile = parse(fileName, source);
@@ -157,8 +198,14 @@ const hostTrimCalls = (fileName: string, source: string): ts.CallExpression[] =>
 };
 
 describe("every declared hex reader trims through trimDeclaredString", () => {
-  it.each(READERS)("%s", reader => {
-    const source = read(reader);
+  const readers = discoverHexReaders();
+
+  it("discovers the declared readers that read a hex", () => {
+    expect(readers).toEqual(EXPECTED_HEX_READERS);
+  });
+
+  it.each(readers)("%s", reader => {
+    const source = read(filePath(reader));
     const { reads, problems } = hexReadProblems(reader, source);
     expect(reads).toBeGreaterThan(0);
     expect(problems).toEqual([]);
@@ -179,11 +226,13 @@ describe("every declared hex reader trims through trimDeclaredString", () => {
 
 describe("no host trim on the declared-string path", () => {
   it("declaredParse.ts has no bare .trim()", () => {
-    expect(hostTrimCalls("declaredParse.ts", read(READERS[0]))).toEqual([]);
+    expect(
+      hostTrimCalls("declaredParse.ts", read(filePath("declaredParse.ts"))),
+    ).toEqual([]);
   });
 
   it("declaredFill.ts keeps only the isName empty-check", () => {
-    const calls = hostTrimCalls("declaredFill.ts", read(READERS[1]));
+    const calls = hostTrimCalls("declaredFill.ts", read(filePath("declaredFill.ts")));
     expect(calls).toHaveLength(1);
     const [call] = calls;
     const target = call.expression as ts.PropertyAccessExpression;
@@ -199,19 +248,21 @@ describe("no host trim on the declared-string path", () => {
 });
 
 describe("the guard is structural, not a text window (review probes)", () => {
+  const source = (lines: string[]): string => lines.join("\n");
+
   it("b2: a trim as the first statement of an arrow function is legal", () => {
-    const source = [
+    const text = source([
       "const readBorder = (data: { color: string }) => {",
       "  const color = trimDeclaredString(data.color);",
       "  if (isHexColor(color)) return color;",
       "  return null;",
       "};",
-    ].join("\n");
-    expect(hexReadProblems("probe.ts", source).problems).toEqual([]);
+    ]);
+    expect(hexReadProblems("probe.ts", text).problems).toEqual([]);
   });
 
   it("d: an inner shadowing binding is a violation", () => {
-    const source = [
+    const text = source([
       "const readBorder = (outer: string) => {",
       "  const color = trimDeclaredString(outer);",
       "  {",
@@ -220,12 +271,12 @@ describe("the guard is structural, not a text window (review probes)", () => {
       "  }",
       "  return color;",
       "};",
-    ].join("\n");
-    expect(hexReadProblems("probe.ts", source).problems).toHaveLength(1);
+    ]);
+    expect(hexReadProblems("probe.ts", text).problems).toHaveLength(1);
   });
 
   it("e: isHexColor inside a string or template literal is not a call", () => {
-    const source = [
+    const text = source([
       "const readBorder = (data: { color: string }) => {",
       '  const note = "isHexColor(data.color) appears here";',
       "  const tpl = `isHexColor(data.color)`;",
@@ -233,19 +284,43 @@ describe("the guard is structural, not a text window (review probes)", () => {
       "  if (isHexColor(color)) return note + tpl + color;",
       "  return null;",
       "};",
-    ].join("\n");
-    const { reads, problems } = hexReadProblems("probe.ts", source);
+    ]);
+    const { reads, problems } = hexReadProblems("probe.ts", text);
     expect(reads).toBe(1);
     expect(problems).toEqual([]);
   });
 
   it("f: a regex literal containing // does not hide the read after it", () => {
-    const source = [
+    const text = source([
       "const readBorder = (data: { color: string }) => {",
       "  const pattern = /\\/\\//; if (isHexColor(data.color)) return pattern.source;",
       "  return null;",
       "};",
-    ].join("\n");
-    expect(hexReadProblems("probe.ts", source).problems).toHaveLength(1);
+    ]);
+    expect(hexReadProblems("probe.ts", text).problems).toHaveLength(1);
+  });
+
+  it("alias: one hop from a trimmed binding is legal", () => {
+    const text = source([
+      "const readBorder = (raw: string) => {",
+      "  const color = trimDeclaredString(raw);",
+      "  const color2 = color;",
+      "  if (isHexColor(color2)) return color2;",
+      "  return null;",
+      "};",
+    ]);
+    expect(hexReadProblems("probe.ts", text).problems).toEqual([]);
+  });
+
+  it("alias: an untrimmed source reached by one hop is a violation", () => {
+    const text = source([
+      "const readBorder = (raw: string) => {",
+      "  const color = raw;",
+      "  const color2 = color;",
+      "  if (isHexColor(color2)) return color2;",
+      "  return null;",
+      "};",
+    ]);
+    expect(hexReadProblems("probe.ts", text).problems).toHaveLength(1);
   });
 });

@@ -385,6 +385,12 @@ def test_the_js_trim_parser_refuses_a_missing_or_empty_literal() -> None:
     assert missing != _js_trim_source(), "the teeth mutation did not apply"
     with pytest.raises(AssertionError):
         js_trim_codepoints(missing)
+    empty_ts = "const DECLARED_TRIM_CODEPOINTS: readonly number[] = [];\n"
+    with pytest.raises(AssertionError, match="empty array"):
+        js_trim_codepoints(empty_ts)
+    empty_py = "DECLARED_TRIM_CODEPOINTS: tuple[int, ...] = ()\n"
+    with pytest.raises(AssertionError, match="empty tuple"):
+        python_trim_codepoints(empty_py)
 
 
 def test_the_host_strip_scan_has_teeth() -> None:
