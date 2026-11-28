@@ -24,13 +24,15 @@ m
 :::{note}
 
 foliplus declares a **hard floor** of folium `>=0.15.0`
-(`pyproject.toml`). The test matrix pins two folium versions — the declared
-floor `0.15.0` and the current release (`latest`; `1.0.0` today). Version
-1.0.0 has been verified as a compatible upgrade — the folium
-internal APIs foliplus relies on (the `Layer` base class,
+(`pyproject.toml`) and is **tested against 0.15.0 – 1.0.0**. The test
+matrix pins the declared floor `0.15.0` and resolves the current release
+for its `latest` slot (`1.0.0` today; `uv.lock` is not committed, so the
+slot really does track PyPI). Version 1.0.0 is a compatible upgrade — the
+folium internal APIs foliplus relies on (the `Layer` base class,
 `MacroElement`/`Element`/`Figure` chain, `branca.element`,
-`JSCSSMixin`, the Jinja2 render path) are all unchanged, and the full
-non-browser Python suite passes under 1.0.0.
+`JSCSSMixin`, the Jinja2 render path) are all unchanged; the full
+non-browser Python suite and the browser suite pass under 1.0.0, and no
+adapter change was required.
 
 :::
 
@@ -104,6 +106,11 @@ A {class}`folium.FeatureGroup` or (folium `>=1.0.0`) {class}`folium.LayerGroup`
 is listed as **one row**, not a folder of sub-layers. The row uses the group
 glyph and the `type_container` label, and counts its **direct** children — a
 container holding two nested containers reads 2, not the leaves buried inside.
+
+`LayerGroup` only becomes a row in folium `>=1.0.0` because that release
+makes it a {class}`~folium.map.Layer` subclass; before 1.0.0 it was not a
+`Layer`, so the collection pass never saw it. `FeatureGroup` is already a
+`Layer` on the `0.15.0` floor.
 
 The sub-layers are **not expanded** in the panel: a container is its own unit,
 and its children stay where folium put them. This is the graceful-degradation
