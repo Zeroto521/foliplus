@@ -43,7 +43,17 @@
   display: flex;
   align-items: flex-start;
   gap: var(--foliplus-space-md);
-  padding: var(--foliplus-space-md) var(--foliplus-space-lg);
+  /* Full-bleed highlight. The panel keeps a stable gutter so async results do
+     not re-inset/reflow when they cross the max-height, which leaves the
+     scrollport one measured lane narrower than the padding box. Extend the
+     row's box into that lane and give the extra width back to the right
+     padding: the hover/active wash then reaches the panel's inner border while
+     the text line keeps exactly its width (no reflow on a gutter crossing). */
+  width: calc(100% + var(--foliplus-scrollbar-lane));
+  margin-right: calc(-1 * var(--foliplus-scrollbar-lane));
+  padding: var(--foliplus-space-md)
+    calc(var(--foliplus-space-lg) + var(--foliplus-scrollbar-lane))
+    var(--foliplus-space-md) var(--foliplus-space-lg);
   /* Menu-row family: one clickable option line, the same 30px height as a
      dropdown option and a scheme item (see token.css row families). */
   min-height: var(--foliplus-menu-row-h);

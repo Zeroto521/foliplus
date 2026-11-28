@@ -14,7 +14,12 @@ import { DEL_ICON_MARKER_ANCHOR, mountDelIcon } from "#core/leaflet/index.js";
 import { cssVar } from "#platform/cssvar.js";
 import { dom } from "#platform/dom.js";
 import { mountFloating } from "#platform/floating.js";
-import { applyOptionRowA11y, nextOptionId, placeSurface } from "#ui/index.js";
+import {
+  applyOptionRowA11y,
+  nextOptionId,
+  placeSurface,
+  publishScrollbarLane,
+} from "#ui/index.js";
 
 // listCursor lives on SearchControl but not on SearchControlState; panel.ts
 // only touches it at panel-lifecycle boundaries (destroy on teardown, refresh
@@ -93,6 +98,10 @@ const positionPanel = (ctrl: SearchControlCtx) => {
   });
   panel.style.maxWidth = `${placement.maxWidth}px`;
   panel.style.maxHeight = `${placement.maxHeight}px`;
+  // Publish the stable gutter's measured lane on the panel: the result row
+  // extends its hover/active wash into it (SearchControl.css), so the highlight
+  // reaches the inner border without the layout re-insetting on scroll.
+  publishScrollbarLane(panel);
 };
 
 const renderResults = (ctrl: SearchControlCtx, results: ResultItem[]) => {

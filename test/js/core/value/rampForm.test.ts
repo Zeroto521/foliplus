@@ -355,12 +355,13 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
   it("insets the dropdown strip by the same token as the trigger", () => {
     // The two bars line up only while both use one inset token: the trigger
     // pads by it, the item pads by it minus its reserved selection border and
-    // the measured scrollbar lane. A lane wider than the inset leaves the
-    // strip shorter than the trigger by (lane - inset) px — a classic
-    // scrollbar's gutter cannot be painted by the row (physical limit).
+    // the measured scrollbar lane (the shared --foliplus-scrollbar-lane).
+    // A lane wider than the inset leaves the strip shorter than the trigger
+    // by (lane - inset) px: this strip does not extend into the gutter (the
+    // search result row does).
     const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
     expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x)");
-    expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
+    expect(item).toContain("var(--foliplus-scrollbar-lane)");
     expect(item).not.toContain("border-left");
     // The selected row draws the same 3px bar as the shared dropdown row.
     const active = blockOf(scheme, ".foliplus-scheme-picker-item.foliplus-is-active {");
@@ -394,8 +395,8 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     // Only list-shaped scroll containers are in the recipe; large panel
     // bodies (panel-content, row-panel) are excluded -- reserving a gutter
     // lane there shifts their text/geometry on every open.
-    // The shared scrollbar recipe owns the thin + stable-gutter decision for
-    // every foliplus scrollable surface, the picker included.
+    // The shared scrollbar recipe owns the stable-gutter decision for every
+    // foliplus scrollable surface, the picker included.
     const scrollbar = css("foliplus/css/common/scrollbar.css");
     expect(scrollbar).toContain("scrollbar-width: var(--foliplus-scrollbar-width)");
     expect(scrollbar).toContain("scrollbar-gutter: var(--foliplus-scrollbar-gutter)");
@@ -404,6 +405,10 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
       scrollbar.indexOf("{", scrollbar.indexOf(":is(")),
     );
     expect(scrollbarSelector).toContain(".foliplus-scheme-picker-dropdown");
+    // The search result panel keeps the stable gutter too: results arrive
+    // async and word-break reflows, so a gutter crossing must not re-inset the
+    // rows. It paints the highlight into the lane instead (SearchControl.css).
+    expect(scrollbarSelector).toContain(".foliplus-search-result-panel");
     // .foliplus-layer-more-menu is deliberately NOT here: its item set is
     // fixed at open time, so there is no scrollbar appearance to absorb.
     // It still gets the thin lane via a separate width-only rule.
@@ -411,23 +416,31 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     const menuRule = scrollbar.slice(scrollbar.indexOf(".foliplus-layer-more-menu {"));
     expect(menuRule).toContain("scrollbar-width");
     expect(menuRule).not.toContain("scrollbar-gutter");
-    expect(scrollbarSelector).toContain(".foliplus-search-result-panel");
-    expect(scrollbarSelector).toContain(".foliplus-dropdown-list");
+    // The plain dropdown is the opposite case: its option set is fixed while
+    // open (nothing to reflow), and its rows paint their own selected wash, so
+    // a reserved lane would leave the highlight short of the border. It keeps
+    // the thin lane with an auto gutter.
+    expect(scrollbarSelector).not.toContain(".foliplus-dropdown-list");
+    const dropdownRule = blockOf(scrollbar, ".foliplus-dropdown-list {");
+    expect(dropdownRule).toContain("scrollbar-width: var(--foliplus-scrollbar-width)");
+    expect(dropdownRule).toContain("scrollbar-gutter: auto");
     // The token group is the single value source.
     const tokens = css("foliplus/css/common/token.css");
     expect(tokens).toContain("--foliplus-scrollbar-width: thin");
     expect(tokens).toContain("--foliplus-scrollbar-gutter: stable");
+    // The measured lane is published at runtime; its default is a token too.
+    expect(tokens).toContain("--foliplus-scrollbar-lane: 0px");
   });
 
   it("keeps the strip on the scrollport right edge when the lane exceeds the inset", () => {
     // True invariant: strip right = min(padding-box right - inset, scrollport
     // right). With lane <= inset (or lane = 0, overlay scrollbars) the strip
     // lands on padding-box right - inset, exactly under the trigger's strip.
-    // With lane > inset the gutter cannot be painted, so the strip stops at
-    // the scrollport right edge, shorter than the trigger by (lane - inset).
+    // With lane > inset the strip stops at the scrollport right edge, shorter
+    // than the trigger by (lane - inset): it does not extend into the gutter.
     const item = blockOf(scheme, ".foliplus-scheme-picker-item {");
     expect(item).toContain("var(--foliplus-scheme-picker-bar-inset-x)");
-    expect(item).toContain("var(--foliplus-scheme-picker-scrollbar-width)");
+    expect(item).toContain("var(--foliplus-scrollbar-lane)");
     expect(item).toContain("max(");
     expect(item).toContain("calc(");
     // The subtractive form, not an extending margin: no negative margin.
@@ -439,7 +452,7 @@ describe("shared scheme-picker trigger (stylesheet contract)", () => {
     // the picker stylesheet only reads it.
     const tokens = css("foliplus/css/common/token.css");
     expect(tokens).toContain("--foliplus-scheme-picker-bar-inset-x:");
-    expect(tokens).toContain("--foliplus-scheme-picker-scrollbar-width:");
+    expect(tokens).toContain("--foliplus-scrollbar-lane:");
   });
 
   it("paints one chevron for both panels", () => {
