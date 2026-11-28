@@ -54,6 +54,9 @@ import {
   type LayerRole,
   type LayerStyleSnapshot,
   type LayerSurface,
+  NODE_KEY_PREFIX,
+  ORDER_KIND,
+  type OrderDoc,
   type OrderView,
   PaneManager,
   RECURSION,
@@ -73,6 +76,7 @@ import {
   filterLeafSet,
   filterStep,
   findLayer,
+  folderDocKey,
   folderKeyOf,
   folderNameLength,
   folderNameTooLong,
@@ -81,21 +85,6 @@ import {
   loadOrderDoc,
   mergeOrderDocs,
   normalizeFolderName,
-  paintsAtZoom,
-  presentOf,
-  projectFolderViewOf,
-  resolveOrderView as resolveOrderViewOf,
-  resolveVisibility,
-  saveOrderDoc,
-  visibleDomOf,
-  walkLeaf,
-  zFor,
-} from "#core/layer/index.js";
-import {
-  type OrderDoc,
-  NODE_KEY_PREFIX,
-  ORDER_KIND,
-  folderDocKey,
   childrenOf as orderChildrenOf,
   createBlock as orderCreateBlock,
   moveInto as orderMoveInto,
@@ -107,6 +96,15 @@ import {
   restore as orderRestore,
   stepNode as orderStepNode,
   suppress as orderSuppress,
+  paintsAtZoom,
+  presentOf,
+  projectFolderViewOf,
+  resolveOrderView as resolveOrderViewOf,
+  resolveVisibility,
+  saveOrderDoc,
+  visibleDomOf,
+  walkLeaf,
+  zFor,
 } from "#core/layer/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
 import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
@@ -3568,13 +3566,18 @@ class LayerController implements LayerAPI {
     const node = this.orderDoc.nodes[key];
     if (node === undefined) return null;
     if (node.kind === ORDER_KIND.LAYER) {
-      return this.layerRegistry.get(key.slice(NODE_KEY_PREFIX.LAYER.length))?.role ?? null;
+      return (
+        this.layerRegistry.get(key.slice(NODE_KEY_PREFIX.LAYER.length))?.role ?? null
+      );
     }
     const member = orderChildrenOf(this.orderDoc, key)[0];
     if (member !== undefined) {
       const mn = this.orderDoc.nodes[member];
       if (mn?.kind === ORDER_KIND.LAYER) {
-        return this.layerRegistry.get(member.slice(NODE_KEY_PREFIX.LAYER.length))?.role ?? null;
+        return (
+          this.layerRegistry.get(member.slice(NODE_KEY_PREFIX.LAYER.length))?.role ??
+          null
+        );
       }
     }
     return node.kind === ORDER_KIND.FOLDER ? (node.role ?? null) : null;

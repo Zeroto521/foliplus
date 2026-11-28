@@ -29,13 +29,13 @@ import {
 } from "./visibility.js";
 import {
   type LayerRole,
+  NODE_KEY_PREFIX,
   type ProjectedBlock,
   ROLE,
   folderEntries,
   folderOf,
   groupByFolder,
 } from "#core/layer/index.js";
-import { NODE_KEY_PREFIX } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
 import {

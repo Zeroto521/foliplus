@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   type LayerDeclaration,
   type LayerInfo,
+  ORDER_KIND,
+  type OrderDoc,
   type ProjectedBlock,
   type RoleOf,
   childrenOfView,
@@ -21,7 +23,6 @@ import {
   resolveOrderView,
   saveOrderDoc,
 } from "#core/layer/index.js";
-import { ORDER_KIND, type OrderDoc } from "#core/layer/index.js";
 
 const mapLike = () => ({ getContainer: () => ({ id: "map-x" }) });
 

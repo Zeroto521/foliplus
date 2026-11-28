@@ -124,7 +124,7 @@ describe("layer-order scenario matrix (design)", () => {
     };
     const present = presentOfIds(["a", "b", "c"]);
     const roleOf = (id: string): Role | null =>
-      ({ a: "overlay", b: "base", c: "base" })[id] ?? null;
+      (({ a: "overlay", b: "base", c: "base" }) as const)[id] ?? null;
     // c joins base's end after b.
     expect(projectZ(doc, present, roleOf, "base")).toEqual(["b", "c"]);
     expect(projectZ(doc, present, roleOf, "overlay")).toEqual(["a"]);
@@ -154,7 +154,7 @@ describe("layer-order scenario matrix (design)", () => {
     const doc = mergeOrderDocs(saved, defaults);
     const present = presentOfIds(["a", "b", "c"]);
     const roleOf = (id: string): Role | null =>
-      ({ a: "overlay", b: "base", c: "base" })[id] ?? null;
+      (({ a: "overlay", b: "base", c: "base" }) as const)[id] ?? null;
     // Why ['c','a','b']: mergeOrderDocs keeps the saved doc first (saved = user
     // intent), so c's saved rank a0 leads. The default-only nodes (a, b) are
     // re-ranked after the last saved rank, in declaration order (a at index 0,

@@ -49,8 +49,8 @@ describe("rank edges", () => {
 });
 
 describe("rank defensive guards + overflow edges", () => {
-  const smallestInt = "A" + "0".repeat(26);
-  const maxIntHead = "z" + "z".repeat(26);
+  const smallestInt = `A${"0".repeat(26)}`;
+  const maxIntHead = `z${"z".repeat(26)}`;
 
   it("rejects a key whose integer part is shorter than its head encodes", () => {
     expect(() => rankBetween("a", null)).toThrow(/invalid order key/);
@@ -74,7 +74,7 @@ describe("rank defensive guards + overflow edges", () => {
   });
 
   it("inserts before a key with the smallest integer part plus a fraction", () => {
-    const b = smallestInt + "1";
+    const b = `${smallestInt}1`;
     const x = rankBetween(null, b);
     expect(x < b).toBe(true);
   });
@@ -97,8 +97,8 @@ describe("rank overflow + prefix edges", () => {
   });
 
   it("increment stays at the max head via length-delta zero", () => {
-    const x = rankBetween("y" + "z".repeat(26), null);
-    expect("y" + "z".repeat(26) < x).toBe(true);
+    const x = rankBetween(`y${"z".repeat(26)}`, null);
+    expect(`y${"z".repeat(26)}` < x).toBe(true);
   });
 
   it("decrement crosses an integer-length boundary downward", () => {
@@ -113,8 +113,8 @@ describe("rank overflow + prefix edges", () => {
 });
 
 it("increment crosses an integer-length boundary downward", () => {
-  const x = rankBetween("Y" + "z".repeat(2), null);
-  expect("Y" + "z".repeat(2) < x).toBe(true);
+  const x = rankBetween(`Y${"z".repeat(2)}`, null);
+  expect(`Y${"z".repeat(2)}` < x).toBe(true);
 });
 
 it("decrement crosses an integer-length boundary upward", () => {

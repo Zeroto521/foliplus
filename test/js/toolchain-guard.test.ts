@@ -501,4 +501,53 @@ describe("guard-tree layout", () => {
       `no script/check/<name>.mjs twin — move to test/js/guard/: ${orphans.join(", ")}`,
     ).toEqual([]);
   });
+
+  it("keeps a test/js/guard/ directory for the repo-wide invariant guards", () => {
+    expect(existsSync(GUARD_DIR), "test/js/guard/ must exist").toBe(true);
+  });
+
+  const guardTests = () =>
+    readdirSync(GUARD_DIR)
+      .filter(n => n.endsWith(".test.ts"))
+      .map(n => n.replace(/\.test\.ts$/, ""))
+      .sort();
+
+  const isRegisteredGuard = (stem: string) => stem in GUARD_TREE_SUBJECTS;
+
+  it("every test/js/guard/ test is registered with the invariant it guards", () => {
+    const unregistered = guardTests().filter(stem => !isRegisteredGuard(stem));
+    expect(
+      unregistered,
+      `add an entry to GUARD_TREE_SUBJECTS saying what it guards: ${unregistered.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  it("the guard registration list is neither stale nor decorative", () => {
+    for (const stem of Object.keys(GUARD_TREE_SUBJECTS)) {
+      expect(
+        guardTests(),
+        `GUARD_TREE_SUBJECTS.${stem} matches no test/js/guard/${stem}.test.ts`,
+      ).toContain(stem);
+      expect(
+        GUARD_TREE_SUBJECTS[stem].trim().length,
+        `GUARD_TREE_SUBJECTS.${stem} needs a description`,
+      ).toBeGreaterThan(0);
+    }
+
+    // Counter-proof: the predicate must reject an unregistered stem, otherwise
+    // the loop above would keep passing after it stopped checking anything.
+    expect(isRegisteredGuard("vocabulary")).toBe(true);
+    expect(isRegisteredGuard("never-a-guard")).toBe(false);
+  });
+
+  it("every test in test/js/guard/ has NO script/check/<name>.mjs twin", () => {
+    const misplaced = readdirSync(GUARD_DIR)
+      .filter(n => n.endsWith(".test.ts"))
+      .map(n => n.replace(/\.test\.ts$/, ""))
+      .filter(n => existsSync(resolve(ROOT, "script/check", `${n}.mjs`)));
+    expect(
+      misplaced,
+      `has a script/check twin — belongs in script/check/: ${misplaced.join(", ")}`,
+    ).toEqual([]);
+  });
 });

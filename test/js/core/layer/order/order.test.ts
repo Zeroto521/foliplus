@@ -281,7 +281,7 @@ describe("commands", () => {
   });
 
   it("stepNode returns the unchanged doc at a boundary or for an unknown node", () => {
-    let d = doc({
+    const d = doc({
       "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
       "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
     });

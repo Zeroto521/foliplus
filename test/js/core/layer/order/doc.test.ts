@@ -6,12 +6,12 @@
 // its role and stays in place after its last member is suppressed, and a member
 // can be dragged back in. The doc node (not a block-order helper) is the source.
 import { describe, expect, it } from "vitest";
-import { layerKeyOf } from "#core/layer/index.js";
 import {
   ORDER_KIND,
   createBlock,
   emptyOrderDoc,
   folderDocKey,
+  layerKeyOf,
   moveInto,
   rankFirst,
   restore,
