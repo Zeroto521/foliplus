@@ -1,5 +1,5 @@
 // SearchControl constants — CSS classes, search parameters, zoom levels.
-import { scopedStorageKey } from "#platform/storage.js";
+import { STORAGE_SUFFIX, scopedStorageKey } from "#platform/storage.js";
 
 const MODE = { COORD: "coord", ADDR: "addr" } as const;
 const SOURCE = { SUGGESTION: "suggestion", HISTORY: "history" } as const;
@@ -41,7 +41,7 @@ const HISTORY = {
   /** Maximum entries to display per section (matches autocomplete limit). */
   MAX_DISPLAY: AUTOCOMPLETE.MAX_ITEMS,
   /** localStorage key for search history, scoped per map container. */
-  STORAGE_KEY: scopedStorageKey(map, "search"),
+  STORAGE_KEY: scopedStorageKey(map, STORAGE_SUFFIX.SEARCH),
 };
 
 /** Version stamp for the persisted history record (positive integer,

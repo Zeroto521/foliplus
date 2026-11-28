@@ -34,6 +34,7 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import {
   type MapLike,
+  STORAGE_SUFFIX,
   loadVersionedObject,
   saveVersionedObject,
   scopedStorageKey,
@@ -97,7 +98,8 @@ interface FolderBlock {
  *  indexed by folder key / layer id inside it — never a per-folder or per-layer
  *  key assembled at the call site (mirrors the filter-store key).
  *  Single-sourced from scopedStorageKey so the key shape cannot drift. */
-const folderLayoutKey = (map: MapLike): string => scopedStorageKey(map, "layer_layout");
+const folderLayoutKey = (map: MapLike): string =>
+  scopedStorageKey(map, STORAGE_SUFFIX.LAYER_LAYOUT);
 
 /** The longest folder name a declaration may carry, in Unicode code points.
  *  Mirrors FOLDER_NAME_MAX in Python's foliplus/_declaration/key.py: a folder
