@@ -46,7 +46,7 @@ subclass with `control=True` (the default). The recognised layer families:
 | `FeatureGroup` | one **group row** | see {ref}`group_rows` |
 | `LayerGroup` (folium `>=1.0.0`) | one **group row** | see {ref}`group_rows` |
 | `GeoJson` | one data row | see {ref}`geojson_boundaries` |
-| `ImageOverlay` | one row | pane-scoped like a vector layer |
+| `ImageOverlay` | one row | `<img>` relocated into its own pane for z/focus; opacity via the native `setOpacity` |
 
 Only classes that actually subclass {class}`folium.map.Layer` can become rows:
 the panel's collection pass keeps just those (`_collect.py`, `isinstance(item,

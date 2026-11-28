@@ -276,7 +276,7 @@ drops whole. A declaration whose value column the data no longer offers steps
 aside whole and falls back to the per-feature paint / built-in.
 
 Value-based fill needs an areal geometry. Polygons, MultiPolygons, Rectangles
-and circles repaint by value; a Polyline takes a stroke colour instead; a
+and circles repaint by value; a PolyLine takes a stroke colour instead; a
 marker is an icon and has no fill to repaint.
 
 (label)=
