@@ -52,7 +52,22 @@ _TABLE_PAIRS = {
 #: IDEOGRAPHIC SPACE and the BOM. Kept explicit because Python cannot evaluate
 #: the JS host's \s / trim() table.
 _JS_WHITESPACE = frozenset(
-    {0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0xA0, 0x1680, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF}
+    {
+        0x09,
+        0x0A,
+        0x0B,
+        0x0C,
+        0x0D,
+        0x20,
+        0xA0,
+        0x1680,
+        0x2028,
+        0x2029,
+        0x202F,
+        0x205F,
+        0x3000,
+        0xFEFF,
+    }
     | set(range(0x2000, 0x200B))
 )
 
@@ -78,7 +93,9 @@ def _js_source(source: str | None = None) -> str:
     return _normalise_newlines(text)
 
 
-def python_face_tables(source: str | None = None) -> dict[str, dict[str, tuple[str, ...]]]:
+def python_face_tables(
+    source: str | None = None,
+) -> dict[str, dict[str, tuple[str, ...]]]:
     """The two face vocabularies the Python normaliser ships."""
     tree = ast.parse(_python_face_source(source))
     tables: dict[str, dict[str, tuple[str, ...]]] = {}
@@ -136,9 +153,7 @@ def js_face_tables(source: str | None = None) -> dict[str, dict[str, tuple[str, 
                 continue
             reference = re.match(r"(\w+): (\w+)\.(\w+),$", chunk)
             if reference is not None:
-                refs[reference.group(1)] = (
-                    f"{reference.group(2)}.{reference.group(3)}"
-                )
+                refs[reference.group(1)] = f"{reference.group(2)}.{reference.group(3)}"
         for canonical, target in refs.items():
             table_name, referenced = target.split(".", 1)
             source_table = tables.get(table_name)
@@ -176,9 +191,7 @@ def js_trim_codepoints(source: str | None = None) -> tuple[int, ...]:
     )
     assert match is not None, "DECLARED_TRIM_CODEPOINTS not found in declaredParse.ts"
     return tuple(
-        int(token.strip(), 0)
-        for token in match.group(1).split(",")
-        if token.strip()
+        int(token.strip(), 0) for token in match.group(1).split(",") if token.strip()
     )
 
 

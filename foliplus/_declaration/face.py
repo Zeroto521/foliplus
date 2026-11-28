@@ -31,7 +31,6 @@ from .opacity import normalise_color_opacity
 from .paint import _declared_hex, trim_declared_string
 from .warning import warn_foliplus
 
-
 #: The icon face sub-dimensions: canonical camelCase key -> accepted spellings
 #: (canonical first). A multi-word key accepts the snake_case spelling because
 #: the author writes the raw Python dict (and older folium keeps it as-is).
