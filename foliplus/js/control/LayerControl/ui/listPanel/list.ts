@@ -1200,6 +1200,7 @@ export {
   updateLayerItemLabel,
   renderToggleAllRow,
   renderLayerItem,
+  rolesWithHeader,
   colorLayerName,
   initLayerItem,
   refreshTreeConnectors,
