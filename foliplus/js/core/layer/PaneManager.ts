@@ -643,7 +643,7 @@ class PaneManager {
       }
       if (!CONST.DECLARED_PANE_ROLES.includes(spec.role)) {
         log.warn(
-          `PaneSpec.role rejected ("${String(spec.role)}" is not a declared role); keeping the spec but falling back to "base"`,
+          `PaneSpec.role rejected ("${String(spec.role)}" is not a declared role); keeping the spec but falling back to ${CONST.PANE_ROLE.BASE}`,
         );
         this.paneSpecs.set(spec.name, {
           ...spec,

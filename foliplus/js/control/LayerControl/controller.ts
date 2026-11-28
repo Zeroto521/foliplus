@@ -1111,7 +1111,7 @@ class LayerController implements LayerAPI {
           const out: OrderDoc = {
             nodes: {
               ...doc.nodes,
-              [fKey]: { kind: "folder", parent: null, rank, name: folder, role },
+              [fKey]: { kind: ORDER_KIND.FOLDER, parent: null, rank, name: folder, role },
             },
           };
           return {
@@ -1139,7 +1139,7 @@ class LayerController implements LayerAPI {
         prev === null && nextR === null
           ? orderRankStart()
           : orderRankBetween(prev, nextR);
-      out.nodes[key] = { kind: "layer", parent, rank };
+      out.nodes[key] = { kind: ORDER_KIND.LAYER, parent, rank };
     };
     if (folder && folderKeyOf(folder) !== "") {
       const fKey = folderDocKey(role, folderKeyOf(folder));
@@ -1150,7 +1150,7 @@ class LayerController implements LayerAPI {
             ? doc.nodes[rootSiblings[rootSiblings.length - 1]].rank
             : null;
         const rank = prev === null ? orderRankStart() : orderRankAfter(prev);
-        out.nodes[fKey] = { kind: "folder", parent: null, rank, name: folder, role };
+        out.nodes[fKey] = { kind: ORDER_KIND.FOLDER, parent: null, rank, name: folder, role };
       }
       insertLeaf(fKey, base === "top");
     } else {
@@ -2811,7 +2811,7 @@ class LayerController implements LayerAPI {
               if (this.orderDoc.nodes[roleKey] !== undefined) return roleKey;
               const hit = Object.entries(this.orderDoc.nodes).find(
                 ([, n]) =>
-                  n.kind === "folder" &&
+                  n.kind === ORDER_KIND.FOLDER &&
                   n.role === layerInfo.role &&
                   n.name === beforeEntry,
               );
@@ -3034,7 +3034,7 @@ class LayerController implements LayerAPI {
    *  `zFor` directly, but this wrapper stays because LayerController is the
    *  LayerAPI entry point — removing it would break the contract. Tests and
    *  probes may still call it. Do not grow this into real logic. */
-  computeZIndex(i: number, role: "base" | "overlay"): number {
+  computeZIndex(i: number, role: LayerRole): number {
     return zFor({ index: i, count: this.layers.length, role });
   }
 
