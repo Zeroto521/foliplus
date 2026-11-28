@@ -627,7 +627,7 @@ describe("drag — block resolution at the role edges", () => {
     expect(memberRow.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
 
     handleDrop(ui, dragEvent(memberRow, { dropEffect: "" }, 130));
-    expect(ui.c.folderLayoutView.order.overlay).toEqual(["b", "a"]);
+    expect(ui.c.folderView.order.overlay).toEqual(["b", "a"]);
   });
 
   it("places a layer after a folder block that precedes a root layer", () => {

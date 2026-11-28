@@ -109,7 +109,7 @@ export const makeUi = (
 };
 
 /** A layout document with the given overlay folder keys in block order. */
-export const folderLayoutDoc = (keys: string[]) => ({
+export const folderViewDoc = (keys: string[]) => ({
   version: 2,
   folders: keys.map(k => ({ key: k, name: k })),
   order: { overlay: keys },
@@ -118,7 +118,7 @@ export const folderLayoutDoc = (keys: string[]) => ({
 
 export const folderFixture = (keys: string[]) =>
   initFixture({
-    seedLayout: folderLayoutDoc(keys),
+    seedLayout: folderViewDoc(keys),
     data: keys.map(k => ({
       id: `${k}1`,
       name: `${k}1`,

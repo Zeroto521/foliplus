@@ -13,7 +13,7 @@ import { saveState, setVisibleIntent } from "../state.js";
 import type { LayerUI } from "../surface.js";
 import { applyRowView, buildRowCell, countTooltip, writeRoleCount } from "./rowView.js";
 import {
-  type FolderLayout,
+  type FolderView,
   INTENT,
   ROLE,
   folderOf,
@@ -333,7 +333,7 @@ type RoleAggregates = {
 };
 
 /** The panel state one role table is derived from, captured when it was
- *  built. `layout` compares by IDENTITY: `FolderLayoutManager.layout` is
+ *  built. `layout` compares by IDENTITY: `FolderViewManager.layout` is
  *  replaced — never mutated — by every folder write, so an identity match
  *  proves no membership moved. `visibility` hashes every layer's resolved
  *  visibility input — the explicit intent when there is one, the author
@@ -342,7 +342,7 @@ type RoleAggregates = {
  *  is the task window the cache lives in (see `aggregateCaches`). */
 type AggregateStamp = {
   epoch: number;
-  layout: FolderLayout | undefined;
+  layout: FolderView | undefined;
   visibility: number;
   folded: string;
 };
@@ -408,7 +408,7 @@ const foldSignature = (ui: LayerUI): string =>
 
 const stampOf = (ui: LayerUI): AggregateStamp => ({
   epoch: aggregateEpoch,
-  layout: ui.c.folderLayoutView,
+  layout: ui.c.folderView,
   visibility: visibilityHash(ui),
   folded: foldSignature(ui),
 });
@@ -425,7 +425,7 @@ const sameStamp = (a: AggregateStamp, b: AggregateStamp): boolean =>
  *  work instead of F scans of L layers, and a role count and a folder count
  *  can never disagree about a member. */
 const buildRoleTables = (ui: LayerUI): Map<string, RoleAggregates> => {
-  const layout = ui.c.folderLayoutView;
+  const layout = ui.c.folderView;
   const tables = new Map<string, RoleAggregates>();
   for (const info of ui.c.layerRegistry.items) {
     let table = tables.get(info.role);
@@ -477,7 +477,7 @@ const setFolderVisible = (
   folderKey: string,
   visible: boolean,
 ): void => {
-  const layout = ui.c.folderLayoutView;
+  const layout = ui.c.folderView;
   const moved = new Map<string, ProjectionDelta>();
   for (const info of ui.c.layerRegistry.items) {
     if (info.role !== role) continue;

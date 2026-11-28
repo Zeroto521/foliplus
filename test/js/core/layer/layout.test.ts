@@ -20,8 +20,7 @@ import {
   resolveOrderView,
   saveOrderDoc,
 } from "#core/layer/index.js";
-import type { OrderDoc } from "#core/layer/order/index.js";
-import { ORDER_KIND } from "#core/layer/order/index.js";
+import { ORDER_KIND, type OrderDoc } from "#core/layer/order/index.js";
 
 const mapLike = () => ({ getContainer: () => ({ id: "map-x" }) });
 

@@ -1,15 +1,15 @@
 // core/layer/folderView — the read-only folder layout view derived from the order doc.
 //
-// The order document (core/order) is the single order source; this module is the
-// READ-side projection the panel consumes (projectLayoutOf derives a FolderLayout
+// The order document (core/layer/order) is the single order source; this module is the
+// READ-side projection the panel consumes (projectFolderViewOf derives a FolderView
 // from the doc, and the controller holds it as the derived mirror). It owns:
-//   - the FolderLayout / FolderEntry / FolderMember view shapes,
+//   - the FolderView / FolderEntry / FolderMember view shapes,
 //   - the pure read helpers over a layout (folderOf / folderKeysOfRole /
 //     nextFolderDefaultName / folderEntries / groupByFolder / rootLayerEntry).
 //
 // There is NO persistence here: the order doc is persisted (layout/persist),
 // the layout mirror is never written, and a folder's create / rename / delete /
-// move now goes through the core/order commands + applyDoc.
+// move now goes through the core/layer/order commands + applyDoc.
 //
 // The identity key = (role, normalize(name)); normalize = NFC → whitespace fold
 // → trim → casefold (locale-independent). displayName = first-seen original
@@ -36,9 +36,9 @@ interface FolderMember {
 }
 
 /** The derived folder layout view. The controller builds it from the order doc
- *  (projectLayoutOf) and never persists it; folder identity, block order and
+ *  (projectFolderViewOf) and never persists it; folder identity, block order and
  *  member assignment are projections of the doc's node tree. */
-interface FolderLayout {
+interface FolderView {
   /** Folder identity directory: stable keys + display names. */
   folders: FolderEntry[];
   /** Per-role ordered folder key array = block order (the order is the truth:
@@ -82,7 +82,7 @@ const folderEntries = (order: readonly string[]): string[] =>
  *  members entry is the single source of truth (an empty string = materialised
  *  root); only when NO members entry exists does the author's declaration seed
  *  the assignment. */
-const folderOf = (layout: FolderLayout, layer: LayerInfo): string | null => {
+const folderOf = (layout: FolderView, layer: LayerInfo): string | null => {
   const assigned = layout.members[layer.id];
   const folder = assigned !== undefined ? assigned.folder : (layer.folder ?? "");
   // The folder's IDENTITY is its normalised key: order, folders and every
@@ -96,7 +96,7 @@ const folderOf = (layout: FolderLayout, layer: LayerInfo): string | null => {
  *  assignments, unioned. An empty folder (created but not yet holding a layer)
  *  is in the order; an author-declared folder the user has not touched is only
  *  in `members`. Reading one of the two would miss the other. */
-const folderKeysOfRole = (layout: FolderLayout, role: LayerRole): string[] => {
+const folderKeysOfRole = (layout: FolderView, role: LayerRole): string[] => {
   const keys = new Set<string>(folderEntries(layout.order[role] ?? []));
   for (const m of Object.values(layout.members)) {
     if (m.role === role && m.folder) keys.add(m.folder);
@@ -107,7 +107,7 @@ const folderKeysOfRole = (layout: FolderLayout, role: LayerRole): string[] => {
 /** The default name for a new folder: `base`, or the smallest free ordinal
  *  suffix so a second create never collides with the first. */
 const nextFolderDefaultName = (
-  layout: FolderLayout,
+  layout: FolderView,
   role: LayerRole,
   base: string,
 ): string => {
@@ -145,7 +145,7 @@ const nextFolderDefaultName = (
 const groupByFolder = (
   registryEntries: readonly LayerInfo[],
   role: LayerRole,
-  layout: FolderLayout,
+  layout: FolderView,
 ): Map<string, FolderBlock> => {
   const map = new Map<string, FolderBlock>();
   registryEntries.forEach((entry, globalIndex) => {
@@ -182,4 +182,4 @@ export {
   nextFolderDefaultName,
   rootLayerEntry,
 };
-export type { FolderLayout, FolderEntry, FolderMember };
+export type { FolderView, FolderEntry, FolderMember };

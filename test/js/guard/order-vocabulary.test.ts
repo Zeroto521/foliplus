@@ -43,18 +43,17 @@ describe("order-vocabulary guard", () => {
       lines.forEach((line, i) => {
         for (const word of VOCAB) {
           const q = new RegExp(QUOTE_CLASS + word + QUOTE_CLASS);
-          if (q.test(line))
-            violations.push(rel + ":" + (i + 1) + ': bare "' + word + '" literal');
+          if (q.test(line)) {
+            violations.push(`${rel}:${i + 1}: bare "${word}" literal`);
+          }
         }
         for (const prefix of PREFIXES) {
           if (
             line.includes(String.fromCharCode(96) + prefix) ||
-            line.includes('"' + prefix + '"') ||
-            line.includes("\x27" + prefix + "\x27")
+            line.includes(`"${prefix}"`) ||
+            line.includes(`'${prefix}'`)
           ) {
-            violations.push(
-              rel + ":" + (i + 1) + ': hand-concatenated "' + prefix + '" prefix',
-            );
+            violations.push(`${rel}:${i + 1}: hand-concatenated "${prefix}" prefix`);
           }
         }
       });

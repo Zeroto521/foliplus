@@ -6,8 +6,7 @@
 // no version field and no migrator: an unknown or incomplete shape fails isOrderDoc
 // and the caller falls back to the default document.
 import { ROLE } from "../const.js";
-import { NODE_KEY_PREFIX, ORDER_KIND } from "./kind.js";
-import type { OrderKind } from "./kind.js";
+import { NODE_KEY_PREFIX, ORDER_KIND, type OrderKind } from "./kind.js";
 import { isNonEmptyString } from "./util.js";
 import type { LayerRole } from "#core/layer/index.js";
 

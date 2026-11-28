@@ -37,7 +37,7 @@ import {
   type FilterEnumDimension,
   type FilterRangeDimension,
   type FilterStore,
-  type FolderLayout,
+  type FolderView,
   GEOM_TYPE,
   HIDDEN,
   type IconIntent,
@@ -83,7 +83,7 @@ import {
   normalizeFolderName,
   paintsAtZoom,
   presentOf,
-  projectLayoutOf,
+  projectFolderViewOf,
   resolveOrderView as resolveOrderViewOf,
   resolveVisibility,
   saveOrderDoc,
@@ -453,12 +453,12 @@ class LayerController implements LayerAPI {
   declare debouncedEnforce: Debounced;
   persistence: LayerPersistence;
   /** The derived folder layout (folder identity, block order and member
-   *  assignment), projected from the order doc by projectLayoutOf. The doc is
+   *  assignment), projected from the order doc by projectFolderViewOf. The doc is
    *  the single source; this mirror is re-derived on every applyDoc and is
-   *  never persisted. Reads go through `folderLayoutView` / `folderOf`. */
-  private folderLayoutValue!: FolderLayout;
+   *  never persisted. Reads go through `folderView` / `folderOf`. */
+  private folderViewValue!: FolderView;
   /** The single order source: the order document. The layout mirror and
-   *  the registry array are DERIVED from it (projectLayoutOf + resolveOrderView),
+   *  the registry array are DERIVED from it (projectFolderViewOf + resolveOrderView),
    *  so nothing can diverge from the doc by construction. Persisted as the
    *  bare record (no version); an unknown record is dropped and rebuilt as
    *  the default. */
@@ -1011,8 +1011,8 @@ class LayerController implements LayerAPI {
     return this.layerRegistry.layers;
   }
   /** The folder layout read view (read-only; derived from the order doc). */
-  get folderLayoutView(): FolderLayout {
-    return this.folderLayoutValue;
+  get folderView(): FolderView {
+    return this.folderViewValue;
   }
   /** Read the persisted doc: the saved record merged over the default built
    *  from CONF.data declaration order when it exists, else the default. An
@@ -1049,7 +1049,7 @@ class LayerController implements LayerAPI {
     );
   }
 
-  /** Apply a doc to the derived state: the layout mirror (projectLayoutOf) and
+  /** Apply a doc to the derived state: the layout mirror (projectFolderViewOf) and
    *  the registry array (the z axis, via normalizeGroups). The mirror is
    *  derived, so it is written with setDerived (never persisted). A no-op
    *  command (same doc reference) skips the whole apply. */
@@ -1059,8 +1059,8 @@ class LayerController implements LayerAPI {
     const present = presentOf(this.layerRegistry.layers);
     const view = resolveOrderViewOf(next, present, this.layerRegistry.layers);
     this.lastView = view;
-    const derived = projectLayoutOf(next, present, this.layerRegistry.layers);
-    this.folderLayoutValue = derived;
+    const derived = projectFolderViewOf(next, present, this.layerRegistry.layers);
+    this.folderViewValue = derived;
     this.layerRegistry.normalizeGroups(view.z);
     if (opts.persist) this.persistOrderDoc();
   }
@@ -1219,10 +1219,10 @@ class LayerController implements LayerAPI {
   folderNameOf(layerId: string): string | null {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return null;
-    const folder = folderOf(this.folderLayoutValue, layerInfo);
+    const folder = folderOf(this.folderViewValue, layerInfo);
     if (!folder) return null;
     const key = normalizeFolderName(folder);
-    return this.folderLayoutValue.folders.find(f => f.key === key)?.name ?? folder;
+    return this.folderViewValue.folders.find(f => f.key === key)?.name ?? folder;
   }
 
   /** The stable key of the folder a layer belongs to, or null at root. Every
@@ -1231,7 +1231,7 @@ class LayerController implements LayerAPI {
   folderKeyOf(layerId: string): string | null {
     const layerInfo = this.layerRegistry.get(layerId);
     if (!layerInfo) return null;
-    const folder = folderOf(this.folderLayoutValue, layerInfo);
+    const folder = folderOf(this.folderViewValue, layerInfo);
     return folder ? normalizeFolderName(folder) : null;
   }
 
@@ -2451,7 +2451,7 @@ class LayerController implements LayerAPI {
     // empty-folder cleanup button must stay reachable after the last layer
     // goes (hard constraint 1 / builder-4 ④). Only FOLDER keys count — a
     // root-layer entry (`layer:<id>`) in the order mirror is not a folder.
-    const roleKeys = (this.folderLayoutValue.order[role] ?? []).filter(
+    const roleKeys = (this.folderViewValue.order[role] ?? []).filter(
       key => !key.startsWith("layer:"),
     );
     if (!container.querySelector(anchorSel) && roleKeys.length === 0) {
@@ -2787,7 +2787,7 @@ class LayerController implements LayerAPI {
     const duplicate =
       this.orderDoc.nodes[folderKey] !== undefined ||
       this.layerRegistry.layers.some(
-        l => l.role === role && folderOf(this.folderLayoutValue, l) === key,
+        l => l.role === role && folderOf(this.folderViewValue, l) === key,
       );
     if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the root tail through the doc (the

@@ -41,8 +41,8 @@ describe("deleteFolder", () => {
     // v2: the author declaration is untouched; the member pin drives the UI.
     expect(manager.folderNameOf("rd1")).toBeNull();
     expect(manager.folderNameOf("missing")).toBeNull();
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
-    expect(manager.folderLayoutView.members.rd1).toEqual({
+    expect(manager.folderView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderView.members.rd1).toEqual({
       role: "overlay",
       folder: "",
     });
@@ -58,7 +58,7 @@ describe("deleteFolder", () => {
     const ok = manager.deleteFolder("overlay", "roads");
 
     expect(ok).toBe(true);
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).not.toContain("roads");
     expect(readOrderTreeStorage(manager.map)).not.toBeNull();
   });
 
@@ -92,8 +92,8 @@ describe("deleteFolder", () => {
     const ok = manager.deleteFolder("base", "foo");
 
     expect(ok).toBe(true);
-    expect(manager.folderLayoutView.order.base ?? []).not.toContain("foo");
-    expect(manager.folderLayoutView.order.overlay ?? []).toContain("foo");
+    expect(manager.folderView.order.base ?? []).not.toContain("foo");
+    expect(manager.folderView.order.overlay ?? []).toContain("foo");
   });
 
   it("a later freeze of another folder does not bring a deleted folder back", () => {
@@ -121,15 +121,15 @@ describe("deleteFolder", () => {
       ],
     });
     manager.deleteFolder("overlay", "roads");
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).not.toContain("roads");
 
     // Water loses its last member -> freezeSectionOrder runs.
     manager.map.hasLayer.mockReturnValue(true);
     manager.deleteLayer("wt1");
     manager.map.hasLayer.mockReturnValue(false);
 
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
-    expect(manager.folderLayoutView.order.overlay ?? []).toContain("water");
+    expect(manager.folderView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).toContain("water");
   });
 
   it("deleteFolder does not go through freezeEmptyFolder", () => {
@@ -151,7 +151,7 @@ describe("deleteFolder", () => {
     expect(manager.folderNameOf("rd1")).toBeNull();
     // If the implementation wrongly went through freezeEmptyFolder first, the
     // key would be written back then deleted — but the order must not keep it.
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).not.toContain("roads");
   });
 
   it("[BR-1] deleteFolder: opts.persist=false skips the layout write", () => {
@@ -164,7 +164,7 @@ describe("deleteFolder", () => {
     const ok = manager.deleteFolder("overlay", "roads", { persist: false });
 
     expect(ok).toBe(true);
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).not.toContain("roads");
     expect(window.localStorage.getItem(orderKeyOf(manager.map))).toBeNull();
   });
 
@@ -188,7 +188,7 @@ describe("deleteFolder", () => {
     (manager as any).ui = null;
     const ok = manager.deleteFolder("overlay", "roads");
     expect(ok).toBe(true);
-    expect(manager.folderLayoutView.order.overlay ?? []).not.toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).not.toContain("roads");
     expect(reindex).not.toHaveBeenCalled();
   });
 });
@@ -218,9 +218,7 @@ describe("cleanEmptyFolders", () => {
 
     expect(count).toBe(2);
     expect(
-      (manager.folderLayoutView.order.overlay ?? []).filter(
-        k => !k.startsWith("layer:"),
-      ),
+      (manager.folderView.order.overlay ?? []).filter(k => !k.startsWith("layer:")),
     ).toEqual(["full"]);
     expect(readOrderTreeStorage(manager.map)).not.toBeNull();
   });
@@ -397,8 +395,8 @@ describe("createFolder", () => {
     // The key travels back so the caller can open the inline rename on the row
     // it just created without re-deriving it from the name.
     expect(ok).toEqual({ ok: true, key: "roads" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
-    expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "Roads" }]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.folders).toEqual([{ key: "roads", name: "Roads" }]);
     expect(readOrderTreeStorage(manager.map)).not.toBeNull();
   });
 
@@ -411,7 +409,7 @@ describe("createFolder", () => {
     const ok = manager.createFolder("overlay", "Roads");
 
     expect(ok).toEqual({ ok: true, key: "roads" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["water", "roads"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["water", "roads"]);
   });
 
   it("createFolder rejects a blank name", () => {
@@ -430,8 +428,8 @@ describe("createFolder", () => {
     const ok = manager.createFolder("overlay", "f".repeat(FOLDER_NAME_MAX + 1));
 
     expect(ok).toEqual({ ok: false, reason: "too-long" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual([]);
-    expect(manager.folderLayoutView.folders).toEqual([]);
+    expect(manager.folderView.order.overlay ?? []).toEqual([]);
+    expect(manager.folderView.folders).toEqual([]);
     expect(readLayoutStorage(manager.map)).toBeNull();
     expect(warn).toHaveBeenCalledOnce();
     expect(String(warn.mock.calls[0][0])).toContain(
@@ -449,7 +447,7 @@ describe("createFolder", () => {
     const ok = manager.createFolder("overlay", "roads");
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("createFolder allows the same name in a different role", () => {
@@ -464,12 +462,10 @@ describe("createFolder", () => {
     expect(okOverlay).toEqual({ ok: true, key: "roads" });
     expect(okBase).toEqual({ ok: false, reason: "duplicate" }); // base already has "roads"
     expect(
-      (manager.folderLayoutView.order.overlay ?? []).filter(
-        k => !k.startsWith("layer:"),
-      ),
+      (manager.folderView.order.overlay ?? []).filter(k => !k.startsWith("layer:")),
     ).toEqual(["roads"]);
     expect(
-      (manager.folderLayoutView.order.base ?? []).filter(k => !k.startsWith("layer:")),
+      (manager.folderView.order.base ?? []).filter(k => !k.startsWith("layer:")),
     ).toEqual(["roads"]);
   });
 
@@ -490,7 +486,7 @@ describe("createFolder", () => {
     const ok = manager.createFolder("overlay", "Roads");
 
     expect(ok).toEqual({ ok: true, key: "roads" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("createFolder writes the layout and reindexes", () => {
@@ -522,7 +518,7 @@ describe("createFolder", () => {
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
     // The declared folder is materialised in the tree, so it is present.
-    expect(manager.folderLayoutView.order.overlay ?? []).toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).toContain("roads");
   });
 
   it("createFolder honours persist:false and tolerates a detached UI", () => {
@@ -533,7 +529,7 @@ describe("createFolder", () => {
     const ok = manager.createFolder("overlay", "Roads", { persist: false });
 
     expect(ok).toEqual({ ok: true, key: "roads" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
     expect(window.localStorage.getItem(orderKeyOf(manager.map))).toBeNull();
   });
 });
@@ -568,12 +564,12 @@ describe("reorderFolder", () => {
     });
     // Author-declared folders are materialised in the tree, so the derived
     // mirror order starts at the declared folder keys.
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["alpha", "beta"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["alpha", "beta"]);
 
     const ok = manager.reorderFolder("overlay", "alpha", "beta", true);
 
     expect(ok).toBe(true);
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["beta", "alpha"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["beta", "alpha"]);
   });
 });
 
@@ -629,8 +625,8 @@ describe("moveLayerToFolder / moveLayerToRootAt", () => {
     manager.createFolder("overlay", "Gamma");
 
     expect(manager.moveLayerToRootAt("r1", "beta")).toBe(true);
-    expect(manager.folderLayoutView.order.overlay ?? []).toContain("layer:r1");
-    const order = manager.folderLayoutView.order.overlay ?? [];
+    expect(manager.folderView.order.overlay ?? []).toContain("layer:r1");
+    const order = manager.folderView.order.overlay ?? [];
     expect(order.indexOf("layer:r1")).toBeLessThan(order.indexOf("beta"));
   });
 });
@@ -669,8 +665,8 @@ describe("renameFolder", () => {
     expect(manager.layerRegistry.get("rd1")!.folder).toBe("Roads");
     expect(manager.layerRegistry.get("wt1")!.folder).toBe("Water");
     expect(manager.folderNameOf("rd1")).toBe("Streets");
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
-    expect(manager.folderLayoutView.folders).toEqual([
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads", "water"]);
+    expect(manager.folderView.folders).toEqual([
       { key: "roads", name: "Streets" },
       { key: "water", name: "water" },
     ]);
@@ -685,7 +681,7 @@ describe("renameFolder", () => {
     const ok = manager.renameFolder("overlay", "roads", "  Streets  ");
 
     expect(ok).toEqual({ ok: true });
-    expect(manager.folderLayoutView.folders[0]).toEqual({
+    expect(manager.folderView.folders[0]).toEqual({
       key: "roads",
       name: "Streets",
     });
@@ -700,7 +696,7 @@ describe("renameFolder", () => {
     const ok = manager.renameFolder("overlay", "roads", "Water");
 
     expect(ok).toEqual({ ok: false, reason: "duplicate" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads", "water"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads", "water"]);
   });
 
   it("renameFolder rejects a blank new name", () => {
@@ -719,7 +715,7 @@ describe("renameFolder", () => {
       seedOrderTree: orderFromRoles({ overlay: ["roads"] }),
       data: [],
     });
-    const before = manager.folderLayoutView.folders;
+    const before = manager.folderView.folders;
     const warn = vi.spyOn((manager as any).log, "warn").mockImplementation(() => {});
 
     const ok = manager.renameFolder(
@@ -729,8 +725,8 @@ describe("renameFolder", () => {
     );
 
     expect(ok).toEqual({ ok: false, reason: "too-long" });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
-    expect(manager.folderLayoutView.folders).toEqual(before);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.folders).toEqual(before);
     expect(warn).toHaveBeenCalledOnce();
     expect(String(warn.mock.calls[0][0])).toContain(
       `expected at most ${FOLDER_NAME_MAX}`,
@@ -767,7 +763,7 @@ describe("renameFolder", () => {
 
     expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("streets");
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("renameFolder to the folder's own normalised name rewrites the display name", () => {
@@ -781,8 +777,8 @@ describe("renameFolder", () => {
     const ok = manager.renameFolder("overlay", "roads", "roads");
 
     expect(ok).toEqual({ ok: true });
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
-    expect(manager.folderLayoutView.folders).toEqual([{ key: "roads", name: "roads" }]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.folders).toEqual([{ key: "roads", name: "roads" }]);
   });
 
   it("renameFolder renames an unlisted folder that has live members", () => {
@@ -804,7 +800,7 @@ describe("renameFolder", () => {
     expect(ok).toEqual({ ok: true });
     expect(manager.folderNameOf("rd1")).toBe("Streets");
     // The key is stable and the materialised folder stays in the order.
-    expect(manager.folderLayoutView.order.overlay ?? []).toEqual(["roads"]);
+    expect(manager.folderView.order.overlay ?? []).toEqual(["roads"]);
   });
 
   it("renameFolder rejects a new name already held by a live member in the same role", () => {
@@ -845,7 +841,7 @@ describe("renameFolder", () => {
     const ok = manager.renameFolder("overlay", "roads", "Streets", { persist: false });
 
     expect(ok).toEqual({ ok: true });
-    expect(manager.folderLayoutView.folders[0]).toEqual({
+    expect(manager.folderView.folders[0]).toEqual({
       key: "roads",
       name: "Streets",
     });

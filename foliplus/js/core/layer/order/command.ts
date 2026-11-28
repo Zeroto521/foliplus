@@ -49,8 +49,9 @@ const restore = (doc: OrderDoc, key: string): OrderDoc => {
 const moveBefore = (doc: OrderDoc, key: string, targetKey: string): OrderDoc => {
   const node = doc.nodes[key];
   const target = doc.nodes[targetKey];
-  if (node === undefined || target === undefined || node.kind !== ORDER_KIND.LAYER)
+  if (node === undefined || target === undefined || node.kind !== ORDER_KIND.LAYER) {
     return doc;
+  }
   const parent = target.parent;
   const siblings = childrenOf(doc, parent);
   // targetKey is always in siblings (a node is a child of its own parent by

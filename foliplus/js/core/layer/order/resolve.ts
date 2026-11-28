@@ -6,8 +6,7 @@
 // partitions rows by role. The z ladder is a DFS leaf flatten of the whole subtree
 // — a block does not change z semantics, it is only panel grouping.
 import { ORDER_MAX_DEPTH, type OrderDoc, orderDepth } from "./doc.js";
-import { ORDER_KIND } from "./kind.js";
-import type { OrderKind } from "./kind.js";
+import { ORDER_KIND, type OrderKind } from "./kind.js";
 
 /** A container row: a folder or group header with its subtree leaves. */
 interface ContainerRow {

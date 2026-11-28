@@ -1,4 +1,4 @@
-// core/order/doc — the order-document semantics that replaced the retired
+// core/layer/order/doc — the order-document semantics that replaced the retired
 // folder-layout ordering helpers (the retired order-pass).
 //
 // The contract pinned here is the one the old folder-layout domain used to own:
@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { layerKeyOf } from "#core/layer/index.js";
 import {
+  ORDER_KIND,
   createBlock,
   emptyOrderDoc,
   folderDocKey,
@@ -16,7 +17,6 @@ import {
   restore,
   suppress,
 } from "#core/layer/order/index.js";
-import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const folderKey = folderDocKey("overlay", "roads");
 

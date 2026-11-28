@@ -307,7 +307,7 @@ describe("ui/list row placement", () => {
     // A third-party control (HeatmapControl/MeasureControl) registers a layer
     // AFTER the initial render with an author-declared folder (CONFIG.folder,
     // forwarded through createCanvas/createLayers). The declaration seeds the
-    // layout (registerLayer → folderLayout.seed), and insertLayerItem must
+    // layout (registerLayer → folderView.seed), and insertLayerItem must
     // place the row inside the folder block, not at registry depth.
     const { manager, ui } = initFixture({
       seed: { order: ["A", "B", "H"] },

@@ -2,13 +2,13 @@
 // defensive branches so the order-system rework keeps whole patch coverage.
 import { describe, expect, it } from "vitest";
 import {
+  ORDER_KIND,
   type OrderDoc,
   folderBareOf,
   isOrderDoc,
   orderDepth,
   sanitizeOrderDoc,
 } from "#core/layer/order/index.js";
-import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 

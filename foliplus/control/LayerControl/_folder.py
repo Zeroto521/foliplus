@@ -30,7 +30,7 @@ FOLDER_DEFAULT_KEYS = ("name", "folded")
 
 
 #: The folder-default identity key. Mirrors the JS reader's normalizeFolderName
-#: (foliplus/js/core/layer/folderLayout.ts): NFC → whitespace fold → trim →
+#: (foliplus/js/core/layer/folderView.ts): NFC → whitespace fold → trim →
 #: casefold. Python emits the *display* name (first-seen, trimmed) while JS
 #: keys on the folded form, so the two must agree on what counts as the same
 #: folder. `.lower()` (not `.casefold()`) to match JS `toLowerCase()` — the

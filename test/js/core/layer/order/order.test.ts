@@ -1,6 +1,7 @@
 // test/js/core/layer/order/order.test.ts — document validation and the command library.
 import { describe, expect, it } from "vitest";
 import {
+  ORDER_KIND,
   type OrderDoc,
   childrenOf,
   createBlock,
@@ -16,7 +17,6 @@ import {
   sanitizeOrderDoc,
   suppress,
 } from "#core/layer/order/index.js";
-import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 

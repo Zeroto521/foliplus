@@ -56,7 +56,7 @@ export {
   folderNameLength,
   folderNameTooLong,
 } from "./folderName.js";
-export type { FolderLayout, FolderEntry, FolderMember } from "./folderView.js";
+export type { FolderView, FolderEntry, FolderMember } from "./folderView.js";
 // The class, not `type.ts`'s interface of the same name: it is what the manager
 // constructs, and its type already carries the surface contract (the interface
 // is the `implements` target those members are checked against). Exporting both
@@ -128,7 +128,7 @@ export {
   presentOf,
   projectBlocks,
   projectRows,
-  projectLayoutOf,
+  projectFolderViewOf,
   projectView,
   projectZ,
   resolveOrderView,

@@ -2,13 +2,13 @@
 // (declaration-order tie-break, unknown keys, depth cap, missing names).
 import { describe, expect, it } from "vitest";
 import {
+  ORDER_KIND,
   type OrderDoc,
   childrenOf,
   leafKeysOf,
   resolveView,
   subtreeLeaves,
 } from "#core/layer/order/index.js";
-import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 

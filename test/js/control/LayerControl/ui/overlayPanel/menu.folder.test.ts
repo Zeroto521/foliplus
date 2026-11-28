@@ -67,7 +67,7 @@ describe("ui/list folder rows (menu)", () => {
 
     const defaultName = ui.T("new_folder_default_name");
     const key = normalizeFolderName(defaultName);
-    expect(ui.c.folderLayoutView.order.overlay).toContain(key);
+    expect(ui.c.folderView.order.overlay).toContain(key);
     // The empty folder owns a row, and the inline rename opens on it with the
     // default name selected so the user can type over it immediately.
     const row = ui.uiContainer!.querySelector(
@@ -353,8 +353,8 @@ describe("ui/list folder rows (menu)", () => {
     input.value = "roads-renamed";
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     // A rename rewrites the DISPLAY name, not the identity key (the key is
-    // stable; folderLayout.renameFolder updates only the directory entry name).
-    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    // stable; folderView.renameFolder updates only the directory entry name).
+    const folder = ui.c.folderView.folders.find(f => f.key === "roads");
     expect(folder?.name).toBe("roads-renamed");
   });
 
@@ -391,7 +391,7 @@ describe("ui/list folder rows (menu)", () => {
     input.value = "roads-renamed";
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
     // Escape cancels: the folder keeps its original name.
-    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    const folder = ui.c.folderView.folders.find(f => f.key === "roads");
     expect(folder?.name).toBe("roads");
   });
 
@@ -500,7 +500,7 @@ describe("ui/list folder rows (menu)", () => {
     // The second create must not collide with the first: the default name
     // takes the smallest free ordinal.
     const base = ui.T("new_folder_default_name");
-    const keys = ui.c.folderLayoutView.order.overlay;
+    const keys = ui.c.folderView.order.overlay;
     expect(keys).toContain(normalizeFolderName(base));
     expect(keys).toContain(normalizeFolderName(`${base} 2`));
   });
@@ -627,7 +627,7 @@ describe("ui/list folder rows (menu)", () => {
     ) as HTMLInputElement;
     input.value = "roads";
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    const folder = ui.c.folderLayoutView.folders.find(f => f.key === "roads");
+    const folder = ui.c.folderView.folders.find(f => f.key === "roads");
     expect(folder?.name).toBe("roads");
   });
 

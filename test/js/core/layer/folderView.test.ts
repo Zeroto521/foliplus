@@ -5,7 +5,7 @@
 // layout.members[layerId] is the ONLY assignment a layer carries once a
 // layout exists, and the order keys are the ONLY block priority. The
 // persistence / mutation helpers were deleted with the v2 layout write
-// side — the order doc (core/order) is the single order source, and a
+// side — the order doc (core/layer/order) is the single order source, and a
 // folder's create / rename / delete / move goes through its commands.
 import { describe, expect, it } from "vitest";
 import {

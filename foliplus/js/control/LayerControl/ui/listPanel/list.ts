@@ -358,7 +358,7 @@ const syncRowOrder = (ui: LayerUI): void => {
     else ui.log?.warn("syncRowOrder: role rows present, anchor missing");
     // A stub surface (tests, a panel built before the layout exists) has no
     // block order to walk: the registry order is the whole sequence.
-    if (!ui.c.folderLayoutView) {
+    if (!ui.c.folderView) {
       for (const layerInfo of ui.c.layers) {
         if (layerInfo.role !== role) continue;
         const row = rows.get(layerInfo.id);
@@ -445,7 +445,7 @@ const syncRowOrder = (ui: LayerUI): void => {
 const refreshTreeConnectors = (ui: LayerUI): void => {
   const container = ui.uiContainer;
   if (!container) return;
-  const layout = ui.c.folderLayoutView;
+  const layout = ui.c.folderView;
   // One block map per role, built once. memberInfo() rebuilds the whole role's
   // block map per row, which made every reorder O(rows × registry) — the one
   // path that runs on every drag, not just on a full rebuild.
@@ -488,7 +488,7 @@ const refreshTreeConnectors = (ui: LayerUI): void => {
 const rolesWithHeader = (ui: LayerUI, role: string): boolean => {
   if (ui.c.layers.some(l => l.role === role)) return true;
   // A stub surface may carry no layout at all; an absent layout owns no keys.
-  const layout = ui.c.folderLayoutView;
+  const layout = ui.c.folderView;
   const keys = layout?.order[role as keyof typeof layout.order];
   return Boolean(keys && keys.length > 0);
 };
@@ -498,7 +498,7 @@ const rolesWithHeader = (ui: LayerUI, role: string): boolean => {
  *  today (byte-identical); at least one folder → every row adds its rail
  *  content and the role row gains divider/count/type-icon/more. */
 const hasAnyFolder = (ui: LayerUI): boolean => {
-  const layout = ui.c.folderLayoutView;
+  const layout = ui.c.folderView;
   // A folder exists if a role holds an ordered block key, OR any live member
   // is assigned to a folder. Declared-only grouping (no persisted order yet)
   // materialises the folder row from the member assignments, so the gate must
@@ -708,7 +708,7 @@ const insertLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
   // for a declared folder member; the registry-depth branch runs only for a
   // layer that is not a folder member (root layer or a brand-new folder with
   // no row yet).
-  const memberFolderKey = folderOf(ui.c.folderLayoutView, layerInfo);
+  const memberFolderKey = folderOf(ui.c.folderView, layerInfo);
   const folderRow = memberFolderKey
     ? container.querySelector<HTMLElement>(
         `[${CONST.DATA.FOLDER_KEY}="${CSS.escape(memberFolderKey)}"]`,
@@ -795,7 +795,7 @@ const updateLayerItemLabel = (ui: LayerUI, layerInfo: LayerInfo) => {
  *  A key is empty when no live layer in the role has normalize(folder)===key.
  *  Called on every render — never cached (hard constraint 3). */
 const emptyFolderKeys = (ui: LayerUI, role: string): string[] => {
-  const layout = ui.c.folderLayoutView;
+  const layout = ui.c.folderView;
   // Only folder keys are candidates: the block order also carries root-layer
   // entries ("layer:<id>"), and a root layer has no folder, so treating those
   // as folder keys would report every root layer as an empty folder.
@@ -1030,7 +1030,7 @@ const memberInfo = (
   ui: LayerUI,
   layerInfo: LayerInfo,
 ): { isMember: boolean; isLast: boolean } => {
-  const layout = ui.c.folderLayoutView;
+  const layout = ui.c.folderView;
   const folderKey = folderOf(layout, layerInfo);
   if (!folderKey) return { isMember: false, isLast: false };
   const block = groupByFolder(ui.c.layers, layerInfo.role, layout).get(folderKey);

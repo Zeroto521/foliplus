@@ -722,12 +722,9 @@ describe("LayerUI menu", () => {
         // A stale member assignment pins folder2 to a DIFFERENT section than
         // the folder row it renders under. The row is the identity the user
         // acted on, so its own role is what dispatch must use.
-        (
-          ui.c.folderLayoutView.members as Record<
-            string,
-            { role: string; folder: string }
-          >
-        )["folder2"] = {
+        (ui.c.folderView.members as Record<string, { role: string; folder: string }>)[
+          "folder2"
+        ] = {
           role: "base",
           folder: "green space",
         };

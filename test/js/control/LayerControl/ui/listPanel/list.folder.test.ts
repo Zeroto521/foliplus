@@ -748,7 +748,7 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     };
     const ui = {
       c: {
-        folderLayoutView: layout,
+        folderView: layout,
         layers: [
           { id: "rd1", role: "overlay" },
           { id: "ghost", role: "overlay" },
@@ -813,7 +813,7 @@ describe("ui/list folder rows, tree connectors and role fold", () => {
     };
     const ui = {
       c: {
-        folderLayoutView: layout,
+        folderView: layout,
         layers: [],
         layerRegistry: { get: () => undefined },
       },

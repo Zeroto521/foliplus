@@ -293,7 +293,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("rd1")).toBe(true);
-    expect(manager.folderLayoutView.order.overlay).toContain("roads");
+    expect(manager.folderView.order.overlay).toContain("roads");
   });
 
   it("deleteLayer does not freeze a folder that still has a member", () => {
@@ -314,7 +314,7 @@ describe("LayerController", () => {
 
     expect(manager.deleteLayer("rd1")).toBe(true);
     // The folder still has rd2, so its block survives by construction.
-    expect(manager.folderLayoutView.order.overlay ?? []).toContain("roads");
+    expect(manager.folderView.order.overlay ?? []).toContain("roads");
   });
 
   it("deleteLayer freezes a base folder's block order too", () => {
@@ -328,7 +328,7 @@ describe("LayerController", () => {
     manager.map.hasLayer.mockReturnValue(false);
 
     expect(manager.deleteLayer("b1")).toBe(true);
-    expect(manager.folderLayoutView.order.base).toContain("roads");
+    expect(manager.folderView.order.base).toContain("roads");
   });
 
   it("never builds a layer the user deleted", () => {

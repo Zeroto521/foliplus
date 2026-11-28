@@ -1,10 +1,10 @@
 // core/layer/layout/project — adapt the generic resolution to the panel/registry.
 //
-// The engine (core/order/resolve) knows only node keys; here the leaf key
+// The engine (core/layer/order/resolve) knows only node keys; here the leaf key
 // "layer:<id>" is resolved to a LayerInfo and rows/blocks are partitioned by role.
 // `z` is the DFS leaf flatten of a role (block does not change z semantics).
 import { ROLE } from "../const.js";
-import type { FolderLayout } from "../folderView.js";
+import type { FolderView } from "../folderView.js";
 import type { LayerRole } from "../role.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
@@ -13,6 +13,7 @@ import {
   NODE_KEY_PREFIX,
   ORDER_KIND,
   type OrderDoc,
+  type OrderKind,
   type OrderRow,
   type ParentView,
   type Present,
@@ -21,7 +22,6 @@ import {
   folderBareOf,
   resolveView,
 } from "#core/layer/order/index.js";
-import type { OrderKind } from "#core/layer/order/index.js";
 
 /** The panel-facing folder key: the doc key without the \"folder:\" prefix. A
  *  folder's stable identity is the doc key; the panel and drag anchors use the
@@ -259,15 +259,15 @@ const childrenOfView = (
   order: string[] = [],
 ): ParentView => ({ children: childrenOf(doc, parent, order) });
 
-/** Derive the folder-view mirror (FolderLayout) (folders + block order + member assignment)
+/** Derive the folder-view mirror (FolderView) (folders + block order + member assignment)
  *  from the doc. The doc is the single order source; this mirror is derived
  *  (setDerived) and never persisted. Groups are excluded — the folder domain
  *  (folderOf / display / rename) operates on folders only. */
-const projectLayoutOf = (
+const projectFolderViewOf = (
   doc: OrderDoc,
   present: Present,
   registry: readonly LayerInfo[],
-): FolderLayout => {
+): FolderView => {
   const v = resolveView(doc, present);
   // The mirror is the panel-facing view of the doc: folder keys are the bare
   // normalized name (the old array-model convention), never the doc's
@@ -275,8 +275,9 @@ const projectLayoutOf = (
   const bare = (key: string): string => folderBareOf(key);
   const folders: { key: string; name: string }[] = [];
   for (const container of v.containers) {
-    if (container.kind === ORDER_KIND.FOLDER)
+    if (container.kind === ORDER_KIND.FOLDER) {
       folders.push({ key: bare(container.key), name: container.name });
+    }
   }
   const order: Partial<Record<LayerRole, string[]>> = {};
   const members: Record<string, { role: LayerRole; folder: string }> = {};
@@ -344,5 +345,5 @@ export {
   projectView,
   resolveOrderView,
   childrenOfView,
-  projectLayoutOf,
+  projectFolderViewOf,
 };

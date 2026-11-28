@@ -402,11 +402,11 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
       ],
     });
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
-    const before = [...(ui.c.folderLayoutView.order.overlay ?? [])];
+    const before = [...(ui.c.folderView.order.overlay ?? [])];
 
     handleDrop(ui, dragEvent(rowOf(ui, "b1"), {}, 130));
 
-    expect(ui.c.folderLayoutView.order.overlay).toEqual(before);
+    expect(ui.c.folderView.order.overlay).toEqual(before);
     expect(ui.listPanel.dragFolder).toBeNull();
   });
 
@@ -416,11 +416,11 @@ describe("folder drag — beside-placement and refusal arms (round 4)", () => {
     // no-op rather than a reorder against itself.
     const { ui } = folderFixture(["a", "b"]);
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
-    const before = [...(ui.c.folderLayoutView.order.overlay ?? [])];
+    const before = [...(ui.c.folderView.order.overlay ?? [])];
 
     handleDrop(ui, dragEvent(rowOf(ui, "a1"), {}, 130));
 
-    expect(ui.c.folderLayoutView.order.overlay).toEqual(before);
+    expect(ui.c.folderView.order.overlay).toEqual(before);
     expect(ui.listPanel.dragFolder).toBeNull();
   });
 
