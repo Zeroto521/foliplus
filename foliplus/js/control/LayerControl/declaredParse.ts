@@ -285,15 +285,24 @@ const parseMarkerColor = (
   const invalid: string[] = [];
   if (raw === undefined || raw === null) return { invalid };
   // marker_color accepts preset names and CSS hex, so Python's normaliser
-  // strips it before deciding; route the trim through the shared function so a
-  // BOM / CJK space is not accepted on one stack only.
-  if (typeof raw !== "string" || !trimDeclaredString(raw)) {
+  // trims it before deciding; route the trim through the shared function so a
+  // BOM / CJK space is not accepted on one stack only. The shape and the blank
+  // case are separate messages, matching Python's wording: a blank string is
+  // not a non-string.
+  if (typeof raw !== "string") {
     const message = `a non-string marker_color ${JSON.stringify(raw)}`;
     reject("shape", message);
     invalid.push(message);
     return { invalid };
   }
   const name = trimDeclaredString(raw);
+  if (!name) {
+    const message =
+      "an empty or whitespace-only marker_color; expected a non-empty string";
+    reject("shape", message);
+    invalid.push(message);
+    return { invalid };
+  }
   if (name in MARKER_COLOR_PRESET_HEX) return { declared: name, invalid };
   if (isHexColor(name)) {
     return { declared: normalizeHexColor(name).toLowerCase(), invalid };

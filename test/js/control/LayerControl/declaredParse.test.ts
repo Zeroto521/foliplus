@@ -373,6 +373,21 @@ describe("readDeclaredMarkerColor", () => {
     }
   });
 
+  it.each(["", " ", "\u001c", "\ufeff", "\u2003"])(
+    "rejects an empty or whitespace-only marker_color %j with the blank message",
+    value => {
+      const warn = vi.fn();
+      const { declared, invalid } = readDeclaredMarkerColor(
+        layerWith({ marker_color: value }),
+        "L",
+        warn,
+      );
+      expect(declared).toBeUndefined();
+      expect(invalid.join(" ")).toContain("empty or whitespace-only");
+      expect(warn).toHaveBeenCalledOnce();
+    },
+  );
+
   it("resolves every preset in the runtime table", () => {
     // The declared vocabulary IS the runtime preset table: a reader that
     // rejected a real preset (or accepted a non-preset) would desync from the
