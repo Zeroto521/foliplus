@@ -28,9 +28,9 @@
   const betaRow = rowById("beta");
   if (!alphaRow || !betaRow) throw new Error("alpha/beta rows missing");
   // Swap the two rows' DOM positions only; the registry keeps its doc order.
-  // One insert moves beta ahead of alpha, yielding [.., beta, alpha, ..].
+  // One insert moves alpha ahead of beta, yielding [.., alpha, beta, ..].
   const parent = alphaRow.parentNode;
-  parent.insertBefore(betaRow, alphaRow);
+  parent.insertBefore(alphaRow, betaRow);
 
   const beforeRegistry = m.layers.map(l => l.id);
   const domOrder = domIds();
