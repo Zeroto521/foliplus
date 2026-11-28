@@ -46,6 +46,7 @@ import {
   requireFoliplus,
 } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
+import type { ConfigMeasure } from "#foliplus/config-schema.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import { createTimers } from "#platform/timer.js";
@@ -110,7 +111,7 @@ class MeasureManager {
   events: EventBus;
   /** Component config — carried on the manager instead of a module-level
    *  free variable, so the UI functions are unit-testable with their own CONFIG. */
-  config: ComponentConfig;
+  config: ConfigMeasure;
   /** Scoped translator (prepending config.name) bound to `config`, created once
    *  by the manager. */
   T: (key: string) => string;
@@ -215,7 +216,7 @@ class MeasureManager {
   constructor(mapInstance: L.Map, env: ControlEnv, opts?: { id?: string }) {
     this.map = mapInstance;
     this.env = env;
-    this.config = env.config;
+    this.config = env.config as ConfigMeasure;
     this.T = env.T;
     this._ = env._;
     this.log = env.log;

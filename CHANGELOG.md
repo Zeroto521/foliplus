@@ -43,6 +43,7 @@
 - `core/layer`, `LayerControl`: the LayerAPI read contract is explicit — `getFeatureCount` is `null` for an unregistered id and `undefined` for one with no countable features, each optional slot naming its `undefined` cause and a count is cached against the layer's content version, so a no-count read is never kept once the content lands ([#1207](https://github.com/Zeroto521/foliplus/pull/1207), [#1379](https://github.com/Zeroto521/foliplus/pull/1379))
 - `JS runtime`: the per-map hint surface is `map.foliplus.hint.set/clear/registerIcon` — an identical push no longer rebuilds the hint or restarts its timer, and a changed push replaces it in place (**Breaking** for custom JS that called `map.foliplus.showHint`/`hideHint`/`registerHintIcon`) ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
 - `platform/storage`: versioned object records persist through one `saveVersionedObject`/`loadVersionedObject` pair that reads the `{version, data}` envelope, a legacy flat record or a bare value and migrates or discards it, with the folder layout, filter store, layer state, heatmap config and export bounds migrated onto it ([#1348](https://github.com/Zeroto521/foliplus/pull/1348))
+- `build`: `npm run build:verify` fails on a stale dist — the manifest records a source hash and the build version — and on a shared registry missing a spec a component imports, before esbuild runs ([#1443](https://github.com/Zeroto521/foliplus/pull/1443))
 
 ### Removed
 

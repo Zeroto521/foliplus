@@ -7,6 +7,15 @@ import type { LocaleTables } from "./type.js";
 // component tables injected once per map (`window.foliplus._COMPONENT_TABLES`).
 // CONFIG.locale_tables carries only user-custom strings (from LocaleConfig.from_json).
 
+/** The CONFIG fields locale resolution reads. Structural rather than the flat
+ *  ComponentConfig: a generated Config<Name> carries these fields but not the
+ *  flat index signature, so it must fit this contract without a cast. */
+type LocaleConfig = {
+  name?: string;
+  locale_tables?: LocaleTables;
+  locale_code?: string;
+};
+
 /**
  * Resolve the active locale table by checking (in order):
  * explicit code, parent iframe path, referrer URL, document URL path,
@@ -104,9 +113,9 @@ const intlLocale = (code: string): string => INTL_LOCALES[code] ?? code;
  * Mutates ``config.locale_code`` with the resolved code so subsequent calls
  * short-circuit without repeating the detection.
  */
-const resolveLocaleCode = (config: ComponentConfig): string => {
+const resolveLocaleCode = (config: LocaleConfig): string => {
   if (config.locale_code) return config.locale_code;
-  const componentTables = window.foliplus._COMPONENT_TABLES?.[config.name] ?? {};
+  const componentTables = window.foliplus._COMPONENT_TABLES?.[config.name ?? ""] ?? {};
   const tables = { ...componentTables, ...config.locale_tables };
   const table = resolveLocale("", tables);
   config.locale_code = table?.["locale.code"] ?? "en";
@@ -124,9 +133,10 @@ const resolveLocaleCode = (config: ComponentConfig): string => {
  * (``window.foliplus._TABLES``).
  */
 const createTranslator = (
-  config: ComponentConfig,
+  config: LocaleConfig,
   commonTables?: LocaleTables | null,
 ): ((key: string) => string) => {
+  const name = config.name ?? "";
   const code = resolveLocaleCode(config);
 
   // Merge common + component built-in + custom tables
@@ -134,7 +144,7 @@ const createTranslator = (
   const common = tables[code] ?? {};
   const componentTables = window.foliplus._COMPONENT_TABLES ?? {};
   const component =
-    componentTables[config.name]?.[code] ?? componentTables[config.name]?.["en"] ?? {};
+    componentTables[name]?.[code] ?? componentTables[name]?.["en"] ?? {};
   const custom = config.locale_tables?.[code] ?? {};
   const table = { ...common, ...component, ...custom };
   table["locale.code"] = code;
@@ -147,9 +157,10 @@ const createTranslator = (
  * to every key. Callers write T("focus") instead of
  * _(`${CONFIG.name}.focus`).
  */
-const createScopedTranslator = (config: ComponentConfig): ((key: string) => string) => {
+const createScopedTranslator = (config: LocaleConfig): ((key: string) => string) => {
+  const name = config.name ?? "";
   const _ = createTranslator(config);
-  return (k: string): string => _(`${config.name}.${k}`);
+  return (k: string): string => _(`${name}.${k}`);
 };
 
 export { createTranslator, createScopedTranslator, intlLocale };

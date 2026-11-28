@@ -126,6 +126,11 @@ declare global {
   /** Per-component config injected by the Jinja2 IIFE. Generated from
    *  the `foliplus._config_schema` package — see `foliplus/js/config-schema.ts`. */
   type ComponentConfig = import("#foliplus/config-schema.js").ComponentConfig;
+  /** The fields every component CONFIG carries, shared by the generated
+   *  per-control interfaces (which do NOT extend the flat ComponentConfig —
+   *  that one has a [key: string]: unknown escape hatch). Use this as the
+   *  bound when a generic must work with both. */
+  type ConfigCommon = import("#foliplus/config-schema.js").ConfigCommon;
 
   /** Runtime helpers injected by the foliplus Python wrapper.
    * `runtime/index.ts` is the single builder of this object — members added

@@ -12,10 +12,11 @@ import type { SearchControl } from "./type.js";
 import { ListCursor, ensureInteraction } from "#core/interaction/index.js";
 import { adjustPanelZIndex, bindFoldToggle } from "#core/leaflet/index.js";
 import { type ControlEnv, guardBlocked } from "#core/lifecycle/index.js";
+import type { ConfigSearch } from "#foliplus/config-schema.js";
 import { PANEL_CLASS } from "#ui/index.js";
 
 /** Full ctrl type for interaction — SearchControl instance + control ctx. */
-type InteractionCtrl = SearchControl & ControlEnv;
+type InteractionCtrl = SearchControl & ControlEnv<ConfigSearch>;
 
 /**
  * The value a keyboard-navigated result item puts into the input. History

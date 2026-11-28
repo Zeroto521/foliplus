@@ -76,6 +76,31 @@ const registryUsedExports = dir => {
   return usedExports;
 };
 
+/** The merged used-export map across every component directory under
+ *  `controlDir`: canonical spec → sorted unique export names. Extracted from
+ *  generateRegistry so build.mjs can assert the generated registry against the
+ *  same scan the generator just ran (registry-assert.mjs), without a second
+ *  scan implementation. */
+const componentUsedExports = controlDir => {
+  const componentDirs = existsSync(controlDir)
+    ? readdirSync(controlDir, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => resolve(controlDir, e.name))
+    : [];
+  const usedExports = {};
+  for (const dir of componentDirs) {
+    const scanned = registryUsedExports(dir);
+    for (const [spec, names] of Object.entries(scanned)) {
+      if (!usedExports[spec]) usedExports[spec] = [];
+      usedExports[spec].push(...names);
+    }
+  }
+  for (const spec of Object.keys(usedExports)) {
+    usedExports[spec] = [...new Set(usedExports[spec])].sort();
+  }
+  return usedExports;
+};
+
 /** Bound on `export * from` chains before collectExportedNames stops recursing. */
 const MAX_EXPORT_DEPTH = 16;
 
@@ -261,24 +286,7 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
     .map(f => f.name.replace(/\.ts$/, ""))
     .sort();
 
-  const controlDir = resolve(sourceDir, "control");
-  const componentDirs = existsSync(controlDir)
-    ? readdirSync(controlDir, { withFileTypes: true })
-        .filter(e => e.isDirectory())
-        .map(e => resolve(controlDir, e.name))
-    : [];
-
-  const usedExports = {};
-  for (const dir of componentDirs) {
-    const scanned = registryUsedExports(dir);
-    for (const [spec, names] of Object.entries(scanned)) {
-      if (!usedExports[spec]) usedExports[spec] = [];
-      usedExports[spec].push(...names);
-    }
-  }
-  for (const spec of Object.keys(usedExports)) {
-    usedExports[spec] = [...new Set(usedExports[spec])].sort();
-  }
+  const usedExports = componentUsedExports(resolve(sourceDir, "control"));
 
   // Track every name already imported so a same-named export from a
   // different module is aliased instead of collapsing (esbuild keeps only
@@ -406,6 +414,15 @@ const generateRegistry = (srcDirParam = srcDir, buildJsParam = buildJs) => {
   }
 
   writeFileSync(resolve(buildDir, "_shared-registry.ts"), lines.join("\n"), "utf-8");
+  // The scan this registry was generated from, recorded next to it so build.mjs
+  // can assert the generated text covers every spec WITHOUT importing this
+  // module (its argv parsing runs at import time; build's own flags would be
+  // rejected) and without a second, drifting scan.
+  writeFileSync(
+    resolve(buildDir, "registry-used-exports.json"),
+    `${JSON.stringify(usedExports, null, 2)}\n`,
+    "utf-8",
+  );
 
   if (!opts.silent) {
     console.log(
@@ -422,6 +439,7 @@ const main = () => {
 export {
   assertBarrelExports,
   collectExportedNames,
+  componentUsedExports,
   generateRegistry,
   main,
   registryUsedExports,

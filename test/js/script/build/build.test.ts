@@ -1,6 +1,7 @@
-import { execFileSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -8,9 +9,13 @@ import {
   writeFileSync,
 } from "fs";
 import { tmpdir } from "os";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { verifyDist } from "#script/build/dist-verify.mjs";
 import { esbuildCfgFor } from "#script/build/esbuild-config.mjs";
+import { registryProblems } from "#script/build/registry-assert.mjs";
+import { computeSourceHash } from "#script/build/source-hash.mjs";
+import { resolveVersion } from "#script/build/version.mjs";
 
 // Vitest runs with the repo root as cwd, same convention bundle-size-check
 // relies on — so dist/ resolves without a parent-directory walk.
@@ -28,13 +33,15 @@ const distDir = resolve(ROOT, "foliplus/dist");
 // of crashing the whole file at import time.
 const manifestPath = resolve(distDir, "manifest.json");
 const distReady = existsSync(manifestPath);
-const names: string[] = distReady
-  ? (
-      JSON.parse(readFileSync(manifestPath, "utf-8")) as {
-        artifacts: string[];
-      }
-    ).artifacts
-  : [];
+interface BuildManifest {
+  artifacts: string[];
+  sourceHash?: string;
+  buildVersion?: string;
+}
+const manifest: BuildManifest | null = distReady
+  ? (JSON.parse(readFileSync(manifestPath, "utf-8")) as BuildManifest)
+  : null;
+const names: string[] = manifest?.artifacts ?? [];
 const artifactsFor = (ext: string): string[] =>
   names.map(name => `foliplus-${name}.min.${ext}`);
 
@@ -309,6 +316,142 @@ describe("minify invariant", () => {
       const a = buildWithConfig(SRC, cfg);
       const c = buildWithConfig(blank, cfg);
       expect(Buffer.compare(a, c)).toBe(0);
+    },
+  );
+});
+
+// ── Dist freshness (manifest sourceHash / buildVersion) ─────────────
+//
+// `--verify` used to prove only that the artifact names existed, so a source
+// edit without a rebuild passed and the Python tests rendered the old bundle.
+// The manifest now records the source-tree hash and the build version; these
+// tests pin the writer, the reader, and the CLI exit code on a stale tree.
+
+const gateRoots: string[] = [];
+
+/** A throwaway project root with a foliplus/js + foliplus/css source tree. */
+const gateTree = (files: Record<string, string>): string => {
+  const root = mkdtempSync(join(tmpdir(), "build-gate-"));
+  gateRoots.push(root);
+  for (const [rel, content] of Object.entries(files)) {
+    const abs = resolve(root, rel);
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, content);
+  }
+  return root;
+};
+
+afterAll(() => {
+  while (gateRoots.length > 0) {
+    const root = gateRoots.pop();
+    if (root) rmSync(root, { recursive: true, force: true });
+  }
+});
+
+/** A dist tree the manifest claims was built from `sourceHash`. */
+const fakeDist = (root: string, sourceHash: string | null): void => {
+  const dist = resolve(root, "foliplus/dist");
+  mkdirSync(dist, { recursive: true });
+  for (const ext of ["js", "css"]) {
+    writeFileSync(resolve(dist, `foliplus-common.min.${ext}`), "// built\n");
+  }
+  const data: Record<string, unknown> = {
+    artifacts: ["common"],
+    buildVersion: resolveVersion(),
+  };
+  if (sourceHash !== null) data.sourceHash = sourceHash;
+  writeFileSync(resolve(dist, "manifest.json"), `${JSON.stringify(data, null, 2)}\n`);
+};
+
+const runBuild = (root: string, ...args: string[]) =>
+  spawnSync(
+    process.execPath,
+    [resolve(ROOT, "script/build/build.mjs"), "--root", root, ...args],
+    { cwd: ROOT, encoding: "utf-8" },
+  );
+
+describe("dist freshness manifest", () => {
+  it.skipIf(!distReady)("records the hash of the tree it was built from", () => {
+    expect(manifest?.sourceHash).toBe(computeSourceHash(ROOT));
+  });
+
+  it.skipIf(!distReady)("records the version this build reports", () => {
+    expect(manifest?.buildVersion).toBe(resolveVersion());
+  });
+
+  it.skipIf(!distReady)("accepts the current dist tree", () => {
+    expect(verifyDist({ root: ROOT, buildVersion: resolveVersion() })).toEqual([]);
+  });
+
+  it.skipIf(!distReady)("the generated registry covers every scanned spec", () => {
+    const registry = readFileSync(
+      resolve(ROOT, "foliplus/.build/js/_shared-registry.ts"),
+      "utf-8",
+    );
+    const used = JSON.parse(
+      readFileSync(
+        resolve(ROOT, "foliplus/.build/js/registry-used-exports.json"),
+        "utf-8",
+      ),
+    );
+    expect(registryProblems(registry, used)).toEqual([]);
+  });
+});
+
+describe("build gate CLI", () => {
+  it(
+    "--verify exits non-zero on a stale dist and names the rebuild",
+    { timeout: 30_000 },
+    () => {
+      const root = gateTree({
+        "foliplus/js/a.ts": "export const a = 1;\n",
+        "foliplus/css/a.css": ".a { color: red; }\n",
+      });
+      const staleHash = computeSourceHash(root);
+      // The source moves after the "build": the manifest now lies about it.
+      writeFileSync(resolve(root, "foliplus/js/a.ts"), "export const a = 2;\n");
+      fakeDist(root, staleHash);
+
+      const run = runBuild(root, "--verify");
+      expect(run.status).toBe(1);
+      expect(run.stderr).toContain("stale dist:");
+      expect(run.stderr).toContain("npm run build");
+    },
+  );
+
+  it(
+    "--verify exits zero on a dist that matches the sources",
+    { timeout: 30_000 },
+    () => {
+      const root = gateTree({
+        "foliplus/js/a.ts": "export const a = 1;\n",
+        "foliplus/css/a.css": ".a { color: red; }\n",
+      });
+      fakeDist(root, computeSourceHash(root));
+
+      const run = runBuild(root, "--verify");
+      expect(run.status).toBe(0);
+      expect(run.stdout).toContain("complete and was built from this source tree");
+    },
+  );
+
+  it(
+    "a build exits non-zero when the registry would miss a used spec",
+    { timeout: 30_000 },
+    () => {
+      const root = gateTree({
+        "foliplus/js/platform/index.ts": "export {};\n",
+        "foliplus/js/ui/index.ts": "export {};\n",
+        "foliplus/js/core/index.ts": "export {};\n",
+        // core/nope is not a module: the generator silently drops the spec, and
+        // the assertion must fail the build before esbuild ever runs.
+        "foliplus/js/control/Foo/index.ts":
+          'import { nope } from "#core/nope.js";\nexport const Foo = nope;\n',
+      });
+      const run = runBuild(root);
+      expect(run.status).not.toBe(0);
+      expect(run.stderr).toContain("Shared registry is incomplete");
+      expect(run.stderr).toContain("core/nope");
     },
   );
 });

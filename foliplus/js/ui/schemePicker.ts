@@ -65,6 +65,25 @@ interface SchemePickerOptions {
    *  scheme name. Injected by the consumer so the picker stays free of
    *  core/ imports. */
   colorScale: (name: string, n: number) => string[];
+  /** The overlay-registry hook the consumer injects (core/control has the
+   *  per-map registry; ui never imports core). The open popup registers itself
+   *  with the registry, so Escape / outside press close the picker one layer
+   *  above its host panel instead of tearing down both. */
+  overlay: {
+    register(entry: {
+      id: string;
+      isOpen(): boolean;
+      close(opts: { restoreFocus: boolean }): void | boolean;
+      panels(): Element[];
+      dismissOn: "mousedown" | "click";
+      pressPriority: number;
+      escapeRank?: number;
+    }): () => void;
+    /** Stable identity for the Escape order / duplicate rejection. */
+    id: string;
+    /** Escape + press rank: higher = closer to the top. */
+    rank: number;
+  };
   /** Accessible name for the trigger. Consumers pass their localized text
    *  (e.g. `T("scheme")`); the factory stays locale-free. */
   label?: string;
@@ -293,7 +312,23 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       resolveHost: options.resolveHost,
       onSurfaceChange: options.onSurfaceChange,
     },
-    dismiss: { kind: "local" },
+    // The registry owns outside-press + Escape + focus return, exactly as it
+    // does for the dropdown: the engine registers its open list at the rank the
+    // consumer supplies, so one Escape closes the picker and leaves its host
+    // panel open.
+    dismiss: {
+      // Call through the hook: consumers pass the registry's method reference
+      // (a panel builder holding the map), and the engine must not lose its
+      // receiver.
+      register: entry => options.overlay.register(entry),
+      id: options.overlay.id,
+      rank: options.overlay.rank,
+      // The picker keeps its long-standing press event (click, not mousedown).
+      // The registry decides an outside press on the capture phase, so a
+      // control's own stopPropagation cannot hide it; "click" only means the
+      // press that dismisses the picker is the click, not the earlier down.
+      dismissOn: "click",
+    },
     onRowActivate: index => {
       // Closed: the trigger's cycle key activates the value model directly
       // (the list is not rendered). Open: the list row is the source of truth
