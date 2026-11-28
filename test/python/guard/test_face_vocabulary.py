@@ -396,6 +396,8 @@ def test_the_host_strip_scan_has_teeth() -> None:
     )
     assert mutated != source, "the teeth mutation did not apply"
     assert host_strip_calls(mutated) != []
+
+
 def test_the_hex_reader_trim_scan_has_teeth() -> None:
     """Removing the shared trim from a JS hex reader must turn this guard red."""
     fill_text = _js_fill_source()
