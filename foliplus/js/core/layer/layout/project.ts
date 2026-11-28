@@ -9,7 +9,7 @@ import type { LayerRole } from "../role.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
 import {
-  type ContainerRow,
+  type BlockRow,
   NODE_KEY_PREFIX,
   ORDER_KIND,
   type OrderDoc,
@@ -39,7 +39,7 @@ type RoleOf = (id: string) => LayerRole | null;
 
 /** One projected block (folder/group) with its live members, or a root layer row.
  *
- *  `members` is DERIVED from the engine ContainerRow.children leaf order (present-
+ *  `members` is DERIVED from the engine BlockRow.children leaf order (present-
  *  filtered, then looked up to LayerInfo) — never a separate registry sort, so
  *  rows and z stay the same source (design note: one single source). */
 type ProjectedBlock =
@@ -156,7 +156,7 @@ const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
 
 /** The single controller-facing projection: one resolve, three derived views.
  *
- *  `rows` is typed per role (OrderRow[]); `blocks` carries ContainerRow.kind/depth
+ *  `rows` is typed per role (OrderRow[]); `blocks` carries BlockRow.kind/depth
  *  with live LayerInfo `members`; `z` is the flat role ladder (overlays before
  *  base) that feeds registry.normalizeGroups. All three come from ONE resolveView
  *  call, so rows and z can never disagree (design note: one single source). */
@@ -329,7 +329,7 @@ const projectFolderViewOf = (
 export type {
   RoleOf,
   ProjectedBlock,
-  ContainerRow,
+  BlockRow,
   OrderRow,
   ParentView,
   ResolvedView,

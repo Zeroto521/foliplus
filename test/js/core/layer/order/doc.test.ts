@@ -16,7 +16,7 @@ import {
   rankFirst,
   restore,
   suppress,
-} from "#core/layer/order/index.js";
+} from "#core/layer/index.js";
 
 const folderKey = folderDocKey("overlay", "roads");
 

@@ -13,11 +13,11 @@ export {
   folderBareOf,
 } from "./doc.js";
 export type { OrderDoc, OrderKind, OrderNode } from "./doc.js";
-export { rankAfter, rankBetween, rankFirst, rankStart } from "./rank.js";
+export { ALPHABET, rankAfter, rankBetween, rankFirst, rankStart } from "./rank.js";
 export { NODE_KEY_PREFIX, ORDER_KIND } from "./kind.js";
 export { childrenOf, leafKeysOf, resolveView, subtreeLeaves } from "./resolve.js";
 export type {
-  ContainerRow,
+  BlockRow,
   OrderRow,
   ParentView,
   Present,

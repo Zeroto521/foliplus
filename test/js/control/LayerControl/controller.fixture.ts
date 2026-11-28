@@ -2,7 +2,7 @@
 import { makeDerivedUI } from "./ui/fixture.js";
 import { vi } from "vitest";
 import { type LayerFilterFeatures, orderKeyOf } from "#core/layer/index.js";
-import { type OrderDoc, rankBetween, rankFirst } from "#core/layer/order/index.js";
+import { type OrderDoc, rankBetween, rankFirst } from "#core/layer/index.js";
 import { scopedStorageKey } from "#platform/storage.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { LayerController } from "#control/LayerControl/controller.js";

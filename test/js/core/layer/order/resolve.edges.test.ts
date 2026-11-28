@@ -8,7 +8,7 @@ import {
   leafKeysOf,
   resolveView,
   subtreeLeaves,
-} from "#core/layer/order/index.js";
+} from "#core/layer/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 

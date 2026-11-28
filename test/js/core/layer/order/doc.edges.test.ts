@@ -9,7 +9,7 @@ import {
   orderDepth,
   resolveView,
   sanitizeOrderDoc,
-} from "#core/layer/order/index.js";
+} from "#core/layer/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 

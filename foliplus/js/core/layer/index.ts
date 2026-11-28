@@ -141,6 +141,7 @@ export {
   orderKeyOf,
   saveOrderDoc,
 } from "./layout/persist.js";
+export * from "./order/index.js";
 export {
   buildLayerSnapshot,
   extractMarkerFields,

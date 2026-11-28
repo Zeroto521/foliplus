@@ -1,6 +1,6 @@
 import { afterEach, vi } from "vitest";
 import { ROLE, normalizeFolderName, orderKeyOf } from "#core/layer/index.js";
-import { folderDocKey, rankBetween, rankStart } from "#core/layer/order/index.js";
+import { folderDocKey, rankBetween, rankStart } from "#core/layer/index.js";
 import { type OverlayRegistry, ensureOverlayRegistry } from "#core/overlay/index.js";
 import { type ComponentConfig } from "#foliplus/config-schema.js";
 import { createLogger } from "#platform/log.js";

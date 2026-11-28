@@ -1,6 +1,6 @@
 // test/js/core/layer/order/rank.test.ts — fractional rank key properties (RED edge).
 import { describe, expect, it } from "vitest";
-import { ALPHABET, rankAfter, rankBetween, rankStart } from "#core/layer/order/rank.js";
+import { ALPHABET, rankAfter, rankBetween, rankStart } from "#core/layer/index.js";
 
 const lt = (a: string, b: string): boolean => a < b;
 

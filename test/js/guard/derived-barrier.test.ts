@@ -74,28 +74,28 @@ const ALLOWED_CALL_SITES: ReadonlyArray<{
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 90,
+    line: 91,
     call: "syncToggleAll(ui, ROLE.OVERLAY);",
     reason:
       "initTypesAndVisibility initial render: the role headers are synced once per rebuild from the freshly initialized rows",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 91,
+    line: 92,
     call: "syncToggleAll(ui, ROLE.BASE);",
     reason:
       "initTypesAndVisibility initial render: the role headers are synced once per rebuild from the freshly initialized rows",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 118,
+    line: 119,
     call: "ui.refreshAllCounts();",
     reason:
       "rebuildList full rebuild path: the counts are refreshed once after the rows are painted (the data-ready round)",
   },
   {
     file: "foliplus/js/control/LayerControl/ui/listPanel/list.ts",
-    line: 437,
+    line: 438,
     call: "refreshTreeConnectors(ui);",
     reason:
       "syncRowOrder: the rows moved, so the ├/└ connectors may no longer match the block they sit in (the reorder path)",

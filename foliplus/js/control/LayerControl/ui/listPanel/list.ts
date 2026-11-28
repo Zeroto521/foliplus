@@ -35,7 +35,7 @@ import {
   folderOf,
   groupByFolder,
 } from "#core/layer/index.js";
-import { NODE_KEY_PREFIX } from "#core/layer/order/index.js";
+import { NODE_KEY_PREFIX } from "#core/layer/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
 import {

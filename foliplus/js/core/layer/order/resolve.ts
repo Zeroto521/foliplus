@@ -9,7 +9,7 @@ import { ORDER_MAX_DEPTH, type OrderDoc, orderDepth } from "./doc.js";
 import { ORDER_KIND, type OrderKind } from "./kind.js";
 
 /** A container row: a folder or group header with its subtree leaves. */
-interface ContainerRow {
+interface BlockRow {
   kind: Exclude<OrderKind, typeof ORDER_KIND.LAYER>;
   key: string;
   name: string;
@@ -33,7 +33,7 @@ interface ResolvedView {
   rows: OrderRow[];
   /** Leaf ids in DFS order — the flat z ladder. */
   leaves: string[];
-  containers: ContainerRow[];
+  containers: BlockRow[];
 }
 
 /** The role-independent view of one parent (root when parent is null). */
@@ -118,7 +118,7 @@ const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
 const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
   const rows: OrderRow[] = [];
   const leaves: string[] = [];
-  const containers: ContainerRow[] = [];
+  const containers: BlockRow[] = [];
   const walk = (parent: string | null, depth: number): void => {
     for (const child of childrenOf(doc, parent)) {
       if (orderDepth(doc, child) > ORDER_MAX_DEPTH) continue;
@@ -153,6 +153,6 @@ const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
   return { rows, leaves, containers };
 };
 
-export type { ContainerRow, OrderRow, ResolvedView, ParentView, Present };
+export type { BlockRow, OrderRow, ResolvedView, ParentView, Present };
 
 export { childrenOf, subtreeLeaves, leafKeysOf, resolveView };
