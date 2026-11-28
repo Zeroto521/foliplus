@@ -17,11 +17,19 @@
  * same semantics script/check/python_test_layout.py already ships, and the
  * opposite of "an allowlist that only ever grows".
  *
+ * A stale entry — the file is gone, or it fell to or under the cap — is a
+ * failure: the burn-down list only holds files that still owe a split, so a
+ * landed split deletes its row in the same PR. That matches
+ * script/check/python_test_layout.py.
+ *
  * Usage:
  *   node script/check/test-size.mjs [--list]
  *
- * With --list it prints the remaining allowlist entries (the burn-down view).
- * Exit 1 lists every unlisted offender with its count; exit 0 otherwise.
+ * With --list it prints the burn-down view: entries still owed a split, then
+ * the stale rows. --list is report-only for a clean tree, but it still exits 1
+ * when a stale entry exists, so a copy of the view in CI cannot hide one.
+ * Without --list, exit 1 lists every stale entry and every unlisted offender;
+ * exit 0 otherwise.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -72,12 +80,26 @@ const OVERSIZED = {
 /** Line count of a file (raw lines, matching how the cap is measured). */
 const lineCount = file => fs.readFileSync(file, "utf8").split(/\r?\n/).length;
 
-/** The repo-relative test/js/ path of a file, for allowlist lookup. */
+/** The repo-relative test/js/ path of a file, for allowlist lookup.
+ *
+ *  Resolved first, the way python_test_layout.py uses
+ *  `Path.resolve().relative_to()`: the walk hands absolute paths, a synthetic
+ *  test hands a repo-relative one, and either may carry `.`/`..` segments
+ *  (nothing in the walk is a symlink — readdirSync does not descend into one).
+ *  A path outside test/js/ keeps the marker-based fallback, so an injected
+ *  out-of-tree path keeps its own key instead of collapsing to a suffix. */
 const relUnderTestJs = file => {
+  const resolved = path.resolve(REPO_ROOT, file);
+  const fromRoot = path.relative(TEST_ROOT, resolved);
+  if (fromRoot && !fromRoot.startsWith("..") && !path.isAbsolute(fromRoot)) {
+    return fromRoot.split(path.sep).join("/");
+  }
   const slashed = file.split(path.sep).join("/");
   const marker = "test/js/";
   const at = slashed.lastIndexOf(marker);
-  return at >= 0 ? slashed.slice(at + marker.length) : slashed;
+  // The suffix may still carry `..` segments; collapse them the way the
+  // resolve above would have, so both spellings reach the same allowlist key.
+  return at >= 0 ? path.posix.normalize(slashed.slice(at + marker.length)) : slashed;
 };
 
 /**
@@ -164,11 +186,14 @@ const staleAllowlist = (entries = listTestFiles(), oversized = OVERSIZED) => {
 const main = (entries = listTestFiles(), argv = process.argv) => {
   const stale = staleAllowlist(entries);
   if (argv.includes("--list")) {
-    const remaining = remainingAllowlist();
+    // One bucket per entry: a file that is on disk but stale is NOT still owed
+    // a split, so the two counts never overlap (entries = owed + stale).
+    const staleStems = new Set(stale.map(({ stem }) => stem));
+    const owed = remainingAllowlist().filter(stem => !staleStems.has(stem));
     console.log(
-      `allowlist: ${Object.keys(OVERSIZED).length} entries, ${remaining.length} still on disk, ${stale.length} stale`,
+      `allowlist: ${Object.keys(OVERSIZED).length} entries, ${owed.length} still owe a split, ${stale.length} stale`,
     );
-    remaining.forEach(stem => console.log(`  ${stem} — ${OVERSIZED[stem]}`));
+    owed.forEach(stem => console.log(`  ${stem} — ${OVERSIZED[stem]}`));
     stale.forEach(({ stem, reason }) => console.log(`  STALE ${stem} — ${reason}`));
     return stale.length > 0 ? 1 : 0;
   }

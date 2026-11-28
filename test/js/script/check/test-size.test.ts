@@ -60,6 +60,21 @@ describe("checkSize", () => {
     expect(bad).toEqual([]);
   });
 
+  it("collapses dot segments before matching the entry", () => {
+    // The walk can hand a path with ".." in it and the injection helper can
+    // hand a relative one; both must resolve to the same allowlist key.
+    const bad = checkSize(
+      [
+        {
+          file: "/abs/repo/test/js/ui/../ui/listbox.test.ts",
+          lines: LIMIT + 1,
+        },
+      ],
+      { "ui/listbox.test.ts": "split pending" },
+    );
+    expect(bad).toEqual([]);
+  });
+
   it("keeps a path with no test/js/ marker as-is", () => {
     // Defensive: a caller may hand a path outside the mirror root; the key then
     // stays the slash-normalised path instead of collapsing to an empty suffix.
@@ -183,6 +198,29 @@ describe("the real tree", () => {
     );
     expect(code).toBe(1);
     expect(log.mock.calls.flat().join(" ")).toContain("STALE ui/listbox.test.ts");
+    log.mockRestore();
+  });
+
+  it("counts each allowlist entry in exactly one bucket", () => {
+    // A file that is on disk but stale is not "still owed a split"; the summary
+    // numbers must add up (entries = owed + stale), or the burn-down view
+    // overstates the work left.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // No entries at all: every allowlist row is stale, none is owed.
+    expect(main([], ["node", "test-size.mjs", "--list"])).toBe(1);
+    const summary = log.mock.calls
+      .flat()
+      .map(String)
+      .find(line => line.startsWith("allowlist: "));
+    const match = /allowlist: (\d+) entries, (\d+) still owe a split, (\d+) stale/.exec(
+      summary ?? "",
+    );
+    expect(match).not.toBeNull();
+    const entries = Number(match?.[1]);
+    const owed = Number(match?.[2]);
+    const stale = Number(match?.[3]);
+    expect(owed).toBe(0);
+    expect(entries).toBe(owed + stale);
     log.mockRestore();
   });
 });
