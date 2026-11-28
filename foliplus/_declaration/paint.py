@@ -30,7 +30,7 @@ _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
 #: from rich text or CJK input brings U+2000-U+200A, U+2028/U+2029, U+202F,
 #: U+205F or U+3000. Trimming the union means one declaration is accepted
 #: identically on both stacks. KEEP IN STEP with DECLARED_TRIM_CODEPOINTS in
-#: foliplus/js/control/LayerControl/declaredParse.ts - the cross-stack guard
+#: foliplus/js/control/LayerControl/declared/trim.ts - the cross-stack guard
 #: (test/python/guard/test_face_vocabulary.py) compares both literals and also
 #: asserts this module never falls back to a host strip() on the colour path.
 DECLARED_TRIM_CODEPOINTS: tuple[int, ...] = (

@@ -1,4 +1,5 @@
-// declaredKey — the shared skeleton behind the foliplus.* declaration readers.
+// control/LayerControl/declared/key — the shared skeleton behind the foliplus.*
+// declaration readers.
 //
 // Every per-layer foliplus declaration (fill, border, label, ...) runs the same
 // three mechanical steps: read the raw value off the layer's own `foliplus`

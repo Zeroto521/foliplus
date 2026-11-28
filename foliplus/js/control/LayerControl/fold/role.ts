@@ -1,5 +1,5 @@
-// control/LayerControl/declaredRole — author-declared default fold state per
-// role + the effective fold resolution the panel renders with.
+// control/LayerControl/fold/role — author-declared default fold state per role
+// + the effective fold resolution the panel renders with.
 //
 // The author writes LayerControl(roles={"overlay": {"folded": True}, ...}) in
 // Python; this module derives the author's default folded role map from that

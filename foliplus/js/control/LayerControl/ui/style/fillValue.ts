@@ -52,7 +52,7 @@ import {
   inlineControls,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
+import { readDeclaredFill } from "#control/LayerControl/declared/index.js";
 
 /** The one resolver the fill face and the stroke face share.
  *  An explicit mode wins; an absent mode defers to whether a value config

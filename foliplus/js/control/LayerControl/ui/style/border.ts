@@ -101,7 +101,7 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";
+import { readDeclaredBorder } from "#control/LayerControl/declared/index.js";
 
 /** Shared border-row shell. Two callers — the vector `buildBorderRow`
  *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's

@@ -10,8 +10,7 @@
 // exported names stay as thin delegates so callers and test spies are
 // unchanged.
 import * as CONST from "../const.js";
-import { authorFoldedKeys } from "../declaredFolder.js";
-import { authorDefaultRoleFolds } from "../declaredRole.js";
+import { authorDefaultRoleFolds, authorFoldedKeys } from "../fold/index.js";
 import type { LayerOverride } from "../type.js";
 import { type ProjectionBatch, applyProjection, applyProjectionAll } from "./apply.js";
 import { applyNameProjection } from "./context.js";
