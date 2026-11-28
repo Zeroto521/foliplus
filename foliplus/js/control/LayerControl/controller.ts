@@ -87,12 +87,17 @@ import {
   normalizeFolderName,
   childrenOf as orderChildrenOf,
   createBranch as orderCreateBranch,
+  deleteBranch as orderDeleteBranch,
+  dropNode as orderDropNode,
+  moveBranch as orderMoveBranch,
   moveInto as orderMoveInto,
   moveToIndex as orderMoveToIndex,
+  pruneEmptyFolders as orderPruneEmptyFolders,
   rankAfter as orderRankAfter,
   rankBetween as orderRankBetween,
   rankStart as orderRankStart,
   renameBlock as orderRenameBlock,
+  rerankRoots as orderRerankRoots,
   restore as orderRestore,
   stepNode as orderStepNode,
   suppress as orderSuppress,
@@ -1154,67 +1159,6 @@ class LayerController implements LayerAPI {
     return out;
   }
 
-  /** Move a folder/group block within the root order (before/after `targetKey`).
-   *  The block node itself keeps its parent (root) — only the rank changes.
-   *  A key or target the doc does not list, or a target that is the block's
-   *  own member, is a no-op (a drag that outlived a rename/delete cannot
-   *  corrupt the order). */
-  private moveBlockDoc(
-    doc: OrderDoc,
-    key: string,
-    targetKey: string,
-    after: boolean,
-  ): OrderDoc {
-    const node = doc.nodes[key];
-    const target = doc.nodes[targetKey];
-    if (node === undefined || target === undefined) return doc;
-    if (node.kind !== "folder" && node.kind !== "group") return doc;
-    if (key === targetKey) return doc;
-    const siblings = orderChildrenOf(doc, null).filter(s => s !== key);
-    const tIdx = siblings.indexOf(targetKey);
-    if (tIdx < 0) return doc;
-    const prev = after
-      ? tIdx + 1 < siblings.length
-        ? doc.nodes[siblings[tIdx + 1]].rank
-        : null
-      : tIdx > 0
-        ? doc.nodes[siblings[tIdx - 1]].rank
-        : null;
-    const nextR = after
-      ? target.rank
-      : tIdx + 1 < siblings.length
-        ? doc.nodes[siblings[tIdx + 1]].rank
-        : null;
-    const rank = orderRankBetween(prev, nextR);
-    const out: OrderDoc = { nodes: { ...doc.nodes } };
-    out.nodes[key] = { ...node, rank };
-    return out;
-  }
-
-  /** Delete a folder block: promote every member to root (in the folder's slot)
-   *  and remove the block. Members keep their relative order. */
-  private deleteFolderDoc(doc: OrderDoc, key: string): OrderDoc {
-    const node = doc.nodes[key];
-    if (node === undefined) return doc;
-    const siblings = orderChildrenOf(doc, null);
-    const fIdx = siblings.indexOf(key);
-    const prevRoot = fIdx > 0 ? doc.nodes[siblings[fIdx - 1]].rank : null;
-    const nextRoot =
-      fIdx >= 0 && fIdx + 1 < siblings.length
-        ? doc.nodes[siblings[fIdx + 1]].rank
-        : null;
-    const members = orderChildrenOf(doc, key);
-    const out: OrderDoc = { nodes: { ...doc.nodes } };
-    delete out.nodes[key];
-    let boundary = prevRoot;
-    for (const m of members) {
-      const rank = orderRankBetween(boundary, nextRoot);
-      out.nodes[m] = { ...out.nodes[m], parent: null, rank };
-      boundary = rank;
-    }
-    return out;
-  }
-
   /** The display name of the folder a layer currently belongs to (from the
    *  layout's member assignment), or null when the layer is at role root. */
   folderNameOf(layerId: string): string | null {
@@ -1278,30 +1222,7 @@ class LayerController implements LayerAPI {
     // reorder that bypassed the doc must still survive the reload). The tree
     // structure (folders/groups) is preserved; only root ranks move.
     const z = this.layerRegistry.layers.map(l => layerKeyOf(l.id));
-    const zPos = new Map(z.map((k, i) => [k, i]));
-    const roots = orderChildrenOf(this.orderDoc, null);
-    const rootPos = (key: string): number => {
-      const direct = zPos.get(key);
-      if (direct !== undefined) return direct;
-      // A folder/group block ranks at its first contained layer's z position.
-      const leaves = orderChildrenOf(this.orderDoc, key);
-      let best = Number.MAX_SAFE_INTEGER;
-      for (const leaf of leaves) {
-        const p = zPos.get(leaf);
-        if (p !== undefined && p < best) best = p;
-      }
-      return best === Number.MAX_SAFE_INTEGER ? -1 : best;
-    };
-    const orderedRoots = [...roots].sort((a, b) => rootPos(a) - rootPos(b));
-    const nodes: OrderDoc["nodes"] = { ...this.orderDoc.nodes };
-    let cursor: string | null = null;
-    for (const key of orderedRoots) {
-      const node = nodes[key];
-      if (!node) continue;
-      cursor = cursor === null ? orderRankStart() : orderRankAfter(cursor);
-      nodes[key] = { ...node, rank: cursor };
-    }
-    const next: OrderDoc = { nodes };
+    const next = orderRerankRoots(this.orderDoc, z);
     this.applyDoc(next, { persist: true });
   }
 
@@ -2824,7 +2745,7 @@ class LayerController implements LayerAPI {
       targetKey.startsWith("layer:") || targetKey.startsWith("folder:")
         ? targetKey
         : folderDocKey(role, targetKey);
-    const next = this.moveBlockDoc(this.orderDoc, docKey, docTarget, after);
+    const next = orderMoveBranch(this.orderDoc, docKey, docTarget, after);
     if (next === this.orderDoc) return false;
     this.commitFolderMove(next);
     return true;
@@ -3005,7 +2926,7 @@ class LayerController implements LayerAPI {
     if (this.orderDoc.nodes[docKey] === undefined) return false;
     // The delete promotes every member to root (in the folder's slot) and
     // removes the block; the registry re-derives the display order from the doc.
-    const next = this.deleteFolderDoc(this.orderDoc, docKey);
+    const next = orderDeleteBranch(this.orderDoc, docKey);
     this.commitFolderMove(next, opts?.persist);
     return true;
   }
@@ -3023,17 +2944,11 @@ class LayerController implements LayerAPI {
    * @returns The number of empty folder keys removed.
    */
   cleanEmptyFolders(role: LayerRole): number {
-    const docKeys = Object.keys(this.orderDoc.nodes).filter(
-      k =>
-        this.orderDoc.nodes[k].kind === "folder" &&
-        this.orderDoc.nodes[k].role === role &&
-        orderChildrenOf(this.orderDoc, k).length === 0,
-    );
-    if (docKeys.length === 0) return 0;
-    const out: OrderDoc = { nodes: { ...this.orderDoc.nodes } };
-    for (const k of docKeys) delete out.nodes[k];
-    this.commitFolderMove(out);
-    return docKeys.length;
+    const before = Object.keys(this.orderDoc.nodes).length;
+    const next = orderPruneEmptyFolders(this.orderDoc, role);
+    if (next === this.orderDoc) return 0;
+    this.commitFolderMove(next);
+    return before - Object.keys(next.nodes).length;
   }
 
   /**
@@ -3050,10 +2965,9 @@ class LayerController implements LayerAPI {
    *  slot was actually removed. */
   private dropOrderSlot(id: string): boolean {
     const key = layerKeyOf(id);
-    if (this.orderDoc.nodes[key] === undefined) return false;
-    const nextDoc: OrderDoc = { nodes: { ...this.orderDoc.nodes } };
-    delete nextDoc.nodes[key];
-    this.applyDoc(nextDoc, { persist: true });
+    const next = orderDropNode(this.orderDoc, key);
+    if (next === this.orderDoc) return false;
+    this.applyDoc(next, { persist: true });
     return true;
   }
 
