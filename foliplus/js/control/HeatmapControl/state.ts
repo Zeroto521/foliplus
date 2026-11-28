@@ -11,7 +11,7 @@ import {
 import type { SavedConfig } from "./type.js";
 import { EVENTS, publish } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
-import { CLASS_COUNT } from "#core/value/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 
 /** Reset selection + style state to the defaults declared in `config`. Both
  *  clear entries (the panel's Clear button and LayerControl's more-menu
@@ -28,16 +28,16 @@ const resetState = (m: HeatmapManager, config: ComponentConfig) => {
         m.filterStore.getFilter(m.layerId, src) !== undefined,
     );
   m.selectedLayerId = null;
-  m.agg = config.agg ?? CONST.AGG.COUNT;
+  m.agg = config.agg ?? DEFAULT_CONFIG.HeatmapControl.agg;
   m.field = "";
   // Reset returns to the declared state: the field list belongs to the
   // selection that just went away, and the resolved field must come from
   // the declaration (or stay empty), never from a stale scan.
   m.availableFields = [];
   m.invalidateEffectiveField();
-  m.numClasses = config.num_classes ?? CLASS_COUNT.DEFAULT;
+  m.numClasses = config.num_classes ?? DEFAULT_CONFIG.HeatmapControl.num_classes;
   m.method = resolveClassifyMethod(config.method);
-  m.scheme = config.color_scheme ?? "Reds";
+  m.scheme = config.color_scheme ?? DEFAULT_CONFIG.HeatmapControl.color_scheme;
   // The clear wipes the row's data — every source's filter (and its
   // declaration) is a statement about data that no longer exists. The
   // store's whole-layer reset drops the record + declarations; the next

@@ -1,6 +1,7 @@
 import { loadFeature, makeControlEnv } from "./fixture.js";
 import { describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/overlay/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import * as downloadMod from "#platform/download.js";
 import * as CONST from "#control/MeasureControl/const.js";
 import * as Export from "#control/MeasureControl/export.js";
@@ -100,6 +101,12 @@ describe("Export.resolveExportFormat", () => {
   it("falls back to the default for a non-string", () => {
     expect(Export.resolveExportFormat(42)).toBe(CONST.EXPORT_FORMAT.GEOJSON);
     expect(Export.resolveExportFormat({})).toBe(CONST.EXPORT_FORMAT.GEOJSON);
+  });
+
+  it("uses the generated Python default rather than a JS literal", () => {
+    expect(CONST.DEFAULT_EXPORT_FORMAT).toBe(
+      DEFAULT_CONFIG.MeasureControl.export_format,
+    );
   });
 });
 

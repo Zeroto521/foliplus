@@ -26,6 +26,7 @@ import { dirname, resolve } from "path";
 import { format, resolveConfig } from "prettier";
 import { fileURLToPath, pathToFileURL } from "url";
 import { help, parseArgs } from "#script/args.mjs";
+import { buildControlDefaults, formatValue } from "#script/build/config-default.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..", "..");
@@ -67,40 +68,6 @@ if (_raw.errors.length) {
   process.exit(1);
 }
 const opts = _raw;
-
-/** One default map per control: fields whose default is declared in schema. */
-const buildControlDefaults = schema => {
-  const defaults = {};
-  for (const [controlName, controlSchema] of Object.entries(schema.controls)) {
-    const map = {};
-    for (const [name, field] of Object.entries(controlSchema)) {
-      if (field.default !== undefined) map[name] = field.default;
-    }
-    defaults[controlName] = map;
-  }
-  return defaults;
-};
-
-/** Format a JS value literal for the generated code. Only JSON values ever
- *  reach here — buildControlDefaults reads them straight from the schema dump —
- *  so anything else is a caller bug. Fail loudly rather than silently emit an
- *  `undefined` or `{}` literal into the fixture. */
-const formatValue = val => {
-  if (val === null) return "null";
-  if (typeof val === "string") return JSON.stringify(val);
-  if (typeof val === "number" || typeof val === "boolean") return String(val);
-  if (Array.isArray(val)) {
-    if (val.length === 0) return "[]";
-    return `[${val.map(formatValue).join(", ")}]`;
-  }
-  if (typeof val === "object") {
-    const entries = Object.entries(val).map(
-      ([k, v]) => `${JSON.stringify(k)}: ${formatValue(v)}`,
-    );
-    return `{ ${entries.join(", ")} }`;
-  }
-  throw new Error(`formatValue: unsupported value of type ${typeof val}`);
-};
 
 // ── Core (exported for unit tests) ─────────────────────────────────────────
 

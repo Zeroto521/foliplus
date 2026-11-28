@@ -12,6 +12,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, SettledOperation } from "#core/event/index.js";
 import { CLASS_COUNT, SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
 import { canvasMethods } from "#control/HeatmapControl/canvas.js";
 import * as CONST from "#control/HeatmapControl/const.js";
@@ -822,5 +823,22 @@ describe("HeatmapManager mixin split", () => {
     for (const [module, methods] of Object.entries(MIXINS)) {
       expect(Object.keys(methods).length, module).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("HeatmapManager — generated runtime defaults", () => {
+  it("reads unset CONFIG fallbacks from the Python schema defaults", () => {
+    // The fallback literals used to be JS-only copies of the Python defaults;
+    // clearing the CONFIG fields must land on the generated map, so changing a
+    // Python __init__ default and regenerating is the only way to move them.
+    const manager = makeManager({
+      agg: undefined,
+      color_scheme: undefined,
+      num_classes: undefined,
+    });
+
+    expect(manager.agg).toBe(DEFAULT_CONFIG.HeatmapControl.agg);
+    expect(manager.scheme).toBe(DEFAULT_CONFIG.HeatmapControl.color_scheme);
+    expect(manager.numClasses).toBe(DEFAULT_CONFIG.HeatmapControl.num_classes);
   });
 });

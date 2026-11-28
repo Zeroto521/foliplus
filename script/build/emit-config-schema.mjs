@@ -20,17 +20,25 @@
  * defining it inline, so drift between Python and TS is a typecheck error
  * rather than a silent `unknown`.
  *
- * Usage: node script/build/emit-config-schema.mjs [--json <path>] [--out <path>] [--verify]
+ * It also writes `foliplus/js/config-default.ts` — the runtime `DEFAULT_CONFIG`
+ * map that control code reads instead of repeating Python defaults — from the
+ * same dump. Both files share one `--verify`; both are generated here so the
+ * CONFIG contract and its default values cannot drift apart.
+ *
+ * Usage: node script/build/emit-config-schema.mjs [--json <path>] [--out <path>]
+ *        [--defaults <path>] [--verify]
  *
  * Reads <path> (default: stdin), writes <path> (default:
- * foliplus/js/config-schema.ts). Run by script/build/build.mjs as part of the JS
- * build (with --verify, which never writes); also runnable standalone for
+ * foliplus/js/config-schema.ts) and the defaults module (default:
+ * config-default.ts beside --out). Run by script/build/build.mjs as part of the
+ * JS build (with --verify, which never writes); also runnable standalone for
  * local iteration.
  */
 import { help, parseArgs } from "../args.mjs";
 import { repoRoot } from "./build-path.mjs";
-import { readFileSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { buildConfigDefaultsText } from "./config-default.mjs";
+import { existsSync, readFileSync, writeFileSync } from "fs";
+import { dirname, resolve } from "path";
 import { format, resolveConfig } from "prettier";
 import { pathToFileURL } from "url";
 
@@ -63,9 +71,13 @@ const SPEC = {
     default: resolve(repoRoot(import.meta.url), "foliplus/js/config-schema.ts"),
     desc: "Output path for the generated TS file",
   },
+  defaults: {
+    type: "string",
+    desc: "Output path for the generated defaults module (default: config-default.ts beside --out)",
+  },
   verify: {
     type: "bool",
-    desc: "Don't write; compare against --out and fail if the committed file is stale",
+    desc: "Don't write; compare against --out and fail if a committed file is stale",
   },
 };
 
@@ -448,7 +460,7 @@ const buildConfigSchema = async schema => {
 
 // ── CLI entry ──────────────────────────────────────────────────────────────
 
-/** Read the schema JSON, render the TS, then write or verify `out`.
+/** Read the schema JSON, render both TS modules, then write or verify them.
  *  `o` is injectable so tests can drive every branch against temp paths. */
 const main = async (o = opts) => {
   let jsonText;
@@ -459,30 +471,50 @@ const main = async (o = opts) => {
     jsonText = readFileSync(0, "utf-8");
   }
 
-  const text = await buildConfigSchema(JSON.parse(jsonText));
+  const schema = JSON.parse(jsonText);
+  const text = await buildConfigSchema(schema);
+  // The defaults module sits beside `--out` unless the caller names it: `--out`
+  // is normally the committed schema file, so its sibling is the committed
+  // defaults file, and a test pointing `--out` at a temp dir keeps its defaults
+  // there too instead of touching the repo.
+  const defaultsOut = o.defaults || resolve(dirname(o.out), "config-default.ts");
+  const defaultsText = await buildConfigDefaultsText(schema, PrettierOptions);
 
-  // `--verify` is what the JS build calls: the generated content must equal the
+  // `--verify` is what the JS build calls: each generated content must equal the
   // committed file, or the build fails loudly instead of silently rewriting a
   // committed source artifact. Writing mode stays for manual regeneration.
   // CRLF is normalized before the comparison: git's autocrlf re-emits CRLF on
   // Windows checkouts while prettier emits LF, so a raw byte compare failed
-  // locally and passed in CI.
+  // locally and passed in CI. A missing file is stale, not a crash — the first
+  // run after the file is added reports it like any other drift.
+  const isStale = (path, generated, label) => {
+    const existing = existsSync(path)
+      ? readFileSync(path, "utf-8").replace(/\r\n/g, "\n")
+      : null;
+    if (existing === generated) return false;
+    console.error(
+      `${label} is out of date with the foliplus._config_schema dump. Regenerate with:`,
+    );
+    console.error(
+      "  python -m foliplus._config_schema --out foliplus/.build/js/config-schema.json",
+    );
+    console.error(
+      "  node script/build/emit-config-schema.mjs --json foliplus/.build/js/config-schema.json",
+    );
+    return true;
+  };
+
   if (o.verify) {
-    const existing = readFileSync(o.out, "utf-8").replace(/\r\n/g, "\n");
-    if (existing !== text) {
-      console.error(
-        `foliplus/js/config-schema.ts is out of date with the foliplus._config_schema dump. Regenerate with:`,
-      );
-      console.error(
-        "  python -m foliplus._config_schema --out foliplus/.build/js/config-schema.json",
-      );
-      console.error(
-        "  node script/build/emit-config-schema.mjs --json foliplus/.build/js/config-schema.json",
-      );
-      process.exit(1);
-    }
+    const staleSchema = isStale(o.out, text, "foliplus/js/config-schema.ts");
+    const staleDefaults = isStale(
+      defaultsOut,
+      defaultsText,
+      "foliplus/js/config-default.ts",
+    );
+    if (staleSchema || staleDefaults) process.exit(1);
   } else {
     writeFileSync(o.out, text, "utf-8");
+    writeFileSync(defaultsOut, defaultsText, "utf-8");
   }
 };
 

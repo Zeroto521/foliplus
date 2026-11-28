@@ -643,6 +643,44 @@ describe("main", () => {
   );
 
   it(
+    "writes the defaults module beside --out",
+    async () => {
+      withTmp();
+      await main({ json: jsonPath, out: outPath } as any);
+      const defaultsPath = join(dir as string, "config-default.ts");
+      const text = readFileSync(defaultsPath, "utf-8");
+      expect(text).toContain("const DEFAULT_CONFIG");
+      expect(text).toContain("export { DEFAULT_CONFIG };");
+    },
+    SLOW,
+  );
+
+  it(
+    "verify reports a stale defaults module and exits 1",
+    async () => {
+      withTmp();
+      await main({ json: jsonPath, out: outPath } as any);
+      writeFileSync(join(dir as string, "config-default.ts"), "stale\n", "utf-8");
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+        throw new Error("exit:1");
+      });
+      try {
+        await expect(
+          main({ json: jsonPath, out: outPath, verify: true } as any),
+        ).rejects.toThrow("exit:1");
+        expect(errorSpy.mock.calls.join("\n")).toContain(
+          "foliplus/js/config-default.ts is out of date",
+        );
+      } finally {
+        errorSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    },
+    SLOW,
+  );
+
+  it(
     "verify accepts a CRLF checkout copy of the generated file",
     async () => {
       // git autocrlf re-emits CRLF on Windows checkouts while prettier emits LF,
@@ -716,7 +754,8 @@ describe("main", () => {
         const mod = await import("#script/build/emit-config-schema.mjs");
         await mod.main({ out: outPath } as any);
         expect(readFileSyncMock).toHaveBeenCalledWith(0, "utf-8");
-        expect(writeFileSyncMock).toHaveBeenCalledTimes(1);
+        // Schema + defaults module: both generated from the same dump.
+        expect(writeFileSyncMock).toHaveBeenCalledTimes(2);
       } finally {
         vi.doUnmock("fs");
         vi.doUnmock("prettier");

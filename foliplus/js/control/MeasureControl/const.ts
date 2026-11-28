@@ -1,6 +1,7 @@
 // control/MeasureControl/const — timing, label-anchor, pane and CSS-class constants shared by every measure mode and its UI.
 import type { ExportDataFormat } from "./type.js";
 import { DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { scopedStorageKey } from "#platform/storage.js";
 
 /** Timing / delay constants. */
@@ -132,7 +133,8 @@ const EXPORT_FORMAT = {
 /** Default format for `CONFIG.export_format` — used when the value is missing
  * or unknown. Python's `MeasureControl` rejects anything outside
  * `EXPORT_FORMAT`, so this only guards misconfiguration. */
-const DEFAULT_EXPORT_FORMAT: ExportDataFormat = EXPORT_FORMAT.GEOJSON;
+const DEFAULT_EXPORT_FORMAT: ExportDataFormat =
+  DEFAULT_CONFIG.MeasureControl.export_format;
 
 /** Standard GeoJSON type names (RFC 7946). */
 const GEOJSON = {

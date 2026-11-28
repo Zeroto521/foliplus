@@ -31,11 +31,8 @@ import {
   parsePersistedFilter,
 } from "#core/layer/index.js";
 import { generateId } from "#core/lifecycle/index.js";
-import {
-  CLASS_COUNT,
-  type ClassifyMethod,
-  SCHEME_FALLBACK_COLOR,
-} from "#core/value/index.js";
+import { type ClassifyMethod, SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { normalizeHexColor } from "#platform/color.js";
 import type { Debounced } from "#platform/debounce.js";
@@ -383,7 +380,7 @@ class HeatmapManager {
     // State management
     this.selectedLayerId = null;
     this.pointLayers = [];
-    this.agg = CONFIG.agg ?? CONST.AGG.COUNT;
+    this.agg = CONFIG.agg ?? DEFAULT_CONFIG.HeatmapControl.agg;
     this.field = "";
     this.availableFields = [];
     this.effectiveFieldCache = null;
@@ -400,9 +397,9 @@ class HeatmapManager {
     this.declaredFilter = parsePersistedFilter(rawDeclaredFilter);
     this.declaredFilterInvalid = rawDeclaredFilter != null && !this.declaredFilter;
     this.declarationWarned = new Set();
-    this.scheme = CONFIG.color_scheme ?? "Reds";
+    this.scheme = CONFIG.color_scheme ?? DEFAULT_CONFIG.HeatmapControl.color_scheme;
     this.method = resolveClassifyMethod(CONFIG.method);
-    this.numClasses = CONFIG.num_classes ?? CLASS_COUNT.DEFAULT;
+    this.numClasses = CONFIG.num_classes ?? DEFAULT_CONFIG.HeatmapControl.num_classes;
     this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
     this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
     // Python default is True; only an explicit false turns labels off — same
