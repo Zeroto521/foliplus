@@ -7,7 +7,7 @@
 //
 // Lives beside LayerController (not in core/layer/) because it depends on
 // LayerPersistence and LabelManager — both LayerControl-local.
-import { readDeclaredOpacity } from "../declaredParse.js";
+import { readDeclaredOpacity } from "../declared/index.js";
 import type { LabelManager } from "../label/index.js";
 import type { LayerPersistence } from "../persistence.js";
 import type { LayerIntentStore } from "./LayerIntentStore.js";

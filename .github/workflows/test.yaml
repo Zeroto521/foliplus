@@ -43,8 +43,10 @@ jobs:
   # ── Node jobs ──
   # Format, lint, and typecheck are independent of the Python matrix, so they
   # run as their own jobs rather than as steps inside `test`: they share no
-  # dependency with it, they are the slow ones, and `make lint` is a
-  # pre-commit run, which CI does not have. Each maps to one signal:
+  # dependency with it and they are the slow ones. Their local equivalent is
+  # `make lint` (one aggregate target: pre-commit + the three commands below),
+  # so a green `make lint` means the same three signals are green. Each maps to
+  # one signal:
   #   format     — prettier reports a diff (never writes in CI)
   #   lint       — eslint pass 1, non-type-aware (the quality rules)
   #   typecheck  — tsc plus the type-aware Promise rules (both read tsconfig)

@@ -12,7 +12,7 @@ import { EVENTS } from "#foliplus/core/event/index.js";
 import { createLogger } from "#platform/log.js";
 import * as CONST from "#control/LayerControl/const.js";
 import { type LayerController } from "#control/LayerControl/controller.js";
-import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
+import { effectiveRoleFolded } from "#control/LayerControl/fold/index.js";
 import { LayerUI } from "#control/LayerControl/ui/index.js";
 import {
   getIntent,

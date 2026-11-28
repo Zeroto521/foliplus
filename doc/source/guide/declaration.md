@@ -126,6 +126,13 @@ after whitespace folding, so `"Basemap"`, `"basemap"` and `"BASE MAP"`
 land in one folder; the folder keeps the first spelling it saw. A folder keeps
 its group row after its last layer is removed.
 
+**Root-only.** A folder can only be declared on a top-level layer. A container
+layer (`FeatureGroup` / `LayerGroup`) declaring `folder` would put a group inside
+a folder, and a layer that already sits inside a container would put a folder
+inside a group — both are ignored with a one-time warning naming the layer and
+the reason. The declaration channel therefore cannot create folder nesting; the
+data model still renders author-built container nesting, read-only.
+
 Membership is declared per layer and nowhere else. The control-level
 `folders=` option (see {ref}`folders`) declares a folder's **defaults** — its
 display name and whether it starts folded — and never moves a layer into a
@@ -257,8 +264,11 @@ stations = {
 
 m = folium.Map(location=[31.2, 121.5], zoom_start=10)
 
-# 1. The group's own block: the 观测站 group row groups into 设施.
-declared = folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"})
+# 1. The group's own block: the 观测站 group row carries a zoom_range.
+#    (Not a folder — folders are root-only, see the folder section above.)
+declared = folium.FeatureGroup(
+    name="观测站", foliplus={"zoom_range": {"min": 10, "max": 14}}
+)
 folium.GeoJson(stations, name="站点").add_to(declared)
 declared.add_to(m)
 
@@ -272,8 +282,8 @@ inherited.add_to(m)
 LayerControl().add_to(m)
 ```
 
-Declarations are read from the layer they are attached to: the `folder` above
-groups the **观测站** group row, while the `label` block belongs to the **站点 2**
+Declarations are read from the layer they are attached to: the `zoom_range` above
+describes the **观测站** group row, while the `label` block belongs to the **站点 2**
 child. The **另一组** container row inherits nothing from it, and the child block is
 not reported as a mistake.
 
@@ -287,9 +297,9 @@ a hand-built `FeatureGroup`:
 # gdf_stations: your existing GeoDataFrame
 m = folium.Map(location=[31.2, 121.5], zoom_start=10)
 gdf_stations.explore(m=m, foliplus={"label": {"field": "name"}})  # ordinary layer
-folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"}).add_to(
-    m
-)  # container row
+folium.FeatureGroup(
+    name="观测站", foliplus={"zoom_range": {"min": 10, "max": 14}}
+).add_to(m)  # container row
 ```
 
 `explore` forwards its extra keywords to the `folium.GeoJson` it creates, so
@@ -298,12 +308,15 @@ why a container example cannot be written with `explore` alone.
 
 **Behaviour**:
 
-- A container row's facts come from the container's own block — its `folder`,
-  `label`, `filter`, `zoom_range` and other keys describe the container row, never
-  its children.
-- A child layer's declaration stays with the child. It is not hoisted to the
-  container, not treated as an error and not warned about; it describes that child
-  and nothing else.
+- A container row's facts come from the container's own block — its `label`,
+  `filter`, `zoom_range` and other keys describe the container row, never its
+  children. `folder` is the one exception: folders are root-only (see
+  {ref}`folder`), so a container's `folder` declaration is ignored and warns once.
+- A child layer's declaration stays with the child. Its other keys are simply
+  never read — the child is not a row, so nothing is hoisted and nothing is
+  reported as an error. Its own `folder` declaration is the one exception: the
+  collection walk still sees that the child sits inside a container, so it is
+  ignored with a one-time warning, exactly like a container's own `folder`.
 - To declare something for the container row, write it on the container constructor.
   `FeatureGroup`, `LayerGroup` and `GeoJson` all forward `foliplus=...` into the
   layer, the same way `explore` does.

@@ -1,4 +1,5 @@
-// declaredFilter — the filter an author declared on the layer itself.
+// control/LayerControl/declared/filter — the filter an author declared on the
+// layer itself.
 //
 // The per-layer `foliplus={"filter": ...}` declaration is normalised ONCE in
 // Python (`normalise_layer_filter`) into CONF `data[].filter`, carried on the

@@ -93,13 +93,13 @@ class ListPanel {
    *  `CONF.folders` (never persisted — it is author config baked into the
    *  page, so a reload always re-derives it). This is the "default" layer of
    *  the fold state: the user override (foldedFolders) is checked
-   *  first and this falls back under it. See control/LayerControl/declaredFolder.ts. */
+   *  first and this falls back under it. See control/LayerControl/fold/folder.ts. */
   authorFoldedFolders: Set<string> = new Set();
   /** The author's declared default folded role map, derived from
    *  `CONF.roles` (never persisted — it is author config baked into the
    *  page, so a reload always re-derives it). The user override
    *  (foldedRoles) is checked first and this falls back under it. See
-   *  control/LayerControl/declaredRole.ts. */
+   *  control/LayerControl/fold/role.ts. */
   authorDefaultFoldedRoles: Record<string, boolean> = {};
   /** Index of the currently-navigable row the cursor is parked on, or null
    *  when the cursor is cleared (Escape, outside press). */

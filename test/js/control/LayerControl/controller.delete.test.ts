@@ -442,7 +442,7 @@ describe("LayerController", () => {
 
       expect(handler).toHaveBeenCalledWith(
         { id: "measure1" },
-        { origin: { kind: "system", via: "teardown" } },
+        { origin: { kind: "system", via: "teardown" }, revision: expect.any(Number) },
       );
       expect(unregisterSpy).not.toHaveBeenCalled();
       expect(manager.layerRegistry.has("measure1")).toBe(true);

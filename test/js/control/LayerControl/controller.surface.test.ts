@@ -154,7 +154,7 @@ describe("LayerController", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(handler).toHaveBeenCalledWith(
       { id: "test_layer" },
-      { origin: { kind: "system", via: "teardown" } },
+      { origin: { kind: "system", via: "teardown" }, revision: expect.any(Number) },
     );
   });
 

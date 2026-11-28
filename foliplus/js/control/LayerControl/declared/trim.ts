@@ -1,4 +1,5 @@
-// control/LayerControl/declaredTrim — the one trim every declared string value uses.
+// control/LayerControl/declared/trim — the one trim every declared string value
+// uses.
 
 /** The whitespace a declared string value is trimmed of, as explicit code
  *  points. This is the UNION of the two hosts' whitespace sets, not either

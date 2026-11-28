@@ -1,9 +1,9 @@
 import * as CONST from "./const.js";
-import { readDeclaredFilter } from "./declaredFilter.js";
 import {
+  readDeclaredFilter,
   readDeclaredIconColorOpacity,
   readDeclaredMarkerColorOpacity,
-} from "./declaredParse.js";
+} from "./declared/index.js";
 import { LayerIntentStore, LayerOrchestration } from "./domain/index.js";
 import { LabelManager } from "./label/index.js";
 import { LayerPersistence } from "./persistence.js";

@@ -31,7 +31,7 @@ import * as CONST from "#control/LayerControl/const.js";
 import {
   effectiveFolderFolded,
   folderFoldKey,
-} from "#control/LayerControl/declaredFolder.js";
+} from "#control/LayerControl/fold/index.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /**

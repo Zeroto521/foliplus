@@ -9,10 +9,10 @@ stacks:
 
 * the sub-key vocabulary - canonical camelCase key -> accepted spellings
   (foliplus/_declaration/face.py vs
-  foliplus/js/control/LayerControl/declaredParse.ts);
+  foliplus/js/control/LayerControl/declared/face.ts);
 * the whitespace a declared string is trimmed of, as explicit code points
   (DECLARED_TRIM_CODEPOINTS in foliplus/_declaration/paint.py and in
-  foliplus/js/control/LayerControl/declaredTrim.ts). The set is the UNION of
+  foliplus/js/control/LayerControl/declared/trim.ts). The set is the UNION of
   Python's str.isspace() and JavaScript's WhiteSpace/LineTerminator sets: the
   hosts disagree on U+001C-U+001F / U+0085 / U+FEFF, and an author pasting from
   rich text or CJK input brings U+2000-U+200A, U+2028/U+2029, U+202F, U+205F,
@@ -23,7 +23,7 @@ stacks:
   and each hex reader reaches the shared trim_declared_string.
 
 The JS structural checks (every isHexColor(...) bound to trimDeclaredString; no
-bare .trim() call) live in test/js/control/LayerControl/declaredTrim.test.ts,
+bare .trim() call) live in test/js/control/LayerControl/declared/trim.test.ts,
 which parses TypeScript with the compiler API. Parsing TS with Python regexes
 was the defect this split removes: the AST distinguishes comments, string and
 regular-expression literals, and shadowed scopes by construction. Reading the
@@ -48,8 +48,10 @@ ROOT = Path(__file__).resolve().parents[3]
 PYTHON_FACE = ROOT / "foliplus" / "_declaration" / "face.py"
 PYTHON_PAINT = ROOT / "foliplus" / "_declaration" / "paint.py"
 PYTHON_MARKER = ROOT / "foliplus" / "_declaration" / "marker.py"
-JS_PARSE = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declaredParse.ts"
-JS_TRIM = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declaredTrim.ts"
+JS_PARSE = (
+    ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declared" / "face.ts"
+)
+JS_TRIM = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declared" / "trim.ts"
 
 _TABLE_NAMES = ("_ICON_FACE_KEYS", "_MARKER_FACE_KEYS")
 _JS_TABLE_NAMES = ("ICON_FACE_KEYS", "MARKER_FACE_KEYS")
@@ -222,12 +224,12 @@ def js_trim_codepoints(source: str | None = None) -> tuple[int, ...]:
         text,
         re.S,
     )
-    assert match is not None, "DECLARED_TRIM_CODEPOINTS not found in declaredTrim.ts"
+    assert match is not None, "DECLARED_TRIM_CODEPOINTS not found in declared/trim.ts"
     codepoints = tuple(
         int(token.strip(), 0) for token in match.group(1).split(",") if token.strip()
     )
     assert codepoints, (
-        "DECLARED_TRIM_CODEPOINTS in declaredTrim.ts parsed to an empty array"
+        "DECLARED_TRIM_CODEPOINTS in declared/trim.ts parsed to an empty array"
     )
     return codepoints
 
