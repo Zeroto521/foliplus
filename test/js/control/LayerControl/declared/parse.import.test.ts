@@ -12,6 +12,7 @@
 // teeth are visible without a second fixture tree.
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const ROOT = "foliplus/js/control/LayerControl";
@@ -33,25 +34,66 @@ const declaredFiles = (): string[] => {
 
 type ImportRead = { names: string[]; specifier: string };
 
-/** Every named import in one source, with the specifier it came from. */
-const namedImports = (source: string): ImportRead[] => {
+/** Names carried by one import/export clause element (a, a as b, type a as b).
+ *  Only the *source* name is reported: the local alias does not affect which
+ *  declared symbol the file reads. */
+const clauseElementName = (element: ts.ImportOrExportSpecifier): string =>
+  (element.propertyName ?? element.name).text;
+
+/** Walk one TS source and collect what it imports. Named imports, namespace
+ *  imports (import * as ns), default imports, dynamic import("...") and
+ *  import("...").T types all name a module this file couples to; a regex over
+ *  the named shape alone misses the other three, which is how a deep namespace
+ *  or dynamic import of declared/ slipped past the guard. A namespace,
+ *  dynamic, or ImportType read exposes every export the specifier ships, so it
+ *  is reported under the opaque name "*" — the specifier is what is judged. */
+const collectImports = (
+  source: string,
+): { reads: ImportRead[]; namespaceSpecifiers: string[] } => {
   const reads: ImportRead[] = [];
-  const spec = /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+"([^"]+)"/g;
-  for (const match of source.matchAll(spec)) {
-    const names = match[1]
-      .split(",")
-      .map(name =>
-        name
-          .trim()
-          .replace(/^type\s+/, "")
-          .split(/\s+as\s+/)[0]
-          .trim(),
-      )
-      .filter(Boolean);
-    reads.push({ names, specifier: match[2] });
-  }
-  return reads;
+  const namespaceSpecifiers: string[] = [];
+  const sf = ts.createSourceFile("probe.ts", source, ts.ScriptTarget.ES2022, true);
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) && node.importClause) {
+      const specifier = (node.moduleSpecifier as ts.StringLiteral).text;
+      const clause = node.importClause;
+      if (clause.name) reads.push({ names: [clause.name.text], specifier });
+      if (clause.namedBindings) {
+        if (ts.isNamespaceImport(clause.namedBindings)) {
+          reads.push({ names: ["*"], specifier });
+          namespaceSpecifiers.push(specifier);
+        } else {
+          reads.push({
+            names: clause.namedBindings.elements.map(clauseElementName),
+            specifier,
+          });
+        }
+      }
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword
+    ) {
+      const arg = node.arguments[0];
+      if (arg && ts.isStringLiteral(arg)) {
+        reads.push({ names: ["*"], specifier: arg.text });
+        namespaceSpecifiers.push(arg.text);
+      }
+    } else if (ts.isImportTypeNode(node)) {
+      const arg = node.argument;
+      if (ts.isLiteralTypeNode(arg) && ts.isStringLiteral(arg.literal)) {
+        reads.push({ names: ["*"], specifier: arg.literal.text });
+        namespaceSpecifiers.push(arg.literal.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return { reads, namespaceSpecifiers };
 };
+
+/** Back-compat name for the probes and the one production call site that reads
+ *  the import list off a source. */
+const namedImports = (source: string): ImportRead[] => collectImports(source).reads;
 
 /** Every exported name in one source (inline export const/function/type + export blocks). */
 const exportedNames = (source: string): string[] => {
@@ -81,7 +123,29 @@ const importProblems = (file: string, source: string): string[] => {
   const flagged = new Set<string>();
   const inDeclared =
     file.startsWith(`${DECLARED}/`) && !file.endsWith("/declared/index.ts");
-  for (const { names, specifier } of namedImports(source)) {
+  const { reads, namespaceSpecifiers } = collectImports(source);
+  for (const specifier of namespaceSpecifiers) {
+    // A namespace, dynamic import(), or ImportType read exposes every export
+    // the specifier ships, so a deep one is the same coupling a deep named
+    // import is — just harder to see. Only specifiers that actually target
+    // declared/ are interesting: the rest are unrelated modules that happen
+    // to be namespace-imported. `*` never appears in `reads`, so this loop
+    // and the named loop below cannot double-report the same specifier.
+    const targetsDeclared =
+      specifier.includes("/declared/") ||
+      (inDeclared && specifier.startsWith("./") && !specifier.endsWith(BARREL_SUFFIX));
+    if (!targetsDeclared) continue;
+    if (specifier.endsWith(BARREL_SUFFIX)) continue;
+    flagged.add(specifier);
+    if (inDeclared && specifier.startsWith("./")) {
+      problems.push(`${file}: namespace import inside declared/ via ${specifier}`);
+    } else {
+      problems.push(
+        `${file}: namespace import from ${specifier} (only */declared/index.js exposes them)`,
+      );
+    }
+  }
+  for (const { names, specifier } of reads) {
     const declaredReads = names.filter(name => name.startsWith("readDeclared"));
     if (declaredReads.length === 0) continue;
     flagged.add(specifier);
@@ -116,7 +180,7 @@ describe("readDeclared* has one public door", () => {
     expect(problems, problems.join("\n")).toEqual([]);
   });
 
-  it("no readDeclared* is defined outside declared/", () => {
+  it("no *exported* readDeclared* is defined outside declared/", () => {
     const outside = declaredFiles()
       .filter(file => !file.startsWith(`${DECLARED}/`))
       .flatMap(file =>
@@ -158,5 +222,43 @@ describe("readDeclared* has one public door", () => {
     expect(exportedNames("export { readDeclaredOpacity };")).toEqual([
       "readDeclaredOpacity",
     ]);
+  });
+});
+
+describe("namespace/dynamic/ImportType also guarded", () => {
+  it("namespace import of a deep declared module is a violation", () => {
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'import * as ns from "#control/LayerControl/declared/face.js";\nvoid ns.readDeclaredIcon;',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("dynamic import of a deep declared module is a violation", () => {
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'const m = await import("#control/LayerControl/declared/face.js");\nvoid m.readDeclaredIcon;',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("ImportType of a deep declared module is a violation", () => {
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'type T = import("#control/LayerControl/declared/face.js").readDeclaredIcon;\nexport type { T };',
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("namespace import through the barrel is fine", () => {
+    expect(
+      importProblems(
+        `${ROOT}/ui/style/icon.ts`,
+        'import * as ns from "#control/LayerControl/declared/index.js";\nvoid ns.readDeclaredIcon;',
+      ),
+    ).toEqual([]);
   });
 });
