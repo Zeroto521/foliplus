@@ -15,10 +15,10 @@ from importlib.metadata import version as _dist_version
 
 try:
     from ._version import __version__ as version
-except ImportError:  # source tree without the generated _version.py
+except ImportError:  # pragma: no cover - source tree without _version.py
     try:
         version = _dist_version("foliplus")
-    except PackageNotFoundError:
+    except PackageNotFoundError:  # pragma: no cover - uninstalled source tree
         version = "unknown"
 
 __all__ = ["version"]
