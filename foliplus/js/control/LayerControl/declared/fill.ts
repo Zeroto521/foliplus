@@ -96,7 +96,7 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
  *  the non-hex name channels (data.field, data.scheme) for emptiness only and
  *  the caller stores the value as written - their whitespace is part of the
  *  identifier, not padding around a colour. A new trim in this module must be
- *  justified, and the exemption in declaredTrim.test.ts updated. */
+ *  justified, and the exemption in trim.test.ts updated. */
 const isName = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 

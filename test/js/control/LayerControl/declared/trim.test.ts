@@ -41,7 +41,7 @@ const HEX_FN = "isHexColor";
 
 //: The readers that exist today. New entries are picked up by discovery; this
 //: pin only forces a human to look at a newly appearing reader.
-const EXPECTED_HEX_READERS = ["fill.ts", "parse.ts"];
+const EXPECTED_HEX_READERS = ["face.ts", "fill.ts", "marker.ts", "parse.ts"];
 
 const filePath = (name: string): string => `${DECLARED_DIR}/${name}`;
 

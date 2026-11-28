@@ -1,32 +1,23 @@
-// control/LayerControl/declared/parse — the scalar declared* readers behind
-// one registry.
+// control/LayerControl/declared/parse — the scalar declared readers behind one
+// registry.
 //
-// Three per-layer foliplus declarations (border, icon_size, marker_color) share
-// one mechanical scalar shape: a scalar (one-key object, one number, one preset
-// name) validated by a small parse and read through the shared readDeclaredKey
-// skeleton. Border is the two-shaped one — a follow_fill / value / solid /
-// original mode shell or the flat fill-isomorphic value form — but still one
-// normalized outcome read through the same skeleton. This module owns those
-// three parses and the key → parse registry, so a new scalar channel registers
-// here instead of opening another file; the dimension-specific parse stays its
-// own function (its own message, its own invalid accumulation) — only the file
-// is shared.
+// Two per-layer foliplus declarations live here: `border` (the two-shaped one —
+// a follow_fill / value / solid / original mode shell or the flat
+// fill-isomorphic value form) and whole-layer `opacity` (a 0-1 float). Both are
+// scalar channels: one small parse each, read through the shared
+// {@link readDeclaredKey} skeleton and dispatched by the key → parse registry
+// below, so a new scalar channel registers here instead of opening another file.
+// The marker chassis scalars (icon_size, marker_color) keep the same shape but
+// live in ./marker, and the icon / marker faces in ./face.
 //
-// The icon / marker face declarations ride the same skeleton with one extra
-// step: their sub-key vocabulary (glyph / color / colorOpacity, plus the
-// accepted snake spellings) is normalised by a single spelling map before the
-// per-key validators run, so both faces and both consumers agree on canonical
-// camelCase keys and an unknown sub-key warns instead of passing silently.
-//
-// The read/cache/warn-once skeleton lives in {@link readDeclaredKey}; the
-// module owns only the parses and the thin readers that dispatch on them.
-// Public API names are unchanged (readDeclaredBorder / readDeclaredIconSize /
-// readDeclaredMarkerColor) — callers are untouched except for the import path.
+// The read/cache/warn-once skeleton lives in {@link readDeclaredKey}; the module
+// owns only the parses and the thin readers that dispatch on them. Public API
+// names are unchanged (readDeclaredBorder / readDeclaredOpacity) — callers
+// import them through ./index.
 import { parseValueDeclaration } from "./fill.js";
 import { type RejectFn, readDeclaredKey } from "./key.js";
 import { trimDeclaredString } from "./trim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
-import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
 
 /** The recognised border declaration mode literals (public API, snake_case).
@@ -69,23 +60,6 @@ type DeclaredBorderRead = {
   /** One line per rejected key, already logged — kept for tests. */
   invalid: string[];
 };
-
-/** The declared marker icon pixel size, or undefined when absent/invalid. */
-type DeclaredIconSize = number | undefined;
-
-/** The declared marker chassis preset name, or undefined when absent/unknown. */
-type DeclaredMarkerColor = string | undefined;
-
-/** The declared icon face after normalisation (canonical camelCase keys, only
- *  the sub-keys the author actually declared). */
-type DeclaredIconFace = {
-  glyph?: string;
-  color?: string;
-  colorOpacity?: number;
-};
-
-/** The declared marker face after normalisation (the chassis alpha only). */
-type DeclaredMarkerFace = { colorOpacity?: number };
 
 /** Empty read for a null/undefined layer (provisional, never cached). */
 const EMPTY: DeclaredBorderRead = { invalid: [] };
@@ -245,74 +219,6 @@ const parseBorder = (
   };
 };
 
-/** Parse the raw `icon_size` declaration into a validated pixel size.
- *
- *  A non-integer, non-finite, zero or negative value is rejected (a marker icon
- *  scales as a box: a fractional pixel is not meaningful and a non-positive one
- *  would hide the marker). `readDeclaredKey` owns the warn-once, so a rejected
- *  declaration is reported once and read as "not declared". */
-const parseIconSize = (
-  raw: unknown,
-  layerId: string | undefined,
-  reject: (scope: string, message: string) => void,
-): { declared?: DeclaredIconSize; invalid: string[] } => {
-  const invalid: string[] = [];
-  if (raw === undefined || raw === null) return { invalid };
-  if (typeof raw !== "number" || !Number.isInteger(raw) || raw <= 0) {
-    const message = `a non-positive-integer icon_size ${JSON.stringify(raw)} (expected a whole number of pixels > 0)`;
-    reject("shape", message);
-    invalid.push(message);
-    return { invalid };
-  }
-  return { declared: raw, invalid };
-};
-
-/** Parse the raw `marker_color` declaration into a validated preset name
- *  or a CSS hex.
- *
- *  A non-string (Python already gated the shape, but the namespace is a folium
- *  passthrough nothing validates at construction) or a blank name is rejected.
- *  A name outside MARKER_COLOR_PRESET_HEX and a malformed hex are rejected too
- *  — an unknown preset or bad hex would otherwise fall through to the derived
- *  blue and the author would never know their declaration was ignored. A
- *  valid hex is normalised (#rgb → #rrggbb, lowercased) and read as the
- *  chassis colour directly (the flat mask path paints any hex). */
-const parseMarkerColor = (
-  raw: unknown,
-  layerId: string | undefined,
-  reject: (scope: string, message: string) => void,
-): { declared?: DeclaredMarkerColor; invalid: string[] } => {
-  const invalid: string[] = [];
-  if (raw === undefined || raw === null) return { invalid };
-  // marker_color accepts preset names and CSS hex, so Python's normaliser
-  // trims it before deciding; route the trim through the shared function so a
-  // BOM / CJK space is not accepted on one stack only. The shape and the blank
-  // case are separate messages, matching Python's wording: a blank string is
-  // not a non-string.
-  if (typeof raw !== "string") {
-    const message = `a non-string marker_color ${JSON.stringify(raw)}`;
-    reject("shape", message);
-    invalid.push(message);
-    return { invalid };
-  }
-  const name = trimDeclaredString(raw);
-  if (!name) {
-    const message =
-      "an empty or whitespace-only marker_color; expected a non-empty string";
-    reject("shape", message);
-    invalid.push(message);
-    return { invalid };
-  }
-  if (name in MARKER_COLOR_PRESET_HEX) return { declared: name, invalid };
-  if (isHexColor(name)) {
-    return { declared: normalizeHexColor(name).toLowerCase(), invalid };
-  }
-  const message = `an unknown marker_color preset ${JSON.stringify(name)} (expected one of ${Object.keys(MARKER_COLOR_PRESET_HEX).join(", ")} or a CSS hex)`;
-  reject("preset", message);
-  invalid.push(message);
-  return { invalid };
-};
-
 /** Parse the raw whole-layer `opacity` declaration (foliplus opacity,
  *  a 0-1 float) into a validated 0-1 number.
  *
@@ -337,207 +243,11 @@ const parseOpacity = (
   return { declared: raw, invalid };
 };
 
-/** One sub-key of a face declaration: the canonical camelCase name it
- *  normalises to, the wire spellings that resolve to it (canonical first; the
- *  snake_case form is accepted because the Python declaration side writes snake
- *  and a hand-built namespace may keep it), and the validator that turns the raw
- *  value into the canonical value or a rejection message. */
-type FaceKeySpec = {
-  readonly spellings: readonly string[];
-  readonly validate: (raw: unknown) => FaceKeyRead;
-};
-
-type FaceKeyRead =
-  | { readonly ok: true; readonly value: unknown }
-  | { readonly ok: false; readonly invalid: string };
-
-/** The sub-keys the `icon` face recognises. One map, one vocabulary: a key not
- *  listed here is an unknown sub-key and warns (P1-2), and the spellings list is
- *  the ONLY place a snake spelling is translated. */
-const ICON_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
-  glyph: {
-    spellings: ["glyph"],
-    validate: raw => {
-      // Trim before the shape check and store the trimmed value: Python's
-      // normaliser strips the author's string first, so " star " is the same
-      // declared glyph there. Storing the raw padded string here would make
-      // the glyph lookup miss a name the declaration guide calls accepted.
-      const glyph = typeof raw === "string" ? trimDeclaredString(raw) : null;
-      return glyph !== null && glyph !== ""
-        ? { ok: true, value: glyph }
-        : {
-            ok: false,
-            invalid: `an empty or non-string icon glyph ${JSON.stringify(raw)} (expected a non-empty string)`,
-          };
-    },
-  },
-  color: {
-    spellings: ["color"],
-    validate: raw => {
-      // Trim before the shape check: Python's _declared_hex strips the string
-      // before its hex regex, so a padded "#ff0000" is accepted there. Both
-      // sides must accept the same spelling and store the same expanded
-      // lowercase hex, or one stack paints a colour the other rejects.
-      const color = typeof raw === "string" ? trimDeclaredString(raw) : raw;
-      return typeof color === "string" && isHexColor(color)
-        ? { ok: true, value: normalizeHexColor(color).toLowerCase() }
-        : {
-            ok: false,
-            invalid: `a non-hex icon color ${JSON.stringify(raw)} (expected a CSS hex such as "#ff0000")`,
-          };
-    },
-  },
-  colorOpacity: {
-    spellings: ["colorOpacity", "color_opacity"],
-    validate: raw =>
-      typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw <= 100
-        ? { ok: true, value: raw }
-        : {
-            ok: false,
-            invalid: `a non-integer or out-of-range colorOpacity ${JSON.stringify(raw)} (expected a whole number from 0 to 100)`,
-          },
-  },
-};
-
-/** The sub-keys the `marker` face recognises. The marker chassis carries the
- *  alpha only; the glyph and the chassis colour are the icon face's and the
- *  marker_color declaration's business (they warn here as unknown sub-keys). */
-const MARKER_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
-  colorOpacity: ICON_FACE_KEYS.colorOpacity,
-};
-
-/** One line naming the layer a face warning is about. The reader only knows
- *  the registry id — the author-facing layer name is a Python-side fact — so
- *  the id is the locator the panel and the console share. */
-const warningTarget = (layerId: string | undefined): string =>
-  `on layer "${layerId ?? "<unregistered>"}"`;
-
-/** Normalise one declared face's sub-keys and validate their values.
- *
- *  This is the single convergence point for a face's spelling vocabulary: the
- *  caller supplies the accepted keys and gets canonical camelCase names back,
- *  so no reader writes its own if-chain and both sides (Python declaration,
- *  hand-built namespace) agree on exactly one output spelling. Each accepted
- *  spelling maps to one canonical key; the FIRST occurrence decides — a
- *  duplicate always warns and is dropped, even when the first value was
- *  unusable (the Python normaliser marks the canonical key seen before it
- *  validates, and this reader follows the same one-way rule, so the two stacks
- *  never disagree on which spelling won); an unknown sub-key warns and is
- *  dropped without touching its siblings; a malformed value is rejected alone.
- *  Every warning names the layer id, so a console line locates the authoring
- *  layer the same way the Python warning names it. */
-const normaliseFaceKeys = (
-  face: Record<string, unknown>,
-  spec: Readonly<Record<string, FaceKeySpec>>,
-  faceName: string,
-  layerId: string | undefined,
-  reject: RejectFn,
-): { values: Record<string, unknown>; invalid: string[] } => {
-  const values: Record<string, unknown> = {};
-  const invalid: string[] = [];
-  const canonicalOf = new Map<string, string>();
-  const accepted: string[] = [];
-  for (const [canonical, keySpec] of Object.entries(spec)) {
-    for (const spelling of keySpec.spellings) {
-      canonicalOf.set(spelling, canonical);
-      accepted.push(spelling);
-    }
-  }
-  const target = warningTarget(layerId);
-  const rejectOne = (scope: string, message: string): void => {
-    reject(`face.${scope}`, message);
-    invalid.push(message);
-  };
-  const seen = new Set<string>();
-  for (const [key, raw] of Object.entries(face)) {
-    const canonical = canonicalOf.get(key);
-    if (canonical === undefined) {
-      rejectOne(
-        key,
-        `declared ${faceName}: ignoring unknown sub-key "${key}" ${target} (accepted: ${accepted.join(", ")})`,
-      );
-      continue;
-    }
-    if (seen.has(canonical)) {
-      rejectOne(
-        key,
-        `declared ${faceName}: ignoring duplicate sub-key "${key}" ${target} (the canonical key "${canonical}" is already declared; the first spelling wins)`,
-      );
-      continue;
-    }
-    seen.add(canonical);
-    const read = spec[canonical].validate(raw);
-    if (read.ok) {
-      values[canonical] = read.value;
-    } else {
-      rejectOne(canonical, `declared ${faceName}: ignoring ${read.invalid} ${target}`);
-    }
-  }
-  return { values, invalid };
-};
-
-/** Parse the raw `icon` face declaration into its normalised default.
- *
- *  A non-mapping face is rejected with a shape warning — the one shape case the
- *  Python collection gate also reports, and the JS side keeps the two in step
- *  rather than trusting a silent read. An empty (or fully rejected) face reads
- *  as "not declared" so the panel keeps its author-derived default. */
-const parseIconFace = (
-  raw: unknown,
-  layerId: string | undefined,
-  reject: RejectFn,
-): { declared?: DeclaredIconFace; invalid: string[] } => {
-  if (raw === undefined || raw === null) return { invalid: [] };
-  if (typeof raw !== "object" || Array.isArray(raw)) {
-    const message = `declared icon: ignoring a non-mapping icon face ${JSON.stringify(raw)} ${warningTarget(layerId)} (expected an object with glyph / color / colorOpacity)`;
-    reject("shape", message);
-    return { invalid: [message] };
-  }
-  const { values, invalid } = normaliseFaceKeys(
-    raw as Record<string, unknown>,
-    ICON_FACE_KEYS,
-    "icon",
-    layerId,
-    reject,
-  );
-  return Object.keys(values).length === 0
-    ? { invalid }
-    : { declared: values as DeclaredIconFace, invalid };
-};
-
-/** Parse the raw `marker` face declaration (chassis alpha only). Mirrors the
- *  icon face: one normalisation point, one canonical output. */
-const parseMarkerFace = (
-  raw: unknown,
-  layerId: string | undefined,
-  reject: RejectFn,
-): { declared?: DeclaredMarkerFace; invalid: string[] } => {
-  if (raw === undefined || raw === null) return { invalid: [] };
-  if (typeof raw !== "object" || Array.isArray(raw)) {
-    const message = `declared marker: ignoring a non-mapping marker face ${JSON.stringify(raw)} ${warningTarget(layerId)} (expected an object with colorOpacity)`;
-    reject("shape", message);
-    return { invalid: [message] };
-  }
-  const { values, invalid } = normaliseFaceKeys(
-    raw as Record<string, unknown>,
-    MARKER_FACE_KEYS,
-    "marker",
-    layerId,
-    reject,
-  );
-  return Object.keys(values).length === 0
-    ? { invalid }
-    : { declared: values as DeclaredMarkerFace, invalid };
-};
-
 /** The key → parse registry: a new scalar declared* channel registers here. */
 const SCALAR_PARSES = {
   border: parseBorder,
-  icon_size: parseIconSize,
-  marker_color: parseMarkerColor,
   opacity: parseOpacity,
 } as const;
-
 /** Read (and cache) the border declaration on one layer.
  *
  *  @param layer the carrier a control registered; `null`/undefined before the
@@ -549,50 +259,6 @@ const readDeclaredBorder = (layer: unknown, layerId?: string): DeclaredBorderRea
   if (layer === null || typeof layer !== "object") return EMPTY;
   return readDeclaredKey(layer, layerId, "border", SCALAR_PARSES.border);
 };
-
-/** Read (and cache) the icon pixel size declared on one layer.
- *
- *  @param layer the carrier a control registered; `null`/undefined before the
- *    layer is linked — the read is then provisional and never cached.
- *  @param layerId the id used in warnings (the declaration itself is keyed by
- *    the layer object, which is stable once linked).
- */
-const readDeclaredIconSize = (
-  layer: unknown,
-  layerId?: string,
-  warn?: (message: string) => void,
-): { declared?: DeclaredIconSize; invalid: string[] } =>
-  typeof layer === "object" && layer !== null
-    ? readDeclaredKey<DeclaredIconSize, string>(
-        layer,
-        layerId,
-        "icon_size",
-        SCALAR_PARSES.icon_size,
-        warn,
-      )
-    : { invalid: [] };
-
-/** Read (and cache) the marker chassis preset declared on one layer.
- *
- *  @param layer the carrier a control registered; `null`/undefined before the
- *    layer is linked — the read is then provisional and never cached.
- *  @param layerId the id used in warnings (the declaration itself is keyed by
- *    the layer object, which is stable once linked).
- */
-const readDeclaredMarkerColor = (
-  layer: unknown,
-  layerId?: string,
-  warn?: (message: string) => void,
-): { declared?: DeclaredMarkerColor; invalid: string[] } =>
-  typeof layer === "object" && layer !== null
-    ? readDeclaredKey<DeclaredMarkerColor, string>(
-        layer,
-        layerId,
-        "marker_color",
-        SCALAR_PARSES.marker_color,
-        warn,
-      )
-    : { invalid: [] };
 
 /** Read (and cache) the whole-layer opacity declared on one layer.
  *
@@ -616,85 +282,4 @@ const readDeclaredOpacity = (
       )
     : { invalid: [] };
 
-/** Read (and cache) the icon face the panel's glyph / colour / alpha
- *  dimensions default to (`foliplus={"icon": {"glyph": "star", "color":
- *  "#ff0000", "colorOpacity": 60}}`).
- *
- *  The face is a read-time default, not a paint instruction: it feeds the
- *  panel row and every re-derivation, so a glyph/colour write carries it and
- *  Reset returns to it. Both spellings of a multi-word sub-key are accepted and
- *  normalised to camelCase here; an unknown sub-key warns once and is dropped
- *  (P1-2) so a typo cannot pass silently on the JS side. */
-const readDeclaredIcon = (
-  layer: unknown,
-  layerId?: string,
-  warn?: (message: string) => void,
-): { declared?: DeclaredIconFace; invalid: string[] } =>
-  typeof layer === "object" && layer !== null
-    ? readDeclaredKey<DeclaredIconFace, string>(
-        layer,
-        layerId,
-        "icon",
-        parseIconFace,
-        warn,
-      )
-    : { invalid: [] };
-
-/** Read (and cache) the marker face (chassis alpha only). Mirrors
- *  {@link readDeclaredIcon} — same normalisation point, same warn-once scope. */
-const readDeclaredMarker = (
-  layer: unknown,
-  layerId?: string,
-  warn?: (message: string) => void,
-): { declared?: DeclaredMarkerFace; invalid: string[] } =>
-  typeof layer === "object" && layer !== null
-    ? readDeclaredKey<DeclaredMarkerFace, string>(
-        layer,
-        layerId,
-        "marker",
-        parseMarkerFace,
-        warn,
-      )
-    : { invalid: [] };
-
-/** Read (and cache) the icon glyph alpha declared on one layer
- *  (`foliplus={"icon": {"colorOpacity": 60}}`), 0-100 integer percent.
- *
- *  A thin projection of {@link readDeclaredIcon}: the face reader owns the
- *  normalisation, this facade keeps the narrow alpha-only shape its callers
- *  (the controller snapshot and the row default) already consume. */
-const readDeclaredIconColorOpacity = (
-  layer: unknown,
-  layerId?: string,
-  warn?: (message: string) => void,
-): { declared?: number; invalid: string[] } => {
-  const read = readDeclaredIcon(layer, layerId, warn);
-  return read.declared?.colorOpacity === undefined
-    ? { invalid: read.invalid }
-    : { declared: read.declared.colorOpacity, invalid: read.invalid };
-};
-
-/** Read (and cache) the marker chassis alpha declared on one layer. Mirrors
- *  {@link readDeclaredIconColorOpacity}. */
-const readDeclaredMarkerColorOpacity = (
-  layer: unknown,
-  layerId?: string,
-  warn?: (message: string) => void,
-): { declared?: number; invalid: string[] } => {
-  const read = readDeclaredMarker(layer, layerId, warn);
-  return read.declared?.colorOpacity === undefined
-    ? { invalid: read.invalid }
-    : { declared: read.declared.colorOpacity, invalid: read.invalid };
-};
-
-export {
-  readDeclaredBorder,
-  readDeclaredIcon,
-  readDeclaredIconColorOpacity,
-  readDeclaredIconSize,
-  readDeclaredMarker,
-  readDeclaredMarkerColor,
-  readDeclaredMarkerColorOpacity,
-  readDeclaredOpacity,
-};
-export type { DeclaredIconFace };
+export { readDeclaredBorder, readDeclaredOpacity };
