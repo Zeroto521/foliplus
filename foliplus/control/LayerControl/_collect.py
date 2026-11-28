@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import folium.map
 from branca.element import Element
 from folium.map import FeatureGroup, Layer
 
@@ -35,6 +36,21 @@ from ._role import layer_role
 
 if TYPE_CHECKING:
     from .control import LayerControl
+
+
+# folium 1.0.0 adds LayerGroup as a sibling of FeatureGroup (not a subclass);
+# 0.15/0.20 ship FeatureGroup only. Probe the module so both lines work.
+_LAYER_GROUP = getattr(folium.map, "LayerGroup", None)
+_GROUP_TYPES: tuple[type[Layer], ...] = (
+    (FeatureGroup,) if _LAYER_GROUP is None else (FeatureGroup, _LAYER_GROUP)
+)
+
+
+def _is_container(candidate: Layer) -> bool:
+    """True for a group row: a group type, or a Layer holding Layer children."""
+    return isinstance(candidate, _GROUP_TYPES) or any(
+        isinstance(child, Layer) for child in candidate._children.values()
+    )
 
 
 def _warn_nested_folder(item: Layer, folder: str, reason: str) -> None:
@@ -76,27 +92,53 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
     # below are what a folder declaration is checked against. The data model
     # still renders author-built container nesting read-only; only the
     # declaration channel is restricted.
-    # A container is a FeatureGroup (including an empty one, which still renders
-    # as a container row; folium >= 0.20 ships only this group class) or any
-    # Layer holding Layer children. The child filter matters: folium attaches a
-    # non-Layer JavaScript element to every rendered GeoJson
-    # (`geo_json_<id>_add`), so a truthy `_children` alone would turn each
-    # rendered data layer into a false container.
+    # A container is a group layer (FeatureGroup, including an empty one, which
+    # still renders as a container row; folium 1.0.0 adds LayerGroup as a
+    # sibling, 0.15/0.20 ship FeatureGroup only) or any Layer holding Layer
+    # children. The child filter matters: folium attaches a non-Layer
+    # JavaScript element to every rendered GeoJson (`geo_json_<id>_add`), so a
+    # truthy `_children` alone would turn each rendered data layer into a
+    # false container.
     containers = {
         candidate
         for candidate in candidates
-        if isinstance(candidate, Layer)
-        and (
-            isinstance(candidate, FeatureGroup)
-            or any(isinstance(child, Layer) for child in candidate._children.values())
-        )
+        if isinstance(candidate, Layer) and _is_container(candidate)
     }
-    nested = {
+    # Walk everything reachable inside a container, at any depth: such a layer
+    # never becomes a row (it is not a candidate), so its folder declaration
+    # has to be reported from here - the ruling promises "ignored + warned
+    # once", not silence. Nested containers join `containers` so their own
+    # declarations get the container reason.
+    nested: set[Layer] = set()
+    nested_order: list[Layer] = []
+    frontier = [
         child
         for container in containers
         for child in container._children.values()
         if isinstance(child, Layer)
-    }
+    ]
+    while frontier:
+        child = frontier.pop(0)
+        if child in nested:
+            continue
+        nested.add(child)
+        nested_order.append(child)
+        if _is_container(child):
+            containers.add(child)
+            frontier.extend(
+                grandchild
+                for grandchild in child._children.values()
+                if isinstance(grandchild, Layer)
+            )
+    for child in nested_order:
+        folder = declared_folder(child, child.layer_name)
+        if folder is not None:
+            reason = (
+                "a container layer"
+                if child in containers
+                else "a layer inside a container"
+            )
+            _warn_nested_folder(child, folder, reason)
     # The explore scales live on the map, not on the layer: read them once
     # for the whole pass, from the control's own parent chain (see
     # map_colormaps). ``claimed`` keeps one scale per layer.

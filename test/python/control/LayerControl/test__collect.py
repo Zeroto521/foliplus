@@ -222,6 +222,39 @@ class TestFolderRootOnly:
         assert any("no layer declares" in message for message in messages), messages
         assert any("root-only" in message for message in messages), messages
 
+    @pytest.mark.skipif(
+        getattr(folium, "LayerGroup", None) is None,
+        reason="LayerGroup is a folium >= 1.0.0 group class",
+    )
+    def test_layer_group_folder_declaration_is_ignored(self) -> None:
+        # folium 1.0.0's LayerGroup is a sibling of FeatureGroup and is not a
+        # subclass of it; an empty one still renders as a container row.
+        group = folium.LayerGroup(name="lg", foliplus={"folder": "Ops"})
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            data = collect_layer_data(_control_with(group))
+        row = _row(data, "lg")
+        assert "folder" not in row, row
+        messages = [str(w.message) for w in caught]
+        assert any("a container layer" in message for message in messages), messages
+
+    def test_child_of_a_container_without_a_row_still_warns_once(self) -> None:
+        # A layer that lives inside a container is not a root candidate, so it
+        # never becomes a row - the ruling still promises "ignored + warned
+        # once", so the collection walk must report it from the container side.
+        group = folium.FeatureGroup(name="grp")
+        folium.GeoJson(
+            feature_collection(), name="child", foliplus={"folder": "Ops"}
+        ).add_to(group)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            data = collect_layer_data(_control_with(group))
+        assert [row["name"] for row in data["data"]] == ["grp"], data
+        messages = [str(w.message) for w in caught]
+        assert len(messages) == 1, messages
+        assert "'child'" in messages[0], messages
+        assert "a layer inside a container" in messages[0], messages
+
     def test_empty_container_folder_declaration_is_ignored(self) -> None:
         # An empty group still renders as a container row, so its folder
         # declaration would still nest a group inside a folder.

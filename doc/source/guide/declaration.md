@@ -312,10 +312,11 @@ why a container example cannot be written with `explore` alone.
   `filter`, `zoom_range` and other keys describe the container row, never its
   children. `folder` is the one exception: folders are root-only (see
   {ref}`folder`), so a container's `folder` declaration is ignored and warns once.
-- A child layer's declaration stays with the child. It is not hoisted to the
-  container, not treated as an error and not warned about; it describes that child
-  and nothing else. Its own `folder` declaration follows the same root-only rule
-  and is ignored with a one-time warning.
+- A child layer's declaration stays with the child. Its other keys are simply
+  never read — the child is not a row, so nothing is hoisted and nothing is
+  reported as an error. Its own `folder` declaration is the one exception: the
+  collection walk still sees that the child sits inside a container, so it is
+  ignored with a one-time warning, exactly like a container's own `folder`.
 - To declare something for the container row, write it on the container constructor.
   `FeatureGroup`, `LayerGroup` and `GeoJson` all forward `foliplus=...` into the
   layer, the same way `explore` does.
