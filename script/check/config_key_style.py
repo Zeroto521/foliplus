@@ -85,8 +85,17 @@ _COMMENT_RE = re.compile(r"/\*[\s\S]*?\*/|//[^\n]*")
 # members (``{ min: number; max: number }``) are matched too. A hand edit that
 # spells ``readonly zoomRange`` or adds a comma-separated member is what the old
 # single-anchor pattern silently skipped (CI's regeneration check caught it).
+#
+# Known boundary: this is a text pattern, not a TS parser. It is only ever run
+# over the generated pure-declaration file foliplus/js/config-schema.ts, so
+# member positions are unambiguous there. Applied to arbitrary TS it would
+# false-positive on function parameters and object-literal values
+# (``function f(a: string, zoomRange?: string)``,
+# ``const x = { min: 1, zoomRange: 2 }``) — deliberately not handled: teaching
+# the gate to parse would trade a 40-line text check for a TS grammar. A test
+# pins this boundary instead of hiding it.
 _TS_PROPERTY_RE = re.compile(
-    r"(?:^|[;{,{])\s*(?:(?:readonly|public|private|protected|static|abstract)\s+)*"
+    r"(?:^|[;{,])\s*(?:(?:readonly|public|private|protected|static|abstract)\s+)*"
     r"([A-Za-z_$][\w$]*)\??\s*:",
     re.MULTILINE,
 )

@@ -80,6 +80,41 @@ class TestTsProperties:
             "schema.ts:1: contract key 'fillAuthor' is not snake_case"
         ]
 
+    def test_readonly_camel_member_is_reported(self):
+        source = "interface X {\n  readonly zoomRange?: string;\n}\n"
+        assert mod.ts_property_violations(source, "schema.ts") == [
+            "schema.ts:2: contract key 'zoomRange' is not snake_case"
+        ]
+
+    def test_comma_separated_camel_member_is_reported(self):
+        source = "type X = { min: number, zoomRange?: string };\n"
+        assert mod.ts_property_violations(source, "schema.ts") == [
+            "schema.ts:1: contract key 'zoomRange' is not snake_case"
+        ]
+
+    def test_readonly_snake_member_passes(self):
+        source = "interface X {\n  readonly zoom_range?: string;\n}\n"
+        assert mod.ts_property_violations(source, "schema.ts") == []
+
+    def test_modifier_word_as_a_member_name_passes(self):
+        source = "type X = { readonly: boolean };\n"
+        assert mod.ts_property_violations(source, "schema.ts") == []
+
+    def test_known_boundary_non_declaration_shapes_are_reported(self):
+        """Pin the deliberate text-pattern boundary, do not hide it.
+
+        The gate only reads the generated declaration file, where a comma is
+        always a member separator. On arbitrary TS the same anchor fires on
+        function parameters and object-literal values; that false positive is
+        accepted instead of teaching the check a TS grammar.
+        """
+        assert mod.ts_property_violations(
+            "function f(a: string, zoomRange?: string) {}\n", "schema.ts"
+        ) == ["schema.ts:1: contract key 'zoomRange' is not snake_case"]
+        assert mod.ts_property_violations(
+            "const x = { min: 1, zoomRange: 2 };\n", "schema.ts"
+        ) == ["schema.ts:1: contract key 'zoomRange' is not snake_case"]
+
     def test_snake_properties_pass(self):
         source = "type X = {\n  zoom_range?: { min: number; max: number };\n};\n"
         assert mod.ts_property_violations(source, "schema.ts") == []
