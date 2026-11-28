@@ -40,7 +40,10 @@ describe("resolve edges", () => {
     expect(subtreeLeaves(d, "layer:nope")).toEqual([]);
   });
 
-  it("leafKeysOf skips nodes deeper than the depth cap", () => {
+  it("leafKeysOf flattens every present leaf regardless of depth", () => {
+    // The z ladder must be complete: a deep leaf (past the render cap) still
+    // needs a z-index, so leafKeysOf does NOT clamp by depth. The 2-level
+    // render cap is a resolveView (row/container) concern only.
     const d = doc({
       "folder:overlay:a": {
         kind: ORDER_KIND.FOLDER,
@@ -70,7 +73,7 @@ describe("resolve edges", () => {
       },
     });
     const leaves = leafKeysOf(d, alwaysPresent);
-    expect(leaves).toEqual([]);
+    expect(leaves).toEqual(["layer:deep"]);
   });
 
   it("resolveView defaults a missing block name to empty", () => {

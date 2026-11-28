@@ -1,6 +1,6 @@
 // core/layer/folderView — the read-only folder-layout view (kept surface).
 //
-// These tests drive the pure view functions over a derived FolderLayout
+// These tests drive the pure view functions over a derived FolderView
 // (no DOM, no storage). The single-source invariant is the thread:
 // layout.members[layerId] is the ONLY assignment a layer carries once a
 // layout exists, and the order keys are the ONLY block priority. The
@@ -9,7 +9,7 @@
 // folder's create / rename / delete / move goes through its commands.
 import { describe, expect, it } from "vitest";
 import {
-  type FolderLayout,
+  type FolderView,
   type LayerInfo,
   type LayerRole,
   folderEntries,
@@ -20,8 +20,7 @@ import {
   rootLayerEntry,
 } from "#core/layer/index.js";
 
-const layout = (partial?: Partial<FolderLayout>): FolderLayout => ({
-  version: 2,
+const layout = (partial?: Partial<FolderView>): FolderView => ({
   folders: [],
   order: {},
   members: {},

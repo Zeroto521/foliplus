@@ -35,6 +35,7 @@ import {
   folderOf,
   groupByFolder,
 } from "#core/layer/index.js";
+import { NODE_KEY_PREFIX } from "#core/layer/order/index.js";
 import { dom, updateItemLabel } from "#platform/dom.js";
 import { ICON_GLOBE } from "#platform/icon.js";
 import {
@@ -965,6 +966,7 @@ const renderFolderRow = (
       [CONST.DATA.ROLE]: role,
       [CONST.DATA.FOLDER_KEY]: folderKey,
       [CONST.DATA.FOLDER_NAME]: folderName,
+      [CONST.DATA.ORDER_KEY]: `folder:${role}:${folderKey}`,
       "aria-expanded": folded ? "false" : "true",
       draggable: "true",
     },
@@ -1120,6 +1122,7 @@ const renderLayerItem = (ui: LayerUI, layerInfo: LayerInfo) => {
       draggable: "true",
       tabindex: "0",
       [CONST.DATA.LAYER_ID]: layerInfo.id,
+      [CONST.DATA.ORDER_KEY]: `${NODE_KEY_PREFIX.LAYER}${layerInfo.id}`,
       "data-layer-type": layerInfo.role,
     },
     ...children,

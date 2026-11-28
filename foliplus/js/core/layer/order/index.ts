@@ -32,6 +32,7 @@ export {
   renameBlock,
   resetOrder,
   restore,
+  stepNode,
   suppress,
 } from "./command.js";
 export { isNonEmptyString } from "./util.js";

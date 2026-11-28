@@ -7,6 +7,7 @@ import {
   folderBareOf,
   isOrderDoc,
   orderDepth,
+  resolveView,
   sanitizeOrderDoc,
 } from "#core/layer/order/index.js";
 
@@ -87,5 +88,90 @@ describe("doc edges", () => {
 
   it("sanitizeOrderDoc returns null for a structurally invalid doc", () => {
     expect(sanitizeOrderDoc({ nodes: { "layer:a": { kind: "bogus" } } })).toBeNull();
+  });
+
+  it("sanitizeOrderDoc promotes an over-deep leaf to the nearest legal container", () => {
+    // f(d1) → g(d2) → x(d3): x is past the cap, so it is promoted to the nearest
+    // legal container (f, depth MAX-1=1); the depth-2 container g stays (empty).
+    const d = doc({
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "folder:overlay:f": {
+        kind: ORDER_KIND.FOLDER,
+        parent: null,
+        rank: "a1",
+        name: "F",
+        role: "overlay",
+      },
+      "folder:overlay:g": {
+        kind: ORDER_KIND.FOLDER,
+        parent: "folder:overlay:f",
+        rank: "a0",
+        name: "G",
+        role: "overlay",
+      },
+      "layer:x": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:g",
+        rank: "a0",
+      },
+    });
+    const out = sanitizeOrderDoc(d);
+    expect(out).not.toBeNull();
+    // The over-deep leaf is preserved and reparented to the nearest legal container.
+    const leaf = out!.nodes["layer:x"];
+    expect(leaf).toBeDefined();
+    expect(leaf!.kind).toBe(ORDER_KIND.LAYER);
+    expect(leaf!.parent).toBe("folder:overlay:f");
+    // The depth-2 container survives as an empty folder; the root structure stands.
+    expect(out!.nodes["folder:overlay:g"]).toMatchObject({
+      kind: ORDER_KIND.FOLDER,
+      parent: "folder:overlay:f",
+    });
+    expect(out!.nodes["folder:overlay:f"]).toBeDefined();
+    expect(out!.nodes["layer:a"]).toBeDefined();
+    // No node remains deeper than the cap.
+    for (const k of Object.keys(out!.nodes)) {
+      expect(orderDepth(out!, k)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("sanitizeOrderDoc is idempotent on a legal depth-2 document", () => {
+    const d = doc({
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "folder:overlay:f": {
+        kind: ORDER_KIND.FOLDER,
+        parent: null,
+        rank: "a1",
+        name: "F",
+        role: "overlay",
+      },
+      "layer:x": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:f",
+        rank: "a0",
+      },
+    });
+    expect(sanitizeOrderDoc(d)).toEqual(d);
+  });
+
+  it("resolveView rows after the clamp never exceed depth 2", () => {
+    const d = doc({
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "folder:overlay:f": {
+        kind: ORDER_KIND.FOLDER,
+        parent: null,
+        rank: "a1",
+        name: "F",
+        role: "overlay",
+      },
+      "layer:x": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:f",
+        rank: "a0",
+      },
+    });
+    const view = resolveView(d, () => true);
+    const maxDepth = Math.max(...view.rows.map(r => r.depth));
+    expect(maxDepth).toBeLessThanOrEqual(2);
   });
 });

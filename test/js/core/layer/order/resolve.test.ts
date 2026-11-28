@@ -123,12 +123,14 @@ describe("resolveView", () => {
     });
     const present = (k: string) => k !== "layer:z";
     const v = resolveView(d, present);
-    expect(v.leaves).toEqual(["layer:a", "layer:x", "layer:y"]);
+    // Render contract: cap 2. x sits at depth 3 (under group g), so it is
+    // dropped from rows and leaves; the z ladder keeps only present, visible
+    // leaves, and a container lists only its in-cap leaves.
+    expect(v.leaves).toEqual(["layer:a", "layer:y"]);
     expect(v.rows.map(r => r.key)).toEqual([
       "layer:a",
       "folder:overlay:f",
       "group:g",
-      "layer:x",
       "layer:y",
     ]);
     expect(
@@ -137,9 +139,9 @@ describe("resolveView", () => {
       {
         kind: ORDER_KIND.FOLDER,
         key: "folder:overlay:f",
-        children: ["layer:x", "layer:y"],
+        children: ["layer:y"],
       },
-      { kind: ORDER_KIND.GROUP, key: "group:g", children: ["layer:x"] },
+      { kind: ORDER_KIND.GROUP, key: "group:g", children: [] },
     ]);
     expect(v.rows.find(r => r.key === "layer:z")).toBeUndefined();
   });
@@ -174,7 +176,6 @@ describe("resolveView", () => {
     expect(v.rows.map(r => r.key)).toEqual([
       "folder:overlay:a",
       "folder:overlay:b",
-      "folder:overlay:c",
     ]);
   });
 });

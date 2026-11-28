@@ -90,15 +90,16 @@ const moveInto = (
   return out;
 };
 
-/** Move a layer node to an absolute index within a parent (null = root). */
-const moveToIndex = (
+/** Move any node (layer, folder, group) to an absolute index within a parent
+ *  (null = root). A container move carries its whole subtree. */
+const moveNodeToIndex = (
   doc: OrderDoc,
   key: string,
   containerKey: string | null,
   index: number,
 ): OrderDoc => {
   const node = doc.nodes[key];
-  if (node?.kind !== ORDER_KIND.LAYER) return doc;
+  if (node === undefined) return doc;
   if (containerKey !== null && doc.nodes[containerKey] === undefined) return doc;
   const siblings = childrenOf(doc, containerKey).filter(s => s !== key);
   const i = Math.max(0, Math.min(index, siblings.length));
@@ -108,6 +109,33 @@ const moveToIndex = (
   const out = clone(doc);
   out.nodes[key] = { ...node, parent: containerKey, rank };
   return out;
+};
+
+/** Move a layer node to an absolute index within a parent (null = root). */
+const moveToIndex = (
+  doc: OrderDoc,
+  key: string,
+  containerKey: string | null,
+  index: number,
+): OrderDoc => {
+  const node = doc.nodes[key];
+  if (node?.kind !== ORDER_KIND.LAYER) return doc;
+  return moveNodeToIndex(doc, key, containerKey, index);
+};
+
+/** Step any node (layer, folder, group) one position within its own parent's
+ *  sibling order. A container step carries its whole subtree. `delta` is +1
+ *  (toward the end) or -1 (toward the start). Returns the unchanged doc when
+ *  the node is unknown or already at the requested boundary. */
+const stepNode = (doc: OrderDoc, nodeKey: string, delta: number): OrderDoc => {
+  const node = doc.nodes[nodeKey];
+  if (node === undefined) return doc;
+  const siblings = childrenOf(doc, node.parent);
+  const index = siblings.indexOf(nodeKey);
+  if (index < 0) return doc;
+  const target = index + delta;
+  if (target < 0 || target >= siblings.length) return doc;
+  return moveNodeToIndex(doc, nodeKey, node.parent, target);
 };
 
 /** Create a folder/group block at the end of the root level (default position). */
@@ -175,6 +203,7 @@ export {
   moveBefore,
   moveInto,
   moveToIndex,
+  stepNode,
   createBlock,
   renameBlock,
   deleteBlock,

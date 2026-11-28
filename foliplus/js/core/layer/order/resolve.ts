@@ -42,6 +42,19 @@ interface ParentView {
   children: string[];
 }
 
+/** The declaration-order index of every node key (doc insertion order), cached
+ *  per document object: the compare runs O(N log N) times, so an O(N) indexOf
+ *  per comparison is the sort's dominant cost. */
+const declIndexCache = new WeakMap<OrderDoc, Map<string, number>>();
+const declIndex = (doc: OrderDoc): Map<string, number> => {
+  const cached = declIndexCache.get(doc);
+  if (cached !== undefined) return cached;
+  const index = new Map<string, number>();
+  Object.keys(doc.nodes).forEach((key, i) => index.set(key, i));
+  declIndexCache.set(doc, index);
+  return index;
+};
+
 /** Sibling rank order: rank lexicographic, tie by declaration index then key. */
 const byRank = (doc: OrderDoc, a: string, b: string, order: string[]): number => {
   // Declaration index: the caller may pass an explicit declaration order; else
@@ -49,8 +62,8 @@ const byRank = (doc: OrderDoc, a: string, b: string, order: string[]): number =>
   const na = doc.nodes[a];
   const nb = doc.nodes[b];
   if (na.rank !== nb.rank) return na.rank < nb.rank ? -1 : 1;
-  const ia = order.length > 0 ? order.indexOf(a) : Object.keys(doc.nodes).indexOf(a);
-  const ib = order.length > 0 ? order.indexOf(b) : Object.keys(doc.nodes).indexOf(b);
+  const ia = order.length > 0 ? order.indexOf(a) : (declIndex(doc).get(a) ?? 0);
+  const ib = order.length > 0 ? order.indexOf(b) : (declIndex(doc).get(b) ?? 0);
   if (ia !== ib) return ia < ib ? -1 : 1;
   return a < b ? -1 : a > b ? 1 : 0;
 };
@@ -87,18 +100,17 @@ const subtreeLeaves = (doc: OrderDoc, key: string): string[] => {
 /** DFS over the whole document: leaf keys in order, present leaves only. */
 const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
   const out: string[] = [];
-  const walk = (parent: string | null, depth: number): void => {
+  const walk = (parent: string | null): void => {
     for (const child of childrenOf(doc, parent)) {
-      if (orderDepth(doc, child) > ORDER_MAX_DEPTH) continue;
       const node = doc.nodes[child];
       if (node.kind === ORDER_KIND.LAYER) {
         if (present(child)) out.push(child);
       } else {
-        walk(child, depth + 1);
+        walk(child);
       }
     }
   };
-  walk(null, 1);
+  walk(null);
   return out;
 };
 
@@ -117,7 +129,9 @@ const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
           leaves.push(child);
         }
       } else {
-        const blockLeaves = subtreeLeaves(doc, child);
+        const blockLeaves = subtreeLeaves(doc, child).filter(
+          k => orderDepth(doc, k) <= ORDER_MAX_DEPTH,
+        );
         rows.push({
           kind: node.kind as Exclude<OrderKind, typeof ORDER_KIND.LAYER>,
           key: child,

@@ -93,6 +93,8 @@ import {
 } from "#core/layer/index.js";
 import {
   type OrderDoc,
+  NODE_KEY_PREFIX,
+  ORDER_KIND,
   folderDocKey,
   childrenOf as orderChildrenOf,
   createBlock as orderCreateBlock,
@@ -103,6 +105,7 @@ import {
   rankStart as orderRankStart,
   renameBlock as orderRenameBlock,
   restore as orderRestore,
+  stepNode as orderStepNode,
   suppress as orderSuppress,
 } from "#core/layer/order/index.js";
 import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
@@ -3559,32 +3562,53 @@ class LayerController implements LayerAPI {
    *   at the base boundary, or unknown.
    */
 
-  /** Move a registered layer one step within the TREE (the single order
-   *  source). The registry z order follows through applyDoc. `up` moves the
-   *  layer before its previous sibling in its parent's order; `down` after its
-   *  next sibling. A root layer swaps with the adjacent block; a folder member
-   *  swaps with the adjacent member inside its folder. */
-  private stepLayerInTree(id: string, up: boolean): boolean {
-    const item = this.layerRegistry.get(id);
-    if (!item) return false;
-    const key = layerKeyOf(id);
+  /** The role of a doc node: a layer's registry role, a folder's stored role
+   *  (or its first member's role when empty), a group's first member's role. */
+  private nodeRoleOf(key: string): string | null {
     const node = this.orderDoc.nodes[key];
+    if (node === undefined) return null;
+    if (node.kind === ORDER_KIND.LAYER) {
+      return this.layerRegistry.get(key.slice(NODE_KEY_PREFIX.LAYER.length))?.role ?? null;
+    }
+    const member = orderChildrenOf(this.orderDoc, key)[0];
+    if (member !== undefined) {
+      const mn = this.orderDoc.nodes[member];
+      if (mn?.kind === ORDER_KIND.LAYER) {
+        return this.layerRegistry.get(member.slice(NODE_KEY_PREFIX.LAYER.length))?.role ?? null;
+      }
+    }
+    return node.kind === ORDER_KIND.FOLDER ? (node.role ?? null) : null;
+  }
+
+  /** Step any panel row (layer, folder, or group block) one position within its
+   *  own parent's sibling order — the node-level move. The registry z order
+   *  follows through applyDoc. `up` moves the node before its previous
+   *  sibling; `down` after its next sibling. A root node never crosses the
+   *  overlay/base role boundary; a container member never leaves its folder. */
+  private stepRow(rowKey: string, up: boolean): boolean {
+    const node = this.orderDoc.nodes[rowKey];
     if (node === undefined) return false;
-    const parentKey = node.parent;
-    const siblings = orderChildrenOf(this.orderDoc, parentKey);
-    const index = siblings.indexOf(key);
+    const siblings = orderChildrenOf(this.orderDoc, node.parent);
+    const index = siblings.indexOf(rowKey);
     if (index < 0) return false;
-    // Role boundary guard: the registry z order is the derived projection, so
-    // the adjacent registry index is still the right boundary signal.
-    const idx = this.layerRegistry.indexOf(item);
-    if (up && idx <= 0) return false;
-    if (!up && idx >= this.layers.length - 1) return false;
-    if (!this.canReorderBetween(idx, up ? idx - 1 : idx + 1)) return false;
     const target = up ? index - 1 : index + 1;
     if (target < 0 || target >= siblings.length) return false;
-    const next = orderMoveToIndex(this.orderDoc, key, parentKey, target);
+    // Cross-role guard at the root: overlay and base never swap.
+    if (node.parent === null) {
+      const roleA = this.nodeRoleOf(rowKey);
+      const roleB = this.nodeRoleOf(siblings[target]);
+      if (roleA !== null && roleB !== null && roleA !== roleB) return false;
+    }
+    const next = orderStepNode(this.orderDoc, rowKey, up ? -1 : 1);
     if (next === this.orderDoc) return false;
-    return this.commitReorder(id, item, () => this.applyDoc(next, { persist: true }));
+    if (node.kind === ORDER_KIND.LAYER) {
+      const id = rowKey.slice(NODE_KEY_PREFIX.LAYER.length);
+      const item = this.layerRegistry.get(id);
+      if (!item) return false;
+      return this.commitReorder(id, item, () => this.applyDoc(next, { persist: true }));
+    }
+    this.commitFolderMove(next);
+    return true;
   }
 
   /**
@@ -3594,8 +3618,13 @@ class LayerController implements LayerAPI {
    * @returns {boolean} true if the layer was moved, false if already at top,
    *   at the base boundary, or unknown.
    */
+  /** Step any panel row (layer, folder, or group block) by its order key. */
+  moveRow(rowKey: string, up: boolean): boolean {
+    return this.stepRow(rowKey, up);
+  }
+
   moveLayerUp(id: string): boolean {
-    return this.stepLayerInTree(id, true);
+    return this.stepRow(layerKeyOf(id), true);
   }
 
   /**
@@ -3606,7 +3635,7 @@ class LayerController implements LayerAPI {
    *   of its role or unknown.
    */
   moveLayerDown(id: string): boolean {
-    return this.stepLayerInTree(id, false);
+    return this.stepRow(layerKeyOf(id), false);
   }
 
   destroy() {

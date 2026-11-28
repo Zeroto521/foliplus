@@ -229,7 +229,7 @@ describe("persist", () => {
     window.localStorage.removeItem(orderKeyOf(map));
   });
 
-  it("drops an over-depth subtree on load, not fatal", () => {
+  it("clamps an over-depth subtree on load by promoting its leaves, not fatal", () => {
     const map = mapLike();
     const over: OrderDoc = {
       nodes: {
@@ -260,7 +260,14 @@ describe("persist", () => {
     window.localStorage.setItem(orderKeyOf(map), JSON.stringify(over));
     const loaded = loadOrderDoc(map);
     expect(loaded).not.toBeNull();
-    expect(loaded!.nodes["layer:x"]).toBeUndefined();
+    // x is preserved and re-hung on the nearest legal container (a); the
+    // over-deep container c is dropped, b stays as an empty depth-2 folder.
+    expect(loaded!.nodes["layer:x"]).toMatchObject({
+      kind: ORDER_KIND.LAYER,
+      parent: "folder:overlay:a",
+    });
+    expect(loaded!.nodes["folder:overlay:c"]).toBeUndefined();
+    expect(loaded!.nodes["folder:overlay:b"]).toBeDefined();
     window.localStorage.removeItem(orderKeyOf(map));
   });
 });

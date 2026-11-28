@@ -7,6 +7,7 @@
 // and the caller falls back to the default document.
 import { ROLE } from "../const.js";
 import { NODE_KEY_PREFIX, ORDER_KIND, type OrderKind } from "./kind.js";
+import { rankAfter } from "./rank.js";
 import { isNonEmptyString } from "./util.js";
 import type { LayerRole } from "#core/layer/index.js";
 
@@ -32,8 +33,12 @@ interface OrderDoc {
   nodes: Record<string, OrderNode>;
 }
 
-/** Maximum nesting depth: root -> block -> sub-block/leaf (design note: max nesting depth is 3: root → block → sub-block/leaf). */
-const ORDER_MAX_DEPTH = 3;
+
+/** Maximum nesting depth: root -> container -> leaf (render contract: a role
+ *  contains layers, or one container of layers; the panel cannot render a
+ *  third level, so a deeper doc is clamped on load). */
+const ORDER_MAX_DEPTH = 2;
+
 
 const KINDS: readonly OrderKind[] = [
   ORDER_KIND.LAYER,
@@ -126,22 +131,71 @@ const isOrderDoc = (value: unknown): value is OrderDoc => {
   return true;
 };
 
-/** Repair a document: drop subtrees deeper than the depth cap (console.warn) and
- *  return it; return null when the shape is structurally invalid (kind/parent/cycle)
- *  and the caller must fall back to the default document. */
+/** The deepest legal ancestor of `key`: a parent at depth MAX-1 (the leaf
+ *  level is depth MAX, so only a depth-(MAX-1) parent may hold children). */
+const deepestLegalAncestor = (doc: OrderDoc, key: string): string => {
+  let cur: string | null = doc.nodes[key]?.parent ?? null;
+  while (cur !== null && orderDepth(doc, cur) > ORDER_MAX_DEPTH - 1) {
+    cur = doc.nodes[cur]?.parent ?? null;
+  }
+  return cur as string;
+};
+
+/** The subtree leaves (kind LAYER) under `key`, in DFS order. */
+const subtreeLeafKeys = (doc: OrderDoc, key: string): string[] => {
+  const out: string[] = [];
+  const walk = (k: string): void => {
+    for (const [ck, cn] of Object.entries(doc.nodes)) {
+      if (cn.parent !== k) continue;
+      if (cn.kind === ORDER_KIND.LAYER) out.push(ck);
+      else walk(ck);
+    }
+  };
+  walk(key);
+  return out;
+};
+
+/** The rank after the last child of `parent` (rankFirst when it has none). */
+const rankAfterLast = (doc: OrderDoc, parent: string): string => {
+  let last: string | null = null;
+  for (const cn of Object.values(doc.nodes)) {
+    if (cn.parent !== parent) continue;
+    if (last === null || cn.rank > last) last = cn.rank;
+  }
+  return last === null ? "a0" : rankAfter(last);
+};
+
+/** Repair a document: clamp any node deeper than the depth cap by promoting its
+ *  leaves to the nearest legal container (console.warn) and dropping the
+ *  over-deep container itself; return null when the shape is structurally invalid
+ *  (kind/parent/cycle) and the caller must fall back to the default document. */
 const sanitizeOrderDoc = (value: unknown): OrderDoc | null => {
   if (!isOrderDoc(value)) return null;
   const doc: OrderDoc = { nodes: { ...value.nodes } };
-  // Drop nodes whose depth exceeds the cap (subtree drop; a parent that exceeds the cap carries its whole subtree with it).
-  const drop = new Set<string>();
-  for (const k of Object.keys(doc.nodes)) {
-    if (orderDepth(doc, k) > ORDER_MAX_DEPTH) drop.add(k);
-  }
-  if (drop.size > 0) {
+  const overDeep = Object.keys(doc.nodes)
+    .filter(k => orderDepth(doc, k) > ORDER_MAX_DEPTH)
+    .sort((a, b) => orderDepth(doc, b) - orderDepth(doc, a));
+  if (overDeep.length > 0) {
     console.warn(
-      `[layer-order] dropping ${drop.size} subtree(s) deeper than ${ORDER_MAX_DEPTH}`,
+      `[layer-order] clamped ${overDeep.length} node(s) deeper than ${ORDER_MAX_DEPTH} (leaves promoted to the nearest legal container)`,
     );
-    for (const k of drop) delete doc.nodes[k];
+    for (const k of overDeep) {
+      const node = doc.nodes[k];
+      if (node === undefined) continue;
+      const legalParent = deepestLegalAncestor(doc, k);
+      if (node.kind === ORDER_KIND.LAYER) {
+        // A leaf past the cap: reparent to the deepest legal container.
+        doc.nodes[k] = { ...node, parent: legalParent, rank: rankAfterLast(doc, legalParent) };
+      } else {
+        // A container past the cap: promote its subtree leaves, then drop it.
+        for (const leaf of subtreeLeafKeys(doc, k)) {
+          const ln = doc.nodes[leaf];
+          if (ln === undefined) continue;
+          doc.nodes[leaf] = { ...ln, parent: legalParent, rank: rankAfterLast(doc, legalParent) };
+        }
+        delete doc.nodes[k];
+      }
+    }
   }
   return doc;
 };

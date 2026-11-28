@@ -15,6 +15,7 @@ import {
   resetOrder,
   restore,
   sanitizeOrderDoc,
+  stepNode,
   suppress,
 } from "#core/layer/order/index.js";
 
@@ -118,7 +119,10 @@ describe("isOrderDoc", () => {
     ).toBe(true);
   });
 
-  it("sanitize drops over-depth subtrees (depth 3 allowed, 4 dropped)", () => {
+  it("sanitize clamps over-depth nodes by promoting their leaves (depth cap 2)", () => {
+    // a(d1) → b(d2) → c(d3) → x(d4): c is over-deep, so its leaf x is promoted
+    // to the nearest legal container (a, depth MAX-1=1) and c is dropped. The
+    // 2-level structure (a, b) survives; b stays as an empty folder.
     const s = sanitizeOrderDoc(
       doc({
         "folder:overlay:a": {
@@ -146,8 +150,13 @@ describe("isOrderDoc", () => {
       }),
     );
     expect(s).not.toBeNull();
-    expect(s!.nodes["layer:x"]).toBeUndefined();
-    expect(s!.nodes["folder:overlay:c"]).toBeDefined();
+    expect(s!.nodes["layer:x"]).toMatchObject({
+      kind: ORDER_KIND.LAYER,
+      parent: "folder:overlay:a",
+    });
+    expect(s!.nodes["folder:overlay:c"]).toBeUndefined();
+    expect(s!.nodes["folder:overlay:a"]).toBeDefined();
+    expect(s!.nodes["folder:overlay:b"]).toBeDefined();
   });
 });
 
@@ -201,6 +210,84 @@ describe("commands", () => {
     });
     d = moveToIndex(d, "layer:a", null, 2);
     expect(childrenOf(d, null)).toEqual(["layer:b", "layer:c", "layer:a"]);
+  });
+
+  it("stepNode steps a root layer within root siblings", () => {
+    let d = doc({
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
+      "layer:c": { kind: ORDER_KIND.LAYER, parent: null, rank: "a2" },
+    });
+    d = stepNode(d, "layer:b", -1);
+    expect(childrenOf(d, null)).toEqual(["layer:b", "layer:a", "layer:c"]);
+    d = stepNode(d, "layer:b", 1);
+    expect(childrenOf(d, null)).toEqual(["layer:a", "layer:b", "layer:c"]);
+  });
+
+  it("stepNode steps a folder block with its whole subtree", () => {
+    let d = doc({
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "folder:overlay:f": {
+        kind: ORDER_KIND.FOLDER,
+        parent: null,
+        rank: "a1",
+        name: "F",
+        role: "overlay",
+      },
+      "layer:x": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:f",
+        rank: "a0",
+      },
+      "layer:y": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:f",
+        rank: "a1",
+      },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a2" },
+    });
+    // Step the folder up (toward start): the whole block precedes a.
+    d = stepNode(d, "folder:overlay:f", -1);
+    expect(childrenOf(d, null)).toEqual(["folder:overlay:f", "layer:a", "layer:b"]);
+    // Members stay inside the folder and keep their relative order.
+    expect(childrenOf(d, "folder:overlay:f")).toEqual(["layer:x", "layer:y"]);
+    expect(d.nodes["layer:x"].parent).toBe("folder:overlay:f");
+    expect(d.nodes["layer:y"].parent).toBe("folder:overlay:f");
+  });
+
+  it("stepNode steps a folder member inside its folder (never leaves it)", () => {
+    let d = doc({
+      "folder:overlay:f": {
+        kind: ORDER_KIND.FOLDER,
+        parent: null,
+        rank: "a0",
+        name: "F",
+        role: "overlay",
+      },
+      "layer:x": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:f",
+        rank: "a0",
+      },
+      "layer:y": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:f",
+        rank: "a1",
+      },
+    });
+    d = stepNode(d, "layer:y", -1);
+    expect(childrenOf(d, "folder:overlay:f")).toEqual(["layer:y", "layer:x"]);
+    expect(d.nodes["layer:y"].parent).toBe("folder:overlay:f");
+  });
+
+  it("stepNode returns the unchanged doc at a boundary or for an unknown node", () => {
+    let d = doc({
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
+    });
+    expect(stepNode(d, "layer:a", -1)).toBe(d);
+    expect(stepNode(d, "layer:b", 1)).toBe(d);
+    expect(stepNode(d, "layer:nope", -1)).toBe(d);
   });
 
   it("createBlock / renameBlock / deleteBlock manage folder blocks", () => {

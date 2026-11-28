@@ -1236,11 +1236,11 @@ describe("LayerUI keyboard", () => {
 
     it("Ctrl+ArrowDown moves the row when a neighbour exists", () => {
       ui.setActiveItem(0);
-      const moveLayerDown = vi.spyOn(ui.c, "moveLayerDown").mockReturnValue(true);
+      const moveRow = vi.spyOn(ui.c, "moveRow").mockReturnValue(true);
       expect(() =>
         ui.handleKeyDown(keyEvent("ArrowDown", { ctrlKey: true })),
       ).not.toThrow();
-      expect(moveLayerDown).toHaveBeenCalled();
+      expect(moveRow).toHaveBeenCalledWith(expect.any(String), false);
     });
 
     it("Ctrl+an unhandled key is a no-op", () => {

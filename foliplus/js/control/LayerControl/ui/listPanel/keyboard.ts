@@ -132,29 +132,25 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
   const item = items[idx];
 
   if (event.ctrlKey || event.metaKey) {
-    const id = item.getAttribute(CONST.DATA.LAYER_ID) ?? "";
-    if (event.key === "ArrowUp") {
+    // Reorder by the row's order key so a folder/group row steps its whole
+    // block (its data-layer-id is absent — the folder key is not a layer id).
+    const rowKey = item.getAttribute(CONST.DATA.ORDER_KEY) ?? "";
+    const up = event.key === "ArrowUp";
+    const down = event.key === "ArrowDown";
+    if (up || down) {
       event.preventDefault();
-      const moved = ui.c.moveLayerUp(id);
+      const moved = up ? ui.c.moveRow(rowKey, true) : ui.c.moveRow(rowKey, false);
       if (!moved) {
-        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_top"), {
+        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T(up ? "reorder_top" : "reorder_bottom"), {
           duration: HINT_DURATION.SHORT,
         });
       }
-    } else if (event.key === "ArrowDown") {
-      event.preventDefault();
-      const moved = ui.c.moveLayerDown(id);
-      if (!moved) {
-        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T("reorder_bottom"), {
-          duration: HINT_DURATION.SHORT,
-        });
-      }
+      const newItems = getNavigableItems(ui);
+      const next = newItems.findIndex(el => el.getAttribute(CONST.DATA.ORDER_KEY) === rowKey);
+      // findIndex yields -1 if the row is gone (e.g. layer removed mid-drag);
+      // normalize it so activeIdx never holds an invalid index.
+      ui.listPanel.activeIdx = next === -1 ? null : next;
     }
-    const newItems = getNavigableItems(ui);
-    const next = newItems.findIndex(el => el.getAttribute(CONST.DATA.LAYER_ID) === id);
-    // findIndex yields -1 if the row is gone (e.g. layer removed mid-drag);
-    // normalize it so activeIdx never holds an invalid index.
-    ui.listPanel.activeIdx = next === -1 ? null : next;
     return;
   }
 
