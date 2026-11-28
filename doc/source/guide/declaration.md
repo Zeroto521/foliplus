@@ -225,8 +225,8 @@ step.
 :::{note}
 
 The container row disables its own Style and Filter entries: those apply to
-individual layers, and the group is only a container. Style and Filter for a child
-layer are reached from that child's own row.
+individual layers, and the group is only a container. The group's declaration never
+supplies Style or Filter to its children; declare them on the child layer itself.
 
 :::
 
