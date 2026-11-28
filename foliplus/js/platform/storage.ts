@@ -21,6 +21,20 @@ type MapLike = { getContainer: () => { id: string } };
 const scopedStorageKey = (map: MapLike, suffix: string): string =>
   `foliplus_${suffix}_${map.getContainer().id}`;
 
+/** The single-source vocabulary of per-map storage-key suffixes. Every persisted
+ *  record names its suffix here instead of spelling a literal at the call site,
+ *  so a typo cannot silently create a second record. The values are byte-identical
+ *  to the historical key literals — stored records do not move. */
+const STORAGE_SUFFIX = {
+  EXPORT_RECT: "export_rect",
+  HEATMAP: "heatmap",
+  LAYER_STATE: "layer_state",
+  MEASURE: "measure",
+  SEARCH: "search",
+  FILTER_STORE: "filter_store",
+  LAYER_LAYOUT: "layer_layout",
+} as const;
+
 /**
  * Read and parse a value from localStorage.
  * @param key - localStorage key.
@@ -292,5 +306,6 @@ export {
   saveVersioned,
   saveVersionedObject,
   scopedStorageKey,
+  STORAGE_SUFFIX,
 };
 export type { MapLike, Persisted, PersistedOpts };

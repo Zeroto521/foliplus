@@ -459,6 +459,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "every row builder emits the shared .foliplus-row identity class, and role-header rows are first-class in it",
   "storage-key-scope":
     "every persisted record key derives from the per-map storage scope",
+  "storage-key-vocabulary":
+    "every storage-key suffix is a named STORAGE_SUFFIX constant, never an inline literal",
   "style-dimension-cycle":
     "the border and fill style dimensions do not form a module cycle",
   "task-number-drift":

@@ -2,7 +2,7 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONFIG-derived values are accessed
 // via ``CONFIG.*`` directly in the consuming code.
-import { scopedStorageKey } from "#platform/storage.js";
+import { STORAGE_SUFFIX, scopedStorageKey } from "#platform/storage.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
 
 const TIMING = {
@@ -93,7 +93,7 @@ const SEL = {
 /** Persistent storage key for heatmap configuration + the record shape's
  * version stamp (positive integer, incremented only when the record shape
  * changes; readers accept older/unknown values and never migrate). */
-const STORAGE = { KEY: scopedStorageKey(map, "heatmap") };
+const STORAGE = { KEY: scopedStorageKey(map, STORAGE_SUFFIX.HEATMAP) };
 const RECORD_VERSION = 2;
 
 const DATA_ATTR = {

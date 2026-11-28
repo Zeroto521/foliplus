@@ -7,7 +7,7 @@
 import type { ExportImageFormat } from "./type.js";
 import { LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { COMPONENTS } from "#core/lifecycle/index.js";
-import { scopedStorageKey } from "#platform/storage.js";
+import { STORAGE_SUFFIX, scopedStorageKey } from "#platform/storage.js";
 
 /** Per-format descriptor. */
 interface FormatSpec {
@@ -44,7 +44,7 @@ const CROP = {
 const NUDGE_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"];
 
 /** Persistent storage key for the last crop rectangle. */
-const STORAGE = { KEY: scopedStorageKey(map, "export_rect"), VERSION: 1 };
+const STORAGE = { KEY: scopedStorageKey(map, STORAGE_SUFFIX.EXPORT_RECT), VERSION: 1 };
 
 /** Timing / delay constants. */
 const TIMING = {

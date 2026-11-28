@@ -1,7 +1,7 @@
 // control/MeasureControl/const — timing, label-anchor, pane and CSS-class constants shared by every measure mode and its UI.
 import type { ExportDataFormat } from "./type.js";
 import { DEL_ICON_SELECTOR } from "#core/leaflet/index.js";
-import { scopedStorageKey } from "#platform/storage.js";
+import { STORAGE_SUFFIX, scopedStorageKey } from "#platform/storage.js";
 
 /** Timing / delay constants. */
 const TIMING = {
@@ -112,7 +112,7 @@ const SEL = {
 /** Persistent storage key + the record shape's version stamp (positive
  * integer, incremented only when the record shape changes; readers accept
  * older/unknown values and never migrate). */
-const STORAGE = { KEY: scopedStorageKey(map, "measure") };
+const STORAGE = { KEY: scopedStorageKey(map, STORAGE_SUFFIX.MEASURE) };
 const RECORD_VERSION = 1;
 
 /** Filter capability: the one filterable field (the measurement type), and the

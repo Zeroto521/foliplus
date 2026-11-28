@@ -1,7 +1,7 @@
 // control/LayerControl/const — CSS class names, pane ids, debounce intervals and the one persisted-state storage key the layer control reads.
 import { FOCUS_Z, LABEL_PANE_PREFIX } from "#core/layer/index.js";
 import { NUMBER_FORMAT } from "#platform/format.js";
-import { scopedStorageKey } from "#platform/storage.js";
+import { STORAGE_SUFFIX, scopedStorageKey } from "#platform/storage.js";
 import {
   CHECKBOX_CLASS,
   DEFAULT_LABEL_COLOR,
@@ -26,7 +26,7 @@ const DRAG = { HINT_COOLDOWN_MS: 800 };
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
  *  record rather than by introducing a new key. */
-const STORAGE = { KEY: scopedStorageKey(map, "layer_state") };
+const STORAGE = { KEY: scopedStorageKey(map, STORAGE_SUFFIX.LAYER_STATE) };
 
 /** Color map layer. */
 const SOLID_BASEMAP_ID = "foliplus_color_map";
