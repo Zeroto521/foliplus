@@ -12,10 +12,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import folium.map
 from branca.element import Element
-from folium.map import Layer
+from folium.map import FeatureGroup, Layer
 
-from foliplus._declaration import FILTER_KEY, LABEL_KEY
+from foliplus._declaration import FILTER_KEY, LABEL_KEY, warn_foliplus
 
 from ._face import declared_icon, declared_marker
 from ._fill_author import fill_author, map_colormaps
@@ -37,6 +38,41 @@ if TYPE_CHECKING:
     from .control import LayerControl
 
 
+# folium 1.0.0 adds LayerGroup as a sibling of FeatureGroup (not a subclass);
+# 0.15/0.20 ship FeatureGroup only. Probe the module so both lines work.
+_LAYER_GROUP = getattr(folium.map, "LayerGroup", None)
+_GROUP_TYPES: tuple[type[Layer], ...] = tuple(
+    group for group in (FeatureGroup, _LAYER_GROUP) if group is not None
+)
+
+
+def _is_container(candidate: Layer) -> bool:
+    """True for a group row: a group type, or a Layer holding Layer children."""
+    return isinstance(candidate, _GROUP_TYPES) or any(
+        isinstance(child, Layer) for child in candidate._children.values()
+    )
+
+
+def _warn_nested_folder(item: Layer, folder: str, reason: str) -> None:
+    """Ignore a folder declaration that would nest folders (owner ruling).
+
+    Folders are root-only. A container row inside a folder is "folder 套
+    group"; a layer that already sits inside a container would be "group 套
+    folder" (and a folder claimed by either would allow "folder 套 folder").
+    The declaration is dropped, not moved, and the report is once per
+    layer+declaration through the shared foliplus warning filter.
+
+    TODO(#1402): the JS read side (declaredFolder.ts / controller.ts placement)
+    still accepts the same declarations; mirror this root-only rule there once
+    #1402 lands.
+    """
+    warn_foliplus(
+        f"LayerControl:folder-nested:{item.get_name()}:{reason}:{folder}",
+        f"LayerControl: layer {item.layer_name!r} is {reason}; "
+        f"foliplus={{'folder': {folder!r}}} is ignored (folders are root-only)",
+    )
+
+
 def collect_layer_data(control: LayerControl) -> dict[str, object]:
     """Walk the control and the parent map, one ``data`` entry per layer.
 
@@ -51,6 +87,58 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
     candidates: list[Element] = [*control._children.values()]
     if (parent := control._parent) is not None:
         candidates += [*parent._children.values()]
+    # Folders are root-only (owner ruling): a container cannot live inside a
+    # folder and a layer inside a container cannot claim one, so the two sets
+    # below are what a folder declaration is checked against. The data model
+    # still renders author-built container nesting read-only; only the
+    # declaration channel is restricted.
+    # A container is a group layer (FeatureGroup, including an empty one, which
+    # still renders as a container row; folium 1.0.0 adds LayerGroup as a
+    # sibling, 0.15/0.20 ship FeatureGroup only) or any Layer holding Layer
+    # children. The child filter matters: folium attaches a non-Layer
+    # JavaScript element to every rendered GeoJson (`geo_json_<id>_add`), so a
+    # truthy `_children` alone would turn each rendered data layer into a
+    # false container.
+    containers = {
+        candidate
+        for candidate in candidates
+        if isinstance(candidate, Layer) and _is_container(candidate)
+    }
+    # Walk everything reachable inside a container, at any depth: such a layer
+    # never becomes a row (it is not a candidate), so its folder declaration
+    # has to be reported from here - the ruling promises "ignored + warned
+    # once", not silence. Nested containers join `containers` so their own
+    # declarations get the container reason.
+    nested: set[Layer] = set()
+    nested_order: list[Layer] = []
+    frontier = [
+        child
+        for container in containers
+        for child in container._children.values()
+        if isinstance(child, Layer)
+    ]
+    while frontier:
+        child = frontier.pop(0)
+        if child in nested:
+            continue
+        nested.add(child)
+        nested_order.append(child)
+        if _is_container(child):
+            containers.add(child)
+            frontier.extend(
+                grandchild
+                for grandchild in child._children.values()
+                if isinstance(grandchild, Layer)
+            )
+    for child in nested_order:
+        folder = declared_folder(child, child.layer_name)
+        if folder is not None:
+            reason = (
+                "a container layer"
+                if child in containers
+                else "a layer inside a container"
+            )
+            _warn_nested_folder(child, folder, reason)
     # The explore scales live on the map, not on the layer: read them once
     # for the whole pass, from the control's own parent chain (see
     # map_colormaps). ``claimed`` keeps one scale per layer.
@@ -82,8 +170,13 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
             entry["zoom_range"] = zoom_range
         folder = declared_folder(item, item.layer_name)
         if folder is not None:
-            entry["folder"] = folder
-            claimed_folders.add((layer_role(item), _folder_key(folder)))
+            if item in containers:
+                _warn_nested_folder(item, folder, "a container layer")
+            elif item in nested:
+                _warn_nested_folder(item, folder, "a layer inside a container")
+            else:
+                entry["folder"] = folder
+                claimed_folders.add((layer_role(item), _folder_key(folder)))
         filter_decl = declared_filter(item, item.layer_name)
         if filter_decl is not None:
             entry[FILTER_KEY] = filter_decl
