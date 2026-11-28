@@ -24,6 +24,7 @@
 // readDeclaredMarkerColor) — callers are untouched except for the import path.
 import { parseValueDeclaration } from "./declaredFill.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
+import { trimDeclaredString } from "./declaredTrim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
@@ -193,8 +194,13 @@ const parseBorder = (
 
   let declaredColor: string | undefined;
   if (data.color !== undefined) {
-    if (isHexColor(data.color)) {
-      declaredColor = normalizeHexColor(data.color).toLowerCase();
+    // Python's _declared_hex trims the author's string with the shared
+    // declared-string set before its hex regex; trim here with the SAME
+    // function or a padded border colour is accepted by one stack only.
+    const color =
+      typeof data.color === "string" ? trimDeclaredString(data.color) : data.color;
+    if (isHexColor(color)) {
+      declaredColor = normalizeHexColor(color).toLowerCase();
     } else {
       rejectKey(
         "color",
@@ -278,13 +284,25 @@ const parseMarkerColor = (
 ): { declared?: DeclaredMarkerColor; invalid: string[] } => {
   const invalid: string[] = [];
   if (raw === undefined || raw === null) return { invalid };
-  if (typeof raw !== "string" || !raw.trim()) {
+  // marker_color accepts preset names and CSS hex, so Python's normaliser
+  // trims it before deciding; route the trim through the shared function so a
+  // BOM / CJK space is not accepted on one stack only. The shape and the blank
+  // case are separate messages, matching Python's wording: a blank string is
+  // not a non-string.
+  if (typeof raw !== "string") {
     const message = `a non-string marker_color ${JSON.stringify(raw)}`;
     reject("shape", message);
     invalid.push(message);
     return { invalid };
   }
-  const name = raw.trim();
+  const name = trimDeclaredString(raw);
+  if (!name) {
+    const message =
+      "an empty or whitespace-only marker_color; expected a non-empty string";
+    reject("shape", message);
+    invalid.push(message);
+    return { invalid };
+  }
   if (name in MARKER_COLOR_PRESET_HEX) return { declared: name, invalid };
   if (isHexColor(name)) {
     return { declared: normalizeHexColor(name).toLowerCase(), invalid };
@@ -339,23 +357,35 @@ type FaceKeyRead =
 const ICON_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
   glyph: {
     spellings: ["glyph"],
-    validate: raw =>
-      typeof raw === "string" && raw.trim() !== ""
-        ? { ok: true, value: raw }
+    validate: raw => {
+      // Trim before the shape check and store the trimmed value: Python's
+      // normaliser strips the author's string first, so " star " is the same
+      // declared glyph there. Storing the raw padded string here would make
+      // the glyph lookup miss a name the declaration guide calls accepted.
+      const glyph = typeof raw === "string" ? trimDeclaredString(raw) : null;
+      return glyph !== null && glyph !== ""
+        ? { ok: true, value: glyph }
         : {
             ok: false,
             invalid: `an empty or non-string icon glyph ${JSON.stringify(raw)} (expected a non-empty string)`,
-          },
+          };
+    },
   },
   color: {
     spellings: ["color"],
-    validate: raw =>
-      isHexColor(raw)
-        ? { ok: true, value: normalizeHexColor(raw).toLowerCase() }
+    validate: raw => {
+      // Trim before the shape check: Python's _declared_hex strips the string
+      // before its hex regex, so a padded "#ff0000" is accepted there. Both
+      // sides must accept the same spelling and store the same expanded
+      // lowercase hex, or one stack paints a colour the other rejects.
+      const color = typeof raw === "string" ? trimDeclaredString(raw) : raw;
+      return typeof color === "string" && isHexColor(color)
+        ? { ok: true, value: normalizeHexColor(color).toLowerCase() }
         : {
             ok: false,
             invalid: `a non-hex icon color ${JSON.stringify(raw)} (expected a CSS hex such as "#ff0000")`,
-          },
+          };
+    },
   },
   colorOpacity: {
     spellings: ["colorOpacity", "color_opacity"],
@@ -376,19 +406,31 @@ const MARKER_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
   colorOpacity: ICON_FACE_KEYS.colorOpacity,
 };
 
+/** One line naming the layer a face warning is about. The reader only knows
+ *  the registry id — the author-facing layer name is a Python-side fact — so
+ *  the id is the locator the panel and the console share. */
+const warningTarget = (layerId: string | undefined): string =>
+  `on layer "${layerId ?? "<unregistered>"}"`;
+
 /** Normalise one declared face's sub-keys and validate their values.
  *
  *  This is the single convergence point for a face's spelling vocabulary: the
  *  caller supplies the accepted keys and gets canonical camelCase names back,
  *  so no reader writes its own if-chain and both sides (Python declaration,
  *  hand-built namespace) agree on exactly one output spelling. Each accepted
- *  spelling maps to one canonical key; a duplicate spelling warns and the first
- *  occurrence wins; an unknown sub-key warns and is dropped without touching its
- *  siblings; a malformed value is rejected alone. */
+ *  spelling maps to one canonical key; the FIRST occurrence decides — a
+ *  duplicate always warns and is dropped, even when the first value was
+ *  unusable (the Python normaliser marks the canonical key seen before it
+ *  validates, and this reader follows the same one-way rule, so the two stacks
+ *  never disagree on which spelling won); an unknown sub-key warns and is
+ *  dropped without touching its siblings; a malformed value is rejected alone.
+ *  Every warning names the layer id, so a console line locates the authoring
+ *  layer the same way the Python warning names it. */
 const normaliseFaceKeys = (
   face: Record<string, unknown>,
   spec: Readonly<Record<string, FaceKeySpec>>,
   faceName: string,
+  layerId: string | undefined,
   reject: RejectFn,
 ): { values: Record<string, unknown>; invalid: string[] } => {
   const values: Record<string, unknown> = {};
@@ -401,25 +443,34 @@ const normaliseFaceKeys = (
       accepted.push(spelling);
     }
   }
+  const target = warningTarget(layerId);
+  const rejectOne = (scope: string, message: string): void => {
+    reject(`face.${scope}`, message);
+    invalid.push(message);
+  };
+  const seen = new Set<string>();
   for (const [key, raw] of Object.entries(face)) {
     const canonical = canonicalOf.get(key);
     if (canonical === undefined) {
-      const message = `unknown sub-key "${key}" in the ${faceName} face (accepted: ${accepted.join(", ")})`;
-      reject(`face.${key}`, message);
-      invalid.push(message);
+      rejectOne(
+        key,
+        `declared ${faceName}: ignoring unknown sub-key "${key}" ${target} (accepted: ${accepted.join(", ")})`,
+      );
       continue;
     }
-    if (canonical in values) {
-      const message = `duplicate sub-key "${key}" in the ${faceName} face (the canonical key is already declared)`;
-      reject(`face.${key}`, message);
-      invalid.push(message);
+    if (seen.has(canonical)) {
+      rejectOne(
+        key,
+        `declared ${faceName}: ignoring duplicate sub-key "${key}" ${target} (the canonical key "${canonical}" is already declared; the first spelling wins)`,
+      );
       continue;
     }
+    seen.add(canonical);
     const read = spec[canonical].validate(raw);
-    if (read.ok) values[canonical] = read.value;
-    else {
-      reject(`face.${canonical}`, read.invalid);
-      invalid.push(read.invalid);
+    if (read.ok) {
+      values[canonical] = read.value;
+    } else {
+      rejectOne(canonical, `declared ${faceName}: ignoring ${read.invalid} ${target}`);
     }
   }
   return { values, invalid };
@@ -433,12 +484,12 @@ const normaliseFaceKeys = (
  *  as "not declared" so the panel keeps its author-derived default. */
 const parseIconFace = (
   raw: unknown,
-  _layerId: string | undefined,
+  layerId: string | undefined,
   reject: RejectFn,
 ): { declared?: DeclaredIconFace; invalid: string[] } => {
   if (raw === undefined || raw === null) return { invalid: [] };
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    const message = `a non-mapping icon face ${JSON.stringify(raw)} (expected an object with glyph / color / colorOpacity)`;
+    const message = `declared icon: ignoring a non-mapping icon face ${JSON.stringify(raw)} ${warningTarget(layerId)} (expected an object with glyph / color / colorOpacity)`;
     reject("shape", message);
     return { invalid: [message] };
   }
@@ -446,6 +497,7 @@ const parseIconFace = (
     raw as Record<string, unknown>,
     ICON_FACE_KEYS,
     "icon",
+    layerId,
     reject,
   );
   return Object.keys(values).length === 0
@@ -457,12 +509,12 @@ const parseIconFace = (
  *  icon face: one normalisation point, one canonical output. */
 const parseMarkerFace = (
   raw: unknown,
-  _layerId: string | undefined,
+  layerId: string | undefined,
   reject: RejectFn,
 ): { declared?: DeclaredMarkerFace; invalid: string[] } => {
   if (raw === undefined || raw === null) return { invalid: [] };
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    const message = `a non-mapping marker face ${JSON.stringify(raw)} (expected an object with colorOpacity)`;
+    const message = `declared marker: ignoring a non-mapping marker face ${JSON.stringify(raw)} ${warningTarget(layerId)} (expected an object with colorOpacity)`;
     reject("shape", message);
     return { invalid: [message] };
   }
@@ -470,6 +522,7 @@ const parseMarkerFace = (
     raw as Record<string, unknown>,
     MARKER_FACE_KEYS,
     "marker",
+    layerId,
     reject,
   );
   return Object.keys(values).length === 0

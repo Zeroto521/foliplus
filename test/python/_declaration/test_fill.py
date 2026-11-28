@@ -44,6 +44,11 @@ class TestNormaliseFill:
             {"mode": "solid", "color": "#FF0000", "opacity": 0.5}, owner="Owner"
         ) == {"mode": "solid", "color": "#ff0000", "opacity": 0.5}
 
+    def test_a_padded_color_is_trimmed_with_the_shared_set(self) -> None:
+        for raw in [" #abc ", "\ufeff#abc", "\u3000#abc"]:
+            out = normalise_fill({"color": raw}, owner="Owner")
+            assert out["color"] == "#aabbcc"
+
     def test_a_color_implies_solid_mode(self) -> None:
         assert normalise_fill({"color": "#abc"}, owner="Owner") == {
             "mode": "solid",

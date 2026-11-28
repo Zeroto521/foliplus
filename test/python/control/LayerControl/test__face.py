@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 
 import folium
 import pytest
@@ -77,7 +78,11 @@ def test_a_non_mapping_icon_is_none_and_warns() -> None:
 
 def test_an_unknown_icon_sub_key_warns_with_the_layer_name() -> None:
     layer = _geo(name="IconF", foliplus={"icon": {"glyph": "star", "colour": "#fff"}})
-    with pytest.warns(UserWarning, match="unknown icon sub-key 'colour'"):
+    # The message must NAME the layer: a warning that only says "unknown
+    # sub-key" leaves the author grepping every layer in the map.
+    with pytest.warns(
+        UserWarning, match=r"layer 'IconF'.*unknown icon sub-key 'colour'"
+    ):
         assert declared_icon(layer, "IconF") == {"glyph": "star"}
 
 
@@ -106,3 +111,37 @@ def test_the_declaration_reaches_the_rendered_layer_options() -> None:
         key.lower().replace("_", ""): value for key, value in namespace["icon"].items()
     }
     assert rendered == {"glyph": "star", "color": "#00ff00", "coloropacity": 30}
+
+
+def test_two_layers_with_the_same_bad_sub_key_each_warn() -> None:
+    # The warn-once dedupe is per (layer, face, key), never process-wide: two
+    # authors' layers carrying the same typo are two authoring errors, and a
+    # process-wide set would hide the second one behind the first.
+    first = _geo(name="DedupeA", foliplus={"icon": {"colour": "#fff"}})
+    second = _geo(name="DedupeB", foliplus={"icon": {"colour": "#fff"}})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        declared_icon(first, "DedupeA")
+        declared_icon(second, "DedupeB")
+    notes = [
+        str(warning.message)
+        for warning in caught
+        if "unknown icon sub-key 'colour'" in str(warning.message)
+    ]
+    assert len(notes) == 2
+    assert "layer 'DedupeA'" in notes[0]
+    assert "layer 'DedupeB'" in notes[1]
+
+
+def test_one_layer_read_twice_warns_once() -> None:
+    layer = _geo(name="DedupeC", foliplus={"icon": {"colour": "#fff"}})
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        declared_icon(layer, "DedupeC")
+        declared_icon(layer, "DedupeC")
+    notes = [
+        str(warning.message)
+        for warning in caught
+        if "unknown icon sub-key 'colour'" in str(warning.message)
+    ]
+    assert len(notes) == 1

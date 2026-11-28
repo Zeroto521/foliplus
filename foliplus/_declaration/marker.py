@@ -6,7 +6,7 @@ import numbers
 from typing import Any
 
 from .key import ICON_SIZE_KEY, MARKER_COLOR_KEY
-from .paint import _HEX_COLOR_RE
+from .paint import _HEX_COLOR_RE, trim_declared_string
 from .warning import warn_foliplus
 
 
@@ -61,7 +61,10 @@ def normalise_marker_color(
     if not isinstance(raw, str):
         reject(f"as {type(raw).__name__}; expected a non-empty string")
         return None
-    name = raw.strip()
+    # The shared declared-string trim, not str.strip(): the preset/hex channel
+    # must accept the same padded spelling the JS reader accepts (and vice
+    # versa), and Python's host default disagrees with trim() on U+FEFF.
+    name = trim_declared_string(raw)
     if not name:
         reject("as an empty or whitespace-only string; expected a non-empty string")
         return None

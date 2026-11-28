@@ -61,8 +61,10 @@ const declaredIconSizeOf = (layer: unknown): number | undefined =>
  *  layer declares none. Read off the layer so the declared glyph / colour /
  *  alpha ride every re-derivation exactly like the declared icon size does;
  *  the face reader owns normalisation + warnings, so this is the only read. */
-const declaredIconOf = (layer: unknown): DeclaredIconFace | undefined =>
-  readDeclaredIcon(layer).declared;
+const declaredIconOf = (
+  layer: unknown,
+  layerId?: string,
+): DeclaredIconFace | undefined => readDeclaredIcon(layer, layerId).declared;
 
 /** Grid columns for the glyph picker popup. */
 const GLYPH_GRID_COLS = 8;
@@ -89,7 +91,7 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   // The declared icon face is the read-time default for the two orthogonal
   // dimensions; the user's intents win, the declaration rides a glyph write so
   // the three never split across two constructions.
-  const declared = declaredIconOf(layer);
+  const declared = declaredIconOf(layer, layerId);
   const colorIntent = getIntent(ui, layerId, INTENT.ICON_COLOR);
   const opacityIntent = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   const panelPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
@@ -136,7 +138,7 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   // the author declared a glyph / colour / alpha, re-derive on the freshly
   // restored author icons so the three never split across two writes. A user
   // icon-colour intent is orthogonal and still survives a glyph reset.
-  const declared = declaredIconOf(layer);
+  const declared = declaredIconOf(layer, layerId);
   const colorIntent = getIntent(ui, layerId, INTENT.ICON_COLOR);
   const opacityIntent = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   const color = typeof colorIntent === "string" ? colorIntent : declared?.color;
@@ -240,7 +242,7 @@ const authorGlyphName = (ui: LayerUI, layerId: string): AuthorGlyph | null => {
   // The declared glyph is the read-time default the row shows and Reset
   // returns to; the author's drawn icon is only the fallback when the face
   // declares none (the declaration beats the draw, the user intent beats both).
-  const declared = declaredIconOf(layer)?.glyph;
+  const declared = declaredIconOf(layer, layerId)?.glyph;
   if (declared !== undefined) {
     return { name: declared, valid: resolveGlyph(declared) !== null };
   }

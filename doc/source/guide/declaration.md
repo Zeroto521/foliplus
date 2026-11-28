@@ -556,7 +556,22 @@ author's drawn value in the panel row and reset chain.
 
 **Shape**: a malformed sub-key warns once and is **dropped alone** (its valid
 siblings survive); a non-mapping face warns once and is ignored. An unknown
-sub-key warns too, naming the accepted ones — so a typo never passes silently:
+sub-key warns too, naming the accepted ones — so a typo never passes silently.
+The spelling rule is one rule on both stacks: a string value is trimmed before
+it is validated (a padded `" star "` / `" #ff0000 "` is the same declared
+value), and the trim set is the **union** of the two hosts' whitespace sets
+rather than either host's default — the C0 controls U+0009-U+000D, the separators
+U+001C-U+001F and U+0085, U+0020, U+00A0, U+1680, U+2000-U+200A, U+2028/U+2029,
+U+202F, U+205F, U+3000 and U+FEFF (a BOM pasted from a CSV). That union is what
+makes a value pasted from rich text or CJK input accepted identically on both
+stacks; it is the only trim on the colour path (no host `strip()` follows it). A
+declared `null` sub-key value is unusable and warns on both sides, never
+silently "not declared". When a sub-key is written twice the
+**first** occurrence decides —
+the duplicate always warns and is dropped, even when the first value was
+unusable, so the two readers can never disagree on which spelling won. Every
+warning names its layer, so a console line or a Python `UserWarning` locates
+the authoring layer.
 
 ```python
 gdf.explore(foliplus={"icon": {"colour": "#ff0000"}})

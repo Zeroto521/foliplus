@@ -41,7 +41,8 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
     """Walk the control and the parent map, one ``data`` entry per layer.
 
     The union is deduplicated by ``get_name()``; the declarations contribute
-    their optional facts (``fill_author`` / ``zoom_range`` / ``folder`` / filter / label)
+    their optional facts (``fill_author`` / ``zoom_range`` / ``folder`` /
+    ``filter`` / ``label``)
     and shape warnings happen here, once per rendered control.
     """
     data: list[dict[str, object]] = []

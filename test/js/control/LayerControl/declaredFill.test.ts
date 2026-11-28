@@ -86,6 +86,19 @@ describe("readDeclaredFill", () => {
     });
   });
 
+  it("trims a padded fill colour with the shared declared-string trim", () => {
+    // Python's _declared_hex trims first, so a padded fill colour must be one
+    // declaration on both stacks, never a JS-only rejection.
+    for (const color of [" #abc ", "\ufeff#abc", "\u3000#abc"]) {
+      const read = readDeclaredFill(layerWith({ fill: { color } }));
+      expect(read.invalid, color).toEqual([]);
+      expect(read.declared, color).toEqual({
+        mode: STYLE_MODE.SOLID,
+        color: "#aabbcc",
+      });
+    }
+  });
+
   it("a colour alone implies the solid mode", () => {
     const read = readDeclaredFill(layerWith({ fill: { color: "#abc" } }));
     expect(read.invalid).toEqual([]);
