@@ -49,6 +49,7 @@ from .helper import (
     _ts_interface_fields,
     _ts_short_to_control,
     _walk_specs,
+    strip_js_comments,
 )
 
 
@@ -183,7 +184,7 @@ class TestJSReadsPythonExports:
             py_all |= fields
         js_read: set[str] = set()
         for f in _js_files():
-            text = f.read_text(encoding="utf-8")
+            text = strip_js_comments(f.read_text(encoding="utf-8"))
             js_read |= set(_JS_CONFIG_READ_RE.findall(text))
         missing = sorted(f for f in js_read if f not in CONF_COMMON and f not in py_all)
         assert not missing, (
@@ -191,6 +192,20 @@ class TestJSReadsPythonExports:
             "control dropped the field (add it back) or JS is reading a "
             "stale name."
         )
+
+    def test_comments_are_not_reads(self) -> None:
+        """Generated headers may show an example without it being a read."""
+        assert _JS_CONFIG_READ_RE.findall(strip_js_comments("// CONFIG.ghost\n")) == []
+        assert _JS_CONFIG_READ_RE.findall(strip_js_comments("/* CONFIG.ghost */")) == []
+        assert _JS_CONFIG_READ_RE.findall(
+            strip_js_comments("// CONFIG.ghost\nconst x = CONFIG.real;")
+        ) == ["real"]
+
+    def test_string_literals_do_not_swallow_code(self) -> None:
+        """A URL's // must not eat the real read that follows it."""
+        assert _JS_CONFIG_READ_RE.findall(
+            strip_js_comments('const u = "http://x"; const y = CONFIG.real;')
+        ) == ["real"]
 
 
 # ── Fixture parity: config-fixture.ts vs schema defaults ──────────────────
