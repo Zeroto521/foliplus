@@ -31,6 +31,24 @@ from foliplus._declaration import (
 )
 
 
+@pytest.mark.parametrize("raw", ["", " ", "\u001c", "\ufeff", "\u2003"])
+def test_normalise_marker_color_rejects_a_whitespace_only_value(raw):
+    # Pure whitespace is not a preset and not a hex; the same union trim as the
+    # JS reader decides it, and the message names the blank case (not a shape
+    # defect), so a whitespace-only name is rejected on both stacks.
+    with pytest.warns(UserWarning, match="empty or whitespace-only"):
+        assert normalise_marker_color(raw, owner="Owner") is None
+
+
+def test_normalise_marker_color_trims_with_the_shared_set():
+    # The preset/hex channel trims with the shared declared-string set, not
+    # str.strip(): the JS reader accepts the same padded spelling.
+    for raw in [" darkred ", "\ufeffdarkred", "\u2003darkred"]:
+        assert normalise_marker_color(raw, owner="Owner") == "darkred"
+    for raw in [" #f00 ", "\ufeff#f00", "\u3000#f00"]:
+        assert normalise_marker_color(raw, owner="Owner") == "#ff0000"
+
+
 def test_normalise_marker_color_strips_a_valid_name():
     assert (
         normalise_marker_color("  darkred  ", owner="Owner", subject="layer 'L'")

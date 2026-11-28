@@ -28,7 +28,7 @@ from collections.abc import Mapping
 
 from .key import ICON_KEY, MARKER_KEY
 from .opacity import normalise_color_opacity
-from .paint import _declared_hex
+from .paint import _declared_hex, trim_declared_string
 from .warning import warn_foliplus
 
 #: The icon face sub-dimensions: canonical camelCase key -> accepted spellings
@@ -161,23 +161,41 @@ def normalise_icon_face(
     normalised: dict[str, object] = {}
     if "glyph" in face:
         glyph = face["glyph"]
-        if isinstance(glyph, str) and glyph.strip():
-            normalised["glyph"] = glyph.strip()
+        if isinstance(glyph, str) and trim_declared_string(glyph):
+            normalised["glyph"] = trim_declared_string(glyph)
         else:
             reject("glyph", f"as {glyph!r}; expected a non-empty string")
     if "color" in face:
-        color = _declared_hex(face["color"], lambda reason: reject("color", reason))
-        if color is not None:
-            normalised["color"] = color
+        color = face["color"]
+        if color is None:
+            # A null colour is a declared-but-unusable value, not "absent": the
+            # JS reader warns on it, and a silent drop here would be exactly the
+            # one-side-warns/one-side-silent split this channel retired.
+            reject("color", "as None; expected a CSS hex (#rgb or #rrggbb)")
+        else:
+            # _declared_hex trims with the shared declared-string trim; the
+            # colour path must not carry a second, host-default strip().
+            normalised_color = _declared_hex(
+                color, lambda reason: reject("color", reason)
+            )
+            if normalised_color is not None:
+                normalised["color"] = normalised_color
     if "colorOpacity" in face:
-        opacity = normalise_color_opacity(
-            face["colorOpacity"],
-            owner=owner,
-            subject=subject,
-            source=f"{declared}['colorOpacity']",
-        )
-        if opacity is not None:
-            normalised["colorOpacity"] = opacity
+        opacity = face["colorOpacity"]
+        if opacity is None:
+            reject(
+                "colorOpacity",
+                "as None; expected a whole number from 0 to 100",
+            )
+        else:
+            normalised_opacity = normalise_color_opacity(
+                opacity,
+                owner=owner,
+                subject=subject,
+                source=f"{declared}['colorOpacity']",
+            )
+            if normalised_opacity is not None:
+                normalised["colorOpacity"] = normalised_opacity
     return normalised
 
 
@@ -209,12 +227,21 @@ def normalise_marker_face(
     declared = source or f"foliplus[{MARKER_KEY!r}]"
     normalised: dict[str, object] = {}
     if "colorOpacity" in face:
-        opacity = normalise_color_opacity(
-            face["colorOpacity"],
-            owner=owner,
-            subject=subject,
-            source=f"{declared}['colorOpacity']",
-        )
-        if opacity is not None:
-            normalised["colorOpacity"] = opacity
+        opacity = face["colorOpacity"]
+        if opacity is None:
+            # Declared but unusable, not absent - the JS reader warns too.
+            reason = "as None; expected a whole number from 0 to 100"
+            warn_foliplus(
+                f"{owner}:{subject or '-'}:{MARKER_KEY}:colorOpacity:{reason}",
+                f"{where} declares {declared}['colorOpacity'] {reason} - ignored",
+            )
+        else:
+            normalised_opacity = normalise_color_opacity(
+                opacity,
+                owner=owner,
+                subject=subject,
+                source=f"{declared}['colorOpacity']",
+            )
+            if normalised_opacity is not None:
+                normalised["colorOpacity"] = normalised_opacity
     return normalised

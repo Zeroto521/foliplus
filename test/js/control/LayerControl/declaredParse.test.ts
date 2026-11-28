@@ -35,6 +35,20 @@ describe("readDeclaredBorder", () => {
     expect(read.declared).toBe(STYLE_MODE.FOLLOW_FILL);
   });
 
+  it("trims a padded border colour with the shared declared-string trim", () => {
+    // Python's _declared_hex trims before its hex regex; the JS reader must
+    // accept the same spellings (host whitespace, BOM, CJK space) or the
+    // declaration is accepted on one stack only.
+    for (const color of [" #f00 ", "\ufeff#f00", "\u2003#f00", "#f00\u3000"]) {
+      const read = readDeclaredBorder(
+        layerWith({ border: { mode: "solid", color } }),
+        "overlay1",
+      );
+      expect(read.invalid, color).toEqual([]);
+      expect(read.declaredColor, color).toBe("#ff0000");
+    }
+  });
+
   it("reads nothing on a layer with no declaration (byte-identical default)", () => {
     const read = readDeclaredBorder(layerWith({}), "overlay1");
     expect(read.invalid).toEqual([]);
@@ -345,6 +359,35 @@ describe("readDeclaredMarkerColor", () => {
     expect(invalid).toEqual([]);
   });
 
+  it("trims a padded preset and a padded hex with the shared trim", () => {
+    expect(
+      readDeclaredMarkerColor(layerWith({ marker_color: " darkred " }), "L").declared,
+    ).toBe("darkred");
+    for (const value of [" #f00 ", "\ufeff#f00", "\u2003#f00"]) {
+      const { declared, invalid } = readDeclaredMarkerColor(
+        layerWith({ marker_color: value }),
+        "L",
+      );
+      expect(invalid, value).toEqual([]);
+      expect(declared, value).toBe("#ff0000");
+    }
+  });
+
+  it.each(["", " ", "\u001c", "\ufeff", "\u2003"])(
+    "rejects an empty or whitespace-only marker_color %j with the blank message",
+    value => {
+      const warn = vi.fn();
+      const { declared, invalid } = readDeclaredMarkerColor(
+        layerWith({ marker_color: value }),
+        "L",
+        warn,
+      );
+      expect(declared).toBeUndefined();
+      expect(invalid.join(" ")).toContain("empty or whitespace-only");
+      expect(warn).toHaveBeenCalledOnce();
+    },
+  );
+
   it("resolves every preset in the runtime table", () => {
     // The declared vocabulary IS the runtime preset table: a reader that
     // rejected a real preset (or accepted a non-preset) would desync from the
@@ -596,6 +639,118 @@ describe("readDeclaredIcon", () => {
     expect(declared).toEqual({ colorOpacity: 60 });
     expect(invalid).toHaveLength(1);
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("trims a padded glyph and colour the way the Python normaliser does", () => {
+    // Python's face normaliser strips both strings before validating them; a
+    // declaration is accepted on both stacks or on neither. The stored value is
+    // the trimmed / expanded form, never the author's padding.
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { glyph: "  star ", color: " #F00 " } }),
+      "L",
+    );
+    expect(invalid).toEqual([]);
+    expect(declared).toEqual({ glyph: "star", color: "#ff0000" });
+  });
+
+  it.each([
+    0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x85, 0xa0, 0x1680,
+    0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,
+    0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
+  ])(
+    "trims the shared whitespace code point %i like the Python normaliser",
+    codePoint => {
+      // The set is the UNION of the two hosts' whitespace: U+FEFF (a BOM pasted
+      // from a CSV) and U+001C-1F / U+0085 disagree between trim() and
+      // str.strip(), while U+2000-200A / U+2028 / U+3000 are what an author
+      // pastes from rich text or CJK input. One set, one declared value on
+      // either stack.
+      const pad = String.fromCodePoint(codePoint);
+      const { declared, invalid } = readDeclaredIcon(
+        layerWith({ icon: { glyph: `${pad}star${pad}`, color: ` #f00${pad}` } }),
+        "L",
+      );
+      expect(invalid).toEqual([]);
+      expect(declared).toEqual({ glyph: "star", color: "#ff0000" });
+    },
+  );
+
+  it("accepts an integral float alpha (the JS reader sees 40.0 as 40)", () => {
+    expect(
+      readDeclaredIcon(layerWith({ icon: { colorOpacity: 40.0 } }), "L").declared,
+    ).toEqual({ colorOpacity: 40 });
+  });
+
+  it.each([
+    [{ color: null }, /non-hex icon color/],
+    [{ colorOpacity: null }, /colorOpacity/],
+  ])("warns on a null sub-key value %j and drops it alone", (face, pattern) => {
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: face }),
+      "NullLayer",
+      warn,
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid[0]).toMatch(pattern);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('on layer "NullLayer"'));
+  });
+
+  it("ignores a duplicate spelling even when the first value was unusable", () => {
+    // The FIRST occurrence owns the canonical key (Python marks it seen before
+    // validating), so an unusable first value drops the key and the second
+    // spelling is only a duplicate — it never becomes a fallback.
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { colorOpacity: 101, color_opacity: 40 } }),
+      "L",
+      warn,
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid).toHaveLength(2);
+    expect(invalid[0]).toMatch(/colorOpacity/);
+    expect(invalid[1]).toMatch(/duplicate sub-key "color_opacity"/);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("names the layer id in an unknown-sub-key warning", () => {
+    const warn = vi.fn();
+    readDeclaredIcon(
+      layerWith({ icon: { glyph: "star", colour: "#fff" } }),
+      "IconF",
+      warn,
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('unknown sub-key "colour" on layer "IconF"'),
+    );
+  });
+
+  it("names an unregistered carrier when no layer id is known", () => {
+    // A read before the layer is linked has no id; the warning still says so
+    // instead of hiding the locator (the same "<unregistered>" wording the
+    // border reader uses).
+    const warn = vi.fn();
+    readDeclaredIcon(layerWith({ icon: { colour: "#fff" } }), undefined, warn);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('on layer "<unregistered>"'),
+    );
+  });
+
+  it("rejects a non-string colour like the malicious case it is", () => {
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { color: 7 } }),
+      "L",
+      vi.fn(),
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid[0]).toMatch(/CSS hex/);
+  });
+
+  it("names the layer id when a face value is rejected", () => {
+    const warn = vi.fn();
+    readDeclaredIcon(layerWith({ icon: { color: "nope" } }), "IconG", warn);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('on layer "IconG"'));
   });
 
   it("warns on an unknown sub-key and keeps the known ones", () => {

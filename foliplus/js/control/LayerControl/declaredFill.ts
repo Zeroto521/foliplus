@@ -46,6 +46,7 @@
 // of re-implementing it.
 import * as CONST from "./const.js";
 import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
+import { trimDeclaredString } from "./declaredTrim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import {
   CLASS_COUNT,
@@ -90,6 +91,11 @@ const KNOWN_KEYS: ReadonlySet<string> = new Set([
   "opacity",
 ]);
 
+/** isName is the ONE host trim in this module, and it is deliberate: it tests
+ *  the non-hex name channels (data.field, data.scheme) for emptiness only and
+ *  the caller stores the value as written - their whitespace is part of the
+ *  identifier, not padding around a colour. A new trim in this module must be
+ *  justified, and the exemption in declaredTrim.test.ts updated. */
 const isName = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0;
 
@@ -302,7 +308,11 @@ const parseFillDeclaration = (
 
   let color: string | undefined;
   if (data.color !== undefined) {
-    if (isHexColor(data.color)) color = normalizeHexColor(data.color).toLowerCase();
+    // Same shared trim as Python's _declared_hex: a padded fill colour is one
+    // declaration on both stacks, never a JS-only rejection.
+    const fillColor =
+      typeof data.color === "string" ? trimDeclaredString(data.color) : data.color;
+    if (isHexColor(fillColor)) color = normalizeHexColor(fillColor).toLowerCase();
     else {
       rejectKey(
         "color",

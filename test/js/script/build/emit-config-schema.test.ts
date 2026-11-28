@@ -408,11 +408,21 @@ describe("PrettierOptions", () => {
   });
 });
 
+// prettier's first format() in a worker pays for loading its parser and the
+// repo plugins; under the suite's parallel load that single call was observed
+// timing out even at the 30 s budget (junit: 16.5 s for the first call in a
+// loaded run). Twelve assertions format the same fixture and the output is a
+// pure function of the schema, so format it once and share. The determinism
+// test still calls buildConfigSchema directly — memoizing there would make it
+// compare a value with itself.
+let schemaText: Promise<string> | null = null;
+const formattedSchema = () => (schemaText ??= buildConfigSchema(schema));
+
 describe("buildConfigSchema", () => {
   it(
     "per-control interfaces extend ConfigCommon",
     async () => {
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       expect(text).toContain("interface ConfigFullscreen extends ConfigCommon {");
       expect(text).toContain("interface ConfigScale extends ConfigCommon {");
       expect(text).toContain("interface ConfigSearch extends ConfigCommon {");
@@ -423,7 +433,7 @@ describe("buildConfigSchema", () => {
   it(
     "keeps ConfigCommon standalone",
     async () => {
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       expect(text).toMatch(/interface ConfigCommon \{\n  name: string;/);
       // No `extends` on either standalone interface.
       expect(text).not.toContain("interface ConfigCommon extends");
@@ -434,7 +444,7 @@ describe("buildConfigSchema", () => {
   it(
     "flat ComponentConfig: all fields optional except name, plus escape hatch",
     async () => {
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       expect(text).toMatch(/interface ComponentConfig \{\n  name: string;/);
       expect(text).toContain("hide_self?: boolean;");
       expect(text).toContain("position?: ControlPosition;");
@@ -449,7 +459,7 @@ describe("buildConfigSchema", () => {
       // shared merges before controls and runtime_only, so ConfigCommon's type wins
       // and the duplicate declarations never reach the flat type. Scoped to the
       // flat block: ConfigCollision legitimately carries its own `position` spelling.
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       const flat = text.slice(text.indexOf("interface ComponentConfig"));
       expect(flat).toContain("position?: ControlPosition;");
       expect(flat).not.toContain("position?: string;");
@@ -460,7 +470,7 @@ describe("buildConfigSchema", () => {
   it(
     "renders union and nullable types",
     async () => {
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       expect(text).toContain('mode: "coord" | "addr";');
       expect(text).toContain("provider_config?: ProviderConfig | null;");
       expect(text).toContain("entries?: LayerData;");
@@ -471,7 +481,7 @@ describe("buildConfigSchema", () => {
   it(
     "emits a single bottom export type block",
     async () => {
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       const tail = text.slice(text.indexOf("export type"));
       expect(tail).toContain("ConfigCommon");
       expect(tail).toContain("ConfigFullscreen");
@@ -492,7 +502,7 @@ describe("buildConfigSchema", () => {
   it(
     "declares each named alias once and lets fields reference it by name",
     async () => {
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       const flat = oneLine(text);
       expect(text.match(/^type \w+ = /gm)).toHaveLength(3);
       expect(flat).toContain(
@@ -548,7 +558,7 @@ describe("buildConfigSchema", () => {
   it(
     "renders a short single-line note as a trailing comment",
     async () => {
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       expect(text).toContain("short_note?: string; // short");
     },
     SLOW,
@@ -559,7 +569,7 @@ describe("buildConfigSchema", () => {
     async () => {
       // Dropping the note was the failure mode this guards against: a note that
       // would wrap badly in a trailing comment becomes a block instead.
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       const block = text
         .split("\n")
         .find(l => l.includes(LONG_NOTE) && l.trim().startsWith("/**"));
@@ -574,7 +584,7 @@ describe("buildConfigSchema", () => {
     async () => {
       // A line break forces the block form even when the note is short: a wrapped
       // trailing comment would silently keep only the first line.
-      const text = await buildConfigSchema(schema);
+      const text = await formattedSchema();
       expect(text).toContain("/** first line");
       expect(text).toContain("second line */");
       expect(text).not.toContain("multi_line_note?: string; //");

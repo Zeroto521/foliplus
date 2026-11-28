@@ -110,10 +110,18 @@ def normalise_color_opacity(
             f"{where} declares {declared} {reason} - ignored",
         )
 
-    if isinstance(raw, bool) or not isinstance(raw, numbers.Integral):
+    # An integer-valued real is accepted: 40.0 and 40 are the same number to
+    # JSON and to the JS reader (Number.isInteger(40.0) is true), so rejecting
+    # the float spelling on Python alone would make a declaration work in the
+    # panel and fail collection. A non-integral float or a bool is still no alpha.
+    if isinstance(raw, bool) or not isinstance(raw, numbers.Real):
         reject(f"as {type(raw).__name__}; expected a whole number from 0 to 100")
         return None
-    opacity = int(raw)
+    value = float(raw)
+    if not math.isfinite(value) or not value.is_integer():
+        reject(f"as {raw!r}; expected a whole number from 0 to 100")
+        return None
+    opacity = int(value)
     if not 0 <= opacity <= 100:
         reject(f"as {opacity}; expected a whole number from 0 to 100")
         return None

@@ -65,6 +65,10 @@ function repoMarkdown(): Set<string> {
 }
 
 describe("internal identifiers stay out of source", () => {
+  // Walks and reads every source file in foliplus/, test/ and script/: 421 ms
+  // single-file under coverage on an idle host, 10.5 s inside a loaded
+  // full-suite run (it tripped the 10 s ceiling there). The budget carries the
+  // measured ceiling; the assertions are unchanged.
   it("finds no task-NN, clause number or foreign markdown citation", () => {
     const files = [
       ...walk(resolve(REPO_ROOT, "foliplus"), [], SOURCE_EXT),
@@ -77,6 +81,12 @@ describe("internal identifiers stay out of source", () => {
       const rel = relative(REPO_ROOT, file).replace(/\\/g, "/");
       if (ALLOWED.some(a => rel.includes(a))) continue;
       const text = readFileSync(file, "utf-8");
+      // Fast path: the per-line comment pass is the expensive half of this
+      // scan. A source that spells none of the three markers cannot hold a
+      // citation, so it skips that pass entirely.
+      if (!text.includes("task-") && !text.includes("§") && !text.includes(".md")) {
+        continue;
+      }
       for (const { name, re } of INTERNAL_RES) {
         const m = text.match(re);
         if (m) hits.push(`${rel}: ${name} matched "${m[0]}"`);
@@ -93,5 +103,5 @@ describe("internal identifiers stay out of source", () => {
       }
     }
     expect(hits).toEqual([]);
-  });
+  }, 60_000);
 });

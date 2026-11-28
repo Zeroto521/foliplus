@@ -22,6 +22,51 @@ from .warning import caller_stacklevel, warn_foliplus
 #: rejects.
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$")
 
+#: The whitespace a declared string value is trimmed of, as explicit code points.
+#: This is the UNION of the two hosts' whitespace sets, not either host's
+#: default: Python's str.isspace() includes U+001C-U+001F / U+0085 that
+#: JavaScript keeps, JavaScript's WhiteSpace/LineTerminator set includes U+FEFF
+#: (a BOM pasted from a CSV) that Python keeps, and an author pasting a value
+#: from rich text or CJK input brings U+2000-U+200A, U+2028/U+2029, U+202F,
+#: U+205F or U+3000. Trimming the union means one declaration is accepted
+#: identically on both stacks. KEEP IN STEP with DECLARED_TRIM_CODEPOINTS in
+#: foliplus/js/control/LayerControl/declaredParse.ts - the cross-stack guard
+#: (test/python/guard/test_face_vocabulary.py) compares both literals and also
+#: asserts this module never falls back to a host strip() on the colour path.
+DECLARED_TRIM_CODEPOINTS: tuple[int, ...] = (
+    0x09,  # horizontal tab
+    0x0A,  # line feed
+    0x0B,  # vertical tab
+    0x0C,  # form feed
+    0x0D,  # carriage return
+    0x1C,  # file separator
+    0x1D,  # group separator
+    0x1E,  # record separator
+    0x1F,  # unit separator
+    0x20,  # space
+    0x85,  # next line (NEL)
+    0xA0,  # no-break space
+    0x1680,  # ogham space mark
+    0x2000,  # en quad
+    0x2001,  # em quad
+    0x2002,  # en space
+    0x2003,  # em space
+    0x2004,  # three-per-em space
+    0x2005,  # four-per-em space
+    0x2006,  # six-per-em space
+    0x2007,  # figure space
+    0x2008,  # punctuation space
+    0x2009,  # thin space
+    0x200A,  # hair space
+    0x2028,  # line separator
+    0x2029,  # paragraph separator
+    0x202F,  # narrow no-break space
+    0x205F,  # medium mathematical space
+    0x3000,  # ideographic space
+    0xFEFF,  # zero-width no-break space (BOM)
+)
+_DECLARED_TRIM_CHARS = "".join(chr(codepoint) for codepoint in DECLARED_TRIM_CODEPOINTS)
+
 
 def _expand_hex(name: str) -> str:
     """Expand a CSS hex to 6-digit lowercase (#rgb -> #rrggbb).
@@ -36,6 +81,17 @@ def _expand_hex(name: str) -> str:
     return name.lower()
 
 
+def trim_declared_string(value: str) -> str:
+    """Trim a declared string value of the shared whitespace set.
+
+    The ONE trim implementation every declared-string reader in this package
+    uses. A reader must never reach for str.strip(): the host default disagrees
+    with JavaScript's trim() and an explicit union set is the only way both
+    stacks accept the same spellings.
+    """
+    return value.strip(_DECLARED_TRIM_CHARS)
+
+
 def _declared_hex(
     raw: object,
     reject: Callable[[str], None],
@@ -46,13 +102,21 @@ def _declared_hex(
     isHexColor the marker chassis colour uses; the value is expanded and
     lowered exactly as the JS reader does, so both channels carry one spelling
     for one declared colour. reject owns the wording and the warn-once.
+
+    The caller may pass a padded spelling: the trim here is the shared
+    declared-string trim, never a host strip(), so the colour path has exactly
+    one trim implementation.
     """
     if raw is None:
         return None
-    if not isinstance(raw, str) or not _HEX_COLOR_RE.match(raw.strip()):
+    if not isinstance(raw, str):
         reject(f"with a color {raw!r}; expected a CSS hex (#rgb or #rrggbb)")
         return None
-    return _expand_hex(raw.strip())
+    color = trim_declared_string(raw)
+    if not _HEX_COLOR_RE.match(color):
+        reject(f"with a color {raw!r}; expected a CSS hex (#rgb or #rrggbb)")
+        return None
+    return _expand_hex(color)
 
 
 def _declared_weight(

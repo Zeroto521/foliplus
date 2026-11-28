@@ -69,8 +69,10 @@ const declaredIconSizeOf = (layer: unknown): number | undefined =>
  *  layer declares none. A chassis write is orthogonal to the glyph / glyph
  *  colour, but it re-derives the whole icon, so it must carry the declared
  *  defaults exactly like it carries the user's intents. */
-const declaredIconOf = (layer: unknown): DeclaredIconFace | undefined =>
-  readDeclaredIcon(layer).declared;
+const declaredIconOf = (
+  layer: unknown,
+  layerId?: string,
+): DeclaredIconFace | undefined => readDeclaredIcon(layer, layerId).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the marker-color capability (an awesome-markers chassis carrier —
@@ -110,7 +112,7 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
   // icon color rides the same one-shot construction.
   const paint =
     typeof markerColor === "string" ? markerColor : resolveChassisPaint(layer);
-  const declared = declaredIconOf(layer);
+  const declared = declaredIconOf(layer, layerId);
   const glyph =
     currentGlyph(ui, layerId) ??
     declared?.glyph ??
@@ -179,7 +181,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (!layer) return;
   // Re-derive with the author chassis: drop the intents, then walk with the
   // current glyph and icon color so both survive the chassis reset.
-  const declared = declaredIconOf(layer);
+  const declared = declaredIconOf(layer, layerId);
   const glyph =
     currentGlyph(ui, layerId) ??
     declared?.glyph ??
@@ -252,8 +254,10 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
     applyMarkerColorToLeaves(
       layer,
       declaredMarkerColorHex(layer)!,
-      declaredIconOf(layer)?.glyph ?? authorGlyphNameOnLayer(layer)?.name ?? null,
-      declaredIconOf(layer)?.color,
+      declaredIconOf(layer, layerId)?.glyph ??
+        authorGlyphNameOnLayer(layer)?.name ??
+        null,
+      declaredIconOf(layer, layerId)?.color,
       declaredIconSizeOf(layer),
     );
   }

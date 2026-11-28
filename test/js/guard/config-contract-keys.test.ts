@@ -87,8 +87,33 @@ const CONTRACT_VOCABULARY: ContractVocabulary[] = [
 /** The CONF-shaped receivers a contract key may be read from. */
 const CONF_RECEIVERS = "CONF|conf|config|this\\.config|env\\.config|row|dataRow";
 
-/** Read a repo-relative file. */
-const read = (rel: string) => readFileSync(resolve(REPO_ROOT, rel), "utf8");
+/** Read a repo-relative file, once per run. */
+const rawCache = new Map<string, string>();
+const read = (rel: string) => {
+  let src = rawCache.get(rel);
+  if (src === undefined) {
+    src = readFileSync(resolve(REPO_ROOT, rel), "utf8");
+    rawCache.set(rel, src);
+  }
+  return src;
+};
+
+/** Comment-stripped source per file, once per run: every scan below used to
+ *  re-read and re-strip the whole 318-file tree (five contract keys × two
+ *  scans), which is what pushed the seam test past the 10 s ceiling under
+ *  coverage. */
+const strippedCache = new Map<string, string>();
+const strippedOf = (rel: string): string => {
+  let src = strippedCache.get(rel);
+  if (src === undefined) {
+    src = stripComments(read(rel));
+    strippedCache.set(rel, src);
+  }
+  return src;
+};
+
+let jsFileListCache: string[] | null = null;
+const jsFileList = (): string[] => (jsFileListCache ??= jsFiles());
 
 /** Drop TS comments, keeping newlines so line numbers stay meaningful. */
 const stripComments = (src: string) =>
@@ -128,18 +153,26 @@ const schemaKeys = (src: string): string[] => {
 const camelOf = (key: string): string =>
   key.replace(/_([a-z0-9])/g, (_all, ch: string) => ch.toUpperCase());
 
-/** camelCase reads of a contract key off a CONF-shaped receiver. */
-const findCamelConfReads = (src: string, key: string): string[] => {
+/** camelCase reads of a contract key in already comment-stripped source. */
+const findCamelConfReadsStripped = (src: string, key: string): string[] => {
   const camel = camelOf(key);
+  // Prefilter before the regex: a hit needs the camelCase spelling to exist.
+  if (!src.includes(camel)) return [];
   const pattern = new RegExp(`\\b(?:${CONF_RECEIVERS})\\.${camel}\\b`, "g");
-  return [...stripComments(src).matchAll(pattern)].map(m => m[0]);
+  return [...src.matchAll(pattern)].map(m => m[0]);
 };
+
+/** camelCase reads of a contract key off a CONF-shaped receiver. */
+const findCamelConfReads = (src: string, key: string): string[] =>
+  findCamelConfReadsStripped(stripComments(src), key);
 
 /** Files in the tree that read `.key` in code (comments do not count). */
 const snakeReaders = (key: string): string[] =>
-  jsFiles()
-    .map(rel => ({ rel, src: stripComments(read(rel)) }))
-    .filter(({ src }) => new RegExp(`\\.${key}\\b`).test(src))
+  jsFileList()
+    .map(rel => ({ rel, src: strippedOf(rel) }))
+    .filter(
+      ({ src }) => src.includes(`.${key}`) && new RegExp(`\\.${key}\\b`).test(src),
+    )
     .map(({ rel }) => rel.replace(/^foliplus[\\/]js[\\/]/, ""));
 
 describe("CONFIG contract keys — one spelling per side", () => {
@@ -158,8 +191,8 @@ describe("CONFIG contract keys — one spelling per side", () => {
   it("never reads a contract key off a CONF-shaped receiver in camelCase", () => {
     const violations: string[] = [];
     for (const { key } of CONTRACT_VOCABULARY) {
-      for (const rel of jsFiles()) {
-        for (const hit of findCamelConfReads(read(rel), key)) {
+      for (const rel of jsFileList()) {
+        for (const hit of findCamelConfReadsStripped(strippedOf(rel), key)) {
           violations.push(`${rel.split(/[\\/]/).join("/")}: ${hit}`);
         }
       }

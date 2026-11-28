@@ -12,6 +12,8 @@ not a substitute for pinning the collection contract itself.
 
 from __future__ import annotations
 
+import warnings
+
 import folium
 import pytest
 from conftest import feature_collection, point_feature
@@ -133,6 +135,41 @@ def test_collect_layer_data_warns_on_an_invalid_label_and_omits_the_fact() -> No
     with pytest.warns(UserWarning, match="with a format 'thousands'"):
         row = _row(collect_layer_data(_control_with(layer)), "a")
     assert "label" not in row
+
+
+def test_collect_layer_data_carries_the_container_own_declared_facts() -> None:
+    # A container row reads the declarations written on the container itself: the
+    # group is the row, so its own label and folder blocks are the row's facts.
+    group = folium.FeatureGroup(
+        name="grp",
+        foliplus={"label": {"field": "name", "color": "#0F0"}, "folder": "Ops"},
+    )
+    folium.GeoJson(feature_collection(), name="child").add_to(group)
+    row = _row(collect_layer_data(_control_with(group)), "grp")
+    assert row["label"] == {
+        "field": "name",
+        "color": "#00ff00",
+        "show": True,
+    }, row
+    assert row["folder"] == "Ops", row
+
+
+def test_collect_layer_data_does_not_hoist_a_child_declaration_onto_the_container() -> (
+    None
+):
+    # A declaration belongs to the layer that carries it: a child layer's label
+    # block is neither inherited by the container row nor reported as an error.
+    group = folium.FeatureGroup(name="grp")
+    folium.GeoJson(
+        feature_collection(),
+        name="child",
+        foliplus={"label": {"field": "name"}},
+    ).add_to(group)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        row = _row(collect_layer_data(_control_with(group)), "grp")
+    assert "label" not in row, row
+    assert not caught, [str(w.message) for w in caught]
 
 
 def test_collect_layer_data_warns_on_a_malformed_declaration() -> None:
