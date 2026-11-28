@@ -3,7 +3,7 @@
 /**
  * Guard: bare FORM_CLASS literal drift over the shared form-input vocabulary.
  *
- * The two class names `foliplus-input-skin` and `foliplus-form-select` are a
+ * The two class names foliplus-input-skin and foliplus-form-select are a
  * persisted DOM contract (the shared input/select chrome across the
  * HeatmapControl template, LayerControl style rows, core/label, and the ui
  * primitives). A caller that spells either literal by hand can drift from
@@ -11,24 +11,29 @@
  * a hand-spelled site silently un-styled. This guard asserts the two tokens
  * appear ONLY in the vocabulary file that defines them.
  *
- * Scope: production `foliplus/js/**\*.ts` ONLY (tests simulate DOM with
+ * Scope: production foliplus/js/** / *.ts ONLY (tests simulate DOM with
  * literals and are excluded; CSS files under foliplus/css are a different
  * tree and out of scope). Exclusions:
  *   - the vocabulary file itself (it DEFINES the constants);
  *   - comments (stripped before matching);
- *   - `data-*` attribute values (data-heatmap-* etc. may carry a class
+ *   - data-* attribute values (data-heatmap-* etc. may carry a class
  *     value through the HTML template);
- *   - CSS custom-property references (`--foliplus-*`), which are variable
+ *   - CSS custom-property references (--foliplus-*), which are variable
  *     names, not class selectors.
  *
- * The match carries a trailing word boundary, so `foliplus-input-skinX` or a
- * longer `foliplus-input-skin-extra` class does not count as the token.
+ * The match carries a trailing word boundary, so foliplus-input-skinX or a
+ * longer foliplus-input-skin-extra class does not count as the token.
  *
- * Whitelist: `foliplus/js/ui/formClassName.ts`.
+ * Whitelist: foliplus/js/ui/formClassName.ts.
  *
- * Usage: `node script/check/form-class-literal.mjs [root]`
- *   Prints each violation as `file:line: text` and exits 1 when any are found.
+ * Usage: node script/check/form-class-literal.mjs [root]
+ *   Prints each violation as file:line: text and exits 1 when any are found.
+ *
+ * The tree walk and comment stripping are the shared primitives from
+ * script/check/lib/source-scan.mjs, so this guard and its siblings read the
+ * source identically.
  */
+import { collectSources, stripComments } from "./lib/source-scan.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,29 +53,13 @@ const SKIP_DIR = new Set([
   ".agents",
 ]);
 
-/** Walk a directory and return source files (`.ts`), skipping build dirs. */
-const walk = (dir, out = []) => {
-  if (!fs.existsSync(dir)) return out;
-  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIR.has(ent.name)) continue;
-    const p = path.join(dir, ent.name);
-    if (ent.isDirectory()) walk(p, out);
-    else if (ent.name.endsWith(".ts")) out.push(p);
-  }
-  return out;
-};
-
-/** Strip block and line comments so a doc comment cannot mask a real use. */
-const codeOnly = src =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\r\n]*/g, "");
-
-/** Strip `data-*="..."` attribute values (they may carry a class value). */
+/** Strip data-*="..." attribute values (they may carry a class value). */
 const stripDataAttrs = line => line.replace(/\sdata-[a-z0-9-]+="[^"]*"/gi, "");
 
-/** Strip CSS custom-property references (`--foliplus-*`) — variable names. */
+/** Strip CSS custom-property references (--foliplus-*) — variable names. */
 const stripCssVars = line => line.replace(/--[a-z0-9-]+/gi, "");
 
-/** Does `line` carry the token as a bare whole-word literal? */
+/** Does line carry the token as a bare whole-word literal? */
 const hasBareToken = (line, token) => {
   const cleaned = stripCssVars(stripDataAttrs(line));
   // Leading boundary: not preceded by a word char (so xfoliplus-input-skin
@@ -82,16 +71,18 @@ const hasBareToken = (line, token) => {
 
 /**
  * Find bare FORM_CLASS literals in the production source tree.
- * @param root repo root; production is scanned under `<root>/foliplus/js`.
- * @returns [{file, line, text}] — `file` is repo-relative.
+ * @param root repo root; production is scanned under <root>/foliplus/js.
+ * @returns [{file, line, text}] — file is repo-relative.
  */
 const findBareFormClassLiterals = (root = process.cwd()) => {
-  const targets = walk(path.join(root, "foliplus", "js"));
+  const targets = collectSources(path.join(root, "foliplus", "js"), {
+    skipDirs: SKIP_DIR,
+  });
   const hits = [];
   for (const file of targets) {
     const rel = path.relative(root, file).split(path.sep).join("/");
     if (rel === WHITELIST_FILE) continue;
-    const src = codeOnly(fs.readFileSync(file, "utf8"));
+    const src = stripComments(fs.readFileSync(file, "utf8"));
     const lines = src.split(/\r?\n/);
     for (const [i, line] of lines.entries()) {
       for (const token of FORM_CLASS_TOKENS) {
@@ -109,7 +100,7 @@ const main = (root = process.cwd()) => {
   const hits = findBareFormClassLiterals(root);
   for (const h of hits) {
     console.log(
-      `${h.file}:${h.line}: bare class literal \"${h.text}\" \u2014 use FORM_CLASS`,
+      `${h.file}:${h.line}: bare class literal "\${h.text}\" \u2014 use FORM_CLASS`,
     );
   }
   return hits.length === 0 ? 0 : 1;
@@ -120,6 +111,5 @@ const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
     process.exitCode = main(argv[0] || process.cwd());
   }
 };
-runCli(process.argv.slice(2), process.argv[1]);
 
-export { findBareFormClassLiterals, hasBareToken, main, runCli, walk };
+export { findBareFormClassLiterals, hasBareToken, main, runCli };

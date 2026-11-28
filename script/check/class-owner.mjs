@@ -42,6 +42,7 @@
  * always exits 0. With --check it exits 1 on any duplicate owner or any
  * non-owner bare literal.
  */
+import { collectSources, stripComments } from "./lib/source-scan.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -69,10 +70,6 @@ const EXCLUDED_DIR_PARTS = [
  *  data (locale tables), not control code that could spell a class name. */
 const PY_EXCLUDED_DIR_PARTS = ["locale"];
 
-/** File suffixes the consumer scan reads. CSS is a definition side; locale
- *  is data; markdown is documentation. */
-const SCAN_SUFFIXES = [".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"];
-
 /** File suffixes the Python consumer scan reads. */
 const PY_SCAN_SUFFIXES = [".py"];
 
@@ -87,20 +84,6 @@ const TOKEN_SUFFIX = "(?![A-Za-z0-9_-])";
 /** Left-boundary: not preceded by another name character. Keeps
  *  `data-foliplus-*` and `--foliplus-*` out of the hit list. */
 const TOKEN_PREFIX_GUARD = "(?<![A-Za-z0-9_-])";
-
-/** Strip block + line comments so a mention in prose does not count as a hit. */
-const stripComments = src =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
-
-const walk = (dir, acc = []) => {
-  if (!fs.existsSync(dir)) return acc;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(p, acc);
-    else if (SCAN_SUFFIXES.includes(path.extname(entry.name))) acc.push(p);
-  }
-  return acc;
-};
 
 /** All production TS files under JS_ROOT. */
 /** Strip Python docstrings (triple-quoted) + line comments so a mention in
@@ -127,7 +110,10 @@ const walkPy = (dir, acc = []) => {
   return acc;
 };
 
-const prodFiles = root => walk(path.join(root, JS_ROOT_REL));
+const prodFiles = root => collectSources(path.join(root, JS_ROOT_REL));
+
+/** Alias kept for the test surface: the shared `collectSources` is the walk. */
+const walk = dir => collectSources(dir);
 
 /** Split a string-literal body into individual `foliplus-...` tokens. A
  *  composite value ("a foliplus-x foliplus-y") yields both tokens; a

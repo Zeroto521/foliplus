@@ -300,6 +300,48 @@ describe("duplicate-class-def CLI", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+  it("main returns 1 on a single-line duplicate map (blind spot)", () => {
+    // The old parser only recognised `const X = {\n  K: "…",\n};` (open brace
+    // alone on the line). A single-line `const X = { K: "foliplus-x" };` slipped
+    // through: the scanner never saw the open-brace line shape. The shared
+    // parser brace-matches the declaration, so both forms are owners.
+    const dir = tempRoot({
+      "foliplus/js/ui/panelClassName.ts":
+        'const PANEL_CLASS = { HIDDEN: "foliplus-hidden" } as const;\n',
+      "foliplus/js/control/ExportControl/const.ts":
+        'const CLASSES = { HIDDEN: "foliplus-hidden" };\n',
+    });
+    const log: string[] = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
+      log.push(args.join(" "));
+    });
+    try {
+      expect(main(["--check"], dir)).toBe(1);
+      expect(
+        log.some(l => l.includes("foliplus-hidden") && l.includes("BLOCKING")),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("main returns 0 on a single-line map with no duplicate", () => {
+    const dir = tempRoot({
+      "foliplus/js/ui/panelClassName.ts":
+        'const PANEL_CLASS = { HIDDEN: "foliplus-hidden" } as const;\n',
+    });
+    const log: string[] = [];
+    const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
+      log.push(args.join(" "));
+    });
+    try {
+      expect(main(["--check"], dir)).toBe(0);
+    } finally {
+      spy.mockRestore();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it("main returns 0 without --check even when the real tree has duplicates", () => {
     const log: string[] = [];

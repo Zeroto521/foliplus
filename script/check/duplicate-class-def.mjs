@@ -30,6 +30,11 @@
  * (a CSS variable), `foliplus-export-mode` (a longer name sharing a prefix)
  * and `data-foliplus-export` (an attribute) never trip it.
  *
+ * The parser is the shared `parseClassDefs` from
+ * `script/check/lib/source-scan.mjs`, so a single-line `const X = { DOT: "…" }`
+ * map, a multi-line map and a nested object literal all report their owner
+ * sites with the same rule the other class/literal guards use.
+ *
  * Usage: `node script/check/duplicate-class-def.mjs [--check] [--root <dir>]`
  *   Without `--check` the script prints an inventory and always exits 0. With
  *   `--check` it exits 1 when any duplicate sits outside `BASELINE_PENDING`.
@@ -42,6 +47,7 @@
  * absent from the list, or a *new* site for a listed name, fails `--check`.
  * The list is now empty; `EXEMPTIONS` below is the only allowed repeat.
  */
+import { collectSources, parseClassDefs } from "./lib/source-scan.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -76,61 +82,13 @@ const EXEMPTIONS = [
  *
  *  The only allowed repeat is `EXEMPTIONS` below, and that needs a written
  *  reason for two spellings of one name to be correct.
+ *
  * @type {{token: string, batch: string, sites: string[], reason: string}[]}
  */
 const BASELINE_PENDING = [];
 
 /** A single `foliplus-*` class name. */
 const TOKEN_RE = /^foliplus-[a-z0-9]+(?:-[a-z0-9]+)*$/;
-
-/** Strip comments without eating newlines, so a doc comment naming a class
- *  does not count as an owner and a reported line number still points at the
- *  value. */
-const codeOnly = src =>
-  src
-    .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\r\n]/g, " "))
-    .replace(/\/\/[^\r\n]*/g, m => m.replace(/[^\r\n]/g, " "));
-
-/** Parse every class name owner site out of one source file.
- *  @returns [{token, key, owner, line}] with `line` 1-based. */
-const parseClassDefs = source => {
-  const lines = codeOnly(source).split(/\r?\n/);
-  const sites = [];
-  let mapOwner = null;
-  let depth = 0;
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i];
-    const opens = line.match(/^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*\{\s*$/);
-    if (opens) {
-      mapOwner = opens[1];
-      depth = 1;
-      continue;
-    }
-    if (mapOwner !== null) {
-      for (const ch of line) {
-        if (ch === "{") depth += 1;
-        else if (ch === "}") depth -= 1;
-      }
-      if (depth <= 0) {
-        mapOwner = null;
-        depth = 0;
-        continue;
-      }
-      const entry = line.match(/^\s{2,}([A-Za-z_$][\w$]*)\s*:\s*"([^"]+)"\s*,?\s*$/);
-      if (entry && TOKEN_RE.test(entry[2])) {
-        sites.push({ token: entry[2], key: entry[1], owner: mapOwner, line: i + 1 });
-      }
-      continue;
-    }
-    const named = line.match(
-      /^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*"([^"]+)"\s*;\s*$/,
-    );
-    if (named && TOKEN_RE.test(named[2])) {
-      sites.push({ token: named[2], key: named[1], owner: named[1], line: i + 1 });
-    }
-  }
-  return sites;
-};
 
 /** Group owner sites by class name and keep the groups with more than one
  *  site. @returns [{token, sites}] sorted by token, for stable output. */
@@ -165,16 +123,6 @@ const isExempt = (dup, exempts = EXEMPTIONS) => {
   return actual.size === entry.sites.length && entry.sites.every(f => actual.has(f));
 };
 
-/** Walk the production .ts files under a directory. */
-const walk = (dir, out) => {
-  for (const name of fs.readdirSync(dir)) {
-    const p = path.join(dir, name);
-    if (fs.statSync(p).isDirectory()) walk(p, out);
-    else if (name.endsWith(".ts")) out.push(p);
-  }
-  return out;
-};
-
 /** Scan the production tree and report every duplicate. Returns the process
  *  exit code: 1 only when a duplicate lies outside the pending list. */
 const main = (argv = [], root = process.cwd()) => {
@@ -183,7 +131,7 @@ const main = (argv = [], root = process.cwd()) => {
   const rootIdx = args.indexOf("--root");
   if (rootIdx !== -1) root = path.resolve(args[rootIdx + 1] ?? root);
   const sites = [];
-  for (const file of walk(path.join(root, JS_ROOT_REL), [])) {
+  for (const file of collectSources(path.join(root, JS_ROOT_REL))) {
     const rel = path.relative(root, file).split(path.sep).join("/");
     for (const site of parseClassDefs(fs.readFileSync(file, "utf8"))) {
       sites.push({ ...site, rel });
@@ -221,7 +169,7 @@ const main = (argv = [], root = process.cwd()) => {
       ? "\nEvery class name has exactly one owner."
       : check
         ? `\n${dupes.length} duplicate(s) deferred to their own batch.`
-        : `\nNo gate applied: run with --check to fail on the duplicates above.`,
+        : "\nNo gate applied: run with --check to fail on the duplicates above.",
   );
   return 0;
 };
@@ -239,7 +187,6 @@ export {
   BASELINE_PENDING,
   EXEMPTIONS,
   TOKEN_RE,
-  codeOnly,
   findDuplicateClassDefs,
   isExempt,
   isPending,
