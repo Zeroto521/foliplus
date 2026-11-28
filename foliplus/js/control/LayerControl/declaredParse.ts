@@ -449,9 +449,11 @@ const normaliseFaceKeys = (
     }
     seen.add(canonical);
     const read = spec[canonical].validate(raw);
-    if (read.ok) values[canonical] = read.value;
-    else
+    if (read.ok) {
+      values[canonical] = read.value;
+    } else {
       rejectOne(canonical, `declared ${faceName}: ignoring ${read.invalid} ${target}`);
+    }
   }
   return { values, invalid };
 };

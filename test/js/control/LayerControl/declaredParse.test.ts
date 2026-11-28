@@ -639,6 +639,27 @@ describe("readDeclaredIcon", () => {
     );
   });
 
+  it("names an unregistered carrier when no layer id is known", () => {
+    // A read before the layer is linked has no id; the warning still says so
+    // instead of hiding the locator (the same "<unregistered>" wording the
+    // border reader uses).
+    const warn = vi.fn();
+    readDeclaredIcon(layerWith({ icon: { colour: "#fff" } }), undefined, warn);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('on layer "<unregistered>"'),
+    );
+  });
+
+  it("rejects a non-string colour like the malicious case it is", () => {
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { color: 7 } }),
+      "L",
+      vi.fn(),
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid[0]).toMatch(/CSS hex/);
+  });
+
   it("names the layer id when a face value is rejected", () => {
     const warn = vi.fn();
     readDeclaredIcon(layerWith({ icon: { color: "nope" } }), "IconG", warn);
