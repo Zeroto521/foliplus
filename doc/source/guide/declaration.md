@@ -239,22 +239,45 @@ panel is built from one row per layer, and a row reads its declaration from its 
 layer only. Nothing is inherited, nothing is looked up in a nested container.
 
 That matters for containers. A `FeatureGroup` (or any other container layer) is its
-own row, so its row reads only the block written on the group itself:
+own row, so its row reads only the block written on the group itself. Both cases, in
+one runnable map:
 
 ```python
-# The group row reads its own declaration: the folder it groups into.
-grp = folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"})
-folium.GeoJson(stations, name="站点").add_to(grp)
+import folium
+from foliplus import LayerControl
+
+stations = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {"name": "观测站 A"},
+            "geometry": {"type": "Point", "coordinates": [121.5, 31.2]},
+        }
+    ],
+}
+
+m = folium.Map(location=[31.2, 121.5], zoom_start=10)
+
+# 1. The group's own block: the 观测站 group row groups into 设施.
+declared = folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"})
+folium.GeoJson(stations, name="站点").add_to(declared)
+declared.add_to(m)
+
+# 2. A child's block: this label belongs to the 站点 2 child, not to its group row.
+inherited = folium.FeatureGroup(name="另一组")
+folium.GeoJson(stations, name="站点 2", foliplus={"label": {"field": "name"}}).add_to(
+    inherited
+)
+inherited.add_to(m)
+
+LayerControl().add_to(m)
 ```
 
-A declaration on a **child layer inside** the group belongs to that child; the
-container row neither inherits it nor reports it as a mistake:
-
-```python
-grp = folium.FeatureGroup(name="观测站")
-# Binds to the 站点 row, not to the 观测站 group row.
-folium.GeoJson(stations, name="站点", foliplus={"label": {"field": "name"}}).add_to(grp)
-```
+Declarations are read from the layer they are attached to: the `folder` above
+groups the **观测站** group row, while the `label` block belongs to the **站点 2**
+child. The **另一组** container row inherits nothing from it, and the child block is
+not reported as a mistake.
 
 **Behaviour**:
 
@@ -262,8 +285,8 @@ folium.GeoJson(stations, name="站点", foliplus={"label": {"field": "name"}}).a
   `label`, `filter`, `zoom_range` and other keys describe the container row, never
   its children.
 - A child layer's declaration stays with the child. It is not hoisted to the
-  container, not treated as an error and not warned about: it applies when the child
-  is rendered as its own row (a group expands into its child rows, see above).
+  container, not treated as an error and not warned about; it describes that child
+  and nothing else.
 - To declare something for the container row, write it on the container constructor.
   `FeatureGroup`, `LayerGroup` and `GeoJson` all forward `foliplus=...` into the
   layer, the same way `explore` does.
