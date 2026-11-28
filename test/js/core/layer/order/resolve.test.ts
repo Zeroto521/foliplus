@@ -173,9 +173,6 @@ describe("resolveView", () => {
     });
     const v = resolveView(d, () => true);
     expect(v.leaves).toEqual([]);
-    expect(v.rows.map(r => r.key)).toEqual([
-      "folder:overlay:a",
-      "folder:overlay:b",
-    ]);
+    expect(v.rows.map(r => r.key)).toEqual(["folder:overlay:a", "folder:overlay:b"]);
   });
 });

@@ -141,12 +141,19 @@ const handleKeyDown = (ui: LayerUI, event: KeyboardEvent): void => {
       event.preventDefault();
       const moved = up ? ui.c.moveRow(rowKey, true) : ui.c.moveRow(rowKey, false);
       if (!moved) {
-        ui.c.map.foliplus!.hint.set(ui.config.name, "", ui.T(up ? "reorder_top" : "reorder_bottom"), {
-          duration: HINT_DURATION.SHORT,
-        });
+        ui.c.map.foliplus!.hint.set(
+          ui.config.name,
+          "",
+          ui.T(up ? "reorder_top" : "reorder_bottom"),
+          {
+            duration: HINT_DURATION.SHORT,
+          },
+        );
       }
       const newItems = getNavigableItems(ui);
-      const next = newItems.findIndex(el => el.getAttribute(CONST.DATA.ORDER_KEY) === rowKey);
+      const next = newItems.findIndex(
+        el => el.getAttribute(CONST.DATA.ORDER_KEY) === rowKey,
+      );
       // findIndex yields -1 if the row is gone (e.g. layer removed mid-drag);
       // normalize it so activeIdx never holds an invalid index.
       ui.listPanel.activeIdx = next === -1 ? null : next;
