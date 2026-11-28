@@ -28,6 +28,7 @@ import geopandas as gpd
 from foliplus import LayerControl
 
 # explore() returns the folium.Map, so the panel attaches directly to it.
+# Point districts.geojson at your own file.
 m = gpd.read_file("districts.geojson").explore()
 LayerControl().add_to(m)
 m.save("map.html")
