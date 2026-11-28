@@ -232,6 +232,46 @@ This lands with the child-layer registration work.
 
 :::
 
+### Declarations belong to the layer that carries them
+
+A `foliplus={...}` block describes **one layer** — the layer it is written on. The
+panel is built from one row per layer, and a row reads its declaration from its own
+layer only. Nothing is inherited, nothing is looked up in a nested container.
+
+That matters for containers. A `FeatureGroup` (or any other container layer) is its
+own row, so its row reads only the block written on the group itself:
+
+```python
+# The group row reads its own declaration: the folder it groups into.
+grp = folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"})
+folium.GeoJson(stations, name="站点").add_to(grp)
+```
+
+A declaration on a **child layer inside** the group belongs to that child; the
+container row neither inherits it nor reports it as a mistake:
+
+```python
+grp = folium.FeatureGroup(name="观测站")
+# Binds to the 站点 row, not to the 观测站 group row.
+folium.GeoJson(stations, name="站点", foliplus={"label": {"field": "name"}}).add_to(grp)
+```
+
+**Behaviour**:
+
+- A container row's facts come from the container's own block — its `folder`,
+  `label`, `filter`, `zoom_range` and other keys describe the container row, never
+  its children.
+- A child layer's declaration stays with the child. It is not hoisted to the
+  container, not treated as an error and not warned about: it applies when the child
+  is rendered as its own row (a group expands into its child rows, see above).
+- To declare something for the container row, write it on the container constructor.
+  `FeatureGroup`, `LayerGroup` and `GeoJson` all forward `foliplus=...` into the
+  layer, the same way `explore` does.
+- This is deliberate. Downward inheritance would let a single declaration affect two
+  independently addressable rows, which is exactly the double-sourced state this
+  declaration pass removes. A page that relied on a child declaration reaching its
+  container must move the block onto the container.
+
 (fill)=
 
 ## `fill` — value-based or solid fill
