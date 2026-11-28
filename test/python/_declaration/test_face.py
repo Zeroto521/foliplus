@@ -243,6 +243,15 @@ class TestNormaliseIconFace:
             )
         assert out == {}
 
+    def test_a_non_string_color_is_rejected_with_a_warning(self) -> None:
+        # The trim step runs only for a string; a non-string colour must fall
+        # through to the shape gate and warn, not crash the normaliser.
+        with pytest.warns(UserWarning, match="expected a CSS hex"):
+            out = normalise_icon_face(
+                {"color": 7}, owner="LayerControl", subject="layer NumC"
+            )
+        assert out == {}
+
     def test_an_invalid_color_is_rejected_with_a_warning(self) -> None:
         with pytest.warns(UserWarning, match="expected a CSS hex"):
             out = normalise_icon_face(
@@ -281,6 +290,15 @@ class TestNormaliseMarkerFace:
     def test_a_glyph_sub_key_is_unknown_on_the_marker_face(self) -> None:
         with pytest.warns(UserWarning, match="unknown marker sub-key 'glyph'"):
             out = normalise_marker_face({"glyph": "star"}, owner="Owner")
+        assert out == {}
+
+    def test_an_out_of_range_marker_alpha_is_rejected(self) -> None:
+        with pytest.warns(
+            UserWarning, match="expected a whole number from 0 to 100"
+        ):
+            out = normalise_marker_face(
+                {"colorOpacity": 101}, owner="LayerControl", subject="layer Mark101"
+            )
         assert out == {}
 
     def test_a_null_marker_alpha_warns_and_is_dropped(self) -> None:
