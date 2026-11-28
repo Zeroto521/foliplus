@@ -286,8 +286,10 @@ ordinary layers through `explore`; only a container row needs a hand-built
 
 ```python
 m = folium.Map(location=[31.2, 121.5], zoom_start=10)
-gdf_stations.explore(m=m, foliplus={"label": {"field": "name"}})   # ordinary layer
-folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"}).add_to(m)  # container row
+gdf_stations.explore(m=m, foliplus={"label": {"field": "name"}})  # ordinary layer
+folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"}).add_to(
+    m
+)  # container row
 ```
 
 `explore` forwards its extra keywords to the `folium.GeoJson` it creates, so
