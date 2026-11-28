@@ -400,14 +400,14 @@ describe("LayerController", () => {
       const persistSpy = vi
         .spyOn(manager as unknown as { persistOrderDoc(): void }, "persistOrderDoc")
         .mockImplementation(() => {});
-      const beforeView = manager.lastView;
+      const beforeView = (manager as unknown as { lastView: unknown }).lastView;
       (
         manager as unknown as {
           applyDoc(next: unknown, opts: { persist: boolean }): void;
         }
       ).applyDoc(manager.orderDoc, { persist: true });
       expect(persistSpy).not.toHaveBeenCalled();
-      expect(manager.lastView).toBe(beforeView);
+      expect((manager as unknown as { lastView: unknown }).lastView).toBe(beforeView);
     });
 
     it("tolerates a missing ui (pre-attach) and still replays the filter", () => {
