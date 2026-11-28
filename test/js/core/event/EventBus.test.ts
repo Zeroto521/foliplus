@@ -792,6 +792,24 @@ describe("delivery revision", () => {
     expect(seen).toEqual([1, 2]);
   });
 
+  it("logs once when a handler re-enters the bus more than three levels deep", () => {
+    // The reentrancy rule is a comment, not a prohibition; the one guard is a
+    // warning so a handler that synchronously emits terminal events is visible
+    // instead of silently nesting. Warned once per bus, not per nested round.
+    const bus = new EventBus();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      let depth = 0;
+      bus.on("evt", () => {
+        if (depth++ < 4) bus.emit("evt");
+      });
+      bus.emit("evt");
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][0])).toContain("nested more than 3 deep");
+    } finally {
+      warn.mockRestore();
+    }
+  });
   it("treats every void payload contract as void at runtime", () => {
     // The runtime mirror of the type map: if a name here were missing from
     // VOID_EVENTS, the origin argument would arrive in the payload slot and

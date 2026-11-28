@@ -212,9 +212,10 @@ class EventBus {
     origin?: EventOrigin,
   ): DispatchFailure | undefined {
     const e = this.entries.get(event);
-    // No listener means no delivery: an unwatched channel costs no revision
-    // bump and no snapshot copy.
-    if (!e || e.listeners.length === 0) return undefined;
+    // An entry exists only while it holds a listener (`off` deletes it at
+    // zero), so no entry means no delivery: an unwatched channel costs no
+    // revision bump and no snapshot copy.
+    if (!e) return undefined;
     const revision = ++this.revisionCounter;
     const meta: EventMeta = origin === undefined ? { revision } : { revision, origin };
     e.snapshot ??= [...e.listeners];

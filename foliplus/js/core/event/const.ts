@@ -5,7 +5,7 @@
 //
 // The payload map is the source of truth for the void/payload split: the
 // runtime flags at the bottom are checked against it by the compiler, so a
-// payload cannot be re-declared void without the runtime mirror moving too.
+// payload cannot be declared void without the runtime mirror moving too.
 import type { EventPayloadMap } from "./type.js";
 
 // ── Event name dictionary (unified <namespace>:<component>:<action> naming) ──
