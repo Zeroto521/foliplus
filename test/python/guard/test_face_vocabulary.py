@@ -265,9 +265,7 @@ def host_trim_in_js(text: str) -> list[str]:
     """
     stripped = strip_ts_comments(text)
     return [
-        line.strip()
-        for line in stripped.splitlines()
-        if re.search(r"\.trim\(\)", line)
+        line.strip() for line in stripped.splitlines() if re.search(r"\.trim\(\)", line)
     ]
 
 
@@ -333,9 +331,7 @@ def js_face_tables(
                 continue
             reference = re.match(r"(\w+): (\w+)\.(\w+),$", chunk)
             if reference is not None:
-                refs[reference.group(1)] = (
-                    f"{reference.group(2)}.{reference.group(3)}"
-                )
+                refs[reference.group(1)] = f"{reference.group(2)}.{reference.group(3)}"
         for canonical, target in refs.items():
             table_name, referenced = target.split(".", 1)
             source_table = tables.get(table_name)
@@ -456,9 +452,7 @@ def test_the_fill_name_channel_keeps_its_host_trim_on_purpose() -> None:
     exempt; a hex reader that adds a trim of its own has no such excuse."""
     stripped = strip_ts_comments(_js_fill_source())
     host_trims = [
-        line.strip()
-        for line in stripped.splitlines()
-        if re.search(r"\.trim\(\)", line)
+        line.strip() for line in stripped.splitlines() if re.search(r"\.trim\(\)", line)
     ]
     assert len(host_trims) == 1, (
         "declaredFill.ts should keep exactly one intentional host trim (the "
