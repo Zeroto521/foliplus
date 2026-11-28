@@ -8,9 +8,9 @@ import {
   defaultDoc,
   layerKeyOf,
 } from "#core/layer/layout/default.js";
-import { restore, suppress } from "#core/order/command.js";
-import { rankAfter, rankBetween, rankStart } from "#core/order/rank.js";
-import { type Present, childrenOf, resolveView } from "#core/order/resolve.js";
+import { restore, suppress } from "#core/layer/order/command.js";
+import { rankAfter, rankBetween, rankStart } from "#core/layer/order/rank.js";
+import { type Present, childrenOf, resolveView } from "#core/layer/order/resolve.js";
 
 const presentAll = (): Present => () => true;
 

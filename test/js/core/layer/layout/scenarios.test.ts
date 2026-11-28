@@ -10,9 +10,9 @@ import {
 } from "#core/layer/layout/default.js";
 import { mergeOrderDocs } from "#core/layer/layout/merge.js";
 import { projectRows, projectView, projectZ } from "#core/layer/layout/project.js";
-import { type OrderDoc, emptyOrderDoc } from "#core/order/doc.js";
-import { rankAfter } from "#core/order/rank.js";
-import type { Present } from "#core/order/resolve.js";
+import { type OrderDoc, emptyOrderDoc } from "#core/layer/order/doc.js";
+import { rankAfter } from "#core/layer/order/rank.js";
+import type { Present } from "#core/layer/order/resolve.js";
 
 type Role = "overlay" | "base";
 
