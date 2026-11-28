@@ -1,7 +1,7 @@
 /* ── Layer Control ── */
 .foliplus-layer-ctrl {
   /* ── Drag & Drop Variables ──
-     Used by .foliplus-layer-item.{drag-over-top|drag-over-bottom} rules below. */
+     Used by the .foliplus-layer-item[data-foliplus-drop] rules below. */
 
   /* Drop-position glow (top/bottom) */
 
@@ -318,8 +318,23 @@
       outline: none;
     }
 
+    /* The left rail is the row's OWN state: this layer is checked, so it is on
+       the map. A transient gesture must not erase it — erasing it made a
+       checked row look unchecked exactly while the eye is on it, which is the
+       one moment the "is it on?" answer has to stay readable. It is therefore
+       split out of the wash below and asserted for every drag state. */
     &.foliplus-active {
       border-left-color: var(--foliplus-accent-primary);
+    }
+    /* The two states that paint their own fill must not also take the checked
+       wash, or a join target shows an 8-10% wash instead of its own fill and a
+       refusal still looks droppable. Excluding them here — rather than
+       re-asserting the fill with more specificity — keeps one source for "who
+       paints this row's background". A gap (before/after) keeps the wash: the
+       row is still the checked layer, and the line is the only new signal. */
+    &.foliplus-active:where(
+        :not([data-foliplus-drop="join"]):not([data-foliplus-drop="refuse"])
+      ) {
       background: var(--foliplus-accent-light);
     }
     /* Declared after .foliplus-active so the interaction target wins over the wash
@@ -466,39 +481,170 @@
        carries the checked-row (active) wake. The old bare :hover branch was
        removed: on a row-panel hover the recipe is carved out, so a stray
        :hover here would still wake the type icon to black. */
-    &.foliplus-layer-dragging {
-      background: var(--foliplus-accent-light);
-      opacity: var(--foliplus-alpha-70);
+    /* Drag indicator: ONE geometric language for the whole gesture — an accent
+       line on the edge where the layer will land. A target with no line is not
+       a target, so a refusal draws NOTHING (no line, no ring, no outline): the
+       pointer turns to no-drop and the panel's hint line says why. A boxed
+       outline would be a second language, and the user reads the first one.
+       Lines animate border-color/box-shadow only and the pressed row moves by
+       transform, so the list never reflows under the pointer.
+       Nested rows (group children, #1284) are siblings in the same list, so
+       the same edge rule draws their gaps; nothing here assumes a flat list. */
+    position: relative;
+    /* The carried row: dimmed for the whole gesture, one pulse on pickup. The
+       gesture, not the row kind, decides this — layer, folder and group rows
+       all paint the same. */
+    &[data-foliplus-drop="source"] {
+      opacity: var(--foliplus-drag-source-opacity);
       cursor: grabbing;
+      animation: foliplus-drag-pickup var(--foliplus-drag-pulse-duration) ease-in-out
+        var(--foliplus-drag-pulse-pickup-count);
     }
-    &.foliplus-layer-drag-over-top {
-      border-top: var(--foliplus-drag-border-width) solid var(--foliplus-accent-primary);
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: var(--foliplus-drag-top-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
-        var(--foliplus-drag-pulse-count);
-    }
-    /* A folder row the dragged layer would join: the whole row lights up
-       instead of a before/after edge, because the drop is "into", not
-       "beside". */
-    &.foliplus-layer-drag-over-into {
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: inset 0 0 0 var(--foliplus-drag-border-width)
+    /* Insertion above the row: one breathing accent line, inset from both ends
+       so it marks a slot rather than a border. */
+    &[data-foliplus-drop="before"] {
+      z-index: 1;
+      /* The row the slot pairs with carries the same directional red glow the
+         shipped indicator had: the line alone reads as a hairline floating on
+         white, and the glow is what makes the target ROW participate instead
+         of only its edge. 0 X-offset, so it hugs the top edge and does not
+         bleed sideways. */
+      box-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-4)
         var(--foliplus-accent-primary);
+      background-image: linear-gradient(
+        var(--foliplus-drag-target-wash),
+        var(--foliplus-drag-target-wash)
+      );
+      &::before {
+        content: "";
+        position: absolute;
+        left: var(--foliplus-drag-line-inset);
+        right: var(--foliplus-drag-line-inset);
+        top: calc(-1 * var(--foliplus-drag-line-half));
+        border-top: var(--foliplus-drag-line) solid var(--foliplus-drag-line-from);
+        border-radius: var(--foliplus-drag-line-radius);
+        pointer-events: none;
+        animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out
+          var(--foliplus-drag-pulse-target);
+      }
     }
-    /* A refused drop: dashed outline, no fill — visibly "not here" instead of
-       the solid edge or full-row fill an accepted drop draws. */
-    &.foliplus-layer-drag-over-blocked {
-      outline: var(--foliplus-drag-border-width) dashed var(--foliplus-accent-primary);
-      outline-offset: calc(-1 * var(--foliplus-drag-border-width));
-    }
-    &.foliplus-layer-drag-over-bottom {
-      border-bottom: var(--foliplus-drag-border-width) solid
+    /* Insertion below the row: the same line, mirrored. */
+    &[data-foliplus-drop="after"] {
+      z-index: 1;
+      box-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-4)
         var(--foliplus-accent-primary);
-      background: var(--foliplus-accent-soft-bg);
-      box-shadow: var(--foliplus-drag-bottom-shadow);
-      animation: foliplus-drag-pulse var(--foliplus-motion-slow) ease-in-out
-        var(--foliplus-drag-pulse-count);
+      background-image: linear-gradient(
+        var(--foliplus-drag-target-wash),
+        var(--foliplus-drag-target-wash)
+      );
+      &::after {
+        content: "";
+        position: absolute;
+        left: var(--foliplus-drag-line-inset);
+        right: var(--foliplus-drag-line-inset);
+        bottom: calc(-1 * var(--foliplus-drag-line-half));
+        border-bottom: var(--foliplus-drag-line) solid var(--foliplus-drag-line-from);
+        border-radius: var(--foliplus-drag-line-radius);
+        pointer-events: none;
+        animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out
+          var(--foliplus-drag-pulse-target);
+      }
+    }
+    /* A join target is a row, not a gap: BOTH edges light at once ("it goes
+       inside this row"), on a wash light enough to keep the label readable, and
+       the chevron dips in step to hint that the row opens. */
+    &[data-foliplus-drop="join"] {
+      /* A join target is a whole ROW, not a slot, so it is the only state that
+         outlines the row: the shipped indicator drew this as an inset ring, and
+         without it the row loses the left rail and the right edge stops
+         reading as part of the target. The two edge lines below stay (they are
+         what pulses); the ring is the static "the row is the container" half. */
+      box-shadow:
+        inset 0 0 0 var(--foliplus-size-2) var(--foliplus-accent-primary),
+        0 0 var(--foliplus-size-4) var(--foliplus-accent-primary);
+      background: var(--foliplus-drag-join-fill);
+      z-index: 1;
+      &::before,
+      &::after {
+        content: "";
+        position: absolute;
+        left: var(--foliplus-drag-line-inset);
+        right: var(--foliplus-drag-line-inset);
+        border-radius: var(--foliplus-drag-line-radius);
+        pointer-events: none;
+        animation: foliplus-drag-pulse var(--foliplus-drag-pulse-duration) ease-in-out
+          var(--foliplus-drag-pulse-target);
+      }
+      /* Both edges sit INSIDE the target row, not on the boundary it shares
+         with its neighbors: the join is this row's own frame, and a line
+         straddling the boundary would read as the previous row's bottom edge
+         lighting up — a second indicator for one target. They also sit inside
+         the ring above, one ring-width in, or the ring paints over them and the
+         "both edges pulse" half of the indicator disappears. */
+      &::before {
+        top: var(--foliplus-size-2);
+        border-top: var(--foliplus-drag-line) solid var(--foliplus-drag-line-from);
+      }
+      &::after {
+        bottom: var(--foliplus-size-2);
+        border-bottom: var(--foliplus-drag-line) solid var(--foliplus-drag-line-from);
+      }
+      & .foliplus-layer-fold-btn {
+        animation: foliplus-drag-chevron var(--foliplus-drag-pulse-duration) ease-in-out
+          var(--foliplus-drag-pulse-target);
+      }
+    }
+    /* The row across the gap is nudged open — transform only, so the list
+       cannot reflow mid-gesture. The marker is derived from the gap state by
+       the writer and never painted on its own. */
+    &[data-foliplus-push="top"] {
+      transform: translateY(var(--foliplus-drag-push-shift));
+    }
+    &[data-foliplus-push="bottom"] {
+      transform: translateY(calc(-1 * var(--foliplus-drag-push-shift)));
+    }
+    /* A refused target is still ANNOUNCED on the row — the user compared the
+       panel against the shipped build and asked for the ring back: "左侧没有红
+       竖条，右侧没有发光". What a refusal must NOT do is draw an insertion LINE
+       (that means "it will land here"); the ring says "this row is the target",
+       the missing line plus the hint line say "and it will not take it". */
+    &[data-foliplus-drop="refuse"] {
+      cursor: no-drop;
+      background: transparent;
+      box-shadow:
+        inset 0 0 0 var(--foliplus-size-2) var(--foliplus-accent-primary),
+        0 0 var(--foliplus-size-4) var(--foliplus-accent-primary);
+      & .foliplus-layer-rail {
+        background: transparent;
+        border-color: transparent;
+      }
+      /* The member guide is drawn in the tree colour, which reads as accent at
+         this size; a refusal shows the row as an ordinary resting row. */
+      & .foliplus-fold-tree {
+        color: var(--foliplus-text-tertiary);
+      }
+    }
+    /* Accessibility floor: without motion the insertion line stays, static and
+       fully lit, instead of breathing. */
+    @media (prefers-reduced-motion: reduce) {
+      &[data-foliplus-drop="source"] {
+        animation: none;
+      }
+      &[data-foliplus-drop="before"]::before,
+      &[data-foliplus-drop="after"]::after,
+      &[data-foliplus-drop="join"]::before,
+      &[data-foliplus-drop="join"]::after,
+      &[data-foliplus-drop="join"] .foliplus-layer-fold-btn {
+        animation: none;
+        border-color: var(--foliplus-drag-line-from);
+        box-shadow: var(--foliplus-drag-line-glow);
+      }
+    }
+    /* A member row of the block being dragged: hidden for the gesture only,
+       never persisted. The block travels as one unit, so its members are not
+       rows while it moves. */
+    &[data-foliplus-drag-folded] {
+      display: none;
     }
   }
 

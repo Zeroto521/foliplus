@@ -568,22 +568,157 @@ class TestLayerControlRendering:
         assert "type-icon-col" in html
 
     def test_drag_pulse_css_keyframes(self):
-        """CSS defines drag-pulse keyframes with variable-driven values."""
+        """The three drag animations are keyframes driven by tokens.
+
+        pickup marks the carried row once; pulse is the endless breath of the
+        insertion line; chevron dips on a join target. All three read their
+        timing and amplitude from tokens, so a theme can retime them without
+        editing a keyframe.
+        """
         css = read_css("foliplus/css/control/LayerControl/index.css")
         assert "@keyframes foliplus-drag-pulse" in css
-        assert "var(--foliplus-drag-border-from" in css
-        assert "var(--foliplus-drag-border-to" in css
-        assert "var(--foliplus-drag-shadow-from" in css
-        assert "var(--foliplus-drag-shadow-to" in css
+        assert "@keyframes foliplus-drag-pickup" in css
+        assert "@keyframes foliplus-drag-chevron" in css
+        # The line's breath is a border-colour + halo swing, never a layout one.
+        pulse_start = css.index("@keyframes foliplus-drag-pulse")
+        line_pulse = css[pulse_start : css.index("@keyframes", pulse_start + 1)]
+        assert "var(--foliplus-drag-line-from" in line_pulse
+        assert "var(--foliplus-drag-line-to" in line_pulse
+        assert "var(--foliplus-drag-line-glow" in line_pulse
+        # The one-shot pair and the old join ring are gone.
+        assert "var(--foliplus-drag-border-from" not in css
+        assert "var(--foliplus-drag-shadow-from" not in css
+        assert "@keyframes foliplus-drag-join-pulse" not in css
 
     def test_drag_over_css_variables(self):
-        """Drag-over drop indicators use CSS custom properties for all parameters."""
+        """Every drag parameter is a token; the values are pinned here.
+
+        The line is 2px with a halo that opens from 1px at rest to 5px at the
+        peak, the insertion line breathes forever while the carried row pulses
+        once and then stays dimmed, and a join wash stays at 4% so it cannot
+        out-weigh the row's own label.
+        """
         css = read_css("foliplus/css/control/LayerControl/index.css")
-        assert "--foliplus-drag-border-width" in css
-        assert "--foliplus-drag-top-shadow" in css
-        assert "--foliplus-drag-bottom-shadow" in css
-        assert "--foliplus-drag-pulse-count" in css
-        assert "--foliplus-motion-slow" in css
+        for token in (
+            "--foliplus-drag-line",
+            "--foliplus-drag-line-half",
+            "--foliplus-drag-line-inset",
+            "--foliplus-drag-line-radius",
+            "--foliplus-drag-line-from",
+            "--foliplus-drag-line-glow",
+            "--foliplus-drag-line-glow-trough",
+            "--foliplus-drag-line-alpha-min",
+            "--foliplus-drag-target-wash",
+            "--foliplus-drag-pulse-duration",
+            "--foliplus-drag-pulse-pickup-count",
+            "--foliplus-drag-pulse-target",
+            "--foliplus-drag-push-shift",
+            "--foliplus-drag-source-opacity",
+            "--foliplus-drag-join-fill",
+        ):
+            assert token in css
+
+        tokens = read_css("foliplus/css/common/token.css")
+        assert "--foliplus-drag-line: var(--foliplus-size-2)" in tokens
+        # The line spans the row width (inset 0) and takes the row's own corner
+        # radius: an inset line read as a floating slot with a gap at the end of
+        # the row, not as the border it stands in for.
+        assert "--foliplus-drag-line-inset: 0" in tokens
+        assert "--foliplus-drag-line-radius: var(--foliplus-radius-sm)" in tokens
+        # The breathing swing is carried by alpha, not by hue: accent-primary and
+        # accent-hover are two neighbouring reds, so a hue-only swing at full
+        # opacity read as a static line.
+        assert "--foliplus-drag-line-alpha-min: 0.5" in tokens
+        assert "--foliplus-drag-pulse-duration: 1.15s" in tokens
+        assert "--foliplus-drag-pulse-pickup-count: 1" in tokens
+        assert "--foliplus-drag-pulse-target: infinite" in tokens
+        assert "--foliplus-drag-push-shift: 1px" in tokens
+        assert "--foliplus-drag-source-opacity: 0.5" in tokens
+        assert "--foliplus-drag-commit" in tokens
+        assert "var(--foliplus-accent-primary) 4%" in tokens
+        # Retired with the dashed-box design: a refusal paints no geometry, so
+        # it needs no colour, no edge width and no pulse count of its own.
+        assert "--foliplus-drag-refuse" not in tokens
+        assert "--foliplus-drag-gap-" not in tokens
+        assert "--foliplus-drag-pulse-count" not in tokens
+        assert "--foliplus-drag-border-width" not in tokens
+
+    def test_drag_indicator_css_is_one_row_attribute(self):
+        """One row attribute, one value, one geometric language: an accent line.
+
+        The old vocabulary was four independent classes, which allowed two
+        indicators on one row at once (a layer over a folder row's edge drew a
+        solid border, the pulse and a dashed outline together). A single
+        attribute with exactly one value makes that unrepresentable. And the
+        whole gesture speaks one shape: a line means "it lands here", so a
+        refusal draws nothing at all.
+        """
+        css = read_css("foliplus/css/control/LayerControl/index.css")
+        for state in ("source", "before", "after", "join", "refuse"):
+            assert '[data-foliplus-drop="' + state + '"]' in css
+        # The carried row is the same treatment for layer, folder and group
+        # rows: the state selector carries no row-kind qualifier.
+        assert '[data-foliplus-drop="source"] {' in css
+        assert "opacity: var(--foliplus-drag-source-opacity)" in css
+        assert "animation: foliplus-drag-pickup" in css
+        assert "var(--foliplus-drag-pulse-pickup-count)" in css
+        # The pulse marks the INSERTION GAP: before/after draw it on the row
+        # edge the layer lands against, so up-drag and down-drag agree.
+        assert "&::before {" in css
+        assert "&::after {" in css
+        assert "animation: foliplus-drag-pulse" in css
+        assert "var(--foliplus-drag-pulse-target)" in css
+        # A join target is a row, not a gap: both edges light and the chevron
+        # dips, on a wash light enough to keep the label readable.
+        assert "background: var(--foliplus-drag-join-fill)" in css
+        join_start = css.index('[data-foliplus-drop="join"] {')
+        join_block = css[join_start : css.index("[data-foliplus-push", join_start)]
+        assert "&::before" in join_block
+        assert "&::after" in join_block
+        assert "animation: foliplus-drag-chevron" in join_block
+        # "Pushed aside" is transform only: the list cannot reflow mid-gesture.
+        assert '[data-foliplus-push="top"]' in css
+        assert '[data-foliplus-push="bottom"]' in css
+        assert "transform: translateY(var(--foliplus-drag-push-shift))" in css
+        # A refusal paints no geometry at all — no line, no ring, no dashed box.
+        refuse_start = css.index('[data-foliplus-drop="refuse"] {')
+        refuse_block = css[
+            refuse_start : css.index("prefers-reduced-motion", refuse_start)
+        ]
+        assert "cursor: no-drop" in refuse_block
+        assert "outline" not in refuse_block
+        assert "dashed" not in refuse_block
+        assert "border-" not in refuse_block.split("& .foliplus-layer-rail", 1)[0]
+        # The retired vocabulary must not come back.
+        assert "foliplus-layer-drag-over-" not in css
+        assert "foliplus-dragging" not in css
+        # Motion is a preference, not a requirement.
+        assert "prefers-reduced-motion: reduce" in css
+        # The dragged block's members are hidden for the gesture only.
+        assert "[data-foliplus-drag-folded]" in css
+        assert "display: none" in css
+        # The old edge indicator (a border on the row itself) is gone.
+        assert "border-top: var(--foliplus-drag-border-width) solid" not in css
+        assert "border-bottom: var(--foliplus-drag-border-width) solid" not in css
+        # A refusal paints no geometry: no new colour, no outline, no ring.
+        # Its only signals are the pointer and the hint line.
+        assert "var(--foliplus-drag-refuse)" not in css
+        assert "cursor: no-drop" in css
+        # The join wash and the row wash have ONE owner: a target that paints
+        # its own fill is excluded from the checked wash, so they cannot stack.
+        assert '[data-foliplus-drop="join"]' in css
+        # The exclusion rides in :where(), which contributes no specificity:
+        # the checked wash keeps the same weight as the hover rule, so a
+        # checked row still turns white under the cursor.
+        assert "&.foliplus-active:where(" in css
+        assert "&.foliplus-active:not(" not in css
+        assert ":not(" in css
+        # The four-class vocabulary is gone, not merely unused.
+        assert "foliplus-layer-drag-over-top" not in css
+        assert "foliplus-layer-drag-over-bottom" not in css
+        assert "foliplus-layer-drag-over-into" not in css
+        assert "foliplus-layer-drag-over-blocked" not in css
+        assert "foliplus-layer-dragging" not in css
 
     def test_focus_glow_reads_motion_quick(self):
         """The focus-pane glow entrance reads its duration from the motion

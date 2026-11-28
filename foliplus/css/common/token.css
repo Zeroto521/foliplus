@@ -496,17 +496,73 @@
 
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */
-  --foliplus-drag-border-width: var(--foliplus-border-thick);
-  --foliplus-drag-top-shadow: 0 calc(-1 * var(--foliplus-size-2)) var(--foliplus-size-6)
-    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
-  --foliplus-drag-bottom-shadow: 0 var(--foliplus-size-2) var(--foliplus-size-6)
-    calc(-1 * var(--foliplus-size-2)) var(--foliplus-accent-primary);
-  --foliplus-drag-pulse-count: 3;
-  --foliplus-drag-border-from: var(--foliplus-accent-primary);
-  --foliplus-drag-border-to: var(--foliplus-accent-hover);
-  --foliplus-drag-shadow-from: 0 0 var(--foliplus-size-4)
-    calc(-1 * var(--foliplus-border-thin)) var(--foliplus-accent-primary);
-  --foliplus-drag-shadow-to: 0 0 var(--foliplus-size-8) 0 var(--foliplus-accent-primary);
+  /* One geometric language for the whole gesture: an accent line on the edge
+     where the layer will land. There is deliberately no second shape — a
+     refused target draws nothing, because "no line" already means "it will not
+     land here" once the line is the only position cue there is. */
+  --foliplus-drag-line: var(--foliplus-size-2);
+  --foliplus-drag-line-half: calc(var(--foliplus-size-2) / 2);
+  /* The line spans the row's full width, exactly like the row border it
+     replaces (main shipped a border-top on the target row). An inset line
+     looked like a floating slot and left a visible gap at both ends — the eye
+     reads a gap at the end as a rendering miss, not as a design decision. The
+     radius matches the row's own corner so the ends sit flush inside it. */
+  --foliplus-drag-line-inset: 0;
+  --foliplus-drag-line-radius: var(--foliplus-radius-sm);
+  --foliplus-drag-line-from: var(--foliplus-accent-primary);
+  --foliplus-drag-line-to: var(--foliplus-accent-hover);
+  /* The breathing swing is carried by ALPHA, not by hue. Accent-primary and
+     accent-hover are two neighbouring reds: animating between them moves the
+     line by a few percent of one channel, which reads as a static line that
+     happens to be red. The low point therefore drops the whole line to half
+     alpha and the peak restores it, so the gesture has a rhythm the eye can
+     actually pick up at 60 Hz. */
+  --foliplus-drag-line-alpha-min: 0.5;
+  /* Two glows, one per end of the pulse: at rest a 1px halo keeps the painted
+     width at 3px (a 2px line plus 1px of halo) — anything wider reads as a
+     filled band and outweighs the row it points at; at the peak the halo opens
+     to a soft 5px bloom so the line "lifts" instead of only changing colour. */
+  --foliplus-drag-line-glow-trough: 0 0 0 1px
+    color-mix(in srgb, var(--foliplus-accent-primary) 30%, transparent);
+  --foliplus-drag-line-glow: 0 0 5px 1px
+    color-mix(in srgb, var(--foliplus-accent-primary) 45%, transparent);
+  /* The row the gap belongs to takes a barely-there accent tint, so the target
+     reads as a row and not only as a floating line. It is painted as a
+     background IMAGE over whatever background-color the row already has, so a
+     checked (washed) row keeps its own fill and gains the tint instead of
+     having one replace the other. */
+  --foliplus-drag-target-wash: color-mix(
+    in srgb,
+    var(--foliplus-accent-primary) 3.5%,
+    transparent
+  );
+  /* The insertion line keeps breathing while the pointer rests on it; the
+     carried row pulses ONCE on pickup, so "what I am holding" and "where it
+     will land" never read as the same thing. */
+  --foliplus-drag-pulse-duration: 1.15s;
+  /* An iteration COUNT, not a duration: the pickup runs exactly once and then
+     the dimmed row holds still, so "the pulse is the acknowledgement, the dim
+     is the state". Named ...-count so it cannot be read as a timing token. */
+  --foliplus-drag-pulse-pickup-count: 1;
+  --foliplus-drag-pulse-target: infinite;
+  /* The row across the gap is nudged, never re-laid out: transform only, so the
+     list cannot reflow under the pointer. */
+  --foliplus-drag-push-shift: 1px;
+  /* The carried row stays dimmed for the whole gesture. Low enough that the
+     rows on either side stay legible — the user judges where the row belongs by
+     the rails above and below it, so its own rail must not compete. */
+  --foliplus-drag-source-opacity: 0.5;
+  /* A join target is a row, not a gap: both edges light and the row takes a
+     wash light enough to keep the label readable. */
+  --foliplus-drag-join-fill: color-mix(
+    in srgb,
+    var(--foliplus-accent-primary) 4%,
+    transparent
+  );
+  /* How long the committed indicator holds on the row's new position before
+     drag.ts clears it: the drop's acknowledgement is one short flash of the
+     same single state. */
+  --foliplus-drag-commit: var(--foliplus-motion-quick);
   /* Base horizontal inset of a list row. The layer row derives its own 7px
      from this base so the two cannot drift; a component that owns a different
      mechanism (check slot, color strip) keeps its own inset. */

@@ -344,8 +344,8 @@ describe("ui/list folder rows (render / row structure)", () => {
     expect(item).toContain("cursor: grab");
     expect(item).not.toContain("cursor: default");
     const dragging = row.slice(
-      row.indexOf("&.foliplus-layer-dragging {"),
-      row.indexOf("&.foliplus-layer-drag-over-top {"),
+      row.indexOf('&[data-foliplus-drop="source"] {'),
+      row.indexOf('&[data-foliplus-drop="before"] {'),
     );
     expect(dragging).toContain("cursor: grabbing");
   });
@@ -369,7 +369,7 @@ describe("ui/list folder rows (render / row structure)", () => {
     expect(block).toContain("justify-self: start");
   });
 
-  it("draws two distinct fold-tree shapes, centred on the rail (issue 5)", () => {
+  it("draws two distinct fold-tree shapes, centered on the rail (issue 5)", () => {
     // --mid is a branch that continues below (├), --last is the elbow that ends
     // it (└). Both used to render the same full-height stem, so the tree had
     // one shape where it needed two. The stem also sat off-centre, so it did

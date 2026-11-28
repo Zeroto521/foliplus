@@ -304,7 +304,7 @@ LAYER_CSS_DIR = REPO_ROOT / "foliplus" / "css" / "control" / "LayerControl"
 # Tokens are chosen to appear in exactly one module across the whole split.
 LAYER_MODULE_TOKENS = {
     "focus.css": ".foliplus-focus-rect",
-    "row.css": ".foliplus-layer-dragging",
+    "row.css": '[data-foliplus-drop="source"]',
     "menu.css": ".foliplus-layer-more-menu button",
     "attr.css": ".foliplus-layer-attrs-panel",
     "control.css": 'input[type="checkbox"]',

@@ -20,8 +20,47 @@ const INVALIDATE_DERIVED_DEBOUNCE_MS = 50;
  *  so there is a single timer rather than one per dimension. */
 const SAVE_DEBOUNCE_MS = 100;
 
-/** Drag hint cooldown. */
-const DRAG = { HINT_COOLDOWN_MS: 800 };
+/** Drag gesture timing. */
+const DRAG = {
+  /** One refusal toast per gesture, throttled. */
+  HINT_COOLDOWN_MS: 800,
+  /** Post-drop acknowledgement flash; matches --foliplus-drag-commit. */
+  COMMIT_MS: 200,
+};
+
+/** Drag & drop state vocabulary — the single source for the row attribute.
+ *  One attribute, one value: a row can never paint two indicators at once. */
+const DRAG_STATE_ATTR = "data-foliplus-drop";
+const DRAG_STATE = {
+  /** The row being carried: pickup pulse, once. */
+  SOURCE: "source",
+  /** Accepted drop above the row: solid top edge. */
+  BEFORE: "before",
+  /** Accepted drop below the row: solid bottom edge. */
+  AFTER: "after",
+  /** Accepted drop into the row (folder): solid inset ring + soft fill. */
+  JOIN: "join",
+  /** Refused target: dashed outline, no fill. */
+  REFUSE: "refuse",
+} as const;
+type DragState = (typeof DRAG_STATE)[keyof typeof DRAG_STATE];
+
+/** Companion attribute for the gap's OTHER side: the row whose edge sinks,
+ *  because opening the insertion slot presses it. It carries no state of its
+ *  own — the value names which edge sinks, and the writer derives it from the
+ *  gap state, so the two can never disagree. */
+const DRAG_PUSH_ATTR = "data-foliplus-push";
+const DRAG_PUSH = {
+  /** This row sits below the gap: its top edge sinks. */
+  TOP: "top",
+  /** This row sits above the gap: its bottom edge sinks. */
+  BOTTOM: "bottom",
+} as const;
+
+/** Temporary fold of the dragged block's members for the duration of a
+ *  gesture: they are neither drop targets nor part of the gap geometry. A
+ *  session-only marker on the rows, never the persisted fold state. */
+const DRAG_FOLDED_ATTR = "data-foliplus-drag-folded";
 
 /** Persistent storage key. One record per map container, so multi-map pages
  *  keep their state separate and a new dimension is added by extending the
@@ -139,15 +178,6 @@ const CLASSES = {
    *  or Tab focus). The recipe CSS keys only on this class + `:hover` — never
    *  on `:focus-visible` — so Escape is a single class removal. */
   FOCUSED: "foliplus-is-focused-row",
-  DRAG_OVER_TOP: "foliplus-layer-drag-over-top",
-  DRAG_OVER_BOTTOM: "foliplus-layer-drag-over-bottom",
-  /** A folder row the dragged layer would join. */
-  DRAG_OVER_INTO: "foliplus-layer-drag-over-into",
-  /** A drop the panel refuses (nesting a folder in a folder, a group in a
-   *  folder): the row draws a dashed outline so the zone reads as blocked
-   *  rather than as a dead strip that silently swallows the pointer. */
-  DRAG_OVER_BLOCKED: "foliplus-layer-drag-over-blocked",
-  DRAGGING: "foliplus-layer-dragging",
   FOLD_BTN: "foliplus-layer-fold-btn",
   FOLDED: "foliplus-layer-folded",
   TYPE_ICON_COL: "foliplus-type-icon-col",
@@ -303,7 +333,8 @@ const CLASSES = {
   STYLE_ICON_COLOR_OPACITY_NUMBER: "foliplus-style-icon-color-opacity-number",
   STYLE_MARKER_COLOR_ROW: "foliplus-style-marker-color-row",
   STYLE_MARKER_COLOR_OPACITY_NUMBER: "foliplus-style-marker-color-opacity-number",
-  /** The icon row's trigger button (shows the current glyph or 「原始」). */
+  /** The icon row's trigger button (shows the current glyph, or the row that
+      resets it back to the author's original). */
   STYLE_ICON_TRIGGER: "foliplus-style-icon-trigger",
   STYLE_ICON_TRIGGER_GLYPH: "foliplus-style-icon-trigger-glyph",
   STYLE_ICON_TRIGGER_NAME: "foliplus-style-icon-trigger-name",
@@ -472,6 +503,11 @@ export {
   DATA,
   DEFAULT_LABEL,
   DRAG,
+  DRAG_FOLDED_ATTR,
+  DRAG_PUSH,
+  DRAG_PUSH_ATTR,
+  DRAG_STATE,
+  DRAG_STATE_ATTR,
   ENFORCE_ORDER_DEBOUNCE_MS,
   INVALIDATE_DERIVED_DEBOUNCE_MS,
   FOCUS,
@@ -484,3 +520,5 @@ export {
   STORAGE,
   TOGGLE_ALL_ROLE,
 };
+
+export type { DragState };

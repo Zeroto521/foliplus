@@ -881,6 +881,140 @@ describe("LayerUI keyboard", () => {
     });
   });
 
+  // Stopgap: delete once the tree write path lands (2a) — then a step that
+  // crosses a container will actually move.
+  // A keyboard reorder is a z-order move; the panel projects folder blocks. A
+  // step that crosses a block changes z without a row to move, so the guard
+  // refuses it and the rows never disagree with the map.
+  describe("Ctrl+Arrow block guard", () => {
+    const layoutFromRoles = (sections: Record<string, string[]>) => {
+      const keys = new Set<string>();
+      for (const list of Object.values(sections)) {
+        for (const key of list) keys.add(key);
+      }
+      return {
+        version: 2,
+        folders: [...keys].map(key => ({ key, name: key })),
+        order: sections,
+        members: {},
+      };
+    };
+
+    const polygonLayer = () => ({
+      options: {},
+      getBounds: () => ({ isValid: () => true }),
+    });
+
+    const step = (ui2: LayerUI, row: HTMLElement, key: string) => {
+      ui2.setActiveItem(ui2.getNavigableItems().indexOf(row));
+      ui2.handleKeyDown(
+        new KeyboardEvent("keydown", {
+          key,
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    };
+
+    const rowIds = (ui2: LayerUI) =>
+      ui2
+        .getNavigableItems()
+        .map(el => el.getAttribute(CONST.DATA.LAYER_ID) ?? "")
+        .filter(Boolean);
+
+    it("still reorders rows inside one block", () => {
+      const fixture = initFixture({
+        data: [
+          { id: "r1", name: "One", role: "overlay", layer: polygonLayer() },
+          { id: "r2", name: "Two", role: "overlay", layer: polygonLayer() },
+        ],
+      });
+      const before = fixture.manager.layers.map(entry => entry.id);
+      expect(before.indexOf("r2")).toBeGreaterThan(before.indexOf("r1"));
+
+      step(fixture.ui, findItem(fixture.ui, "r2"), "ArrowUp");
+
+      // The normal path stays normal: registry and rows both follow.
+      expect(fixture.manager.layers.map(entry => entry.id).indexOf("r2")).toBeLessThan(
+        fixture.manager.layers.map(entry => entry.id).indexOf("r1"),
+      );
+      expect(rowIds(fixture.ui).indexOf("r2")).toBeLessThan(
+        rowIds(fixture.ui).indexOf("r1"),
+      );
+    });
+
+    it("refuses a step that crosses a block and leaves the order untouched", () => {
+      const fixture = initFixture({
+        seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+        data: [
+          {
+            id: "rd1",
+            name: "Roads",
+            role: "overlay",
+            folder: "roads",
+            layer: polygonLayer(),
+          },
+          { id: "root1", name: "Root", role: "overlay", layer: polygonLayer() },
+        ],
+      });
+      const hintSpy = vi.fn();
+      (fixture.map as any).foliplus.hint.set = hintSpy;
+      const before = fixture.manager.layers.map(entry => entry.id);
+      const rowsBefore = rowIds(fixture.ui);
+      // Step from the later of the two toward the earlier one: whichever order
+      // the registry gives them, that step crosses the block boundary.
+      const folderIsFirst = before.indexOf("rd1") < before.indexOf("root1");
+      const row = findItem(fixture.ui, folderIsFirst ? "root1" : "rd1");
+      step(fixture.ui, row, folderIsFirst ? "ArrowUp" : "ArrowDown");
+
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "",
+        expect.stringContaining("reorder_same_folder"),
+        { duration: HINT_DURATION.SHORT },
+      );
+      // The refusal is real: the registry (and therefore z, which is priced
+      // from it) did not move, so no stale map-vs-rows state can exist.
+      expect(fixture.manager.layers.map(entry => entry.id)).toEqual(before);
+      expect(rowIds(fixture.ui)).toEqual(rowsBefore);
+    });
+
+    it("refuses a ctrl+ArrowDown step that crosses a block boundary", () => {
+      // The guard is direction-agnostic: the downward step out of a block is
+      // refused exactly like the upward one.
+      const fixture = initFixture({
+        seedLayout: layoutFromRoles({ overlay: ["roads"] }),
+        data: [
+          {
+            id: "rd1",
+            name: "Roads",
+            role: "overlay",
+            folder: "roads",
+            layer: polygonLayer(),
+          },
+          { id: "root1", name: "Root", role: "overlay", layer: polygonLayer() },
+        ],
+      });
+      const hintSpy = vi.fn();
+      (fixture.map as any).foliplus.hint.set = hintSpy;
+      const before = fixture.manager.layers.map(entry => entry.id);
+      const rowsBefore = rowIds(fixture.ui);
+      const folderIsFirst = before.indexOf("rd1") < before.indexOf("root1");
+      const row = findItem(fixture.ui, folderIsFirst ? "rd1" : "root1");
+      step(fixture.ui, row, "ArrowDown");
+
+      expect(hintSpy).toHaveBeenCalledWith(
+        "LayerControl",
+        "",
+        expect.stringContaining("reorder_same_folder"),
+        { duration: HINT_DURATION.SHORT },
+      );
+      expect(fixture.manager.layers.map(entry => entry.id)).toEqual(before);
+      expect(rowIds(fixture.ui)).toEqual(rowsBefore);
+    });
+  });
+
   describe("onItemKeydown guard branches", () => {
     const keyEvent = (
       key: string,
@@ -1192,7 +1326,7 @@ describe("LayerUI keyboard", () => {
       expect(ui.listPanel.activeIdx).toBe((before as number) - 1);
     });
 
-    it("folded rows are skipped when finding a visible neighbour", () => {
+    it("folded rows are skipped when finding a visible neighbor", () => {
       ui.listPanel.foldedRoles = { [ROLE.OVERLAY]: true };
       const base = findItem(ui, "base1");
       ui.setActiveItem(ui.getNavigableItems().indexOf(base));
@@ -1234,7 +1368,7 @@ describe("LayerUI keyboard", () => {
       expect(showHint).toHaveBeenCalled();
     });
 
-    it("Ctrl+ArrowDown moves the row when a neighbour exists", () => {
+    it("Ctrl+ArrowDown moves the row when a neighbor exists", () => {
       ui.setActiveItem(0);
       const moveLayerDown = vi.spyOn(ui.c, "moveLayerDown").mockReturnValue(true);
       expect(() =>

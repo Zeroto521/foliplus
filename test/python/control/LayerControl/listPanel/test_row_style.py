@@ -243,26 +243,16 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
             before = get_folder_names()
             assert len(before) >= 2, f"expected 2+ folder rows, got {before}"
 
-            # Drag the first folder row to after the second
-            src_row = page.query_selector(".foliplus-layer-item-folder")
-            src_box = src_row.bounding_box()
-            tgt_row = page.query_selector_all(".foliplus-layer-item-folder")[1]
-            tgt_box = tgt_row.bounding_box()
-
-            src_x = src_box["x"] + src_box["width"] / 2
-            src_y = src_box["y"] + src_box["height"] / 2
-            # Drop at the bottom quarter of the target folder row: the "after"
-            # zone places the dragged folder AFTER the target (block reorder).
-            # The center is the "into" zone, which correctly refuses folder
-            # nesting — so we must drop at the edge to test sorting.
-            page.locator(".foliplus-layer-item-folder").nth(0).drag_to(
-                page.locator(".foliplus-layer-item-folder").nth(1),
-                target_position={
-                    "x": tgt_box["width"] / 2,
-                    "y": tgt_box["height"] * 0.85,
-                },
-            )
+            # Drag the first folder block to after the second one. The drag is
+            # driven from a snippet rather than Playwright's drag_to: the
+            # dragged block folds its members, so the target row moves UP
+            # between dragstart and drop and a coordinate captured before the
+            # drag would miss it. The snippet measures the target after the
+            # compact and drops at its bottom edge — the "after" zone, which is
+            # a block reorder (the centre is the "into" zone, a refusal).
+            moved = page.evaluate(_js("LayerControl/folder_drag_reorder"))
             page.wait_for_timeout(400)
+            assert moved["before"] == before, (moved, before)
 
             after = get_folder_names()
             print(f"  before={before} after={after}")
@@ -273,6 +263,11 @@ class TestFolderRowBrowser(LayerControlBrowserBase):
 
 
 _ROLE = '.foliplus-layer-role[data-role="overlay"]'
+_MEMBER = ".foliplus-layer-item:has(.foliplus-fold-tree)"
+_ROOT = (
+    '.foliplus-layer-item[data-layer-type="overlay"]'
+    ":not(.foliplus-layer-item-folder):not(:has(.foliplus-fold-tree))"
+)
 _LAYER = (
     '.foliplus-layer-item[data-layer-type="overlay"]:not(.foliplus-layer-item-folder)'
 )
@@ -422,4 +417,95 @@ class TestRowInteractionParityBrowser(LayerControlBrowserBase):
             folded_hover_role = self._read(page, _ROLE)
             assert folded_hover_role["foldColor"] == accent
 
+            assert not errors, f"console errors: {errors}"
+
+
+class TestMemberRowStateParityBrowser(LayerControlBrowserBase):
+    """A folder's member row paints the SAME states as a root row.
+
+    The user compared the panel against main: a layer inside a folder showed no
+    left accent rail when checked, and no red glow on hover. Both are the row's
+    OWN state, and a member row is not a lesser row — the same recipe has to
+    reach it. The regression guard is parity between two rows in the same
+    state, so a token change never needs this test edited, and it fails on the
+    class-level cause (a member row outside a rule) instead of a colour.
+    """
+
+    def _page(self, browser, tmp_path):
+        fc = load_geojson("LayerControl", "empty_feature_collection")
+        m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+        folium.GeoJson(fc, name="Lane", foliplus={"folder": "Roads"}).add_to(m)
+        folium.GeoJson(fc, name="Water", foliplus={}).add_to(m)
+        LayerControl().add_to(m)
+        html = m.get_root().render()
+        page, errors = make_browser_page(browser, tmp_path, html, "member_state_parity")
+        page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+        return page, errors
+
+    @staticmethod
+    def _read(page, selector):
+        """Settled interaction paint of one row (colours transition)."""
+        page.wait_for_timeout(350)
+        return page.evaluate(_js("LayerControl/read_row_interaction_style"), selector)
+
+    @staticmethod
+    def _open(page):
+        page.evaluate(_js("LayerControl/open_panel"))
+        page.wait_for_selector(_MEMBER, state="attached", timeout=5000)
+        page.wait_for_selector(_ROOT, state="attached", timeout=5000)
+        page.wait_for_timeout(300)
+
+    def test_checked_member_row_carries_the_same_left_rail(self, browser, tmp_path):
+        with use_page(self._page, browser, tmp_path) as (page, errors):
+            self._open(page)
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            member = self._read(page, _MEMBER)
+            root = self._read(page, _ROOT)
+            accent = self._sample_token(page, "--foliplus-accent-primary")
+
+            assert member["active"] and root["active"], (
+                "both rows carry checked layers; the wash is not the question"
+            )
+            assert member["leftBar"] == root["leftBar"] == accent, (
+                "a checked member row must paint the same left rail as a root "
+                f"row: member={member['leftBar']} root={root['leftBar']} "
+                f"accent={accent}"
+            )
+            assert not errors, f"console errors: {errors}"
+
+    def test_member_row_glow_matches_a_root_row(self, browser, tmp_path):
+        """Hover and keyboard focus light both edges on a member row too."""
+        with use_page(self._page, browser, tmp_path) as (page, errors):
+            self._open(page)
+
+            page.hover(_MEMBER)
+            member_hover = self._read(page, _MEMBER)
+            page.hover(_ROOT)
+            root_hover = self._read(page, _ROOT)
+            assert member_hover["glow"] != "none", (
+                "a member row must glow on hover like a root row: "
+                f"{member_hover['glow']}"
+            )
+            assert member_hover["glow"] == root_hover["glow"], (
+                f"member={member_hover['glow']} root={root_hover['glow']}"
+            )
+            assert member_hover["background"] == root_hover["background"]
+
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            assert (
+                page.evaluate(_js("LayerControl/focus_row_keyboard"), _MEMBER) is True
+            )
+            member_focus = self._read(page, _MEMBER)
+            page.evaluate(_js("LayerControl/clear_row_cursor"))
+            assert page.evaluate(_js("LayerControl/focus_row_keyboard"), _ROOT) is True
+            root_focus = self._read(page, _ROOT)
+            assert member_focus["focused"] and root_focus["focused"]
+            assert member_focus["glow"] != "none", (
+                "a member row must glow under the keyboard cursor: "
+                f"{member_focus['glow']}"
+            )
+            assert member_focus["glow"] == root_focus["glow"], (
+                f"member={member_focus['glow']} root={root_focus['glow']}"
+            )
+            assert member_focus["leftBar"] == root_focus["leftBar"]
             assert not errors, f"console errors: {errors}"

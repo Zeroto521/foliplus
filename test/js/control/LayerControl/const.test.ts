@@ -43,9 +43,14 @@ describe("CLASSES", () => {
   it("defines layer item and interaction classes", () => {
     expect(CONST.CLASSES.LAYER_ITEM).toBe("foliplus-layer-item");
     expect(CONST.CLASSES.ACTIVE).toBe("foliplus-active");
-    expect(CONST.CLASSES.DRAGGING).toBe("foliplus-layer-dragging");
-    expect(CONST.CLASSES.DRAG_OVER_TOP).toBe("foliplus-layer-drag-over-top");
-    expect(CONST.CLASSES.DRAG_OVER_BOTTOM).toBe("foliplus-layer-drag-over-bottom");
+    expect(CONST.DRAG_STATE_ATTR).toBe("data-foliplus-drop");
+    expect(CONST.DRAG_STATE).toEqual({
+      SOURCE: "source",
+      BEFORE: "before",
+      AFTER: "after",
+      JOIN: "join",
+      REFUSE: "refuse",
+    });
   });
 
   it("defines grid column classes", () => {

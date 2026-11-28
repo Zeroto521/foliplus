@@ -1,0 +1,368 @@
+"""Browser tests for the LayerControl drag indicator (one attribute, one state).
+
+Every assertion reads computed style from the real page: the contract is visual,
+so a jsdom class check is not enough. One geometric language runs through the
+whole gesture — an accent line on the edge where the layer will land:
+
+* source  — the carried row: dimmed for the whole gesture, one pickup pulse;
+* before/after — a breathing 2px line on the row edge the layer lands against
+  plus the shipped directional glow on that row, so dragging up and dragging
+  down over the same gap draw the same picture;
+* join    — the row is the container: an accent ring with an outside glow, both
+  edge lines pulsing one ring-width inside it, chevron dipping;
+* refuse  — the same ring, no line and no fill: the row is the target but will
+  not take it, and the pointer turns to no-drop while the hint line says why.
+
+Rows are addressed by DOM position among root layer rows (layers[i]): the
+fixture's GeoJson layers render with an empty title, so ids are hashes.
+"""
+
+from __future__ import annotations
+
+import folium
+from conftest import _js, load_geojson, make_browser_page
+
+from foliplus import LayerControl
+
+
+def _page(browser, tmp_path):
+    """A map with two folders and four root overlay layers (root rows: 0..3)."""
+    fc = load_geojson("LayerControl", "empty_feature_collection")
+    m = folium.Map(location=[26.08, 119.30], zoom_start=12)
+    folium.GeoJson(fc, name="Roads", foliplus={"folder": "Roads"}).add_to(m)
+    folium.GeoJson(fc, name="Water", foliplus={"folder": "Water"}).add_to(m)
+    folium.GeoJson(fc, name="Alpha", foliplus={}).add_to(m)
+    folium.GeoJson(fc, name="Beta", foliplus={}).add_to(m)
+    folium.GeoJson(fc, name="Gamma", foliplus={}).add_to(m)
+    folium.GeoJson(fc, name="Delta", foliplus={}).add_to(m)
+    LayerControl().add_to(m)
+    html = m.get_root().render()
+    page, errors = make_browser_page(browser, tmp_path, html, "drag_indicator")
+    page.wait_for_selector(".foliplus-layer-ctrl", state="attached", timeout=10000)
+    page.evaluate(_js("LayerControl/open_panel"))
+    page.wait_for_selector(".foliplus-layer-item", state="attached", timeout=10000)
+    page.wait_for_timeout(400)
+    return page, errors
+
+
+def _act(page, **arg):
+    """Start (and optionally land) a synthetic drag through the snippet."""
+    page.evaluate(_js("LayerControl/drag_indicator"), arg)
+
+
+def _read(page):
+    """The computed snapshot of every row after the last action."""
+    return page.evaluate(_js("LayerControl/drag_indicator"), {"action": "read"})
+
+
+def _by_state(snapshot, state):
+    """Rows carrying one drop state, in DOM order."""
+    return [frame for frame in snapshot["frames"] if frame["state"] == state]
+
+
+def _only(snapshot, state):
+    """The single row carrying a state; fails loudly when there are more."""
+    frames = _by_state(snapshot, state)
+    assert len(frames) == 1, f"expected exactly one {state} row, got {frames}"
+    return frames[0]
+
+
+def _alpha(value):
+    """The alpha of a computed colour string, whatever syntax it uses."""
+    if value.startswith("color("):
+        return float(value.rsplit("/", 1)[1].strip().rstrip(")"))
+    if "rgba(" in value:
+        return float(value.rsplit(",", 1)[1].strip().rstrip(")"))
+    return 0.0 if value == "transparent" else 1.0
+
+
+class TestDragIndicatorBrowser:
+    """Pickup, gap lines, join and refusal — one indicator per gesture."""
+
+    def test_pickup_dimms_once(self, browser, tmp_path):
+        """The carried row is dimmed for the gesture and pulses once."""
+        page, errors = _page(browser, tmp_path)
+        _act(page, action="drag", source=2)
+        page.wait_for_timeout(1900)  # let the pickup pulse finish
+        snapshot = _read(page)
+
+        source = _only(snapshot, "source")
+        assert float(source["opacity"]) == 0.5, (
+            f"the carried row must stay dimmed: opacity {source['opacity']}"
+        )
+        assert source["animationName"] == "foliplus-drag-pickup", (
+            f"pickup pulse missing: {source['animationName']}"
+        )
+        assert source["animationIterationCount"] == "1", (
+            "the pickup pulse must run once"
+        )
+        assert snapshot["lineRows"] == [], (
+            f"pickup must not draw a line: {snapshot['lineRows']}"
+        )
+        assert errors == []
+
+    def test_gap_below_marks_exactly_one_line(self, browser, tmp_path):
+        """Dropping below a row lights that row's bottom edge, and only it."""
+        page, errors = _page(browser, tmp_path)
+        # Row 0 is above row 1, so hovering row 1 puts the gap BELOW it: the
+        # gap sits between rows 1 and 2, and the row across it exists (the last
+        # root row has a role header below it, and a role boundary has no far
+        # row to press).
+        _act(page, action="drag", source=0, target=1)
+        snapshot = _read(page)
+
+        assert len(snapshot["lineRows"]) == 1, (
+            f"one gap, one line: {snapshot['lineRows']}"
+        )
+        target = _only(snapshot, "after")
+        assert snapshot["lineRows"] == [target["key"]]
+        pseudo = target["after"]
+        assert pseudo["content"] != "none"
+        assert pseudo["borderBottomWidth"] == snapshot["tokens"]["line"] == "2px"
+        assert pseudo["animationName"] == "foliplus-drag-pulse"
+        assert pseudo["animationIterationCount"] == "infinite", (
+            "the insertion line breathes for as long as it marks the spot"
+        )
+        assert target["outlineStyle"] == "none", "an accepted gap draws no outline"
+        # The neighbor across the gap is pushed open by a transform, never a
+        # re-layout. The pressed row is the one AFTER the gap.
+        assert len(snapshot["pushed"]) == 1, (
+            f"expected one pressed row: {snapshot['pushed']}"
+        )
+        assert snapshot["pushed"][0]["push"] == "top"
+        assert errors == []
+
+    def test_gap_above_marks_the_same_kind_of_line(self, browser, tmp_path):
+        """Dropping above a row mirrors the line; the previous row is pressed."""
+        page, errors = _page(browser, tmp_path)
+        _act(page, action="drag", source=3, target=2)
+        snapshot = _read(page)
+
+        assert len(snapshot["lineRows"]) == 1, (
+            f"one gap, one line: {snapshot['lineRows']}"
+        )
+        target = _only(snapshot, "before")
+        assert target["before"]["borderTopWidth"] == "2px"
+        assert target["before"]["animationIterationCount"] == "infinite"
+        assert len(snapshot["pushed"]) == 1
+        assert snapshot["pushed"][0]["push"] == "bottom"
+        assert errors == []
+
+    def test_gap_is_symmetric_between_directions(self, browser, tmp_path):
+        """The same gap drawn from above and from below is the same picture.
+
+        The gap sits between root rows 2 (above) and 3 (below). Reaching it from
+        above draws the line on row 3's TOP edge; reaching it from below draws it
+        on row 2's BOTTOM edge. Same slot, same line.
+        """
+        page, _ = _page(browser, tmp_path)
+        _act(page, action="drag", source=3, target=2)
+        from_above = [frame for frame in _read(page)["frames"] if frame["hasLine"]][0]
+
+        page, _ = _page(browser, tmp_path)
+        _act(page, action="drag", source=0, target=1)
+        from_below = [frame for frame in _read(page)["frames"] if frame["hasLine"]][0]
+
+        assert abs(from_above["lineY"] - from_below["lineY"]) <= 1, (
+            "the insertion line must mark the same slot from both directions: "
+            f"{from_above['lineY']} vs {from_below['lineY']}"
+        )
+        assert from_above["before"]["borderTopWidth"] == "2px"
+        assert from_below["after"]["borderBottomWidth"] == "2px"
+        assert (
+            from_above["before"]["animationName"]
+            == from_below["after"]["animationName"]
+        )
+
+    def test_join_lights_both_edges_of_one_row(self, browser, tmp_path):
+        """A join is a row, not a gap: both edges light on one row only."""
+        page, errors = _page(browser, tmp_path)
+        _act(page, action="drag", source=2, folder="Roads")
+        snapshot = _read(page)
+
+        target = _only(snapshot, "join")
+        assert target["before"]["borderTopWidth"] == "2px"
+        assert target["after"]["borderBottomWidth"] == "2px"
+        assert target["before"]["animationName"] == "foliplus-drag-pulse"
+        assert target["after"]["animationName"] == "foliplus-drag-pulse"
+        assert target["before"]["animationIterationCount"] == "infinite"
+        assert snapshot["lineRows"] == [target["key"]], (
+            f"a join marks its own row once: {snapshot['lineRows']}"
+        )
+        # Strikingly light: the wash must not out-weigh the row's own label.
+        assert _alpha(target["backgroundColor"]) <= 0.05, (
+            f"join wash too strong: {target['backgroundColor']}"
+        )
+        # A join target is a whole ROW: it carries the shipped inset ring plus
+        # an outer glow (the "left rail + right glow" the user asked for), and
+        # the two edge lines sit INSIDE that ring so they stay visible.
+        row_shadow = target["boxShadow"]
+        assert "inset" in row_shadow and "0px 0px 0px 2px" in row_shadow, (
+            f"a join target needs the inset ring: {row_shadow}"
+        )
+        assert row_shadow.count("rgb") >= 2, (
+            f"a join target needs the outer glow beside the ring: {row_shadow}"
+        )
+        assert "inset" not in target["before"]["boxShadow"]
+        assert "inset" not in target["after"]["boxShadow"]
+        assert target["before"]["top"] == "2px", (
+            f"the top edge line must sit inside the ring: {target['before']['top']}"
+        )
+        assert target["after"]["bottom"] == "2px", (
+            f"the bottom edge line must sit inside the ring: {target['after']['bottom']}"
+        )
+        assert target["chevronAnimation"] == "foliplus-drag-chevron", (
+            "the chevron must hint that the row opens"
+        )
+        assert snapshot["pushed"] == [], "a join is not a gap: nothing is pushed"
+        assert errors == []
+
+    def test_refusal_draws_no_geometry(self, browser, tmp_path):
+        """A refusal has no line, no ring and no wash — the pointer and hint talk."""
+        page, errors = _page(browser, tmp_path)
+        # An overlay row cannot become a base layer: the base row is a refusal
+        # (a member row is a legal gap now — see the adoption test below).
+        _act(page, action="drag", source=0, targetKind="base")
+        snapshot = _read(page)
+
+        target = _only(snapshot, "refuse")
+        assert snapshot["lineRows"] == [], (
+            f"a refusal draws no line: {snapshot['lineRows']}"
+        )
+        assert target["outlineStyle"] == "none", (
+            f"no dashed box: {target['outlineStyle']}"
+        )
+        # A refusal announces itself on the row with the same ring a join draws
+        # (the shipped build's blocked look): the ring says "this row is the
+        # target", the missing line and the hint say "and it will not take it".
+        refuse_shadow = target["boxShadow"]
+        assert "inset" in refuse_shadow and "0px 0px 0px 2px" in refuse_shadow, (
+            f"a refusal needs the inset ring: {refuse_shadow}"
+        )
+        assert target["cursor"] == "no-drop", (
+            f"the pointer must say no: {target['cursor']}"
+        )
+        assert target["backgroundColor"] in {"rgba(0, 0, 0, 0)", "transparent"}
+        # Zero geometry, read off both pseudo elements: no line is even
+        # generated, so there is nothing for the eye to mistake for a target.
+        assert target["before"]["content"] == "none", (
+            f"a refusal must not draw a top edge: {target['before']['content']}"
+        )
+        assert target["after"]["content"] == "none", (
+            f"a refusal must not draw a bottom edge: {target['after']['content']}"
+        )
+        assert target["before"]["borderTopWidth"] == "0px"
+        assert target["after"]["borderBottomWidth"] == "0px"
+        assert snapshot["pushed"] == [], "a refusal presses nothing"
+        assert snapshot["hint"], "a refusal must explain itself in one line of text"
+        assert "{folder}" not in snapshot["hint"]
+        assert errors == []
+
+    def test_reduced_motion_keeps_the_line_still(self, browser, tmp_path):
+        """With motion reduced, the line stays lit and nothing pulses."""
+        page, errors = _page(browser, tmp_path)
+        page.emulate_media(reduced_motion="reduce")
+        _act(page, action="drag", source=0, target=1)
+        page.wait_for_timeout(200)
+        snapshot = _read(page)
+
+        target = _only(snapshot, "after")
+        assert target["animationName"] == "none", (
+            f"the carried row must not pulse: {target['animationName']}"
+        )
+        assert target["after"]["animationName"] == "none", (
+            f"the line must not breathe: {target['after']['animationName']}"
+        )
+        # The static line is still the insertion marker — accessibility is not
+        # the absence of the indicator.
+        assert target["after"]["borderBottomWidth"] == "2px"
+        assert target["after"]["content"] != "none"
+        assert errors == []
+
+    def test_member_row_adopts_its_folder_and_persists(self, browser, tmp_path):
+        """A non-empty folder is reachable from its member rows, and it sticks."""
+        page, errors = _page(browser, tmp_path)
+        before = _read(page)
+        source_id = before["ids"][0]
+
+        _act(page, action="drop", source=0, targetKind="member", member=0)
+        page.wait_for_timeout(600)
+        after = _read(page)
+
+        # Membership is the persisted record's answer, not the DOM's: the layer
+        # joined the folder of the row it landed on...
+        members = after["layout"]["members"]
+        folder = members[source_id]["folder"]
+        assert folder in {"roads", "water"}, members[source_id]
+        # ... at a position inside that block: directly above a sibling member,
+        # after the block header.
+        order = after["order"]
+        index = order.index(source_id)
+        assert index > 0
+        header = order[index - 1]
+        below = order[index + 1]
+        assert (
+            header == f"folder:{folder}"
+            or members.get(header, {}).get("folder") == folder
+        ), order
+        assert members[below]["folder"] == folder, order
+        assert after["marked"] == []
+
+        # A reload reads the same record: the layer is still inside the folder,
+        # in the same position relative to its new sibling.
+        page.reload(wait_until="domcontentloaded")
+        page.wait_for_selector(".foliplus-layer-item", state="attached", timeout=10000)
+        page.evaluate(_js("LayerControl/open_panel"))
+        page.wait_for_timeout(400)
+        reloaded = _read(page)
+        assert reloaded["layout"]["members"][source_id]["folder"] == folder
+        order = reloaded["order"]
+        assert (
+            order.index(source_id) == order.index(header) + 1
+            or order.index(source_id) == order.index(header) + 2
+        ), order
+        assert errors == []
+
+    def test_folder_drag_uses_the_same_source_rule(self, browser, tmp_path):
+        """Folder rows get the same carried-row treatment as layer rows."""
+        page, errors = _page(browser, tmp_path)
+        before = _read(page)["visibleRows"]
+        _act(page, action="drag", sourceFolder="Roads")
+        page.wait_for_timeout(1900)
+        snapshot = _read(page)
+
+        source = _only(snapshot, "source")
+        assert source["key"] == "folder:roads"
+        assert float(source["opacity"]) == 0.5
+        assert source["animationName"] == "foliplus-drag-pickup"
+        assert source["animationIterationCount"] == "1"
+        # The block travels as one unit: its members are folded for the gesture.
+        assert snapshot["visibleRows"] < before, (
+            f"the dragged block's members must fold: {snapshot['visibleRows']} of {before}"
+        )
+        _act(page, action="dragend")
+        assert _read(page)["visibleRows"] == before, "the fold is session-only"
+        assert errors == []
+
+
+class TestDragCommitBrowser:
+    """The drop commits the move and then clears every indicator."""
+
+    def test_drop_reorders_and_clears(self, browser, tmp_path):
+        """A drop lands the layer and leaves no marked row behind."""
+        page, errors = _page(browser, tmp_path)
+        before = _read(page)["ids"]
+        # Root row 0 lands below root row 2: the pair reverses.
+        _act(page, action="drop", source=0, target=2, zone="after")
+        after = _read(page)
+        assert after["ids"].index(before[0]) > after["ids"].index(before[1]), (
+            f"the drop must reorder the rows: {before} -> {after['ids']}"
+        )
+        assert len(after["marked"]) <= 2, "a commit may flash, never multiply"
+        page.wait_for_timeout(600)
+        cleared = _read(page)
+        assert cleared["marked"] == [], (
+            f"indicators must clear after the commit: {cleared['marked']}"
+        )
+        assert cleared["pushed"] == []
+        assert errors == []

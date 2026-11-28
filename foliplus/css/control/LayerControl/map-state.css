@@ -1,24 +1,43 @@
-/* ── Drag-over pulse animation ── */
+/* The insertion line breathes while the pointer rests on it: a small glow
+   swing on the line itself, so the pulse sits exactly where the layer lands.
+   Transform/opacity/box-shadow only — never layout. */
 @keyframes foliplus-drag-pulse {
   0%,
   100% {
-    border-color: var(--foliplus-drag-border-from);
-    box-shadow: var(--foliplus-drag-shadow-from);
+    border-color: var(--foliplus-drag-line-from);
+    opacity: var(--foliplus-drag-line-alpha-min);
+    box-shadow: var(--foliplus-drag-line-glow-trough);
   }
   50% {
-    border-color: var(--foliplus-drag-border-to);
-    box-shadow: var(--foliplus-drag-shadow-to);
+    border-color: var(--foliplus-drag-line-to);
+    opacity: 1;
+    box-shadow: var(--foliplus-drag-line-glow);
+  }
+}
+/* The carried row pulses ONCE on pickup and then holds dimmed: the pulse is the
+   acknowledgement, the dim is the state. */
+@keyframes foliplus-drag-pickup {
+  0% {
+    opacity: 1;
+  }
+  45% {
+    opacity: calc(var(--foliplus-drag-source-opacity) - 0.15);
+  }
+  100% {
+    opacity: var(--foliplus-drag-source-opacity);
+  }
+}
+/* A join target's chevron dips once per pulse, hinting "this opens up". */
+@keyframes foliplus-drag-chevron {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(var(--foliplus-drag-push-shift));
   }
 }
 
-/* ── A′ no-basemap hatch on map container ──
-   Decoration only: fills the "no basemap selected" state so the panel's
-   empty choice is visible on the map itself. Both a light background and
-   the hatch are painted here so the state is self-contained — one
-   implementation covers light and dark container backgrounds (fullscreen
-   and non-fullscreen alike), no override needed. `background-image` is
-   what ExportControl's resolveExportBackground ignores (it only reads
-   `backgroundColor`), so the hatch never reaches an export. */
 .leaflet-container.foliplus-no-base-map {
   background-color: var(--foliplus-surface);
   background-image: repeating-conic-gradient(

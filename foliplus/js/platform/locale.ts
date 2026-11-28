@@ -123,10 +123,24 @@ const resolveLocaleCode = (config: ComponentConfig): string => {
  * the function pure, or omit them to fall back to the runtime global
  * (``window.foliplus._TABLES``).
  */
+/** A translator: a key, plus optional `{name}` values to interpolate. */
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+/** Fill `{name}` slots from the params; an unknown slot is left as it is. */
+const interpolate = (
+  text: string,
+  params?: Record<string, string | number>,
+): string => {
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (slot, name: string) =>
+    params[name] === undefined ? slot : String(params[name]),
+  );
+};
+
 const createTranslator = (
   config: ComponentConfig,
   commonTables?: LocaleTables | null,
-): ((key: string) => string) => {
+): Translate => {
   const code = resolveLocaleCode(config);
 
   // Merge common + component built-in + custom tables
@@ -139,7 +153,7 @@ const createTranslator = (
   const table = { ...common, ...component, ...custom };
   table["locale.code"] = code;
 
-  return k => (table[k] !== undefined ? table[k] : k);
+  return (k, params) => interpolate(table[k] !== undefined ? table[k] : k, params);
 };
 
 /**
@@ -147,9 +161,9 @@ const createTranslator = (
  * to every key. Callers write T("focus") instead of
  * _(`${CONFIG.name}.focus`).
  */
-const createScopedTranslator = (config: ComponentConfig): ((key: string) => string) => {
+const createScopedTranslator = (config: ComponentConfig): Translate => {
   const _ = createTranslator(config);
-  return (k: string): string => _(`${config.name}.${k}`);
+  return (k, params) => _(`${config.name}.${k}`, params);
 };
 
 export { createTranslator, createScopedTranslator, intlLocale };

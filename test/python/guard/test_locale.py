@@ -56,6 +56,8 @@ _DYNAMIC_SUPPLEMENT: set[str] = {
     # showDragHint(ui, key) in ui/listPanel/drag.ts — the key is a parameter.
     "LayerControl.same_role_only",
     "LayerControl.no_nest",
+    # ... and the same parameter carries the target-kind-specific refusal.
+    "LayerControl.drop_group_target",
     # typeKey / type.key template literals (attr.ts, rowView.ts).
     "LayerControl.type_tile_map",
     "LayerControl.type_color_map",

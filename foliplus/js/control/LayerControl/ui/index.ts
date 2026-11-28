@@ -112,7 +112,7 @@ class LayerUI implements LayerUISurface {
    *  from `ui.config` instead of a module-level free variable. */
   config: ComponentConfig;
   /** Translator bound to `config`, forwarded from the module const. */
-  T: (key: string) => string;
+  T: (key: string, params?: Record<string, string | number>) => string;
   /** Unscoped translator for the shared `foliplus.*` vocabulary (the label
    *  controls the style panel shares with HeatmapControl). Kept beside `T` so
    *  a test can inject either independently. */
@@ -193,7 +193,7 @@ class LayerUI implements LayerUISurface {
   constructor(
     controller: LayerController,
     env: {
-      T: (key: string) => string;
+      T: (key: string, params?: Record<string, string | number>) => string;
       _: (key: string) => string;
       log: Logger;
     },

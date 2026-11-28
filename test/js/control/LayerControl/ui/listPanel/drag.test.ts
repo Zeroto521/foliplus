@@ -39,7 +39,7 @@ describe("ui/drag", () => {
       // The row is the drag source: it must stay in the DOM and carry the
       // dragging chrome. A rebuild here cancels the native drag.
       expect(row.isConnected).toBe(true);
-      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+      expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.SOURCE);
       // The gesture is not a fold decision: nothing persisted.
       const saved = window.localStorage.getItem(CONST.STORAGE.KEY) ?? "";
       expect(saved).not.toContain("overlay::a");
@@ -123,12 +123,12 @@ describe("ui/drag", () => {
       handleDragOver(ui, overB);
       expect(overB.preventDefault).toHaveBeenCalled();
       expect(overB.dataTransfer!.dropEffect).toBe("move");
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.AFTER);
       expect(ui.listPanel.lastDragOverItem).toBe(b);
       // Moving to another block takes the chrome off the previous one.
       handleDragOver(ui, dragEvent(c, { dropEffect: "" }, 170));
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
-      expect(c.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.AFTER);
+      expect(c.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.AFTER);
       expect(ui.listPanel.lastDragOverItem).toBe(c);
     });
 
@@ -138,8 +138,8 @@ describe("ui/drag", () => {
       const b = folderRowOf(ui, "b");
       pinRect(b, 100, 36);
       handleDragOver(ui, dragEvent(b, { dropEffect: "" }, 104));
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.BEFORE);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.AFTER);
     });
 
     it("refuses a folder dropped into another folder", () => {
@@ -152,11 +152,11 @@ describe("ui/drag", () => {
       const over = dragEvent(b, { dropEffect: "" }, 118);
       handleDragOver(ui, over);
       expect(over.dataTransfer!.dropEffect).toBe("none");
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.BEFORE);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.AFTER);
       // The refused zone draws a dashed outline: without it the middle half of
       // the row is a strip that neither lights up nor accepts.
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BLOCKED)).toBe(true);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
       expect(ui.listPanel.lastDragOverItem).toBe(b);
       expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("no_nest"), {
         duration: expect.anything(),
@@ -176,7 +176,7 @@ describe("ui/drag", () => {
       handleDragOver(ui, away);
       expect(away.preventDefault).not.toHaveBeenCalled();
       expect(away.dataTransfer!.dropEffect).toBe("none");
-      expect(b.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.AFTER);
       expect(ui.listPanel.lastDragOverItem).toBeNull();
     });
 
@@ -187,13 +187,15 @@ describe("ui/drag", () => {
       handleDragOver(ui, own);
       expect(own.dataTransfer!.dropEffect).toBe("none");
       expect(ui.listPanel.lastDragOverItem).toBeNull();
-      // A folder row of the other role is not a block target either.
+      // A folder row of the other role is not a block target: it answers with
+      // the refusal marker instead of staying silent.
       const b = folderRowOf(ui, "b");
       b.setAttribute(CONST.DATA.ROLE, "base");
       const otherRole = dragEvent(b, { dropEffect: "" }, 10);
       handleDragOver(ui, otherRole);
       expect(otherRole.dataTransfer!.dropEffect).toBe("none");
-      expect(ui.listPanel.lastDragOverItem).toBeNull();
+      expect(b.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
+      expect(ui.listPanel.lastDragOverItem).toBe(b);
     });
 
     it("ignores a folder row that carries no role", () => {
@@ -216,7 +218,7 @@ describe("ui/drag", () => {
       handleDragStart(ui, dragEvent(row, dataTransfer));
 
       expect(ui.listPanel.dragEntry?.id).toBe("a");
-      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+      expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.SOURCE);
       expect(dataTransfer.effectAllowed).toBe("move");
     });
 
@@ -244,7 +246,7 @@ describe("ui/drag", () => {
 
       // The drag is never armed; preventDefault stops the browser's drag.
       expect(ui.listPanel.dragEntry).toBeNull();
-      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+      expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.SOURCE);
       expect(event.preventDefault).toHaveBeenCalled();
       unregister();
     });
@@ -259,7 +261,9 @@ describe("ui/drag", () => {
 
       // No registry entry, no drag: the row names nothing that can move.
       expect(ui.listPanel.dragEntry).toBeNull();
-      expect(orphan.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+      expect(orphan.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.SOURCE,
+      );
     });
 
     it("handleDragStart is a no-op when the press starts outside any row", () => {
@@ -288,7 +292,7 @@ describe("ui/drag", () => {
 
       // The drag is armed; the class is added; no crash on dataTransfer.
       expect(ui.listPanel.dragEntry?.id).toBe("a");
-      expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+      expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.SOURCE);
     });
 
     it("handleDragEnd disarms the session and strips every marker", () => {
@@ -297,8 +301,8 @@ describe("ui/drag", () => {
       const rows = Array.from(
         attachedPanel(ui).querySelectorAll<HTMLElement>(CONST.SEL.LAYER_ITEM),
       );
-      rows[0].classList.add(CONST.CLASSES.DRAG_OVER_TOP);
-      rows[1].classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+      rows[0].setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.BEFORE);
+      rows[1].setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.AFTER);
       ui.listPanel.lastDragOverItem = rows[0];
 
       handleDragEnd(ui);
@@ -306,9 +310,15 @@ describe("ui/drag", () => {
       expect(ui.listPanel.dragEntry).toBeNull();
       expect(ui.listPanel.lastDragOverItem).toBeNull();
       rows.forEach(row => {
-        expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
-        expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-        expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+        expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+          CONST.DRAG_STATE.SOURCE,
+        );
+        expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+          CONST.DRAG_STATE.BEFORE,
+        );
+        expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+          CONST.DRAG_STATE.AFTER,
+        );
       });
     });
 
@@ -323,7 +333,9 @@ describe("ui/drag", () => {
 
       expect(ui.listPanel.dragEntry).toBeNull();
       expect(ui.listPanel.lastDragOverItem).toBeNull();
-      expect(rowOf(ui, "L0").classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+      expect(rowOf(ui, "L0").getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.SOURCE,
+      );
     });
 
     it("an armed drag tears down even when the panel is already gone", () => {
@@ -342,11 +354,12 @@ describe("ui/drag", () => {
     it("handleDragLeave clears the marker on the row being left", () => {
       const ui = makeUi({ containers: ["a"] });
       const row = rowOf(ui, "a");
-      row.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+      row.setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.BEFORE);
+      row.setAttribute(CONST.DRAG_PUSH_ATTR, CONST.DRAG_PUSH.TOP);
 
-      handleDragLeave(dragEvent(row));
+      handleDragLeave(ui, dragEvent(row));
 
-      expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.BEFORE);
     });
   });
 
@@ -421,8 +434,12 @@ describe("ui/drag", () => {
 
       handleDragOver(ui, dragEvent(rowL0));
 
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
+      );
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.AFTER,
+      );
       expect(ui.listPanel.lastDragOverItem).toBeNull();
     });
 
@@ -445,14 +462,18 @@ describe("ui/drag", () => {
       const rowL1 = rowOf(ui, "L1");
 
       handleDragOver(ui, dragEvent(rowL0));
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.BEFORE);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.AFTER,
+      );
 
       // The marker follows the pointer: the previous row is cleaned, the
       // hovered one takes it.
       handleDragOver(ui, dragEvent(rowL1));
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(rowL1.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
+      );
+      expect(rowL1.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.BEFORE);
     });
 
     it("handleDragOver marks a blocked move none on a real dataTransfer", () => {
@@ -465,8 +486,8 @@ describe("ui/drag", () => {
       handleDragOver(ui, dragEvent(rowOf(ui, "B0"), dataTransfer));
 
       expect(dataTransfer.dropEffect).toBe("none");
-      expect(rowOf(ui, "B0").classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(
-        false,
+      expect(rowOf(ui, "B0").getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
       );
     });
 
@@ -482,22 +503,21 @@ describe("ui/drag", () => {
       } as unknown as DragEvent;
 
       expect(() => handleDragOver(ui, event)).not.toThrow();
-      expect(rowOf(ui, "B0").classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(
-        false,
+      expect(rowOf(ui, "B0").getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
       );
     });
 
-    it("handleDragOver paints no marker over the armed row itself", () => {
+    it("handleDragOver paints no drop marker over the armed row itself", () => {
       const { ui } = initFixture({ data: overlays(3) });
       handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
 
       handleDragOver(ui, dragEvent(rowOf(ui, "L1")));
 
-      expect(rowOf(ui, "L1").classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(
-        false,
-      );
-      expect(rowOf(ui, "L1").classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(
-        false,
+      // The carried row is not a gap: it keeps its pickup marker and gains no
+      // before/after state.
+      expect(rowOf(ui, "L1").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+        CONST.DRAG_STATE.SOURCE,
       );
     });
 
@@ -511,8 +531,8 @@ describe("ui/drag", () => {
       } as unknown as DragEvent;
 
       expect(() => handleDragOver(ui, event)).not.toThrow();
-      expect(rowOf(ui, "L0").classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(
-        true,
+      expect(rowOf(ui, "L0").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+        CONST.DRAG_STATE.BEFORE,
       );
     });
 
@@ -526,11 +546,13 @@ describe("ui/drag", () => {
     });
 
     it("handleDragLeave ignores targets that are not layer rows", () => {
-      initFixture({ data: overlays(2) });
+      const { ui } = initFixture({ data: overlays(2) });
       const shell = document.createElement("div");
 
-      expect(() => handleDragLeave(dragEvent(shell))).not.toThrow();
-      expect(shell.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(() => handleDragLeave(ui, dragEvent(shell))).not.toThrow();
+      expect(shell.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
+      );
     });
 
     it("a drop on the armed row ends the gesture without a commit", () => {
@@ -602,8 +624,10 @@ describe("ui/drag", () => {
       handleDragOver(ui, dragEvent(rowL0));
 
       // L0 sits below the armed L2: the bottom marker, not the top one.
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.AFTER);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
+      );
     });
 
     it("handleDragOver does nothing once the session is stale", () => {
@@ -614,8 +638,12 @@ describe("ui/drag", () => {
 
       handleDragOver(ui, dragEvent(rowL0));
 
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
+      );
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.AFTER,
+      );
       expect(ui.listPanel.lastDragOverItem).toBeNull();
     });
 
@@ -630,9 +658,15 @@ describe("ui/drag", () => {
       handleDrop(ui, dragEvent(orphan));
 
       // The row names no layer and no folder, so neither handler acts on it.
-      expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
-      expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
-      expect(orphan.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
+      expect(orphan.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
+      );
+      expect(orphan.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.AFTER,
+      );
+      expect(orphan.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.JOIN,
+      );
       expect(ui.listPanel.lastDragOverItem).toBeNull();
       expect(orderOf(manager)).toEqual(["L0", "L1", "L2"]);
       expect(ui.listPanel.dragEntry).toBeNull();
@@ -798,7 +832,9 @@ describe("ui/drag", () => {
       expect(changes).toEqual(["L1"]);
       expect(ui.listPanel.dragEntry).toBeNull();
       expect(ui.listPanel.lastDragOverItem).toBeNull();
-      expect(rowOf(ui, "L1").classList.contains(CONST.CLASSES.DRAGGING)).toBe(false);
+      expect(rowOf(ui, "L1").getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.SOURCE,
+      );
     });
 
     it("a stale session clears with its hover chrome on dragover", () => {
@@ -807,28 +843,32 @@ describe("ui/drag", () => {
       // the over handler owns its own teardown, not just the drop's.
       ui.listPanel.dragEntry = { id: "ghost" } as never;
       const rowL0 = rowOf(ui, "L0");
-      rowL0.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+      rowL0.setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.BEFORE);
       ui.listPanel.lastDragOverItem = rowL0;
 
       handleDragOver(ui, dragEvent(rowL0));
 
       expect(ui.listPanel.dragEntry).toBeNull();
       expect(ui.listPanel.lastDragOverItem).toBeNull();
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(false);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.BEFORE,
+      );
     });
 
     it("a stale session clears with its hover chrome on drop", () => {
       const { ui } = initFixture({ data: overlays(3) });
       ui.listPanel.dragEntry = { id: "ghost" } as never;
       const rowL0 = rowOf(ui, "L0");
-      rowL0.classList.add(CONST.CLASSES.DRAG_OVER_BOTTOM);
+      rowL0.setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.AFTER);
       ui.listPanel.lastDragOverItem = rowL0;
 
       handleDrop(ui, dragEvent(rowL0));
 
       expect(ui.listPanel.dragEntry).toBeNull();
       expect(ui.listPanel.lastDragOverItem).toBeNull();
-      expect(rowL0.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(false);
+      expect(rowL0.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(
+        CONST.DRAG_STATE.AFTER,
+      );
     });
 
     it("unregistering the dragged layer cancels the gesture on the spot", () => {
@@ -837,17 +877,17 @@ describe("ui/drag", () => {
       // detached source cannot be relied on to bubble back.
       const { manager, ui } = initFixture({ data: overlays(3) });
       handleDragStart(ui, dragEvent(rowOf(ui, "L1")));
-      expect(rowOf(ui, "L1").classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+      expect(rowOf(ui, "L1").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+        CONST.DRAG_STATE.SOURCE,
+      );
       const rowL0 = rowOf(ui, "L0");
-      rowL0.classList.add(CONST.CLASSES.DRAG_OVER_TOP);
+      rowL0.setAttribute(CONST.DRAG_STATE_ATTR, CONST.DRAG_STATE.BEFORE);
 
       manager.unregisterLayer("L1");
 
       expect(ui.listPanel.dragEntry).toBeNull();
       expect(ui.listPanel.lastDragOverItem).toBeNull();
-      const chrome = attachedPanel(ui).querySelectorAll(
-        `.${CONST.CLASSES.DRAGGING}, .${CONST.CLASSES.DRAG_OVER_TOP}, .${CONST.CLASSES.DRAG_OVER_BOTTOM}`,
-      );
+      const chrome = attachedPanel(ui).querySelectorAll(`[${CONST.DRAG_STATE_ATTR}]`);
       expect(chrome.length).toBe(0);
     });
 
@@ -938,7 +978,7 @@ describe("layer drop on a folder row — hover chrome", () => {
     // The middle third joins the folder: the move is allowed and the row
     // paints the INTO marker.
     expect(dataTransfer.dropEffect).toBe("move");
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(true);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.JOIN);
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 
@@ -951,8 +991,8 @@ describe("layer drop on a folder row — hover chrome", () => {
 
     handleDragOver(ui, dragEvent(row, {}, 102));
 
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.BEFORE);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.JOIN);
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 
@@ -965,8 +1005,8 @@ describe("layer drop on a folder row — hover chrome", () => {
 
     handleDragOver(ui, dragEvent(row, {}, 134));
 
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.AFTER);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).not.toBe(CONST.DRAG_STATE.JOIN);
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 
@@ -989,7 +1029,8 @@ describe("layer drop on a folder row — hover chrome", () => {
     handleDragOver(ui, dragEvent(row, {}, 118));
 
     expect(showHint).toHaveBeenCalled();
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
   });
 
   it("refuses a group on another group's middle zone", () => {
@@ -1018,8 +1059,8 @@ describe("layer drop on a folder row — hover chrome", () => {
     expect(showHint).toHaveBeenCalledWith(ui.config.name, "", ui.T("no_nest"), {
       duration: expect.anything(),
     });
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(false);
+    expect(ui.listPanel.lastDragOverItem).toBe(row);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
   });
 
   it("refuses a folder drag over a group row and names the reason", () => {
@@ -1039,6 +1080,9 @@ describe("layer drop on a folder row — hover chrome", () => {
     handleDragOver(ui, dragEvent(rowOf(ui, "G1"), {}, 0));
 
     expect(showHint).toHaveBeenCalled();
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(rowOf(ui, "G1").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.REFUSE,
+    );
+    expect(ui.listPanel.lastDragOverItem).toBe(rowOf(ui, "G1"));
   });
 });

@@ -43,10 +43,13 @@ class TestRowDragBrowser(LayerControlBrowserBase):
                 ".foliplus-hint-LayerControl", state="attached", timeout=5000
             )
             hint_text = page.evaluate(_js("LayerControl/read_hint_text"))
-            # The refusal is named by its reason: a block belongs to one role,
-            # so a cross-role drag answers "same section" (the user-facing word
-            # for a role) rather than naming the two roles.
-            assert ("same section" in hint_text.lower()) or ("同分组" in hint_text)
+            # The refusal is named by its rule, and base IS a role: the hint
+            # says items move only within one section. A base-specific message
+            # was dropped because it restated the same rule with a second key.
+            assert (
+                "between layers of the same section" in hint_text.lower()
+                or "只能移到同类的图层之间" in hint_text
+            )
 
     def test_dragdrop_relocates_only_the_id_match_row(self, browser, tmp_path):
         """handleDrop resolves the drop target by data-layer-id: a DOM-position

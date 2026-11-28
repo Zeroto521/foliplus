@@ -206,7 +206,10 @@ describe("block-order gap drop", () => {
     handleDragOver(ui, dragEvent(baseFolderB, { dropEffect: "" }, 118));
 
     expect(showHint).toHaveBeenCalled();
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(ui.listPanel.lastDragOverItem).toBe(baseFolderB);
+    expect(baseFolderB.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.REFUSE,
+    );
   });
 
   it("throttles repeated refusals to one hint per gesture", () => {
@@ -281,31 +284,24 @@ describe("block-order gap drop", () => {
   });
 });
 
-describe("drop adopts the target row's folder", () => {
-  it("moves a root layer onto a member row into that member's folder", () => {
+describe("a member row adopts the folder it lands in", () => {
+  it("moves a root layer into another folder between its members", () => {
+    // A non-empty folder is reachable two ways: its header (join = append) and
+    // any of its member rows (join + that member's position). Both are real
+    // destinations, so both paint the gap and both commit.
     const { manager, ui } = folderFixture(["a", "b"]);
     manager.registerLayer({ id: "R1", name: "R1", role: "overlay" });
     const member = rowOf(ui, "b1");
-    member.getBoundingClientRect = () =>
-      ({
-        top: 100,
-        height: 36,
-        bottom: 136,
-        left: 0,
-        right: 0,
-        width: 0,
-        x: 0,
-        y: 100,
-        toJSON: () => ({}),
-      }) as DOMRect;
+    pinRect(member, 100, 36);
 
     handleDragStart(ui, dragEvent(rowOf(ui, "R1"), { effectAllowed: "" }));
-    handleDrop(ui, dragEvent(member, {}, 118));
+    handleDrop(ui, dragEvent(member, {}, 130));
 
-    // The drop adopts the row's folder: R1 joins b, matching the tree guide
-    // a keyboard or API move would produce.
     expect(manager.folderNameOf("R1")).toBe("b");
     expect(ui.listPanel.dragEntry).toBeNull();
+    // Lower half of the row: the layer takes b1's position, after it.
+    const order = ui.c.layers.map(layer => layer.id);
+    expect(order.indexOf("R1")).toBe(order.indexOf("b1") + 1);
   });
 });
 
@@ -345,7 +341,7 @@ describe("drag — the dataTransfer is always optional", () => {
     // The gesture is armed regardless: the dataTransfer only carries the
     // cursor affordance the browser paints.
     expect(ui.listPanel.dragFolder).toEqual({ role: "overlay", key: "a" });
-    expect(row.classList.contains(CONST.CLASSES.DRAGGING)).toBe(true);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.SOURCE);
   });
 
   it("paints a folder drag's hover marker without a dataTransfer", () => {
@@ -356,7 +352,7 @@ describe("drag — the dataTransfer is always optional", () => {
 
     handleDragOver(ui, noTransfer(row, 104));
 
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_TOP)).toBe(true);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.BEFORE);
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 
@@ -374,7 +370,10 @@ describe("drag — the dataTransfer is always optional", () => {
     handleDragOver(ui, noTransfer(rowOf(ui, "G1")));
 
     expect(showHint).toHaveBeenCalled();
-    expect(ui.listPanel.lastDragOverItem).toBeNull();
+    expect(rowOf(ui, "G1").getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.REFUSE,
+    );
+    expect(ui.listPanel.lastDragOverItem).toBe(rowOf(ui, "G1"));
   });
 
   it("answers a layer hover over a gap without a dataTransfer", () => {
@@ -385,6 +384,51 @@ describe("drag — the dataTransfer is always optional", () => {
 
     expect(() => handleDragOver(ui, noTransfer(shell))).not.toThrow();
     expect(ui.listPanel.lastDragOverItem).toBeNull();
+  });
+
+  it("refuses a base layer dragged over an overlay row", () => {
+    // Roles do not mix: a base layer stays in the base section, so the target
+    // is refused by name instead of silently reordering.
+    const { ui } = initFixture({
+      data: [
+        { id: "B1", name: "B1", role: "base", layer: { options: {} } },
+        {
+          id: "O1",
+          name: "O1",
+          role: "overlay",
+          layer: { options: {}, eachLayer: vi.fn() },
+        },
+      ],
+    });
+    const showHint = vi.spyOn(ui.c.map.foliplus.hint, "set");
+    const overlayRow = rowOf(ui, "O1");
+    withRect(overlayRow, 100, 36);
+
+    handleDragStart(ui, dragEvent(rowOf(ui, "B1"), { effectAllowed: "" }));
+    handleDragOver(ui, dragEvent(overlayRow, { dropEffect: "" }, 118));
+
+    expect(overlayRow.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(
+      CONST.DRAG_STATE.REFUSE,
+    );
+    expect(showHint).toHaveBeenCalled();
+  });
+
+  it("moves a member row into another folder between its members", () => {
+    // A member row is a position inside its own block, and a legal landing
+    // place for a layer from another block: the drop leaves the old folder,
+    // joins the new one, and keeps the row's position.
+    const { manager, ui } = folderFixture(["a", "b"]);
+    const target = rowOf(ui, "b1");
+    pinRect(target, 100, 36);
+
+    handleDragStart(ui, dragEvent(rowOf(ui, "a1"), { effectAllowed: "" }));
+    handleDragOver(ui, dragEvent(target, { dropEffect: "" }, 130));
+    expect(target.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.AFTER);
+    handleDrop(ui, dragEvent(target, {}, 130));
+
+    expect(manager.folderNameOf("a1")).toBe("b");
+    const order = ui.c.layers.map(layer => layer.id);
+    expect(order.indexOf("a1")).toBe(order.indexOf("b1") + 1);
   });
 
   it("refuses a layer on the other role's folder row without a dataTransfer", () => {
@@ -611,10 +655,11 @@ describe("drag — block resolution at the role edges", () => {
       }) as DOMRect;
   };
 
-  it("drops a folder beside the block a member row belongs to", () => {
+  it("refuses a folder drag over another folder's member row", () => {
     // A member row is not a block of its own: it belongs to the folder block
-    // above it, so dropping a folder on it places the folder beside THAT block
-    // instead of refusing a zone the user reads as a valid target.
+    // above it, and that block's boundary is its header. A gap drawn between
+    // members would name a position the drop never takes, so the row refuses
+    // and the block order stays untouched.
     const { ui } = folderFixture(["a", "b"]);
     handleDragStart(ui, dragEvent(folderRowOf(ui, "a"), { effectAllowed: "" }));
     const memberRow = rowOf(ui, "b1");
@@ -623,11 +668,11 @@ describe("drag — block resolution at the role edges", () => {
 
     handleDragOver(ui, dragEvent(memberRow, dataTransfer, 130));
 
-    expect(dataTransfer.dropEffect).toBe("move");
-    expect(memberRow.classList.contains(CONST.CLASSES.DRAG_OVER_BOTTOM)).toBe(true);
+    expect(dataTransfer.dropEffect).toBe("none");
+    expect(memberRow.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.REFUSE);
 
     handleDrop(ui, dragEvent(memberRow, { dropEffect: "" }, 130));
-    expect(ui.c.folderLayoutView.order.overlay).toEqual(["b", "a"]);
+    expect(ui.c.folderLayoutView.order.overlay).toEqual(["a", "b"]);
   });
 
   it("places a layer after a folder block that precedes a root layer", () => {
@@ -692,7 +737,7 @@ describe("drag — block resolution at the role edges", () => {
     handleDragOver(ui, dragEvent(row, dataTransfer, 118));
 
     expect(dataTransfer.dropEffect).toBe("move");
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(true);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.JOIN);
   });
 
   it("paints a folder join marker when the drag carries no dataTransfer", () => {
@@ -713,7 +758,7 @@ describe("drag — block resolution at the role edges", () => {
 
     expect(() => handleDragOver(ui, event)).not.toThrow();
 
-    expect(row.classList.contains(CONST.CLASSES.DRAG_OVER_INTO)).toBe(true);
+    expect(row.getAttribute(CONST.DRAG_STATE_ATTR)).toBe(CONST.DRAG_STATE.JOIN);
     expect(ui.listPanel.lastDragOverItem).toBe(row);
   });
 });

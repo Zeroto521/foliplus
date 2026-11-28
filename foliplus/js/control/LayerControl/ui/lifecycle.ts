@@ -297,7 +297,7 @@ const bindLayerEvents = (ui: LayerUI): void => {
 
   ui.onDragStart = event => handleDragStart(ui, event);
   ui.onDragOver = event => handleDragOver(ui, event);
-  ui.onDragLeave = event => handleDragLeave(event);
+  ui.onDragLeave = event => handleDragLeave(ui, event);
   ui.onDrop = event => handleDrop(ui, event);
   ui.onDragEnd = () => handleDragEnd(ui);
   // A real focus move is the cursor: once focus lands on a row (or a child
