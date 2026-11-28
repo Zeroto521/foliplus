@@ -48,7 +48,9 @@ ROOT = Path(__file__).resolve().parents[3]
 PYTHON_FACE = ROOT / "foliplus" / "_declaration" / "face.py"
 PYTHON_PAINT = ROOT / "foliplus" / "_declaration" / "paint.py"
 PYTHON_MARKER = ROOT / "foliplus" / "_declaration" / "marker.py"
-JS_PARSE = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declared" / "face.ts"
+JS_PARSE = (
+    ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declared" / "face.ts"
+)
 JS_TRIM = ROOT / "foliplus" / "js" / "control" / "LayerControl" / "declared" / "trim.ts"
 
 _TABLE_NAMES = ("_ICON_FACE_KEYS", "_MARKER_FACE_KEYS")
