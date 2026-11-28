@@ -46,6 +46,7 @@
 // the author wrote. The next declared* reader reuses the same skeleton instead
 // of re-implementing it.
 import * as CONST from "../const.js";
+import { DECLARED_KEY } from "./declared-key.js";
 import { type RejectFn, readDeclaredKey } from "./key.js";
 import { trimDeclaredString } from "./trim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
@@ -242,7 +243,10 @@ const parseFillDeclaration = (
   };
   if (raw === null || raw === undefined) return EMPTY;
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    rejectKey("fill", `a non-object fill declaration ${JSON.stringify(raw)}`);
+    rejectKey(
+      DECLARED_KEY.FILL,
+      `a non-object fill declaration ${JSON.stringify(raw)}`,
+    );
     return { invalid };
   }
   const data = raw as Record<string, unknown>;
@@ -337,7 +341,7 @@ const parseFillDeclaration = (
     // declaration schema fill and border reuse. A hard drop (no field, unknown
     // kind, category without scheme) returns undefined and drops the whole
     // declaration; the config is the declared read-time default.
-    const config = parseValueDeclaration(data, rejectKey, "fill");
+    const config = parseValueDeclaration(data, rejectKey, DECLARED_KEY.FILL);
     if (config === undefined) return { invalid };
     return {
       declared: { mode, value: config, ...(opacity === undefined ? {} : { opacity }) },
@@ -372,7 +376,7 @@ const parseFillDeclaration = (
  */
 const readDeclaredFill = (layer: unknown, layerId?: string): DeclaredFillRead => {
   if (layer === null || typeof layer !== "object") return EMPTY;
-  return readDeclaredKey(layer, layerId, "fill", parseFillDeclaration);
+  return readDeclaredKey(layer, layerId, DECLARED_KEY.FILL, parseFillDeclaration);
 };
 
 export { readDeclaredFill, parseValueDeclaration };

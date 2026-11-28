@@ -7,6 +7,7 @@
   "control/LayerControl/declared/fill",
   "control/LayerControl/declared/filter",
   "control/LayerControl/declared/key",
+  "control/LayerControl/declared/declared-key",
   "control/LayerControl/declared/marker",
   "control/LayerControl/declared/parse",
   "control/LayerControl/declared/trim",

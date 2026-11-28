@@ -12,6 +12,7 @@
 // module owns the face parses and their readers. Public API names are unchanged
 // (readDeclaredIcon / readDeclaredMarker / readDeclaredIconColorOpacity /
 // readDeclaredMarkerColorOpacity).
+import { DECLARED_KEY } from "./declared-key.js";
 import { type RejectFn, readDeclaredKey } from "./key.js";
 import { trimDeclaredString } from "./trim.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
@@ -186,7 +187,7 @@ const parseIconFace = (
   const { values, invalid } = normaliseFaceKeys(
     raw as Record<string, unknown>,
     ICON_FACE_KEYS,
-    "icon",
+    DECLARED_KEY.ICON,
     layerId,
     reject,
   );
@@ -211,7 +212,7 @@ const parseMarkerFace = (
   const { values, invalid } = normaliseFaceKeys(
     raw as Record<string, unknown>,
     MARKER_FACE_KEYS,
-    "marker",
+    DECLARED_KEY.MARKER,
     layerId,
     reject,
   );
@@ -238,7 +239,7 @@ const readDeclaredIcon = (
     ? readDeclaredKey<DeclaredIconFace, string>(
         layer,
         layerId,
-        "icon",
+        DECLARED_KEY.ICON,
         parseIconFace,
         warn,
       )
@@ -255,7 +256,7 @@ const readDeclaredMarker = (
     ? readDeclaredKey<DeclaredMarkerFace, string>(
         layer,
         layerId,
-        "marker",
+        DECLARED_KEY.MARKER,
         parseMarkerFace,
         warn,
       )

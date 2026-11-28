@@ -22,6 +22,7 @@
 
 ### Changed
 
+- `LayerControl`: the per-layer declaration keys (`fill`/`border`/`opacity`/`label`/`filter`/`icon`/`marker`/`icon_size`/`marker_color`/`zoom_range`/`folder`) come from one JS vocabulary (`declared/declared-key.ts`) read by the declared readers and the fold role words, with the Python `_declaration/key.py` `*_KEY` constants and the JS set pinned equal by a cross-stack guard, so a key spelling change is one edit instead of a reader-by-reader sweep
 - `CSS`: design tokens split surface from on-accent and expose a focus color, so a theme can invert one without the other ([#714](https://github.com/Zeroto521/foliplus/pull/714), [#1173](https://github.com/Zeroto521/foliplus/pull/1173))
 - `core/layer`: a reorder walks each layer's tree once, late content is pinned in one fragment, and a declared pane spec may only name the public roles; the label pane's role, pane prefix and DOM classes are spelled `label` (`foliplus-label-*`); the ordering model behind it is one arrangement tree that both the panel row order and the map z-order project from ([#733](https://github.com/Zeroto521/foliplus/pull/733), [#790](https://github.com/Zeroto521/foliplus/pull/790), [#1386](https://github.com/Zeroto521/foliplus/pull/1386))
 - `LayerControl`: labels rebuild once per frame and repaint only their own canvas, each dimension owns its replay policy, and clearing labels also drops the layer's pan plan ([#734](https://github.com/Zeroto521/foliplus/pull/734))

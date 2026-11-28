@@ -17,6 +17,7 @@ export {
 export type { DeclaredIconFace } from "./face.js";
 export { readDeclaredFill } from "./fill.js";
 export { readDeclaredFilter } from "./filter.js";
+export { DECLARED_KEY } from "./declared-key.js";
 export { readDeclaredKey } from "./key.js";
 export type { RejectFn } from "./key.js";
 export { readDeclaredIconSize, readDeclaredMarkerColor } from "./marker.js";

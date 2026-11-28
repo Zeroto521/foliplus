@@ -17,7 +17,7 @@
 // the role fold uses: an explicit EXPAND over an author default fold has to be
 // distinguishable from "never touched", or an author-folded folder can never
 // be opened by hand.
-import { normalizeFolderName } from "#core/layer/index.js";
+import { ROLE, normalizeFolderName } from "#core/layer/index.js";
 import type { FolderDefaults } from "#foliplus/config-schema.js";
 
 /** The key separator between the role and the normalized folder name. The
@@ -53,7 +53,7 @@ const authorFoldedKeys = (folders: FolderDefaults | null | undefined): Set<strin
   // Only the two declared sections are folder roles; the Python normaliser
   // drops anything else, and this derivation mirrors that (a stray key in a
   // hand-built CONF must not become a fold state).
-  for (const role of ["overlay", "base"] as const) {
+  for (const role of [ROLE.OVERLAY, ROLE.BASE] as const) {
     const entries = folders[role];
     if (!Array.isArray(entries)) continue;
     for (const entry of entries) {
