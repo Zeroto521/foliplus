@@ -156,6 +156,7 @@
   "ui/scaleClassName",
   "ui/schemePicker",
   "ui/schemePickerClassName",
+  "ui/scrollbarLane",
   "ui/scrollIntoView",
   "ui/slider",
   "ui/sliderClassName",

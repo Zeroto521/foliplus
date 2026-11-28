@@ -505,6 +505,18 @@ describe("bindBorderRow", () => {
     expect(leaf.setStyle).toHaveBeenCalledWith({ color: "#abcdef", stroke: true });
   });
 
+  it("resolves a 3-digit author stroke to the swatch's 6-digit form", () => {
+    // displayColor's short-hex path: the author's #f00 must reach the color
+    // input as #ff0000 — the input's value is defined as #rrggbb only.
+    const leaf = makeLeaf("#f00", 2);
+    manager.registerLayer({ id: "vec1", name: "V", layer: leaf });
+    const row = buildBorderRow(ui, "vec1");
+    const swatch = row.querySelector(
+      ".foliplus-style-border-color-input",
+    ) as HTMLInputElement;
+    expect(swatch.value).toBe("#ff0000");
+  });
+
   it("leaves a row alone that has neither control to bind", () => {
     const row = document.createElement("div");
 

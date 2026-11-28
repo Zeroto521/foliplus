@@ -805,9 +805,7 @@ describe("portal mode", () => {
     const { picker, trigger } = makePicker({ portal: true });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const dropdown = picker.getDropdown()!;
-    expect(
-      dropdown.style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width"),
-    ).toBe("0px");
+    expect(dropdown.style.getPropertyValue("--foliplus-scrollbar-lane")).toBe("0px");
     picker.destroy();
   });
 
@@ -816,11 +814,9 @@ describe("portal mode", () => {
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     const dropdown = picker.getDropdown()!;
     // Simulate a previously measured non-zero lane (a layout scrollbar).
-    dropdown.style.setProperty("--foliplus-scheme-picker-scrollbar-width", "12px");
+    dropdown.style.setProperty("--foliplus-scrollbar-lane", "12px");
     window.dispatchEvent(new Event("resize"));
-    expect(
-      dropdown.style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width"),
-    ).toBe("0px");
+    expect(dropdown.style.getPropertyValue("--foliplus-scrollbar-lane")).toBe("0px");
     picker.destroy();
   });
 
@@ -847,9 +843,7 @@ describe("portal mode", () => {
       });
     try {
       window.dispatchEvent(new Event("resize"));
-      expect(
-        dropdown.style.getPropertyValue("--foliplus-scheme-picker-scrollbar-width"),
-      ).toBe("0px");
+      expect(dropdown.style.getPropertyValue("--foliplus-scrollbar-lane")).toBe("0px");
       expect(spy).toHaveBeenCalled();
     } finally {
       spy.mockRestore();
@@ -1507,7 +1501,7 @@ it("keeps a wheel over the open picker list from reaching the map container", ()
 // ── scrollbar lane publishing ──────────────────────────────────────────
 
 describe("scheme picker: scrollbar lane fallback", () => {
-  // syncScrollbarWidth reads borderLeftWidth/borderRightWidth from
+  // publishScrollbarLane reads borderLeftWidth/borderRightWidth from
   // getComputedStyle and falls back to 0 when the dropdown reports no border
   // ("|| '0'"). jsdom reports a fixed 16px default border, so the fallback
   // arm is only reached when the computed style is forced to empty.
@@ -1529,12 +1523,10 @@ describe("scheme picker: scrollbar lane fallback", () => {
       return base;
     });
     try {
-      // Re-open so onPosition -> syncScrollbarWidth runs with the forced style.
+      // Re-open so onPosition -> publishScrollbarLane runs with the forced style.
       picker.close();
       trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      const lane = dropdown.style.getPropertyValue(
-        "--foliplus-scheme-picker-scrollbar-width",
-      );
+      const lane = dropdown.style.getPropertyValue("--foliplus-scrollbar-lane");
       // offsetWidth/clientWidth are 0 in jsdom and the border is 0 via the
       // fallback, so the published lane is exactly 0px.
       expect(lane).toBe("0px");

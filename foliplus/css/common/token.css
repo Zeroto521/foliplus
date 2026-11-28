@@ -478,23 +478,21 @@
      its reserved selection border inside the inset (see scheme-picker.css). */
   --foliplus-scheme-picker-bar-inset-x: var(--foliplus-icon-size-md);
 
-  /* Width of the dropdown's scrollbar lane. The picker writes the measured
-     value on the mounted dropdown (a layout scrollbar reserves real space, an
-     overlay one reserves none, and a stable gutter keeps the lane constant
-     between the scrolling and fitting states); the item strip subtracts it so
-     its right edge stays on the trigger strip's right edge whenever the lane
-     fits inside the inset. */
-  --foliplus-scheme-picker-scrollbar-width: 0px;
-
   /* ── Shared scrollbar recipe ──
      One scrollbar language for every foliplus scrollable surface
-     (common/scrollbar.css applies them): a thin lane with a stable gutter,
-     so a list crossing its max-height does not shift its rows and a classic
-     scrollbar does not eat the width. The scheme picker's measured lane
-     (--foliplus-scheme-picker-scrollbar-width) stays separate — it is a
-     runtime measurement, not this decision. */
+     (common/scrollbar.css applies them): a thin lane, so a classic scrollbar
+     does not eat the width. Which surfaces reserve that lane with a stable
+     gutter is a layout decision with one source and its own table — see
+     common/scrollbar.css. */
   --foliplus-scrollbar-width: thin;
   --foliplus-scrollbar-gutter: stable;
+
+  /* Measured lane of the surface's own scrollbar: ui/scrollbarLane publishes
+     it on the scrolling element, 0 until measured (and 0 where the platform's
+     scrollbars are overlays). The stable-gutter consumers read it to keep
+     their geometry constant across a max-height crossing — the scheme picker
+     subtracts it from its strip inset, the search result row paints into it. */
+  --foliplus-scrollbar-lane: 0px;
 
   /* ── LayerControl (row layout) ──
      Drag & drop variables and grid layout metrics. */

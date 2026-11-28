@@ -17,6 +17,7 @@ from folium.map import Layer
 
 from foliplus._declaration import FILTER_KEY, LABEL_KEY
 
+from ._face import declared_icon, declared_marker
 from ._fill_author import fill_author, map_colormaps
 from ._folder import _folder_key, warn_unclaimed_folders
 from ._layer import (
@@ -29,11 +30,7 @@ from ._layer import (
     declared_marker_color,
     declared_zoom_range,
 )
-from ._opacity import (
-    declared_icon_color_opacity,
-    declared_marker_color_opacity,
-    declared_opacity,
-)
+from ._opacity import declared_opacity
 from ._role import layer_role
 
 if TYPE_CHECKING:
@@ -116,13 +113,16 @@ def collect_layer_data(control: LayerControl) -> dict[str, object]:
         # validated. Neither emits a CONF fact; each is read per layer.
         declared_marker_color(item, item.layer_name)
         declared_icon_size(item, item.layer_name)
-        # Whole-layer opacity / icon / marker colour alpha ride the same channel
-        # as border: the JS panel reads them straight off
-        # layer.options.foliplus (via the shared declared-key reader), so
-        # Python only shape-validates and warns once at collection time.
+        # Whole-layer opacity and the icon / marker face declarations ride the
+        # same channel as border: the JS panel reads them straight off
+        # layer.options.foliplus, so Python only shape-validates and warns once
+        # at collection time. The face readers own the in-face spelling rule
+        # (camel and snake both accepted, unknown sub-keys warned) in
+        # foliplus._declaration.face - one normalisation point, never a
+        # per-reader "did you mean" branch.
         declared_opacity(item, item.layer_name)
-        declared_icon_color_opacity(item, item.layer_name)
-        declared_marker_color_opacity(item, item.layer_name)
+        declared_icon(item, item.layer_name)
+        declared_marker(item, item.layer_name)
         data.append(entry)
 
     # A folder name shared by several layers is a grouping intent, not a

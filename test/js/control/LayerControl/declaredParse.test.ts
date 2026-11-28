@@ -11,8 +11,10 @@ import { STYLE_MODE } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import {
   readDeclaredBorder,
+  readDeclaredIcon,
   readDeclaredIconColorOpacity,
   readDeclaredIconSize,
+  readDeclaredMarker,
   readDeclaredMarkerColor,
   readDeclaredMarkerColorOpacity,
   readDeclaredOpacity,
@@ -475,7 +477,7 @@ describe("readDeclaredOpacity", () => {
 });
 
 describe("readDeclaredIconColorOpacity", () => {
-  it("reads the glyph alpha off the icon block", () => {
+  it("reads the glyph alpha off the icon face", () => {
     const { declared, invalid } = readDeclaredIconColorOpacity(
       layerWith({ icon: { colorOpacity: 60 } }),
       "L",
@@ -484,13 +486,13 @@ describe("readDeclaredIconColorOpacity", () => {
     expect(invalid).toEqual([]);
   });
 
-  it("reads nothing when the icon block is absent", () => {
+  it("reads nothing when the icon face is absent", () => {
     const { declared, invalid } = readDeclaredIconColorOpacity(layerWith({}), "L");
     expect(declared).toBeUndefined();
     expect(invalid).toEqual([]);
   });
 
-  it("reads nothing when the icon block is not a mapping", () => {
+  it("reads nothing when the icon face is not a mapping", () => {
     const { declared } = readDeclaredIconColorOpacity(layerWith({ icon: "red" }), "L");
     expect(declared).toBeUndefined();
   });
@@ -523,7 +525,7 @@ describe("readDeclaredIconColorOpacity", () => {
 });
 
 describe("readDeclaredMarkerColorOpacity", () => {
-  it("reads the chassis alpha off the marker block", () => {
+  it("reads the chassis alpha off the marker face", () => {
     const { declared, invalid } = readDeclaredMarkerColorOpacity(
       layerWith({ marker: { colorOpacity: 60 } }),
       "L",
@@ -532,13 +534,13 @@ describe("readDeclaredMarkerColorOpacity", () => {
     expect(invalid).toEqual([]);
   });
 
-  it("reads nothing when the marker block is absent", () => {
+  it("reads nothing when the marker face is absent", () => {
     const { declared, invalid } = readDeclaredMarkerColorOpacity(layerWith({}), "L");
     expect(declared).toBeUndefined();
     expect(invalid).toEqual([]);
   });
 
-  it("reads nothing when the marker block is not a mapping", () => {
+  it("reads nothing when the marker face is not a mapping", () => {
     const { declared } = readDeclaredMarkerColorOpacity(
       layerWith({ marker: "red" }),
       "L",
@@ -559,4 +561,135 @@ describe("readDeclaredMarkerColorOpacity", () => {
       expect(invalid).toHaveLength(1);
     },
   );
+});
+
+describe("readDeclaredIcon", () => {
+  it("reads the glyph, colour and alpha of an icon face", () => {
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { glyph: "star", color: "#FF0000", colorOpacity: 60 } }),
+      "L",
+    );
+    expect(invalid).toEqual([]);
+    expect(declared).toEqual({
+      glyph: "star",
+      color: "#ff0000",
+      colorOpacity: 60,
+    });
+  });
+
+  it("accepts the snake_case alpha spelling and normalises it to camelCase", () => {
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { color_opacity: 40 } }),
+      "L",
+    );
+    expect(invalid).toEqual([]);
+    expect(declared).toEqual({ colorOpacity: 40 });
+  });
+
+  it("keeps the first spelling when the face declares the alpha twice", () => {
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { colorOpacity: 60, color_opacity: 40 } }),
+      "L",
+      warn,
+    );
+    expect(declared).toEqual({ colorOpacity: 60 });
+    expect(invalid).toHaveLength(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("warns on an unknown sub-key and keeps the known ones", () => {
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { glyph: "star", colour: "#fff" } }),
+      "L",
+      warn,
+    );
+    expect(declared).toEqual({ glyph: "star" });
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0]).toMatch(/unknown sub-key "colour"/);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    [{ glyph: "" }, /non-empty string/],
+    [{ glyph: 7 }, /non-empty string/],
+    [{ color: "red" }, /CSS hex/],
+    [{ colorOpacity: 101 }, /colorOpacity/],
+  ])("rejects a malformed sub-key %j alone", (face, pattern) => {
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: face }),
+      "L",
+      warn,
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0]).toMatch(pattern);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a malformed sub-key does not drop its siblings", () => {
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { glyph: "star", color: "nope" } }),
+      "L",
+      vi.fn(),
+    );
+    expect(declared).toEqual({ glyph: "star" });
+    expect(invalid).toHaveLength(1);
+  });
+
+  it("is a pure no-op for a layer with no icon face", () => {
+    const { declared, invalid } = readDeclaredIcon(layerWith({}), "L");
+    expect(declared).toBeUndefined();
+    expect(invalid).toEqual([]);
+  });
+
+  it("reads nothing when the icon face is not a mapping", () => {
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: "red" }),
+      "L",
+      vi.fn(),
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid).toHaveLength(1);
+  });
+
+  it("never caches a null layer", () => {
+    expect(readDeclaredIcon(null, "L").declared).toBeUndefined();
+  });
+});
+
+describe("readDeclaredMarker", () => {
+  it("reads the chassis alpha off the marker face (both spellings)", () => {
+    expect(
+      readDeclaredMarker(layerWith({ marker: { colorOpacity: 40 } }), "L").declared,
+    ).toEqual({ colorOpacity: 40 });
+    expect(
+      readDeclaredMarker(layerWith({ marker: { color_opacity: 40 } }), "M").declared,
+    ).toEqual({ colorOpacity: 40 });
+  });
+
+  it("warns on a glyph sub-key (the marker face carries no glyph)", () => {
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredMarker(
+      layerWith({ marker: { glyph: "star" } }),
+      "L",
+      warn,
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0]).toMatch(/unknown sub-key "glyph"/);
+  });
+
+  it("warns on a face-level colour (the chassis colour is marker_color)", () => {
+    const { declared, invalid } = readDeclaredMarker(
+      layerWith({ marker: { color: "#ff0000" } }),
+      "L",
+      vi.fn(),
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid).toHaveLength(1);
+    expect(invalid[0]).toMatch(/unknown sub-key "color"/);
+  });
 });

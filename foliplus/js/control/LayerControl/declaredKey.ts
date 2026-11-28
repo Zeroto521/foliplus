@@ -70,9 +70,11 @@ const rawDeclaredKeyOf = (layer: object, key: string): unknown => {
 /** Per-layer-object cache, keyed by (layer, declared-key). */
 const caches = new WeakMap<object, Map<string, unknown>>();
 
-/** Warn once per (layer, key): a re-read of the same declaration must not
- *  flood the console on every apply. */
-const warned = new Set<string>();
+/** Warn once per (layer, declared-key, key): a re-read of the same declaration
+ *  must not flood the console on every apply, but two layers carrying the same
+ *  mistake are two authoring errors and both must surface — the dedupe is per
+ *  layer object, not process-wide. */
+const warned = new WeakMap<object, Set<string>>();
 
 /** Reject one key of a declaration: record it for the caller (tests), and warn
  *  once per (declared-key, layer, key). */
@@ -114,10 +116,16 @@ const readDeclaredKey = <R, I>(
   }
   const cached = perLayer.get(declaredKey);
   if (cached !== undefined) return cached as { declared?: R; invalid: I[] };
+  let warnedOnLayer = warned.get(layer);
+  if (!warnedOnLayer) {
+    warnedOnLayer = new Set();
+    warned.set(layer, warnedOnLayer);
+  }
+  const layerWarnings = warnedOnLayer;
   const reject: RejectFn = (scope, message) => {
     const fullScope = `${declaredKey}:${scope}`;
-    if (warned.has(fullScope)) return;
-    warned.add(fullScope);
+    if (layerWarnings.has(fullScope)) return;
+    layerWarnings.add(fullScope);
     warn(message);
   };
   const result = parse(
@@ -129,5 +137,5 @@ const readDeclaredKey = <R, I>(
   return result;
 };
 
-export { camelize, readDeclaredKey };
+export { readDeclaredKey };
 export type { RejectFn };

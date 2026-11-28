@@ -11,6 +11,7 @@
 import { createListbox } from "./listbox.js";
 import { PANEL_CLASS } from "./panelClassName.js";
 import { SCHEME_PICKER_CLASS } from "./schemePickerClassName.js";
+import { publishScrollbarLane } from "./scrollbarLane.js";
 import type { SchemePicker } from "./type.js";
 import { dom } from "#platform/dom.js";
 import { createLogger } from "#platform/log.js";
@@ -119,24 +120,6 @@ const renderColorBar = (
       parent: container,
     });
   }
-};
-
-// ── scrollbar lane publishing ─────────────────────────────────────────
-
-// The item's right inset subtracts this lane, so the property has to be
-// published on every mount and re-measured on resize. The value is the lane
-// the list's own overflow-y scrollbar occupies; a platform with overlay
-// scrollbars reports 0, and the strip then reaches the item's right inset.
-const syncScrollbarWidth = (dropdown: HTMLElement): void => {
-  const style = getComputedStyle(dropdown);
-  const borderPx =
-    parseFloat(style.borderLeftWidth || "0") +
-    parseFloat(style.borderRightWidth || "0");
-  const lane = Math.max(
-    0,
-    Math.round(dropdown.offsetWidth - dropdown.clientWidth - borderPx),
-  );
-  dropdown.style.setProperty("--foliplus-scheme-picker-scrollbar-width", `${lane}px`);
 };
 
 // ── Factory ────────────────────────────────────────────────────────────
@@ -289,11 +272,12 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
     },
     place: "fixed",
     focusOnOpen: "selected",
-    // Publish the lane after every position pass (the engine calls onPosition
-    // after positionList in portal mode and after the inline mount).
+    // Publish the measured lane after every position pass (the engine calls
+    // onPosition after positionList in portal mode and after the inline mount)
+    // so the item strip can subtract it. The measurement itself is shared with
+    // the search result panel (ui/scrollbarLane).
     onPosition: () => {
-      const dropdown = listbox.getList();
-      syncScrollbarWidth(dropdown!);
+      publishScrollbarLane(listbox.getList()!);
     },
     inline: !options.portal,
     inlineHost: options.portal
