@@ -333,24 +333,32 @@ type FaceKeyRead =
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly invalid: string };
 
-/** The whitespace a declared face string is trimmed of, as explicit code
- *  points. KEEP IN STEP with FACE_TRIM_CODEPOINTS in
- *  foliplus/_declaration/face.py - the cross-stack guard
- *  (test/python/guard/test_face_vocabulary.py) compares both literals. This is
- *  an explicit set, not String.prototype.trim(): JavaScript trims U+FEFF (a BOM
- *  pasted from a CSV) that Python keeps, and Python strips U+001C-U+001F /
- *  U+0085 that JavaScript keeps - either spelling would be accepted on one
- *  stack and missed or rejected on the other. */
-const FACE_TRIM_CODEPOINTS: readonly number[] = [
-  0x20, 0x09, 0x0a, 0x0d, 0x0c, 0x0b, 0xa0, 0x1c, 0x1d, 0x1e, 0x1f, 0x85, 0xfeff,
+/** The whitespace a declared string value is trimmed of, as explicit code
+ *  points. This is the UNION of the two hosts' whitespace sets, not either
+ *  host's default: Python's str.isspace() includes U+001C-U+001F / U+0085 that
+ *  JavaScript keeps, JavaScript's WhiteSpace/LineTerminator set includes U+FEFF
+ *  (a BOM pasted from a CSV) that Python keeps, and an author pasting from rich
+ *  text or CJK input brings U+2000-U+200A, U+2028/U+2029, U+202F, U+205F or
+ *  U+3000. KEEP IN STEP with DECLARED_TRIM_CODEPOINTS in
+ *  foliplus/_declaration/paint.py - the cross-stack guard
+ *  (test/python/guard/test_face_vocabulary.py) compares both literals and
+ *  asserts the colour path never uses a host trim. */
+const DECLARED_TRIM_CODEPOINTS: readonly number[] = [
+  0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x85, 0xa0, 0x1680,
+  0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009,
+  0x200a, 0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0xfeff,
 ];
-const FACE_TRIM_CLASS = FACE_TRIM_CODEPOINTS.map(
+const DECLARED_TRIM_CLASS = DECLARED_TRIM_CODEPOINTS.map(
   codepoint => `\\u{${codepoint.toString(16)}}`,
 ).join("");
-const FACE_TRIM_RE = new RegExp(`^[${FACE_TRIM_CLASS}]+|[${FACE_TRIM_CLASS}]+$`, "gu");
+const DECLARED_TRIM_RE = new RegExp(
+  `^[${DECLARED_TRIM_CLASS}]+|[${DECLARED_TRIM_CLASS}]+$`,
+  "gu",
+);
 
-/** Trim a declared face string of the shared whitespace set only. */
-const trimFaceString = (value: string): string => value.replace(FACE_TRIM_RE, "");
+/** Trim a declared string value of the shared whitespace set only. */
+const trimDeclaredString = (value: string): string =>
+  value.replace(DECLARED_TRIM_RE, "");
 
 /** The sub-keys the `icon` face recognises. One map, one vocabulary: a key not
  *  listed here is an unknown sub-key and warns (P1-2), and the spellings list is
@@ -363,7 +371,7 @@ const ICON_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
       // normaliser strips the author's string first, so " star " is the same
       // declared glyph there. Storing the raw padded string here would make
       // the glyph lookup miss a name the declaration guide calls accepted.
-      const glyph = typeof raw === "string" ? trimFaceString(raw) : null;
+      const glyph = typeof raw === "string" ? trimDeclaredString(raw) : null;
       return glyph !== null && glyph !== ""
         ? { ok: true, value: glyph }
         : {
@@ -379,7 +387,7 @@ const ICON_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
       // before its hex regex, so a padded "#ff0000" is accepted there. Both
       // sides must accept the same spelling and store the same expanded
       // lowercase hex, or one stack paints a colour the other rejects.
-      const color = typeof raw === "string" ? trimFaceString(raw) : raw;
+      const color = typeof raw === "string" ? trimDeclaredString(raw) : raw;
       return typeof color === "string" && isHexColor(color)
         ? { ok: true, value: normalizeHexColor(color).toLowerCase() }
         : {

@@ -153,13 +153,20 @@ class TestNormaliseIconFace:
         assert len(caught) == 2
 
     @pytest.mark.parametrize(
-        "codepoint", [0x0B, 0xA0, 0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0xFEFF]
+        "codepoint",
+        [
+            0x09, 0x0A, 0x0B, 0x0C, 0x0D,
+            0x1C, 0x1D, 0x1E, 0x1F, 0x20, 0x85, 0xA0, 0x1680,
+            0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007,
+            0x2008, 0x2009, 0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000,
+            0xFEFF,
+        ],
     )
     def test_the_shared_whitespace_set_is_trimmed(self, codepoint: int) -> None:
-        # The review's hanging cases: \uFEFF is a BOM pasted from a CSV (Python
-        # str.strip() keeps it, JS trim() drops it), U+001C-1F / U+0085 are the
-        # reverse (Python strips them, JS keeps them). Both stacks now trim the
-        # same explicit set, so these are the same declared value on either side.
+        # The set is the UNION of the two hosts' whitespace: U+FEFF (a BOM pasted
+        # from a CSV) and U+001C-1F / U+0085 disagree between str.strip() and
+        # trim(), while U+2000-200A / U+2028 / U+3000 are what an author pastes
+        # from rich text or CJK input. One set, one declared value on either stack.
         trim = chr(codepoint)
         out = normalise_icon_face(
             {"glyph": f"{trim}star{trim}", "color": f" #f00{trim}"},
@@ -169,9 +176,9 @@ class TestNormaliseIconFace:
         assert out == {"glyph": "star", "color": "#ff0000"}
 
     def test_the_whole_shared_whitespace_set_is_one_literal(self) -> None:
-        from foliplus._declaration.face import FACE_TRIM_CODEPOINTS
+        from foliplus._declaration.paint import DECLARED_TRIM_CODEPOINTS
 
-        for codepoint in FACE_TRIM_CODEPOINTS:
+        for codepoint in DECLARED_TRIM_CODEPOINTS:
             trim = chr(codepoint)
             out = normalise_icon_face(
                 {"glyph": f"{trim}star{trim}"},

@@ -28,38 +28,8 @@ from collections.abc import Mapping
 
 from .key import ICON_KEY, MARKER_KEY
 from .opacity import normalise_color_opacity
-from .paint import _declared_hex
+from .paint import _declared_hex, trim_declared_string
 from .warning import warn_foliplus
-
-#: The whitespace a declared face string is trimmed of, as explicit code points.
-#: KEEP IN STEP with FACE_TRIM_CODEPOINTS in
-#: foliplus/js/control/LayerControl/declaredParse.ts - the cross-stack guard
-#: (test/python/guard/test_face_vocabulary.py) compares both literals. This is
-#: an explicit set, not str.strip(): Python strips U+001C-U+001F / U+0085 that
-#: JavaScript trim() keeps, and JavaScript trims U+FEFF (a BOM pasted from a CSV)
-#: that Python keeps - either spelling would be accepted on one stack and
-#: missed or rejected on the other.
-FACE_TRIM_CODEPOINTS: tuple[int, ...] = (
-    0x20,  # space
-    0x09,  # horizontal tab
-    0x0A,  # line feed
-    0x0D,  # carriage return
-    0x0C,  # form feed
-    0x0B,  # vertical tab
-    0xA0,  # no-break space
-    0x1C,  # file separator
-    0x1D,  # group separator
-    0x1E,  # record separator
-    0x1F,  # unit separator
-    0x85,  # next line (NEL)
-    0xFEFF,  # zero-width no-break space (BOM)
-)
-_FACE_TRIM_CHARS = "".join(chr(codepoint) for codepoint in FACE_TRIM_CODEPOINTS)
-
-
-def _trim_face_string(value: str) -> str:
-    """Trim a declared face string of the shared whitespace set only."""
-    return value.strip(_FACE_TRIM_CHARS)
 
 
 #: The icon face sub-dimensions: canonical camelCase key -> accepted spellings
@@ -192,8 +162,8 @@ def normalise_icon_face(
     normalised: dict[str, object] = {}
     if "glyph" in face:
         glyph = face["glyph"]
-        if isinstance(glyph, str) and _trim_face_string(glyph):
-            normalised["glyph"] = _trim_face_string(glyph)
+        if isinstance(glyph, str) and trim_declared_string(glyph):
+            normalised["glyph"] = trim_declared_string(glyph)
         else:
             reject("glyph", f"as {glyph!r}; expected a non-empty string")
     if "color" in face:
@@ -204,8 +174,8 @@ def normalise_icon_face(
             # one-side-warns/one-side-silent split this channel retired.
             reject("color", "as None; expected a CSS hex (#rgb or #rrggbb)")
         else:
-            if isinstance(color, str):
-                color = _trim_face_string(color)
+            # _declared_hex trims with the shared declared-string trim; the
+            # colour path must not carry a second, host-default strip().
             normalised_color = _declared_hex(
                 color, lambda reason: reject("color", reason)
             )
