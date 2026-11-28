@@ -11,7 +11,11 @@
  *
  * The cap is a burn-down list, not a permanent exemption: OVERSIZED below lists
  * today's offenders, each entry naming the split card that removes it. A split
- * deletes its entry in the same PR.
+ * deletes its entry in the same PR, and the guard enforces that instead of
+ * trusting it: a stale entry — the file is gone, or it has fallen to or under
+ * the cap — fails the gate and asks for the line to be deleted. That is the
+ * same semantics script/check/python_test_layout.py already ships, and the
+ * opposite of "an allowlist that only ever grows".
  *
  * Usage:
  *   node script/check/test-size.mjs [--list]
@@ -32,25 +36,12 @@ const LIMIT = 1200;
 /** Today's oversized files, keyed repo-relative under test/js/. Each entry names
  *  the split card that removes it. A split deletes its entry in the same PR. */
 const OVERSIZED = {
-  "control/LayerControl/controller.test.ts": "split pending — blocked by #1284",
-  "control/LayerControl/ui/style/fill.test.ts": "split pending — blocked by #1284",
-  "control/LayerControl/ui/style/index.test.ts": "split pending — blocked by #1284",
-  "control/LayerControl/ui/style/border.test.ts": "split pending — blocked by #1284",
   "control/MeasureControl/manager.test.ts": "split pending",
   "ui/listbox.test.ts": "split pending",
-  "control/LayerControl/ui/focus/index.test.ts": "split pending — blocked by #1284",
-  "control/LayerControl/ui/listPanel/list.test.ts": "split pending — blocked by #1284",
-  "control/LayerControl/ui/overlayPanel/menu.test.ts":
-    "split pending — blocked by #1284",
-  "control/LayerControl/ui/overlayPanel/filter.test.ts":
-    "split pending — blocked by #1284",
-  "control/LayerControl/ui/listPanel/drag.test.ts": "split pending — blocked by #1284",
-  "control/LayerControl/ui/apply.test.ts": "split pending — blocked by #1284",
   "ui/slider.test.ts": "split pending",
   "control/ExportControl/renderer/index.test.ts": "split pending",
   "control/ExportControl/renderer/marker.test.ts":
     "split pending — the marker export cases were folded into the canonical file",
-  "control/LayerControl/ui/state.test.ts": "split pending — blocked by #1284",
   "control/LayerControl/persistence.test.ts": "split pending — blocked by #1284",
   "core/layer/LayerFactory.test.ts": "split pending",
   "core/layer/PaneManager.test.ts": "split pending",
@@ -127,6 +118,43 @@ const remainingAllowlist = () =>
   Object.keys(OVERSIZED).filter(stem => fs.existsSync(path.join(TEST_ROOT, stem)));
 
 /**
+ * The allowlist entries that no longer owe a split: the file is gone, or it has
+ * fallen to or under LIMIT. Each row says why and what to do, so the message is
+ * the fix rather than a number.
+ *
+ * Pure over the injected tree (the same (file, lines) pairs checkSize takes),
+ * so a shrunk file can be simulated without writing one — but the CLI always
+ * passes the real walk, where a file missing from it is missing from disk.
+ *
+ * @param {{ file: string, lines: number }[]} [entries]
+ * @param {Record<string, string>} [oversized]
+ * @returns {{ stem: string, lines: number | null, reason: string }[]}
+ */
+const staleAllowlist = (entries = listTestFiles(), oversized = OVERSIZED) => {
+  const counted = new Map(
+    entries.map(entry => [relUnderTestJs(entry.file), entry.lines]),
+  );
+  const stale = [];
+  for (const stem of Object.keys(oversized)) {
+    const lines = counted.get(stem);
+    if (lines === undefined) {
+      stale.push({
+        stem,
+        lines: null,
+        reason: "file is gone — delete this allowlist entry",
+      });
+    } else if (lines <= LIMIT) {
+      stale.push({
+        stem,
+        lines,
+        reason: `now ${lines} lines, at or under the ${LIMIT}-line cap — delete this allowlist entry`,
+      });
+    }
+  }
+  return stale;
+};
+
+/**
  * The CLI body. `entries` is injectable so the reporting branches can be
  * exercised without an oversized file on disk.
  *
@@ -134,13 +162,18 @@ const remainingAllowlist = () =>
  * @param {string[]} [argv]
  */
 const main = (entries = listTestFiles(), argv = process.argv) => {
+  const stale = staleAllowlist(entries);
   if (argv.includes("--list")) {
     const remaining = remainingAllowlist();
     console.log(
-      `allowlist: ${Object.keys(OVERSIZED).length} entries, ${remaining.length} still on disk`,
+      `allowlist: ${Object.keys(OVERSIZED).length} entries, ${remaining.length} still on disk, ${stale.length} stale`,
     );
     remaining.forEach(stem => console.log(`  ${stem} — ${OVERSIZED[stem]}`));
-    return 0;
+    stale.forEach(({ stem, reason }) => console.log(`  STALE ${stem} — ${reason}`));
+    return stale.length > 0 ? 1 : 0;
+  }
+  for (const { stem, reason } of stale) {
+    console.log(`${stem}: stale allowlist entry — ${reason}`);
   }
   const bad = checkSize(entries);
   for (const { file, lines } of bad) {
@@ -148,7 +181,7 @@ const main = (entries = listTestFiles(), argv = process.argv) => {
       `${file}: ${lines} lines (limit ${LIMIT}); split by aspect or add an allowlist entry naming its split card`,
     );
   }
-  return bad.length > 0 ? 1 : 0;
+  return stale.length > 0 || bad.length > 0 ? 1 : 0;
 };
 
 // unreachable: the CLI entry runs only when Node executes this file directly;
@@ -158,4 +191,4 @@ if (process.argv[1] && process.argv[1].endsWith("test-size.mjs")) {
   process.exit(main());
 }
 
-export { LIMIT, checkSize, listTestFiles, main, remainingAllowlist };
+export { LIMIT, checkSize, listTestFiles, main, remainingAllowlist, staleAllowlist };

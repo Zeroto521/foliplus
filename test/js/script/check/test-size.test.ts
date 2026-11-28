@@ -14,6 +14,7 @@ import {
   listTestFiles,
   main,
   remainingAllowlist,
+  staleAllowlist,
 } from "#script/check/test-size.mjs";
 
 describe("checkSize", () => {
@@ -79,6 +80,51 @@ describe("checkSize", () => {
   });
 });
 
+describe("staleAllowlist", () => {
+  it("flags an entry whose file fell to or under the cap", () => {
+    // The split landed but the entry stayed: the burn-down list owes nothing
+    // here, so the gate must say "delete this entry" instead of staying quiet.
+    const stale = staleAllowlist(
+      [{ file: "test/js/ui/listbox.test.ts", lines: LIMIT }],
+      { "ui/listbox.test.ts": "split pending" },
+    );
+    expect(stale.map(entry => entry.stem)).toEqual(["ui/listbox.test.ts"]);
+    expect(stale[0].lines).toBe(LIMIT);
+    expect(stale[0].reason).toContain("delete");
+  });
+
+  it("flags an entry whose file is gone", () => {
+    const stale = staleAllowlist([], { "ui/gone.test.ts": "split pending" });
+    expect(stale.map(entry => entry.stem)).toEqual(["ui/gone.test.ts"]);
+    expect(stale[0].lines).toBeNull();
+    expect(stale[0].reason).toContain("delete");
+  });
+
+  it("keeps an entry for a file still over the cap", () => {
+    expect(
+      staleAllowlist([{ file: "test/js/ui/listbox.test.ts", lines: LIMIT + 1 }], {
+        "ui/listbox.test.ts": "split pending",
+      }),
+    ).toEqual([]);
+  });
+
+  it("normalises an absolute path before matching the entry", () => {
+    // The caller walks with absolute paths; a stale check keyed on the raw path
+    // would call every real entry missing.
+    expect(
+      staleAllowlist(
+        [
+          {
+            file: "/abs/repo/test/js/core/layer/folderLayout.test.ts",
+            lines: LIMIT + 1,
+          },
+        ],
+        { "core/layer/folderLayout.test.ts": "split pending" },
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe("the real tree", () => {
   it("walks every test/js file with its raw line count", () => {
     const files = listTestFiles();
@@ -93,6 +139,13 @@ describe("the real tree", () => {
     const remaining = remainingAllowlist();
     expect(remaining.length).toBeGreaterThan(0);
     expect(remaining.every(stem => stem.endsWith(".test.ts"))).toBe(true);
+  });
+
+  it("carries no stale allowlist entry", () => {
+    // A shrunk file must delete its entry in the same PR that shrank it: the
+    // allowlist is a burn-down list, and a stale row is a lie about the work
+    // that is left.
+    expect(staleAllowlist()).toEqual([]);
   });
 
   it("exits 0 on the current tree", () => {
@@ -114,7 +167,8 @@ describe("the real tree", () => {
 
   it("prints the burn-down view under --list", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    expect(main([], ["node", "test-size.mjs", "--list"])).toBe(0);
+    // The real tree, so the view reports the entries still owed a split.
+    expect(main(listTestFiles(), ["node", "test-size.mjs", "--list"])).toBe(0);
     expect(log.mock.calls.flat().join(" ")).toContain("allowlist:");
     log.mockRestore();
   });
