@@ -145,17 +145,127 @@ const viewsOf = (file: string): Record<Surface, string> => {
   return views;
 };
 
+/** Raw source per file, so the cheap prefilter runs before any parse. */
+const rawCache = new Map<string, string>();
+const rawOf = (file: string): string => {
+  let raw = rawCache.get(file);
+  if (raw === undefined) {
+    raw = read(file);
+    rawCache.set(file, raw);
+  }
+  return raw;
+};
+
+/** Whitespace as the regex `\s` sees it, so the prefilter cannot miss a
+ *  `\s+` match the masked surface would make. */
+const isWhitespace = (char: string): boolean => /\s/.test(char);
+
+/** Skip whitespace and comments; returns the index of the next code char. */
+const skipTrivia = (source: string, from: number): number => {
+  let i = from;
+  while (i < source.length) {
+    const ch = source[i];
+    if (isWhitespace(ch)) {
+      i += 1;
+    } else if (ch === "/" && source[i + 1] === "/") {
+      const newline = source.indexOf("\n", i + 2);
+      i = newline < 0 ? source.length : newline + 1;
+    } else if (ch === "/" && source[i + 1] === "*") {
+      const close = source.indexOf("*/", i + 2);
+      i = close < 0 ? source.length : close + 2;
+    } else {
+      break;
+    }
+  }
+  return i;
+};
+
+const isWordChar = (char: string | undefined): boolean =>
+  char !== undefined && /[A-Za-z0-9_$]/.test(char);
+
+const isWordAt = (source: string, at: number, word: string): boolean =>
+  source.startsWith(word, at) &&
+  !isWordChar(source[at - 1]) &&
+  !isWordChar(source[at + word.length]);
+
+/** Raw-text prefilter: the words separated only by whitespace/comments. A type
+ *  assertion cannot put a literal between its 'as' and the type, so this sees
+ *  every match the masked code surface can hold — a file it rejects needs no
+ *  parse at all. */
+const hasTokenSequence = (
+  source: string,
+  first: RegExp,
+  rest: readonly string[],
+): boolean => {
+  for (const match of source.matchAll(first)) {
+    let at = match.index + match[0].length;
+    let ok = true;
+    for (const word of rest) {
+      at = skipTrivia(source, at);
+      if (!isWordAt(source, at, word)) {
+        ok = false;
+        break;
+      }
+      at += word.length;
+    }
+    if (ok) return true;
+  }
+  return false;
+};
+
+/** Match one pattern on its surface behind its raw prefilter. The prefilter is
+ *  a superset of the surface match, so a hit it rejects is zero either way and
+ *  the count is unchanged. */
+const matchesIn = (
+  file: string,
+  re: RegExp,
+  surface: Surface,
+  prefilter: (source: string) => boolean,
+): number => {
+  const raw = rawOf(file);
+  if (!prefilter(raw)) return 0;
+  return (viewsOf(file)[surface].match(re) || []).length;
+};
+
 // `\bas\s+any\b` also matches `as any[]`, because `any` is followed by a
 // non-word character (`[`) and the boundary holds. That is intended: widening
 // to `any[]` is still a type escape, not a false positive. A legitimate
 // `as any[]` therefore cannot be exempted by loosening this pattern — an
 // exception belongs in an explicit allowance (the mechanism NARROW_CASTS
 // provides for the double assertions), so the next reader can see and count it.
-const BANNED: Array<{ name: string; re: RegExp; surface: Surface }> = [
-  { name: "`as any`", re: /\bas\s+any\b/g, surface: "code" },
-  { name: "`@ts-ignore`", re: /@ts-ignore/g, surface: "comments" },
-  { name: "`@ts-expect-error`", re: /@ts-expect-error/g, surface: "comments" },
-  { name: "`@ts-nocheck`", re: /@ts-nocheck/g, surface: "comments" },
+type BannedPattern = {
+  name: string;
+  re: RegExp;
+  surface: Surface;
+  /** Raw-text necessary condition, run before the AST mask. */
+  prefilter: (source: string) => boolean;
+};
+
+const BANNED: BannedPattern[] = [
+  {
+    name: "`as any`",
+    re: /\bas\s+any\b/g,
+    surface: "code",
+    prefilter: source => hasTokenSequence(source, /\bas\b/g, ["any"]),
+  },
+  {
+    name: "`@ts-ignore`",
+    re: /@ts-ignore/g,
+    surface: "comments",
+    prefilter: source => source.includes("@ts-ignore"),
+  },
+  {
+    name: "`@ts-expect-error`",
+    re: /@ts-expect-error/g,
+    surface: "comments",
+    prefilter: source => source.includes("@ts-expect-error"),
+  },
+  {
+    name: "`@ts-nocheck`",
+    re: /@ts-nocheck/g,
+    surface: "comments",
+    prefilter: source => source.includes("@ts-nocheck"),
+  },
 ];
 
 // Unlike `as any`, a double assertion is not always wrong: narrowing down to a
@@ -175,13 +285,18 @@ const NARROW_CASTS = [
 ] as const;
 const NARROW_CAST_RE = /\bas\s+unknown\s+as\b|\bas\s+never\b/g;
 
+/** Raw-text prefilter for the two narrow-cast shapes (same gap rule). */
+const hasNarrowCast = (source: string): boolean =>
+  hasTokenSequence(source, /\bas\b/g, ["unknown", "as"]) ||
+  hasTokenSequence(source, /\bas\b/g, ["never"]);
+
 /** The double assertions the production tree actually holds, by repo path. */
 const narrowCastHits = (): Map<string, number> =>
   new Map(
     files
       .map(f => ({
         f: rel(f),
-        n: (viewsOf(f).code.match(NARROW_CAST_RE) || []).length,
+        n: matchesIn(f, NARROW_CAST_RE, "code", hasNarrowCast),
       }))
       .filter(x => x.n > 0)
       .map(({ f, n }) => [f, n]),
@@ -199,10 +314,10 @@ describe("production type-system bypasses", () => {
     expect(files.length).toBeGreaterThanOrEqual(80);
   });
 
-  for (const { name, re, surface } of BANNED) {
+  for (const { name, re, surface, prefilter } of BANNED) {
     it(`contains no ${name}`, () => {
       const hits = files
-        .map(f => ({ f, n: (viewsOf(f)[surface].match(re) || []).length }))
+        .map(f => ({ f, n: matchesIn(f, re, surface, prefilter) }))
         .filter(x => x.n > 0);
       expect(hits, hits.map(h => `${rel(h.f)}: ${h.n}`).join("\n")).toEqual([]);
     });
@@ -323,6 +438,32 @@ describe("bypass scan teeth", () => {
     expect(countOn("const x = y as unknown as Row; // as never", NARROW_CAST_RE)).toBe(
       1,
     );
+  });
+
+  it("never lets the raw prefilter hide a real match", () => {
+    // The prefilter is a superset: every synthetic source whose masked surface
+    // holds a banned pattern must also pass the cheap check that decides
+    // whether the file gets parsed at all.
+    const samples = [
+      "const x = y as any;",
+      "const x = y as /* comment */ any;",
+      "const x = y\n  as\n  any;",
+      "// @ts-ignore\nconst x = y;",
+      "/* @ts-expect-error */\nconst x = y;",
+      "// @ts-nocheck\n",
+      "const x = y as unknown as Row;",
+      "const x = y as never;",
+    ];
+    for (const source of samples) {
+      const views = sourceViews(source);
+      for (const { re, surface, prefilter } of BANNED) {
+        const hits = (views[surface].match(re) || []).length;
+        if (hits > 0) expect(prefilter(source), source).toBe(true);
+      }
+      if ((views.code.match(NARROW_CAST_RE) || []).length > 0) {
+        expect(hasNarrowCast(source), source).toBe(true);
+      }
+    }
   });
 
   it("flags a stale allowance, never a live one", () => {
