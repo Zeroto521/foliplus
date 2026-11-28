@@ -72,9 +72,11 @@ describe("subscribe batch revision", () => {
     );
     // The two `a` emits collapse to the second one; `b` is the third dispatch.
     expect(revisions).toEqual([2, 3]);
-    // The newest stamp equals the bus's current revision, so a consumer can
-    // drop an older batch by comparing it with the state it already applied.
-    expect(Math.max(...revisions)).toBe(bus.revision);
+    // The consumer contract is `delivery.revision > last applied revision`, not
+    // equality: another dispatch may land between an emit and the flush, so the
+    // newest stamp in the batch is at most the bus's current revision.
+    expect(revisions[0]).toBeLessThan(revisions[1]);
+    expect(Math.max(...revisions)).toBeLessThanOrEqual(bus.revision);
   });
 });
 

@@ -810,6 +810,26 @@ describe("delivery revision", () => {
       warn.mockRestore();
     }
   });
+  it("does not bump the revision after a subscription is torn down", () => {
+    // The zero-cost claim must hold across the whole entry lifecycle, not only
+    // for a channel that was never watched: `off` deletes an entry once its
+    // last listener leaves, so a later emit finds no entry and bumps nothing.
+    // If that deletion ever changes, this assertion is what notices.
+    const bus = new EventBus();
+    const seen: number[] = [];
+    const handler = (_p: unknown, meta?: { revision: number }) =>
+      seen.push(meta?.revision as number);
+    bus.on("evt", handler);
+    bus.emit("evt", 1);
+    expect(seen).toEqual([1]);
+
+    bus.off("evt", handler);
+    expect(bus.eventCount).toBe(0);
+    bus.emit("evt", 2);
+
+    expect(seen).toEqual([1]);
+    expect(bus.revision).toBe(1);
+  });
   it("treats every void payload contract as void at runtime", () => {
     // The runtime mirror of the type map: if a name here were missing from
     // VOID_EVENTS, the origin argument would arrive in the payload slot and

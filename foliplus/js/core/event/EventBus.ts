@@ -9,8 +9,10 @@
 // while the outer delivery is still walking its listener snapshot, and the
 // supersede/generation machinery only softens that — it does not make it
 // legal. Queue later work through SettledOperation (which publishes after the
-// local commit), or use a notification event (MODE_CHANGE, OVERLAY_CLEAR,
-// CONTROL_ATTACHED), which is defined to sit inside a producer's transaction.
+// local commit), or use a notification event (see EVENT_POLICY in ./const.js —
+// MODE_CHANGE, BEFORE_EXPORT, OVERLAY_CLEAR, CONTROL_ATTACHED,
+// LAYER_CAPABILITY_CHANGED, LAYER_FILTER_CHANGE), which is defined to sit
+// inside a producer's transaction.
 // A dispatch nested more than three deep is a symptom and is logged once.
 import {
   EVENT_POLICY,
@@ -222,6 +224,9 @@ class EventBus {
     const snapshot = e.snapshot;
     const generation = this.generation;
     this.depth++;
+    // Symptom signal, not an error: a legitimate notification emitted inside a
+    // producer's transaction can cross this depth too. It is logged once per
+    // bus so the shape is visible without flooding the console.
     if (this.depth > 3 && !this.reentryWarned) {
       this.reentryWarned = true;
       log.warn(
