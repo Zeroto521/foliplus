@@ -182,6 +182,7 @@ class BaseControl(JSCSSMixin, MacroElement):
         custom = strings and strings != builtins.get(code, {})
         config["locale_tables"] = {code: strings} if custom else {}
         config["locale_code"] = code
+
         # config always contains at least name/position — never empty.
         return _safe_json(config)
 

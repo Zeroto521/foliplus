@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -30,6 +31,7 @@ from foliplus._config_schema import (
     derive_schema,
     derived_control_schemas,
     render_ts_type,
+    schema_fingerprint,
     schema_to_json,
     validate_shape,
 )
@@ -253,3 +255,16 @@ class TestConfigFixtureParity:
                         f"{_default_literal(sch[fname])}"
                     )
         assert not problems, "\n".join(problems)
+
+
+class TestSchemaFingerprint:
+    """The short schema fingerprint shipped in the page's shared header."""
+
+    def test_is_short_sha256_of_the_dump(self) -> None:
+        expected = hashlib.sha256(schema_to_json().encode("utf-8")).hexdigest()[:12]
+        assert schema_fingerprint() == expected
+
+    def test_is_stable_and_lowercase_hex(self) -> None:
+        first = schema_fingerprint()
+        assert first == schema_fingerprint()
+        assert re.fullmatch(r"[0-9a-f]{12}", first) is not None

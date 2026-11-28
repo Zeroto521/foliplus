@@ -142,6 +142,9 @@ class TestBaseControlConstructor:
         _ = ctrl._config_block
         assert "locale_tables" not in ctrl._config
         assert "locale_code" not in ctrl._config
+        assert not any(k.startswith("__") for k in ctrl._config), (
+            "the diagnostic envelope is page-level, not a CONF field"
+        )
 
     def test_config_fields_are_serialized_in_config(self):
         assert_config_block(

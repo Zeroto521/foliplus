@@ -32,6 +32,9 @@ import {
   registerHintIcon,
 } from "#core/overlay/index.js";
 import { BaseControl } from "#foliplus/BaseControl.js";
+import { createLogger } from "#platform/log.js";
+
+const log = createLogger("runtime");
 
 // -- Global namespace bootstrap --
 // Ensure the global namespace object exists.
@@ -58,6 +61,31 @@ if (!foliplus.isInitialized) {
     // Hint module (per-map HintManager factory + shared icon registry).
     hint: { ensureHint, HINT_DURATION, HintManager, registerHintIcon },
   });
+} else {
+  // A second shared runtime is executing on a page that already initialized
+  // foliplus — a page mixing builds (e.g. two foliplus versions rendered into
+  // one HTML). Initialization above is skipped on purpose (the first build
+  // stays authoritative), but that also means shared modules keep the first
+  // build's behaviour while component bundles keep whichever build they were
+  // compiled against. Silent mixed behaviour is the bug this guard reports.
+  const existing = foliplus.version;
+  const incoming = __FOLIPLUS_VERSION__;
+  if (existing !== incoming) {
+    const error = new Error(
+      `mixed foliplus builds on one page: this runtime is ${incoming}, the page already initialized ${existing}`,
+    );
+    log.warn(
+      `${error.message} — shared modules keep ${existing}; load a single foliplus version`,
+    );
+    // Same hook shape as `map.foliplus.onError`; the global hook is the one
+    // reachable here because the shared header runs before any map exists.
+    // A broken diagnostic hook is worse than none (same rule as the event bus).
+    try {
+      foliplus.onError?.("runtime", error);
+    } catch {
+      // Ignore: the warning above is already recorded.
+    }
+  }
 }
 
 export { cacheSuggestion, geocode, reverseGeocode };
