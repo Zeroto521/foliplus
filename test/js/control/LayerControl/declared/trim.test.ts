@@ -21,10 +21,10 @@ import { describe, expect, it } from "vitest";
 // multi-statement trim reported red, a regex literal hiding a read) cannot
 // happen here. The review probes for those cases are tests below.
 //
-// Discovery, not a hardcoded list: every declared*.ts module in this directory
-// that calls isHexColor is checked, so a new reader is covered without editing
-// this file. A pin below names today\u2019s readers - if it fails, a new reader
-// appeared and a human should look at it (and at the fill host-trim exemption).
+// Discovery, not a hardcoded list: every module in declared/ that calls
+// isHexColor is checked, so a new reader is covered without editing this file.
+// A pin below names today's readers - if it fails, a new reader appeared and a
+// human should look at it (and at the fill host-trim exemption).
 //
 // Known limitation (accepted, not exploitable): the scope search looks at the
 // declarations of the nearest scope that binds the name, ignoring declaration
@@ -34,14 +34,14 @@ import { describe, expect, it } from "vitest";
 // Module-local guard (not a repo-wide invariant), so it is deliberately not
 // registered in test/js/toolchain-guard.test.ts.
 
-const DECLARED_DIR = "foliplus/js/control/LayerControl";
-const TRIM_MODULE = `${DECLARED_DIR}/declaredTrim.ts`;
+const DECLARED_DIR = "foliplus/js/control/LayerControl/declared";
+const TRIM_MODULE = `${DECLARED_DIR}/trim.ts`;
 const TRIM_FN = "trimDeclaredString";
 const HEX_FN = "isHexColor";
 
 //: The readers that exist today. New entries are picked up by discovery; this
 //: pin only forces a human to look at a newly appearing reader.
-const EXPECTED_HEX_READERS = ["declaredFill.ts", "declaredParse.ts"];
+const EXPECTED_HEX_READERS = ["fill.ts", "parse.ts"];
 
 const filePath = (name: string): string => `${DECLARED_DIR}/${name}`;
 
@@ -174,7 +174,7 @@ const hexReadProblems = (
 /** Every declared*.ts module in this directory that reads a CSS hex. */
 const discoverHexReaders = (): string[] =>
   readdirSync(resolve(".", DECLARED_DIR))
-    .filter(name => /^declared.*\.ts$/.test(name))
+    .filter(name => name.endsWith(".ts"))
     .filter(name => hexReadProblems(filePath(name), read(filePath(name))).reads > 0)
     .sort();
 
@@ -201,7 +201,12 @@ describe("every declared hex reader trims through trimDeclaredString", () => {
   const readers = discoverHexReaders();
 
   it("discovers the declared readers that read a hex", () => {
-    expect(readers).toEqual(EXPECTED_HEX_READERS);
+    expect(
+      readers,
+      "A declared reader that calls isHexColor appeared or disappeared. Confirm it\n" +
+        "trims through trimDeclaredString, update EXPECTED_HEX_READERS, and re-check\n" +
+        "the fill host-trim exemption in this file.",
+    ).toEqual(EXPECTED_HEX_READERS);
   });
 
   it.each(readers)("%s", reader => {
@@ -211,7 +216,7 @@ describe("every declared hex reader trims through trimDeclaredString", () => {
     expect(problems).toEqual([]);
   });
 
-  it("declaredTrim.ts exports the one trim function", () => {
+  it("trim.ts exports the one trim function", () => {
     const sourceFile = parse(TRIM_MODULE, read(TRIM_MODULE));
     const exported = sourceFile.statements.some(
       statement =>
@@ -225,14 +230,12 @@ describe("every declared hex reader trims through trimDeclaredString", () => {
 });
 
 describe("no host trim on the declared-string path", () => {
-  it("declaredParse.ts has no bare .trim()", () => {
-    expect(
-      hostTrimCalls("declaredParse.ts", read(filePath("declaredParse.ts"))),
-    ).toEqual([]);
+  it("parse.ts has no bare .trim()", () => {
+    expect(hostTrimCalls("parse.ts", read(filePath("parse.ts")))).toEqual([]);
   });
 
-  it("declaredFill.ts keeps only the isName empty-check", () => {
-    const calls = hostTrimCalls("declaredFill.ts", read(filePath("declaredFill.ts")));
+  it("fill.ts keeps only the isName empty-check", () => {
+    const calls = hostTrimCalls("fill.ts", read(filePath("fill.ts")));
     expect(calls).toHaveLength(1);
     const [call] = calls;
     const target = call.expression as ts.PropertyAccessExpression;

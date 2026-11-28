@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { type RejectFn, readDeclaredKey } from "#control/LayerControl/declaredKey.js";
+import {
+  type RejectFn,
+  readDeclaredKey,
+} from "#control/LayerControl/declared/index.js";
 
 /** A linked carrier carrying a foliplus declaration. Fresh object per test:
  *  the reader caches per layer object, the way a folium layer's options are

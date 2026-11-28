@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS } from "#core/event/index.js";
 import { normalizeFolderName } from "#core/layer/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { folderFoldKey } from "#control/LayerControl/declaredFolder.js";
+import { folderFoldKey } from "#control/LayerControl/fold/index.js";
 import { handleMoreClick } from "#control/LayerControl/interaction.js";
 import { isFolderFolded } from "#control/LayerControl/ui/listPanel/drag.js";
 import { runMenuAction } from "#control/LayerControl/ui/overlayPanel/menu.js";

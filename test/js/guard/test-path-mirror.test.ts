@@ -266,10 +266,10 @@ describe("test-path mirror", () => {
   it("teeth: a feature-named test is reported", () => {
     expect(
       problemsFor(
-        ["control/LayerControl/declaredBorder"],
-        new Set(["control/LayerControl/declaredParse"]),
+        ["control/LayerControl/declared/border"],
+        new Set(["control/LayerControl/declared/parse"]),
       ),
-    ).toEqual(["control/LayerControl/declaredBorder"]);
+    ).toEqual(["control/LayerControl/declared/border"]);
   });
 
   it("teeth: the mirror is per-directory, not per-basename", () => {
@@ -302,7 +302,7 @@ describe("test-path mirror", () => {
     expect(
       problemsFor(
         ["control/LayerControl/controller.filter"],
-        new Set(["control/LayerControl/declaredParse"]),
+        new Set(["control/LayerControl/declared/parse"]),
       ),
     ).toEqual(["control/LayerControl/controller.filter"]);
   });

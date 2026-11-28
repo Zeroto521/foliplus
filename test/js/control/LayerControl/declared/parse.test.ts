@@ -1,5 +1,5 @@
-// test/js/control/LayerControl/declaredParse — the three scalar declared*
-// readers (border, icon_size, marker_color) behind one registry module.
+// test/js/control/LayerControl/declared/parse — the declared scalar readers
+// (border, icon_size, marker_color) behind one registry module.
 //
 // The readers share the readDeclaredKey skeleton (read/cache/warn-once); each
 // describe pins one channel's parse and its facade over that skeleton. The
@@ -18,7 +18,7 @@ import {
   readDeclaredMarkerColor,
   readDeclaredMarkerColorOpacity,
   readDeclaredOpacity,
-} from "#control/LayerControl/declaredParse.js";
+} from "#control/LayerControl/declared/index.js";
 
 /** A linked carrier carrying a foliplus declaration. Fresh object per test: the
  *  reader caches per layer object, the way a folium layer's options are final

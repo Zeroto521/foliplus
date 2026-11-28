@@ -1,5 +1,5 @@
-// control/LayerControl/declaredRole — author-declared default fold state per
-// role + the effective fold resolution.
+// control/LayerControl/fold/role — author-declared default fold state per role
+// + the effective fold resolution.
 //
 // The two functions are pure: the author default is derived from the CONF.roles
 // payload and the effective resolution prioritises the user override over the
@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   authorDefaultRoleFolds,
   effectiveRoleFolded,
-} from "#control/LayerControl/declaredRole.js";
+} from "#control/LayerControl/fold/index.js";
 
 describe("authorDefaultRoleFolds", () => {
   it("returns {} for null / undefined roles", () => {

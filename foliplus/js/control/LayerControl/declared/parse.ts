@@ -1,5 +1,5 @@
-// control/LayerControl/declaredParse — the declared* readers behind one
-// registry.
+// control/LayerControl/declared/parse — the scalar declared* readers behind
+// one registry.
 //
 // Three per-layer foliplus declarations (border, icon_size, marker_color) share
 // one mechanical scalar shape: a scalar (one-key object, one number, one preset
@@ -22,9 +22,9 @@
 // module owns only the parses and the thin readers that dispatch on them.
 // Public API names are unchanged (readDeclaredBorder / readDeclaredIconSize /
 // readDeclaredMarkerColor) — callers are untouched except for the import path.
-import { parseValueDeclaration } from "./declaredFill.js";
-import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
-import { trimDeclaredString } from "./declaredTrim.js";
+import { parseValueDeclaration } from "./fill.js";
+import { type RejectFn, readDeclaredKey } from "./key.js";
+import { trimDeclaredString } from "./trim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";

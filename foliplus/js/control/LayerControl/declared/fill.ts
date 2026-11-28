@@ -1,4 +1,5 @@
-// declaredFill — the fill an author declared on the layer itself.
+// control/LayerControl/declared/fill — the fill an author declared on the layer
+// itself.
 //
 // `explore(foliplus={"fill": {...}})` in folium rides folium's unknown-kwargs
 // passthrough onto `layer.options.foliplus` — the same per-layer namespace the
@@ -44,9 +45,9 @@
 // module supplies only the fill parse — the business logic that validates what
 // the author wrote. The next declared* reader reuses the same skeleton instead
 // of re-implementing it.
-import * as CONST from "./const.js";
-import { type RejectFn, readDeclaredKey } from "./declaredKey.js";
-import { trimDeclaredString } from "./declaredTrim.js";
+import * as CONST from "../const.js";
+import { type RejectFn, readDeclaredKey } from "./key.js";
+import { trimDeclaredString } from "./trim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
 import {
   CLASS_COUNT,

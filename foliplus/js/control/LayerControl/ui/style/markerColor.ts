@@ -55,7 +55,7 @@ import {
   readDeclaredIconSize,
   readDeclaredMarkerColor,
   readDeclaredMarkerColorOpacity,
-} from "#control/LayerControl/declaredParse.js";
+} from "#control/LayerControl/declared/index.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
  *  or undefined when the layer declares none -- the whole-icon box edge the
