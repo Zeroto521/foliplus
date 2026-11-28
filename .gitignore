@@ -119,3 +119,7 @@ nul
 
 # Playwright browser profile scratch (never commit)
 .temp/
+
+# Background probe output (pytest/nohup redirects from long-running sessions)
+.brow*.out
+nohup.out
