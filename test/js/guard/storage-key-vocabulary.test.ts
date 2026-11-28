@@ -1,8 +1,4 @@
-import {
-  readFileSync,
-  readdirSync,
-  statSync,
-} from "node:fs";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -62,7 +58,9 @@ const scanBareSuffixes = (root: string): string[] => {
     const src = readFileSync(file, "utf-8");
     const rel = file.slice(root.length).split(/[\\/]/).join("/");
     for (const hit of findBareSuffixCalls(src)) {
-      violations.push(`${rel}:${hit.line}: scopedStorageKey(map, "${hit.suffix}") — use STORAGE_SUFFIX.${hit.suffix.toUpperCase()}`);
+      violations.push(
+        `${rel}:${hit.line}: scopedStorageKey(map, "${hit.suffix}") — use STORAGE_SUFFIX.${hit.suffix.toUpperCase()}`,
+      );
     }
   }
   return violations;
@@ -88,6 +86,10 @@ describe("storage-key suffixes come from the single-source vocabulary", () => {
     const hits = findBareSuffixCalls(src);
     expect(hits).toHaveLength(1);
     expect(hits[0].suffix).toBe("export_rect");
-    expect(findBareSuffixCalls('const k = scopedStorageKey(map, STORAGE_SUFFIX.EXPORT_RECT);')).toHaveLength(0);
+    expect(
+      findBareSuffixCalls(
+        "const k = scopedStorageKey(map, STORAGE_SUFFIX.EXPORT_RECT);",
+      ),
+    ).toHaveLength(0);
   });
 });

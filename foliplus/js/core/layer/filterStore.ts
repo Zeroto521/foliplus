@@ -28,11 +28,11 @@ import { ensureMapFoliplus } from "#core/mapApi.js";
 import { createLogger } from "#platform/log.js";
 import {
   type MapLike,
+  STORAGE_SUFFIX,
   loadVersionedObject,
   removeRecord,
   saveVersionedObject,
   scopedStorageKey,
-  STORAGE_SUFFIX,
 } from "#platform/storage.js";
 
 /** The per-map storage key for a layer's filter record, scoped to its map
@@ -40,7 +40,8 @@ import {
  *  key indexed by layer id inside it — never a per-surface or per-layer key
  *  assembled at the call site). Single-sourced from scopedStorageKey so the
  *  key shape cannot drift from the other per-map records. */
-const filterStoreKey = (map: MapLike): string => scopedStorageKey(map, STORAGE_SUFFIX.FILTER_STORE);
+const filterStoreKey = (map: MapLike): string =>
+  scopedStorageKey(map, STORAGE_SUFFIX.FILTER_STORE);
 
 /** The well-known source names a surface registers under. A control whose
  *  filter surface is a single fixed slot (MeasureControl's type filter) names
