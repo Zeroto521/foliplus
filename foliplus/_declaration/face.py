@@ -61,6 +61,7 @@ def _trim_face_string(value: str) -> str:
     """Trim a declared face string of the shared whitespace set only."""
     return value.strip(_FACE_TRIM_CHARS)
 
+
 #: The icon face sub-dimensions: canonical camelCase key -> accepted spellings
 #: (canonical first). A multi-word key accepts the snake_case spelling because
 #: the author writes the raw Python dict (and older folium keeps it as-is).

@@ -152,7 +152,9 @@ class TestNormaliseIconFace:
         assert out == {}
         assert len(caught) == 2
 
-    @pytest.mark.parametrize("codepoint", [0x0B, 0xA0, 0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0xFEFF])
+    @pytest.mark.parametrize(
+        "codepoint", [0x0B, 0xA0, 0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0xFEFF]
+    )
     def test_the_shared_whitespace_set_is_trimmed(self, codepoint: int) -> None:
         # The review's hanging cases: \uFEFF is a BOM pasted from a CSV (Python
         # str.strip() keeps it, JS trim() drops it), U+001C-1F / U+0085 are the

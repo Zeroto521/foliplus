@@ -58,7 +58,9 @@ def _js_source(source: str | None = None) -> str:
     return _normalise_newlines(text)
 
 
-def python_face_tables(source: str | None = None) -> dict[str, dict[str, tuple[str, ...]]]:
+def python_face_tables(
+    source: str | None = None,
+) -> dict[str, dict[str, tuple[str, ...]]]:
     """The two face vocabularies the Python normaliser ships."""
     tree = ast.parse(_python_source(source))
     tables: dict[str, dict[str, tuple[str, ...]]] = {}
@@ -117,9 +119,7 @@ def js_face_tables(source: str | None = None) -> dict[str, dict[str, tuple[str, 
                 continue
             reference = re.match(r"(\w+): (\w+)\.(\w+),$", chunk)
             if reference is not None:
-                refs[reference.group(1)] = (
-                    f"{reference.group(2)}.{reference.group(3)}"
-                )
+                refs[reference.group(1)] = f"{reference.group(2)}.{reference.group(3)}"
         for canonical, target in refs.items():
             table_name, referenced = target.split(".", 1)
             source_table = tables.get(table_name)
@@ -142,7 +142,9 @@ def python_trim_codepoints(source: str | None = None) -> tuple[int, ...]:
             assert node.value is not None, "FACE_TRIM_CODEPOINTS has no value"
             value = ast.literal_eval(node.value)
             return tuple(int(codepoint) for codepoint in value)
-    raise AssertionError("FACE_TRIM_CODEPOINTS not found in foliplus/_declaration/face.py")
+    raise AssertionError(
+        "FACE_TRIM_CODEPOINTS not found in foliplus/_declaration/face.py"
+    )
 
 
 def js_trim_codepoints(source: str | None = None) -> tuple[int, ...]:
@@ -155,9 +157,7 @@ def js_trim_codepoints(source: str | None = None) -> tuple[int, ...]:
     )
     assert match is not None, "FACE_TRIM_CODEPOINTS not found in declaredParse.ts"
     return tuple(
-        int(token.strip(), 0)
-        for token in match.group(1).split(",")
-        if token.strip()
+        int(token.strip(), 0) for token in match.group(1).split(",") if token.strip()
     )
 
 
@@ -236,7 +236,9 @@ def test_the_vocabulary_parser_has_teeth() -> None:
 
 def test_the_python_trim_parser_has_teeth() -> None:
     original = python_trim_codepoints()
-    mutated = _python_source().replace("    0xFEFF,  # zero-width no-break space (BOM)\n", "")
+    mutated = _python_source().replace(
+        "    0xFEFF,  # zero-width no-break space (BOM)\n", ""
+    )
     assert mutated != _python_source(), "the teeth mutation did not apply"
     assert python_trim_codepoints(mutated) != original
 
