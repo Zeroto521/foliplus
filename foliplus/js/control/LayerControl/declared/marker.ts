@@ -6,6 +6,7 @@
 // channel (icon / marker sub-key maps) lives in ./face, the border and opacity
 // scalars in ./parse.
 import { readDeclaredKey } from "./key.js";
+import { DECLARED_KEY } from "./declared-key.js";
 import { trimDeclaredString } from "./trim.js";
 import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import { isHexColor, normalizeHexColor } from "#platform/color.js";
@@ -100,7 +101,7 @@ const readDeclaredIconSize = (
     ? readDeclaredKey<DeclaredIconSize, string>(
         layer,
         layerId,
-        "icon_size",
+        DECLARED_KEY.ICON_SIZE,
         parseIconSize,
         warn,
       )
@@ -122,7 +123,7 @@ const readDeclaredMarkerColor = (
     ? readDeclaredKey<DeclaredMarkerColor, string>(
         layer,
         layerId,
-        "marker_color",
+        DECLARED_KEY.MARKER_COLOR,
         parseMarkerColor,
         warn,
       )

@@ -19,6 +19,7 @@
 // role and keep it expanded across a reload — the Set model could not record
 // that, which is the whole reason for the v7 shape change.
 import type { RoleDefaults } from "#foliplus/config-schema.js";
+import { ROLE } from "#core/layer/index.js";
 
 /** Derive the author's default folded role map from the CONF payload.
  *
@@ -43,7 +44,7 @@ const authorDefaultRoleFolds = (
   // Only the two declared sections are roles; the Python normaliser drops
   // anything else, and this derivation mirrors that (a stray key in a
   // hand-built CONF must not become a fold state).
-  for (const role of ["overlay", "base"] as const) {
+  for (const role of [ROLE.OVERLAY, ROLE.BASE] as const) {
     const entry = roles[role];
     if (!entry || typeof entry.folded !== "boolean") continue;
     out[role] = entry.folded;

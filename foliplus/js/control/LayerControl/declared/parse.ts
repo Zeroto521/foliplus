@@ -15,6 +15,7 @@
 // names are unchanged (readDeclaredBorder / readDeclaredOpacity) — callers
 // import them through ./index.
 import { parseValueDeclaration } from "./fill.js";
+import { DECLARED_KEY } from "./declared-key.js";
 import { type RejectFn, readDeclaredKey } from "./key.js";
 import { trimDeclaredString } from "./trim.js";
 import { STYLE_MODE, type StyleMode, type ValueConfig } from "#core/layer/index.js";
@@ -106,7 +107,7 @@ const parseBorder = (
   };
   if (raw === null || raw === undefined) return EMPTY;
   if (typeof raw !== "object" || Array.isArray(raw)) {
-    rejectKey("border", `a non-object border declaration ${JSON.stringify(raw)}`);
+    rejectKey(DECLARED_KEY.BORDER, `a non-object border declaration ${JSON.stringify(raw)}`);
     return { invalid };
   }
   const data = raw as Record<string, unknown>;
@@ -196,7 +197,7 @@ const parseBorder = (
   if (mode === DECLARED_BORDER_MODE_VALUE) {
     // value mode: validate the shared flat schema — the same parser fill uses,
     // so the two faces cannot drift.
-    const config = parseValueDeclaration(data, rejectKey, "border");
+    const config = parseValueDeclaration(data, rejectKey, DECLARED_KEY.BORDER);
     if (config === undefined) return { invalid };
     return {
       declared: STYLE_MODE.VALUE,
@@ -257,7 +258,7 @@ const SCALAR_PARSES = {
  */
 const readDeclaredBorder = (layer: unknown, layerId?: string): DeclaredBorderRead => {
   if (layer === null || typeof layer !== "object") return EMPTY;
-  return readDeclaredKey(layer, layerId, "border", SCALAR_PARSES.border);
+  return readDeclaredKey(layer, layerId, DECLARED_KEY.BORDER, SCALAR_PARSES.border);
 };
 
 /** Read (and cache) the whole-layer opacity declared on one layer.
@@ -276,7 +277,7 @@ const readDeclaredOpacity = (
     ? readDeclaredKey<number, string>(
         layer,
         layerId,
-        "opacity",
+        DECLARED_KEY.OPACITY,
         SCALAR_PARSES.opacity,
         warn,
       )
