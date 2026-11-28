@@ -918,11 +918,14 @@ class LayerSurface implements LayerSurfaceContract {
 
 /** Whether the layer paints through a setter of its own (not a pane of ours).
  *
- *  `GridLayer` and `ImageOverlay` both fall into this bucket: `GridLayer` (and
- *  its `TileLayer` subclass) carries `options.opacity` + `minZoom`/`maxZoom`
- *  and reads them at `addLayer`; `ImageOverlay`'s `<img>` stays in the shared
- *  `overlayPane` — a pane write would fade every layer in that shared pane —
- *  but its own `setOpacity` is immediate and correct. */
+ *  `GridLayer` and `ImageOverlay` both fall into this bucket, for different
+ *  reasons. `GridLayer` (and its `TileLayer` subclass) carries
+ *  `options.opacity` + `minZoom`/`maxZoom` and reads them at `addLayer`.
+ *  `ImageOverlay`'s `<img>` is relocated into the layer's own pane by
+ *  `PaneManager.pinLateContent`, and its z placement plus the pane-scoped
+ *  focus rules depend on that. Its opacity is still written through the
+ *  layer's own `setOpacity`: that is the honest carrier for a single image —
+ *  a capability answer, not a "the pane write cannot reach it" fallback. */
 const usesNativeSetter = (layer: L.Layer): boolean =>
   (typeof L.GridLayer !== "undefined" && layer instanceof L.GridLayer) ||
   (typeof L.ImageOverlay !== "undefined" && layer instanceof L.ImageOverlay);
