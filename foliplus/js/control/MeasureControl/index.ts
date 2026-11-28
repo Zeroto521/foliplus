@@ -9,17 +9,21 @@ import {
   bindFoldToggle,
   createFoldControl,
 } from "#core/leaflet/index.js";
-import { defineControl } from "#core/lifecycle/index.js";
+import { type ControlEnv, defineControl } from "#core/lifecycle/index.js";
+import type { ConfigMeasure } from "#foliplus/config-schema.js";
 import { createIconButton } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 import { PANEL_CLASS } from "#ui/index.js";
 
-const MeasureControl = defineControl<MeasureManager>({
-  config: CONFIG,
+const MeasureControl = defineControl<MeasureManager, ConfigMeasure>({
+  config: CONFIG as ConfigMeasure,
   icon: SVGs.ICON_RULER,
   setup: () => ensureLayerAPI(map),
   createManager: env => {
-    const m = new MeasureManager(map, env);
+    // The manager keeps the flat env contract and narrows config itself
+    // (manager.config: ConfigMeasure); the entry's narrowed env carries the
+    // same object, so hand it over rather than rebuilding translators.
+    const m = new MeasureManager(map, env as ControlEnv);
     m.init();
     return m;
   },

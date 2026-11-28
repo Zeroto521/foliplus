@@ -418,6 +418,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "every browser probe is cited by a consumer and no two probes share a body",
   "config-contract-keys":
     "the CONFIG payload keeps one snake_case key spelling across Python and JS",
+  "config-narrowing":
+    "every control narrows CONFIG to its own generated Config<Name> schema",
   "deep-relative-path":
     "no test file reaches outside its own subtree with three or more ../ segments",
   "derived-barrier":

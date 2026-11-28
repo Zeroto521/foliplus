@@ -14,6 +14,7 @@ import { bindFoldOverlay, createFoldControl } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
 import { ensureMapFoliplus } from "#core/mapApi.js";
 import { ensureHint } from "#core/overlay/index.js";
+import type { ConfigSearch } from "#foliplus/config-schema.js";
 import { Cache } from "#platform/cache.js";
 import type { Debounced } from "#platform/debounce.js";
 import { createIconButton, dom } from "#platform/dom.js";
@@ -23,8 +24,8 @@ import { createTimers } from "#platform/timer.js";
 import type { Timers } from "#platform/type.js";
 import { FORM_CLASS, PANEL_CLASS, closeButton } from "#ui/index.js";
 
-class SearchControl extends defineControl({
-  config: CONFIG,
+class SearchControl extends defineControl<unknown, ConfigSearch>({
+  config: CONFIG as ConfigSearch,
   icon: SVGs.ICON_SEARCH,
   setup: () => ensureHint(map),
 }) {

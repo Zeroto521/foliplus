@@ -12,11 +12,12 @@ import type { SavedConfig } from "./type.js";
 import { EVENTS, publish } from "#core/event/index.js";
 import { bareFieldName } from "#core/label/index.js";
 import { CLASS_COUNT } from "#core/value/index.js";
+import type { ConfigHeatmap } from "#foliplus/config-schema.js";
 
 /** Reset selection + style state to the defaults declared in `config`. Both
  *  clear entries (the panel's Clear button and LayerControl's more-menu
  *  delete) go through here, so the two can never drift apart. */
-const resetState = (m: HeatmapManager, config: ComponentConfig) => {
+const resetState = (m: HeatmapManager, config: Partial<ConfigHeatmap>) => {
   // Was any source carrying a filter (owned or declared)? The whole-layer
   // reset below drops the record without repainting; the notification
   // fires only when there was something to clear.

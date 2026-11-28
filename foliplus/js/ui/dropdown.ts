@@ -307,7 +307,6 @@ const createDropdown = (opts: DropdownOptions): Dropdown => {
       onSurfaceChange: opts.onSurfaceChange ?? null,
     },
     dismiss: {
-      kind: "registry",
       register: opts.overlay.register,
       id: opts.overlay.id,
       rank: opts.overlay.rank,

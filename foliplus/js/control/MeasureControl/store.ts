@@ -8,6 +8,7 @@ import * as CONST from "./const.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
+import type { ConfigMeasure } from "#foliplus/config-schema.js";
 import {
   type Persisted,
   createPersisted,
@@ -22,7 +23,7 @@ class MeasureStore {
   private list: MeasureData[] = [];
   private counter = 0;
   private readonly map: L.Map;
-  private readonly config: ComponentConfig;
+  private readonly config: ConfigMeasure;
   private readonly T: (key: string) => string;
   private readonly layerId: string;
   private warned = false;
@@ -30,7 +31,7 @@ class MeasureStore {
 
   constructor(map: L.Map, env: ControlEnv, layerId: string) {
     this.map = map;
-    this.config = env.config;
+    this.config = env.config as ConfigMeasure;
     this.T = env.T;
     this.layerId = layerId;
     // Write-through binding: the array is durable the moment a mutation lands,

@@ -19,6 +19,15 @@ import {
   createSchemePicker,
 } from "#ui/index.js";
 
+/** A registry stub for engine tests: the open list registers successfully and
+ *  the stub unregisters it; dismissal itself is the real registry's business,
+ *  proven end-to-end in schemePicker.dismiss.test.ts. */
+const stubOverlay = () => ({
+  register: () => () => {},
+  id: "test.listbox",
+  rank: 1,
+});
+
 const cleanup: (() => void)[] = [];
 
 afterEach(() => {
@@ -78,7 +87,7 @@ const makePicker = (
       open: "is-open",
     },
     surface,
-    dismiss: { kind: "local" },
+    dismiss: stubOverlay(),
     onRowActivate: index => {
       activated.push(index);
     },
@@ -327,7 +336,6 @@ describe("listbox engine: bare shape and edge states", () => {
       selected?: readonly string[];
       triggerParent?: "attached" | "detached";
       dismiss?: {
-        kind: "registry";
         register: (e: {
           id: string;
           isOpen(): boolean;
@@ -379,7 +387,7 @@ describe("listbox engine: bare shape and edge states", () => {
           return () => {};
         },
       },
-      dismiss: opts.dismiss ?? { kind: "local" },
+      dismiss: opts.dismiss ?? stubOverlay(),
       onRowActivate: index => {
         activated.push(index);
       },
@@ -512,7 +520,7 @@ describe("listbox engine: bare shape and edge states", () => {
         open: "bare-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       onRowActivate: index => {
         const value = items[index].value;
         if (selected.has(value)) selected.delete(value);
@@ -545,10 +553,10 @@ describe("listbox engine: bare shape and edge states", () => {
 
   it("opening a second listbox with a registry dismiss closes the first (once-at-a-time)", () => {
     const { listbox: first } = makeBare([{ value: "a", label: "Alpha" }], {
-      dismiss: { kind: "registry", register: () => () => {}, id: "x", rank: 1 },
+      dismiss: { register: () => () => {}, id: "x", rank: 1 },
     });
     const { listbox: second } = makeBare([{ value: "b", label: "Beta" }], {
-      dismiss: { kind: "registry", register: () => () => {}, id: "x", rank: 1 },
+      dismiss: { register: () => () => {}, id: "x", rank: 1 },
     });
     first.open();
     expect(first.isOpen()).toBe(true);
@@ -668,7 +676,7 @@ describe("listbox engine: bare shape and edge states", () => {
         open: "bare-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       onRowActivate: index => {
         const value = items[index].value;
         if (selected.has(value)) selected.delete(value);
@@ -838,7 +846,7 @@ describe("listbox engine: portalled popup geometry (marginTop zeroed)", () => {
         open: "geom-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       place,
       onRowActivate: () => {},
     });
@@ -1086,7 +1094,6 @@ it("registry panels() drops the wrapper once the trigger is detached", () => {
     },
     surface: { onSurfaceChange: () => () => {} },
     dismiss: {
-      kind: "registry",
       register: entry => {
         registered.push(entry);
         return () => {};
@@ -1155,7 +1162,6 @@ it("open + close drains every document/window listener when the registry dismiss
     },
     surface: { onSurfaceChange: () => () => {} },
     dismiss: {
-      kind: "registry",
       register: entry => {
         registered.push(entry);
         return () => {};
@@ -1176,7 +1182,7 @@ it("open + close drains every document/window listener when the registry dismiss
   expect(read()).toEqual(before);
 });
 
-it("local dismiss (portal) binds no outside-press dismisser", () => {
+it("a portalled listbox leaves outside-press dismissal to the injected registry", () => {
   const read = countGlobal();
   const before = read();
   const trigger = document.createElement("button");
@@ -1203,7 +1209,7 @@ it("local dismiss (portal) binds no outside-press dismisser", () => {
       open: "nodown-open",
     },
     surface: { onSurfaceChange: () => () => {} },
-    dismiss: { kind: "local" },
+    dismiss: stubOverlay(),
     onRowActivate: () => {},
   });
   listbox.open();
@@ -1248,7 +1254,7 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
         open: "last-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       focusOnOpen: "last",
       onRowActivate: () => {},
     });
@@ -1288,7 +1294,7 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
         open: "last-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       focusOnOpen: "selected",
       onRowActivate: () => {},
     });
@@ -1329,7 +1335,7 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
         open: "last-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       focusOnOpen: "first",
       onRowActivate: () => {},
     });
@@ -1372,7 +1378,7 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
         open: "last-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       triggerKeys: "cycle",
       onRowActivate: index => {
         activated.push(index);
@@ -1418,7 +1424,7 @@ describe("listbox engine: focusOnOpen selection (last row)", () => {
         open: "last-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       triggerKeys: "cycle",
       onRowActivate: index => {
         activated.push(index);
@@ -1488,7 +1494,7 @@ describe("listbox engine: inline mount returns the list to its host", () => {
         open: "inline-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       onRowActivate: () => {},
     });
     cleanup.push(() => listbox.destroy());
@@ -1569,7 +1575,7 @@ describe("listbox engine: followTrigger re-pins on a trigger resize", () => {
           open: "ro-open",
         },
         surface: { onSurfaceChange: () => () => {} },
-        dismiss: { kind: "local" },
+        dismiss: stubOverlay(),
         onPosition,
         onRowActivate: () => {},
       });
@@ -1631,7 +1637,7 @@ describe("listbox engine: focusOnOpen with a row that has no value", () => {
         open: "fv-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       focusOnOpen: "selected",
       onRowActivate: () => {},
     });
@@ -1677,7 +1683,7 @@ describe("listbox engine: focusOnOpen with every row disabled", () => {
         open: "fd-open",
       },
       surface: { onSurfaceChange: () => () => {} },
-      dismiss: { kind: "local" },
+      dismiss: stubOverlay(),
       focusOnOpen: "first",
       onRowActivate: () => {},
     });
@@ -1734,11 +1740,11 @@ export interface ListboxSurface {
   /** Whether this surface is a multiple-select (toggles stay open). */
   multiple: boolean;
   /** Whether the surface owns dismiss (outside-press / Escape). The bridged
-   *  dropdown and the portalled picker do (the engine's local dismiss). The
-   *  inline picker does NOT — it mounts inside a panel, and the panel
-   *  dispatcher / overlay registry owns closing it (that is the S-F registry
-   *  direction). Forcing the inline picker to self-dismiss would steal the
-   *  Escape from the panel, which is a regression. */
+   *  dropdown and the portalled picker do, through the injected overlay
+   *  registry. The inline picker does NOT — it mounts inside a panel, and the
+   *  panel dispatcher / overlay registry owns closing it. Forcing the inline
+   *  picker to self-dismiss would steal the Escape from the panel, which is a
+   *  regression. */
   ownsDismiss: boolean;
   /** The current selection value(s), surface-shaped for the assertion. */
   value(): string;
@@ -2332,6 +2338,7 @@ const pickerInlineFixture: ListboxFixture = {
       value: "a",
       numClasses: 6,
       portal: false,
+      overlay: stubOverlay(),
       colorScale: () => ["#f00", "#0f0", "#00f"],
       onChange: name => {
         current = name;
@@ -2411,6 +2418,7 @@ const pickerPortalFixture: ListboxFixture = {
       value: "a",
       numClasses: 6,
       portal: true,
+      overlay: stubOverlay(),
       colorScale: () => ["#f00", "#0f0", "#00f"],
       onChange: name => {
         current = name;
@@ -2595,7 +2603,6 @@ const makeRowPicker = (
   items: readonly { value: string; label: string; disabled?: boolean }[],
   selected: readonly string[] = [],
   dismiss?: {
-    kind: "registry";
     register: (e: {
       id: string;
       isOpen(): boolean;
@@ -2649,7 +2656,7 @@ const makeRowPicker = (
       open: "is-open",
     },
     surface,
-    dismiss: dismiss ?? { kind: "local" },
+    dismiss: dismiss ?? stubOverlay(),
     onRowActivate: index => {
       activated.push(index);
     },
@@ -2822,7 +2829,7 @@ describe("listbox row contract: keyboard + focus restore", () => {
         { value: "b", label: "Beta" },
       ],
       [],
-      { kind: "registry", register: mockOverlay().overlay.register, id: "x", rank: 1 },
+      { register: mockOverlay().overlay.register, id: "x", rank: 1 },
     );
     trigger.focus();
     listbox.open();

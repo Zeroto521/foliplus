@@ -5,6 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { isInsideOverlay } from "#core/overlay/index.js";
 import { type SchemePicker, createSchemePicker } from "#ui/index.js";
 
+/** Registry stub: these tests are about the picker's own behaviour; the real
+ *  registry dispatcher is driven in schemePicker.dismiss.test.ts. */
+const stubOverlay = () => ({
+  register: () => () => {},
+  id: "test.picker",
+  rank: 1,
+});
+
 // ── color-scale helper ────────────────────────────────────────────────
 
 const colorScale = vi.fn((name: string, n: number) => {
@@ -44,6 +52,7 @@ function makePicker(overrides: Record<string, unknown> = {}): {
     value: "Reds",
     numClasses: 6,
     portal: false,
+    overlay: stubOverlay(),
     onChange: vi.fn(),
     colorScale,
     classes: {
@@ -433,6 +442,7 @@ describe("ARIA attributes", () => {
       value: "Reds",
       numClasses: 4,
       portal: false,
+      overlay: stubOverlay(),
       label: "Injected label",
       onChange: vi.fn(),
       colorScale,
@@ -727,6 +737,7 @@ describe("portal mode", () => {
 
     const { picker, trigger } = makePicker({
       portal: true,
+      overlay: stubOverlay(),
       resolveHost: () => surface,
     });
     trigger.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -744,6 +755,7 @@ describe("portal mode", () => {
 
     const { picker, trigger } = makePicker({
       portal: true,
+      overlay: stubOverlay(),
       resolveHost: () => surface,
       onSurfaceChange: (cb: () => void) => {
         listeners.add(cb);
@@ -771,6 +783,7 @@ describe("portal mode", () => {
     const unsubscribe = vi.fn();
     const { picker, trigger } = makePicker({
       portal: true,
+      overlay: stubOverlay(),
       resolveHost: () => document.body,
       onSurfaceChange: () => unsubscribe,
     });
@@ -983,6 +996,7 @@ describe("multiple pickers", () => {
       value: "Reds",
       numClasses: 4,
       portal: false,
+      overlay: stubOverlay(),
       onChange: vi.fn(),
       colorScale,
     });
@@ -996,6 +1010,7 @@ describe("multiple pickers", () => {
         value: "Blues",
         numClasses: 4,
         portal: false,
+        overlay: stubOverlay(),
         onChange: vi.fn(),
         colorScale,
       });
@@ -1025,6 +1040,7 @@ describe("multiple pickers", () => {
       value: "Reds",
       numClasses: 4,
       portal: false,
+      overlay: stubOverlay(),
       onChange: vi.fn(),
       colorScale,
     });
@@ -1037,6 +1053,7 @@ describe("multiple pickers", () => {
       value: "Blues",
       numClasses: 4,
       portal: false,
+      overlay: stubOverlay(),
       onChange: vi.fn(),
       colorScale,
     });
@@ -1263,6 +1280,7 @@ describe("bare trigger (no inner bar, no hidden select)", () => {
       value: "Reds",
       numClasses: 6,
       portal: false,
+      overlay: stubOverlay(),
       onChange: vi.fn(),
       colorScale,
     });
@@ -1410,6 +1428,7 @@ describe("inline mount without a parent", () => {
       value: "Reds",
       numClasses: 6,
       portal: false,
+      overlay: stubOverlay(),
       onChange: vi.fn(),
       colorScale,
     });

@@ -8,9 +8,11 @@
 // map before importing the entry, then reach the instance through the map.
 // `addTo` records the control without running onAdd — buildDOM needs the full
 // Leaflet runtime and is covered by the browser suite; the lazy getter and
-// destroy() do not.
+// destroy() do not. Each test re-imports the entry, so every test gets its
+// own freshly mounted control — no test depends on mount order.
 import { makeConfig } from "../config-fixture.js";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };
@@ -25,6 +27,9 @@ type CanvasStub = {
 };
 
 let captured: CapturedControl | null = null;
+/** The manager class the ENTRY module resolves — read after vi.resetModules(),
+ *  because a top-level import would spy on a pre-reset copy of the class. */
+let ManagerCls: typeof HeatmapManager;
 /** Arm a failing `map.on` for the next manager init; null during import. */
 let failOnEvent: string | null = null;
 
@@ -113,15 +118,55 @@ describe("HeatmapControl entry — half-initialised manager", () => {
   let ctrl: CapturedControl;
   let mockMap: MockMap;
 
-  beforeAll(async () => {
+  /** Fresh entry import per test: the IIFE mounts a NEW control each time, so
+   *  every test starts from a never-built instance and none depends on mount
+   *  order — each passes alone and under --sequence.shuffle. */
+  const mount = async () => {
+    captured = null;
     (window as any).CONFIG = makeConfig("HeatmapControl");
     (window as any).L = { Control: MockControl };
     mockMap = new MockMap();
     (window as any).map = mockMap;
     vi.resetModules();
     await import("#control/HeatmapControl/index.js");
+    ManagerCls = (await import("#control/HeatmapControl/manager.js")).HeatmapManager;
     expect(captured, "the IIFE should have mounted the control").not.toBeNull();
     ctrl = captured!;
+  };
+
+  beforeEach(mount);
+  afterEach(() => {
+    failOnEvent = null;
+    vi.restoreAllMocks();
+  });
+
+  it("destroy() on a never-built control must not resolve the lazy getter", () => {
+    const initSpy = vi.spyOn(ManagerCls.prototype, "init");
+    expect(ctrl.manager).toBeNull();
+    expect(() => ctrl.destroy()).not.toThrow();
+    // The getter would construct AND init a manager here — destroying a
+    // control that never mounted must not do that.
+    expect(initSpy).not.toHaveBeenCalled();
+    expect(ctrl.manager).toBeNull();
+  });
+
+  it("destroy() releases a built manager once; a second destroy never rebuilds", () => {
+    const initSpy = vi.spyOn(ManagerCls.prototype, "init");
+    const disposeSpy = vi.spyOn(
+      (ctrl as unknown as { timers: { dispose: () => void } }).timers,
+      "dispose",
+    );
+    expect(ctrl.mgr).toBeDefined();
+    expect(initSpy).toHaveBeenCalledTimes(1);
+    ctrl.destroy();
+    expect(disposeSpy).toHaveBeenCalledTimes(1);
+    expect(ctrl.manager).toBeNull();
+    // destroy() must not touch the lazy getter: a second teardown on an
+    // already-destroyed control would otherwise build + init + tear down a
+    // fresh manager for nothing.
+    ctrl.destroy();
+    expect(initSpy).toHaveBeenCalledTimes(1);
+    expect(ctrl.manager).toBeNull();
   });
 
   it("keeps the manager reachable when init() throws, so destroy() releases it", () => {

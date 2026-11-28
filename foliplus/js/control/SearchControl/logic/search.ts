@@ -23,14 +23,14 @@ import {
 } from "#core/geocode/index.js";
 import { guardBlocked } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
-import type { ProviderConfig } from "#foliplus/config-schema.js";
+import type { ConfigSearch, ProviderConfig } from "#foliplus/config-schema.js";
 import { debounce } from "#platform/debounce.js";
 import { fetchWithTimeout } from "#platform/fetch.js";
 import { formatLatLng } from "#platform/format.js";
 import * as Icons from "#platform/icon.js";
 
 /** Resolve the configured geocode provider (falls back to Nominatim). */
-const getProvider = (config: ComponentConfig): GeocodeProvider => {
+const getProvider = (config: ConfigSearch): GeocodeProvider => {
   try {
     return resolveProvider(
       config.provider as string | ProviderConfig | undefined,
@@ -44,7 +44,7 @@ const getProvider = (config: ComponentConfig): GeocodeProvider => {
 /** Raw provider spec from CONFIG, forwarded to the shared runtime geocoder so
  *  custom providers resolve identically there (cache keys stay consistent). */
 const providerArgs = (
-  config: ComponentConfig,
+  config: ConfigSearch,
 ): [
   string | ProviderConfig | undefined,
   Record<string, unknown> | null | undefined,
