@@ -136,9 +136,18 @@ const sourceViews = (source: string): Record<Surface, string> => {
 
 /** One parse per file, shared by every pattern below. */
 const viewCache = new Map<string, Record<Surface, string>>();
+
+/** Files whose AST has been built. This is the guard's cost: the raw prefilter
+ *  exists to keep it near the narrow-cast allowlist, not the tree size. A
+ *  prefilter that accidentally returns true restores the whole-tree parse (the
+ *  20 s test #1421 fixed) while every assertion still passes, so the parses are
+ *  counted and pinned below. */
+let parsedFiles = 0;
+
 const viewsOf = (file: string): Record<Surface, string> => {
   let views = viewCache.get(file);
   if (!views) {
+    parsedFiles += 1;
     views = sourceViews(read(file));
     viewCache.set(file, views);
   }
@@ -180,6 +189,12 @@ const skipTrivia = (source: string, from: number): number => {
   return i;
 };
 
+/** Word char for the prefilter. `$` is included here, while the judgment
+ *  regexes use `\b` (where `$` does NOT end a word). The one disagreement is
+ *  `y as any$Foo`: the masked code surface matches `\bas\s+any\b` there, but
+ *  that is a type named `any$Foo`, not an `as any` escape, so the prefilter
+ *  rejecting it is deliberate — a real escape cannot bind a `$`-prefixed
+ *  identifier directly after `any`. Pinned by the "$ adjacency" test below. */
 const isWordChar = (char: string | undefined): boolean =>
   char !== undefined && /[A-Za-z0-9_$]/.test(char);
 
@@ -464,6 +479,36 @@ describe("bypass scan teeth", () => {
         expect(hasNarrowCast(source), source).toBe(true);
       }
     }
+  });
+
+  it("parses only the files that can hold a banned pattern", () => {
+    // Regression pin for the cheap prefilter itself: run every pattern over the
+    // real tree with cold caches and count the ASTs that had to be built. The
+    // narrow-cast allowlist is three files; a prefilter that always returns
+    // true silently restores 316 parses (and the 20 s timeout) without failing
+    // any content assertion, so the budget is asserted here instead of timed.
+    viewCache.clear();
+    rawCache.clear();
+    parsedFiles = 0;
+    for (const { re, surface, prefilter } of BANNED) {
+      for (const f of files) matchesIn(f, re, surface, prefilter);
+    }
+    narrowCastHits();
+    expect(
+      parsedFiles,
+      `parsed ${parsedFiles}/${files.length} files — the prefilter is not filtering`,
+    ).toBeLessThanOrEqual(10);
+  });
+
+  it("documents the deliberate $ adjacency gap", () => {
+    // The prefilter treats `$` as a word char; the judgment regexes use `\b`,
+    // where `$` is a non-word char. `y as any$Foo` therefore matches the raw
+    // regex but is not an `as any` escape (the type is `any$Foo`). The prefilter
+    // rejects it on purpose; this pins the difference so a future `\b`-based
+    // rewrite does not silently start parsing every file to chase it.
+    const source = "const x = y as any$Foo;";
+    expect((sourceViews(source).code.match(/\bas\s+any\b/g) || []).length).toBe(1);
+    expect(hasTokenSequence(source, /\bas\b/g, ["any"])).toBe(false);
   });
 
   it("flags a stale allowance, never a live one", () => {

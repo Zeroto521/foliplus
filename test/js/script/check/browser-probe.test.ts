@@ -123,6 +123,10 @@ describe("errorMessage", () => {
 });
 
 describe("runCli", () => {
+  // The matching-entry branch runs main() over the real corpus: ~1.2 s under
+  // coverage in a loaded full-suite run (junit), and it tripped the 10 s
+  // default ceiling once on a shared, loaded host. Budget carries that
+  // measurement; the assertions are unchanged.
   it("sets the exit code only when the entry is this module", () => {
     const own: { exitCode?: number } = {};
     runCli(["--strict"], resolve("script/check/browser-probe.mjs"), own);
@@ -135,7 +139,7 @@ describe("runCli", () => {
     const missing: { exitCode?: number } = {};
     runCli(["--strict"], undefined, missing);
     expect(missing.exitCode).toBeUndefined();
-  });
+  }, 30_000);
 });
 
 describe("buildReport — inline JS strings", () => {
