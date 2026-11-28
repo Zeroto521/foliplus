@@ -27,9 +27,14 @@ describe("LABEL_SIZE / clampLabelSize", () => {
     expect(clampLabelSize(14)).toBe(14);
   });
 
-  it("clamps fractionally and negatively at the shared bounds", () => {
+  it("clamps finite values at the shared bounds and propagates NaN", () => {
     // The same boundary table the Python declaration channel pins in
-    // test/python/_declaration/test_label.py, so both channels clamp alike.
+    // test/python/_declaration/test_label.py. Finite values clamp alike on
+    // both sides; non-finite values are where the two channels differ on
+    // purpose: the declaration normaliser rejects NaN and +/-Infinity before
+    // clamping, while this JS clamp is a bounds clamp only - +/-Infinity
+    // clamps, NaN has no clamp target and propagates. Callers only ever pass
+    // what the browser number input produced or a finite recorded value.
     expect(clampLabelSize(5.5)).toBe(6);
     expect(clampLabelSize(32.5)).toBe(32);
     expect(clampLabelSize(12.5)).toBe(12.5);
@@ -37,6 +42,7 @@ describe("LABEL_SIZE / clampLabelSize", () => {
     expect(clampLabelSize(6.4)).toBe(6.4);
     expect(clampLabelSize(Number.POSITIVE_INFINITY)).toBe(32);
     expect(clampLabelSize(Number.NEGATIVE_INFINITY)).toBe(6);
+    expect(Number.isNaN(clampLabelSize(Number.NaN))).toBe(true);
   });
 });
 

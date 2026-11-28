@@ -121,7 +121,13 @@ class TestNormaliseLabel:
         self, raw: float, expected: float
     ) -> None:
         if raw == expected:
-            assert normalise_label({"size": raw}, owner="Owner") == {"size": expected}
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                assert normalise_label({"size": raw}, owner="Owner") == {
+                    "size": expected
+                }
+            # In range: the value is kept as written and no clamp warning fires.
+            assert caught == []
         else:
             with pytest.warns(UserWarning, match=f"clamped to {expected:g}"):
                 assert normalise_label({"size": raw}, owner="Owner") == {
