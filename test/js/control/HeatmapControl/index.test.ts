@@ -11,6 +11,7 @@
 // destroy() do not.
 import { makeConfig } from "../config-fixture.js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import type { HeatmapManager } from "#control/HeatmapControl/manager.js";
 
 type CapturedControl = {
   log: { warn: (...args: unknown[]) => void };
@@ -25,6 +26,9 @@ type CanvasStub = {
 };
 
 let captured: CapturedControl | null = null;
+/** The manager class the ENTRY module resolves — read after vi.resetModules(),
+ *  because a top-level import would spy on a pre-reset copy of the class. */
+let ManagerCls: typeof HeatmapManager;
 /** Arm a failing `map.on` for the next manager init; null during import. */
 let failOnEvent: string | null = null;
 
@@ -120,8 +124,40 @@ describe("HeatmapControl entry — half-initialised manager", () => {
     (window as any).map = mockMap;
     vi.resetModules();
     await import("#control/HeatmapControl/index.js");
+    ManagerCls = (await import("#control/HeatmapControl/manager.js")).HeatmapManager;
     expect(captured, "the IIFE should have mounted the control").not.toBeNull();
     ctrl = captured!;
+  });
+
+  it("destroy() on a never-built control must not resolve the lazy getter", () => {
+    const initSpy = vi.spyOn(ManagerCls.prototype, "init");
+    expect(ctrl.manager).toBeNull();
+    expect(() => ctrl.destroy()).not.toThrow();
+    // The getter would construct AND init a manager here — destroying a
+    // control that never mounted must not do that.
+    expect(initSpy).not.toHaveBeenCalled();
+    expect(ctrl.manager).toBeNull();
+    initSpy.mockRestore();
+  });
+
+  it("destroy() releases a built manager once; a second destroy never rebuilds", () => {
+    const initSpy = vi.spyOn(ManagerCls.prototype, "init");
+    const disposeSpy = vi.spyOn(
+      (ctrl as unknown as { timers: { dispose: () => void } }).timers,
+      "dispose",
+    );
+    expect(ctrl.mgr).toBeDefined();
+    expect(initSpy).toHaveBeenCalledTimes(1);
+    ctrl.destroy();
+    expect(disposeSpy).toHaveBeenCalledTimes(1);
+    expect(ctrl.manager).toBeNull();
+    // destroy() must not touch the lazy getter: a second teardown on an
+    // already-destroyed control would otherwise build + init + tear down a
+    // fresh manager for nothing.
+    ctrl.destroy();
+    expect(initSpy).toHaveBeenCalledTimes(1);
+    expect(ctrl.manager).toBeNull();
+    initSpy.mockRestore();
   });
 
   it("keeps the manager reachable when init() throws, so destroy() releases it", () => {

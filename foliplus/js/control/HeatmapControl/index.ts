@@ -128,15 +128,15 @@ class HeatmapControl extends defineControl({
   }
 
   destroy() {
-    // `this.mgr` is a lazy getter that constructs the manager AND runs init().
-    // A throw there is exactly the half-mounted case teardown must survive, so
-    // resolution is the first step — and it resolves into the owner field
-    // (`manager`), not a second holder: one manager, one container. The steps
-    // below read `this.manager` and tolerate null instead of being skipped
-    // wholesale when init died halfway.
+    // Never resolve the lazy `mgr` getter here (defineControl.ts:33-35
+    // convention): the getter constructs AND init()s a manager, so tearing
+    // down a never-built or already-destroyed control would mount a fresh
+    // manager only to tear it down again. The half-mounted case is already
+    // covered without a resolution step — the getter stores the manager into
+    // `this.manager` BEFORE init(), so a throwing init leaves it reachable,
+    // and every step below reads `this.manager` and tolerates null.
     finalize(
       [
-        ["resolve-manager", () => void this.mgr],
         ["detach-scan", () => this.initScanCleanup?.()],
         ["release-timers", () => this.timers.dispose()],
         // The shared scheme picker is destroyed here (permanent teardown);
