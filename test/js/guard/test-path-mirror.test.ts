@@ -58,6 +58,8 @@ const NON_MIRRORED_TEST: Record<string, string> = {
     "aggregate test of the core/layer/layout subpackage (default/merge/persist/project), which has no single module file",
   "core/layer/order/order":
     "aggregate test of the core/layer/order engine (doc/command/resolve/rank), which has no single module file",
+  "core/layer/layout/scenarios":
+    "aggregate design scenario matrix for the layer-order engine, which has no single module file",
   "control/LayerControl/label/labelReplay-perf":
     "wall-clock gate for the label replay (control/LayerControl/label/index.ts renderLabels); the -perf suffix marks it a timing gate, not a mirror of a labelReplay-perf module",
 };

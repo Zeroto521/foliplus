@@ -1,20 +1,25 @@
-// test/js/core/order/rank.invariants - the layer-order design §4.2 rank invariants.
+// test/js/core/order/rank.invariants - the layer-order design rank invariants.
 // Ranks are base62 fractional strings; inserting between two ranks must never grow the
 // stored rank without bound, ties break by declaration index then id, and
 // suppress/restore must return a layer to its exact prior rank and parent.
 import { describe, expect, it } from "vitest";
 import {
   type LayerDeclaration,
+  type Present,
+  childrenOf,
   defaultDoc,
   layerKeyOf,
-} from "#core/layer/layout/default.js";
-import { restore, suppress } from "#core/layer/order/command.js";
-import { rankAfter, rankBetween, rankStart } from "#core/layer/order/rank.js";
-import { type Present, childrenOf, resolveView } from "#core/layer/order/resolve.js";
+  rankAfter,
+  rankBetween,
+  rankStart,
+  resolveView,
+  restore,
+  suppress,
+} from "#core/layer/index.js";
 
 const presentAll = (): Present => () => true;
 
-describe("rank invariants (design §4.2)", () => {
+describe("rank invariants (design)", () => {
   it("100 mid-inserts never grow the rank string unboundedly", () => {
     const low = rankStart();
     const high = rankAfter(low);
