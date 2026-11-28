@@ -279,10 +279,20 @@ groups the **观测站** group row, while the `label` block belongs to the **站
 child. The **另一组** container row inherits nothing from it, and the child block is
 not reported as a mistake.
 
-The example builds its layers by hand only because it must show a container: if your
-data is a GeoDataFrame, ordinary layers use the usual
-`gdf.explore(m=m, foliplus={...})` — `explore` does not construct a container
-layer, so a `FeatureGroup` is the way to demonstrate a container row at all.
+The example builds its layers by hand only because it must show a container, and so
+that it runs as written. A real page starts with `m = folium.Map(...)` and adds
+ordinary layers through `explore`; only a container row needs a hand-built
+`FeatureGroup`:
+
+```python
+m = folium.Map(location=[31.2, 121.5], zoom_start=10)
+gdf_stations.explore(m=m, foliplus={"label": {"field": "name"}})   # ordinary layer
+folium.FeatureGroup(name="观测站", foliplus={"folder": "设施"}).add_to(m)  # container row
+```
+
+`explore` forwards its extra keywords to the `folium.GeoJson` it creates, so
+`foliplus=` lands on that layer; it does not construct a container layer, which is
+why a container example cannot be written with `explore` alone.
 
 **Behaviour**:
 
