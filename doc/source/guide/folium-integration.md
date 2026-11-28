@@ -21,6 +21,11 @@ LayerControl().add_to(m)
 m
 ```
 
+`FeatureGroup` has no `explore` form — it is the physical container this page
+documents. For a plain data layer the default starting point is
+`gdf.explore(...)`; the table below lists which folium classes become panel
+rows.
+
 :::{note}
 
 foliplus declares a **hard floor** of folium `>=0.15.0`

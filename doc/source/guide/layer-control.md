@@ -20,13 +20,16 @@ happens upstream (GeoPandas, a database, a file).
 
 ## Adding the panel
 
-Add the control to any {class}`folium.Map`:
+The control attaches to any {class}`folium.Map`. When your data is a
+GeoDataFrame, `explore()` is the shortest way to build that map:
 
 ```python
-import folium
+import geopandas as gpd
 from foliplus import LayerControl
 
-m = folium.Map(location=[31.23, 121.47], zoom_start=11)
+# explore() returns the folium.Map, so the panel attaches directly to it.
+# Point districts.geojson at your own file.
+m = gpd.read_file("districts.geojson").explore()
 LayerControl().add_to(m)
 m.save("map.html")
 ```

@@ -219,6 +219,10 @@ a notebook and want to observe an event, add a small JS block to the map:
    """))
    m
 
+The map is built explicitly here because there is no data layer to hand to
+``explore``. If your data is a GeoDataFrame, start from ``gdf.explore(...)``
+instead and inject the same script into the map it returns.
+
 Contract boundary
 -----------------
 
