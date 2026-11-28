@@ -67,7 +67,9 @@ const walk = (dir, out = []) => {
 };
 
 /** Decode \uXXXX escapes so a callee spelled `create\u0044ropdown` is
- *  prefiltered exactly as the parser will see it (`createDropdown`). */
+ *  prefiltered like the parser reads it (`createDropdown`). This decodes the
+ *  whole source, strings and comments included, so it is a SUPERSET of the
+ *  parser view: an over-match costs one extra parse, never a missed violation. */
 const normalizeUnicodeEscapes = src =>
   src.replace(/\\u([0-9a-fA-F]{4})/g, (_m, hex) =>
     String.fromCharCode(Number.parseInt(hex, 16)),
@@ -128,9 +130,12 @@ const hasOverlayProperty = obj =>
 /**
  * Find overlay-contract violations in the production source tree.
  * @param root repo root; production is scanned under `<root>/foliplus/js`.
+ * @param {{ parsed?: number }} [stats] optional collector; `stats.parsed` is
+ *   how many modules actually reached the TypeScript parser (the gate's real
+ *   cost — the tests pin it structurally instead of timing the wall clock).
  * @returns [{file, line, text, context}]
  */
-const findOverlayContractViolations = (root = process.cwd()) => {
+const findOverlayContractViolations = (root = process.cwd(), stats = undefined) => {
   const targets = walk(path.join(root, "foliplus", "js"));
   const hits = [];
   for (const file of targets) {
@@ -145,6 +150,7 @@ const findOverlayContractViolations = (root = process.cwd()) => {
     if (!canHoldViolation(content)) {
       continue;
     }
+    if (stats) stats.parsed = (stats.parsed ?? 0) + 1;
     const sf = ts.createSourceFile(
       rel,
       content,
@@ -236,4 +242,4 @@ const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
 };
 runCli(process.argv.slice(2), process.argv[1]);
 
-export { findOverlayContractViolations, main, runCli, walk };
+export { canHoldViolation, findOverlayContractViolations, main, runCli, walk };

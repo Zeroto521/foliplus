@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  canHoldViolation,
   findOverlayContractViolations,
   main,
   runCli,
@@ -20,8 +21,16 @@ const REPO_ROOT = process.cwd();
 
 describe("createDropdown overlay contract", () => {
   it("finds no overlay violation in the production surface", { timeout: 60000 }, () => {
-    const hits = findOverlayContractViolations(REPO_ROOT);
+    const stats = { parsed: 0 };
+    const hits = findOverlayContractViolations(REPO_ROOT, stats);
     expect(hits).toEqual([]);
+    // Structural pin, not a wall clock: the gate's real cost is the number of
+    // modules that reach ts.createSourceFile. 318 production modules today,
+    // 10 pass the prefilter — a dozen is the budget with room for a new
+    // createDropdown/overlay site, and a `prefilter: () => true` regression
+    // jumps straight back to 318 and fails here. Wall-clock assertions on this
+    // scan (0.2 s idle, 1.7–2.3 s on a shared host) would be load-flaky.
+    expect(stats.parsed).toBeLessThanOrEqual(12);
   });
 
   it("flags a synthetic createDropdown call without overlay", () => {
@@ -156,7 +165,11 @@ describe("prefilter is a superset of the AST rules", () => {
   });
 
   it("still skips a file with no overlay token at all", () => {
-    expect(scan("const x = dropdown.create({ items });\n")).toEqual([]);
+    const content = "const x = dropdown.create({ items });\n";
+    // Assert the prefilter itself rejects it: "no hits" alone would also pass
+    // with a prefilter that always returns true.
+    expect(canHoldViolation(content)).toBe(false);
+    expect(scan(content)).toEqual([]);
   });
 });
 
