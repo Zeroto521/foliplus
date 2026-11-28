@@ -242,9 +242,7 @@ const deleteBranch = (doc: OrderDoc, key: string): OrderDoc => {
   const fIdx = siblings.indexOf(key);
   const prevRoot = fIdx > 0 ? doc.nodes[siblings[fIdx - 1]].rank : null;
   const nextRoot =
-    fIdx >= 0 && fIdx + 1 < siblings.length
-      ? doc.nodes[siblings[fIdx + 1]].rank
-      : null;
+    fIdx >= 0 && fIdx + 1 < siblings.length ? doc.nodes[siblings[fIdx + 1]].rank : null;
   const members = childrenOf(doc, key);
   const out = clone(doc);
   delete out.nodes[key];
