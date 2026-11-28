@@ -668,7 +668,7 @@ describe("HeatmapControl filter owner", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledWith(
       { id: m.layerId },
-      { origin: { kind: "user", via: "panel" } },
+      { origin: { kind: "user", via: "panel" }, revision: expect.any(Number) },
     );
   });
 
@@ -1019,7 +1019,7 @@ describe("HeatmapControl filter owner", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledWith(
       { id: m.layerId },
-      { origin: { kind: "user", via: "panel" } },
+      { origin: { kind: "user", via: "panel" }, revision: expect.any(Number) },
     );
   });
 
@@ -1055,7 +1055,7 @@ describe("HeatmapControl filter owner", () => {
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledWith(
       { id: m.layerId },
-      { origin: { kind: "user", via: "panel" } },
+      { origin: { kind: "user", via: "panel" }, revision: expect.any(Number) },
     );
   });
 

@@ -457,7 +457,10 @@ describe("LayerController", () => {
       manager.refreshCount("rc1");
       expect(handler).toHaveBeenCalledWith(
         { id: "rc1" },
-        { origin: { kind: "programmatic", via: "refresh" } },
+        {
+          origin: { kind: "programmatic", via: "refresh" },
+          revision: expect.any(Number),
+        },
       );
     });
 
@@ -499,7 +502,10 @@ describe("LayerController", () => {
       manager.refreshCount("rt");
       expect(handler).toHaveBeenCalledWith(
         { id: "rt" },
-        { origin: { kind: "programmatic", via: "refresh" } },
+        {
+          origin: { kind: "programmatic", via: "refresh" },
+          revision: expect.any(Number),
+        },
       );
       manager.invalidateType("rt");
       expect(manager.layerRegistry.get("rt")?.type).toBeNull();
@@ -512,7 +518,10 @@ describe("LayerController", () => {
       manager.refreshCount("ghost");
       expect(handler).toHaveBeenCalledWith(
         { id: "ghost" },
-        { origin: { kind: "programmatic", via: "refresh" } },
+        {
+          origin: { kind: "programmatic", via: "refresh" },
+          revision: expect.any(Number),
+        },
       );
     });
   });

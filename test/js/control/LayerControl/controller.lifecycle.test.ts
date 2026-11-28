@@ -580,7 +580,7 @@ describe("LayerController", () => {
       // consumer ahead of them threw.
       expect(owner).toHaveBeenCalledWith(
         { id: "measure1" },
-        { origin: { kind: "system", via: "teardown" } },
+        { origin: { kind: "system", via: "teardown" }, revision: expect.any(Number) },
       );
       expect(deleteEntrySpy).toHaveBeenCalledWith("measure1");
       // Component clear keeps the id registerable for the next draw.

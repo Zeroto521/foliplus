@@ -2,6 +2,18 @@
 // Per-map (attached via ensureEvents underneath map.foliplus). Components
 // subscribe to semantic events (LAYER_CHANGE, MODE_CHANGE, ...) instead of
 // wiring to raw Leaflet map events — decoupled, auto-unbindable, and testable.
+//
+// Reentrancy rule: a handler must not synchronously emit a terminal event
+// (LAYER_CHANGE, LAYER_ITEM_*, AFTER_EXPORT, ...). A terminal event is the
+// operation's last step; emitting one from inside a handler re-enters the bus
+// while the outer delivery is still walking its listener snapshot, and the
+// supersede/generation machinery only softens that — it does not make it
+// legal. Queue later work through SettledOperation (which publishes after the
+// local commit), or use a notification event (see EVENT_POLICY in ./const.js —
+// MODE_CHANGE, BEFORE_EXPORT, OVERLAY_CLEAR, CONTROL_ATTACHED,
+// LAYER_CAPABILITY_CHANGED, LAYER_FILTER_CHANGE), which is defined to sit
+// inside a producer's transaction.
+// A dispatch nested more than three deep is a symptom and is logged once.
 import {
   EVENT_POLICY,
   EVENT_POLICY_KIND,
@@ -76,6 +88,13 @@ class EventBus {
     return n;
   }
 
+  /** Current delivery revision — the stamp the next delivery will carry.
+   *  Subscribers normally read it from `meta.revision`; this getter exists for
+   *  diagnostics/tests and for comparing an applied batch with what is pending. */
+  get revision(): number {
+    return this.revisionCounter;
+  }
+
   private entry(event: string): EventEntry {
     let e = this.entries.get(event);
     if (!e) {
@@ -134,6 +153,10 @@ class EventBus {
     // repeat `on` with a different phase upgrades the existing registration,
     // so an owner handler re-registered as "internal" is never left behind an
     // observer.
+    //
+    // `findIndex` is deliberately a linear scan: one event's listener list is a
+    // handful of closures, and a parallel index map would be a second structure
+    // to keep consistent on every on/off for no measurable gain.
     const existing = e.listeners.findIndex(l => l.fn === handler);
     if (existing >= 0) {
       if (e.listeners[existing].phase !== phase) {
@@ -188,13 +211,28 @@ class EventBus {
     payload: unknown[],
     mode: "failfast" | "collect",
     supersedeKey?: string,
-    meta?: EventMeta,
+    origin?: EventOrigin,
   ): DispatchFailure | undefined {
     const e = this.entries.get(event);
+    // An entry exists only while it holds a listener (`off` deletes it at
+    // zero), so no entry means no delivery: an unwatched channel costs no
+    // revision bump and no snapshot copy.
     if (!e) return undefined;
+    const revision = ++this.revisionCounter;
+    const meta: EventMeta = origin === undefined ? { revision } : { revision, origin };
     e.snapshot ??= [...e.listeners];
     const snapshot = e.snapshot;
     const generation = this.generation;
+    this.depth++;
+    // Symptom signal, not an error: a legitimate notification emitted inside a
+    // producer's transaction can cross this depth too. It is logged once per
+    // bus so the shape is visible without flooding the console.
+    if (this.depth > 3 && !this.reentryWarned) {
+      this.reentryWarned = true;
+      log.warn(
+        "dispatch nested more than 3 deep — a handler is synchronously emitting inside a handler; see the reentrancy rule in the EventBus header",
+      );
+    }
     const token = supersedeKey === undefined ? undefined : {};
     // Only read when the token is set (which implies the key is present).
     const key = supersedeKey as string;
@@ -214,6 +252,7 @@ class EventBus {
         }
       }
     } finally {
+      this.depth--;
       if (token !== undefined && e.inFlight.get(key) === token) {
         e.inFlight.delete(key);
       }
@@ -266,13 +305,7 @@ class EventBus {
     this.assertPublishable(event);
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
     const origin = this.resolveOrigin(event, args);
-    this.dispatch(
-      event,
-      payload,
-      "failfast",
-      undefined,
-      origin === undefined ? undefined : { origin },
-    );
+    this.dispatch(event, payload, "failfast", undefined, origin);
   }
 
   /** Emit an event whose payload is one layer's current state, superseding any
@@ -301,13 +334,7 @@ class EventBus {
     this.assertPublishable(event);
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
     const origin = this.resolveOrigin(event, args);
-    this.dispatch(
-      event,
-      payload,
-      "failfast",
-      supersedeKey,
-      origin === undefined ? undefined : { origin },
-    );
+    this.dispatch(event, payload, "failfast", supersedeKey, origin);
   }
 
   /** Emit without letting a throwing handler cut the delivery short.
@@ -332,13 +359,7 @@ class EventBus {
   emitSettled(event: string, ...args: unknown[]): DispatchFailure | undefined {
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
     const origin = this.resolveOrigin(event, args);
-    return this.dispatch(
-      event,
-      payload,
-      "collect",
-      undefined,
-      origin === undefined ? undefined : { origin },
-    );
+    return this.dispatch(event, payload, "collect", undefined, origin);
   }
 
   /** Emit without letting a throwing handler cut the delivery short.
@@ -366,13 +387,7 @@ class EventBus {
   ): DispatchFailure | undefined {
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
     const origin = this.resolveOrigin(event, args);
-    return this.dispatch(
-      event,
-      payload,
-      "collect",
-      supersedeKey,
-      origin === undefined ? undefined : { origin },
-    );
+    return this.dispatch(event, payload, "collect", supersedeKey, origin);
   }
 
   /** Publish one broadcast and resolve the first failure by the event's
@@ -390,13 +405,7 @@ class EventBus {
   publish(event: string, ...args: unknown[]): void {
     const payload = isVoidEvent(event) ? [] : args.length > 0 ? [args[0]] : [];
     const origin = this.resolveOrigin(event, args);
-    const failure = this.dispatch(
-      event,
-      payload,
-      "collect",
-      undefined,
-      origin === undefined ? undefined : { origin },
-    );
+    const failure = this.dispatch(event, payload, "collect", undefined, origin);
     if (failure) this.resolveByPolicy(event, failure);
   }
 
@@ -438,6 +447,15 @@ class EventBus {
    *  changes, so a torn-down bus cannot keep feeding a delivery that was
    *  already in flight. */
   private generation = 0;
+
+  /** Monotonic delivery counter stamped into `meta.revision`. Bumped only by a
+   *  dispatch that has at least one listener — see the getter above. */
+  private revisionCounter = 0;
+
+  /** Nested-delivery depth (see the reentrancy rule in the header), warned once
+   *  per bus so a broken handler cannot flood the console. */
+  private depth = 0;
+  private reentryWarned = false;
 
   /** Drop every listener and in-flight token. Called by ensureEvents on map
    *  unload — a removed map cannot keep feeding deliveries, and the destroyed
