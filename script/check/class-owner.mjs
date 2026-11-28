@@ -70,10 +70,6 @@ const EXCLUDED_DIR_PARTS = [
  *  data (locale tables), not control code that could spell a class name. */
 const PY_EXCLUDED_DIR_PARTS = ["locale"];
 
-/** File suffixes the consumer scan reads. CSS is a definition side; locale
- *  is data; markdown is documentation. */
-const SCAN_SUFFIXES = [".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"];
-
 /** File suffixes the Python consumer scan reads. */
 const PY_SCAN_SUFFIXES = [".py"];
 

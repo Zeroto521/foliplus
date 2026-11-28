@@ -26,16 +26,16 @@ import fs from "node:fs";
 import path from "node:path";
 
 /** A single foliplus class token, exactly. */
-export const TOKEN_RE = /^foliplus-[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const TOKEN_RE = /^foliplus-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** Strip block + line comments, preserving newlines so line numbers survive. */
-export const stripComments = src =>
+const stripComments = src =>
   src
     .replace(/\/\*[\s\S]*?\*\//g, m => m.replace(/[^\r\n]/g, " "))
     .replace(/\/\/[^\r\n]*/g, m => m.replace(/[^\r\n]/g, " "));
 
 /** Recursively collect source files under `dir`, skipping `skipDirs`. */
-export const collectSources = (
+const collectSources = (
   dir,
   { suffixes = [".ts", ".mts", ".cts", ".js", ".mjs", ".cjs"], skipDirs = new Set(), out = [] } = {},
 ) => {
@@ -66,7 +66,7 @@ const lineAt = (src, index) => src.slice(0, index).split("\n").length;
  *
  * @returns {{token: string, key: string, owner: string, line: number}[]}
  */
-export const parseClassDefs = source => {
+const parseClassDefs = source => {
   const code = stripComments(source);
   const sites = [];
 
@@ -161,3 +161,5 @@ export const parseClassDefs = source => {
 
   return sites;
 };
+
+export { TOKEN_RE, collectSources, parseClassDefs, stripComments };
