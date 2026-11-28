@@ -14,6 +14,7 @@ import { MODE_MAP } from "./mode/index.js";
 import type { ExportDataFormat } from "./type.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { download } from "#platform/download.js";
 import { formatCoord } from "#platform/format.js";
 
@@ -209,7 +210,9 @@ const currentExportFormat = (env: ControlEnv): ExportFormatSpec =>
 /** Filename the export writes to — shared with the success hint so
  * the two cannot drift. */
 const exportFilename = (env: ControlEnv, format: ExportDataFormat): string =>
-  `${env.config.filename ?? "measurements"}.${EXPORT_FORMAT_META[format].ext}`;
+  `${env.config.filename ?? DEFAULT_CONFIG.MeasureControl.filename}.${
+    EXPORT_FORMAT_META[format].ext
+  }`;
 
 /**
  * Convert measurements to a Blob and trigger a file download.
@@ -224,7 +227,7 @@ const exportMeasurements = (
   if (!measurements || measurements.length === 0) return;
 
   const meta = EXPORT_FORMAT_META[format];
-  const base = env.config.filename ?? "measurements";
+  const base = env.config.filename ?? DEFAULT_CONFIG.MeasureControl.filename;
 
   download(
     new Blob([meta.serialize(env, measurements)], { type: meta.mime }),

@@ -2,7 +2,6 @@
 // ``import * as CONST`` so callers keep the ``CONST.X`` access pattern.
 // Only pure static constants live here; CONFIG-derived values are accessed
 // via ``CONFIG.*`` directly in the consuming code.
-import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { scopedStorageKey } from "#platform/storage.js";
 import { DEFAULT_LABEL_COLOR, LABEL_SIZE } from "#ui/index.js";
 
@@ -40,7 +39,6 @@ const H3 = {
 const ID = "foliplus_heatmap";
 
 const AGG = {
-  DEFAULT: DEFAULT_CONFIG.HeatmapControl.agg,
   COUNT: "count",
   SUM: "sum",
   AVG: "avg",

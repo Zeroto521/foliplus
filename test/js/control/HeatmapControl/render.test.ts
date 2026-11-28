@@ -3,6 +3,7 @@ import { loadFeature } from "./fixture.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getLayerAlpha, setLayerAlpha } from "#core/layer/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import {
   drawHexLabel,
   drawHexagon,
@@ -91,10 +92,11 @@ describe("drawHexagon", () => {
     expect(ctx.stroke).not.toHaveBeenCalled();
   });
 
-  it("skips the stroke when CONFIG.border_opacity is absent or 0", () => {
-    // 0: the `> 0` guard rejects it. undefined: `?? 0` is the other side of
-    // that default — both must miss the stroke, and both branches of the
-    // `??` have to run.
+  it("skips a zero border_opacity but strokes at the generated default when absent", () => {
+    // 0 is an explicit "no border" and the `> 0` guard rejects it. An absent
+    // value now resolves through DEFAULT_CONFIG (Python default 0.9), so the
+    // stroke runs — the `??` branch is pinned by the generated value, not a
+    // local literal.
     Object.assign(window.CONFIG, { border_opacity: 0 });
     const ctx = makeCtx();
     drawHexagon(
@@ -109,6 +111,10 @@ describe("drawHexagon", () => {
 
     Object.assign(window.CONFIG, { border_opacity: undefined });
     const ctx2 = makeCtx();
+    const alphasDuring: number[] = [];
+    ctx2.stroke = vi.fn(() => {
+      alphasDuring.push(ctx2.globalAlpha);
+    });
     drawHexagon(
       ctx2 as unknown as CanvasRenderingContext2D,
       makeFeat(),
@@ -117,7 +123,8 @@ describe("drawHexagon", () => {
       "#000000",
     );
     expect(ctx2.fill).toHaveBeenCalled();
-    expect(ctx2.stroke).not.toHaveBeenCalled();
+    expect(ctx2.stroke).toHaveBeenCalled();
+    expect(alphasDuring[0]).toBe(DEFAULT_CONFIG.HeatmapControl.border_opacity);
   });
 
   it("falls back to the shared grey fill when the feature has no fillColor", () => {
@@ -177,7 +184,7 @@ describe("drawHexagon", () => {
     expect(ctx.globalAlpha).toBe(1);
   });
 
-  it("falls back to 1 when CONFIG.fill_opacity is absent (branch cover)", () => {
+  it("falls back to the generated Python default when CONFIG.fill_opacity is absent", () => {
     Object.assign(window.CONFIG, { fill_opacity: undefined, border_opacity: 0 });
     const ctx = makeCtx();
     const alphasDuring: number[] = [];
@@ -191,7 +198,7 @@ describe("drawHexagon", () => {
       0,
       "#000000",
     );
-    expect(alphasDuring[0]).toBe(1);
+    expect(alphasDuring[0]).toBe(DEFAULT_CONFIG.HeatmapControl.fill_opacity);
     expect(ctx.globalAlpha).toBe(1);
   });
 });

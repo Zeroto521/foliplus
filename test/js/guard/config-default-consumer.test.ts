@@ -59,12 +59,16 @@ const declaredDefaults = (src: string): Map<string, string[]> => {
   return out;
 };
 
+/** Drop TS comments so a doc example cannot pose as a consumer. */
+const stripComments = (src: string): string =>
+  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\r\n]*/g, "");
+
 /** `DEFAULT_CONFIG.<Control>.<key>` reads across the component sources. */
 const consumedDefaults = (): Map<string, Set<string>> => {
   const consumed = new Map<string, Set<string>>();
   for (const rel of jsFiles()) {
     if (rel === DEFAULTS_FILE) continue;
-    const src = readFileSync(resolve(REPO_ROOT, rel), "utf8");
+    const src = stripComments(readFileSync(resolve(REPO_ROOT, rel), "utf8"));
     for (const hit of src.matchAll(
       /DEFAULT_CONFIG\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g,
     )) {
@@ -109,11 +113,27 @@ describe("generated runtime defaults", () => {
   });
 
   it("consumes exactly the wiring the migration batch declares", () => {
-    // Batch 1: the empirically drifted keys only. Each later batch appends here
-    // in the same commit that adds the consumer.
+    // Batch 1 wires every fallback key of these two controls. Declaration-only
+    // keys (schemes/layer/field/filter/folder/zoom_range) are not fallbacks —
+    // `null`/absent means "not declared", so they have no default to read.
+    // Each later batch appends its controls here in the same commit that adds
+    // the consumers.
     const WIRED: Record<string, string[]> = {
-      HeatmapControl: ["agg", "color_scheme", "num_classes"],
-      MeasureControl: ["export_format"],
+      HeatmapControl: [
+        "agg",
+        "border_color",
+        "border_opacity",
+        "border_weight",
+        "color_scheme",
+        "fill_opacity",
+        "label_color",
+        "label_format",
+        "label_show",
+        "label_size",
+        "method",
+        "num_classes",
+      ],
+      MeasureControl: ["export_format", "filename"],
     };
     const expected = Object.entries(WIRED)
       .flatMap(([control, keys]) => keys.map(key => `${control}.${key}`))

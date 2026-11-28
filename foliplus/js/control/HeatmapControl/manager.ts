@@ -31,16 +31,15 @@ import {
   parsePersistedFilter,
 } from "#core/layer/index.js";
 import { generateId } from "#core/lifecycle/index.js";
-import { type ClassifyMethod, SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
+import type { ClassifyMethod } from "#core/value/index.js";
 import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { normalizeHexColor } from "#platform/color.js";
 import type { Debounced } from "#platform/debounce.js";
-import { NUMBER_FORMAT } from "#platform/format.js";
 import { createLogger } from "#platform/log.js";
 import type { Persisted } from "#platform/storage.js";
 import type { Logger } from "#platform/type.js";
-import { BORDER_WEIGHT, type CanvasLabelStyle, clampLabelSize } from "#ui/index.js";
+import { type CanvasLabelStyle, clampLabelSize } from "#ui/index.js";
 
 /** A point layer collected from LayerControl. */
 interface PointLayerInfo {
@@ -398,19 +397,26 @@ class HeatmapManager {
     this.declaredFilterInvalid = rawDeclaredFilter != null && !this.declaredFilter;
     this.declarationWarned = new Set();
     this.scheme = CONFIG.color_scheme ?? DEFAULT_CONFIG.HeatmapControl.color_scheme;
-    this.method = resolveClassifyMethod(CONFIG.method);
+    this.method = resolveClassifyMethod(
+      CONFIG.method ?? DEFAULT_CONFIG.HeatmapControl.method,
+    );
     this.numClasses = CONFIG.num_classes ?? DEFAULT_CONFIG.HeatmapControl.num_classes;
-    this.borderColor = CONFIG.border_color ?? SCHEME_FALLBACK_COLOR;
-    this.borderWeight = CONFIG.border_weight ?? BORDER_WEIGHT.DEFAULT;
-    // Python default is True; only an explicit false turns labels off — same
-    // `!== false` rule MeasureControl uses for label_show / label_collide.
-    this.labelShow = CONFIG.label_show !== false;
+    this.borderColor =
+      CONFIG.border_color ?? DEFAULT_CONFIG.HeatmapControl.border_color;
+    this.borderWeight =
+      CONFIG.border_weight ?? DEFAULT_CONFIG.HeatmapControl.border_weight;
+    // The Python default is the generated one; an explicit false still wins
+    // (the field is a boolean, so `??` and the old `!== false` agree).
+    this.labelShow = CONFIG.label_show ?? DEFAULT_CONFIG.HeatmapControl.label_show;
     // Color inputs require #rrggbb — normalize the short #fff Python default.
     this.labelColor = normalizeHexColor(
-      CONFIG.label_color ?? CONST.LABEL.COLOR_DEFAULT,
+      CONFIG.label_color ?? DEFAULT_CONFIG.HeatmapControl.label_color,
     );
-    this.labelSize = clampLabelSize(CONFIG.label_size ?? CONST.LABEL.SIZE_DEFAULT);
-    this.labelFormat = (CONFIG.label_format ?? NUMBER_FORMAT.AUTO) as NumberStyle;
+    this.labelSize = clampLabelSize(
+      CONFIG.label_size ?? DEFAULT_CONFIG.HeatmapControl.label_size,
+    );
+    this.labelFormat = (CONFIG.label_format ??
+      DEFAULT_CONFIG.HeatmapControl.label_format) as NumberStyle;
     this.valueFallbackWarned = false;
     this.sourceMeta = {};
   }

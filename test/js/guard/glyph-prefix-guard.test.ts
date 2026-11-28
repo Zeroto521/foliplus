@@ -10,6 +10,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { GLYPH_PREFIXES } from "#core/leaflet/index.js";
 
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus", "js");
@@ -19,11 +20,15 @@ const JS_ROOT = resolve(REPO_ROOT, "foliplus", "js");
 const PREFIX_TABLE_FILE = "foliplus/js/core/leaflet/glyphSource.ts";
 const SOLID_DECLARATION = /solid:\s*"fa-solid"/;
 
-// The generated CONFIG schema carries the `icon_prefix` union straight from
-// Python's `Literal["fa-solid", "fa-regular"]`. It declares a type, not a
-// default value, so it is not a second hardcoded panel family; exempting it
-// keeps the guard on its real subject (hand-written call sites).
-const GENERATED_SCHEMA_FILE = "foliplus/js/config-schema.ts";
+// The generated modules carry the family from Python: config-schema.ts declares
+// the `icon_prefix` union and config-default.ts carries its default value.
+// Neither is a hand-written call site — the assertion below pins the generated
+// default to GLYPH_PREFIXES.solid, so exempting them cannot let a second
+// hardcoded family in.
+const GENERATED_FILES = new Set([
+  "foliplus/js/config-schema.ts",
+  "foliplus/js/config-default.ts",
+]);
 
 // Walk .ts files under foliplus/js.
 const walk = (dir: string): string[] => {
@@ -48,7 +53,7 @@ describe("glyph prefix parameterization", () => {
     const hits: string[] = [];
     for (const file of walk(JS_ROOT)) {
       const rel = relative(REPO_ROOT, file).replace(/\\/g, "/");
-      if (rel === GENERATED_SCHEMA_FILE) continue;
+      if (GENERATED_FILES.has(rel)) continue;
       if (rel !== PREFIX_TABLE_FILE) {
         const src = codeOnly(readFileSync(file, "utf8"));
         if (/fa-solid/.test(src)) hits.push(rel);
@@ -66,5 +71,16 @@ describe("glyph prefix parameterization", () => {
       expect(carrier[0].line).toMatch(SOLID_DECLARATION);
     }
     expect(hits).toEqual([]);
+  });
+
+  it("keeps the generated icon_prefix default on the JS family single source", () => {
+    // Python's `LayerControl.icon_prefix` default reaches the generated map
+    // through the schema dump; it must be the same family the panel renders
+    // under, not a value that merely happens to typecheck.
+    const src = codeOnly(
+      readFileSync(resolve(REPO_ROOT, "foliplus/js/config-default.ts"), "utf8"),
+    );
+    const match = src.match(/icon_prefix:\s*"([^"]+)"/);
+    expect(match?.[1]).toBe(GLYPH_PREFIXES.solid);
   });
 });

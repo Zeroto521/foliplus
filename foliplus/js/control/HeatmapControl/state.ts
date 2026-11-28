@@ -36,7 +36,9 @@ const resetState = (m: HeatmapManager, config: ComponentConfig) => {
   m.availableFields = [];
   m.invalidateEffectiveField();
   m.numClasses = config.num_classes ?? DEFAULT_CONFIG.HeatmapControl.num_classes;
-  m.method = resolveClassifyMethod(config.method);
+  m.method = resolveClassifyMethod(
+    config.method ?? DEFAULT_CONFIG.HeatmapControl.method,
+  );
   m.scheme = config.color_scheme ?? DEFAULT_CONFIG.HeatmapControl.color_scheme;
   // The clear wipes the row's data — every source's filter (and its
   // declaration) is a statement about data that no longer exists. The

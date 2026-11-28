@@ -4,6 +4,7 @@
 import type { HexFeature } from "./type.js";
 import { drawAlpha, getLayerAlpha, withCanvasLayerAlpha } from "#core/layer/index.js";
 import { SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { formatLabelNumber } from "#platform/format.js";
 import {
@@ -28,10 +29,11 @@ const drawHexagon = (
     map.latLngToContainerPoint(L.latLng(p[1], p[0])),
   );
   const layerAlpha = getLayerAlpha(ctx.canvas);
-  const fillAlpha = CONFIG.fill_opacity ?? 1;
+  const fillAlpha = CONFIG.fill_opacity ?? DEFAULT_CONFIG.HeatmapControl.fill_opacity;
   // The border branch only runs when this is > 0, so the draw path can use
   // the resolved number directly (a second `?? 1` here would be unreachable).
-  const borderAlpha = CONFIG.border_opacity ?? 0;
+  const borderAlpha =
+    CONFIG.border_opacity ?? DEFAULT_CONFIG.HeatmapControl.border_opacity;
   ctx.beginPath();
   ctx.moveTo(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);

@@ -4,7 +4,7 @@
 //   node script/build/emit-config-schema.mjs --json foliplus/.build/js/config-schema.json
 // Runtime CONFIG defaults per control, derived from the Python __init__
 // parameter defaults through the schema dump. A control reads
-// `CONFIG.x ?? DEFAULT_CONFIG.<Control>.x` instead of repeating the
+// its fallback from DEFAULT_CONFIG.<Control>.<key> instead of repeating
 // literal, so changing a Python default and regenerating is the only way
 // to change the runtime fallback. JS-only constants (colors, sizes with
 // no Python argument) stay in the control's const.ts. Shared CONFIG fields

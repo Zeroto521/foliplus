@@ -11,8 +11,8 @@ import {
 } from "./fixture.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EVENTS, SettledOperation } from "#core/event/index.js";
-import { CLASS_COUNT, SCHEME_FALLBACK_COLOR } from "#core/value/index.js";
 import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
+import { normalizeHexColor } from "#platform/color.js";
 import { BORDER_WEIGHT } from "#ui/index.js";
 import { canvasMethods } from "#control/HeatmapControl/canvas.js";
 import * as CONST from "#control/HeatmapControl/const.js";
@@ -272,9 +272,9 @@ describe("HeatmapManager — style delegation", () => {
     expect(opts.styleDefaultsProvider!().labelShow).toBe(true);
   });
 
-  it("borderWeight defaults to BORDER_WEIGHT.DEFAULT when CONFIG omits border_weight", () => {
+  it("borderWeight defaults to the generated Python default when CONFIG omits border_weight", () => {
     const m = makeManager({ border_weight: undefined });
-    expect(m.borderWeight).toBe(BORDER_WEIGHT.DEFAULT);
+    expect(m.borderWeight).toBe(DEFAULT_CONFIG.HeatmapControl.border_weight);
   });
 
   it("borderWeight setter updates state, re-renders and persists", () => {
@@ -376,21 +376,25 @@ describe("HeatmapManager — style delegation", () => {
 });
 
 describe("constructor — CONFIG fallbacks", () => {
-  it("uses library defaults when CONFIG omits optional style fields", () => {
+  it("uses the generated Python defaults when CONFIG omits optional style fields", () => {
     const m = makeManager({
       agg: undefined,
-      color_scheme: undefined,
-      method: undefined,
-      num_classes: undefined,
       border_color: undefined,
+      color_scheme: undefined,
       label_color: undefined,
       label_size: undefined,
+      method: undefined,
+      num_classes: undefined,
     });
-    expect(m.agg).toBe(CONST.AGG.COUNT);
-    expect(m.scheme).toBe("Reds");
-    expect(m.method).toBe("jenks");
-    expect(m.numClasses).toBe(CLASS_COUNT.DEFAULT);
-    expect(m.borderColor).toBe(SCHEME_FALLBACK_COLOR);
+    expect(m.agg).toBe(DEFAULT_CONFIG.HeatmapControl.agg);
+    expect(m.scheme).toBe(DEFAULT_CONFIG.HeatmapControl.color_scheme);
+    expect(m.method).toBe(DEFAULT_CONFIG.HeatmapControl.method);
+    expect(m.numClasses).toBe(DEFAULT_CONFIG.HeatmapControl.num_classes);
+    expect(m.borderColor).toBe(DEFAULT_CONFIG.HeatmapControl.border_color);
+    expect(m.labelColor).toBe(
+      normalizeHexColor(DEFAULT_CONFIG.HeatmapControl.label_color),
+    );
+    expect(m.labelSize).toBe(DEFAULT_CONFIG.HeatmapControl.label_size);
   });
 });
 
@@ -833,12 +837,30 @@ describe("HeatmapManager — generated runtime defaults", () => {
     // Python __init__ default and regenerating is the only way to move them.
     const manager = makeManager({
       agg: undefined,
+      border_color: undefined,
+      border_weight: undefined,
       color_scheme: undefined,
+      label_color: undefined,
+      label_format: undefined,
+      label_show: undefined,
+      label_size: undefined,
+      method: undefined,
       num_classes: undefined,
     });
 
     expect(manager.agg).toBe(DEFAULT_CONFIG.HeatmapControl.agg);
     expect(manager.scheme).toBe(DEFAULT_CONFIG.HeatmapControl.color_scheme);
     expect(manager.numClasses).toBe(DEFAULT_CONFIG.HeatmapControl.num_classes);
+    // The four keys whose JS literals had drifted from the Python defaults
+    // (#999/1/1/0 vs #333333/1.5/0.7/0.9) now come from the generated map.
+    expect(manager.borderColor).toBe(DEFAULT_CONFIG.HeatmapControl.border_color);
+    expect(manager.borderWeight).toBe(DEFAULT_CONFIG.HeatmapControl.border_weight);
+    expect(manager.labelColor).toBe(
+      normalizeHexColor(DEFAULT_CONFIG.HeatmapControl.label_color),
+    );
+    expect(manager.labelSize).toBe(DEFAULT_CONFIG.HeatmapControl.label_size);
+    expect(manager.labelFormat).toBe(DEFAULT_CONFIG.HeatmapControl.label_format);
+    expect(manager.labelShow).toBe(DEFAULT_CONFIG.HeatmapControl.label_show);
+    expect(manager.method).toBe(DEFAULT_CONFIG.HeatmapControl.method);
   });
 });
