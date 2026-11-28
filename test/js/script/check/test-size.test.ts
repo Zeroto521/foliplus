@@ -172,4 +172,17 @@ describe("the real tree", () => {
     expect(log.mock.calls.flat().join(" ")).toContain("allowlist:");
     log.mockRestore();
   });
+
+  it("fails --list too when an entry is stale", () => {
+    // --list is a report, not a loophole: a stale row still fails it, and the
+    // row is named so the reader deletes that line.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const code = main(
+      [{ file: "test/js/ui/listbox.test.ts", lines: LIMIT }],
+      ["node", "test-size.mjs", "--list"],
+    );
+    expect(code).toBe(1);
+    expect(log.mock.calls.flat().join(" ")).toContain("STALE ui/listbox.test.ts");
+    log.mockRestore();
+  });
 });
