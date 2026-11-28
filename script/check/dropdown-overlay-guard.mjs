@@ -27,6 +27,10 @@
  * Usage: `node script/check/dropdown-overlay-guard.mjs [root]`
  *   Prints each violation as `file:line: text` and exits 1 when any are found.
  */
+// The one comment stripper in script/check (exported by the locale-key gate);
+// do not grow a second copy. It is line-based on purpose: a scanner aid, never
+// a substitute for the AST below.
+import { stripComments } from "./scan-locale-key.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +66,42 @@ const walk = (dir, out = []) => {
   return out;
 };
 
+/** Decode \uXXXX escapes so a callee spelled `create\u0044ropdown` is
+ *  prefiltered like the parser reads it (`createDropdown`). This decodes the
+ *  whole source, strings and comments included, so it is a SUPERSET of the
+ *  parser view: an over-match costs one extra parse, never a missed violation. */
+const normalizeUnicodeEscapes = src =>
+  src.replace(/\\u([0-9a-fA-F]{4})/g, (_m, hex) =>
+    String.fromCharCode(Number.parseInt(hex, 16)),
+  );
+
+/** An `overlay` optional marker that may be separated from the `?` by
+ *  whitespace or a comment (`overlay /* gap *\/ ?: unknown`). */
+const OVERLAY_OPTIONAL_WITH_COMMENTS =
+  /overlay(?:(?:\s+|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*)*)\?/;
+
+/** Whether a source can hold one of the three violations.
+ *
+ *  The prefilter must be a SUPERSET of the AST findings, never a heuristic
+ *  that decides them: the reviewer of #1427 showed that a plain
+ *  `content.includes(...)` check silently dropped a comment-gapped
+ *  `overlay /* gap *\/ ?` and a unicode-escaped `create\u0044ropdown`.
+ *  So:
+ *  - `createDropdown` / `create\u0044ropdown` is matched on the raw text with
+ *    escapes decoded (an identifier can never be split by a comment);
+ *  - the `overlay ?` token is matched across comments in the raw text, and
+ *    again on the comment-stripped text (the shared stripper is line-based, so
+ *    a `//` inside a string can swallow the rest of a line — the raw check
+ *    covers that, the stripped one covers the plain comment gap).
+ *  A file failing all checks cannot hold a violation. */
+const canHoldViolation = src => {
+  const text = normalizeUnicodeEscapes(src);
+  if (text.includes("createDropdown")) return true;
+  if (OVERLAY_OPTIONAL_WITH_COMMENTS.test(text)) return true;
+  const stripped = normalizeUnicodeEscapes(stripComments(src));
+  return stripped.includes("createDropdown") || /overlay\s*\?/.test(stripped);
+};
+
 /** Whether a call expression is `createDropdown(...)`. */
 const isCreateDropdownCall = node => {
   if (!ts.isCallExpression(node)) return false;
@@ -90,15 +130,28 @@ const hasOverlayProperty = obj =>
 /**
  * Find overlay-contract violations in the production source tree.
  * @param root repo root; production is scanned under `<root>/foliplus/js`.
+ * @param {{ parsed: number }} [stats] optional collector; the caller owns
+ *   initialisation (`{ parsed: 0 }`) and `stats.parsed` counts how many modules
+ *   actually reached the TypeScript parser (the gate's real cost — the tests pin
+ *   it structurally instead of timing the wall clock).
  * @returns [{file, line, text, context}]
  */
-const findOverlayContractViolations = (root = process.cwd()) => {
+const findOverlayContractViolations = (root = process.cwd(), stats = undefined) => {
   const targets = walk(path.join(root, "foliplus", "js"));
   const hits = [];
   for (const file of targets) {
     const rel = path.relative(root, file).split(path.sep).join("/");
     if (DECLARE_FILES.has(rel)) continue;
     const content = fs.readFileSync(file, "utf8");
+    // Cheap text prefilter before the AST (see canHoldViolation): all three
+    // rules need either the `createDropdown` callee or an `overlay ?` token,
+    // and a comment can split the latter. Without it the guard parses all 318
+    // production modules, which is why it could exceed even its own 60 s budget
+    // under coverage on a loaded host (only 10 files pass the filter).
+    if (!canHoldViolation(content)) {
+      continue;
+    }
+    if (stats) stats.parsed += 1;
     const sf = ts.createSourceFile(
       rel,
       content,
@@ -190,4 +243,4 @@ const runCli = (argv, entry, selfUrl = fileURLToPath(import.meta.url)) => {
 };
 runCli(process.argv.slice(2), process.argv[1]);
 
-export { findOverlayContractViolations, main, runCli, walk };
+export { canHoldViolation, findOverlayContractViolations, main, runCli, walk };

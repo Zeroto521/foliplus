@@ -1554,7 +1554,11 @@ describe("cli entry point", () => {
     // bare-listing verdict, not the guard (which has its own cases below).
     expect(() => main([], { devDist: false })).toThrow("exit:0");
     expect(exit).toHaveBeenCalledWith(0);
-  }, 30000);
+    // The checkout's real dist (1.7 MB) is brotli-compressed at quality 11 by
+    // the scan: 4.7 s single-file under coverage, 38.1 s in a loaded full-suite
+    // run (junit) — it exceeded the previous 30 s budget there. That is
+    // measurement cost, not a hang, so the budget carries the measured ceiling.
+  }, 120_000);
 
   it("--emit captures sizes to the target file via main()", () => {
     const root = mkTmp();
