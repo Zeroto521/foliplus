@@ -598,6 +598,53 @@ describe("readDeclaredIcon", () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it("trims a padded glyph and colour the way the Python normaliser does", () => {
+    // Python's face normaliser strips both strings before validating them; a
+    // declaration is accepted on both stacks or on neither. The stored value is
+    // the trimmed / expanded form, never the author's padding.
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { glyph: "  star ", color: " #F00 " } }),
+      "L",
+    );
+    expect(invalid).toEqual([]);
+    expect(declared).toEqual({ glyph: "star", color: "#ff0000" });
+  });
+
+  it("ignores a duplicate spelling even when the first value was unusable", () => {
+    // The FIRST occurrence owns the canonical key (Python marks it seen before
+    // validating), so an unusable first value drops the key and the second
+    // spelling is only a duplicate — it never becomes a fallback.
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: { colorOpacity: 101, color_opacity: 40 } }),
+      "L",
+      warn,
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid).toHaveLength(2);
+    expect(invalid[0]).toMatch(/colorOpacity/);
+    expect(invalid[1]).toMatch(/duplicate sub-key "color_opacity"/);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("names the layer id in an unknown-sub-key warning", () => {
+    const warn = vi.fn();
+    readDeclaredIcon(
+      layerWith({ icon: { glyph: "star", colour: "#fff" } }),
+      "IconF",
+      warn,
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('unknown sub-key "colour" on layer "IconF"'),
+    );
+  });
+
+  it("names the layer id when a face value is rejected", () => {
+    const warn = vi.fn();
+    readDeclaredIcon(layerWith({ icon: { color: "nope" } }), "IconG", warn);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('on layer "IconG"'));
+  });
+
   it("warns on an unknown sub-key and keeps the known ones", () => {
     const warn = vi.fn();
     const { declared, invalid } = readDeclaredIcon(

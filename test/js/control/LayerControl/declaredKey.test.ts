@@ -51,6 +51,35 @@ describe("readDeclaredKey", () => {
     expect(read.invalid).toHaveLength(2);
   });
 
+  it("warns once per key on each of two layers (dedupe is per layer, not process-wide)", () => {
+    const warn = vi.fn();
+    const parse = (_raw: unknown, layerId: string | undefined, reject: RejectFn) => {
+      reject(
+        `${layerId ?? ""}:bogus`,
+        `declared fill: ignoring a bad key on layer "${layerId}"`,
+      );
+      return { invalid: [] };
+    };
+    readDeclaredKey(layerWith({ fill: {} }), "overlay1", "fill", parse, warn);
+    readDeclaredKey(layerWith({ fill: {} }), "overlay2", "fill", parse, warn);
+    expect(warn).toHaveBeenCalledTimes(2);
+    const messages = warn.mock.calls.map(call => String(call[0]));
+    expect(messages[0]).toContain("overlay1");
+    expect(messages[1]).toContain("overlay2");
+  });
+
+  it("warns once for the same rejected key however often the layer is read", () => {
+    const warn = vi.fn();
+    const layer = layerWith({ fill: {} });
+    const parse = (_raw: unknown, layerId: string | undefined, reject: RejectFn) => {
+      reject(`${layerId ?? ""}:bogus`, "declared fill: ignoring a bad key");
+      return { invalid: [] };
+    };
+    readDeclaredKey(layer, "overlay1", "fill", parse, warn);
+    readDeclaredKey(layer, "overlay1", "fill", parse, warn);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it("does not cache a null layer read (declaration may arrive later)", () => {
     const parse = vi.fn((_raw: unknown) => ({ invalid: [] }));
     const first = readDeclaredKey(null, "overlay1", "fill", parse);

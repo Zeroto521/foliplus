@@ -70,8 +70,10 @@ const declaredIconSizeOf = (layer: unknown): number | undefined =>
 /** The author-declared icon face (foliplus icon face), or undefined when the
  *  layer declares none. The face reader owns normalisation + warnings; this
  *  module only reads the colour / alpha / glyph it carries. */
-const declaredIconOf = (layer: unknown): DeclaredIconFace | undefined =>
-  readDeclaredIcon(layer).declared;
+const declaredIconOf = (
+  layer: unknown,
+  layerId?: string,
+): DeclaredIconFace | undefined => readDeclaredIcon(layer, layerId).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the icon-color capability (an awesome-markers carrier — a plain
@@ -94,7 +96,7 @@ const authorIconColor = (ui: LayerUI, layerId: string): string | null => {
   // The declared glyph colour is the read-time default the row shows and
   // Reset returns to; the author's drawn paint is the fallback only when the
   // face declares no colour (declaration beats the draw, intent beats both).
-  const declared = declaredIconOf(layer)?.color;
+  const declared = declaredIconOf(layer, layerId)?.color;
   if (declared !== undefined) return declared;
   let found: string | null = null;
   walkLeaf(layer, leaf => {
@@ -123,7 +125,7 @@ const applyIconColorToLayer = (ui: LayerUI, layerId: string): void => {
   // A missing intent is a no-op — a layer the user never touched keeps
   // exactly what the author declared.
   if (!hasColor && !hasOpacity) return;
-  const declared = declaredIconOf(layer);
+  const declared = declaredIconOf(layer, layerId);
   // The glyph is orthogonal: a user glyph wins, then the declared glyph (the
   // read-time default), then the author's own glyph name (the core falls back
   // to the author icon's inner glyph), so a color write never forces a glyph
@@ -204,7 +206,7 @@ const resetLayerIconColor = (ui: LayerUI, layerId: string): void => {
   // colour / alpha is what Reset returns to; without a declaration the derive
   // falls back to the author's own paint (parsing its alpha, so an author
   // paint that is translucent stays translucent).
-  const declared = declaredIconOf(layer);
+  const declared = declaredIconOf(layer, layerId);
   const glyph =
     currentGlyph(ui, layerId) ??
     declared?.glyph ??

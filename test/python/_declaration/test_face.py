@@ -124,6 +124,34 @@ class TestNormaliseIconFace:
         )
         assert out == {"glyph": "star", "color": "#aabbcc", "colorOpacity": 60}
 
+    def test_the_string_values_are_trimmed_like_the_js_reader(self) -> None:
+        # Both stacks trim before validating: a padded glyph / hex is the same
+        # declared value on either side, and the stored form is the trimmed,
+        # expanded spelling. A reader that kept the raw padding would make the
+        # glyph lookup miss a name the guide calls accepted.
+        out = normalise_icon_face(
+            {"glyph": "  star ", "color": " #F00 "},
+            owner="Owner",
+            subject="layer Trim",
+        )
+        assert out == {"glyph": "star", "color": "#ff0000"}
+
+    def test_a_duplicate_spelling_is_not_a_fallback_for_a_bad_first_value(
+        self,
+    ) -> None:
+        # The first occurrence owns the canonical key (marked seen before the
+        # value is validated), so an unusable first value drops the key; the
+        # second spelling is only a duplicate and never rescues it.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            out = normalise_icon_face(
+                {"colorOpacity": 101, "color_opacity": 40},
+                owner="LayerControl",
+                subject="layer DupFirst",
+            )
+        assert out == {}
+        assert len(caught) == 2
+
     def test_the_camel_alpha_spelling_is_accepted(self) -> None:
         out = normalise_icon_face({"colorOpacity": 40}, owner="Owner")
         assert out == {"colorOpacity": 40}

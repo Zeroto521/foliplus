@@ -516,7 +516,14 @@ author's drawn value in the panel row and reset chain.
 
 **Shape**: a malformed sub-key warns once and is **dropped alone** (its valid
 siblings survive); a non-mapping face warns once and is ignored. An unknown
-sub-key warns too, naming the accepted ones — so a typo never passes silently:
+sub-key warns too, naming the accepted ones — so a typo never passes silently.
+The spelling rule is one rule on both stacks: a string value is trimmed before
+it is validated (a padded `" star "` / `" #ff0000 "` is the same declared
+value), and when a sub-key is written twice the **first** occurrence decides —
+the duplicate always warns and is dropped, even when the first value was
+unusable, so the two readers can never disagree on which spelling won. Every
+warning names its layer, so a console line or a Python `UserWarning` locates
+the authoring layer.
 
 ```python
 gdf.explore(foliplus={"icon": {"colour": "#ff0000"}})
