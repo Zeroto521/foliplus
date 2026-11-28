@@ -1,4 +1,4 @@
-// core/order/rank — fractional order keys for sibling order (fractional-indexing).
+// core/layer/order/rank — fractional order keys for sibling order (fractional-indexing).
 //
 // A rank is a base62-char string such as "a0", "a0V", "a1". Sibling order is
 // the plain lexicographic order of ranks. rankBetween(a, b) returns a key strictly
@@ -9,7 +9,8 @@
 // This is a faithful port of rocicorp/fractional-indexing (CC0-1.0), trimmed of the
 // caches and the multi-key generator; the integer-part head/digit structure and the
 // ordering guarantee are identical.
-import { ALPHABET } from "./alphabet.js";
+// The 62-symbol rank alphabet, ordered by char code (base62 fractional-indexing).
+const ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 // digits: fractional-digit alphabet (base62). intDigits: head alphabet (A-Za-z,
 // even length; first half negative-length heads, second half positive-length heads).
@@ -176,4 +177,4 @@ const generateKeyBetween = (a: string | null, b: string | null) => {
   return ia + midpoint(fa, null);
 };
 
-export { rankStart, rankAfter, rankFirst, rankBetween };
+export { ALPHABET, rankStart, rankAfter, rankFirst, rankBetween };

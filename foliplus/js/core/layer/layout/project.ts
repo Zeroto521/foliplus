@@ -3,12 +3,15 @@
 // The engine (core/order/resolve) knows only node keys; here the leaf key
 // "layer:<id>" is resolved to a LayerInfo and rows/blocks are partitioned by role.
 // `z` is the DFS leaf flatten of a role (block does not change z semantics).
+import { ROLE } from "../const.js";
 import type { FolderLayout } from "../folderView.js";
 import type { LayerRole } from "../role.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
 import {
-  type BlockRow,
+  type ContainerRow,
+  NODE_KEY_PREFIX,
+  ORDER_KIND,
   type OrderDoc,
   type OrderRow,
   type ParentView,
@@ -17,7 +20,8 @@ import {
   childrenOf,
   folderBareOf,
   resolveView,
-} from "#core/order/index.js";
+} from "#core/layer/order/index.js";
+import type { OrderKind } from "#core/layer/order/index.js";
 
 /** The panel-facing folder key: the doc key without the \"folder:\" prefix. A
  *  folder's stable identity is the doc key; the panel and drag anchors use the
@@ -26,30 +30,32 @@ import {
 const panelFolderKey = (key: string): string => folderBareOf(key);
 
 const layerIdOf = (key: string): string | null =>
-  key.startsWith("layer:") ? key.slice("layer:".length) : null;
+  key.startsWith(NODE_KEY_PREFIX.LAYER)
+    ? key.slice(NODE_KEY_PREFIX.LAYER.length)
+    : null;
 
 /** The role that owns a layer (its LayerInfo.role); unknown ids are not present. */
 type RoleOf = (id: string) => LayerRole | null;
 
 /** One projected block (folder/group) with its live members, or a root layer row.
  *
- *  `members` is DERIVED from the engine BlockRow.children leaf order (present-
+ *  `members` is DERIVED from the engine ContainerRow.children leaf order (present-
  *  filtered, then looked up to LayerInfo) — never a separate registry sort, so
  *  rows and z stay the same source (design note: one single source). */
 type ProjectedBlock =
   | {
-      kind: "folder" | "group";
+      kind: Exclude<OrderKind, typeof ORDER_KIND.LAYER>;
       key: string;
       name: string;
       depth: number;
       members: LayerInfo[];
     }
-  | { kind: "layer"; layer: LayerInfo };
+  | { kind: typeof ORDER_KIND.LAYER; layer: LayerInfo };
 
 /** Re-export the engine projection types so the adapter contract is one import. */
 
 /** The roles in the fixed panel/z order: overlay first, then base. */
-const ROLE_ORDER: readonly LayerRole[] = ["overlay", "base"];
+const ROLE_ORDER: readonly LayerRole[] = [ROLE.OVERLAY, ROLE.BASE];
 
 /** Build the present predicate: a layer id is present when its LayerInfo exists. */
 const presentOf = (registry: readonly LayerInfo[]): Present => {
@@ -80,12 +86,12 @@ const projectRows = (
     }
   }
   for (const r of v.rows) {
-    if (r.kind === "layer") {
+    if (r.kind === ORDER_KIND.LAYER) {
       if (leafRole.get(r.key) === role) rows.push(r);
       continue;
     }
-    const block = v.blocks.find(b => b.key === r.key);
-    const any = block?.children.some(c => leafRole.get(c) === role) ?? false;
+    const container = v.containers.find(b => b.key === r.key);
+    const any = container?.children.some(c => leafRole.get(c) === role) ?? false;
     if (any) rows.push(r);
   }
   return rows;
@@ -119,25 +125,25 @@ const projectBlocks = (
   const v = resolveView(doc, present);
   const out: ProjectedBlock[] = [];
   for (const r of v.rows) {
-    if (r.kind === "layer") {
+    if (r.kind === ORDER_KIND.LAYER) {
       const id = layerIdOf(r.key);
       if (id !== null && roleOf(id) === role) {
         const info = byId.get(id);
-        if (info) out.push({ kind: "layer", layer: info });
+        if (info) out.push({ kind: ORDER_KIND.LAYER, layer: info });
       }
       continue;
     }
-    const block = v.blocks.find(b => b.key === r.key);
-    if (!block) continue;
-    const members = block.children
+    const container = v.containers.find(b => b.key === r.key);
+    if (!container) continue;
+    const members = container.children
       .map(c => byId.get(layerIdOf(c) as string))
       .filter((i): i is LayerInfo => i?.role === role);
     if (members.length === 0) continue;
     out.push({
-      kind: block.kind,
-      key: panelFolderKey(block.key),
-      name: block.name,
-      depth: block.depth,
+      kind: container.kind,
+      key: panelFolderKey(container.key),
+      name: container.name,
+      depth: container.depth,
       members,
     });
   }
@@ -150,7 +156,7 @@ const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
 
 /** The single controller-facing projection: one resolve, three derived views.
  *
- *  `rows` is typed per role (OrderRow[]); `blocks` carries BlockRow.kind/depth
+ *  `rows` is typed per role (OrderRow[]); `blocks` carries ContainerRow.kind/depth
  *  with live LayerInfo `members`; `z` is the flat role ladder (overlays before
  *  base) that feeds registry.normalizeGroups. All three come from ONE resolveView
  *  call, so rows and z can never disagree (design note: one single source). */
@@ -180,7 +186,7 @@ const resolveOrderView = (
     }
   }
   for (const r of v.rows) {
-    if (r.kind === "layer") {
+    if (r.kind === ORDER_KIND.LAYER) {
       const role = leafRole.get(r.key);
       if (role == null) continue;
       // A member layer lives inside its folder block (the folder row below
@@ -192,12 +198,12 @@ const resolveOrderView = (
       if (parent !== null && parent !== undefined) continue;
       rows[role].push(r);
       const info = byId.get(layerIdOf(r.key) as string);
-      if (info) blocks[role].push({ kind: "layer", layer: info });
+      if (info) blocks[role].push({ kind: ORDER_KIND.LAYER, layer: info });
       continue;
     }
-    const block = v.blocks.find(b => b.key === r.key);
-    if (!block) continue;
-    const members = block.children
+    const container = v.containers.find(b => b.key === r.key);
+    if (!container) continue;
+    const members = container.children
       .map(c => byId.get(layerIdOf(c) as string))
       .filter((i): i is LayerInfo => i !== undefined);
     const byRole = new Map<LayerRole, LayerInfo[]>();
@@ -214,10 +220,10 @@ const resolveOrderView = (
       if (!m || m.length === 0) continue;
       rows[role].push(r);
       blocks[role].push({
-        kind: block.kind,
-        key: panelFolderKey(block.key),
-        name: block.name,
-        depth: block.depth,
+        kind: container.kind,
+        key: panelFolderKey(container.key),
+        name: container.name,
+        depth: container.depth,
         members: m,
       });
     }
@@ -229,10 +235,10 @@ const resolveOrderView = (
       if (folderRole === undefined) continue;
       rows[folderRole].push(r);
       blocks[folderRole].push({
-        kind: block.kind,
-        key: panelFolderKey(block.key),
-        name: block.name,
-        depth: block.depth,
+        kind: container.kind,
+        key: panelFolderKey(container.key),
+        name: container.name,
+        depth: container.depth,
         members: [],
       });
     }
@@ -268,8 +274,9 @@ const projectLayoutOf = (
   // \"folder:\"-namespaced identity. The controller prefixes on the way in.
   const bare = (key: string): string => folderBareOf(key);
   const folders: { key: string; name: string }[] = [];
-  for (const b of v.blocks) {
-    if (b.kind === "folder") folders.push({ key: bare(b.key), name: b.name });
+  for (const container of v.containers) {
+    if (container.kind === ORDER_KIND.FOLDER)
+      folders.push({ key: bare(container.key), name: container.name });
   }
   const order: Partial<Record<LayerRole, string[]>> = {};
   const members: Record<string, { role: LayerRole; folder: string }> = {};
@@ -287,25 +294,25 @@ const projectLayoutOf = (
   // a role's block sequence is the projection of the same document the panel
   // reads.
   const blockRoles = new Map<string, LayerRole[]>();
-  for (const b of v.blocks) {
+  for (const container of v.containers) {
     const roles = new Set<LayerRole>();
-    for (const child of b.children) {
+    for (const child of container.children) {
       const id = layerIdOf(child);
       if (id !== null && byId.get(id)) roles.add(byId.get(id)!.role);
     }
     // An empty folder still owns its creation role (it renders in that role's
     // segment and is the only handle on the clean-up row).
-    if (roles.size === 0 && b.kind === "folder") {
-      const r = doc.nodes[b.key]?.role;
+    if (roles.size === 0 && container.kind === ORDER_KIND.FOLDER) {
+      const r = doc.nodes[container.key]?.role;
       if (r !== undefined) roles.add(r);
     }
-    if (roles.size > 0) blockRoles.set(b.key, [...roles]);
+    if (roles.size > 0) blockRoles.set(container.key, [...roles]);
   }
   for (const role of ROLE_ORDER) {
     order[role] = [];
     for (const r of v.rows) {
-      if (r.kind === "layer") {
-        const id = r.key.slice("layer:".length);
+      if (r.kind === ORDER_KIND.LAYER) {
+        const id = r.key.slice(NODE_KEY_PREFIX.LAYER.length);
         const parent = doc.nodes[r.key]?.parent;
         const isMember = parent !== null && parent !== undefined;
         if (!isMember && byId.get(id)?.role === role) order[role].push(r.key);
@@ -315,13 +322,13 @@ const projectLayoutOf = (
       }
     }
   }
-  return { version: 2, folders, order, members };
+  return { folders, order, members };
 };
 
 export type {
   RoleOf,
   ProjectedBlock,
-  BlockRow,
+  ContainerRow,
   OrderRow,
   ParentView,
   ResolvedView,

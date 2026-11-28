@@ -1,14 +1,15 @@
-// core/order/doc — the persisted layer-order document model.
+// core/layer/order/doc — the persisted layer-order document model.
 //
 // A document is a sparse tree of nodes (layers, folders, groups) keyed by a stable
 // node key. It is the single persisted intent record (localStorage: layer_order);
 // default order, user moves, grouping and hiding are all projections of it. There is
 // no version field and no migrator: an unknown or incomplete shape fails isOrderDoc
 // and the caller falls back to the default document.
+import { ROLE } from "../const.js";
+import { NODE_KEY_PREFIX, ORDER_KIND } from "./kind.js";
+import type { OrderKind } from "./kind.js";
 import { isNonEmptyString } from "./util.js";
 import type { LayerRole } from "#core/layer/index.js";
-
-type OrderKind = "layer" | "folder" | "group";
 
 /** One node of the order document. `name` is only set on folder/group nodes. */
 interface OrderNode {
@@ -35,7 +36,11 @@ interface OrderDoc {
 /** Maximum nesting depth: root -> block -> sub-block/leaf (design note: max nesting depth is 3: root → block → sub-block/leaf). */
 const ORDER_MAX_DEPTH = 3;
 
-const KINDS: readonly OrderKind[] = ["layer", "folder", "group"];
+const KINDS: readonly OrderKind[] = [
+  ORDER_KIND.LAYER,
+  ORDER_KIND.FOLDER,
+  ORDER_KIND.GROUP,
+];
 
 /** An empty document (merge with defaults yields the default order). */
 const emptyOrderDoc = (): OrderDoc => ({ nodes: {} });
@@ -44,17 +49,17 @@ const emptyOrderDoc = (): OrderDoc => ({ nodes: {} });
  *  both roles (the old array model was per-role; the doc keeps that by keying
  *  the role into the folder identity). */
 const folderDocKey = (role: LayerRole, name: string): string =>
-  `folder:${role}:${name}`;
+  `${NODE_KEY_PREFIX.FOLDER}${role}:${name}`;
 
 /** The role encoded in a folder doc key, or null when the key is not a folder
  *  block key (a layer key, a bare name, or a malformed folder key). */
 const folderRoleOf = (key: string): LayerRole | null => {
-  if (!key.startsWith("folder:")) return null;
-  const rest = key.slice("folder:".length);
+  if (!key.startsWith(NODE_KEY_PREFIX.FOLDER)) return null;
+  const rest = key.slice(NODE_KEY_PREFIX.FOLDER.length);
   const sep = rest.indexOf(":");
   if (sep < 0) return null;
   const role = rest.slice(0, sep);
-  return role === "overlay" || role === "base" ? role : null;
+  return role === ROLE.OVERLAY || role === ROLE.BASE ? role : null;
 };
 
 /** The bare panel-facing name encoded in a folder doc key (\"folder:overlay:roads\"
@@ -62,7 +67,7 @@ const folderRoleOf = (key: string): LayerRole | null => {
 const folderBareOf = (key: string): string => {
   const role = folderRoleOf(key);
   if (role === null) return key;
-  return key.slice("folder:".length + role.length + 1);
+  return key.slice(NODE_KEY_PREFIX.FOLDER.length + role.length + 1);
 };
 
 /** True when `value` is a syntactically valid node. */
@@ -74,8 +79,8 @@ const isOrderNode = (value: unknown): value is OrderNode => {
   if (typeof v.rank !== "string" || v.rank.length === 0) return false;
   if (v.name !== undefined && typeof v.name !== "string") return false;
   if (v.hidden !== undefined && v.hidden !== true) return false;
-  const ROLE_VALUES: readonly string[] = ["overlay", "base"];
-  if (v.kind === "folder") {
+  const ROLE_VALUES: readonly string[] = [ROLE.OVERLAY, ROLE.BASE];
+  if (v.kind === ORDER_KIND.FOLDER) {
     if (typeof v.role !== "string" || !ROLE_VALUES.includes(v.role)) return false;
   } else if (v.role !== undefined) {
     return false;

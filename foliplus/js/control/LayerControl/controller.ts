@@ -91,8 +91,6 @@ import {
   walkLeaf,
   zFor,
 } from "#core/layer/index.js";
-import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
-import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import {
   type OrderDoc,
   folderDocKey,
@@ -106,7 +104,9 @@ import {
   renameBlock as orderRenameBlock,
   restore as orderRestore,
   suppress as orderSuppress,
-} from "#core/order/index.js";
+} from "#core/layer/order/index.js";
+import { registerIconReplay, unregisterIconReplay } from "#core/leaflet/index.js";
+import { hasAttachedPath, internalLayers, isGroupLike } from "#core/leafletAdapter.js";
 import type { NumberStyle } from "#foliplus/config-schema.js";
 import { type Debounced, debounce } from "#platform/debounce.js";
 import { finalize } from "#platform/finalize.js";

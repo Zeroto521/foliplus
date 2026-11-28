@@ -15,7 +15,8 @@ import {
   rankFirst,
   restore,
   suppress,
-} from "#core/order/index.js";
+} from "#core/layer/order/index.js";
+import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const folderKey = folderDocKey("overlay", "roads");
 
@@ -32,7 +33,7 @@ describe("order doc: empty folder keeps role and stays after its last member", (
       ...doc,
       nodes: {
         ...doc.nodes,
-        [layerKey]: { kind: "layer", parent: null, rank: rankFirst() },
+        [layerKey]: { kind: ORDER_KIND.LAYER, parent: null, rank: rankFirst() },
       },
     };
     doc = moveInto(doc, layerKey, folderKey, 0);

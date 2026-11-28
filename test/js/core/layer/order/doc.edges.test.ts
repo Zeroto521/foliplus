@@ -1,4 +1,4 @@
-// test/js/core/order/doc.edges.test.ts — drive the document model's
+// test/js/core/layer/order/doc.edges.test.ts — drive the document model's
 // defensive branches so the order-system rework keeps whole patch coverage.
 import { describe, expect, it } from "vitest";
 import {
@@ -7,7 +7,8 @@ import {
   isOrderDoc,
   orderDepth,
   sanitizeOrderDoc,
-} from "#core/order/index.js";
+} from "#core/layer/order/index.js";
+import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 
@@ -18,14 +19,14 @@ describe("doc edges", () => {
 
   it("isOrderDoc rejects a node with a non-string parent", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: 5 as never, rank: "a0" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: 5 as never, rank: "a0" },
     });
     expect(isOrderDoc(d)).toBe(false);
   });
 
   it("isOrderDoc rejects an empty rank", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "" },
     });
     expect(isOrderDoc(d)).toBe(false);
   });
@@ -33,7 +34,7 @@ describe("doc edges", () => {
   it("isOrderDoc rejects a non-string name", () => {
     const d = doc({
       "folder:overlay:f": {
-        kind: "folder",
+        kind: ORDER_KIND.FOLDER,
         parent: null,
         rank: "a0",
         name: 5 as never,
@@ -45,7 +46,12 @@ describe("doc edges", () => {
 
   it("isOrderDoc rejects a non-true hidden marker", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0", hidden: false as never },
+      "layer:a": {
+        kind: ORDER_KIND.LAYER,
+        parent: null,
+        rank: "a0",
+        hidden: false as never,
+      },
     });
     expect(isOrderDoc(d)).toBe(false);
   });
@@ -53,7 +59,7 @@ describe("doc edges", () => {
   it("isOrderDoc rejects a folder with an invalid role", () => {
     const d = doc({
       "folder:overlay:f": {
-        kind: "folder",
+        kind: ORDER_KIND.FOLDER,
         parent: null,
         rank: "a0",
         name: "F",
@@ -65,7 +71,7 @@ describe("doc edges", () => {
 
   it("orderDepth returns 0 for an unknown key", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
     });
     expect(orderDepth(d, "layer:nope")).toBe(0);
   });
@@ -75,7 +81,7 @@ describe("doc edges", () => {
   });
 
   it("isOrderDoc rejects an empty node key", () => {
-    const d = doc({ "": { kind: "layer", parent: null, rank: "a0" } });
+    const d = doc({ "": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" } });
     expect(isOrderDoc(d)).toBe(false);
   });
 

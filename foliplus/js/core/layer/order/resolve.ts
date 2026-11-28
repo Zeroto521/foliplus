@@ -1,4 +1,4 @@
-// core/order/resolve — pure kind-generic projection of the order document.
+// core/layer/order/resolve — pure kind-generic projection of the order document.
 //
 // The resolver knows no LayerRole and no LayerInfo: it walks the document tree
 // (layers, folders, groups are all "nodes") and produces rows, leaf keys, and
@@ -6,10 +6,12 @@
 // partitions rows by role. The z ladder is a DFS leaf flatten of the whole subtree
 // — a block does not change z semantics, it is only panel grouping.
 import { ORDER_MAX_DEPTH, type OrderDoc, orderDepth } from "./doc.js";
+import { ORDER_KIND } from "./kind.js";
+import type { OrderKind } from "./kind.js";
 
-/** A block row: a folder or group header with its subtree leaves. */
-interface BlockRow {
-  kind: "folder" | "group";
+/** A container row: a folder or group header with its subtree leaves. */
+interface ContainerRow {
+  kind: Exclude<OrderKind, typeof ORDER_KIND.LAYER>;
   key: string;
   name: string;
   depth: number;
@@ -17,9 +19,9 @@ interface BlockRow {
   children: string[];
 }
 
-/** One panel row: a block header or a leaf (layer) row. */
+/** One panel row: a container header or a leaf (layer) row. */
 interface OrderRow {
-  kind: "block" | "layer";
+  kind: OrderKind;
   key: string;
   /** 1-based nesting depth (root children = 1). */
   depth: number;
@@ -27,12 +29,12 @@ interface OrderRow {
   hidden?: boolean;
 }
 
-/** A resolved role view: rows (panel order), leaves (z ladder), blocks. */
+/** A resolved role view: rows (panel order), leaves (z ladder), containers. */
 interface ResolvedView {
   rows: OrderRow[];
   /** Leaf ids in DFS order — the flat z ladder. */
   leaves: string[];
-  blocks: BlockRow[];
+  containers: ContainerRow[];
 }
 
 /** The role-independent view of one parent (root when parent is null). */
@@ -75,7 +77,7 @@ type Present = (key: string) => boolean;
 const subtreeLeaves = (doc: OrderDoc, key: string): string[] => {
   const node = doc.nodes[key];
   if (node === undefined) return [];
-  if (node.kind === "layer") return [key];
+  if (node.kind === ORDER_KIND.LAYER) return [key];
   const out: string[] = [];
   for (const child of childrenOf(doc, key)) {
     out.push(...subtreeLeaves(doc, child));
@@ -90,7 +92,7 @@ const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
     for (const child of childrenOf(doc, parent)) {
       if (orderDepth(doc, child) > ORDER_MAX_DEPTH) continue;
       const node = doc.nodes[child];
-      if (node.kind === "layer") {
+      if (node.kind === ORDER_KIND.LAYER) {
         if (present(child)) out.push(child);
       } else {
         walk(child, depth + 1);
@@ -101,25 +103,30 @@ const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
   return out;
 };
 
-/** Project the document into rows + leaves + blocks for one role partition. */
+/** Project the document into rows + leaves + containers for one role partition. */
 const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
   const rows: OrderRow[] = [];
   const leaves: string[] = [];
-  const blocks: BlockRow[] = [];
+  const containers: ContainerRow[] = [];
   const walk = (parent: string | null, depth: number): void => {
     for (const child of childrenOf(doc, parent)) {
       if (orderDepth(doc, child) > ORDER_MAX_DEPTH) continue;
       const node = doc.nodes[child];
-      if (node.kind === "layer") {
+      if (node.kind === ORDER_KIND.LAYER) {
         if (present(child)) {
-          rows.push({ kind: "layer", key: child, depth, hidden: node.hidden });
+          rows.push({ kind: ORDER_KIND.LAYER, key: child, depth, hidden: node.hidden });
           leaves.push(child);
         }
       } else {
         const blockLeaves = subtreeLeaves(doc, child);
-        rows.push({ kind: "block", key: child, depth, name: node.name });
-        blocks.push({
-          kind: node.kind as "folder" | "group",
+        rows.push({
+          kind: node.kind as Exclude<OrderKind, typeof ORDER_KIND.LAYER>,
+          key: child,
+          depth,
+          name: node.name,
+        });
+        containers.push({
+          kind: node.kind as Exclude<OrderKind, typeof ORDER_KIND.LAYER>,
           key: child,
           name: node.name ?? "",
           depth,
@@ -130,9 +137,9 @@ const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
     }
   };
   walk(null, 1);
-  return { rows, leaves, blocks };
+  return { rows, leaves, containers };
 };
 
-export type { BlockRow, OrderRow, ResolvedView, ParentView, Present };
+export type { ContainerRow, OrderRow, ResolvedView, ParentView, Present };
 
 export { childrenOf, subtreeLeaves, leafKeysOf, resolveView };

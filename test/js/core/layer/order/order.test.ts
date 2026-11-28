@@ -1,4 +1,4 @@
-// test/js/core/order/order.test.ts — document validation and the command library.
+// test/js/core/layer/order/order.test.ts — document validation and the command library.
 import { describe, expect, it } from "vitest";
 import {
   type OrderDoc,
@@ -15,7 +15,8 @@ import {
   restore,
   sanitizeOrderDoc,
   suppress,
-} from "#core/order/index.js";
+} from "#core/layer/order/index.js";
+import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const doc = (nodes: OrderDoc["nodes"]): OrderDoc => ({ nodes });
 
@@ -24,16 +25,16 @@ describe("isOrderDoc", () => {
     expect(
       isOrderDoc(
         doc({
-          "layer:a": { kind: "layer", parent: null, rank: "a0" },
+          "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
           "folder:overlay:f": {
-            kind: "folder",
+            kind: ORDER_KIND.FOLDER,
             parent: null,
             rank: "a1",
             name: "F",
             role: "overlay",
           },
           "layer:x": {
-            kind: "layer",
+            kind: ORDER_KIND.LAYER,
             parent: "folder:overlay:f",
             rank: "a0",
             hidden: true,
@@ -57,7 +58,7 @@ describe("isOrderDoc", () => {
     expect(
       isOrderDoc(
         doc({
-          "layer:a": { kind: "layer", parent: "layer:nope", rank: "a0" },
+          "layer:a": { kind: ORDER_KIND.LAYER, parent: "layer:nope", rank: "a0" },
         }),
       ),
     ).toBe(false);
@@ -68,14 +69,14 @@ describe("isOrderDoc", () => {
       isOrderDoc(
         doc({
           "folder:overlay:a": {
-            kind: "folder",
+            kind: ORDER_KIND.FOLDER,
             parent: "folder:overlay:b",
             rank: "a0",
             name: "A",
             role: "overlay",
           },
           "folder:overlay:b": {
-            kind: "folder",
+            kind: ORDER_KIND.FOLDER,
             parent: "folder:overlay:a",
             rank: "a0",
             name: "B",
@@ -91,27 +92,27 @@ describe("isOrderDoc", () => {
       isOrderDoc(
         doc({
           "folder:overlay:a": {
-            kind: "folder",
+            kind: ORDER_KIND.FOLDER,
             parent: null,
             rank: "a0",
             name: "A",
             role: "overlay",
           },
           "folder:overlay:b": {
-            kind: "folder",
+            kind: ORDER_KIND.FOLDER,
             parent: "folder:overlay:a",
             rank: "a0",
             name: "B",
             role: "overlay",
           },
           "folder:overlay:c": {
-            kind: "folder",
+            kind: ORDER_KIND.FOLDER,
             parent: "folder:overlay:b",
             rank: "a0",
             name: "C",
             role: "overlay",
           },
-          "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
+          "layer:x": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:c", rank: "a0" },
         }),
       ),
     ).toBe(true);
@@ -121,27 +122,27 @@ describe("isOrderDoc", () => {
     const s = sanitizeOrderDoc(
       doc({
         "folder:overlay:a": {
-          kind: "folder",
+          kind: ORDER_KIND.FOLDER,
           parent: null,
           rank: "a0",
           name: "A",
           role: "overlay",
         },
         "folder:overlay:b": {
-          kind: "folder",
+          kind: ORDER_KIND.FOLDER,
           parent: "folder:overlay:a",
           rank: "a0",
           name: "B",
           role: "overlay",
         },
         "folder:overlay:c": {
-          kind: "folder",
+          kind: ORDER_KIND.FOLDER,
           parent: "folder:overlay:b",
           rank: "a0",
           name: "C",
           role: "overlay",
         },
-        "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
+        "layer:x": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:c", rank: "a0" },
       }),
     );
     expect(s).not.toBeNull();
@@ -152,7 +153,7 @@ describe("isOrderDoc", () => {
 
 describe("commands", () => {
   it("suppress and restore flip the hidden marker", () => {
-    let d = doc({ "layer:a": { kind: "layer", parent: null, rank: "a0" } });
+    let d = doc({ "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" } });
     d = suppress(d, "layer:a");
     expect(d.nodes["layer:a"].hidden).toBe(true);
     d = restore(d, "layer:a");
@@ -161,9 +162,9 @@ describe("commands", () => {
 
   it("moveBefore re-parents and inserts before the target", () => {
     let d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0" },
-      "layer:b": { kind: "layer", parent: null, rank: "a1" },
-      "layer:c": { kind: "layer", parent: null, rank: "a2" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
+      "layer:c": { kind: ORDER_KIND.LAYER, parent: null, rank: "a2" },
     });
     d = moveBefore(d, "layer:c", "layer:b");
     expect(childrenOf(d, null)).toEqual(["layer:a", "layer:c", "layer:b"]);
@@ -173,15 +174,15 @@ describe("commands", () => {
   it("moveInto places at an index inside a container", () => {
     let d = doc({
       "folder:overlay:f": {
-        kind: "folder",
+        kind: ORDER_KIND.FOLDER,
         parent: null,
         rank: "a0",
         name: "F",
         role: "overlay",
       },
-      "layer:a": { kind: "layer", parent: "folder:overlay:f", rank: "a0" },
-      "layer:b": { kind: "layer", parent: "folder:overlay:f", rank: "a1" },
-      "layer:c": { kind: "layer", parent: null, rank: "a2" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:f", rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:f", rank: "a1" },
+      "layer:c": { kind: ORDER_KIND.LAYER, parent: null, rank: "a2" },
     });
     d = moveInto(d, "layer:c", "folder:overlay:f", 1);
     expect(childrenOf(d, "folder:overlay:f")).toEqual([
@@ -194,9 +195,9 @@ describe("commands", () => {
 
   it("moveToIndex moves to a root absolute index", () => {
     let d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0" },
-      "layer:b": { kind: "layer", parent: null, rank: "a1" },
-      "layer:c": { kind: "layer", parent: null, rank: "a2" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
+      "layer:c": { kind: ORDER_KIND.LAYER, parent: null, rank: "a2" },
     });
     d = moveToIndex(d, "layer:a", null, 2);
     expect(childrenOf(d, null)).toEqual(["layer:b", "layer:c", "layer:a"]);
@@ -206,7 +207,7 @@ describe("commands", () => {
     let d = emptyOrderDoc();
     d = createBlock(d, "folder", "folder:overlay:new", "New", "overlay");
     expect(d.nodes["folder:overlay:new"]).toMatchObject({
-      kind: "folder",
+      kind: ORDER_KIND.FOLDER,
       name: "New",
       parent: null,
     });
@@ -219,19 +220,19 @@ describe("commands", () => {
   it("deleteBlock refuses a non-empty block", () => {
     const d = doc({
       "folder:overlay:f": {
-        kind: "folder",
+        kind: ORDER_KIND.FOLDER,
         parent: null,
         rank: "a0",
         name: "F",
         role: "overlay",
       },
-      "layer:a": { kind: "layer", parent: "folder:overlay:f", rank: "a0" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:f", rank: "a0" },
     });
     expect(deleteBlock(d, "folder:overlay:f")).toBe(d);
   });
   it("renameBlock / deleteBlock are defensive on unknown and layer keys", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
     });
     // Unknown key — no-op returns the same document.
     expect(renameBlock(d, "folder:overlay:missing", "X")).toBe(d);
@@ -245,14 +246,21 @@ describe("commands", () => {
     expect(
       isOrderDoc(
         doc({
-          "layer:a": { kind: "layer", parent: null, rank: "a0", role: "overlay" },
+          "layer:a": {
+            kind: ORDER_KIND.LAYER,
+            parent: null,
+            rank: "a0",
+            role: "overlay",
+          },
         }),
       ),
     ).toBe(false);
   });
 
   it("resetOrder returns a clone of the defaults", () => {
-    const defaults = doc({ "layer:a": { kind: "layer", parent: null, rank: "a0" } });
+    const defaults = doc({
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+    });
     const r = resetOrder(defaults);
     expect(r.nodes["layer:a"]).toEqual(defaults.nodes["layer:a"]);
     expect(r).not.toBe(defaults);
@@ -262,10 +270,10 @@ describe("commands", () => {
 describe("command edge cases", () => {
   const base = (): OrderDoc =>
     doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0" },
-      "layer:b": { kind: "layer", parent: null, rank: "a1" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
       "folder:overlay:f": {
-        kind: "folder",
+        kind: ORDER_KIND.FOLDER,
         parent: null,
         rank: "a2",
         name: "F",
@@ -285,7 +293,7 @@ describe("command edge cases", () => {
 
   it("restore clears the hidden marker on a hidden layer", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0", hidden: true },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0", hidden: true },
     });
     const out = restore(d, "layer:a");
     expect(out.nodes["layer:a"].hidden).toBeUndefined();
@@ -298,8 +306,8 @@ describe("command edge cases", () => {
 
   it("moveBefore moves across parents", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0" },
-      "layer:b": { kind: "layer", parent: "layer:a", rank: "a1" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: "layer:a", rank: "a1" },
     });
     const out = moveBefore(d, "layer:b", "layer:a");
     expect(out.nodes["layer:b"].parent).toBeNull();
@@ -316,9 +324,9 @@ describe("command edge cases", () => {
 
   it("moveBefore handles equal-rank neighbours without renumbering", () => {
     const d = doc({
-      "layer:a": { kind: "layer", parent: null, rank: "a0" },
-      "layer:b": { kind: "layer", parent: null, rank: "a0" },
-      "layer:c": { kind: "layer", parent: null, rank: "a1" },
+      "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:b": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
+      "layer:c": { kind: ORDER_KIND.LAYER, parent: null, rank: "a1" },
     });
     const out = moveBefore(d, "layer:c", "layer:b");
     expect(out.nodes["layer:c"].rank).toBe("a0");

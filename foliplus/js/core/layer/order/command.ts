@@ -1,10 +1,11 @@
-// core/order/command — the single write entry to the order document.
+// core/layer/order/command — the single write entry to the order document.
 //
 // Every mutation is a pure `doc -> doc` function: no code splices the registry or
 // rewrites a mirror to change order. The engine knows only node keys and ranks; the
 // adapter (core/layer/layout) builds keys from layer/folder declarations and wires
 // the resulting document into persist + resolve + normalizeGroups.
 import { type OrderDoc, type OrderKind, emptyOrderDoc, isOrderDoc } from "./doc.js";
+import { ORDER_KIND } from "./kind.js";
 import { rankBetween, rankFirst } from "./rank.js";
 import { childrenOf } from "./resolve.js";
 import type { LayerRole } from "#core/layer/index.js";
@@ -25,7 +26,7 @@ const clone = (doc: OrderDoc): OrderDoc => ({ nodes: { ...doc.nodes } });
 /** Suppress a layer (hidden: true) — the reversible delete marker. */
 const suppress = (doc: OrderDoc, key: string): OrderDoc => {
   const node = doc.nodes[key];
-  if (node?.kind !== "layer") return doc;
+  if (node?.kind !== ORDER_KIND.LAYER) return doc;
   const next = clone(doc);
   next.nodes[key] = { ...node, hidden: true };
   return next;
@@ -34,7 +35,7 @@ const suppress = (doc: OrderDoc, key: string): OrderDoc => {
 /** Restore a suppressed layer (remove the hidden marker). */
 const restore = (doc: OrderDoc, key: string): OrderDoc => {
   const node = doc.nodes[key];
-  if (node?.kind !== "layer") return doc;
+  if (node?.kind !== ORDER_KIND.LAYER) return doc;
   const next = clone(doc);
   if (node.hidden) {
     const n = { ...node };
@@ -48,7 +49,8 @@ const restore = (doc: OrderDoc, key: string): OrderDoc => {
 const moveBefore = (doc: OrderDoc, key: string, targetKey: string): OrderDoc => {
   const node = doc.nodes[key];
   const target = doc.nodes[targetKey];
-  if (node === undefined || target === undefined || node.kind !== "layer") return doc;
+  if (node === undefined || target === undefined || node.kind !== ORDER_KIND.LAYER)
+    return doc;
   const parent = target.parent;
   const siblings = childrenOf(doc, parent);
   // targetKey is always in siblings (a node is a child of its own parent by
@@ -70,10 +72,10 @@ const moveInto = (
 ): OrderDoc => {
   const node = doc.nodes[key];
   const container = doc.nodes[containerKey];
-  if (node === undefined || container === undefined || node.kind !== "layer") {
+  if (node === undefined || container === undefined || node.kind !== ORDER_KIND.LAYER) {
     return doc;
   }
-  if (container.kind === "layer") return doc;
+  if (container.kind === ORDER_KIND.LAYER) return doc;
   const siblings = childrenOf(doc, containerKey).filter(s => s !== key);
   const i =
     index === undefined
@@ -95,7 +97,7 @@ const moveToIndex = (
   index: number,
 ): OrderDoc => {
   const node = doc.nodes[key];
-  if (node?.kind !== "layer") return doc;
+  if (node?.kind !== ORDER_KIND.LAYER) return doc;
   if (containerKey !== null && doc.nodes[containerKey] === undefined) return doc;
   const siblings = childrenOf(doc, containerKey).filter(s => s !== key);
   const i = Math.max(0, Math.min(index, siblings.length));
@@ -115,12 +117,12 @@ const createBlock = (
   name: string,
   role?: LayerRole,
 ): OrderDoc => {
-  if (kind !== "folder" && kind !== "group") return doc;
+  if (kind !== ORDER_KIND.FOLDER && kind !== ORDER_KIND.GROUP) return doc;
   if (doc.nodes[key] !== undefined) return doc;
   // A folder block owns a role (its members'); a group's role derives from the
   // container layer, so it is never stored.
-  if (kind === "folder" && role === undefined) return doc;
-  if (kind !== "folder" && role !== undefined) return doc;
+  if (kind === ORDER_KIND.FOLDER && role === undefined) return doc;
+  if (kind !== ORDER_KIND.FOLDER && role !== undefined) return doc;
   const siblings = childrenOf(doc, null);
   const prev =
     siblings.length > 0 ? doc.nodes[siblings[siblings.length - 1]].rank : null;
@@ -133,7 +135,10 @@ const createBlock = (
 /** Rename a folder/group block (key stays stable). */
 const renameBlock = (doc: OrderDoc, key: string, name: string): OrderDoc => {
   const node = doc.nodes[key];
-  if (node === undefined || (node.kind !== "folder" && node.kind !== "group")) {
+  if (
+    node === undefined ||
+    (node.kind !== ORDER_KIND.FOLDER && node.kind !== ORDER_KIND.GROUP)
+  ) {
     return doc;
   }
   const next = clone(doc);
@@ -144,7 +149,10 @@ const renameBlock = (doc: OrderDoc, key: string, name: string): OrderDoc => {
 /** Delete an empty folder/group block. Blocks with members must be emptied first. */
 const deleteBlock = (doc: OrderDoc, key: string): OrderDoc => {
   const node = doc.nodes[key];
-  if (node === undefined || (node.kind !== "folder" && node.kind !== "group")) {
+  if (
+    node === undefined ||
+    (node.kind !== ORDER_KIND.FOLDER && node.kind !== ORDER_KIND.GROUP)
+  ) {
     return doc;
   }
   const members = childrenOf(doc, key);

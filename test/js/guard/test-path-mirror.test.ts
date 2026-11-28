@@ -56,7 +56,7 @@ const NON_MIRRORED_TEST: Record<string, string> = {
   tsconfig: "test TypeScript config guard, no single module",
   "core/layer/layout":
     "aggregate test of the core/layer/layout subpackage (default/merge/persist/project), which has no single module file",
-  "core/order/order":
+  "core/layer/order/order":
     "aggregate test of the core/order engine (doc/command/resolve/rank/alphabet), which has no single module file",
   "control/LayerControl/label/labelReplay-perf":
     "wall-clock gate for the label replay (control/LayerControl/label/index.ts renderLabels); the -perf suffix marks it a timing gate, not a mirror of a labelReplay-perf module",
@@ -83,10 +83,12 @@ const INTENTIONAL_NO_TEST: Record<string, string> = {
     "covered by the aggregate test/js/core/layer/layout.test.ts",
   "core/layer/layout/project":
     "covered by the aggregate test/js/core/layer/layout.test.ts",
-  "core/order/alphabet":
-    "covered by the aggregate test/js/core/order/order.test.ts + rank.test.ts",
-  "core/order/command": "covered by the aggregate test/js/core/order/order.test.ts",
-  "core/order/util": "covered by the aggregate test/js/core/order/order.test.ts",
+  "core/layer/order/kind":
+    "order-kind/key-prefix constants pinned by the order-vocabulary guard + the order engine tests",
+  "core/layer/order/command":
+    "covered by the aggregate test/js/core/layer/order/order.test.ts",
+  "core/layer/order/util":
+    "covered by the aggregate test/js/core/layer/order/order.test.ts",
 
   "core/leaflet/markerColorPreset":
     "preset data table pinned by test/js/script/check/marker-color-preset.test.ts",

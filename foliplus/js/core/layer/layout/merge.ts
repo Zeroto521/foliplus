@@ -6,7 +6,7 @@
 // registered yet (dormant) or a layer removed from CONF but still re-registerable
 // (tombstone) must come back at its recorded position. The merged doc is sanitized
 // (over-depth subtrees dropped) so an invalid saved parent chain cannot poison it.
-import { type OrderDoc, rankAfter, sanitizeOrderDoc } from "#core/order/index.js";
+import { type OrderDoc, rankAfter, sanitizeOrderDoc } from "#core/layer/order/index.js";
 
 /** The last (lexicographic max) rank across the saved doc's root-ranked nodes. */
 const orderLastRank = (saved: OrderDoc): string => {

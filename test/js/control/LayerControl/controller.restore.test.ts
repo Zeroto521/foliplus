@@ -1,5 +1,6 @@
-// test/js/control/LayerControl/controller.tombstone — unregister keeps the tree slot;
-// deleteLayer truly removes the node (the two-sided tombstone contract).
+// test/js/control/LayerControl/controller.restore — unregister keeps the tree slot;
+// deleteLayer truly removes the node, so a re-registered layer comes back at its
+// recorded slot (the delete-only-marks / re-register-restores contract).
 import {
   createLayerControllerFixture,
   readOrderTreeStorage,

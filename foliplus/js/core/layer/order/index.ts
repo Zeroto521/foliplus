@@ -1,4 +1,4 @@
-// core/order — the persisted layer-order document engine (pure).
+// core/layer/order — the persisted layer-order document engine (pure).
 //
 // The engine knows only node keys and fractional ranks; the adapter
 // (core/layer/layout) builds keys from layer/folder declarations and wires
@@ -13,11 +13,11 @@ export {
   folderBareOf,
 } from "./doc.js";
 export type { OrderDoc, OrderKind, OrderNode } from "./doc.js";
-export { ALPHABET } from "./alphabet.js";
 export { rankAfter, rankBetween, rankFirst, rankStart } from "./rank.js";
+export { NODE_KEY_PREFIX, ORDER_KIND } from "./kind.js";
 export { childrenOf, leafKeysOf, resolveView, subtreeLeaves } from "./resolve.js";
 export type {
-  BlockRow,
+  ContainerRow,
   OrderRow,
   ParentView,
   Present,

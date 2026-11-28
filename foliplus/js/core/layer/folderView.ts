@@ -39,7 +39,6 @@ interface FolderMember {
  *  (projectLayoutOf) and never persists it; folder identity, block order and
  *  member assignment are projections of the doc's node tree. */
 interface FolderLayout {
-  version: 2;
   /** Folder identity directory: stable keys + display names. */
   folders: FolderEntry[];
   /** Per-role ordered folder key array = block order (the order is the truth:

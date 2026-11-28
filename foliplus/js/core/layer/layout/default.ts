@@ -7,11 +7,13 @@
 import { normalizeFolderName } from "../folderName.js";
 import type { LayerRole } from "../role.js";
 import {
+  NODE_KEY_PREFIX,
+  ORDER_KIND,
   type OrderDoc,
   type OrderNode,
   rankAfter,
   rankStart,
-} from "#core/order/index.js";
+} from "#core/layer/order/index.js";
 
 /** One layer declaration as the panel receives it (CONF.data row, folded). */
 interface LayerDeclaration {
@@ -28,12 +30,12 @@ interface LayerDeclaration {
 const folderKeyOf = (name: string): string => normalizeFolderName(name);
 
 /** The doc node key for a layer id. */
-const layerKeyOf = (id: string): string => `layer:${id}`;
+const layerKeyOf = (id: string): string => `${NODE_KEY_PREFIX.LAYER}${id}`;
 
 /** The node key of a group (container layer): a distinct namespace from the
  *  no-prefix folder key so a folder name and a layer id can never collide.
  *  (Decided in milestone 2; key stays stable across renames.) */
-const groupKeyOf = (layerId: string): string => `group:${layerId}`;
+const groupKeyOf = (layerId: string): string => `${NODE_KEY_PREFIX.GROUP}${layerId}`;
 
 /** Build the default document from CONF.data declaration order. Folders are
  *  created at the position of their first member; a layer's rank encodes its
@@ -65,18 +67,18 @@ const defaultDoc = (declarations: readonly LayerDeclaration[]): OrderDoc => {
     const key = layerKeyOf(decl.id);
     if (nodes[key] !== undefined) continue;
     if (decl.folder && folderKeyOf(decl.folder) !== "") {
-      const folderKey = `folder:${decl.role}:${folderKeyOf(decl.folder)}`;
+      const folderKey = `${NODE_KEY_PREFIX.FOLDER}${decl.role}:${folderKeyOf(decl.folder)}`;
       if (nodes[folderKey] === undefined) {
         appendRoot(folderKey, {
-          kind: "folder",
+          kind: ORDER_KIND.FOLDER,
           parent: null,
           name: decl.folder,
           role: decl.role,
         });
       }
-      appendChild(folderKey, key, { kind: "layer", parent: folderKey });
+      appendChild(folderKey, key, { kind: ORDER_KIND.LAYER, parent: folderKey });
     } else {
-      appendRoot(key, { kind: "layer", parent: null });
+      appendRoot(key, { kind: ORDER_KIND.LAYER, parent: null });
     }
   }
   return { nodes };

@@ -4,7 +4,11 @@
 // field and NO migrator: an unknown/incomplete shape fails isOrderDoc and the caller
 // falls back to defaultDoc() (design note: an unknown/incomplete shape is discarded, not migrated). The pre-order-doc records (the v2 folder-layout key,
 // the old arrangement key and the layer_state order/removed fields) are not read, migrated or deleted here.
-import { type OrderDoc, isOrderDoc, sanitizeOrderDoc } from "#core/order/index.js";
+import {
+  type OrderDoc,
+  isOrderDoc,
+  sanitizeOrderDoc,
+} from "#core/layer/order/index.js";
 import {
   loadRecord,
   removeRecord,

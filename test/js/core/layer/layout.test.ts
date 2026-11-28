@@ -20,7 +20,8 @@ import {
   resolveOrderView,
   saveOrderDoc,
 } from "#core/layer/index.js";
-import type { OrderDoc } from "#core/order/index.js";
+import type { OrderDoc } from "#core/layer/order/index.js";
+import { ORDER_KIND } from "#core/layer/order/index.js";
 
 const mapLike = () => ({ getContainer: () => ({ id: "map-x" }) });
 
@@ -49,7 +50,11 @@ describe("defaultDoc", () => {
       decl("c", "overlay", "Roads"),
     ]);
     const fk = "folder:overlay:roads";
-    expect(d.nodes[fk]).toMatchObject({ kind: "folder", parent: null, name: "Roads" });
+    expect(d.nodes[fk]).toMatchObject({
+      kind: ORDER_KIND.FOLDER,
+      parent: null,
+      name: "Roads",
+    });
     expect(d.nodes["layer:b"].parent).toBe(fk);
     expect(d.nodes["layer:c"].parent).toBe(fk);
   });
@@ -69,7 +74,9 @@ describe("mergeOrderDocs", () => {
   it("saved node wins over the default for the same key", () => {
     const defaults = defaultDoc([decl("a", "overlay")]);
     const saved: OrderDoc = {
-      nodes: { "layer:a": { kind: "layer", parent: null, rank: "z9", hidden: true } },
+      nodes: {
+        "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "z9", hidden: true },
+      },
     };
     const m = mergeOrderDocs(saved, defaults);
     expect(m.nodes["layer:a"]).toMatchObject({ rank: "z9", hidden: true });
@@ -78,7 +85,7 @@ describe("mergeOrderDocs", () => {
   it("keeps saved-only nodes (dormant/tombstone) at their rank", () => {
     const defaults = defaultDoc([decl("a", "overlay")]);
     const saved: OrderDoc = {
-      nodes: { "layer:gone": { kind: "layer", parent: null, rank: "a0" } },
+      nodes: { "layer:gone": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" } },
     };
     const m = mergeOrderDocs(saved, defaults);
     expect(m.nodes["layer:gone"]).toBeDefined();
@@ -87,7 +94,7 @@ describe("mergeOrderDocs", () => {
   it("defaults fill keys the saved doc lacks", () => {
     const defaults = defaultDoc([decl("a", "overlay"), decl("b", "overlay")]);
     const saved: OrderDoc = {
-      nodes: { "layer:a": { kind: "layer", parent: null, rank: "a0" } },
+      nodes: { "layer:a": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" } },
     };
     const m = mergeOrderDocs(saved, defaults);
     expect(m.nodes["layer:b"]).toBeDefined();
@@ -138,15 +145,15 @@ describe("project", () => {
       "layer:x",
       "layer:y",
     ]);
-    expect(rows[0]).toMatchObject({ kind: "layer", depth: 1 });
-    expect(rows[1]).toMatchObject({ kind: "block", depth: 1, name: "Roads" });
+    expect(rows[0]).toMatchObject({ kind: ORDER_KIND.LAYER, depth: 1 });
+    expect(rows[1]).toMatchObject({ kind: ORDER_KIND.FOLDER, depth: 1, name: "Roads" });
   });
 
   it("projectBlocks returns folder blocks with live members + root layer rows", () => {
     const blocks = projectBlocks(doc, present, registry, "overlay");
-    expect(blocks[0]).toMatchObject({ kind: "layer" });
+    expect(blocks[0]).toMatchObject({ kind: ORDER_KIND.LAYER });
     expect(blocks[1]).toMatchObject({
-      kind: "folder",
+      kind: ORDER_KIND.FOLDER,
       key: "roads",
       name: "Roads",
     });
@@ -159,7 +166,7 @@ describe("project", () => {
     const v = projectView(doc, present);
     expect(v.leaves).toEqual(["layer:a", "layer:x", "layer:y", "layer:b"]);
     expect(v.rows.length).toBeGreaterThan(0);
-    expect(v.blocks.length).toBeGreaterThan(0);
+    expect(v.containers.length).toBeGreaterThan(0);
     const roleOf2: RoleOf = roleOf;
     expect(roleOf2("a")).toBe("overlay");
     const b: ProjectedBlock | undefined = projectBlocks(
@@ -178,10 +185,10 @@ describe("project", () => {
       "layer:a",
       "folder:overlay:roads",
     ]);
-    expect(view.rows.overlay[1]).toMatchObject({ kind: "block", depth: 1 });
+    expect(view.rows.overlay[1]).toMatchObject({ kind: ORDER_KIND.FOLDER, depth: 1 });
     expect(view.rows.base.map(r => r.key)).toEqual(["layer:b"]);
     const f = view.blocks.overlay.find(b => b.kind === "folder");
-    expect(f).toMatchObject({ kind: "folder", key: "roads", name: "Roads" });
+    expect(f).toMatchObject({ kind: ORDER_KIND.FOLDER, key: "roads", name: "Roads" });
     if (f && f.kind === "folder") expect(f.members.map(i => i.id)).toEqual(["x", "y"]);
   });
 
@@ -228,27 +235,27 @@ describe("persist", () => {
     const over: OrderDoc = {
       nodes: {
         "folder:overlay:a": {
-          kind: "folder",
+          kind: ORDER_KIND.FOLDER,
           parent: null,
           rank: "a0",
           name: "A",
           role: "overlay",
         },
         "folder:overlay:b": {
-          kind: "folder",
+          kind: ORDER_KIND.FOLDER,
           parent: "folder:overlay:a",
           rank: "a0",
           name: "B",
           role: "overlay",
         },
         "folder:overlay:c": {
-          kind: "folder",
+          kind: ORDER_KIND.FOLDER,
           parent: "folder:overlay:b",
           rank: "a0",
           name: "C",
           role: "overlay",
         },
-        "layer:x": { kind: "layer", parent: "folder:overlay:c", rank: "a0" },
+        "layer:x": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:c", rank: "a0" },
       },
     };
     window.localStorage.setItem(orderKeyOf(map), JSON.stringify(over));
@@ -273,20 +280,24 @@ describe("projection edges", () => {
 
   it("resolveOrderView skips unknown ids and keeps empty folders in their role", () => {
     const d = doc({
-      "layer:p1": { kind: "layer", parent: null, rank: "a0" },
+      "layer:p1": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
       "folder:overlay:vacant": {
-        kind: "folder",
+        kind: ORDER_KIND.FOLDER,
         parent: null,
         rank: "a1",
         name: "Vacant",
         role: "overlay",
       },
-      "layer:gone": { kind: "layer", parent: "folder:overlay:vacant", rank: "a0" },
-      "layer:q1": { kind: "layer", parent: null, rank: "a2" },
+      "layer:gone": {
+        kind: ORDER_KIND.LAYER,
+        parent: "folder:overlay:vacant",
+        rank: "a0",
+      },
+      "layer:q1": { kind: ORDER_KIND.LAYER, parent: null, rank: "a2" },
     });
     const reg = [info("p1", "overlay"), info("q1", "base")];
     const view = resolveOrderView(d, presentOf(reg), reg);
-    expect(view.rows.overlay.some(r => r.kind === "block")).toBe(true);
+    expect(view.rows.overlay.some(r => r.kind === "folder")).toBe(true);
     expect(view.rows.base.some(r => r.key === "layer:gone")).toBe(false);
     expect(view.rows.overlay.some(r => r.key === "layer:p1")).toBe(true);
     expect(view.rows.base.some(r => r.key === "layer:q1")).toBe(true);
@@ -295,13 +306,13 @@ describe("projection edges", () => {
   it("projectRows drops a block with no member of the role", () => {
     const d = doc({
       "folder:overlay:v": {
-        kind: "folder",
+        kind: ORDER_KIND.FOLDER,
         parent: null,
         rank: "a0",
         name: "V",
         role: "overlay",
       },
-      "layer:gone": { kind: "layer", parent: "folder:overlay:v", rank: "a0" },
+      "layer:gone": { kind: ORDER_KIND.LAYER, parent: "folder:overlay:v", rank: "a0" },
     });
     const reg = [info("p1", "overlay")];
     const roleOf = (id: string) => reg.find(i => i.id === id)?.role ?? null;
@@ -311,7 +322,7 @@ describe("projection edges", () => {
 
   it("projectBlocks omits a block with no members", () => {
     const d = doc({
-      "layer:p1": { kind: "layer", parent: null, rank: "a0" },
+      "layer:p1": { kind: ORDER_KIND.LAYER, parent: null, rank: "a0" },
     });
     const reg = [info("p1", "overlay")];
     const blocks = projectBlocks(d, presentOf(reg), reg, "overlay");

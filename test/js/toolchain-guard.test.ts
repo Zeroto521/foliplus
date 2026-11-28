@@ -420,6 +420,8 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
     "the CONFIG payload keeps one snake_case key spelling across Python and JS",
   "deep-relative-path":
     "no test file reaches outside its own subtree with three or more ../ segments",
+  "order-vocabulary":
+    "the order-domain kind/key-prefix vocabulary is single-sourced in order/kind.ts + const.ts ROLE, not spelled as bare layer/folder/group/overlay/base literals",
   "derived-barrier":
     "derived-state projections run only through the invalidateDerived barrier",
   "export-decoupling": "ExportControl must not reference LayerControl internals",
