@@ -1182,7 +1182,7 @@ it("open + close drains every document/window listener when the registry dismiss
   expect(read()).toEqual(before);
 });
 
-it("local dismiss (portal) binds no outside-press dismisser", () => {
+it("a portalled listbox leaves outside-press dismissal to the injected registry", () => {
   const read = countGlobal();
   const before = read();
   const trigger = document.createElement("button");
@@ -1740,11 +1740,11 @@ export interface ListboxSurface {
   /** Whether this surface is a multiple-select (toggles stay open). */
   multiple: boolean;
   /** Whether the surface owns dismiss (outside-press / Escape). The bridged
-   *  dropdown and the portalled picker do (the engine's local dismiss). The
-   *  inline picker does NOT — it mounts inside a panel, and the panel
-   *  dispatcher / overlay registry owns closing it (that is the S-F registry
-   *  direction). Forcing the inline picker to self-dismiss would steal the
-   *  Escape from the panel, which is a regression. */
+   *  dropdown and the portalled picker do, through the injected overlay
+   *  registry. The inline picker does NOT — it mounts inside a panel, and the
+   *  panel dispatcher / overlay registry owns closing it. Forcing the inline
+   *  picker to self-dismiss would steal the Escape from the panel, which is a
+   *  regression. */
   ownsDismiss: boolean;
   /** The current selection value(s), surface-shaped for the assertion. */
   value(): string;

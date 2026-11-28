@@ -323,8 +323,10 @@ const createSchemePicker = (options: SchemePickerOptions): SchemePicker => {
       register: entry => options.overlay.register(entry),
       id: options.overlay.id,
       rank: options.overlay.rank,
-      // The picker's historical contract: close on the click bubble, after the
-      // target control's own click handler ran.
+      // The picker keeps its long-standing press event (click, not mousedown).
+      // The registry decides an outside press on the capture phase, so a
+      // control's own stopPropagation cannot hide it; "click" only means the
+      // press that dismisses the picker is the click, not the earlier down.
       dismissOn: "click",
     },
     onRowActivate: index => {
