@@ -24,15 +24,13 @@ m
 :::{note}
 
 foliplus declares a **hard floor** of folium `>=0.15.0`
-(`pyproject.toml`) and is **tested against 0.15.0 – 1.0.0**. The test
-matrix pins the declared floor `0.15.0` and resolves the current release
-for its `latest` slot (`1.0.0` today; `uv.lock` is not committed, so the
-slot really does track PyPI). Version 1.0.0 is a compatible upgrade — the
-folium internal APIs foliplus relies on (the `Layer` base class,
-`MacroElement`/`Element`/`Figure` chain, `branca.element`,
-`JSCSSMixin`, the Jinja2 render path) are all unchanged; the full
-non-browser Python suite and the browser suite pass under 1.0.0, and no
-adapter change was required.
+(`pyproject.toml`) and is tested at both ends of the supported range — the
+`0.15.0` floor and the current release (`1.0.0` today). Version 1.0.0 is a
+compatible upgrade — the folium internal APIs foliplus relies on (the
+`Layer` base class, `MacroElement`/`Element`/`Figure` chain,
+`branca.element`, `JSCSSMixin`, the Jinja2 render path) are all unchanged;
+the full non-browser Python suite and the browser suite pass under 1.0.0, and
+no adapter change was required.
 
 :::
 
@@ -107,10 +105,9 @@ is listed as **one row**, not a folder of sub-layers. The row uses the group
 glyph and the `type_container` label, and counts its **direct** children — a
 container holding two nested containers reads 2, not the leaves buried inside.
 
-`LayerGroup` only becomes a row in folium `>=1.0.0` because that release
-makes it a {class}`~folium.map.Layer` subclass; before 1.0.0 it was not a
-`Layer`, so the collection pass never saw it. `FeatureGroup` is already a
-`Layer` on the `0.15.0` floor.
+`LayerGroup` is new in folium 1.0.0 and is a
+{class}`~folium.map.Layer` subclass there; 0.15.x and 0.20.x have no such
+class. `FeatureGroup` is already a `Layer` on the `0.15.0` floor.
 
 The sub-layers are **not expanded** in the panel: a container is its own unit,
 and its children stay where folium put them. This is the graceful-degradation
@@ -215,7 +212,7 @@ per-feature paint, labels and filters, with these documented edges:
 |---------|---------------------------|
 | `>=0.15.0` | the declared floor (pyproject) |
 | `0.20.x` | `FeatureGroup` is a `Layer` subclass; the panel reads it as a group row |
-| `1.0.0` (2026-11-15) | `LayerGroup` becomes a `Layer` subclass too; `requires-python >=3.11`; Leaflet 1.9.3 → 1.9.4 (foliplus reads the host Leaflet, never bundles it); `Icon` hex colour; `GeoJson` multi-geometry / `null`-properties fixes |
+| `1.0.0` (2026-11-15) | new `LayerGroup` class (a `Layer` subclass, so the panel reads it as a group row); `requires-python >=3.11`; Leaflet 1.9.3 → 1.9.4 (foliplus reads the host Leaflet, never bundles it); `Icon` hex colour; `GeoJson` multi-geometry / `null`-properties fixes |
 
 foliplus does not bundle Leaflet — the page's Leaflet is the one folium loads.
 A host that loads its own Leaflet before folium's must keep the versions
