@@ -451,7 +451,7 @@ const GUARD_TREE_SUBJECTS: Record<string, string> = {
   "number-format-sync":
     "the label number-format vocabulary is one list across Python, the generated schema and JS",
   "order-source":
-    "the layer_order document is the single source of panel order / map z / panel blocks; legacy order representations and registry reorder mutations are gone"
+    "the layer_order document is the single source of panel order / map z / panel blocks; legacy order representations and registry reorder mutations are gone",
   "role-words-sync": "the layer-role vocabulary is the same on the Python and JS sides",
   "selected-class-guard": "the selected-class spelling has one owner per widget",
   "single-source-primitives":
@@ -501,3 +501,4 @@ describe("guard-tree layout", () => {
       `no script/check/<name>.mjs twin — move to test/js/guard/: ${orphans.join(", ")}`,
     ).toEqual([]);
   });
+});
