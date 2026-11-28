@@ -44,6 +44,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { collectSources, stripComments } from "./lib/source-scan.mjs";
 
 /** Production source root, relative to the repo root. */
 const JS_ROOT_REL = path.join("foliplus", "js");
@@ -88,20 +89,6 @@ const TOKEN_SUFFIX = "(?![A-Za-z0-9_-])";
  *  `data-foliplus-*` and `--foliplus-*` out of the hit list. */
 const TOKEN_PREFIX_GUARD = "(?<![A-Za-z0-9_-])";
 
-/** Strip block + line comments so a mention in prose does not count as a hit. */
-const stripComments = src =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
-
-const walk = (dir, acc = []) => {
-  if (!fs.existsSync(dir)) return acc;
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(p, acc);
-    else if (SCAN_SUFFIXES.includes(path.extname(entry.name))) acc.push(p);
-  }
-  return acc;
-};
-
 /** All production TS files under JS_ROOT. */
 /** Strip Python docstrings (triple-quoted) + line comments so a mention in
  *  prose does not count as a hit. A class name documented in a docstring is
@@ -127,7 +114,10 @@ const walkPy = (dir, acc = []) => {
   return acc;
 };
 
-const prodFiles = root => walk(path.join(root, JS_ROOT_REL));
+const prodFiles = root => collectSources(path.join(root, JS_ROOT_REL));
+
+/** Alias kept for the test surface: the shared `collectSources` is the walk. */
+const walk = dir => collectSources(dir);
 
 /** Split a string-literal body into individual `foliplus-...` tokens. A
  *  composite value ("a foliplus-x foliplus-y") yields both tokens; a
