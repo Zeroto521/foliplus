@@ -21,6 +21,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { collectSources, stripComments } from "./lib/source-scan.mjs";
 
 /** Production source root, relative to the repo root. Tests are out of scope:
  *  the parity contract is enforced by the source itself reading the vocabulary,
@@ -42,21 +43,12 @@ const PREFIX = "(?<![A-Za-z0-9_.-])";
  *  absorbs the match. */
 const SUFFIX = "[a-z0-9]+(?:-[a-z0-9]+)*(?![a-zA-Z0-9_-])";
 
-const walk = (dir, acc = []) => {
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory()) walk(p, acc);
-    else if (/\.(ts|mts|cts|js|mjs|cjs)$/.test(e.name)) acc.push(p);
-  }
-  return acc;
-};
-
-const stripComments = src =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
+/** Alias kept for the test surface: the shared collectSources is the walk. */
+const walk = dir => collectSources(dir);
 
 const scan = root => {
   const hits = [];
-  for (const file of walk(path.join(root, JS_ROOT_REL))) {
+  for (const file of collectSources(path.join(root, JS_ROOT_REL))) {
     const src = stripComments(fs.readFileSync(file, "utf8"));
     for (const prefix of PREFIXES) {
       const re = new RegExp(PREFIX + prefix + SUFFIX, "g");
