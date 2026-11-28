@@ -153,8 +153,9 @@ describe("declared-key vocabulary stays in step across Python and JS", () => {
             if (
               key === "opacity" &&
               (OPACITY_SUBKEY_FILES as readonly string[]).includes(rel)
-            )
+            ) {
               continue;
+            }
             if (isDefinitionSite(line, key)) continue;
             if (isTypeAnnotationLiteral(line, key)) continue;
             hits.push(`${rel}:${lineNo}: bare "${key}"`);
