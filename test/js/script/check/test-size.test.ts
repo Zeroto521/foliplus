@@ -75,6 +75,17 @@ describe("checkSize", () => {
     expect(bad).toEqual([]);
   });
 
+  it("still cuts at the marker for an outside path that contains it", () => {
+    // Historical behaviour: the fallback is marker-based, so an out-of-tree
+    // path that happens to contain `test/js/` loses its prefix. Pinned so the
+    // comment and the code cannot drift apart.
+    const bad = checkSize(
+      [{ file: "/elsewhere/test/js/ui/listbox.test.ts", lines: LIMIT + 1 }],
+      {},
+    );
+    expect(bad.map(b => b.file)).toEqual(["ui/listbox.test.ts"]);
+  });
+
   it("keeps a path with no test/js/ marker as-is", () => {
     // Defensive: a caller may hand a path outside the mirror root; the key then
     // stays the slash-normalised path instead of collapsing to an empty suffix.
@@ -198,6 +209,40 @@ describe("the real tree", () => {
     );
     expect(code).toBe(1);
     expect(log.mock.calls.flat().join(" ")).toContain("STALE ui/listbox.test.ts");
+    log.mockRestore();
+  });
+
+  it("counts each allowlist entry in exactly one bucket when both kinds exist", () => {
+    // Owed > 0 and stale > 0 is the case a wrong filter can still satisfy (all
+    // stale makes the identity trivial): shrink one real allowlisted file in
+    // the injected tree and keep the rest as the walk found them.
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const entries = listTestFiles().map(entry =>
+      /[\\/]ui[\\/]listbox\.test\.ts$/.test(entry.file)
+        ? { ...entry, lines: LIMIT }
+        : entry,
+    );
+    expect(main(entries, ["node", "test-size.mjs", "--list"])).toBe(1);
+    const lines = log.mock.calls.flat().map(String);
+    const summary = lines.find(line => line.startsWith("allowlist: "));
+    const match = /allowlist: (\d+) entries, (\d+) still owe a split, (\d+) stale/.exec(
+      summary ?? "",
+    );
+    expect(match).not.toBeNull();
+    const entriesCount = Number(match?.[1]);
+    const owed = Number(match?.[2]);
+    const stale = Number(match?.[3]);
+    expect(owed).toBeGreaterThan(0);
+    expect(stale).toBeGreaterThan(0);
+    expect(entriesCount).toBe(owed + stale);
+    // One row per entry: the owed section and the STALE section are disjoint.
+    const owedRows = lines.filter(
+      line => line.startsWith("  ") && !line.startsWith("  STALE "),
+    );
+    const staleRows = lines.filter(line => line.startsWith("  STALE "));
+    expect(owedRows).toHaveLength(owed);
+    expect(staleRows).toHaveLength(stale);
+    expect(new Set(owedRows).size).toBe(owedRows.length);
     log.mockRestore();
   });
 

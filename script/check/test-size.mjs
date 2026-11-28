@@ -17,11 +17,6 @@
  * same semantics script/check/python_test_layout.py already ships, and the
  * opposite of "an allowlist that only ever grows".
  *
- * A stale entry — the file is gone, or it fell to or under the cap — is a
- * failure: the burn-down list only holds files that still owe a split, so a
- * landed split deletes its row in the same PR. That matches
- * script/check/python_test_layout.py.
- *
  * Usage:
  *   node script/check/test-size.mjs [--list]
  *
@@ -86,8 +81,9 @@ const lineCount = file => fs.readFileSync(file, "utf8").split(/\r?\n/).length;
  *  `Path.resolve().relative_to()`: the walk hands absolute paths, a synthetic
  *  test hands a repo-relative one, and either may carry `.`/`..` segments
  *  (nothing in the walk is a symlink — readdirSync does not descend into one).
- *  A path outside test/js/ keeps the marker-based fallback, so an injected
- *  out-of-tree path keeps its own key instead of collapsing to a suffix. */
+ *  A path outside test/js/ falls back to the marker: one that merely CONTAINS
+ *  `test/js/` is still cut at it (historical behaviour, pinned by a test),
+ *  while one without the marker keeps its own key. */
 const relUnderTestJs = file => {
   const resolved = path.resolve(REPO_ROOT, file);
   const fromRoot = path.relative(TEST_ROOT, resolved);
