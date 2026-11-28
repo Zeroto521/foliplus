@@ -27,7 +27,7 @@ describe("EventBus", () => {
     const handler = vi.fn();
     bus.on("evt", handler);
     bus.emit("evt", 1);
-    expect(handler).toHaveBeenCalledWith(1, undefined);
+    expect(handler).toHaveBeenCalledWith(1, { revision: 1 });
   });
 
   it("rejects an omitted payload on a data-bearing event (typed emit contract)", () => {
@@ -551,9 +551,18 @@ describe("EventBus", () => {
     bus.emitSuperseding(EVENTS.LAYER_LIST_REBUILD, "rebuild");
     bus.emitSettled(EVENTS.LAYER_LIST_REBUILD);
     bus.publish(EVENTS.OVERLAY_CLEAR);
-    for (const h of [emitHandler, supersedingHandler, settledHandler, publishHandler]) {
-      expect(h).toHaveBeenCalledWith(undefined, undefined);
-    }
+    const listHandlers = [emitHandler, supersedingHandler, settledHandler];
+    listHandlers.forEach(h => {
+      // Three rounds on LAYER_LIST_REBUILD: emit, emitSuperseding, emitSettled.
+      expect(h).toHaveBeenCalledTimes(3);
+      h.mock.calls.forEach((call, round) => {
+        expect(call[0]).toBeUndefined();
+        expect(call[1]).toEqual({ revision: round + 1 });
+      });
+    });
+    expect(publishHandler).toHaveBeenCalledTimes(1);
+    expect(publishHandler.mock.calls[0][0]).toBeUndefined();
+    expect(publishHandler.mock.calls[0][1]).toEqual({ revision: 4 });
   });
 
   it("a payload-only emit (no origin) leaves the origin slot empty", () => {
@@ -746,6 +755,67 @@ describe("event constants", () => {
   });
 });
 
+describe("delivery revision", () => {
+  it("stamps a monotonic revision per delivery and costs nothing without listeners", () => {
+    const bus = new EventBus();
+    expect(bus.revision).toBe(0);
+
+    // No listener: no delivery, so no bump (the zero-cost requirement).
+    bus.emit("evt", 1);
+    bus.publish("evt", 1);
+    expect(bus.revision).toBe(0);
+
+    const seen: Array<number | undefined> = [];
+    bus.on("evt", (_payload: unknown, meta?: { revision: number }) =>
+      seen.push(meta?.revision),
+    );
+    bus.emit("evt", 1);
+    bus.emitSuperseding("evt", "layer-a", 2);
+    bus.emitSettled("evt", 3);
+    bus.emitSupersedingSettled("evt", "layer-a", 4);
+    bus.publish("evt", 5);
+
+    expect(seen).toEqual([1, 2, 3, 4, 5]);
+    expect(bus.revision).toBe(5);
+  });
+
+  it("keeps counting across clear() — the stamp is monotonic per bus", () => {
+    const bus = new EventBus();
+    const seen: number[] = [];
+    const read = (_p: unknown, meta?: { revision: number }) =>
+      seen.push(meta?.revision as number);
+    bus.on("evt", read);
+    bus.emit("evt", 1);
+    bus.clear();
+    bus.on("evt", read);
+    bus.emit("evt", 2);
+    expect(seen).toEqual([1, 2]);
+  });
+
+  it("treats every void payload contract as void at runtime", () => {
+    // The runtime mirror of the type map: if a name here were missing from
+    // VOID_EVENTS, the origin argument would arrive in the payload slot and
+    // the meta would lose it — exactly the drift `resolveOrigin` depends on.
+    const bus = new EventBus();
+    const origin = { kind: "system" } as const;
+    const voidEvents = [
+      EVENTS.LAYER_LIST_REBUILD,
+      EVENTS.LAYER_NO_BASEMAP_CHANGED,
+      EVENTS.OVERLAY_CLEAR,
+    ] as const;
+    for (const event of voidEvents) {
+      const handler = vi.fn();
+      bus.on(event, handler);
+      bus.emitSettled(event, origin);
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(handler.mock.calls[0][0]).toBeUndefined();
+      expect(handler.mock.calls[0][1]).toEqual({
+        revision: expect.any(Number),
+        origin,
+      });
+    }
+  });
+});
 describe("ensureEvents", () => {
   it("attaches an EventBus to map.foliplus.events and is idempotent", () => {
     const map = {} as any;

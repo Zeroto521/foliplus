@@ -2,6 +2,11 @@
 // Components subscribe/emit via `map.foliplus.events` instead of raw Leaflet
 // map events, so unrelated map activity does not trigger work.
 // The payload shapes these names carry live in ./type.ts.
+//
+// The payload map is the source of truth for the void/payload split: the
+// runtime flags at the bottom are checked against it by the compiler, so a
+// payload cannot be re-declared void without the runtime mirror moving too.
+import type { EventPayloadMap } from "./type.js";
 
 // ── Event name dictionary (unified <namespace>:<component>:<action> naming) ──
 const EVENTS = {
@@ -181,15 +186,29 @@ const EVENT_POLICY: Record<EventName, EventPolicy> = {
   [EVENTS.LAYER_FILTER_CHANGE]: { kind: EVENT_POLICY_KIND.NOTIFICATION },
 };
 
-/** Runtime set of events whose payload is void (see EventPayloadMap). The
- *  type map declares these as `void`, so an emit carries only an origin —
- *  the runtime split of `(payload, origin)` must not reclassify the origin
- *  as a payload. */
-const VOID_EVENTS: ReadonlySet<string> = new Set([
-  EVENTS.LAYER_LIST_REBUILD,
-  EVENTS.LAYER_NO_BASEMAP_CHANGED,
-  EVENTS.OVERLAY_CLEAR,
-]);
+/** The `void` arms of EventPayloadMap, derived from the type map itself so the
+ *  two can never drift: every void entry must appear in the flags object below
+ *  and no payload event may (a missing key fails the `satisfies` check with
+ *  "property is missing"; an extra one fails its excess-property check).
+ *
+ *  Destructive check: delete one flag and `npm run typecheck` goes red before
+ *  any test runs — the guard is the compiler, not a runtime assertion that
+ *  could be skipped.
+ *
+ *  The runtime set matters because `resolveOrigin` splits `(payload, origin)`
+ *  by this classification: a payload the type map calls void that the runtime
+ *  set does not would make every emitter's origin arrive as a payload. */
+type VoidEventName = {
+  [K in keyof EventPayloadMap]: EventPayloadMap[K] extends void ? K : never;
+}[keyof EventPayloadMap];
+
+const VOID_EVENT_FLAGS = {
+  [EVENTS.LAYER_LIST_REBUILD]: true,
+  [EVENTS.LAYER_NO_BASEMAP_CHANGED]: true,
+  [EVENTS.OVERLAY_CLEAR]: true,
+} satisfies Record<VoidEventName, true>;
+
+const VOID_EVENTS: ReadonlySet<string> = new Set(Object.keys(VOID_EVENT_FLAGS));
 
 /** Whether an event's payload contract is void. */
 const isVoidEvent = (event: string): boolean => VOID_EVENTS.has(event);

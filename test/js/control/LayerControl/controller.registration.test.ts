@@ -270,7 +270,7 @@ describe("LayerController", () => {
       // registration), not from re-probing `arrived`.
       expect(onChange).toHaveBeenCalledWith(
         { id: "late", kind: "vector" },
-        { origin: { kind: "system", via: "teardown" } },
+        { origin: { kind: "system", via: "teardown" }, revision: expect.any(Number) },
       );
     } finally {
       window.L.stamp = realStamp;

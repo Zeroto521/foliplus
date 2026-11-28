@@ -75,9 +75,14 @@ type EventOrigin =
 
 /** Metadata delivered alongside a payload. `origin` answers "who initiated
  *  this change"; `undefined` when the producer declared no source (see the
- *  origin-exempt convention). The meta object is stable per delivery and
- *  never leaks into the payload. */
+ *  origin-exempt convention). `revision` is the bus's monotonic delivery
+ *  stamp: a subscriber can compare it with the state it already applied and
+ *  drop a batch that was superseded while it sat queued. The meta object is
+ *  stable per delivery and never leaks into the payload. */
 interface EventMeta {
+  /** Monotonic delivery revision — bumped once per dispatch that has at least
+   *  one listener (a channel nobody watches costs no bump). */
+  readonly revision: number;
   readonly origin?: EventOrigin;
 }
 
