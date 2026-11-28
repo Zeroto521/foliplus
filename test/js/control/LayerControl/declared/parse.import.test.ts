@@ -1,4 +1,4 @@
-// test/js/control/LayerControl/declared/parse.imports — only the barrel is a
+// test/js/control/LayerControl/declared/parse.import — only the barrel is a
 // public door, and readDeclared* lives only in declared/.
 //
 // The declared readers are the channel's public read. A caller that deep-imports
