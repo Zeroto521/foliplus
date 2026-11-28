@@ -201,6 +201,12 @@ class TestJSReadsPythonExports:
             strip_js_comments("// CONFIG.ghost\nconst x = CONFIG.real;")
         ) == ["real"]
 
+    def test_string_literals_do_not_swallow_code(self) -> None:
+        """A URL's // must not eat the real read that follows it."""
+        assert _JS_CONFIG_READ_RE.findall(
+            strip_js_comments('const u = "http://x"; const y = CONFIG.real;')
+        ) == ["real"]
+
 
 # ── Fixture parity: config-fixture.ts vs schema defaults ──────────────────
 #

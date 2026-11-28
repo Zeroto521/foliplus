@@ -9,6 +9,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { HINT_DURATION } from "#core/overlay/index.js";
 import { CLASS_COUNT, METHOD } from "#core/value/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { dropdownOf } from "#ui/index.js";
 import { PANEL_CLASS } from "#ui/panelClassName.js";
 import * as CONST from "#control/HeatmapControl/const.js";
@@ -666,12 +667,14 @@ describe("bindControls — scheme dropdown", () => {
     expect(items.length).toBe(3);
   });
 
-  it("tolerates a CONFIG without schemes (optional in the Python API)", () => {
+  it("falls back to the generated scheme list when CONFIG omits schemes", () => {
     const { ctrl } = setup(makeConfig({ schemes: undefined }));
-    expect(ctrl.schemeSelectHidden.options.length).toBe(0);
+    const offered = DEFAULT_CONFIG.HeatmapControl.schemes.length;
+    expect(offered).toBeGreaterThan(0);
+    expect(ctrl.schemeSelectHidden.options.length).toBe(offered);
     ctrl.schemeBar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(openDropdown(ctrl)).not.toBeNull();
-    expect(openDropdown(ctrl)!.children.length).toBe(0);
+    expect(openDropdown(ctrl)!.children.length).toBe(offered);
   });
 
   it("picker close() closes the open dropdown", () => {
@@ -1040,10 +1043,10 @@ describe("bindControls — class count clamping", () => {
 });
 
 describe("selectScheme — CONFIG.schemes edge cases", () => {
-  it("selectScheme with an out-of-range index when schemes is missing is a no-op", () => {
+  it("selectScheme with an out-of-range index is a no-op", () => {
     const { ctrl, m } = setup(makeConfig({ schemes: undefined }));
     const save = vi.spyOn(m, "saveConfig");
-    ctrl.selectScheme?.(0);
+    ctrl.selectScheme?.(DEFAULT_CONFIG.HeatmapControl.schemes.length + 1);
     expect(m.scheme).toBe("Reds");
     expect(save).not.toHaveBeenCalled();
   });

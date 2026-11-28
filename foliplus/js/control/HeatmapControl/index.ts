@@ -9,6 +9,7 @@ import {
   createPanelControl,
 } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { finalize } from "#platform/finalize.js";
 import { createTimers } from "#platform/timer.js";
 import type { Timers } from "#platform/type.js";
@@ -88,7 +89,9 @@ class HeatmapControl extends defineControl({
       id: "heatmap.panel",
       exclusiveGroup: "map:panel",
       pressPriority: 400,
-      canClose: () => this.config.collapse_on_outside !== false,
+      canClose: () =>
+        (this.config.collapse_on_outside ??
+          DEFAULT_CONFIG.HeatmapControl.collapse_on_outside) !== false,
     });
     // See LayerControl.buildDOM: keeps the factory's document-level listeners
     // from outliving a control that is removed but not garbage-collected.

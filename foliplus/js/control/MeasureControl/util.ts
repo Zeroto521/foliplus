@@ -4,6 +4,7 @@ import * as CONST from "./const.js";
 import { area, bearing, distance, midpoint, vertexMean } from "#core/geo/index.js";
 import { reverseGeocode } from "#core/geocode/index.js";
 import { type ControlEnv } from "#core/lifecycle/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { cssVar } from "#platform/cssvar.js";
 import { buildPopupEl } from "#platform/dom.js";
 import { NUMBER_FORMAT, formatLatLng, formatNumber } from "#platform/format.js";
@@ -31,7 +32,9 @@ const formatSegmentLabel = (
   meters: number,
 ): string => {
   const dist = formatDistance(meters);
-  if (!env.config.show_bearing) return dist;
+  const showBearing =
+    env.config.show_bearing ?? DEFAULT_CONFIG.MeasureControl.show_bearing;
+  if (!showBearing) return dist;
   const bVal = Math.round(bearing(a, b));
   return `${bVal}° | ${dist}`;
 };

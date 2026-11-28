@@ -20,6 +20,7 @@ import {
   isClassifyMethod,
   safeColorScale,
 } from "#core/value/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { dom } from "#platform/dom.js";
 import {
   dropdownSurface,
@@ -90,7 +91,7 @@ interface HeatmapControlUI {
  *  this render does not offer; the shared picker throws on such a value, so
  *  resolve it to the list's first entry instead of failing the whole build. */
 const resolveScheme = (ctrl: HeatmapControlUI): string => {
-  const schemes = ctrl.config.schemes ?? [];
+  const schemes = ctrl.config.schemes ?? DEFAULT_CONFIG.HeatmapControl.schemes;
   const current = ctrl.mgr.scheme;
   return schemes.length === 0 || schemes.includes(current) ? current : schemes[0];
 };
@@ -229,7 +230,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   // Populate scheme options and set current value. The scheme is clamped
   // first: a restored value can name a palette this render does not offer.
   ctrl.mgr.scheme = resolveScheme(ctrl);
-  (ctrl.config.schemes ?? []).forEach(name => {
+  (ctrl.config.schemes ?? DEFAULT_CONFIG.HeatmapControl.schemes).forEach(name => {
     dom.el("option", { value: name, parent: ctrl.schemeSelectHidden }, name);
   });
   ctrl.schemeSelectHidden.value = ctrl.mgr.scheme;
@@ -238,7 +239,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   ctrl.schemePicker = createSchemePicker({
     trigger: ctrl.schemeBar,
     hiddenSelect: ctrl.schemeSelectHidden,
-    schemes: ctrl.config.schemes ?? [],
+    schemes: ctrl.config.schemes ?? DEFAULT_CONFIG.HeatmapControl.schemes,
     value: ctrl.mgr.scheme,
     numClasses: ctrl.mgr.numClasses,
     // Portalled like the style drawer's picker: the shared placement decision
@@ -281,7 +282,7 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
   };
   ctrl.toggleDropdown = () => ctrl.schemePicker?.toggle();
   ctrl.selectScheme = (idx: number) => {
-    const name = (ctrl.config.schemes ?? [])[idx];
+    const name = (ctrl.config.schemes ?? DEFAULT_CONFIG.HeatmapControl.schemes)[idx];
     if (name) ctrl.schemePicker?.selectScheme(name);
   };
 

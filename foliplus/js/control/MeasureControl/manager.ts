@@ -46,6 +46,7 @@ import {
   requireFoliplus,
 } from "#core/lifecycle/index.js";
 import { HINT_DURATION } from "#core/overlay/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { finalize, finalizeEach } from "#platform/finalize.js";
 import { throttleRaf } from "#platform/throttle.js";
 import { createTimers } from "#platform/timer.js";
@@ -220,8 +221,9 @@ class MeasureManager {
     this._ = env._;
     this.log = env.log;
     this.layerId = generateId(CONST.ID, opts?.id);
-    this.labelCollide = env.config.label_collide !== false;
-    this.labelShow = env.config.label_show !== false;
+    this.labelCollide =
+      env.config.label_collide ?? DEFAULT_CONFIG.MeasureControl.label_collide;
+    this.labelShow = env.config.label_show ?? DEFAULT_CONFIG.MeasureControl.label_show;
     this.store = new MeasureStore(this.map, env, this.layerId);
     // The shared per-map store owns the committed filter, the ownership
     // flag, and the persistence. The Python declaration is normalised once
@@ -317,7 +319,10 @@ class MeasureManager {
     this.isEditMode = false;
 
     this.coordReadoutEl =
-      this.config.show_live_coords !== false ? this.buildCoordReadout() : null;
+      (this.config.show_live_coords ??
+        DEFAULT_CONFIG.MeasureControl.show_live_coords) !== false
+        ? this.buildCoordReadout()
+        : null;
 
     this.bindGlobalEvents();
     this.bindLayerRemoved();

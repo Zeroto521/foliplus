@@ -42,14 +42,52 @@ _JS_INTERFACE_NAME_RE = re.compile(r"interface\s+Config(\w+)(?:\s+extends\s+\w+)
 _JS_FIELD_RE = re.compile(r"(?m)^\s*([a-z][A-Za-z0-9_]*)\??\s*:")
 _JS_CONFIG_READ_RE = re.compile(r"(?<![_A-Za-z0-9])CONFIG\.([A-Za-z_][A-Za-z0-9_]*)")
 # Comments are prose, not reads: a generated header may spell an example like
-# `CONFIG.<field>` without that being a field JS reads. Strip both comment forms
-# first, preserving newlines so any reported line still lines up.
-_JS_COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\r\n]*", re.DOTALL)
+# `CONFIG.<field>` without that being a field JS reads. A comment is a comment
+# only outside a string/template literal — a regex strip would treat the `//`
+# in `"http://x"` as one and swallow a real read later on that line.
 
 
 def strip_js_comments(text: str) -> str:
-    """Drop JS line/block comments, keeping newlines for stable line numbers."""
-    return _JS_COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    """Drop JS line/block comments, respecting string/template literals.
+
+    Keeps newlines so any line number derived from the result still matches the
+    original file.
+    """
+    out: list[str] = []
+    i = 0
+    length = len(text)
+    while i < length:
+        ch = text[i]
+        if ch in "\"'\`":
+            quote = ch
+            out.append(ch)
+            i += 1
+            while i < length:
+                current = text[i]
+                out.append(current)
+                i += 1
+                if current == "\\" and i < length:
+                    out.append(text[i])
+                    i += 1
+                    continue
+                if current == quote:
+                    break
+            continue
+        if ch == "/" and i + 1 < length and text[i + 1] == "/":
+            while i < length and text[i] != "\n":
+                i += 1
+            continue
+        if ch == "/" and i + 1 < length and text[i + 1] == "*":
+            i += 2
+            while i + 1 < length and not (text[i] == "*" and text[i + 1] == "/"):
+                if text[i] == "\n":
+                    out.append("\n")
+                i += 1
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
 
 
 _JS_TS_ROOT = Path(__file__).resolve().parents[3] / "foliplus/js"

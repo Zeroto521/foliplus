@@ -7,6 +7,7 @@
 // from the parameter. A second hardcoded "fa-solid" would let a call site
 // drift from the knob and silently re-introduce the original hardcoded
 // behaviour.
+import { codeOnly } from "./jsSource.js";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -41,12 +42,6 @@ const walk = (dir: string): string[] => {
   }
   return out;
 };
-
-// Strip comments (block + line) so a doc comment that merely mentions
-// "fa-solid" cannot mask a real literal, and a real literal cannot hide in
-// a comment.
-const codeOnly = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\r\n]*/g, "");
 
 describe("glyph prefix parameterization", () => {
   it("pins the fa-solid literal to the GLYPH_PREFIXES.solid declaration line (single source)", () => {

@@ -1,103 +1,118 @@
-// test/js/guard/config-default-consumers — every generated runtime default is consumed
+// test/js/guard/config-default-consumer — every generated runtime default is accounted for
 //
-// `foliplus/js/config-default.ts` is generated from the Python schema; a key
-// nobody reads is a dead default that will silently keep a stale value once the
-// Python side changes. Two failure modes:
+// `foliplus/js/config-default.ts` is generated from the Python schema. A key it
+// carries must be either:
 //
-//   1. a control has started reading `DEFAULT_CONFIG.<Control>` (its fallbacks
-//      were migrated) but does not consume every key of that control. Adding a
-//      Python field then lands a default that no fallback reads.
-//   2. a consumer names a key that is not in the generated map (typo, or a
-//      field renamed on the Python side) — the literal would be `undefined` at
-//      runtime while looking wired.
+//   - wired: a control reads `DEFAULT_CONFIG.<Control>.<key>` as its fallback, or
+//   - declaration-only: the control reads the raw `CONFIG.<key>`, where an
+//     absent value already means "not declared" (layer/field/filter/…), so
+//     there is no fallback literal to replace.
 //
-// Migration is staged (batch 1 = Heatmap + Measure), so the generated map owns
-// every schema default while only a subset is wired yet. `WIRED` is that
-// subset, recorded here on purpose: the guard fails when a consumer appears (or
-// disappears) without the wiring decision being updated, so a batch cannot land
-// half-connected and an un-migrated key cannot quietly acquire a stray reader.
-// Batch 2+ extends `WIRED`; the `--verify` on the generator already keeps the
-// generated map in step with Python for the keys that are not wired yet.
+// BOTH sets are derived from the source — there is no handwritten key list.
+// That is the point: adding a Python default field with no JS reader, or
+// wiring one through a literal fallback again, must fail instead of silently
+// restoring the third copy this module exists to delete.
+//
+// Two more failure modes: a consumer naming a key the generated map lacks
+// (rename/typo), and a migrated control replacing a wired key with a local
+// literal (`?? 1`, `!== false`) — the same drift in a different spelling.
+//
+// Migration is staged: only controls that already read `DEFAULT_CONFIG` are
+// enforced. A later batch opts in by wiring its first key.
+import { codeOnly } from "./jsSource.js";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const REPO_ROOT = process.cwd();
 const JS_ROOT = resolve(REPO_ROOT, "foliplus", "js");
+const CONTROL_ROOT = resolve(REPO_ROOT, "foliplus", "js", "control");
 const DEFAULTS_FILE = "foliplus/js/config-default.ts";
 
-/** Every `foliplus/js` TS file as repo-relative posix paths. */
-const jsFiles = (): string[] => {
+/** Every TS file under one directory, as repo-relative posix paths. */
+const filesUnder = (dir: string): string[] => {
   const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const full = join(dir, entry.name);
+  const walk = (current: string) => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const full = join(current, entry.name);
       if (entry.isDirectory()) walk(full);
       else if (entry.name.endsWith(".ts")) {
         out.push(relative(REPO_ROOT, full).replace(/\\/g, "/"));
       }
     }
   };
-  walk(JS_ROOT);
+  walk(dir);
   return out.sort();
 };
 
-/** Control name → the default keys declared for it in the generated module.
- *  The emitter writes one `  <Control>: {` block per control with keys at a
- *  four-space indent; nested object defaults (none today) indent deeper and are
- *  deliberately not matched. */
+/** Control name → default keys declared for it in the generated module. The
+ *  emitter writes one `  <Control>: {` value block per control (the type block
+ *  above ends with `};` lines, not `{`), keys at four-space indent. */
 const declaredDefaults = (src: string): Map<string, string[]> => {
   const out = new Map<string, string[]>();
-  for (const control of src.matchAll(/^ {2}([A-Z][\w]*): \{$/gm)) {
-    const name = control[1];
-    const rest = src.slice((control.index ?? 0) + control[0].length);
-    const nextControl = rest.search(/^ {2}[A-Z][\w]*: \{$/m);
-    const block = nextControl === -1 ? rest : rest.slice(0, nextControl);
-    const keys = [...block.matchAll(/^ {4}([A-Za-z_$][\w$]*):/gm)].map(m => m[1]);
-    out.set(name, keys);
-  }
+  const starts = [...src.matchAll(/^ {2}([A-Z][\w]*): \{$/gm)];
+  starts.forEach((match, index) => {
+    const start = (match.index ?? 0) + match[0].length;
+    const end =
+      index + 1 < starts.length ? (starts[index + 1].index ?? src.length) : src.length;
+    const keys = [
+      ...src.slice(start, end).matchAll(/^ {4}([a-z][A-Za-z0-9_]*):/gm),
+    ].map(key => key[1]);
+    out.set(match[1], keys);
+  });
   return out;
 };
 
-/** Drop TS comments so a doc example cannot pose as a consumer. */
-const stripComments = (src: string): string =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\r\n]*/g, "");
-
 /** `DEFAULT_CONFIG.<Control>.<key>` reads across the component sources. */
-const consumedDefaults = (): Map<string, Set<string>> => {
-  const consumed = new Map<string, Set<string>>();
-  for (const rel of jsFiles()) {
+const wiredDefaults = (): Map<string, Set<string>> => {
+  const wired = new Map<string, Set<string>>();
+  for (const rel of filesUnder(JS_ROOT)) {
     if (rel === DEFAULTS_FILE) continue;
-    const src = stripComments(readFileSync(resolve(REPO_ROOT, rel), "utf8"));
+    const src = codeOnly(readFileSync(resolve(REPO_ROOT, rel), "utf8"));
     for (const hit of src.matchAll(
       /DEFAULT_CONFIG\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)/g,
     )) {
-      const keys = consumed.get(hit[1]) ?? new Set<string>();
+      const keys = wired.get(hit[1]) ?? new Set<string>();
       keys.add(hit[2]);
-      consumed.set(hit[1], keys);
+      wired.set(hit[1], keys);
     }
   }
-  return consumed;
+  return wired;
+};
+
+/** Raw `CONFIG.<key>` / `env.config.<key>` reads inside one control's own
+ *  directory — the declaration-only side of the story. */
+const rawReadsOf = (control: string): Set<string> => {
+  const dir = join(CONTROL_ROOT, control);
+  const keys = new Set<string>();
+  for (const rel of filesUnder(dir)) {
+    const src = codeOnly(readFileSync(resolve(REPO_ROOT, rel), "utf8"));
+    for (const hit of src.matchAll(
+      /(?:\bCONFIG|(?<![A-Za-z0-9_$])config|env\.config|ctrl\.config|this\.config)\.([a-z][A-Za-z0-9_]*)/g,
+    )) {
+      keys.add(hit[1]);
+    }
+  }
+  return keys;
 };
 
 describe("generated runtime defaults", () => {
-  const declared = declaredDefaults(
-    readFileSync(resolve(REPO_ROOT, DEFAULTS_FILE), "utf8"),
-  );
-  const consumed = consumedDefaults();
+  const source = readFileSync(resolve(REPO_ROOT, DEFAULTS_FILE), "utf8");
+  const declared = declaredDefaults(source);
+  const wired = wiredDefaults();
+  const migrated = [...wired.keys()].sort();
 
-  it("is a generated module carrying at least one control", () => {
-    const src = readFileSync(resolve(REPO_ROOT, DEFAULTS_FILE), "utf8");
+  it("is a generated module carrying defaults for every control", () => {
     expect(
-      src.startsWith("// AUTO-GENERATED by script/build/emit-config-schema.mjs"),
+      source.startsWith("// AUTO-GENERATED by script/build/emit-config-schema.mjs"),
     ).toBe(true);
     expect(declared.size).toBeGreaterThan(0);
-    expect(consumed.size).toBeGreaterThan(0);
+    expect(migrated.length).toBeGreaterThan(0);
   });
 
   it("has no consumer naming a key the generated map does not declare", () => {
     const violations: string[] = [];
-    for (const [control, keys] of consumed) {
+    for (const [control, keys] of wired) {
       const declaredKeys = declared.get(control);
       if (!declaredKeys) {
         violations.push(`${control}: control is not declared in ${DEFAULTS_FILE}`);
@@ -112,43 +127,53 @@ describe("generated runtime defaults", () => {
     expect(violations).toEqual([]);
   });
 
-  it("consumes exactly the wiring the migration batch declares", () => {
-    // Batch 1 wires every fallback key of these two controls. Declaration-only
-    // keys (schemes/layer/field/filter/folder/zoom_range) are not fallbacks —
-    // `null`/absent means "not declared", so they have no default to read.
-    // Each later batch appends its controls here in the same commit that adds
-    // the consumers.
-    const WIRED: Record<string, string[]> = {
-      HeatmapControl: [
-        "agg",
-        "border_color",
-        "border_opacity",
-        "border_weight",
-        "color_scheme",
-        "fill_opacity",
-        "label_color",
-        "label_format",
-        "label_show",
-        "label_size",
-        "method",
-        "num_classes",
-      ],
-      MeasureControl: ["export_format", "filename"],
-    };
-    const expected = Object.entries(WIRED)
-      .flatMap(([control, keys]) => keys.map(key => `${control}.${key}`))
-      .sort();
-    const actual = [...consumed]
-      .flatMap(([control, keys]) => [...keys].map(key => `${control}.${key}`))
-      .sort();
-    expect(actual).toEqual(expected);
-
-    // The declared wiring must name real generated keys — a rename on the Python
-    // side then fails here instead of leaving an `undefined` default behind.
-    for (const [control, keys] of Object.entries(WIRED)) {
-      for (const key of keys) {
-        expect(declared.get(control) ?? [], `${control}.${key}`).toContain(key);
+  it("accounts for every generated key of a migrated control", () => {
+    // A key that is neither wired nor read raw is a dead default: Python can
+    // change it forever and JS will never notice. This is the assertion that
+    // turns "new schema field" into a red test instead of a silent no-op.
+    const violations: string[] = [];
+    for (const control of migrated) {
+      const wiredKeys = wired.get(control) ?? new Set<string>();
+      const rawKeys = rawReadsOf(control);
+      const unaccounted = (declared.get(control) ?? []).filter(
+        key => !wiredKeys.has(key) && !rawKeys.has(key),
+      );
+      if (unaccounted.length > 0) {
+        violations.push(`${control}: no reader for ${unaccounted.join(", ")}`);
       }
     }
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps no literal fallback for a generated key of a migrated control", () => {
+    // `CONFIG.agg ?? "count"` / `CONFIG.label_show !== false` would pass the
+    // reader check above while keeping the value the generated map owns. Ban
+    // both spellings; the only accepted fallback source is DEFAULT_CONFIG.
+    const violations: string[] = [];
+    for (const control of migrated) {
+      const keys = declared.get(control) ?? [];
+      for (const rel of filesUnder(join(CONTROL_ROOT, control))) {
+        const src = codeOnly(readFileSync(resolve(REPO_ROOT, rel), "utf8"));
+        for (const key of keys) {
+          const literal = new RegExp(
+            `\\.${key}\\s*\\?\\?(?!\\s*DEFAULT_CONFIG)|\\.${key}\\s*!==\\s*(?:false|true)`,
+          );
+          if (literal.test(src)) {
+            violations.push(`${rel}: ${key} has a local fallback`);
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it("strips comments without letting a string swallow real code", () => {
+    // The lexer rule the guards depend on: the // in a URL is not a comment, so
+    // the CONFIG read after it must survive; a real comment must not.
+    const kept = codeOnly('const u = "http://x"; const y = CONFIG.real;');
+    expect(kept).toContain("CONFIG.real");
+    expect(codeOnly("// CONFIG.ghost\nconst y = CONFIG.real;")).not.toContain(
+      "CONFIG.ghost",
+    );
   });
 });

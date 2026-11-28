@@ -10,6 +10,7 @@ import {
   createFoldControl,
 } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
+import { DEFAULT_CONFIG } from "#foliplus/config-default.js";
 import { createIconButton } from "#platform/dom.js";
 import * as Icons from "#platform/icon.js";
 import { PANEL_CLASS } from "#ui/index.js";
@@ -92,7 +93,9 @@ const MeasureControl = defineControl<MeasureManager>({
       exclusiveGroup: "map:panel",
       pressPriority: 400,
       canClose: () =>
-        this.mgr.currentMode === null && this.config.collapse_on_outside !== false,
+        this.mgr.currentMode === null &&
+        (this.config.collapse_on_outside ??
+          DEFAULT_CONFIG.MeasureControl.collapse_on_outside) !== false,
     });
     this.effect(() => fold.detach);
 
