@@ -41,8 +41,8 @@ if TYPE_CHECKING:
 # folium 1.0.0 adds LayerGroup as a sibling of FeatureGroup (not a subclass);
 # 0.15/0.20 ship FeatureGroup only. Probe the module so both lines work.
 _LAYER_GROUP = getattr(folium.map, "LayerGroup", None)
-_GROUP_TYPES: tuple[type[Layer], ...] = (
-    (FeatureGroup,) if _LAYER_GROUP is None else (FeatureGroup, _LAYER_GROUP)
+_GROUP_TYPES: tuple[type[Layer], ...] = tuple(
+    group for group in (FeatureGroup, _LAYER_GROUP) if group is not None
 )
 
 

@@ -86,6 +86,39 @@ def test_collect_layer_data_orders_overlays_before_base_maps() -> None:
     assert [row["role"] for row in data["data"]] == ["overlay", "base"], data
 
 
+def test_collect_layer_data_without_a_parent_map_returns_no_rows() -> None:
+    # A control that was never added to a map has no parent to walk.
+    data = collect_layer_data(LayerControl())
+    assert data["data"] == [], data
+
+
+def test_collect_layer_data_visits_a_layer_shared_by_two_containers_once() -> None:
+    # The same leaf can hang off two containers; the container walk must visit
+    # it once, and both container rows still render.
+    leaf = folium.GeoJson(feature_collection(), name="leaf")
+    first = folium.FeatureGroup(name="first")
+    second = folium.FeatureGroup(name="second")
+    leaf.add_to(first)
+    leaf.add_to(second)
+    data = collect_layer_data(_control_with(first, second))
+    assert [row["name"] for row in data["data"]] == ["first", "second"], data
+
+
+def test_collect_layer_data_carries_the_declared_filter() -> None:
+    layer = folium.GeoJson(
+        feature_collection(),
+        name="pop",
+        foliplus={"filter": {"field": "pop", "min": 0, "max": 100}},
+    )
+    row = _row(collect_layer_data(_control_with(layer)), "pop")
+    assert row["filter"] == {
+        "kind": "atom",
+        "field": "pop",
+        "op": "between",
+        "range": [0, 100],
+    }, row
+
+
 def test_collect_layer_data_carries_the_declared_zoom_range() -> None:
     layer = folium.GeoJson(
         feature_collection(), name="a", foliplus={"zoom_range": {"min": 2, "max": 9}}
@@ -254,6 +287,30 @@ class TestFolderRootOnly:
         assert len(messages) == 1, messages
         assert "'child'" in messages[0], messages
         assert "a layer inside a container" in messages[0], messages
+
+    def test_nested_container_and_its_child_are_both_reported(self) -> None:
+        # A container inside a container is still a container row; folding it
+        # into a folder is "folder 套 group" too, and its own children are
+        # "group 套 folder". Both are reported from the container walk.
+        outer = folium.FeatureGroup(name="outer")
+        inner = folium.FeatureGroup(name="inner", foliplus={"folder": "Ops"})
+        inner.add_to(outer)
+        folium.GeoJson(
+            feature_collection(), name="leaf", foliplus={"folder": "Ops"}
+        ).add_to(inner)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            data = collect_layer_data(_control_with(outer))
+        assert [row["name"] for row in data["data"]] == ["outer"], data
+        messages = [str(w.message) for w in caught]
+        assert any(
+            "'inner'" in message and "a container layer" in message
+            for message in messages
+        ), messages
+        assert any(
+            "'leaf'" in message and "a layer inside a container" in message
+            for message in messages
+        ), messages
 
     def test_empty_container_folder_declaration_is_ignored(self) -> None:
         # An empty group still renders as a container row, so its folder
