@@ -86,7 +86,7 @@ import {
   mergeOrderDocs,
   normalizeFolderName,
   childrenOf as orderChildrenOf,
-  createBlock as orderCreateBlock,
+  createBranch as orderCreateBranch,
   moveInto as orderMoveInto,
   moveToIndex as orderMoveToIndex,
   rankAfter as orderRankAfter,
@@ -2793,7 +2793,7 @@ class LayerController implements LayerAPI {
     if (duplicate) return { ok: false, reason: "duplicate" };
     // Materialise the empty folder at the root tail through the doc (the
     // single order source).
-    const next = orderCreateBlock(this.orderDoc, "folder", folderKey, name, role);
+    const next = orderCreateBranch(this.orderDoc, "folder", folderKey, name, role);
     this.applyDoc(next, { persist: opts?.persist !== false });
     if (this.ui) this.ui.rebuildAfterLayoutChange();
     // The key travels back: the caller opens the inline rename on the row it

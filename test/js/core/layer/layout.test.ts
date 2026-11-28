@@ -167,7 +167,7 @@ describe("project", () => {
     const v = projectView(doc, present);
     expect(v.leaves).toEqual(["layer:a", "layer:x", "layer:y", "layer:b"]);
     expect(v.rows.length).toBeGreaterThan(0);
-    expect(v.containers.length).toBeGreaterThan(0);
+    expect(v.branches.length).toBeGreaterThan(0);
     const roleOf2: RoleOf = roleOf;
     expect(roleOf2("a")).toBe("overlay");
     const b: ProjectedBlock | undefined = projectBlocks(

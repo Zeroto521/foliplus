@@ -134,7 +134,7 @@ describe("resolveView", () => {
       "layer:y",
     ]);
     expect(
-      v.containers.map(b => ({ kind: b.kind, key: b.key, children: b.children })),
+      v.branches.map(b => ({ kind: b.kind, key: b.key, children: b.children })),
     ).toEqual([
       {
         kind: ORDER_KIND.FOLDER,

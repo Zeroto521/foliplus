@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ORDER_KIND,
-  createBlock,
+  createBranch,
   emptyOrderDoc,
   folderDocKey,
   layerKeyOf,
@@ -23,7 +23,7 @@ const folderKey = folderDocKey("overlay", "roads");
 describe("order doc: empty folder keeps role and stays after its last member", () => {
   it("a folder node owns a role and survives the last member's suppression", () => {
     let doc = emptyOrderDoc();
-    doc = createBlock(doc, "folder", folderKey, "Roads", "overlay");
+    doc = createBranch(doc, "folder", folderKey, "Roads", "overlay");
     const layerKey = layerKeyOf("a");
     // A freshly registered layer node sits at the root level.
     doc = moveInto(doc, layerKey, folderKey, 0);
@@ -59,8 +59,8 @@ describe("order doc: empty folder keeps role and stays after its last member", (
     let doc = emptyOrderDoc();
     const overlayKey = folderDocKey("overlay", "roads");
     const baseKey = folderDocKey("base", "roads");
-    doc = createBlock(doc, "folder", overlayKey, "Roads", "overlay");
-    doc = createBlock(doc, "folder", baseKey, "Roads", "base");
+    doc = createBranch(doc, "folder", overlayKey, "Roads", "overlay");
+    doc = createBranch(doc, "folder", baseKey, "Roads", "base");
     expect(doc.nodes[overlayKey]?.role).toBe("overlay");
     expect(doc.nodes[baseKey]?.role).toBe("base");
     expect(overlayKey).not.toBe(baseKey);

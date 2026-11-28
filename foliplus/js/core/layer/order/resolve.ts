@@ -8,8 +8,8 @@
 import { ORDER_MAX_DEPTH, type OrderDoc, orderDepth } from "./doc.js";
 import { ORDER_KIND, type OrderKind } from "./kind.js";
 
-/** A container row: a folder or group header with its subtree leaves. */
-interface BlockRow {
+/** A branch row: a folder or group header with its subtree leaves. */
+interface BranchRow {
   kind: Exclude<OrderKind, typeof ORDER_KIND.LAYER>;
   key: string;
   name: string;
@@ -18,7 +18,7 @@ interface BlockRow {
   children: string[];
 }
 
-/** One panel row: a container header or a leaf (layer) row. */
+/** One panel row: a branch header or a leaf (layer) row. */
 interface OrderRow {
   kind: OrderKind;
   key: string;
@@ -28,12 +28,12 @@ interface OrderRow {
   hidden?: boolean;
 }
 
-/** A resolved role view: rows (panel order), leaves (z ladder), containers. */
+/** A resolved role view: rows (panel order), leaves (z ladder), branches. */
 interface ResolvedView {
   rows: OrderRow[];
   /** Leaf ids in DFS order — the flat z ladder. */
   leaves: string[];
-  containers: BlockRow[];
+  branches: BranchRow[];
 }
 
 /** The role-independent view of one parent (root when parent is null). */
@@ -114,11 +114,11 @@ const leafKeysOf = (doc: OrderDoc, present: Present): string[] => {
   return out;
 };
 
-/** Project the document into rows + leaves + containers for one role partition. */
+/** Project the document into rows + leaves + branches for one role partition. */
 const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
   const rows: OrderRow[] = [];
   const leaves: string[] = [];
-  const containers: BlockRow[] = [];
+  const branches: BranchRow[] = [];
   const walk = (parent: string | null, depth: number): void => {
     for (const child of childrenOf(doc, parent)) {
       if (orderDepth(doc, child) > ORDER_MAX_DEPTH) continue;
@@ -138,7 +138,7 @@ const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
           depth,
           name: node.name,
         });
-        containers.push({
+        branches.push({
           kind: node.kind as Exclude<OrderKind, typeof ORDER_KIND.LAYER>,
           key: child,
           name: node.name ?? "",
@@ -150,9 +150,9 @@ const resolveView = (doc: OrderDoc, present: Present): ResolvedView => {
     }
   };
   walk(null, 1);
-  return { rows, leaves, containers };
+  return { rows, leaves, branches };
 };
 
-export type { BlockRow, OrderRow, ResolvedView, ParentView, Present };
+export type { BranchRow, OrderRow, ResolvedView, ParentView, Present };
 
 export { childrenOf, subtreeLeaves, leafKeysOf, resolveView };

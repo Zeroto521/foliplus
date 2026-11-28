@@ -86,6 +86,6 @@ describe("resolve edges", () => {
       },
     });
     const view = resolveView(d, alwaysPresent);
-    expect(view.containers[0].name).toBe("");
+    expect(view.branches[0].name).toBe("");
   });
 });

@@ -138,8 +138,8 @@ const stepNode = (doc: OrderDoc, nodeKey: string, delta: number): OrderDoc => {
   return moveNodeToIndex(doc, nodeKey, node.parent, target);
 };
 
-/** Create a folder/group block at the end of the root level (default position). */
-const createBlock = (
+/** Create a folder/group branch at the end of the root level (default position). */
+const createBranch = (
   doc: OrderDoc,
   kind: OrderKind,
   key: string,
@@ -148,7 +148,7 @@ const createBlock = (
 ): OrderDoc => {
   if (kind !== ORDER_KIND.FOLDER && kind !== ORDER_KIND.GROUP) return doc;
   if (doc.nodes[key] !== undefined) return doc;
-  // A folder block owns a role (its members'); a group's role derives from the
+  // A folder branch owns a role (its members'); a group's role derives from the
   // container layer, so it is never stored.
   if (kind === ORDER_KIND.FOLDER && role === undefined) return doc;
   if (kind !== ORDER_KIND.FOLDER && role !== undefined) return doc;
@@ -204,7 +204,7 @@ export {
   moveInto,
   moveToIndex,
   stepNode,
-  createBlock,
+  createBranch,
   renameBlock,
   deleteBlock,
   resetOrder,

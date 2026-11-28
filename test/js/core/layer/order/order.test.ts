@@ -4,7 +4,7 @@ import {
   ORDER_KIND,
   type OrderDoc,
   childrenOf,
-  createBlock,
+  createBranch,
   deleteBlock,
   emptyOrderDoc,
   isOrderDoc,
@@ -290,9 +290,9 @@ describe("commands", () => {
     expect(stepNode(d, "layer:nope", -1)).toBe(d);
   });
 
-  it("createBlock / renameBlock / deleteBlock manage folder blocks", () => {
+  it("createBranch / renameBlock / deleteBlock manage folder blocks", () => {
     let d = emptyOrderDoc();
-    d = createBlock(d, "folder", "folder:overlay:new", "New", "overlay");
+    d = createBranch(d, "folder", "folder:overlay:new", "New", "overlay");
     expect(d.nodes["folder:overlay:new"]).toMatchObject({
       kind: ORDER_KIND.FOLDER,
       name: "New",
@@ -434,24 +434,24 @@ describe("command edge cases", () => {
     expect(moveToIndex(d, "layer:b", "layer:nope", 0)).toBe(d);
   });
 
-  it("createBlock ignores a layer kind", () => {
+  it("createBranch ignores a layer kind", () => {
     const d = base();
-    expect(createBlock(d, "layer", "layer:x", "X")).toBe(d);
+    expect(createBranch(d, "layer", "layer:x", "X")).toBe(d);
   });
 
-  it("createBlock ignores an existing key", () => {
+  it("createBranch ignores an existing key", () => {
     const d = base();
-    expect(createBlock(d, "folder", "folder:overlay:f", "F", "overlay")).toBe(d);
+    expect(createBranch(d, "folder", "folder:overlay:f", "F", "overlay")).toBe(d);
   });
 
-  it("createBlock ignores a folder without a role", () => {
+  it("createBranch ignores a folder without a role", () => {
     const d = base();
-    expect(createBlock(d, "folder", "folder:overlay:g", "G")).toBe(d);
+    expect(createBranch(d, "folder", "folder:overlay:g", "G")).toBe(d);
   });
 
-  it("createBlock ignores a group carrying a role", () => {
+  it("createBranch ignores a group carrying a role", () => {
     const d = base();
-    expect(createBlock(d, "group", "group:g", "G", "overlay")).toBe(d);
+    expect(createBranch(d, "group", "group:g", "G", "overlay")).toBe(d);
   });
 
   it("resetOrder falls back to empty for an invalid default", () => {

@@ -9,7 +9,7 @@ import type { LayerRole } from "../role.js";
 import type { LayerInfo } from "../type.js";
 import { layerKeyOf } from "./default.js";
 import {
-  type BlockRow,
+  type BranchRow,
   NODE_KEY_PREFIX,
   ORDER_KIND,
   type OrderDoc,
@@ -39,7 +39,7 @@ type RoleOf = (id: string) => LayerRole | null;
 
 /** One projected block (folder/group) with its live members, or a root layer row.
  *
- *  `members` is DERIVED from the engine BlockRow.children leaf order (present-
+ *  `members` is DERIVED from the engine BranchRow.children leaf order (present-
  *  filtered, then looked up to LayerInfo) — never a separate registry sort, so
  *  rows and z stay the same source (design note: one single source). */
 type ProjectedBlock =
@@ -90,8 +90,8 @@ const projectRows = (
       if (leafRole.get(r.key) === role) rows.push(r);
       continue;
     }
-    const container = v.containers.find(b => b.key === r.key);
-    const any = container?.children.some(c => leafRole.get(c) === role) ?? false;
+    const branch = v.branches.find(b => b.key === r.key);
+    const any = branch?.children.some(c => leafRole.get(c) === role) ?? false;
     if (any) rows.push(r);
   }
   return rows;
@@ -133,17 +133,17 @@ const projectBlocks = (
       }
       continue;
     }
-    const container = v.containers.find(b => b.key === r.key);
-    if (!container) continue;
-    const members = container.children
+    const branch = v.branches.find(b => b.key === r.key);
+    if (!branch) continue;
+    const members = branch.children
       .map(c => byId.get(layerIdOf(c) as string))
       .filter((i): i is LayerInfo => i?.role === role);
     if (members.length === 0) continue;
     out.push({
-      kind: container.kind,
-      key: panelFolderKey(container.key),
-      name: container.name,
-      depth: container.depth,
+      kind: branch.kind,
+      key: panelFolderKey(branch.key),
+      name: branch.name,
+      depth: branch.depth,
       members,
     });
   }
@@ -156,7 +156,7 @@ const projectView = (doc: OrderDoc, present: Present): ResolvedView =>
 
 /** The single controller-facing projection: one resolve, three derived views.
  *
- *  `rows` is typed per role (OrderRow[]); `blocks` carries BlockRow.kind/depth
+ *  `rows` is typed per role (OrderRow[]); `blocks` carries BranchRow.kind/depth
  *  with live LayerInfo `members`; `z` is the flat role ladder (overlays before
  *  base) that feeds registry.normalizeGroups. All three come from ONE resolveView
  *  call, so rows and z can never disagree (design note: one single source). */
@@ -201,9 +201,9 @@ const resolveOrderView = (
       if (info) blocks[role].push({ kind: ORDER_KIND.LAYER, layer: info });
       continue;
     }
-    const container = v.containers.find(b => b.key === r.key);
-    if (!container) continue;
-    const members = container.children
+    const branch = v.branches.find(b => b.key === r.key);
+    if (!branch) continue;
+    const members = branch.children
       .map(c => byId.get(layerIdOf(c) as string))
       .filter((i): i is LayerInfo => i !== undefined);
     const byRole = new Map<LayerRole, LayerInfo[]>();
@@ -220,10 +220,10 @@ const resolveOrderView = (
       if (!m || m.length === 0) continue;
       rows[role].push(r);
       blocks[role].push({
-        kind: container.kind,
-        key: panelFolderKey(container.key),
-        name: container.name,
-        depth: container.depth,
+        kind: branch.kind,
+        key: panelFolderKey(branch.key),
+        name: branch.name,
+        depth: branch.depth,
         members: m,
       });
     }
@@ -235,10 +235,10 @@ const resolveOrderView = (
       if (folderRole === undefined) continue;
       rows[folderRole].push(r);
       blocks[folderRole].push({
-        kind: container.kind,
-        key: panelFolderKey(container.key),
-        name: container.name,
-        depth: container.depth,
+        kind: branch.kind,
+        key: panelFolderKey(branch.key),
+        name: branch.name,
+        depth: branch.depth,
         members: [],
       });
     }
@@ -274,9 +274,9 @@ const projectFolderViewOf = (
   // \"folder:\"-namespaced identity. The controller prefixes on the way in.
   const bare = (key: string): string => folderBareOf(key);
   const folders: { key: string; name: string }[] = [];
-  for (const container of v.containers) {
-    if (container.kind === ORDER_KIND.FOLDER) {
-      folders.push({ key: bare(container.key), name: container.name });
+  for (const branch of v.branches) {
+    if (branch.kind === ORDER_KIND.FOLDER) {
+      folders.push({ key: bare(branch.key), name: branch.name });
     }
   }
   const order: Partial<Record<LayerRole, string[]>> = {};
@@ -295,19 +295,19 @@ const projectFolderViewOf = (
   // a role's block sequence is the projection of the same document the panel
   // reads.
   const blockRoles = new Map<string, LayerRole[]>();
-  for (const container of v.containers) {
+  for (const branch of v.branches) {
     const roles = new Set<LayerRole>();
-    for (const child of container.children) {
+    for (const child of branch.children) {
       const id = layerIdOf(child);
       if (id !== null && byId.get(id)) roles.add(byId.get(id)!.role);
     }
     // An empty folder still owns its creation role (it renders in that role's
     // segment and is the only handle on the clean-up row).
-    if (roles.size === 0 && container.kind === ORDER_KIND.FOLDER) {
-      const r = doc.nodes[container.key]?.role;
+    if (roles.size === 0 && branch.kind === ORDER_KIND.FOLDER) {
+      const r = doc.nodes[branch.key]?.role;
       if (r !== undefined) roles.add(r);
     }
-    if (roles.size > 0) blockRoles.set(container.key, [...roles]);
+    if (roles.size > 0) blockRoles.set(branch.key, [...roles]);
   }
   for (const role of ROLE_ORDER) {
     order[role] = [];
@@ -329,7 +329,7 @@ const projectFolderViewOf = (
 export type {
   RoleOf,
   ProjectedBlock,
-  BlockRow,
+  BranchRow,
   OrderRow,
   ParentView,
   ResolvedView,

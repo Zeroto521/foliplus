@@ -17,14 +17,14 @@ export { ALPHABET, rankAfter, rankBetween, rankFirst, rankStart } from "./rank.j
 export { NODE_KEY_PREFIX, ORDER_KIND } from "./kind.js";
 export { childrenOf, leafKeysOf, resolveView, subtreeLeaves } from "./resolve.js";
 export type {
-  BlockRow,
+  BranchRow,
   OrderRow,
   ParentView,
   Present,
   ResolvedView,
 } from "./resolve.js";
 export {
-  createBlock,
+  createBranch,
   deleteBlock,
   moveBefore,
   moveInto,
