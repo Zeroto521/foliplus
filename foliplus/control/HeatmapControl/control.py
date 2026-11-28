@@ -1,10 +1,10 @@
+"""The HeatmapControl class; its ``Annotated`` FieldSpec aliases live in ``_spec``."""
+
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated
 
-from foliplus._config_schema import FieldSpec
 from foliplus._declaration import (
-    NumberFormat,
     normalise_folder,
     normalise_zoom_range,
     normalize_declared_filter,
@@ -14,14 +14,18 @@ from foliplus._validate import Bound, validate
 from foliplus.BaseControl import BaseControl
 from foliplus.locale import LocaleConfig
 
-METHOD = Literal["jenks", "quantile", "equal", "heads"]
-AGG = Literal["count", "sum", "avg", "min", "max"]
-LABEL_FORMAT = Annotated[
-    # The alias, not a second literal list: the generated NumberStyle union is
-    # derived from _declaration.label.NumberFormat.
-    NumberFormat,
-    FieldSpec(name="NumberStyle", note="Number format for hexagon value labels."),
-]
+from ._spec import (
+    AGG,
+    DEFAULT_SCHEMES,
+    FIELD_ARG,
+    FILTER_ARG,
+    FOLDER_ARG,
+    LABEL_FORMAT,
+    LAYER_ARG,
+    METHOD,
+    SCHEMES_ARG,
+    ZOOM_RANGE_ARG,
+)
 
 
 class HeatmapControl(BaseControl):
@@ -243,46 +247,14 @@ class HeatmapControl(BaseControl):
         self,
         *,
         position: ControlPosition = "topleft",
-        layer: Annotated[
-            str | None,
-            FieldSpec(
-                ts="",
-                note="Point layer name selected on first load; a persisted user selection wins.",
-            ),
-        ] = None,
+        layer: LAYER_ARG = None,
         agg: AGG = "count",
-        field: Annotated[
-            str | None,
-            FieldSpec(
-                ts="",
-                note="Aggregation field selected on first load (and the field a declared filter range binds to); a persisted user selection wins.",
-            ),
-        ] = None,
-        filter: Annotated[
-            dict[str, Any] | None,
-            FieldSpec(
-                ts="",
-                note=(
-                    "Declared filter on the aggregation field: a mapping with min and max "
-                    "(bound to field=), normalised to the shared filter AST; a persisted "
-                    "user filter wins."
-                ),
-            ),
-        ] = None,
+        field: FIELD_ARG = None,
+        filter: FILTER_ARG = None,
         method: METHOD = "jenks",
         num_classes: Annotated[int, Bound(2, 9)] = 6,
         color_scheme: str = "Reds",
-        schemes: Annotated[
-            list[str], FieldSpec(ts="", note="Available color scheme names.")
-        ] = [
-            "Blues",
-            "Greens",
-            "Reds",
-            "Oranges",
-            "Purples",
-            "YlOrRd",
-            "Viridis",
-        ],
+        schemes: SCHEMES_ARG = DEFAULT_SCHEMES,
         border_color: str = "#333333",
         border_weight: Annotated[float, Bound(0.0, None)] = 1.5,
         border_opacity: Fraction = 0.9,
@@ -292,32 +264,8 @@ class HeatmapControl(BaseControl):
         label_size: PositiveInt = 11,
         label_format: LABEL_FORMAT = "auto",
         collapse_on_outside: bool = True,
-        zoom_range: Annotated[
-            dict[str, Any] | None,
-            FieldSpec(
-                ts="ZoomRange",
-                name="ZoomRange",
-                shape={"min": "number", "max": "number"},
-                config_key="zoom_range",
-                note=(
-                    "Declared zoom range: the control is visible only while the map's "
-                    "zoom is inside it; a malformed or unreachable range is treated as "
-                    "undeclared."
-                ),
-            ),
-        ] = None,
-        folder: Annotated[
-            str | None,
-            FieldSpec(
-                ts="string",
-                note=(
-                    "Declared folder name the control's layer joins in the LayerControl "
-                    "panel: the layer registers with this folder assignment, so a new "
-                    "page (no persisted layout) already places it inside the folder. "
-                    "A user drag to another folder wins over this declaration."
-                ),
-            ),
-        ] = None,
+        zoom_range: ZOOM_RANGE_ARG = None,
+        folder: FOLDER_ARG = None,
         locale: str | LocaleConfig | None = None,
     ):
         super().__init__(position=position, locale=locale)
