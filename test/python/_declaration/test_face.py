@@ -152,6 +152,67 @@ class TestNormaliseIconFace:
         assert out == {}
         assert len(caught) == 2
 
+    @pytest.mark.parametrize("codepoint", [0x0B, 0xA0, 0x1C, 0x1D, 0x1E, 0x1F, 0x85, 0xFEFF])
+    def test_the_shared_whitespace_set_is_trimmed(self, codepoint: int) -> None:
+        # The review's hanging cases: \uFEFF is a BOM pasted from a CSV (Python
+        # str.strip() keeps it, JS trim() drops it), U+001C-1F / U+0085 are the
+        # reverse (Python strips them, JS keeps them). Both stacks now trim the
+        # same explicit set, so these are the same declared value on either side.
+        trim = chr(codepoint)
+        out = normalise_icon_face(
+            {"glyph": f"{trim}star{trim}", "color": f" #f00{trim}"},
+            owner="LayerControl",
+            subject=f"layer Trim{codepoint:04X}",
+        )
+        assert out == {"glyph": "star", "color": "#ff0000"}
+
+    def test_the_whole_shared_whitespace_set_is_one_literal(self) -> None:
+        from foliplus._declaration.face import FACE_TRIM_CODEPOINTS
+
+        for codepoint in FACE_TRIM_CODEPOINTS:
+            trim = chr(codepoint)
+            out = normalise_icon_face(
+                {"glyph": f"{trim}star{trim}"},
+                owner="LayerControl",
+                subject=f"layer Set{codepoint:04X}",
+            )
+            assert out == {"glyph": "star"}
+
+    def test_an_integral_float_alpha_is_accepted(self) -> None:
+        # 40.0 and 40 are the same number to JSON and to the JS reader
+        # (Number.isInteger(40.0)); the Python gate used to reject the float
+        # spelling, so the declaration worked in the panel and failed collection.
+        assert normalise_icon_face(
+            {"colorOpacity": 40.0}, owner="LayerControl", subject="layer Float40"
+        ) == {"colorOpacity": 40}
+
+    def test_a_non_integral_alpha_is_still_rejected(self) -> None:
+        with pytest.warns(UserWarning, match="expected a whole number from 0 to 100"):
+            out = normalise_icon_face(
+                {"colorOpacity": 40.5}, owner="LayerControl", subject="layer FloatHalf"
+            )
+        assert out == {}
+
+    def test_a_null_color_warns_and_is_dropped(self) -> None:
+        # Declared-but-unusable, never "absent": the JS reader warns, so a
+        # silent Python drop would split the channel again.
+        with pytest.warns(UserWarning, match=r"as None; expected a CSS hex"):
+            out = normalise_icon_face(
+                {"color": None, "glyph": "star"},
+                owner="LayerControl",
+                subject="layer NullC",
+            )
+        assert out == {"glyph": "star"}
+
+    def test_a_null_alpha_warns_and_is_dropped(self) -> None:
+        with pytest.warns(
+            UserWarning, match=r"as None; expected a whole number from 0 to 100"
+        ):
+            out = normalise_icon_face(
+                {"colorOpacity": None}, owner="LayerControl", subject="layer NullA"
+            )
+        assert out == {}
+
     def test_the_camel_alpha_spelling_is_accepted(self) -> None:
         out = normalise_icon_face({"colorOpacity": 40}, owner="Owner")
         assert out == {"colorOpacity": 40}
@@ -218,6 +279,15 @@ class TestNormaliseMarkerFace:
     def test_a_glyph_sub_key_is_unknown_on_the_marker_face(self) -> None:
         with pytest.warns(UserWarning, match="unknown marker sub-key 'glyph'"):
             out = normalise_marker_face({"glyph": "star"}, owner="Owner")
+        assert out == {}
+
+    def test_a_null_marker_alpha_warns_and_is_dropped(self) -> None:
+        with pytest.warns(
+            UserWarning, match=r"as None; expected a whole number from 0 to 100"
+        ):
+            out = normalise_marker_face(
+                {"colorOpacity": None}, owner="LayerControl", subject="layer NullM"
+            )
         assert out == {}
 
     def test_the_chassis_colour_is_not_a_face_sub_key(self) -> None:

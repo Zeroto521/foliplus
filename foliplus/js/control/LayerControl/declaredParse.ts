@@ -333,6 +333,25 @@ type FaceKeyRead =
   | { readonly ok: true; readonly value: unknown }
   | { readonly ok: false; readonly invalid: string };
 
+/** The whitespace a declared face string is trimmed of, as explicit code
+ *  points. KEEP IN STEP with FACE_TRIM_CODEPOINTS in
+ *  foliplus/_declaration/face.py - the cross-stack guard
+ *  (test/python/guard/test_face_vocabulary.py) compares both literals. This is
+ *  an explicit set, not String.prototype.trim(): JavaScript trims U+FEFF (a BOM
+ *  pasted from a CSV) that Python keeps, and Python strips U+001C-U+001F /
+ *  U+0085 that JavaScript keeps - either spelling would be accepted on one
+ *  stack and missed or rejected on the other. */
+const FACE_TRIM_CODEPOINTS: readonly number[] = [
+  0x20, 0x09, 0x0a, 0x0d, 0x0c, 0x0b, 0xa0, 0x1c, 0x1d, 0x1e, 0x1f, 0x85, 0xfeff,
+];
+const FACE_TRIM_CLASS = FACE_TRIM_CODEPOINTS.map(
+  codepoint => `\\u{${codepoint.toString(16)}}`,
+).join("");
+const FACE_TRIM_RE = new RegExp(`^[${FACE_TRIM_CLASS}]+|[${FACE_TRIM_CLASS}]+$`, "gu");
+
+/** Trim a declared face string of the shared whitespace set only. */
+const trimFaceString = (value: string): string => value.replace(FACE_TRIM_RE, "");
+
 /** The sub-keys the `icon` face recognises. One map, one vocabulary: a key not
  *  listed here is an unknown sub-key and warns (P1-2), and the spellings list is
  *  the ONLY place a snake spelling is translated. */
@@ -344,7 +363,7 @@ const ICON_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
       // normaliser strips the author's string first, so " star " is the same
       // declared glyph there. Storing the raw padded string here would make
       // the glyph lookup miss a name the declaration guide calls accepted.
-      const glyph = typeof raw === "string" ? raw.trim() : null;
+      const glyph = typeof raw === "string" ? trimFaceString(raw) : null;
       return glyph !== null && glyph !== ""
         ? { ok: true, value: glyph }
         : {
@@ -360,7 +379,7 @@ const ICON_FACE_KEYS: Readonly<Record<string, FaceKeySpec>> = {
       // before its hex regex, so a padded "#ff0000" is accepted there. Both
       // sides must accept the same spelling and store the same expanded
       // lowercase hex, or one stack paints a colour the other rejects.
-      const color = typeof raw === "string" ? raw.trim() : raw;
+      const color = typeof raw === "string" ? trimFaceString(raw) : raw;
       return typeof color === "string" && isHexColor(color)
         ? { ok: true, value: normalizeHexColor(color).toLowerCase() }
         : {

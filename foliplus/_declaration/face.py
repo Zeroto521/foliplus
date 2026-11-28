@@ -31,6 +31,36 @@ from .opacity import normalise_color_opacity
 from .paint import _declared_hex
 from .warning import warn_foliplus
 
+#: The whitespace a declared face string is trimmed of, as explicit code points.
+#: KEEP IN STEP with FACE_TRIM_CODEPOINTS in
+#: foliplus/js/control/LayerControl/declaredParse.ts - the cross-stack guard
+#: (test/python/guard/test_face_vocabulary.py) compares both literals. This is
+#: an explicit set, not str.strip(): Python strips U+001C-U+001F / U+0085 that
+#: JavaScript trim() keeps, and JavaScript trims U+FEFF (a BOM pasted from a CSV)
+#: that Python keeps - either spelling would be accepted on one stack and
+#: missed or rejected on the other.
+FACE_TRIM_CODEPOINTS: tuple[int, ...] = (
+    0x20,  # space
+    0x09,  # horizontal tab
+    0x0A,  # line feed
+    0x0D,  # carriage return
+    0x0C,  # form feed
+    0x0B,  # vertical tab
+    0xA0,  # no-break space
+    0x1C,  # file separator
+    0x1D,  # group separator
+    0x1E,  # record separator
+    0x1F,  # unit separator
+    0x85,  # next line (NEL)
+    0xFEFF,  # zero-width no-break space (BOM)
+)
+_FACE_TRIM_CHARS = "".join(chr(codepoint) for codepoint in FACE_TRIM_CODEPOINTS)
+
+
+def _trim_face_string(value: str) -> str:
+    """Trim a declared face string of the shared whitespace set only."""
+    return value.strip(_FACE_TRIM_CHARS)
+
 #: The icon face sub-dimensions: canonical camelCase key -> accepted spellings
 #: (canonical first). A multi-word key accepts the snake_case spelling because
 #: the author writes the raw Python dict (and older folium keeps it as-is).
@@ -161,23 +191,41 @@ def normalise_icon_face(
     normalised: dict[str, object] = {}
     if "glyph" in face:
         glyph = face["glyph"]
-        if isinstance(glyph, str) and glyph.strip():
-            normalised["glyph"] = glyph.strip()
+        if isinstance(glyph, str) and _trim_face_string(glyph):
+            normalised["glyph"] = _trim_face_string(glyph)
         else:
             reject("glyph", f"as {glyph!r}; expected a non-empty string")
     if "color" in face:
-        color = _declared_hex(face["color"], lambda reason: reject("color", reason))
-        if color is not None:
-            normalised["color"] = color
+        color = face["color"]
+        if color is None:
+            # A null colour is a declared-but-unusable value, not "absent": the
+            # JS reader warns on it, and a silent drop here would be exactly the
+            # one-side-warns/one-side-silent split this channel retired.
+            reject("color", "as None; expected a CSS hex (#rgb or #rrggbb)")
+        else:
+            if isinstance(color, str):
+                color = _trim_face_string(color)
+            normalised_color = _declared_hex(
+                color, lambda reason: reject("color", reason)
+            )
+            if normalised_color is not None:
+                normalised["color"] = normalised_color
     if "colorOpacity" in face:
-        opacity = normalise_color_opacity(
-            face["colorOpacity"],
-            owner=owner,
-            subject=subject,
-            source=f"{declared}['colorOpacity']",
-        )
-        if opacity is not None:
-            normalised["colorOpacity"] = opacity
+        opacity = face["colorOpacity"]
+        if opacity is None:
+            reject(
+                "colorOpacity",
+                "as None; expected a whole number from 0 to 100",
+            )
+        else:
+            normalised_opacity = normalise_color_opacity(
+                opacity,
+                owner=owner,
+                subject=subject,
+                source=f"{declared}['colorOpacity']",
+            )
+            if normalised_opacity is not None:
+                normalised["colorOpacity"] = normalised_opacity
     return normalised
 
 
@@ -209,12 +257,21 @@ def normalise_marker_face(
     declared = source or f"foliplus[{MARKER_KEY!r}]"
     normalised: dict[str, object] = {}
     if "colorOpacity" in face:
-        opacity = normalise_color_opacity(
-            face["colorOpacity"],
-            owner=owner,
-            subject=subject,
-            source=f"{declared}['colorOpacity']",
-        )
-        if opacity is not None:
-            normalised["colorOpacity"] = opacity
+        opacity = face["colorOpacity"]
+        if opacity is None:
+            # Declared but unusable, not absent - the JS reader warns too.
+            reason = "as None; expected a whole number from 0 to 100"
+            warn_foliplus(
+                f"{owner}:{subject or '-'}:{MARKER_KEY}:colorOpacity:{reason}",
+                f"{where} declares {declared}['colorOpacity'] {reason} - ignored",
+            )
+        else:
+            normalised_opacity = normalise_color_opacity(
+                opacity,
+                owner=owner,
+                subject=subject,
+                source=f"{declared}['colorOpacity']",
+            )
+            if normalised_opacity is not None:
+                normalised["colorOpacity"] = normalised_opacity
     return normalised

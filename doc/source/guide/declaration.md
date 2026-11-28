@@ -519,7 +519,12 @@ siblings survive); a non-mapping face warns once and is ignored. An unknown
 sub-key warns too, naming the accepted ones — so a typo never passes silently.
 The spelling rule is one rule on both stacks: a string value is trimmed before
 it is validated (a padded `" star "` / `" #ff0000 "` is the same declared
-value), and when a sub-key is written twice the **first** occurrence decides —
+value), and the trim set is one explicit list of whitespace code points rather
+than each host's default — it includes U+FEFF (a BOM pasted from a CSV) and the
+C0 separators U+001C-U+001F and U+0085, which Python's and JavaScript's built-in
+trim disagree about. A declared `null` sub-key value is unusable and warns on
+both sides, never silently "not declared". When a sub-key is written twice the
+**first** occurrence decides —
 the duplicate always warns and is dropped, even when the first value was
 unusable, so the two readers can never disagree on which spelling won. Every
 warning names its layer, so a console line or a Python `UserWarning` locates

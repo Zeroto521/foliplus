@@ -610,6 +610,45 @@ describe("readDeclaredIcon", () => {
     expect(declared).toEqual({ glyph: "star", color: "#ff0000" });
   });
 
+  it.each([0x0b, 0xa0, 0x1c, 0x1d, 0x1e, 0x1f, 0x85, 0xfeff])(
+    "trims the shared whitespace code point %i like the Python normaliser",
+    codePoint => {
+      // The review's hanging cases: U+FEFF is a BOM pasted from a CSV (JS trim()
+      // drops it, Python str.strip() keeps it), U+001C-1F / U+0085 are the
+      // reverse. Both stacks now trim one explicit set, so this is the same
+      // declared value on either side.
+      const pad = String.fromCodePoint(codePoint);
+      const { declared, invalid } = readDeclaredIcon(
+        layerWith({ icon: { glyph: `${pad}star${pad}`, color: ` #f00${pad}` } }),
+        "L",
+      );
+      expect(invalid).toEqual([]);
+      expect(declared).toEqual({ glyph: "star", color: "#ff0000" });
+    },
+  );
+
+  it("accepts an integral float alpha (the JS reader sees 40.0 as 40)", () => {
+    expect(
+      readDeclaredIcon(layerWith({ icon: { colorOpacity: 40.0 } }), "L").declared,
+    ).toEqual({ colorOpacity: 40 });
+  });
+
+  it.each([
+    [{ color: null }, /non-hex icon color/],
+    [{ colorOpacity: null }, /colorOpacity/],
+  ])("warns on a null sub-key value %j and drops it alone", (face, pattern) => {
+    const warn = vi.fn();
+    const { declared, invalid } = readDeclaredIcon(
+      layerWith({ icon: face }),
+      "NullLayer",
+      warn,
+    );
+    expect(declared).toBeUndefined();
+    expect(invalid[0]).toMatch(pattern);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('on layer "NullLayer"'));
+  });
+
   it("ignores a duplicate spelling even when the first value was unusable", () => {
     // The FIRST occurrence owns the canonical key (Python marks it seen before
     // validating), so an unusable first value drops the key and the second
