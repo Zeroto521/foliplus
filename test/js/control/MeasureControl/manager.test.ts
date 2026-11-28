@@ -95,7 +95,10 @@ describe("MeasureManager — persistence", () => {
     manager.restoreMeasurements();
     expect(handler).toHaveBeenCalledWith(
       { id: manager.layerId },
-      { origin: { kind: "programmatic", via: "refresh" } },
+      {
+        origin: { kind: "programmatic", via: "refresh" },
+        revision: expect.any(Number),
+      },
     );
   });
 

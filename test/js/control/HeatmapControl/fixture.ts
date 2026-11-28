@@ -192,7 +192,6 @@ function makeCtrl(
     ctrl: document.createElement("div"),
     schemePicker: null,
     expandHookDone: false,
-    schemePickerOverlayUnregister: null,
     schemePickerCleanup: null,
     toggleDropdown: null,
     selectScheme: null,

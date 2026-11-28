@@ -1,22 +1,17 @@
-// test/js/control/LayerControl/declaredParse — the three scalar declared*
-// readers (border, icon_size, marker_color) behind one registry module.
+// test/js/control/LayerControl/declared/parse — the declared border and opacity
+// readers behind one registry module.
 //
-// The readers share the readDeclaredKey skeleton (read/cache/warn-once); each
-// describe pins one channel's parse and its facade over that skeleton. The
+// Both share the readDeclaredKey skeleton (read/cache/warn-once); each describe
+// pins one channel's parse and its facade over that skeleton. The
 // dimension-specific cases stay separate because each has its own message and
-// its own invalid accumulation — only the file is shared (the module's own
-// header says a new scalar channel registers here instead of opening a file).
+// its own invalid accumulation — only the file is shared. The marker chassis
+// scalars are tested in marker.test.ts and the faces in face.test.ts.
 import { describe, expect, it, vi } from "vitest";
 import { STYLE_MODE } from "#core/layer/index.js";
-import { MARKER_COLOR_PRESET_HEX } from "#core/leaflet/index.js";
 import {
   readDeclaredBorder,
-  readDeclaredIconColorOpacity,
-  readDeclaredIconSize,
-  readDeclaredMarkerColor,
-  readDeclaredMarkerColorOpacity,
   readDeclaredOpacity,
-} from "#control/LayerControl/declaredParse.js";
+} from "#control/LayerControl/declared/index.js";
 
 /** A linked carrier carrying a foliplus declaration. Fresh object per test: the
  *  reader caches per layer object, the way a folium layer's options are final
@@ -31,6 +26,20 @@ describe("readDeclaredBorder", () => {
     );
     expect(read.invalid).toEqual([]);
     expect(read.declared).toBe(STYLE_MODE.FOLLOW_FILL);
+  });
+
+  it("trims a padded border colour with the shared declared-string trim", () => {
+    // Python's _declared_hex trims before its hex regex; the JS reader must
+    // accept the same spellings (host whitespace, BOM, CJK space) or the
+    // declaration is accepted on one stack only.
+    for (const color of [" #f00 ", "\ufeff#f00", "\u2003#f00", "#f00\u3000"]) {
+      const read = readDeclaredBorder(
+        layerWith({ border: { mode: "solid", color } }),
+        "overlay1",
+      );
+      expect(read.invalid, color).toEqual([]);
+      expect(read.declaredColor, color).toBe("#ff0000");
+    }
   });
 
   it("reads nothing on a layer with no declaration (byte-identical default)", () => {
@@ -285,152 +294,6 @@ describe("readDeclaredBorder", () => {
   });
 });
 
-describe("readDeclaredIconSize", () => {
-  it.each([1, 25, 36, 120])("resolves a positive integer size %i", px => {
-    const { declared, invalid } = readDeclaredIconSize(
-      layerWith({ icon_size: px }),
-      "L",
-    );
-    expect(declared).toBe(px);
-    expect(invalid).toEqual([]);
-  });
-
-  it.each([0, -8, 12.5, "36", true, Number.NaN])(
-    "reads a non-positive-integer icon_size %j as not-declared and warns once",
-    raw => {
-      const warn = vi.fn();
-      const { declared, invalid } = readDeclaredIconSize(
-        layerWith({ icon_size: raw }),
-        "L",
-        warn,
-      );
-      expect(declared).toBeUndefined();
-      expect(invalid).toHaveLength(1);
-      expect(invalid[0]).toMatch(/non-positive-integer icon_size/);
-    },
-  );
-
-  it("is a pure no-op for a layer with no declaration", () => {
-    const { declared, invalid } = readDeclaredIconSize(layerWith({}), "L");
-    expect(declared).toBeUndefined();
-    expect(invalid).toEqual([]);
-  });
-
-  it("never caches a null layer (the carrier may be late-linked)", () => {
-    expect(readDeclaredIconSize(null, "L").declared).toBeUndefined();
-    const { declared } = readDeclaredIconSize(layerWith({ icon_size: 36 }), "L");
-    expect(declared).toBe(36);
-  });
-
-  it("does not let a second layer's declaration bleed across the cache", () => {
-    // The skeleton caches per layer OBJECT: two layers declaring different
-    // sizes must each read their own, never the other's.
-    const a = layerWith({ icon_size: 20 });
-    const b = layerWith({ icon_size: 48 });
-    expect(readDeclaredIconSize(a, "A").declared).toBe(20);
-    expect(readDeclaredIconSize(b, "B").declared).toBe(48);
-    expect(readDeclaredIconSize(a, "A").declared).toBe(20);
-  });
-});
-
-describe("readDeclaredMarkerColor", () => {
-  it("resolves a declared preset name", () => {
-    const { declared, invalid } = readDeclaredMarkerColor(
-      layerWith({ marker_color: "darkred" }),
-      "L",
-    );
-    expect(declared).toBe("darkred");
-    expect(invalid).toEqual([]);
-  });
-
-  it("resolves every preset in the runtime table", () => {
-    // The declared vocabulary IS the runtime preset table: a reader that
-    // rejected a real preset (or accepted a non-preset) would desync from the
-    // panel's own swatches.
-    for (const name of Object.keys(MARKER_COLOR_PRESET_HEX)) {
-      const { declared, invalid } = readDeclaredMarkerColor(
-        layerWith({ marker_color: name }),
-        "L",
-      );
-      expect(declared, name).toBe(name);
-      expect(invalid, name).toEqual([]);
-    }
-  });
-
-  it("reads a non-preset name as not-declared and warns once", () => {
-    const warn = vi.fn();
-    const { declared, invalid } = readDeclaredMarkerColor(
-      layerWith({ marker_color: "chartreuse" }),
-      "L",
-      warn,
-    );
-    expect(declared).toBeUndefined();
-    expect(invalid).toHaveLength(1);
-    expect(invalid[0]).toMatch(/unknown marker_color preset/);
-  });
-
-  it("resolves a declared CSS hex (6-digit, lowercased)", () => {
-    const { declared, invalid } = readDeclaredMarkerColor(
-      layerWith({ marker_color: "#00A6A6" }),
-      "L",
-    );
-    expect(declared).toBe("#00a6a6");
-    expect(invalid).toEqual([]);
-  });
-
-  it("resolves a declared CSS hex (3-digit, expanded to 6)", () => {
-    const { declared, invalid } = readDeclaredMarkerColor(
-      layerWith({ marker_color: "#abc" }),
-      "L",
-    );
-    expect(declared).toBe("#aabbcc");
-    expect(invalid).toEqual([]);
-  });
-
-  it("reads a malformed hex as not-declared and warns once", () => {
-    const warn = vi.fn();
-    const { declared, invalid } = readDeclaredMarkerColor(
-      layerWith({ marker_color: "#12345" }),
-      "L",
-      warn,
-    );
-    expect(declared).toBeUndefined();
-    expect(invalid).toHaveLength(1);
-    expect(invalid[0]).toMatch(/unknown marker_color/);
-  });
-
-  it.each([7, ["red"], { name: "red" }, "   "])(
-    "reads a malformed marker_color %j as not-declared",
-    raw => {
-      const warn = vi.fn();
-      const { declared, invalid } = readDeclaredMarkerColor(
-        layerWith({ marker_color: raw }),
-        "L",
-        warn,
-      );
-      expect(declared).toBeUndefined();
-      expect(invalid).toHaveLength(1);
-    },
-  );
-
-  it("is a pure no-op for a layer with no declaration", () => {
-    const { declared, invalid } = readDeclaredMarkerColor(layerWith({}), "L");
-    expect(declared).toBeUndefined();
-    expect(invalid).toEqual([]);
-  });
-
-  it("never caches a null layer (the carrier may be late-linked)", () => {
-    // A null layer reads provisional and empty; a later read with the real
-    // carrier must still resolve the declaration.
-    expect(readDeclaredMarkerColor(null, "L").declared).toBeUndefined();
-    const { declared } = readDeclaredMarkerColor(
-      layerWith({ marker_color: "blue" }),
-      "L",
-    );
-    expect(declared).toBe("blue");
-  });
-});
-
 describe("readDeclaredOpacity", () => {
   it("reads a declared whole-layer opacity", () => {
     const { declared, invalid } = readDeclaredOpacity(layerWith({ opacity: 0.6 }), "L");
@@ -472,91 +335,4 @@ describe("readDeclaredOpacity", () => {
   it("is a pure no-op for a null layer (never cached)", () => {
     expect(readDeclaredOpacity(null, "L").declared).toBeUndefined();
   });
-});
-
-describe("readDeclaredIconColorOpacity", () => {
-  it("reads the glyph alpha off the icon block", () => {
-    const { declared, invalid } = readDeclaredIconColorOpacity(
-      layerWith({ icon: { colorOpacity: 60 } }),
-      "L",
-    );
-    expect(declared).toBe(60);
-    expect(invalid).toEqual([]);
-  });
-
-  it("reads nothing when the icon block is absent", () => {
-    const { declared, invalid } = readDeclaredIconColorOpacity(layerWith({}), "L");
-    expect(declared).toBeUndefined();
-    expect(invalid).toEqual([]);
-  });
-
-  it("reads nothing when the icon block is not a mapping", () => {
-    const { declared } = readDeclaredIconColorOpacity(layerWith({ icon: "red" }), "L");
-    expect(declared).toBeUndefined();
-  });
-
-  it("reads nothing when the colorOpacity sub-key is absent", () => {
-    const { declared } = readDeclaredIconColorOpacity(
-      layerWith({ icon: { color: "#ff0000" } }),
-      "L",
-    );
-    expect(declared).toBeUndefined();
-  });
-
-  it.each([101, -1, 60.5, true, "60"])(
-    "reads a malformed colorOpacity %j as not-declared and warns once",
-    raw => {
-      const warn = vi.fn();
-      const { declared, invalid } = readDeclaredIconColorOpacity(
-        layerWith({ icon: { colorOpacity: raw } }),
-        "L",
-        warn,
-      );
-      expect(declared).toBeUndefined();
-      expect(invalid).toHaveLength(1);
-    },
-  );
-
-  it("never caches a null layer", () => {
-    expect(readDeclaredIconColorOpacity(null, "L").declared).toBeUndefined();
-  });
-});
-
-describe("readDeclaredMarkerColorOpacity", () => {
-  it("reads the chassis alpha off the marker block", () => {
-    const { declared, invalid } = readDeclaredMarkerColorOpacity(
-      layerWith({ marker: { colorOpacity: 60 } }),
-      "L",
-    );
-    expect(declared).toBe(60);
-    expect(invalid).toEqual([]);
-  });
-
-  it("reads nothing when the marker block is absent", () => {
-    const { declared, invalid } = readDeclaredMarkerColorOpacity(layerWith({}), "L");
-    expect(declared).toBeUndefined();
-    expect(invalid).toEqual([]);
-  });
-
-  it("reads nothing when the marker block is not a mapping", () => {
-    const { declared } = readDeclaredMarkerColorOpacity(
-      layerWith({ marker: "red" }),
-      "L",
-    );
-    expect(declared).toBeUndefined();
-  });
-
-  it.each([101, -1, 60.5, true, "60"])(
-    "reads a malformed colorOpacity %j as not-declared and warns once",
-    raw => {
-      const warn = vi.fn();
-      const { declared, invalid } = readDeclaredMarkerColorOpacity(
-        layerWith({ marker: { colorOpacity: raw } }),
-        "L",
-        warn,
-      );
-      expect(declared).toBeUndefined();
-      expect(invalid).toHaveLength(1);
-    },
-  );
 });

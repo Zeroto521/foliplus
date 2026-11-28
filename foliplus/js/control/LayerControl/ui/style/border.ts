@@ -73,7 +73,11 @@ import {
   type StyleMode,
   type ValueConfig,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
+import {
+  ESC_PRIORITY,
+  OVERLAY_IDS,
+  ensureOverlayRegistry,
+} from "#core/overlay/index.js";
 import {
   CATEGORY_SCHEMES,
   CLASS_COUNT,
@@ -101,7 +105,7 @@ import {
   numberInput,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredBorder } from "#control/LayerControl/declaredParse.js";
+import { readDeclaredBorder } from "#control/LayerControl/declared/index.js";
 
 /** Shared border-row shell. Two callers — the vector `buildBorderRow`
  *  (which supplies `setStyle` chrome + hooks) and the delegated drawer's
@@ -1104,19 +1108,15 @@ const bindBorderValueDetail = (
     onSurfaceChange: onFullscreenSurfaceChange,
     label: ui.T("style_fill_scheme"),
     onChange: name => writeBorderValue(ui, layerId, { scheme: name }),
-  });
-  borderPickerHolder.set(
-    ui,
-    picker,
-    ensureOverlayRegistry(ui.c.map).register({
+    // The picker's open list registers itself with the per-map overlay registry
+    // (one Escape closes the picker, never the host style panel).
+    overlay: {
+      register: entry => ensureOverlayRegistry(ui.c.map).register(entry),
       id: OVERLAY_IDS.BORDER_PICKER_DROPDOWN,
-      isOpen: () => picker.getDropdown() !== null,
-      panels: () => [trigger],
-      close: ({ restoreFocus }) => picker.close({ restoreFocus }),
-      dismissOn: "click",
-      pressPriority: 845,
-    }),
-  );
+      rank: ESC_PRIORITY[OVERLAY_IDS.BORDER_PICKER_DROPDOWN],
+    },
+  });
+  borderPickerHolder.set(ui, picker);
 
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,

@@ -164,6 +164,16 @@ class TestNormaliseBorder:
             {"mode": "solid", "color": "#FF0000", "weight": 2}, owner="Owner"
         ) == {"mode": "solid", "color": "#ff0000", "weight": 2}
 
+    def test_a_padded_color_is_trimmed_with_the_shared_set(self) -> None:
+        # The same shared trim the JS reader uses: host whitespace, BOM and CJK
+        # spaces are the same declared colour on both stacks.
+        from foliplus._declaration.paint import trim_declared_string
+
+        for raw in [" #f00 ", "\ufeff#f00", "\u2003#f00", "#f00\u3000"]:
+            assert trim_declared_string(raw) == "#f00"
+            out = normalise_border({"mode": "solid", "color": raw}, owner="Owner")
+            assert out["color"] == "#ff0000"
+
     def test_a_color_implies_solid_mode(self) -> None:
         assert normalise_border({"color": "#abc"}, owner="Owner") == {
             "mode": "solid",

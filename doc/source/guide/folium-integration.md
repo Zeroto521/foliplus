@@ -4,28 +4,38 @@ foliplus is a *layer* of {class}`~foliplus.LayerControl` on top of folium: the
 map, the layers and the Leaflet runtime are all folium's. foliplus does not
 re-bundle Leaflet, does not ship a map, and does not re-export folium — you
 build a normal folium map and add the foliplus controls to it. This page is the
-boundary contract: which folium features the panel reads honestly, which ones
-have a documented limit, and which third-party plugins foliplus does not
-integrate.
+integration guide: the supported layer families, the folium version
+relationship, group rows and the plugin surface. The parameter-level contract —
+which folium channels the panel reads and which parameters it ignores — is on
+{doc}`folium-parameter-boundary`.
 
 ```python
 import folium
 from foliplus import LayerControl
 
 m = folium.Map(location=[31.23, 121.47], zoom_start=10)
-folium.Marker([31.23, 121.47], name="Point").add_to(m)
+points = folium.FeatureGroup(name="Points")
+folium.Marker([31.23, 121.47]).add_to(points)
+points.add_to(m)
 LayerControl().add_to(m)
 m
 ```
 
+`FeatureGroup` has no `explore` form — it is the physical container this page
+documents. For a plain data layer the default starting point is
+`gdf.explore(...)`; the table below lists which folium classes become panel
+rows.
+
 :::{note}
 
 foliplus declares a **hard floor** of folium `>=0.15.0`
-(`pyproject.toml`). Version 1.0.0 has been verified as a compatible upgrade —
-the folium internal APIs foliplus relies on (the `Layer` base class,
-`MacroElement`/`Element`/`Figure` chain, `branca.element`,
-`JSCSSMixin`, the Jinja2 render path) are all unchanged, and the full
-non-browser Python suite passes under 1.0.0.
+(`pyproject.toml`) and is tested at both ends of the supported range — the
+`0.15.0` floor and the current release (`1.0.0` today). Version 1.0.0 is a
+compatible upgrade — the folium internal APIs foliplus relies on (the
+`Layer` base class, `MacroElement`/`Element`/`Figure` chain,
+`branca.element`, `JSCSSMixin`, the Jinja2 render path) are all unchanged;
+the full non-browser Python suite and the browser suite pass under 1.0.0, and
+no adapter change was required.
 
 :::
 
@@ -34,17 +44,27 @@ non-browser Python suite passes under 1.0.0.
 The panel lists any folium layer whose class is a {class}`folium.map.Layer`
 subclass with `control=True` (the default). The recognised layer families:
 
-| folium layer | Panel row | Notes |
+| folium class | Panel row | Notes |
 |--------------|-----------|-------|
 | `Map` | — (the map itself is never a row) | the host surface, not a layer |
-| `TileLayer` | one row | the base tile layer |
+| `TileLayer` / `WmsTileLayer` | one row | the tile layers |
 | `FeatureGroup` | one **group row** | see {ref}`group_rows` |
 | `LayerGroup` (folium `>=1.0.0`) | one **group row** | see {ref}`group_rows` |
 | `GeoJson` | one data row | see {ref}`geojson_boundaries` |
-| `Marker` | one row | icon source read from the {class}`folium.Icon` |
-| `CircleMarker` | one row | |
-| `Polygon` / `Polyline` / `Rectangle` | one row | |
-| `ImageOverlay` | one row | pane-scoped like a vector layer |
+| `ImageOverlay` | one row | `<img>` relocated into its own pane for z/focus; opacity via the native `setOpacity` |
+
+Only classes that actually subclass {class}`folium.map.Layer` can become rows:
+the panel's collection pass keeps just those (`_collect.py`, `isinstance(item,
+Layer)`). A `folium.Marker`, `CircleMarker`, `Circle`, `Polygon`, `PolyLine`
+or `Rectangle` is a `MacroElement`, **not** a `Layer`, so it never gets a row of
+its own and the panel cannot drive its style: a `Marker` stays in the shared
+Leaflet `markerPane`, while the vector paths (`CircleMarker`, `Circle`,
+`Polygon`, `PolyLine`, `Rectangle`) stay in the shared `overlayPane`. Wrap
+point or vector content in a `FeatureGroup` to get one group row — visibility,
+delete and focus work on it, while its Style and Filter menu entries are
+disabled (see {ref}`group_rows`) — or use a `GeoJson` data layer to manage it
+from the panel. A plugin layer that extends `Layer` (for example
+`MarkerCluster` or `HeatMap`) is collected the same way.
 
 The panel reads `layer.overlay` to decide the row's role (base vs overlay) —
 folium's own grouping flag, mapped one-to-one onto foliplus's `role` (`_role.py`,
@@ -62,19 +82,20 @@ channels:
 |--------|-----------------|----------|
 | the panel's own pick (user) | any hex via the style swatch | highest |
 | the author's `Icon(color=...)` | a preset name or (folium `>=1.0.0`) a hex | middle |
-| the `foliplus={"marker_color": ...}` declaration | the 19 preset names only | lowest |
+| the `foliplus={"marker_color": ...}` declaration | a preset name or a CSS hex | lowest |
 
 So a `marker_color` declaration is a **read-time default** the panel's Reset
 returns to: the author's own `Icon(color=...)` wins over it, and a user's
-panel pick wins over both. A hex colour the author wants must go through
-folium's native `Icon(color="#00A6A6")` — `marker_color` only ever accepts
-the 19 preset names and never validates a hex.
+panel pick wins over both. A hex colour can also be declared directly:
+`marker_color` accepts the 19 preset names or a CSS hex (`#rgb` /
+`#rrggbb`), and a hex outside the preset palette paints the chassis
+directly.
 
 ```python
 # the author's own chassis (preset name or, >=1.0.0, a hex) — wins over a marker_color default
 gdf.explore(icon=folium.Icon(color="#00A6A6"))
 
-# a read-time default, the 19 preset names only — lowest priority
+# a read-time default (a preset name or a CSS hex) — lowest priority
 gdf.explore(foliplus={"marker_color": "cadetblue"})
 ```
 
@@ -88,6 +109,10 @@ A {class}`folium.FeatureGroup` or (folium `>=1.0.0`) {class}`folium.LayerGroup`
 is listed as **one row**, not a folder of sub-layers. The row uses the group
 glyph and the `type_container` label, and counts its **direct** children — a
 container holding two nested containers reads 2, not the leaves buried inside.
+
+`LayerGroup` is new in folium 1.0.0 and is a
+{class}`~folium.map.Layer` subclass there; 0.15.x and 0.20.x have no such
+class. `FeatureGroup` is already a `Layer` on the `0.15.0` floor.
 
 The sub-layers are **not expanded** in the panel: a container is its own unit,
 and its children stay where folium put them. This is the graceful-degradation
@@ -192,7 +217,7 @@ per-feature paint, labels and filters, with these documented edges:
 |---------|---------------------------|
 | `>=0.15.0` | the declared floor (pyproject) |
 | `0.20.x` | `FeatureGroup` is a `Layer` subclass; the panel reads it as a group row |
-| `1.0.0` (2026-11-15) | `LayerGroup` becomes a `Layer` subclass too; `requires-python >=3.11`; Leaflet 1.9.3 → 1.9.4 (foliplus reads the host Leaflet, never bundles it); `Icon` hex colour; `GeoJson` multi-geometry / `null`-properties fixes |
+| `1.0.0` (2026-11-15) | new `LayerGroup` class (a `Layer` subclass, so the panel reads it as a group row); `requires-python >=3.11`; Leaflet 1.9.3 → 1.9.4 (foliplus reads the host Leaflet, never bundles it); `Icon` hex colour; `GeoJson` multi-geometry / `null`-properties fixes |
 
 foliplus does not bundle Leaflet — the page's Leaflet is the one folium loads.
 A host that loads its own Leaflet before folium's must keep the versions

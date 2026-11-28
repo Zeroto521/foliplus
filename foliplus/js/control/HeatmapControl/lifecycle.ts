@@ -172,7 +172,7 @@ const bindMapEvents = (m: HeatmapManager) => {
       } else {
         // No panel (control removed, or never built): reset state and wipe the
         // canvas directly so a re-add does not render the stale selection.
-        m.resetState(CONFIG);
+        m.resetState(m.config);
         m.clearHeatmapCanvas();
         m.syncSourceMeta();
       }

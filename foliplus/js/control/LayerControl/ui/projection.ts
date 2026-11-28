@@ -19,7 +19,7 @@ import {
   unusableZoomRange,
 } from "#core/leaflet/index.js";
 import { createLogger } from "#platform/log.js";
-import { readDeclaredOpacity } from "#control/LayerControl/declaredParse.js";
+import { readDeclaredOpacity } from "#control/LayerControl/declared/index.js";
 
 const log = createLogger("LayerControl");
 

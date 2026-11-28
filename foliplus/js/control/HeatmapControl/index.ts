@@ -9,12 +9,13 @@ import {
   createPanelControl,
 } from "#core/leaflet/index.js";
 import { defineControl } from "#core/lifecycle/index.js";
+import type { ConfigHeatmap } from "#foliplus/config-schema.js";
 import { finalize } from "#platform/finalize.js";
 import { createTimers } from "#platform/timer.js";
 import type { Timers } from "#platform/type.js";
 
-class HeatmapControl extends defineControl({
-  config: CONFIG,
+class HeatmapControl extends defineControl<unknown, ConfigHeatmap>({
+  config: CONFIG as ConfigHeatmap,
   icon: SVGs.ICON_HEXAGON,
   setup: () => ensureLayerAPI(map),
 }) {
@@ -40,7 +41,6 @@ class HeatmapControl extends defineControl({
    *  scan() just to have its own done flag refuse the work. */
   timers: Timers = createTimers();
   initScanCleanup: (() => void) | null = null;
-  schemePickerOverlayUnregister: (() => void) | null = null;
   schemePickerCleanup: (() => void) | null = null;
   toggleDropdown: (() => void) | null = null;
   selectScheme: ((idx: number) => void) | null = null;
@@ -49,7 +49,6 @@ class HeatmapControl extends defineControl({
     super(options);
     this.schemePicker = null;
     this.expandHookDone = false;
-    this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.toggleDropdown = null;
     this.selectScheme = null;
@@ -57,7 +56,11 @@ class HeatmapControl extends defineControl({
 
   get mgr(): HeatmapManager {
     if (!this.manager) {
-      const mgr = new HeatmapManager(map, { T: this.T, log: this.log });
+      const mgr = new HeatmapManager(map, {
+        T: this.T,
+        log: this.log,
+        config: this.config,
+      });
       // Store before init: a throw leaves the partial manager reachable for
       // destroy(). It is reused, not retried; destroy() nulls it for a re-add.
       this.manager = mgr;
@@ -128,15 +131,15 @@ class HeatmapControl extends defineControl({
   }
 
   destroy() {
-    // `this.mgr` is a lazy getter that constructs the manager AND runs init().
-    // A throw there is exactly the half-mounted case teardown must survive, so
-    // resolution is the first step — and it resolves into the owner field
-    // (`manager`), not a second holder: one manager, one container. The steps
-    // below read `this.manager` and tolerate null instead of being skipped
-    // wholesale when init died halfway.
+    // Never resolve the lazy `mgr` getter here (defineControl.ts:33-35
+    // convention): the getter constructs AND init()s a manager, so tearing
+    // down a never-built or already-destroyed control would mount a fresh
+    // manager only to tear it down again. The half-mounted case is already
+    // covered without a resolution step — the getter stores the manager into
+    // `this.manager` BEFORE init(), so a throwing init leaves it reachable,
+    // and every step below reads `this.manager` and tolerates null.
     finalize(
       [
-        ["resolve-manager", () => void this.mgr],
         ["detach-scan", () => this.initScanCleanup?.()],
         ["release-timers", () => this.timers.dispose()],
         // The shared scheme picker is destroyed here (permanent teardown);
@@ -192,7 +195,6 @@ class HeatmapControl extends defineControl({
     mgr?.removeContentChangeListener?.();
     this.manager = null;
     this.initScanCleanup = null;
-    this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.observer = null;
     // Drop UI references to the removed DOM so a re-add starts clean.

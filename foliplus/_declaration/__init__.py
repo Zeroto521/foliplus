@@ -7,13 +7,14 @@ is shared: a malformed declaration is reported once and then treated exactly
 like "not declared", never as a reason to hide data or take the page down.
 
 Each declaration family lives in its own module (key, warning, zoom_range,
-filter, paint/fill, folder, label, marker, opacity); this package re-exports the whole
-public surface, so foliplus._declaration.<name> keeps working for every
-consumer.
+filter, paint/fill, folder, label, marker, opacity, face); this package
+re-exports the whole public surface, so foliplus._declaration.<name> keeps
+working for every consumer.
 """
 
 from __future__ import annotations
 
+from .face import normalise_face_keys, normalise_icon_face, normalise_marker_face
 from .fill import normalise_fill
 from .filter import (
     FilterKind,
@@ -89,12 +90,15 @@ __all__ = [
     "json_number",
     "normalise_border",
     "normalise_color_opacity",
+    "normalise_face_keys",
     "normalise_fill",
     "normalise_folder",
+    "normalise_icon_face",
     "normalise_icon_size",
     "normalise_label",
     "normalise_layer_filter",
     "normalise_marker_color",
+    "normalise_marker_face",
     "normalise_opacity",
     "normalise_zoom_range",
     "normalize_declared_filter",

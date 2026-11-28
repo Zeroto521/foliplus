@@ -103,6 +103,31 @@ const walk = (dir: string): string[] => {
   return out;
 };
 
+// This file scans the production tree (318 files / 3.2 MB) and test/js
+// (424 files / 7.2 MB) in several tests, and every one of them used to walk +
+// read the trees again. Under --coverage the repeated reads (and the per-import
+// line-number slice below) pushed the test/js deep-import scan past its 10 s
+// ceiling, so the walk and the file reads are cached for the run.
+const walkCache = new Map<string, string[]>();
+const walkOnce = (dir: string): string[] => {
+  let files = walkCache.get(dir);
+  if (!files) {
+    files = walk(dir);
+    walkCache.set(dir, files);
+  }
+  return files;
+};
+
+const sourceCache = new Map<string, string>();
+const sourceOf = (file: string): string => {
+  let src = sourceCache.get(file);
+  if (src === undefined) {
+    src = readFileSync(file, "utf-8");
+    sourceCache.set(file, src);
+  }
+  return src;
+};
+
 const IMPORT_RE = /from[ ]*["'][^"']+["']/g;
 // A relative specifier ("./x.js", "../y.js") is the second spelling of an
 // import edge. It is kept here, not dropped: the tier rules must judge it the
@@ -125,8 +150,29 @@ const readImports = (src: string): Set<string> => {
 // literals (fixtures) or comments. The existing IMPORT_RE/readImports catches
 // the latter and would false-positive on build-tooling fixtures that embed
 // #core paths as DATA (global-namespace-plugin, scan-registry).
+/** Newline offsets, built once per source: the old
+ *  `src.slice(0, i).split("\n").length` per import is O(source) and made the
+ *  walk quadratic on the 7.2 MB test tree once coverage slowed every line down. */
+const newlineIndexes = (src: string): number[] => {
+  const out: number[] = [];
+  for (let k = 0; k < src.length; k++) if (src[k] === "\n") out.push(k);
+  return out;
+};
+
+const lineOf = (newlines: readonly number[], at: number): number => {
+  let lo = 0;
+  let hi = newlines.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (newlines[mid] < at) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo + 1;
+};
+
 const readRealImports = (src: string): Array<{ spec: string; line: number }> => {
   const out: Array<{ spec: string; line: number }> = [];
+  const newlines = newlineIndexes(src);
   let i = 0;
   const n = src.length;
   while (i < n) {
@@ -165,7 +211,7 @@ const readRealImports = (src: string): Array<{ spec: string; line: number }> => 
         let k2 = k + 1;
         while (k2 < n && src[k2] !== q2) k2++;
         const spec = src.slice(k + 1, k2);
-        const line = src.slice(0, i).split("\n").length;
+        const line = lineOf(newlines, i);
         if (spec.startsWith("#")) out.push({ spec, line });
         i = k2 + 1;
         continue;
@@ -208,7 +254,7 @@ const readRealImports = (src: string): Array<{ spec: string; line: number }> => 
           let g2 = g + 1;
           while (g2 < n && src[g2] !== qq) g2++;
           const spec = src.slice(g + 1, g2);
-          const line = src.slice(0, i).split("\n").length;
+          const line = lineOf(newlines, i);
           if (spec.startsWith("#")) out.push({ spec, line });
           i = g2 + 1;
           continue;
@@ -441,7 +487,7 @@ const barrelFor = (fromRel: string, canonicalSpec: string): string | null => {
 // Each violation is [file, spec, rule]. The test asserts none exist.
 const collect = (): Array<[string, string, string]> => {
   const problems: Array<[string, string, string]> = [];
-  const files = walk(JS_ROOT);
+  const files = walkOnce(JS_ROOT);
   for (const file of files) {
     // Repo-relative path, /-separated. layerOf/componentOf/allowedFor all
     // key off this shape (e.g. "foliplus/js/control/LayerControl/ui/index.ts").
@@ -451,7 +497,7 @@ const collect = (): Array<[string, string, string]> => {
       .join("/");
     const layer = layerOf(rel);
     const comp = componentOf(rel);
-    const src = readFileSync(file, "utf-8");
+    const src = sourceOf(file);
     const imports = readImports(src);
     for (const rawSpec of imports) {
       let spec = rawSpec;
@@ -548,6 +594,11 @@ const collect = (): Array<[string, string, string]> => {
   return problems;
 };
 
+/** Five assertions below filter the same production-tree scan; run it once. */
+let collectedOnce: Array<[string, string, string]> | null = null;
+const collectOnce = (): Array<[string, string, string]> =>
+  (collectedOnce ??= collect());
+
 // The test/js barrel rule: a test file importing a core cluster module must
 // use the cluster barrel (#core/<cluster>/index.js), never the deep path.
 // #platform deep imports remain allowed (no tier barrel exists for them).
@@ -555,14 +606,20 @@ const collect = (): Array<[string, string, string]> => {
 // TEST_JS_FILE_EXEMPT).
 const collectTestJs = (): Array<[string, number, string, string]> => {
   const problems: Array<[string, number, string, string]> = [];
-  const files = walk(TEST_JS_ROOT);
+  const files = walkOnce(TEST_JS_ROOT);
   for (const file of files) {
     const rel = file
       .slice(REPO_ROOT.length + 1)
       .split("\\")
       .join("/");
     if (TEST_JS_FILE_EXEMPT.has(rel.replace(/^test\/js\//, ""))) continue;
-    const src = readFileSync(file, "utf-8");
+    const src = sourceOf(file);
+    // Cheap prefilter: only a source whose raw text spells the core alias can
+    // hold a `#core/<cluster>/...` specifier (the scanner keeps `#` imports
+    // only, and `#foliplus/core/...` is the other spelling). Running the
+    // character scanner over all 424 test sources is what made this the
+    // slowest guard test in the suite under coverage.
+    if (!src.includes("#core/") && !src.includes("#foliplus/core/")) continue;
     const allowed = testJsAllowedFor(rel);
     for (const im of readRealImports(src)) {
       const canonicalSpec = canonical(im.spec);
@@ -586,11 +643,11 @@ const collectTestJs = (): Array<[string, number, string, string]> => {
 
 describe("JS import boundaries", () => {
   it("scans a non-trivial production tree", () => {
-    expect(walk(JS_ROOT).length).toBeGreaterThanOrEqual(80);
+    expect(walkOnce(JS_ROOT).length).toBeGreaterThanOrEqual(80);
   });
 
   it("every #control import stays within the component's own namespace", () => {
-    const violations = collect();
+    const violations = collectOnce();
     const control = violations.filter(
       v => v[2].includes("cross-component") || v[2].includes("#control/*"),
     );
@@ -598,31 +655,31 @@ describe("JS import boundaries", () => {
   });
 
   it("no non-control layer (platform/ui/core/root) imports #control/*", () => {
-    const violations = collect().filter(
+    const violations = collectOnce().filter(
       v => v[2] === "non-control layer imports #control/*",
     );
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
   it("tiers depend only downward (platform -> ui -> core)", () => {
-    const violations = collect().filter(v => v[2].includes(" imports outside "));
+    const violations = collectOnce().filter(v => v[2].includes(" imports outside "));
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
   it("a same-directory import uses a relative specifier", () => {
-    const violations = collect().filter(
+    const violations = collectOnce().filter(
       v => v[2] === "same-directory import must use a relative specifier",
     );
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
   it("a cross-tier import goes through the tier barrel (ui, core/layer)", () => {
-    const violations = collect().filter(v => v[2].includes("must go through"));
+    const violations = collectOnce().filter(v => v[2].includes("must go through"));
     expect(violations, violations.map(v => v.join(" ")).join("\n")).toEqual([]);
   });
 
   it("the tier-barrel rule is live, not vacuous (external consumers use the barrel)", () => {
-    const files = walk(JS_ROOT);
+    const files = walkOnce(JS_ROOT);
     const externalUi = files
       .map(f =>
         f
@@ -631,9 +688,7 @@ describe("JS import boundaries", () => {
           .replace(`${REPO_ROOT.split("\\").join("/")}/`, ""),
       )
       .filter(rel => !rel.startsWith("foliplus/js/ui/"))
-      .filter(rel =>
-        readFileSync(join(REPO_ROOT, rel), "utf-8").includes("#ui/index.js"),
-      );
+      .filter(rel => sourceOf(join(REPO_ROOT, rel)).includes("#ui/index.js"));
     expect(externalUi.length).toBeGreaterThan(0);
   });
 
@@ -641,17 +696,17 @@ describe("JS import boundaries", () => {
     // ui/ is the chrome layer; core assembles widgets with it (rampForm,
     // labelControl, leaflet/panel). If this drops to zero, either core stopped
     // composing chrome or the rule silently forbade a legitimate edge.
-    const users = walk(JS_ROOT)
+    const users = walkOnce(JS_ROOT)
       .filter(f => f.split("\\").join("/").includes("/js/core/"))
-      .filter(f => readFileSync(f, "utf-8").includes("#ui/"));
+      .filter(f => sourceOf(f).includes("#ui/"));
     expect(users.length).toBeGreaterThan(0);
   });
 
   it("ui never imports core (chrome cannot know the domain)", () => {
-    const offenders = walk(JS_ROOT)
+    const offenders = walkOnce(JS_ROOT)
       .filter(f => f.split("\\").join("/").includes("/js/ui/"))
       .filter(f => {
-        const src = readFileSync(f, "utf-8");
+        const src = sourceOf(f);
         return src.includes("#core/") || src.includes("#foliplus/core/");
       })
       .map(f =>
@@ -674,8 +729,8 @@ describe("JS import boundaries", () => {
   it("whitelist entries are all still present (no dead allowances)", () => {
     // Every allowance must be exercised, or it quietly hides a future
     // regression. A dead entry means the import it documented disappeared.
-    const files = walk(JS_ROOT);
-    const srcs = files.map(f => readFileSync(f, "utf-8"));
+    const files = walkOnce(JS_ROOT);
+    const srcs = files.map(f => sourceOf(f));
     for (const a of ALLOWED) {
       const present = srcs.some(src => src.includes(a.spec));
       expect(present, `dead allowance: ${a.file} -> ${a.spec}`).toBe(true);
@@ -692,21 +747,27 @@ describe("JS import boundaries", () => {
 // future violation turns red, not pass.
 describe("test/js barrel rule", () => {
   it("scans a non-trivial test tree", () => {
-    expect(walk(TEST_JS_ROOT).length).toBeGreaterThanOrEqual(80);
+    expect(walkOnce(TEST_JS_ROOT).length).toBeGreaterThanOrEqual(80);
   });
 
+  // The one test that reads the whole test/js tree (424 files / 7.2 MB) and
+  // runs the character scanner over the 224 sources that spell a core alias.
+  // Measured: 648 ms single-file under coverage on an idle host, 15.44 s and
+  // 19.70 s inside loaded full-suite runs — the 10 s default ceiling is host
+  // load here, not a defect signal, so the budget carries the measured ceiling.
+  // The assertions are unchanged.
   it("no test imports a core cluster module by deep path (real imports only)", () => {
     const violations = collectTestJs();
     expect(
       violations,
       violations.map(v => `${v[0]}:${v[1]} ${v[2]} ${v[3]}`).join("\n"),
     ).toEqual([]);
-  });
+  }, 60_000);
 
   it("the exemption list is live, not stale (every entry is exercised)", () => {
     // A dead exemption means the import it documented disappeared; the
     // exemption then quietly hides a future regression.
-    const srcs = walk(TEST_JS_ROOT).map(f => readFileSync(f, "utf-8"));
+    const srcs = walkOnce(TEST_JS_ROOT).map(f => sourceOf(f));
     for (const a of TEST_JS_ALLOWED) {
       const present = srcs.some(src => src.includes(a.spec));
       expect(present, `dead exemption: ${a.file} -> ${a.spec}`).toBe(true);
@@ -739,7 +800,7 @@ const collectTestJsFrom = (
   synthetic: Array<{ spec: string; line: number }>,
 ): Array<[string, number, string, string]> => {
   const file = resolve(REPO_ROOT, rel);
-  const src = readFileSync(file, "utf-8");
+  const src = sourceOf(file);
   const problems: Array<[string, number, string, string]> = [];
   const allowed = testJsAllowedFor(rel);
   const imports = synthetic.length ? synthetic : readRealImports(src);
@@ -792,6 +853,25 @@ describe("relative specifiers are judged by the same matrix", () => {
     // the no-deep-parent-chain guard, which scans source text, not imports.
     const escaped = ["..", "..", "..", "script", "x.js"].join("/");
     expect(resolveRelative("foliplus/js/platform/dom.ts", escaped)).toBeNull();
+  });
+});
+
+// The line index replaced a per-import \`src.slice(0, i).split("\n")\`: pin that
+// a real violation still reports the real line. The synthetic teeth above inject
+// line numbers, so they cannot see this drift.
+describe("readRealImports line numbers", () => {
+  it("counts lines from the newline index, ignoring comments and strings", () => {
+    const src = [
+      '// import { hidden } from "#core/nope/comment.js";',
+      "",
+      'import { a } from "#core/layer/intent.js";',
+      "const s = \"import z from '#core/string/nope.js'\";",
+      "  import type { B } from '#core/layer/walkLeaf.js';",
+    ].join("\n");
+    expect(readRealImports(src)).toEqual([
+      { spec: "#core/layer/intent.js", line: 3 },
+      { spec: "#core/layer/walkLeaf.js", line: 5 },
+    ]);
   });
 });
 

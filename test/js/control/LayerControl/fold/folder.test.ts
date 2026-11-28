@@ -4,7 +4,7 @@ import {
   authorFoldedKeys,
   effectiveFolderFolded,
   folderFoldKey,
-} from "#control/LayerControl/declaredFolder.js";
+} from "#control/LayerControl/fold/index.js";
 
 describe("folderFoldKey", () => {
   it("builds role::normalizedFolderName keys", () => {

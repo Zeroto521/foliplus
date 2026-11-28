@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { STYLE_MODE } from "#core/layer/index.js";
-import { readDeclaredFill } from "#control/LayerControl/declaredFill.js";
+import { readDeclaredFill } from "#control/LayerControl/declared/index.js";
 
 /** A linked carrier carrying a foliplus declaration. Fresh object per test:
  *  the reader caches per layer object, the way a folium layer's options are
@@ -84,6 +84,19 @@ describe("readDeclaredFill", () => {
       color: "#ff0000",
       opacity: 0.5,
     });
+  });
+
+  it("trims a padded fill colour with the shared declared-string trim", () => {
+    // Python's _declared_hex trims first, so a padded fill colour must be one
+    // declaration on both stacks, never a JS-only rejection.
+    for (const color of [" #abc ", "\ufeff#abc", "\u3000#abc"]) {
+      const read = readDeclaredFill(layerWith({ fill: { color } }));
+      expect(read.invalid, color).toEqual([]);
+      expect(read.declared, color).toEqual({
+        mode: STYLE_MODE.SOLID,
+        color: "#aabbcc",
+      });
+    }
   });
 
   it("a colour alone implies the solid mode", () => {

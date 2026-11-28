@@ -115,7 +115,10 @@ describe("HeatmapManager — caching & lifecycle", () => {
     m.clearHeatmapCanvas();
     expect(handler).toHaveBeenCalledWith(
       { id: m.layerId },
-      { origin: { kind: "programmatic", via: "refresh" } },
+      {
+        origin: { kind: "programmatic", via: "refresh" },
+        revision: expect.any(Number),
+      },
     );
   });
 
@@ -413,7 +416,10 @@ describe("renderFeatures", () => {
     m.renderFeatures([{ type: "Feature" }] as any);
     expect(handler).toHaveBeenCalledWith(
       { id: m.layerId },
-      { origin: { kind: "programmatic", via: "refresh" } },
+      {
+        origin: { kind: "programmatic", via: "refresh" },
+        revision: expect.any(Number),
+      },
     );
   });
 

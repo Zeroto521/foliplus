@@ -75,9 +75,10 @@
   /* The item strip subtracts the measured lane from its right inset, so a
      list that crosses the max-height keeps the strip on the same edge (a
      stable gutter keeps the lane constant between the scrolling and fitting
-     states). The gutter is a classic scrollbar's lane outside the scrollport:
-     it cannot be painted by the row, so a lane wider than the inset leaves the
-     strip shorter than the trigger by (lane - inset) px — see the item rule. */
+     states). The gutter is a classic scrollbar's lane outside the scrollport;
+     the strip does not extend into it, so a lane wider than the inset leaves
+     the strip shorter than the trigger by (lane - inset) px — see the item
+     rule (the search result row does extend its paint into the lane). */
   overflow-x: hidden;
   /* Scrollbar chrome (thin + stable gutter) is the shared recipe in
      common/scrollbar.css — one decision for every foliplus scrollable
@@ -110,18 +111,15 @@
   /* Same strip inset as the trigger bar. The item's reserved selection border
      (below) sits *inside* the inset, so its strip lands on the trigger strip's
      x on both sides — the trigger insets by the token, the item by the token
-     minus that border and the scrollbar lane. Physical limit: the lane is a
-     classic scrollbar's gutter, which lies outside the scrollport and cannot
-     be painted by the row, so when the lane exceeds the inset the strip is
-     shorter than the trigger's by (lane - inset) px; when the lane is at or
-     below the inset the two align exactly. */
+     minus that border and the scrollbar lane. The lane is a classic scrollbar's
+     gutter, outside the scrollport; this strip does not extend into it (the
+     search result row extends its paint instead), so when the lane exceeds the
+     inset the strip is shorter than the trigger's by (lane - inset) px; when
+     the lane is at or below the inset the two align exactly. */
   padding: 0
     max(
       0px,
-      calc(
-        var(--foliplus-scheme-picker-bar-inset-x) -
-          var(--foliplus-scheme-picker-scrollbar-width)
-      )
+      calc(var(--foliplus-scheme-picker-bar-inset-x) - var(--foliplus-scrollbar-lane))
     )
     0 var(--foliplus-scheme-picker-bar-inset-x);
   height: var(--foliplus-menu-row-h);

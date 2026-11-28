@@ -1,6 +1,5 @@
 import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative, resolve } from "path";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 // File-header drift guard.
@@ -60,44 +59,22 @@ function isFileOrReport(file: string, rel: string, problems: string[]): boolean 
   return true;
 }
 
-function headerProblems(file: string, rel: string): string[] {
-  const problems: string[] = [];
-  const text = readFileSync(file, "utf8");
-  const lines = text.split(/\r?\n/);
-  const first = lines[0] || "";
+/** One file's canonical-header problem, judged from the text alone.
+ *
+ *  This used to also parse the module with `ts.createSourceFile` to prove the
+ *  header was the *leading comment* of the first statement. That was redundant:
+ *  once line 1 must literally be `// <rel> — <desc>`, it cannot be anything but
+ *  the leading comment (there is no line above it), and a module whose first
+ *  line is code or blank already fails the same assertion. The parse cost an
+ *  AST per registered module — the load-sensitive 10 s timeout this guard kept
+ *  hitting under coverage — so it is gone; the "header pushed to line 2" case
+ *  is pinned in the tests below. */
+function headerProblem(text: string, rel: string): string | null {
+  const first = text.split(/\r?\n/, 1)[0] ?? "";
   const escaped = rel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`^// ${escaped} — .+`);
-  if (!pattern.test(first)) {
-    problems.push(`first line is not "// ${rel} — <desc>": ${JSON.stringify(first)}`);
-  }
-  const src = ts.createSourceFile(
-    file,
-    text,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS,
-  );
-  const firstStmt = src.statements[0];
-  if (!firstStmt) {
-    problems.push("file has no statements");
-    return problems;
-  }
-  const leading = ts.getLeadingCommentRanges(src.text, 0);
-  let hasHeaderComment = false;
-  if (leading) {
-    for (const range of leading) {
-      const commentText = src.text.slice(range.pos, range.end);
-      const commentLines = commentText.split(/\r?\n/);
-      if (commentLines[0] && commentLines[0].startsWith(`// ${rel}`)) {
-        hasHeaderComment = true;
-        break;
-      }
-    }
-  }
-  if (!hasHeaderComment) {
-    problems.push("first line is not the leading comment of the first statement");
-  }
-  return problems;
+  if (pattern.test(first)) return null;
+  return `first line is not "// ${rel} — <desc>": ${JSON.stringify(first)}`;
 }
 
 /** Check every registered rel path: report any that are missing, then any
@@ -109,9 +86,8 @@ export function checkRegistryEntries(registry: string[]): string[] {
   for (const rel of registry) {
     const file = join(JS_DIR, `${rel}.ts`);
     if (!isFileOrReport(file, rel, problems)) continue;
-    for (const p of headerProblems(file, rel)) {
-      problems.push(`${rel}: ${p}`);
-    }
+    const problem = headerProblem(readFileSync(file, "utf8"), rel);
+    if (problem) problems.push(`${rel}: ${problem}`);
   }
   return problems;
 }
@@ -119,6 +95,28 @@ export function checkRegistryEntries(registry: string[]): string[] {
 describe("file headers follow the canonical form", () => {
   it("every registered file exists and carries the canonical header", () => {
     expect(checkRegistryEntries(readRegistry())).toEqual([]);
+  });
+
+  it("rejects a header that is not on the first line", () => {
+    const rel = "platform/color";
+    expect(headerProblem("// platform/color — colors.\n", rel)).toBeNull();
+    // The removed AST branch proved "leading comment"; the first-line rule
+    // alone already catches everything that branch was protecting against: a
+    // blank line, an import, or a shebang pushes the header down and the first
+    // line no longer matches. These are the cases that branch existed for.
+    expect(headerProblem("\n// platform/color — colors.\n", rel)).toMatch(
+      /first line is not/,
+    );
+    expect(
+      headerProblem('import x from "y";\n// platform/color — colors.\n', rel),
+    ).toMatch(/first line is not/);
+    expect(headerProblem("#!/usr/bin/env node\n// platform/color — c.\n", rel)).toMatch(
+      /first line is not/,
+    );
+    expect(headerProblem("// platform/color — \n", rel)).toMatch(/first line is not/);
+    expect(headerProblem("// platform/other — colors.\n", rel)).toMatch(
+      /first line is not/,
+    );
   });
 
   it("reports a stale registry entry by path + 'does not exist', not ENOENT", () => {

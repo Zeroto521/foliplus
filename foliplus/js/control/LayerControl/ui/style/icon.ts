@@ -43,7 +43,11 @@ import { ensureOverlayRegistry } from "#core/overlay/index.js";
 import { dom } from "#platform/dom.js";
 import { FORM_CLASS, POPUP_OVERLAY_RANK, formRow, nextOptionId } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { readDeclaredIconSize } from "#control/LayerControl/declaredParse.js";
+import {
+  type DeclaredIconFace,
+  readDeclaredIcon,
+  readDeclaredIconSize,
+} from "#control/LayerControl/declared/index.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
  *  or undefined when the layer declares none -- the whole-icon box edge the
@@ -52,6 +56,15 @@ import { readDeclaredIconSize } from "#control/LayerControl/declaredParse.js";
  *  caller re-deriving it. */
 const declaredIconSizeOf = (layer: unknown): number | undefined =>
   readDeclaredIconSize(layer).declared;
+
+/** The author-declared icon face (foliplus icon face), or undefined when the
+ *  layer declares none. Read off the layer so the declared glyph / colour /
+ *  alpha ride every re-derivation exactly like the declared icon size does;
+ *  the face reader owns normalisation + warnings, so this is the only read. */
+const declaredIconOf = (
+  layer: unknown,
+  layerId?: string,
+): DeclaredIconFace | undefined => readDeclaredIcon(layer, layerId).declared;
 
 /** Grid columns for the glyph picker popup. */
 const GLYPH_GRID_COLS = 8;
@@ -75,14 +88,21 @@ const applyIconToLayer = (ui: LayerUI, layerId: string): void => {
   // color and a color edit must carry the current glyph). A URL / divIcon
   // source ignores the color (an <img> cannot inherit it; the divIcon paints
   // its own), but the walk still needs the intent kind to route.
-  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  // The declared icon face is the read-time default for the two orthogonal
+  // dimensions; the user's intents win, the declaration rides a glyph write so
+  // the three never split across two constructions.
+  const declared = declaredIconOf(layer, layerId);
+  const colorIntent = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const opacityIntent = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
   const panelPrefix = coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
-  const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  const color = typeof colorIntent === "string" ? colorIntent : declared?.color;
+  const opacity =
+    typeof opacityIntent === "number" ? opacityIntent : declared?.colorOpacity;
   applyIconToLeaves(
     layer,
     intent.kind === ICON_KIND.GLYPH ? intent.value : "circle",
-    typeof color === "string" ? color : undefined,
-    typeof opacity === "number" ? opacity : undefined,
+    color,
+    opacity,
     panelPrefix,
     // The intent kind routes the walk: glyph -> derive, url / divicon-class
     // -> their whole-icon builders (see applyIconToLeaves).
@@ -114,23 +134,42 @@ const resetLayerIcon = (ui: LayerUI, layerId: string): void => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return;
   resetIconLeaves(layer);
-  // Orthogonal: a user-set marker color survives a glyph reset. Re-derive
-  // the color on the freshly restored author icons so the color and the
-  // glyph never split across two writes.
-  const color = getIntent(ui, layerId, INTENT.ICON_COLOR);
-  const opacity = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  // The declared icon face is the read-time default Reset returns to: when
+  // the author declared a glyph / colour / alpha, re-derive on the freshly
+  // restored author icons so the three never split across two writes. A user
+  // icon-colour intent is orthogonal and still survives a glyph reset.
+  const declared = declaredIconOf(layer, layerId);
+  const colorIntent = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const opacityIntent = getIntent(ui, layerId, INTENT.ICON_COLOR_OPACITY);
+  const color = typeof colorIntent === "string" ? colorIntent : declared?.color;
+  const opacity =
+    typeof opacityIntent === "number" ? opacityIntent : declared?.colorOpacity;
+  // The re-derived icon restores the declared (or author's own) family, not
+  // the panel knob: an author who paints `fas fa-<name>` (a real family outside
+  // the GLYPH_PREFIXES table) must come back as `fas`, not silently as the
+  // coerced panel default.
+  const prefix =
+    authorGlyphPrefix(ui, layerId) ??
+    coerceGlyphPrefix(ui.config.icon_prefix ?? undefined);
+  if (declared?.glyph !== undefined) {
+    applyIconToLeaves(
+      layer,
+      declared.glyph,
+      color,
+      opacity,
+      prefix,
+      { kind: ICON_KIND.GLYPH, value: declared.glyph },
+      declaredIconSizeOf(layer),
+    );
+    return;
+  }
   if (typeof color === "string") {
-    // The re-derived icon restores the AUTHOR's own family, not the panel
-    // knob: an author who paints `fas fa-<name>` (a real family outside the
-    // GLYPH_PREFIXES table) must come back as `fas`, not silently as the
-    // coerced panel default. A reset returns the author intent.
     applyIconColorToLeaves(
       layer,
       color,
       currentGlyph(ui, layerId),
-      typeof opacity === "number" ? opacity : undefined,
-      authorGlyphPrefix(ui, layerId) ??
-        coerceGlyphPrefix(ui.config.icon_prefix ?? undefined),
+      opacity,
+      prefix,
       declaredIconSizeOf(layer),
     );
   }
@@ -200,6 +239,13 @@ const currentIcon = (
 const authorGlyphName = (ui: LayerUI, layerId: string): AuthorGlyph | null => {
   const layer = ui.c.findLayer(layerId);
   if (!layer) return null;
+  // The declared glyph is the read-time default the row shows and Reset
+  // returns to; the author's drawn icon is only the fallback when the face
+  // declares none (the declaration beats the draw, the user intent beats both).
+  const declared = declaredIconOf(layer, layerId)?.glyph;
+  if (declared !== undefined) {
+    return { name: declared, valid: resolveGlyph(declared) !== null };
+  }
   return authorGlyphNameOnLayer(layer);
 };
 /** The author's FontAwesome family prefix for the layer (see authorGlyphPrefixOnLayer).

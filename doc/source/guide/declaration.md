@@ -70,8 +70,8 @@ The recognised keys are:
 | `marker_color` | str   | marker chassis preset (see {ref}`marker_color`).                    |
 | `icon_size`    | int   | marker icon pixel size (see {ref}`icon_size`).                      |
 | `opacity`      | float | whole-layer opacity, the slider's reset point (see {ref}`opacity`). |
-| `icon`         | dict  | icon block: `colorOpacity` glyph alpha (see {ref}`opacity`).        |
-| `marker`       | dict  | marker block: `colorOpacity` chassis alpha (see {ref}`opacity`).    |
+| `icon`         | dict  | icon face: `glyph` / `color` / glyph alpha (see {ref}`icon_face`). |
+| `marker`       | dict  | marker face: chassis alpha (see {ref}`icon_face`).                  |
 
 An unknown key warns once and is ignored:
 
@@ -83,8 +83,8 @@ gdf.explore(foliplus={"fill_scheme": "Reds"})
 #   - ignored
 ```
 
-A `fill` / `label` / `filter` / `border` value that is not a mapping
-also warns once and is ignored.
+A `fill` / `label` / `filter` / `border` / `icon` / `marker` value that is
+not a mapping also warns once and is ignored.
 
 (zoom_range)=
 
@@ -125,6 +125,13 @@ a grouping intent, never a conflict. Folder names group case-insensitively
 after whitespace folding, so `"Basemap"`, `"basemap"` and `"BASE MAP"`
 land in one folder; the folder keeps the first spelling it saw. A folder keeps
 its group row after its last layer is removed.
+
+**Root-only.** A folder can only be declared on a top-level layer. A container
+layer (`FeatureGroup` / `LayerGroup`) declaring `folder` would put a group inside
+a folder, and a layer that already sits inside a container would put a folder
+inside a group — both are ignored with a one-time warning naming the layer and
+the reason. The declaration channel therefore cannot create folder nesting; the
+data model still renders author-built container nesting, read-only.
 
 Membership is declared per layer and nowhere else. The control-level
 `folders=` option (see {ref}`folders`) declares a folder's **defaults** — its
@@ -225,12 +232,98 @@ step.
 :::{note}
 
 The container row disables its own Style and Filter entries: those apply to
-individual layers, and the group is only a container. Once child layers are
-registered as `LayerInfo` entries, each child row's ⋮ menu offers Style and
-Filter on its own — a probe-only capability face that does not consume a pane.
-This lands with the child-layer registration work.
+individual layers, and the group is only a container. The group's declaration never
+supplies Style or Filter to its children; declare them on the child layer itself.
 
 :::
+
+### Declarations belong to the layer that carries them
+
+A `foliplus={...}` block describes **one layer** — the layer it is written on. The
+panel is built from one row per layer, and a row reads its declaration from its own
+layer only. Nothing is inherited, nothing is looked up in a nested container.
+
+That matters for containers. A `FeatureGroup` (or any other container layer) is its
+own row, so its row reads only the block written on the group itself. Both cases, in
+one runnable map:
+
+```python
+import folium
+from foliplus import LayerControl
+
+stations = {
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {"name": "观测站 A"},
+            "geometry": {"type": "Point", "coordinates": [121.5, 31.2]},
+        }
+    ],
+}
+
+m = folium.Map(location=[31.2, 121.5], zoom_start=10)
+
+# 1. The group's own block: the 观测站 group row carries a zoom_range.
+#    (Not a folder — folders are root-only, see the folder section above.)
+declared = folium.FeatureGroup(
+    name="观测站", foliplus={"zoom_range": {"min": 10, "max": 14}}
+)
+folium.GeoJson(stations, name="站点").add_to(declared)
+declared.add_to(m)
+
+# 2. A child's block: this label belongs to the 站点 2 child, not to its group row.
+inherited = folium.FeatureGroup(name="另一组")
+folium.GeoJson(stations, name="站点 2", foliplus={"label": {"field": "name"}}).add_to(
+    inherited
+)
+inherited.add_to(m)
+
+LayerControl().add_to(m)
+```
+
+Declarations are read from the layer they are attached to: the `zoom_range` above
+describes the **观测站** group row, while the `label` block belongs to the **站点 2**
+child. The **另一组** container row inherits nothing from it, and the child block is
+not reported as a mistake.
+
+The example builds its layers by hand only because it must show a container, and so
+that it runs as written. With several layers on one map, start with
+`m = folium.Map(...)` and add each of them with `explore(m=m, ...)`; with a single
+layer, `gdf.explore(foliplus=...)` builds its own map. Only a container row needs
+a hand-built `FeatureGroup`:
+
+```python
+# gdf_stations: your existing GeoDataFrame
+m = folium.Map(location=[31.2, 121.5], zoom_start=10)
+gdf_stations.explore(m=m, foliplus={"label": {"field": "name"}})  # ordinary layer
+folium.FeatureGroup(
+    name="观测站", foliplus={"zoom_range": {"min": 10, "max": 14}}
+).add_to(m)  # container row
+```
+
+`explore` forwards its extra keywords to the `folium.GeoJson` it creates, so
+`foliplus=` lands on that layer; it does not construct a container layer, which is
+why a container example cannot be written with `explore` alone.
+
+**Behaviour**:
+
+- A container row's facts come from the container's own block — its `label`,
+  `filter`, `zoom_range` and other keys describe the container row, never its
+  children. `folder` is the one exception: folders are root-only (see
+  {ref}`folder`), so a container's `folder` declaration is ignored and warns once.
+- A child layer's declaration stays with the child. Its other keys are simply
+  never read — the child is not a row, so nothing is hoisted and nothing is
+  reported as an error. Its own `folder` declaration is the one exception: the
+  collection walk still sees that the child sits inside a container, so it is
+  ignored with a one-time warning, exactly like a container's own `folder`.
+- To declare something for the container row, write it on the container constructor.
+  `FeatureGroup`, `LayerGroup` and `GeoJson` all forward `foliplus=...` into the
+  layer, the same way `explore` does.
+- This is deliberate. Downward inheritance would let a single declaration affect two
+  independently addressable rows, which is exactly the double-sourced state this
+  declaration pass removes. A page that relied on a child declaration reaching its
+  container must move the block onto the container.
 
 (fill)=
 
@@ -276,7 +369,7 @@ drops whole. A declaration whose value column the data no longer offers steps
 aside whole and falls back to the per-feature paint / built-in.
 
 Value-based fill needs an areal geometry. Polygons, MultiPolygons, Rectangles
-and circles repaint by value; a Polyline takes a stroke colour instead; a
+and circles repaint by value; a PolyLine takes a stroke colour instead; a
 marker is an icon and has no fill to repaint.
 
 (label)=
@@ -414,11 +507,12 @@ presets (or a valid hex) is the JavaScript reader's verdict — an unknown prese
 name or a malformed hex warns once and degrades to the derived default (the
 panel's built-in blue), never an unvalidated colour.
 
-A hex is distinct from the folium `Icon(color='#00A6A6')` kwarg: that paints
-the author's icon directly, while `marker_color` is the `foliplus={}`
-declaration read-time default a panel pick and Reset return to. When both are
-present the author's painted colour wins (the declaration is the lower-priority
-default).
+A hex is distinct from the folium `Icon(color='#00A6A6')` kwarg (folium
+`>=1.0.0`; earlier releases only accept the preset names and warn on a hex):
+that kwarg paints the author's icon directly, while `marker_color` is the
+`foliplus={}` declaration read-time default a panel pick and Reset return to.
+When both are present the author's painted colour wins (the declaration is the
+lower-priority default).
 
 :::{note}
 
@@ -469,38 +563,91 @@ ignored — the panel keeps its derived default rather than showing a value the
 author never saw validated.
 
 ```{note}
-This is the only channel where a declared value is NOT painted: the layer is
-already drawn with the author's `opacity=`. The declaration is a UI default
-for the panel's slider.
+Like the `icon` / `marker` face declarations below, this is a channel where a
+declared value is NOT painted: the layer is already drawn with the author's `opacity=`.
+The declaration is a UI default for the panel's slider.
 ```
 
-## `icon` / `marker` block — glyph / chassis alpha
+(icon_face)=
 
-The `icon` and `marker` declaration blocks carry one sub-key each:
-`colorOpacity`, a 0-100 integer percent — the alpha of the marker **glyph**
-(`icon`) and the marker **chassis** (`marker`) face. Like the whole-layer
-`opacity` they are read-time defaults (the row's number field starts there
-and Reset returns to it), never draw overrides: folium's `colorOpacity`
-written into the marker {class}`Icon` remains the author's draw value.
+## `icon` / `marker` face — glyph, colour and alpha
+
+The `icon` face declaration sets the marker **icon face** as read-time defaults:
+`glyph` (a FontAwesome name), `color` (a CSS hex for the glyph) and
+`colorOpacity` (a 0-100 integer percent, the glyph alpha). The `marker` face
+declaration carries the **chassis** alpha only (`colorOpacity`); the chassis
+colour is the `marker_color` key's business.
+
+Both spellings of the multi-word sub-key are accepted — `colorOpacity` and
+the Python `color_opacity` — and both sides normalise to `colorOpacity`
+(folium camelizes every option key at render time, so a rendered map only ever
+carries the camelCase form; the snake spelling is accepted for hand-built
+namespaces). The accepted sub-keys are exactly:
+
+| Face     | Sub-key        | Type          | Meaning                          |
+| -------- | -------------- | ------------- | -------------------------------- |
+| `icon`   | `glyph`        | str           | FontAwesome glyph name.          |
+| `icon`   | `color`        | str (`#hex`)   | Glyph colour.                    |
+| `icon`   | `colorOpacity` | int 0-100     | Glyph alpha.                     |
+| `marker` | `colorOpacity` | int 0-100     | Marker chassis alpha.            |
 
 ```python
-gdf.explore(foliplus={"icon": {"colorOpacity": 60}})
-gdf.explore(foliplus={"marker": {"colorOpacity": 40}})
+gdf.explore(
+    foliplus={
+        "icon": {"glyph": "star", "color": "#ff0000", "color_opacity": 60},
+        "marker": {"color_opacity": 40},
+    }
+)
 ```
 
-**Shape**: a whole number from 0 to 100. A non-mapping block, a non-integer,
-a non-finite or an out-of-range value warns once and is ignored. A `color`
-sub-key rides the same block (the glyph / chassis colour); `colorOpacity`
-only tunes the alpha.
+Like the whole-layer `opacity` these are **read-time defaults** (the row
+starts there and Reset returns to it), never draw overrides: the glyph and
+colour drawn on the map are what the author's {class}`folium.Icon` paints
+until the user writes one — a declared value is not re-painted on attach. A
+user's panel pick always wins over the declaration; a declaration beats the
+author's drawn value in the panel row and reset chain.
+
+**Shape**: a malformed sub-key warns once and is **dropped alone** (its valid
+siblings survive); a non-mapping face warns once and is ignored. An unknown
+sub-key warns too, naming the accepted ones — so a typo never passes silently.
+The spelling rule is one rule on both stacks: a string value is trimmed before
+it is validated (a padded `" star "` / `" #ff0000 "` is the same declared
+value), and the trim set is the **union** of the two hosts' whitespace sets
+rather than either host's default — the C0 controls U+0009-U+000D, the separators
+U+001C-U+001F and U+0085, U+0020, U+00A0, U+1680, U+2000-U+200A, U+2028/U+2029,
+U+202F, U+205F, U+3000 and U+FEFF (a BOM pasted from a CSV). That union is what
+makes a value pasted from rich text or CJK input accepted identically on both
+stacks; it is the only trim on the colour path (no host `strip()` follows it). A
+declared `null` sub-key value is unusable and warns on both sides, never
+silently "not declared". When a sub-key is written twice the
+**first** occurrence decides —
+the duplicate always warns and is dropped, even when the first value was
+unusable, so the two readers can never disagree on which spelling won. Every
+warning names its layer, so a console line or a Python `UserWarning` locates
+the authoring layer.
+
+```python
+gdf.explore(foliplus={"icon": {"colour": "#ff0000"}})
+# LayerControl: layer '...' declares foliplus['icon']['colour'] as an unknown
+#   icon sub-key 'colour'; expected one of ['glyph', 'color', 'colorOpacity'] - ignored
+```
+
+A `glyph` must be a non-empty string, a `color` a `#rgb` / `#rrggbb` hex,
+and a `colorOpacity` a whole number from 0 to 100; a value of the wrong shape
+warns once, is dropped, and leaves the rest of the face in effect.
 
 (icon_source)=
 
 ## Icon source (glyph / URL / divIcon shape)
 
-The marker **icon source** is declared on the marker's own
-{class}`folium.Icon` (or a Leaflet {class}`L.divIcon`), not in the
-`foliplus={...}` namespace. The panel reads it as the layer's "author icon"
-and offers three sources:
+The marker **icon source** — the shape drawn on the map — is declared on the
+marker's own {class}`folium.Icon` (or a Leaflet {class}`L.divIcon`). The
+panel reads it as the layer's "author icon" and offers three sources:
+
+The glyph, its colour and its alpha can ALSO be declared as read-time
+**panel defaults** in the `foliplus` namespace ({ref}`icon_face`); the
+drawn source above stays the look on the map until the user writes a panel
+value, and Reset returns to the declared default when one exists.
 
 ### Glyph
 

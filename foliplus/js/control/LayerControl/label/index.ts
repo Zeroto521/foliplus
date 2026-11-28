@@ -86,7 +86,7 @@ const LABEL_PRIORITY = 50;
  *  the author named one field and the whole page's avoidance silently changed.
  *
  *  The record is read, not re-validated: CONF is the trust boundary here, the
- *  same split `declaredFilter` follows. A second shape judgement in JS would
+ *  same split `declared/filter` follows. A second shape judgement in JS would
  *  be a second source for a fact Python already normalised, and the two sides
  *  could disagree on what an author may write. The "declaring a field turns
  *  the labels on" rule lives in the normaliser for the same reason.

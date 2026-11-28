@@ -379,7 +379,10 @@ class PolygonMode extends PreviewMode {
 
   /** GeoJSON feature for a polygon — properties carry id, area, segments and
    *   the persisted centroid (center). */
-  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(
+    env: Pick<ControlEnv, "log" | "_">,
+    data: MeasureData,
+  ): GeoJSON.Feature {
     const coords = data.points?.map(p => [p.lng, p.lat]) ?? [];
     if (coords.length > 1) coords.push(coords[0]);
     return {

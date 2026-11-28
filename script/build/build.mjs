@@ -24,10 +24,13 @@ import {
   planDistMarker,
   settleDistMarker,
 } from "./dist-marker.mjs";
+import { verifyDist } from "./dist-verify.mjs";
 import { esbuildCfgFor } from "./esbuild-config.mjs";
 import { globalNamespacePlugin } from "./global-namespace-plugin.mjs";
 import { FAIL, OK } from "./glyph.mjs";
 import { expandEntry, mergeCss } from "./merge-css.mjs";
+import { registryProblems } from "./registry-assert.mjs";
+import { computeSourceHash } from "./source-hash.mjs";
 import { resolveVersion } from "./version.mjs";
 import { spawnSync } from "child_process";
 import { build } from "esbuild";
@@ -221,47 +224,6 @@ const mergeComponentCss = name => {
   return expandEntry(readCssDir(dir), "index.css", name);
 };
 
-/** Every artifact `BaseControl._build_component_template` reads for a control.
- *  That reader takes both halves unconditionally — it has no fallback path —
- *  so the gate must expect both too, or a control missing its stylesheet slips
- *  through here and blows up at attach time. */
-const controlArtifacts = name => [
-  `foliplus-${name}.min.js`,
-  `foliplus-${name}.min.css`,
-];
-
-/** Assert the dist/ tree holds every artifact a complete build would emit.
- *
- * The expected list comes from the manifest the build wrote, not from
- * `findComponents()`: re-deriving it here would mean the gate can disagree with
- * the build it is checking, and a component the build forgot to write would
- * silently satisfy both. `test/python/script/build/test_asset.py` and
- * `build.test.ts` read the same file, so all three consumers share one source
- * of truth.
- *
- * The manifest only exists after a real build, so its absence is reported as
- * "not built" rather than an unreadable manifest — this runs on a checkout that
- * may have no `dist/` at all.
- */
-const verifyDist = () => {
-  let names;
-  try {
-    names = readArtifactManifest();
-  } catch {
-    console.error("No dist/manifest.json — run `npm run build` first");
-    process.exit(1);
-  }
-  const expected = names.flatMap(controlArtifacts);
-  const missing = expected.filter(f => !existsSync(resolve(distDir, f)));
-  if (missing.length) {
-    console.error(
-      `Missing artifacts: ${missing.join(", ")} — run \`npm run build\` first`,
-    );
-    process.exit(1);
-  }
-  console.log(`${OK} ${expected.length} artifacts present in dist/`);
-};
-
 /** Build the full list of esbuild artifacts (components + merged common CSS).
  *  `withSonda` only enables metafile output per build — the metafiles are
  *  merged into a single sonda report after all builds complete. */
@@ -314,7 +276,8 @@ const buildEntries = (components, withSonda) => {
   return artifacts;
 };
 
-/** Record every component name that got artifacts emitted to dist/.
+/** Record every component name that got artifacts emitted to dist/, plus what
+ *  the build was made from.
 
 Values are bare names (`LayerControl`, `common`) — every artifact filename
 is `foliplus-<name>.min.<ext>`, so a reader builds both halves without
@@ -325,20 +288,28 @@ membership, `test/js/script/build/build.test.ts` asserts artifact presence.
 Deriving each from `findComponents` in prose gave three drifting copies;
 this is the one they read. Written only on a real build — `--verify` runs
 on a checkout that may not have `dist/` at all, and it must not touch it.
+
+`sourceHash` (script/build/source-hash.mjs) and `buildVersion` make
+`--verify` answer "was this dist built from these sources?", not just "does
+the tree exist?": a source edit without a rebuild now fails the gate instead of
+silently feeding the old bundle to the Python tests.
 */
 const writeArtifactManifest = filenames => {
   const names = filenames.map(name => (name === SHARED_ENTRY ? "common" : name));
 
   writeFileSync(
     resolve(distDir, "manifest.json"),
-    `${JSON.stringify({ artifacts: names }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        artifacts: names,
+        sourceHash: computeSourceHash(CFG.root),
+        buildVersion: BUILD_VERSION,
+      },
+      null,
+      2,
+    )}\n`,
   );
 };
-
-/** Component names from the manifest the build wrote, as artifact names.
- *  Throws when the manifest is absent or unreadable. */
-const readArtifactManifest = () =>
-  JSON.parse(readFileSync(resolve(distDir, "manifest.json"), "utf-8")).artifacts;
 
 /** Merge per-build esbuild metafiles into one. Input/output paths are disjoint
  *  across builds (each build emits one artifact), so a shallow merge suffices. */
@@ -365,9 +336,57 @@ const generateSharedRegistry = () => {
   if (genResult.status !== 0) process.exit(genResult.status);
 };
 
+/** Assert the generated registry publishes what the components import.
+ *
+ * `scan-registry.mjs` exiting 0 only means it wrote a file: a partial or empty
+ * registry (a scan that lost a spec, a generator regression, a truncated write)
+ * leaves component shims resolving `window.foliplus.core.<x>` to undefined in
+ * the browser. Compare the generated text against the same scan the generator
+ * used, name every missing namespace/spec, and exit before esbuild — a broken
+ * registry never becomes a bundle. */
+const assertSharedRegistry = () => {
+  const registryFile = resolve(buildJs, "_shared-registry.ts");
+  let text;
+  try {
+    text = readFileSync(registryFile, "utf-8");
+  } catch {
+    console.error(
+      `Shared registry missing: ${registryFile} — scan-registry.mjs did not write it`,
+    );
+    process.exit(1);
+  }
+  // The generator records the scan it used next to the registry; read that
+  // rather than re-scanning (one scan, no import of scan-registry.mjs — its
+  // argv parsing must not see the build's flags).
+  let usedExports;
+  try {
+    usedExports = JSON.parse(
+      readFileSync(resolve(buildJs, "registry-used-exports.json"), "utf-8"),
+    );
+  } catch {
+    console.error(
+      "Shared registry has no recorded scan (registry-used-exports.json) — scan-registry.mjs did not write it",
+    );
+    process.exit(1);
+  }
+  const problems = registryProblems(text, usedExports);
+  if (problems.length) {
+    console.error(
+      "Shared registry is incomplete — components would read undefined globals:",
+    );
+    for (const problem of problems) console.error(`  ${problem}`);
+    process.exit(1);
+  }
+};
+
 const main = async () => {
   if (CFG.verify) {
-    verifyDist();
+    const problems = verifyDist({ root: CFG.root, buildVersion: BUILD_VERSION });
+    if (problems.length) {
+      for (const problem of problems) console.error(problem);
+      process.exit(1);
+    }
+    console.log(`${OK} dist/ is complete and was built from this source tree`);
     return;
   }
   // Dist-mode marker lifecycle — plan/settle/assert are isolated in
@@ -389,6 +408,7 @@ const main = async () => {
     // ── Step 2: Generate shared registry ───────────────────────────
     // Auto-registers every platform/core module on window.foliplus (P5).
     generateSharedRegistry();
+    assertSharedRegistry();
 
     // ── Step 3: Discover components & build entries ───────────────
     const components = findComponents();

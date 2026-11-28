@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  canHoldViolation,
   findOverlayContractViolations,
   main,
   runCli,
@@ -20,8 +21,16 @@ const REPO_ROOT = process.cwd();
 
 describe("createDropdown overlay contract", () => {
   it("finds no overlay violation in the production surface", { timeout: 60000 }, () => {
-    const hits = findOverlayContractViolations(REPO_ROOT);
+    const stats = { parsed: 0 };
+    const hits = findOverlayContractViolations(REPO_ROOT, stats);
     expect(hits).toEqual([]);
+    // Structural pin, not a wall clock: the gate's real cost is the number of
+    // modules that reach ts.createSourceFile. 318 production modules today,
+    // 10 pass the prefilter — a dozen is the budget with room for a new
+    // createDropdown/overlay site, and a `prefilter: () => true` regression
+    // jumps straight back to 318 and fails here. Wall-clock assertions on this
+    // scan (0.2 s idle, 1.7–2.3 s on a shared host) would be load-flaky.
+    expect(stats.parsed).toBeLessThanOrEqual(12);
   });
 
   it("flags a synthetic createDropdown call without overlay", () => {
@@ -110,6 +119,57 @@ describe("createDropdown overlay contract", () => {
     );
     expect(main(dir)).toBe(1);
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+// The raw prefilter in findOverlayContractViolations is a superset of the AST
+// rules, not a heuristic that decides them: issue #1427's review caught the
+// first version silently dropping a comment-gapped `overlay /* gap */ ?` and a
+// unicode-escaped `create\u0044ropdown`. These cases pin the superset, and the
+// `//`-in-a-string case pins why the prefilter also checks the raw text (the
+// shared comment stripper is line-based and can be fooled by a string).
+describe("prefilter is a superset of the AST rules", () => {
+  const scan = (content: string) => {
+    const dir = mkdtempSync(join(tmpdir(), "overlay-guard-"));
+    mkdirSync(join(dir, "foliplus", "js", "ui"), { recursive: true });
+    writeFileSync(join(dir, "foliplus", "js", "ui", "probe.ts"), content);
+    const hits = findOverlayContractViolations(dir);
+    rmSync(dir, { recursive: true, force: true });
+    return hits;
+  };
+
+  it("flags an overlay optional marker separated by a block comment", () => {
+    const hits = scan("interface ProbeOpts { overlay /* gap */ ?: unknown }\n");
+    expect(hits.length).toBe(1);
+    expect(hits[0].context).toBe("optional");
+  });
+
+  it("flags a createDropdown callee spelled with a unicode escape", () => {
+    const hits = scan("const d = create\\u0044ropdown({ items });\n");
+    expect(hits.length).toBe(1);
+    expect(hits[0].context).toBe("call");
+  });
+
+  it("flags an overlay identifier spelled with a unicode escape", () => {
+    const hits = scan("interface ProbeOpts { \\u006Fverlay?: unknown }\n");
+    expect(hits.length).toBe(1);
+    expect(hits[0].context).toBe("optional");
+  });
+
+  it("keeps the raw check when // inside a string swallows the rest of a line", () => {
+    const hits = scan(
+      'const url = "//"; interface ProbeOpts { overlay /* gap */ ?: unknown }\n',
+    );
+    expect(hits.length).toBe(1);
+    expect(hits[0].context).toBe("optional");
+  });
+
+  it("still skips a file with no overlay token at all", () => {
+    const content = "const x = dropdown.create({ items });\n";
+    // Assert the prefilter itself rejects it: "no hits" alone would also pass
+    // with a prefilter that always returns true.
+    expect(canHoldViolation(content)).toBe(false);
+    expect(scan(content)).toEqual([]);
   });
 });
 

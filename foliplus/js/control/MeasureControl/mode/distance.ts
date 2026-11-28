@@ -328,7 +328,10 @@ class DistanceMode extends PreviewMode {
   }
 
   /** GeoJSON feature for a distance polyline — properties carry id, totalDistance and segments. */
-  static toGeoFeature(env: ControlEnv, data: MeasureData): GeoJSON.Feature {
+  static toGeoFeature(
+    env: Pick<ControlEnv, "log" | "_">,
+    data: MeasureData,
+  ): GeoJSON.Feature {
     return {
       type: CONST.GEOJSON.FEATURE,
       properties: {

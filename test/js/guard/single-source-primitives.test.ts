@@ -5,8 +5,8 @@
 //   - attachMenuController — control/LayerControl/ui/overlayPanel/menu.ts, the
 //     one layer/folder/role menu attach scaffold, keyed localId: "menu".
 //   - createPickerHolder — control/LayerControl/ui/style/pickerHolder.ts, the
-//     one per-UI scheme-picker slot: a WeakMap<LayerUI, SchemePicker> pair with
-//     its overlay unregister.
+//     one per-UI scheme-picker slot: a WeakMap<LayerUI, SchemePicker> with one
+//     dispose (the picker's overlay unregister is the listbox engine's now).
 //   - createReplayGate — control/LayerControl/ui/style/replay.ts, the one per-UI
 //     declared-replay gate: a WeakMap<LayerUI, Set<string>>.
 //
@@ -189,10 +189,6 @@ const PRIMITIVES: Primitive[] = [
       {
         pattern: "WeakMap<\\s*LayerUI\\s*,\\s*SchemePicker\\s*>",
         why: "a second picker slot is a live SchemePicker the panel never disposes",
-      },
-      {
-        pattern: "WeakMap<\\s*LayerUI\\s*,\\s*\\(\\s*\\)\\s*=>\\s*void\\s*>",
-        why: "a second WeakMap pair keeps the picker's overlay unregister alive after the holder is gone",
       },
     ],
   },

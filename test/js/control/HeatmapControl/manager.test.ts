@@ -556,7 +556,7 @@ describe("HeatmapControl source content signal (LayerAPI integration)", () => {
     expect(filterSpy).toHaveBeenCalledTimes(1);
     expect(filterSpy).toHaveBeenCalledWith(
       { id: mgr.layerId },
-      { origin: { kind: "user", via: "panel" } },
+      { origin: { kind: "user", via: "panel" }, revision: expect.any(Number) },
     );
   });
 

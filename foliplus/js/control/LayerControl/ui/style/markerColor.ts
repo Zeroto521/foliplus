@@ -50,10 +50,12 @@ import {
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
+  type DeclaredIconFace,
+  readDeclaredIcon,
   readDeclaredIconSize,
   readDeclaredMarkerColor,
   readDeclaredMarkerColorOpacity,
-} from "#control/LayerControl/declaredParse.js";
+} from "#control/LayerControl/declared/index.js";
 
 /** The author-declared icon pixel size for this layer (foliplus icon_size),
  *  or undefined when the layer declares none -- the whole-icon box edge the
@@ -62,6 +64,15 @@ import {
  *  caller re-deriving it. */
 const declaredIconSizeOf = (layer: unknown): number | undefined =>
   readDeclaredIconSize(layer).declared;
+
+/** The author-declared icon face (foliplus icon face), or undefined when the
+ *  layer declares none. A chassis write is orthogonal to the glyph / glyph
+ *  colour, but it re-derives the whole icon, so it must carry the declared
+ *  defaults exactly like it carries the user's intents. */
+const declaredIconOf = (
+  layer: unknown,
+  layerId?: string,
+): DeclaredIconFace | undefined => readDeclaredIcon(layer, layerId).declared;
 
 /** The row gate: the layer must be in the registry, then its surface must
  *  declare the marker-color capability (an awesome-markers chassis carrier —
@@ -101,14 +112,20 @@ const applyMarkerColorToLayer = (ui: LayerUI, layerId: string): void => {
   // icon color rides the same one-shot construction.
   const paint =
     typeof markerColor === "string" ? markerColor : resolveChassisPaint(layer);
+  const declared = declaredIconOf(layer, layerId);
   const glyph =
-    currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
-  const iconColor = getIntent(ui, layerId, INTENT.ICON_COLOR);
+    currentGlyph(ui, layerId) ??
+    declared?.glyph ??
+    authorGlyphNameOnLayer(layer)?.name ??
+    null;
+  const iconColorIntent = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const iconColor =
+    typeof iconColorIntent === "string" ? iconColorIntent : declared?.color;
   applyMarkerColorToLeaves(
     layer,
     paint,
     glyph,
-    typeof iconColor === "string" ? iconColor : undefined,
+    iconColor,
     typeof opacity === "number" ? opacity : undefined,
     declaredIconSizeOf(layer),
   );
@@ -164,9 +181,15 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
   if (!layer) return;
   // Re-derive with the author chassis: drop the intents, then walk with the
   // current glyph and icon color so both survive the chassis reset.
+  const declared = declaredIconOf(layer, layerId);
   const glyph =
-    currentGlyph(ui, layerId) ?? authorGlyphNameOnLayer(layer)?.name ?? null;
-  const iconColor = getIntent(ui, layerId, INTENT.ICON_COLOR);
+    currentGlyph(ui, layerId) ??
+    declared?.glyph ??
+    authorGlyphNameOnLayer(layer)?.name ??
+    null;
+  const iconColorIntent = getIntent(ui, layerId, INTENT.ICON_COLOR);
+  const iconColor =
+    typeof iconColorIntent === "string" ? iconColorIntent : declared?.color;
   const authorName = authorMarkerColor(layer);
   if (authorName) {
     // The author declares a chassis: re-derive at the author's hex (a preset
@@ -183,7 +206,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
       layer,
       authorHex,
       glyph,
-      typeof iconColor === "string" ? iconColor : undefined,
+      iconColor,
       declaredIconSizeOf(layer),
     );
   } else {
@@ -197,7 +220,7 @@ const resetLayerMarkerColor = (ui: LayerUI, layerId: string): void => {
         layer,
         resolveChassisPaint(layer),
         glyph,
-        typeof iconColor === "string" ? iconColor : undefined,
+        iconColor,
         declaredIconSizeOf(layer),
       );
     }
@@ -231,8 +254,10 @@ const replayDeclaredMarkerColor = (ui: LayerUI, layerId: string): void => {
     applyMarkerColorToLeaves(
       layer,
       declaredMarkerColorHex(layer)!,
-      authorGlyphNameOnLayer(layer)?.name ?? null,
-      undefined,
+      declaredIconOf(layer, layerId)?.glyph ??
+        authorGlyphNameOnLayer(layer)?.name ??
+        null,
+      declaredIconOf(layer, layerId)?.color,
       declaredIconSizeOf(layer),
     );
   }

@@ -43,6 +43,43 @@ const layerChange = (id: string, kind = "vector") => ({
 /** Let the stubbed frame run (rAF is a 0ms timeout in these tests). */
 const nextFrame = () => new Promise<void>(resolve => setTimeout(resolve, 20));
 
+describe("subscribe batch revision", () => {
+  beforeEach(() => {
+    vi.stubGlobal("requestAnimationFrame", (cb: () => void) => setTimeout(cb, 0));
+    vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("hands a merged batch the revision of each key's latest payload", async () => {
+    const map = makeMap();
+    const handler = vi.fn();
+    subscribeLayers(map as never, ["a", "b"], handler);
+    const bus = ensureEvents(map as never);
+
+    bus.emit(EVENTS.LAYER_CHANGE, layerChange("a"));
+    bus.emit(EVENTS.LAYER_CHANGE, layerChange("a"));
+    bus.emit(EVENTS.LAYER_CHANGE, layerChange("b"));
+    await nextFrame();
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    const batch = handler.mock.calls[0][0];
+    expect(batch).toHaveLength(2);
+    const revisions = batch.map(
+      (d: { meta?: { revision: number } }) => d.meta!.revision,
+    );
+    // The two `a` emits collapse to the second one; `b` is the third dispatch.
+    expect(revisions).toEqual([2, 3]);
+    // The consumer contract is `delivery.revision > last applied revision`, not
+    // equality: another dispatch may land between an emit and the flush, so the
+    // newest stamp in the batch is at most the bus's current revision.
+    expect(revisions[0]).toBeLessThan(revisions[1]);
+    expect(Math.max(...revisions)).toBeLessThanOrEqual(bus.revision);
+  });
+});
+
 describe("subscribeLayers", () => {
   beforeEach(() => {
     vi.stubGlobal("requestAnimationFrame", (cb: () => void) => setTimeout(cb, 0));

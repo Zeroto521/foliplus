@@ -44,10 +44,14 @@ ICON_SIZE_KEY = "icon_size"
 #: folium's ``opacity=`` kwarg is the author's DRAW value; this declaration is
 #: the panel's read-time default, so the two channels never fight.
 OPACITY_KEY = "opacity"
-#: The per-layer icon declaration block key: the icon face's sub-dimensions
-#: (glyph, color, colorOpacity) ride one in-block mapping, the same shape
-#: fill/border use.
+#: The per-layer icon face declaration key: the icon paint face's
+#: sub-dimensions (glyph, color, colorOpacity) ride one nested mapping, the same
+#: shape fill/border use. folium camelizes the nested keys of newer versions and
+#: keeps the author's spelling on older ones (0.15.x), so an in-face key may
+#: arrive in either spelling; the face reader accepts both and normalises to
+#: camelCase.
 ICON_KEY = "icon"
-#: The per-layer marker declaration block key: the marker face's
-#: sub-dimensions (color, colorOpacity) ride one in-block mapping.
+#: The per-layer marker face declaration key: the marker paint face's
+#: sub-dimension (colorOpacity) rides one nested mapping. The chassis COLOUR is
+#: the top-level marker_color declaration, not a face sub-key.
 MARKER_KEY = "marker"

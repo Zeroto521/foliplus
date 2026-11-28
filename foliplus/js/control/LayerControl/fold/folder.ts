@@ -1,4 +1,4 @@
-// control/LayerControl/declaredFolder — author-declared default fold state + the
+// control/LayerControl/fold/folder — author-declared default fold state + the
 // effective fold resolution the panel renders with.
 //
 // The author writes LayerControl(folders={"overlay": [{"name": "业务数据",

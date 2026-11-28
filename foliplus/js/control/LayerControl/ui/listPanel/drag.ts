@@ -7,9 +7,9 @@ import { HINT_DURATION, ensureOverlayRegistry } from "#core/overlay/index.js";
 import * as CONST from "#control/LayerControl/const.js";
 import {
   effectiveFolderFolded,
+  effectiveRoleFolded,
   folderFoldKey,
-} from "#control/LayerControl/declaredFolder.js";
-import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
+} from "#control/LayerControl/fold/index.js";
 
 /** Fold or unfold one role. Shared by the pointer (row click) and the
  *  keyboard (Enter / Space over the chevron) so both paths stay in sync. */

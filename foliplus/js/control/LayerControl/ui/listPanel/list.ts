@@ -44,8 +44,10 @@ import {
   triStateOf,
 } from "#ui/index.js";
 import * as CONST from "#control/LayerControl/const.js";
-import { effectiveFolderFolded } from "#control/LayerControl/declaredFolder.js";
-import { effectiveRoleFolded } from "#control/LayerControl/declaredRole.js";
+import {
+  effectiveFolderFolded,
+  effectiveRoleFolded,
+} from "#control/LayerControl/fold/index.js";
 import * as SVGs from "#control/LayerControl/icon.js";
 
 /** Full re-scan of every row (used on attach/fold-toggle). Idempotent —
