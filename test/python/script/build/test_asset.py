@@ -123,7 +123,7 @@ def test_shared_header_carries_the_schema_fingerprint(dist_copy):
     header = _build_shared_header()
     from foliplus._config_schema import schema_fingerprint
 
-    assert f"window.foliplus.schema_fingerprint = \"{schema_fingerprint()}\";" in header
+    assert f'window.foliplus.schema_fingerprint = "{schema_fingerprint()}";' in header
     # Shared asset: the header is built once and injected once per map, so the
     # fingerprint is a property of the page, not of any one control's CONF.
     assert header.count("window.foliplus.schema_fingerprint") == 1
