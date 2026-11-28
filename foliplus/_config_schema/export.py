@@ -126,14 +126,15 @@ def schema_fingerprint() -> str:
 
     SHA-256 over :func:`schema_to_json` (already deterministic and sorted),
     truncated to 12 hex characters so it is readable in a rendered page and
-    small enough to ship in every ``CONFIG``.
+    small enough to stamp on every page that carries the runtime.
 
-    This is the value ``BaseControl._config_block`` writes as
-    ``CONFIG.__schema``: two pages built from different schema generations can
-    be told apart at a glance, which is what distinguishes "the panel ignores
-    this option" from "the panel was built against a different contract". The
-    fingerprint is of the *dump*, so bumping ``payload["version"]`` or adding
-    a ``FieldSpec`` attribute changes it — both are schema changes by design.
+    This is the value ``foliplus._asset._build_shared_header()`` writes as
+    ``window.foliplus.schema_fingerprint`` in the page's shared header: two
+    pages built from different schema generations can be told apart at a
+    glance, which is what distinguishes "the panel ignores this option" from
+    "the panel was built against a different contract". The fingerprint is of
+    the *dump*, so bumping ``payload["version"]`` or adding a ``FieldSpec``
+    attribute changes it — both are schema changes by design.
 
     Cached for the process lifetime: the schema table is immutable after import,
     so a test that (hypothetically) mutates it must call ``cache_clear()`` —
