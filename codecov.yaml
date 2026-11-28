@@ -8,9 +8,13 @@ coverage:
   # Stylesheets are rendered, never collected: the vitest run scopes coverage to
   # foliplus/js/**, so a PR that touches only CSS (a token or rule move) has no
   # coverage data for those lines and would be scored as uncovered patch.
+  # Tooling under script/ is neither collected (it is not the package) nor
+  # bundled; its behavior is guarded by its own vitest/pytest tests, so the same
+  # "no data is not 0%" rule applies.
   ignore:
     - "foliplus/css/**"
     - "test/**"
+    - "script/**"
     - "doc/**"
   status:
     project:
