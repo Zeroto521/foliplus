@@ -20,7 +20,11 @@ import {
   type StyleMode,
   type ValueConfig,
 } from "#core/layer/index.js";
-import { OVERLAY_IDS, ensureOverlayRegistry } from "#core/overlay/index.js";
+import {
+  ESC_PRIORITY,
+  OVERLAY_IDS,
+  ensureOverlayRegistry,
+} from "#core/overlay/index.js";
 import {
   CATEGORY_SCHEMES,
   CLASS_COUNT,
@@ -676,19 +680,15 @@ const bindValueDetail = (ui: LayerUI, layerId: string, detail: HTMLElement): voi
     onSurfaceChange: onFullscreenSurfaceChange,
     label: ui.T("style_fill_scheme"),
     onChange: name => writeFillValue(ui, layerId, { scheme: name }),
-  });
-  fillPickerHolder.set(
-    ui,
-    picker,
-    ensureOverlayRegistry(ui.c.map).register({
+    // The picker's open list registers itself with the per-map overlay registry
+    // (one Escape closes the picker, never the host style panel).
+    overlay: {
+      register: entry => ensureOverlayRegistry(ui.c.map).register(entry),
       id: OVERLAY_IDS.LAYER_PICKER_DROPDOWN,
-      isOpen: () => picker.getDropdown() !== null,
-      panels: () => [trigger],
-      close: ({ restoreFocus }) => picker.close({ restoreFocus }),
-      dismissOn: "click",
-      pressPriority: 850,
-    }),
-  );
+      rank: ESC_PRIORITY[OVERLAY_IDS.LAYER_PICKER_DROPDOWN],
+    },
+  });
+  fillPickerHolder.set(ui, picker);
 
   const fieldSelect = detail.querySelector(
     `.${CONST.CLASSES.STYLE_FILL_FIELD_SELECT}`,

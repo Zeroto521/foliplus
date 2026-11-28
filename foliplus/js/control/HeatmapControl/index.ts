@@ -40,7 +40,6 @@ class HeatmapControl extends defineControl({
    *  scan() just to have its own done flag refuse the work. */
   timers: Timers = createTimers();
   initScanCleanup: (() => void) | null = null;
-  schemePickerOverlayUnregister: (() => void) | null = null;
   schemePickerCleanup: (() => void) | null = null;
   toggleDropdown: (() => void) | null = null;
   selectScheme: ((idx: number) => void) | null = null;
@@ -49,7 +48,6 @@ class HeatmapControl extends defineControl({
     super(options);
     this.schemePicker = null;
     this.expandHookDone = false;
-    this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.toggleDropdown = null;
     this.selectScheme = null;
@@ -192,7 +190,6 @@ class HeatmapControl extends defineControl({
     mgr?.removeContentChangeListener?.();
     this.manager = null;
     this.initScanCleanup = null;
-    this.schemePickerOverlayUnregister = null;
     this.schemePickerCleanup = null;
     this.observer = null;
     // Drop UI references to the removed DOM so a re-add starts clean.

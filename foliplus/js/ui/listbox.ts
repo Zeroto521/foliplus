@@ -76,11 +76,10 @@ type ListboxRowShape = {
  *  dropdownSurface(scope); builders that create listboxes on a consumer's
  *  behalf (core/rampForm, core/label) forward it untouched. */
 /**
- * Dismiss ownership. Phase 1 (S-A..S-E): the engine is the ONLY implementation
- * of outside-press / Escape / one-at-a-time, so its "local" port is a single
- * implementation rather than a second one. Phase 2 (S-F, after the
- * PanelController registry work) switches to the registry and the engine stops
- * listening on document/window entirely.
+ * Dismiss ownership: the per-map overlay registry. The engine builds the entry
+ * for its open list and never installs a document/window listener of its own,
+ * so there is exactly one Escape / outside-press dispatcher on the page and a
+ * stacked popup closes one layer at a time.
  */
 /** The overlay entry the listbox engine fills in when the consumer hands it a
  *  registry register. The engine lives in ui and cannot import core, so the
@@ -96,18 +95,20 @@ interface RegistryOverlayEntry {
   escapeRank?: number;
 }
 
-type ListboxDismiss =
-  | { kind: "local" }
-  | {
-      kind: "registry";
-      /** Register a floating surface with the per-map overlay registry.
-       *  Returns its unregister (called on close). */
-      register(entry: RegistryOverlayEntry): () => void;
-      /** Stable identity for the Escape order / duplicate rejection. */
-      id: string;
-      /** Escape + press rank: higher = closer to the top. */
-      rank: number;
-    };
+type ListboxDismiss = {
+  /** Register a floating surface with the per-map overlay registry.
+   *  Returns its unregister (called on close). */
+  register(entry: RegistryOverlayEntry): () => void;
+  /** Stable identity for the Escape order / duplicate rejection. */
+  id: string;
+  /** Escape + press rank: higher = closer to the top. */
+  rank: number;
+  /** Which press phase dismisses the open list. Defaults to the row-panel
+   *  phase (capture mousedown, so a target's own click cannot hide an outside
+   *  press); a picker keeps the click bubble so the press that lands on another
+   *  control still runs that control's own click handler first. */
+  dismissOn?: "mousedown" | "click";
+};
 
 /** CSS classes the engine toggles. The consumer supplies them so the engine
  *  never hardcodes another module's stylesheet contract. */
@@ -137,9 +138,10 @@ interface ListboxSpec {
   shape: ListboxRowShape;
   classes: ListboxClasses;
   surface?: DropdownSurface;
-  /** The dismissal contract: "local" (Phase 1) or "registry" (Phase 2 —
-   *  the consumer injects the per-map overlay registry's register, keeping
-   *  the boundary that ui never imports core). */
+  /** The dismissal contract: the consumer injects the per-map overlay
+   *  registry's register, keeping the boundary that ui never imports core.
+   *  The engine never listens on document/window itself — the registry's single
+   *  dispatcher owns outside-press, Escape and focus return. */
   dismiss: ListboxDismiss;
   /** Called at the very start of open(), before rows are rendered, so the
    *  consumer can re-read its value/items from a source that may have changed
@@ -514,28 +516,29 @@ const open = (state: InternalState): void => {
   }
 
   if (!state.spec.inline) {
-    if (state.spec.dismiss.kind === "registry") {
-      // The overlay registry owns outside-press + Escape + focus return. The
-      // engine registers a floating surface for the open list (rank above its
-      // host panel) so a stacked popup closes one layer at a time, and the
-      // registry's single dispatcher never competes with a second keydown.
-      // The consumer injects register (core/control has the map); the engine
-      // only builds the entry, keeping the boundary that ui never imports core.
-      const wrapper = state.trigger.parentElement;
-      state.mountCleanup.push(
-        state.spec.dismiss.register({
-          id: state.spec.dismiss.id,
-          isOpen: () => state.isOpen,
-          // The portalled list is not inside the trigger's wrapper, so the
-          // containment is wrapper + list.
-          panels: () => (wrapper?.isConnected ? [wrapper, state.list] : [state.list]),
-          close: opts => close(state, opts),
-          dismissOn: "mousedown",
-          pressPriority: state.spec.dismiss.rank,
-          escapeRank: state.spec.dismiss.rank,
-        }),
-      );
-    }
+    // The overlay registry owns outside-press + Escape + focus return. The
+    // engine registers a floating surface for the open list (rank above its
+    // host panel) so a stacked popup closes one layer at a time, and the
+    // registry's single dispatcher never competes with a second keydown.
+    // The consumer injects register (core/control has the map); the engine
+    // only builds the entry, keeping the boundary that ui never imports core.
+    // Every portalled listbox is registered — there is no local variant: a
+    // popup that the registry cannot see is a popup whose Escape reaches the
+    // host panel and whose outside press never closes it.
+    const wrapper = state.trigger.parentElement;
+    state.mountCleanup.push(
+      state.spec.dismiss.register({
+        id: state.spec.dismiss.id,
+        isOpen: () => state.isOpen,
+        // The portalled list is not inside the trigger's wrapper, so the
+        // containment is wrapper + list.
+        panels: () => (wrapper?.isConnected ? [wrapper, state.list] : [state.list]),
+        close: opts => close(state, opts),
+        dismissOn: state.spec.dismiss.dismissOn ?? "mousedown",
+        pressPriority: state.spec.dismiss.rank,
+        escapeRank: state.spec.dismiss.rank,
+      }),
+    );
 
     // The trigger is the popup's width source and can resize without a window
     // resize (a panel gaining/losing a layout scrollbar lane moves every control

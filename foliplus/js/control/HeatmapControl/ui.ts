@@ -6,6 +6,7 @@ import { panelContentHTML } from "./template.js";
 import { EVENTS, ensureEvents, publish } from "#core/event/index.js";
 import { adjustPanelZIndex } from "#core/leaflet/index.js";
 import {
+  ESC_PRIORITY,
   HINT_DURATION,
   OVERLAY_IDS,
   ensureOverlayRegistry,
@@ -65,8 +66,6 @@ interface HeatmapControlUI {
   /** Shared scheme picker instance. */
   schemePicker: SchemePicker | null;
   expandHookDone: boolean;
-  /** Unregister for the scheme picker's overlay-registry entry. */
-  schemePickerOverlayUnregister: (() => void) | null;
   /** Destroy the scheme picker (called by HeatmapControl.destroy()). */
   schemePickerCleanup: (() => void) | null;
   toggleDropdown: (() => void) | null;
@@ -254,6 +253,13 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     classes: {
       open: CONST.CLASSES.SCHEME_BAR_OPEN,
     },
+    // The picker's open list registers itself with the per-map overlay registry
+    // (one Escape closes the picker and leaves the heatmap panel open).
+    overlay: {
+      register: entry => ensureOverlayRegistry(ctrl.mgr.map).register(entry),
+      id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
+      rank: ESC_PRIORITY[OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN],
+    },
     onChange: (name: string) => {
       ctrl.mgr.scheme = name;
       ctrl.mgr.renderHexagons();
@@ -261,21 +267,8 @@ const bindControls = (ctrl: HeatmapControlUI, panelContent: HTMLElement) => {
     },
   });
 
-  // The picker owns its trigger click/keyboard handlers and focus management;
-  // outside-click dismissal is the consumer's per-map overlay-registry entry
-  // (common must not import core).
-  ctrl.schemePickerOverlayUnregister = ensureOverlayRegistry(ctrl.mgr.map).register({
-    id: OVERLAY_IDS.HEATMAP_PICKER_DROPDOWN,
-    isOpen: () => ctrl.schemePicker?.getDropdown() != null,
-    panels: () => [ctrl.schemeBar],
-    close: ({ restoreFocus }) => ctrl.schemePicker?.close({ restoreFocus }),
-    dismissOn: "click",
-    pressPriority: 850,
-  });
   // schemePickerCleanup: permanent destroy — called by HeatmapControl.destroy().
   ctrl.schemePickerCleanup = () => {
-    ctrl.schemePickerOverlayUnregister?.();
-    ctrl.schemePickerOverlayUnregister = null;
     ctrl.schemePicker?.destroy();
     ctrl.schemePicker = null;
   };
